@@ -566,19 +566,8 @@ describe('OutboxWorker', () => {
       },
     ];
 
-    // Mock transaction: first tx.execute returns claimed rows, second is the batch UPDATE
-    mockTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
-      let callCount = 0;
-      const tx = {
-        execute: vi.fn().mockImplementation(() => {
-          callCount++;
-          return callCount === 1 ? Promise.resolve(claimedRows) : Promise.resolve(undefined);
-        }),
-        insert: mockInsert,
-        select: mockSelect,
-      };
-      return cb(tx);
-    });
+    // processBatch uses db.execute() with a CTE (not db.transaction)
+    mockExecute.mockResolvedValueOnce(claimedRows);
 
     const count = await worker.processBatch();
 
@@ -591,14 +580,7 @@ describe('OutboxWorker', () => {
     const handler = vi.fn().mockResolvedValue(undefined);
     bus.subscribe('test.dummy_event.created.v1', handler);
 
-    // Transaction returns empty claimed rows
-    mockTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
-      const tx = {
-        execute: vi.fn().mockResolvedValue([]),
-      };
-      return cb(tx);
-    });
-
+    // db.execute returns empty claimed rows (default mockExecute already returns [])
     const count = await worker.processBatch();
 
     expect(count).toBe(0);
@@ -674,29 +656,15 @@ describe('Full round trip', () => {
     expect(mockTransaction).toHaveBeenCalled();
     expect(mockInsert).toHaveBeenCalled();
 
-    // Step 2: Simulate worker picking up the event from outbox (via transaction + tx.execute)
-    mockTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
-      let callCount = 0;
-      const tx = {
-        execute: vi.fn().mockImplementation(() => {
-          callCount++;
-          if (callCount === 1) {
-            return Promise.resolve([
-              {
-                id: 'outbox_rt',
-                payload: event,
-                event_type: event.eventType,
-                event_id: event.eventId,
-              },
-            ]);
-          }
-          return Promise.resolve(undefined);
-        }),
-        insert: mockInsert,
-        select: mockSelect,
-      };
-      return cb(tx);
-    });
+    // Step 2: Simulate worker picking up the event from outbox (db.execute CTE)
+    mockExecute.mockResolvedValueOnce([
+      {
+        id: 'outbox_rt',
+        payload: event,
+        event_type: event.eventType,
+        event_id: event.eventId,
+      },
+    ]);
 
     const count = await worker.processBatch();
 

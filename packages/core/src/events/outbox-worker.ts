@@ -14,10 +14,14 @@ export class OutboxWorker {
   private lastStaleRecoveryAt = 0;
   private static readonly MAX_BACKOFF_MS = 30_000; // cap at 30s
   private static readonly STALE_RECOVERY_INTERVAL_MS = 5 * 60 * 1000; // every 5 min
-  private static readonly STALE_CLAIM_THRESHOLD_MINUTES = 5;
+  private static readonly STALE_CLAIM_THRESHOLD_MINUTES = 10;
   // Minimum delay between batches even when busy — prevents pool exhaustion
   // during high backlog (e.g., 600+ events released after stale recovery).
-  private static readonly MIN_INTER_BATCH_MS = 50;
+  private static readonly MIN_INTER_BATCH_MS = 200;
+  // Max times an event can fail before being moved to dead letters
+  private static readonly MAX_RETRY_COUNT = 3;
+  // Delay before first poll on cold start — let API requests use the pool first
+  private static readonly STARTUP_DELAY_MS = 2_000;
 
   constructor(options: {
     eventBus: EventBus;
@@ -25,18 +29,23 @@ export class OutboxWorker {
     batchSize?: number;
   }) {
     this.eventBus = options.eventBus;
-    this.pollIntervalMs = options.pollIntervalMs ?? 100;
-    // Vercel serverless: smaller batches prevent pool exhaustion (max: 2).
+    // Vercel serverless: slow poll (5s) to minimize pool contention.
+    // The drain-outbox cron job (every minute) is the primary driver.
+    this.pollIntervalMs = options.pollIntervalMs ?? 5_000;
+    // Vercel serverless: small batches (5) prevent pool exhaustion (max: 2).
     // Each event can trigger 10+ concurrent handler DB operations.
-    this.batchSize = options.batchSize ?? 20;
+    this.batchSize = options.batchSize ?? 5;
   }
 
   async start(): Promise<void> {
     this.running = true;
     console.log(
-      `Outbox worker started (poll interval: ${this.pollIntervalMs}ms)`,
+      `Outbox worker started (poll interval: ${this.pollIntervalMs}ms, batch: ${this.batchSize})`,
     );
-    this.poll();
+    // Delay first poll on cold start so API requests can use the pool.
+    // On Vercel, the function was invoked by a user request — let that
+    // request complete before the outbox worker starts consuming connections.
+    this.pollTimer = setTimeout(() => this.poll(), OutboxWorker.STARTUP_DELAY_MS);
   }
 
   async stop(): Promise<void> {
@@ -71,8 +80,8 @@ export class OutboxWorker {
       const published = await this.processBatch();
       this.consecutiveErrors = 0;
       this.lastErrorMessage = '';
-      // When events were published, use a short breathing delay (not 0)
-      // to prevent nonstop pool hammering during high backlog recovery.
+      // When events were published, use a breathing delay to prevent
+      // nonstop pool hammering during high backlog recovery.
       // When idle, use the normal poll interval.
       const delay = published > 0 ? OutboxWorker.MIN_INTER_BATCH_MS : this.pollIntervalMs;
       this.pollTimer = setTimeout(() => this.poll(), delay);
@@ -86,9 +95,9 @@ export class OutboxWorker {
         console.error(`Outbox worker: DB still unreachable after ${this.consecutiveErrors} attempts, suppressing further logs`);
       }
       this.lastErrorMessage = errMsg;
-      // Exponential backoff: 1s, 2s, 4s, 8s, 16s, capped at 30s
+      // Exponential backoff: 5s, 10s, 20s, capped at 30s
       const backoff = Math.min(
-        this.pollIntervalMs * 10 * Math.pow(2, this.consecutiveErrors - 1),
+        this.pollIntervalMs * Math.pow(2, this.consecutiveErrors - 1),
         OutboxWorker.MAX_BACKOFF_MS,
       );
       this.pollTimer = setTimeout(() => this.poll(), backoff);
@@ -104,6 +113,7 @@ export class OutboxWorker {
    * The events sit with published_at != NULL forever — invisible to the
    * normal poll query (which filters WHERE published_at IS NULL).
    *
+   * Events older than 1 hour are auto-deleted (stale beyond recovery).
    * Runs at most once every 5 minutes to avoid unnecessary queries.
    */
   private async recoverStaleClaims(): Promise<void> {
@@ -114,14 +124,26 @@ export class OutboxWorker {
     this.lastStaleRecoveryAt = now;
 
     try {
+      // First: delete events older than 1 hour — they're stale beyond recovery.
+      // This prevents infinite backlog growth from frozen Vercel instances.
+      const deleted = await db.execute(sql`
+        DELETE FROM event_outbox
+        WHERE created_at < NOW() - INTERVAL '1 hour'
+        RETURNING id
+      `) as unknown as Array<{ id: string }>;
+
+      if (deleted.length > 0) {
+        console.warn(`[outbox] Purged ${deleted.length} event(s) older than 1 hour`);
+      }
+
+      // Then: recover stale claims (claimed > 10 min ago but not yet processed).
+      // Uses a simple time-based check instead of scanning processed_events.
+      // Events that repeatedly fail will be caught by the 1-hour purge above.
       const result = await db.execute(sql`
         UPDATE event_outbox
         SET published_at = NULL
         WHERE published_at IS NOT NULL
-          AND published_at < NOW() - INTERVAL '5 minutes'
-          AND id NOT IN (
-            SELECT DISTINCT event_id FROM processed_events WHERE event_id IS NOT NULL
-          )
+          AND published_at < NOW() - INTERVAL '${sql.unsafe(String(OutboxWorker.STALE_CLAIM_THRESHOLD_MINUTES))} minutes'
         RETURNING id
       `) as unknown as Array<{ id: string }>;
 
@@ -167,44 +189,41 @@ export class OutboxWorker {
 
     if (claimed.length === 0) return 0;
 
-    // Step 2: Process events OUTSIDE any transaction.
+    // Step 2: Process events OUTSIDE any transaction — one at a time.
     // Event consumers can take 100ms+ each (DB writes, GL posting, etc.).
     // No connection is held idle during this work.
     let publishedCount = 0;
-    const failedIds: string[] = [];
+    const deleteIds: string[] = [];
 
     for (const row of claimed) {
       try {
         const event = EventEnvelopeSchema.parse(row.payload);
         await this.eventBus.publish(event);
         publishedCount++;
+        // Successfully processed — delete from outbox
+        deleteIds.push(row.id);
       } catch (error) {
         console.error('Failed to publish outbox event:', {
           outboxId: row.id,
           eventType: row.event_type,
           eventId: row.event_id,
-          error,
+          error: error instanceof Error ? error.message : String(error),
         });
-        // Mark failed rows for unclaiming so they can be retried
-        failedIds.push(row.id);
+        // Leave it claimed — stale recovery will pick it up after 10 min.
+        // The 1-hour purge prevents infinite retry loops.
       }
     }
 
-    // Step 3: Unclaim any rows that failed to publish so they can be retried.
-    // Reset published_at to NULL so the next poll picks them up.
-    if (failedIds.length > 0) {
+    // Step 3: Delete successfully processed events from outbox.
+    // This is the key difference from the old approach: we DELETE on success
+    // instead of leaving them forever. Prevents outbox table bloat.
+    if (deleteIds.length > 0) {
       try {
-        const idList = sql.join(failedIds.map(id => sql`${id}`), sql`, `);
-        await db.execute(sql`
-          UPDATE event_outbox
-          SET published_at = NULL
-          WHERE id IN (${idList})
-        `);
+        const idList = sql.join(deleteIds.map(id => sql`${id}`), sql`, `);
+        await db.execute(sql`DELETE FROM event_outbox WHERE id IN (${idList})`);
       } catch (err) {
-        // Best-effort unclaim — if this fails, rows stay "claimed" but
-        // that's better than crashing the worker. They'll eventually be
-        // picked up by the drain-jobs cron or manual intervention.
-        console.error('[outbox] Failed to unclaim failed rows:', err);
+        // Best-effort — if delete fails, events stay claimed (harmless)
+        console.error('[outbox] Failed to delete processed events:', err);
       }
     }
 
