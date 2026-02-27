@@ -36,6 +36,11 @@ const nextConfig: NextConfig = {
   output: process.env.DOCKER_BUILD ? 'standalone' : undefined,
   transpilePackages: ['@oppsera/shared', '@oppsera/core', '@oppsera/module-import'],
   poweredByHeader: false,
+  eslint: {
+    // Lint runs as a separate CI step — skip during `next build` to avoid
+    // platform-specific (Windows vs Linux) ESLint differences on Vercel.
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     optimizePackageImports: ['@oppsera/shared', '@oppsera/core', '@oppsera/module-import', 'lucide-react'],
   },
