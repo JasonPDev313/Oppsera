@@ -9332,3 +9332,265 @@ When creating any new report page, verify:
 - [ ] All monetary values use `tabular-nums` and `formatAccountingMoney()`
 - [ ] Dark mode compliant (no `bg-white`, no `dark:` prefixes)
 
+## §176 KDS Settings Constants Pattern
+
+KDS constants use **exhaustive const arrays** with detailed operator-facing metadata, not simple enums.
+
+```typescript
+// packages/shared/src/constants/kds-settings.ts
+export const BUMP_BAR_ACTIONS = [
+  'select_next', 'select_previous', 'bump', 'bump_item',
+  'start_cooking', 'mark_ready', 'recall', 'hold', 'fire',
+  // ... 30 total actions across 7 categories
+] as const;
+export type BumpBarAction = (typeof BUMP_BAR_ACTIONS)[number];
+
+export const SCREEN_COMM_MODES = [
+  'independent', 'multi_clear', 'prep_expo', 'assembly_line', 'mirror'
+] as const;
+
+// Each mode has a detailed metadata object for operator-facing UI
+export const SCREEN_COMM_MODE_DETAILS: Record<ScreenCommMode, ScreenCommModeDetail> = {
+  independent: {
+    label: 'Independent',
+    summary: '...',
+    description: '...',  // 150-300 word operator explanation
+    bestFor: ['Small kitchens', 'Single station'],
+    bumpBehavior: '...',
+    considerations: ['...'],
+  },
+  // ...
+};
+```
+
+**Convention**: Use `as const` arrays with derived types for exhaustive option sets. Attach operator-facing metadata (label, summary, description, bestFor) as a separate detail record. This enables type-safe validation + rich UI without database lookups.
+
+## §177 Discount GL Classification System
+
+Discounts are classified by GL treatment: **contra-revenue** (reduces reported revenue, accounts 4100-4114) or **expense** (cost absorbed by business, accounts 6150-6158).
+
+```typescript
+// packages/shared/src/constants/discount-classifications.ts
+export interface DiscountClassificationDef {
+  key: string;
+  label: string;
+  glTreatment: 'contra_revenue' | 'expense';
+  defaultAccountCode: string;  // 4-digit GL account code
+  description: string;
+}
+
+// 24 pre-defined classifications
+export const DISCOUNT_CLASSIFICATIONS: DiscountClassificationDef[] = [
+  // 15 contra-revenue (4100-4114)
+  { key: 'manual_discount', label: 'Manual Discount', glTreatment: 'contra_revenue', defaultAccountCode: '4100', description: '...' },
+  { key: 'promo_code', label: 'Promotional Code', glTreatment: 'contra_revenue', defaultAccountCode: '4101', description: '...' },
+  // ...
+  // 9 expense (6150-6158)
+  { key: 'manager_comp', label: 'Manager Comp', glTreatment: 'expense', defaultAccountCode: '6150', description: '...' },
+  { key: 'quality_recovery', label: 'Quality Recovery', glTreatment: 'expense', defaultAccountCode: '6151', description: '...' },
+  // ...
+];
+
+// Helper functions
+export function isContraRevenue(key: string): boolean;
+export function isExpenseClassification(key: string): boolean;
+export function getDiscountGlTreatment(key: string): 'contra_revenue' | 'expense';
+export function getDefaultAccountCode(key: string): string;
+```
+
+**Convention**: Financial classifications use const arrays with GL account codes and treatment metadata, not database enums. The classification determines which GL accounts are used during posting.
+
+## §178 PII Masking at LLM Boundary
+
+All query results sent to LLM must be masked via `maskRowsForLLM()`. Two-layer detection:
+
+**Layer 1 — Column-name heuristics** (catches ~95% of PII):
+```typescript
+// packages/modules/semantic/src/pii/pii-masker.ts
+const PII_COLUMN_EXACT = new Set(['name', 'email', 'phone', 'ssn', 'tax_id', ...]);
+const PII_COLUMN_SUBSTRINGS = ['first_name', 'email_address', 'primary_guest_json', ...];
+const PII_COLUMN_SUFFIXES = ['_name', '_email', '_phone', '_ssn', ...];
+
+function isPiiColumn(col: string): boolean {
+  const lower = col.toLowerCase();
+  return PII_COLUMN_EXACT.has(lower)
+    || PII_COLUMN_SUBSTRINGS.some(s => lower.includes(s))
+    || PII_COLUMN_SUFFIXES.some(s => lower.endsWith(s));
+}
+```
+
+**Layer 2 — Value-pattern detection** (catches PII in non-flagged columns):
+```typescript
+const VALUE_DETECTORS = [
+  { type: 'email', pattern: /\S+@\S+\.\S+/, mask: maskEmail },
+  { type: 'phone', pattern: /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/, mask: maskPhone },
+  { type: 'ssn', pattern: /\d{3}-\d{2}-\d{4}/, mask: maskIdentifier },
+];
+```
+
+**Masking rules**:
+- Email: keep first char + TLD (`john.doe@example.com` → `j***@***.com`)
+- Phone: keep last 4 (`(555) 123-4567` → `(***) ***-4567`)
+- Name: reduce to initials (`John Smith` → `J. S.`)
+- Identifier: keep last 4, mask rest (`123-45-6789` → `***-**-6789`)
+- JSONB objects: recursively masked
+
+**Convention**: Always call `maskRowsForLLM(rows)` before sending query results to any LLM endpoint or eval storage. Use `maskFreeText(text)` for user messages/prompts. Never send raw PII to external APIs.
+
+## §179 Dual-Scoped Unique Indexes (System + Tenant Records)
+
+When a table stores both system-wide (`tenant_id IS NULL`) and tenant-scoped records, use **two partial unique indexes**:
+
+```sql
+-- System records: slug must be unique across all system records
+CREATE UNIQUE INDEX uq_table_system_slug
+  ON my_table (slug) WHERE tenant_id IS NULL;
+
+-- Tenant records: slug must be unique within each tenant
+CREATE UNIQUE INDEX uq_table_tenant_slug
+  ON my_table (tenant_id, slug) WHERE tenant_id IS NOT NULL;
+
+-- Non-unique listing index for tenant records
+CREATE INDEX idx_table_tenant
+  ON my_table (tenant_id) WHERE tenant_id IS NOT NULL;
+```
+
+**Applied to**: `semantic_metrics`, `semantic_dimensions`, `semantic_lenses`
+
+**Benefits**:
+- A tenant can create a metric with the same slug as a system metric (they coexist)
+- Slug uniqueness is enforced within each scope
+- No collision between system and custom entries
+- GET lookups prioritize custom over system (tenant override pattern)
+
+**Convention**: Never use a single unique index on `(tenant_id, slug)` when `tenant_id` can be NULL — Postgres treats `NULL ≠ NULL`, so it wouldn't enforce uniqueness for system records.
+
+## §180 Admin Cross-Tenant Queries (`withAdminDb`)
+
+Admin app queries that need to see ALL tenants must use `withAdminDb()` to bypass RLS:
+
+```typescript
+// apps/admin/src/lib/admin-db.ts
+export async function withAdminDb<T>(
+  callback: (tx: Database) => Promise<T>
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    // Cascading fallback — Supavisor may restrict some approaches
+    try {
+      await tx.execute(sql`SET LOCAL role = 'postgres'`);
+    } catch {
+      try {
+        await tx.execute(sql`SET LOCAL role = 'supabase_admin'`);
+      } catch {
+        try {
+          await tx.execute(sql`SET LOCAL row_security = 'off'`);
+        } catch {
+          console.warn('[admin-db] Could not bypass RLS');
+        }
+      }
+    }
+    return callback(tx as unknown as Database);
+  });
+}
+```
+
+**Convention**: Admin app cross-tenant queries MUST use `withAdminDb()`. The cascading fallback (`postgres` → `supabase_admin` → `row_security off`) handles different Supabase/Supavisor configurations. Never use `withAdminDb` in the tenant app (`apps/web/`).
+
+## §181 KDS Routing — Deterministic Priority Cascade
+
+Kitchen ticket items are routed to KDS stations using a **deterministic priority cascade** (most specific → least specific → fallback):
+
+```typescript
+// packages/modules/fnb/src/services/kds-routing-engine.ts
+function matchItem(item: RoutableItem, rules: RoutingRule[]): string {
+  // 1. Item-specific rule (ruleType = 'item', matches catalogItemId)
+  // 2. Category rule (ruleType = 'category', matches categoryId)
+  // 3. Sub-department rule (ruleType = 'sub_department', matches subDepartmentId)
+  // 4. Department rule (ruleType = 'department', matches departmentId)
+  // 5. Modifier rule (ruleType = 'modifier', matches any modifierId)
+  // 6. Fallback station (first expo station, or first active by sort_order)
+  return fallbackStationId;
+}
+```
+
+**Performance**: Fetch ALL active routing rules for `(tenant_id, location_id)` in one query (`ORDER BY priority DESC`). Resolve all items in-memory. Never N+1 queries per item.
+
+**Fallback resolution**: Query `kds_stations WHERE is_active = true ORDER BY CASE WHEN station_type = 'expo' THEN 0 ELSE 1 END, sort_order ASC LIMIT 1`. Compute once, apply to all unmatched items.
+
+**Convention**: KDS routing is always deterministic — same item configuration always routes to the same station. Add logging for unmatched items to help operators configure rules.
+
+## §182 Modifier Intelligence — Instruction Suppression
+
+Modifier groups with exclusive-choice options (temperature, size, bread type) should NOT show None/Extra/On Side instruction buttons. Detection is content-based:
+
+```typescript
+// apps/web/src/lib/modifier-intelligence.ts
+export function classifyModifierGroup(
+  groupName: string,
+  options: Array<{ name: string }>
+): ModifierGroupClassification {
+  // 1. Normalize option names (lowercase, trim, strip punctuation)
+  // 2. Match against 5 exclusive-choice categories:
+  //    doneness (rare, medium, well), size (small, medium, large),
+  //    bread (wheat, rye, sourdough), cooking_method (grilled, fried),
+  //    egg_style (scrambled, over easy, poached)
+  // 3. If ≥60% of options match a category, suppress instructions
+  //    (≥40% threshold when group name hints at category)
+}
+```
+
+**Thresholds**:
+- Default: ≥60% of options must match a known category
+- With name hint (e.g., group named "Temperature"): ≥40%
+
+**Convention**: Use `shouldSuppressInstructions(groupName, options)` in modifier UI. Never suppress based on group name alone — always verify by option content.
+
+## §183 Accounting Money Format
+
+Financial report values use **accounting notation** — negatives in parentheses, always 2 decimal places:
+
+```typescript
+// apps/web/src/types/accounting.ts
+export function formatAccountingMoney(
+  dollars: number | string | null | undefined
+): string {
+  if (dollars == null) return '$0.00';
+  const num = typeof dollars === 'string' ? Number(dollars) : dollars;
+  if (isNaN(num)) return '$0.00';
+  if (num < 0) {
+    return `($${Math.abs(num).toLocaleString('en-US', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    })})`;
+  }
+  return `$${num.toLocaleString('en-US', {
+    minimumFractionDigits: 2, maximumFractionDigits: 2
+  })}`;
+}
+```
+
+**Rules**:
+- Accepts `number | string | null | undefined` (handles NUMERIC DB columns)
+- Always 2 decimal places (min/max both 2)
+- Negatives: `($1,234.56)` not `-$1,234.56`
+- Uses `toLocaleString()` for thousand separators
+- All financial table cells must use `tabular-nums` CSS for column alignment
+
+**Convention**: Use `formatAccountingMoney()` for ALL GL, AP, AR, and financial statement displays. Never use `-$` notation for negative amounts in financial reports. Always add `className="tabular-nums"` to money cells.
+
+## §184 Service Charge Exemption
+
+Service charge exemption is a **simple boolean toggle** — unlike tax exemption (which has reason tracking):
+
+```typescript
+// packages/modules/orders/src/validation.ts
+export const setServiceChargeExemptSchema = z.object({
+  ...idempotencyMixin,
+  serviceChargeExempt: z.boolean(),
+});
+```
+
+**API**: `POST /api/v1/orders/:id/service-charge-exempt`
+**Body**: `{ serviceChargeExempt: true, clientRequestId: "..." }`
+
+**Convention**: Service charge exemption is binary with no reason tracking. The `serviceChargeExempt` flag on the order prevents automatic service charge calculation. Manual service charges (added via `addServiceCharge`) are unaffected by this flag.
+

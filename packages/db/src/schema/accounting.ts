@@ -117,6 +117,7 @@ export const glJournalLines = pgTable(
   'gl_journal_lines',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id'),
     journalEntryId: text('journal_entry_id')
       .notNull()
       .references(() => glJournalEntries.id),
