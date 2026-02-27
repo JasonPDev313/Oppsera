@@ -3,20 +3,9 @@ import { NextResponse } from 'next/server';
 import { withAdminPermission } from '@/lib/with-admin-permission';
 import { sql } from '@oppsera/db';
 import { generateSlug, generateUlid } from '@oppsera/shared';
-import { tenants, roles, rolePermissions } from '@oppsera/db';
+import { roles, rolePermissions } from '@oppsera/db';
 import { logAdminAudit, getClientIp } from '@/lib/admin-audit';
 import { withAdminDb } from '@/lib/admin-db';
-
-// Base columns guaranteed to exist (pre-migration 0195)
-const TENANT_BASE_SELECT = {
-  id: tenants.id,
-  name: tenants.name,
-  slug: tenants.slug,
-  status: tenants.status,
-  billingCustomerId: tenants.billingCustomerId,
-  createdAt: tenants.createdAt,
-  updatedAt: tenants.updatedAt,
-} as const;
 
 const SYSTEM_ROLES = [
   { name: 'Super Admin', description: 'All permissions across all modules — auto-includes new permissions', permissions: ['*'] },
