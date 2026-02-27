@@ -89,7 +89,7 @@ export const POST = withMiddleware(
       recordLoginSuccess(email);
 
       // Resolve identity once — reuse for audit, lastLoginAt, and login recording
-      let identity: { userId: string; tenantId: string } | null = null;
+      let identity: { userId: string; tenantId: string | null } | null = null;
       try {
         identity = await resolveUserIdentity(email);
         if (identity) {
@@ -119,7 +119,7 @@ export const POST = withMiddleware(
       recordLoginFailure(email);
 
       // Audit failed login with resolved identity — reuse for recording
-      let failIdentity: { userId: string; tenantId: string } | null = null;
+      let failIdentity: { userId: string; tenantId: string | null } | null = null;
       try {
         failIdentity = await resolveUserIdentity(email);
         await auditLogSystem(

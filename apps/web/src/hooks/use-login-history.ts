@@ -53,9 +53,9 @@ export function useLoginHistory(options: UseLoginHistoryOptions = {}) {
           limit: String(options.limit ?? 20),
           cursor: append ? cursorRef.current ?? undefined : undefined,
         });
-        const res = await apiFetch(`/api/v1/login-records${qs}`);
+        const res = await apiFetch(`/api/v1/login-records${qs}`) as { data: LoginRecord[]; meta?: { cursor?: string; hasMore?: boolean } };
         if (!mountedRef.current) return;
-        const items = res.data as LoginRecord[];
+        const items = res.data;
         setRecords((prev) => (append ? [...prev, ...items] : items));
         cursorRef.current = res.meta?.cursor ?? null;
         setHasMore(res.meta?.hasMore ?? false);

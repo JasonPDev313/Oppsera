@@ -15,12 +15,17 @@ export const GET = withAdminAuth(
     const cursor = url.searchParams.get('cursor') ?? undefined;
     const limit = url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined;
 
+    const validOutcomes = ['success', 'failed', 'locked'];
+    const safeOutcome = outcome && validOutcomes.includes(outcome)
+      ? (outcome as 'success' | 'failed' | 'locked')
+      : undefined;
+
     // If tenantId + userId supplied, query tenant login records (cross-tenant)
     if (tenantId && userId) {
       const result = await listLoginRecords({
         tenantId,
         userId,
-        outcome: outcome as 'success' | 'failed' | 'locked' | undefined,
+        outcome: safeOutcome,
         from, to, cursor, limit,
       });
 
@@ -39,7 +44,7 @@ export const GET = withAdminAuth(
     const result = await listAdminLoginRecords({
       adminId,
       email: url.searchParams.get('email') ?? undefined,
-      outcome: outcome as 'success' | 'failed' | undefined,
+      outcome: safeOutcome as 'success' | 'failed' | undefined,
       from, to, cursor, limit,
     });
 
