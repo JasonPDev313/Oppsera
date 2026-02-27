@@ -11,7 +11,10 @@ export class OutboxWorker {
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private consecutiveErrors = 0;
   private lastErrorMessage = '';
+  private lastStaleRecoveryAt = 0;
   private static readonly MAX_BACKOFF_MS = 30_000; // cap at 30s
+  private static readonly STALE_RECOVERY_INTERVAL_MS = 5 * 60 * 1000; // every 5 min
+  private static readonly STALE_CLAIM_THRESHOLD_MINUTES = 5;
 
   constructor(options: {
     eventBus: EventBus;
@@ -56,6 +59,10 @@ export class OutboxWorker {
 
     try {
       this.processing = true;
+      // Periodically recover stale claims — events that were claimed
+      // (published_at set) but never actually processed. This happens
+      // when a Vercel instance claims a batch then gets frozen/killed.
+      await this.recoverStaleClaims();
       const published = await this.processBatch();
       this.consecutiveErrors = 0;
       this.lastErrorMessage = '';
@@ -79,6 +86,43 @@ export class OutboxWorker {
       this.pollTimer = setTimeout(() => this.poll(), backoff);
     } finally {
       this.processing = false;
+    }
+  }
+
+  /**
+   * Recover events that were claimed (published_at set) but never actually
+   * delivered to consumers. This happens when a Vercel instance atomically
+   * claims a batch via the CTE, then gets frozen/killed before processing.
+   * The events sit with published_at != NULL forever — invisible to the
+   * normal poll query (which filters WHERE published_at IS NULL).
+   *
+   * Runs at most once every 5 minutes to avoid unnecessary queries.
+   */
+  private async recoverStaleClaims(): Promise<void> {
+    const now = Date.now();
+    if (now - this.lastStaleRecoveryAt < OutboxWorker.STALE_RECOVERY_INTERVAL_MS) {
+      return;
+    }
+    this.lastStaleRecoveryAt = now;
+
+    try {
+      const result = await db.execute(sql`
+        UPDATE event_outbox
+        SET published_at = NULL
+        WHERE published_at IS NOT NULL
+          AND published_at < NOW() - INTERVAL '5 minutes'
+          AND id NOT IN (
+            SELECT DISTINCT event_id FROM processed_events WHERE event_id IS NOT NULL
+          )
+        RETURNING id
+      `) as unknown as Array<{ id: string }>;
+
+      if (result.length > 0) {
+        console.warn(`[outbox] Recovered ${result.length} stale claimed event(s) for reprocessing`);
+      }
+    } catch (err) {
+      // Best-effort — don't crash the worker over stale recovery
+      console.error('[outbox] Stale claim recovery failed:', err);
     }
   }
 
