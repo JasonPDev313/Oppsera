@@ -33,7 +33,9 @@ export function useFnbGuestPay({
   const onPaymentConfirmedRef = useRef(onPaymentConfirmed);
   onPaymentConfirmedRef.current = onPaymentConfirmed;
 
-  const fetchActive = useCallback(async () => {
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchActive = useCallback(async (signal?: AbortSignal) => {
     if (!tabId) {
       setSession(null);
       setHasActive(false);
@@ -42,7 +44,10 @@ export function useFnbGuestPay({
 
     try {
       setIsLoading(true);
-      const res = await apiFetch<{ data: { hasActive: boolean; session: GuestPaySession | null } }>(`/api/v1/fnb/guest-pay/sessions/tab/${tabId}/active`);
+      const res = await apiFetch<{ data: { hasActive: boolean; session: GuestPaySession | null } }>(
+        `/api/v1/fnb/guest-pay/sessions/tab/${tabId}/active`,
+        { signal },
+      );
       const data = res.data;
       setSession(data.session);
       setHasActive(data.hasActive);
@@ -56,20 +61,28 @@ export function useFnbGuestPay({
         onPaymentConfirmedRef.current(data.session);
       }
       prevStatusRef.current = data.session?.status ?? null;
-    } catch {
-      // Silently fail on poll errors
+    } catch (err) {
+      // Ignore aborted requests (cleanup on unmount / tab switch)
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      // Silently fail on other poll errors
     } finally {
       setIsLoading(false);
     }
   }, [tabId]);
 
-  // Initial fetch + polling
+  // Initial fetch + polling with AbortController cleanup
   useEffect(() => {
-    fetchActive();
-    if (!pollEnabled || !tabId) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-    const interval = setInterval(fetchActive, pollIntervalMs);
-    return () => clearInterval(interval);
+    fetchActive(controller.signal);
+    if (!pollEnabled || !tabId) return () => controller.abort();
+
+    const interval = setInterval(() => fetchActive(controller.signal), pollIntervalMs);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [fetchActive, pollEnabled, pollIntervalMs, tabId]);
 
   const invalidate = useCallback(async (sessionId: string, reason?: string) => {

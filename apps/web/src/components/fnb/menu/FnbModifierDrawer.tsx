@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Minus, Plus, Check, ChevronRight, ChevronLeft, SkipForward } from 'lucide-react';
 import { InstructionButtons } from '@/components/pos/InstructionButtons';
 import type { ModifierInstruction } from '@/components/pos/InstructionButtons';
+import { shouldSuppressInstructions } from '@/lib/modifier-intelligence';
 
 interface ModifierOption {
   id: string;
@@ -73,16 +74,63 @@ function resolveModPrice(
   }
 }
 
+// ── Swipe Hook ──────────────────────────────────────────────────
+
+function useSwipeNavigation({
+  onSwipeLeft,
+  onSwipeRight,
+  enabled,
+}: {
+  onSwipeLeft: () => void;
+  onSwipeRight: () => void;
+  enabled: boolean;
+}) {
+  const touchStart = useRef<{ x: number; y: number; t: number } | null>(null);
+
+  const onTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!enabled) return;
+      const touch = e.touches[0];
+      if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY, t: Date.now() };
+    },
+    [enabled],
+  );
+
+  const onTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (!enabled || !touchStart.current) return;
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+
+      const dx = touch.clientX - touchStart.current.x;
+      const dy = touch.clientY - touchStart.current.y;
+      const dt = Date.now() - touchStart.current.t;
+      touchStart.current = null;
+
+      // Must be a horizontal swipe: |dx| > 60px, more horizontal than vertical, within 400ms
+      if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) || dt > 400) return;
+
+      if (dx < 0) onSwipeLeft(); // swipe left → next
+      else onSwipeRight(); // swipe right → back
+    },
+    [enabled, onSwipeLeft, onSwipeRight],
+  );
+
+  return { onTouchStart, onTouchEnd };
+}
+
 // ── Progress Dots ───────────────────────────────────────────────
 
 function ProgressDots({
   total,
   current,
   completedSet,
+  onDotTap,
 }: {
   total: number;
   current: number;
   completedSet: Set<number>;
+  onDotTap?: (step: number) => void;
 }) {
   if (total <= 1) return null;
   return (
@@ -90,13 +138,19 @@ function ProgressDots({
       {Array.from({ length: total }, (_, i) => {
         const isActive = i === current;
         const isDone = completedSet.has(i);
+        const canTap = onDotTap && (isDone || i <= current);
         return (
-          <div
+          <button
             key={i}
+            type="button"
+            onClick={() => canTap && onDotTap(i)}
             className="rounded-full transition-all"
             style={{
               width: isActive ? 20 : 8,
               height: 8,
+              padding: 0,
+              border: 'none',
+              cursor: canTap ? 'pointer' : 'default',
               backgroundColor: isDone
                 ? 'var(--fnb-status-available)'
                 : isActive
@@ -126,8 +180,16 @@ function GroupView({
   onInstructionChange: (optionId: string, instruction: ModifierInstruction) => void;
 }) {
   const isSingleSelect = group.maxSelections === 1;
-  const hasInstructions =
-    group.instructionMode === 'all' || group.instructionMode === 'per_option';
+  // Smart detection: suppress instructions for exclusive-choice groups
+  // (temperature/doneness, sizes, bread types, cooking methods, egg styles)
+  // where None/Extra/On Side don't make logical sense.
+  const suppress = shouldSuppressInstructions(group.name, group.options);
+  const effectiveMode = suppress
+    ? 'none'
+    : group.instructionMode === 'per_option'
+      ? 'per_option'
+      : 'all';
+  const hasInstructions = !suppress;
 
   return (
     <div>
@@ -167,56 +229,75 @@ function GroupView({
           const showInstructions =
             isSelected &&
             hasInstructions &&
-            (group.instructionMode === 'all' ||
+            (effectiveMode === 'all' ||
               opt.allowNone ||
               opt.allowExtra ||
               opt.allowOnSide);
 
           return (
-            <div key={opt.id}>
-              <button
-                type="button"
-                onClick={() => onToggle(opt.id)}
-                className="w-full flex items-center gap-3 rounded-xl text-left transition-all active:scale-[0.98]"
-                style={{
-                  padding: '14px 16px',
-                  backgroundColor: isSelected
-                    ? 'var(--fnb-status-seated)'
-                    : 'var(--fnb-bg-elevated)',
-                  color: isSelected ? '#fff' : 'var(--fnb-text-secondary)',
-                }}
-              >
-                {/* Selection indicator */}
-                <div
-                  className="shrink-0 flex items-center justify-center transition-colors"
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: isSingleSelect ? '50%' : 6,
-                    border: isSelected ? 'none' : '2px solid rgba(148, 163, 184, 0.3)',
-                    backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : 'transparent',
-                  }}
+            <div
+              key={opt.id}
+              className="rounded-xl transition-all"
+              style={{
+                backgroundColor: isSelected
+                  ? 'var(--fnb-status-seated)'
+                  : 'var(--fnb-bg-elevated)',
+                color: isSelected ? '#fff' : 'var(--fnb-text-secondary)',
+              }}
+            >
+              <div className="flex items-center gap-3" style={{ padding: '12px 16px' }}>
+                {/* Toggle area (left side) */}
+                <button
+                  type="button"
+                  onClick={() => onToggle(opt.id)}
+                  className="flex items-center gap-3 flex-1 min-w-0 text-left active:scale-[0.98] transition-transform"
                 >
-                  {isSelected && <Check className="h-3.5 w-3.5" style={{ color: '#fff' }} />}
-                </div>
+                  {/* Selection indicator */}
+                  <div
+                    className="shrink-0 flex items-center justify-center transition-colors"
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: isSingleSelect ? '50%' : 6,
+                      border: isSelected ? 'none' : '2px solid rgba(148, 163, 184, 0.3)',
+                      backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : 'transparent',
+                    }}
+                  >
+                    {isSelected && <Check className="h-3.5 w-3.5" style={{ color: '#fff' }} />}
+                  </div>
 
-                {/* Option name */}
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium block">{opt.name}</span>
-                  {isIncluded && !isSelected && (
-                    <span
-                      className="text-[10px] font-medium"
-                      style={{ color: 'var(--fnb-text-muted)' }}
-                    >
-                      Included
-                    </span>
-                  )}
-                  {instr === 'none' && isSelected && (
-                    <span className="text-[10px] font-bold" style={{ color: '#fca5a5' }}>
-                      NONE
-                    </span>
-                  )}
-                </div>
+                  {/* Option name */}
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium block truncate">{opt.name}</span>
+                    {isIncluded && !isSelected && (
+                      <span
+                        className="text-[10px] font-medium"
+                        style={{ color: 'var(--fnb-text-muted)' }}
+                      >
+                        Included
+                      </span>
+                    )}
+                    {instr === 'none' && isSelected && (
+                      <span className="text-[10px] font-bold" style={{ color: '#fca5a5' }}>
+                        NONE
+                      </span>
+                    )}
+                  </div>
+                </button>
+
+                {/* Instruction pills (inline, right side) */}
+                {showInstructions && (
+                  <InstructionButtons
+                    allowNone={effectiveMode === 'all' || !!opt.allowNone}
+                    allowExtra={effectiveMode === 'all' || !!opt.allowExtra}
+                    allowOnSide={effectiveMode === 'all' || !!opt.allowOnSide}
+                    value={instr}
+                    onChange={(val) => onInstructionChange(opt.id, val)}
+                    extraPriceDeltaCents={opt.extraPriceDeltaCents}
+                    basePriceCents={opt.priceCents}
+                    variant="fnb"
+                  />
+                )}
 
                 {/* Price badge */}
                 {effectivePrice > 0 && (
@@ -241,23 +322,7 @@ function GroupView({
                     Included
                   </span>
                 )}
-              </button>
-
-              {/* Instruction buttons below selected option */}
-              {showInstructions && (
-                <div className="ml-10 mt-0.5 mb-1">
-                  <InstructionButtons
-                    allowNone={group.instructionMode === 'all' || !!opt.allowNone}
-                    allowExtra={group.instructionMode === 'all' || !!opt.allowExtra}
-                    allowOnSide={group.instructionMode === 'all' || !!opt.allowOnSide}
-                    value={instr}
-                    onChange={(val) => onInstructionChange(opt.id, val)}
-                    extraPriceDeltaCents={opt.extraPriceDeltaCents}
-                    basePriceCents={opt.priceCents}
-                    variant="fnb"
-                  />
-                </div>
-              )}
+              </div>
             </div>
           );
         })}
@@ -329,14 +394,14 @@ export function FnbModifierDrawer({
         groupSet.add(optionId);
 
         // Auto-advance: if this is a single-select required group in stepper mode
-        // and we just selected the required number, advance to next step
+        // and we just selected the required number, advance to next step.
+        // Only auto-advance when instructions are suppressed (e.g., temperature groups)
+        // so the user doesn't need to manually tap Next.
         if (!useSimpleMode && isOnRequiredStep && currentRequiredGroup) {
           const g = currentRequiredGroup;
           if (g.id === groupId && maxSel === 1 && g.minSelections <= 1) {
-            // Check if instruction mode is off — if instructions are active,
-            // user might want to pick None/Extra/OnSide before advancing
-            const hasInstr = g.instructionMode === 'all' || g.instructionMode === 'per_option';
-            if (!hasInstr) {
+            const groupHasInstructions = !shouldSuppressInstructions(g.name, g.options);
+            if (!groupHasInstructions) {
               shouldAutoAdvance = true;
             }
           }
@@ -438,6 +503,23 @@ export function FnbModifierDrawer({
   const useSimpleMode =
     requiredGroups.length === 0 || (requiredGroups.length === 1 && optionalGroups.length === 0);
 
+  // Swipe navigation for stepper mode
+  const handleSwipeNext = useCallback(() => {
+    // Only advance if current required step is satisfied (or we're on optional/final)
+    if (isOnRequiredStep && !currentStepSatisfied) return;
+    if (activeStep < totalSteps - 1) setActiveStep(activeStep + 1);
+  }, [activeStep, totalSteps, isOnRequiredStep, currentStepSatisfied]);
+
+  const handleSwipeBack = useCallback(() => {
+    if (activeStep > 0) setActiveStep(activeStep - 1);
+  }, [activeStep]);
+
+  const swipe = useSwipeNavigation({
+    onSwipeLeft: handleSwipeNext,
+    onSwipeRight: handleSwipeBack,
+    enabled: !useSimpleMode,
+  });
+
   return createPortal(
     <div
       className="fixed inset-0 flex flex-col justify-end"
@@ -500,11 +582,20 @@ export function FnbModifierDrawer({
 
         {/* Progress dots (only for multi-step) */}
         {!useSimpleMode && (
-          <ProgressDots total={totalSteps} current={activeStep} completedSet={completedSteps} />
+          <ProgressDots
+            total={totalSteps}
+            current={activeStep}
+            completedSet={completedSteps}
+            onDotTap={(step) => setActiveStep(step)}
+          />
         )}
 
-        {/* Body — scrollable */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 min-h-0">
+        {/* Body — scrollable, swipeable in stepper mode */}
+        <div
+          className="flex-1 overflow-y-auto px-4 py-3 min-h-0"
+          onTouchStart={swipe.onTouchStart}
+          onTouchEnd={swipe.onTouchEnd}
+        >
           {/* ── Simple mode: show all groups, notes, qty at once ── */}
           {useSimpleMode && (
             <>

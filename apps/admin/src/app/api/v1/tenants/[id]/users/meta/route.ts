@@ -1,9 +1,10 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { withAdminAuth } from '@/lib/with-admin-auth';
-import { db, sql } from '@oppsera/db';
+import { sql } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import { roles, rolePermissions } from '@oppsera/db';
+import { withAdminDb } from '@/lib/admin-db';
 
 const SYSTEM_ROLES = [
   { name: 'Super Admin', description: 'All permissions across all modules — auto-includes new permissions', permissions: ['*'] },
@@ -20,20 +21,22 @@ export const GET = withAdminAuth(async (_req: NextRequest, _session, params) => 
   const tenantId = params?.id;
   if (!tenantId) return NextResponse.json({ error: { message: 'Missing tenant ID' } }, { status: 400 });
 
-  const [initialRoleRows, locationRows] = await Promise.all([
-    db.execute(sql`
-      SELECT id, name FROM roles WHERE tenant_id = ${tenantId} ORDER BY name ASC
-    `),
-    db.execute(sql`
-      SELECT id, name FROM locations WHERE tenant_id = ${tenantId} AND is_active = true ORDER BY name ASC
-    `),
-  ]);
+  const [initialRoleRows, locationRows] = await withAdminDb(async (tx) =>
+    Promise.all([
+      tx.execute(sql`
+        SELECT id, name FROM roles WHERE tenant_id = ${tenantId} ORDER BY name ASC
+      `),
+      tx.execute(sql`
+        SELECT id, name FROM locations WHERE tenant_id = ${tenantId} AND is_active = true ORDER BY name ASC
+      `),
+    ]),
+  );
   let roleRows = initialRoleRows;
 
   // Auto-seed system roles if none exist (handles tenants created before role provisioning was added)
   const roleList = Array.from(roleRows as Iterable<Record<string, unknown>>);
   if (roleList.length === 0) {
-    await db.transaction(async (tx) => {
+    await withAdminDb(async (tx) => {
       for (const roleDef of SYSTEM_ROLES) {
         const roleId = generateUlid();
         await tx.insert(roles).values({
@@ -53,9 +56,11 @@ export const GET = withAdminAuth(async (_req: NextRequest, _session, params) => 
       }
     });
     // Re-fetch after seeding
-    roleRows = await db.execute(sql`
-      SELECT id, name FROM roles WHERE tenant_id = ${tenantId} ORDER BY name ASC
-    `);
+    roleRows = await withAdminDb(async (tx) =>
+      tx.execute(sql`
+        SELECT id, name FROM roles WHERE tenant_id = ${tenantId} ORDER BY name ASC
+      `),
+    );
   }
 
   return NextResponse.json({

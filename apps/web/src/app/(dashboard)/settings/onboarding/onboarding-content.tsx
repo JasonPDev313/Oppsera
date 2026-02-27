@@ -1,14 +1,23 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { Rocket, RefreshCw, Loader2, PartyPopper, CheckCircle } from 'lucide-react';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
 import { useOnboardingStatus } from '@/hooks/use-onboarding-status';
 import { ONBOARDING_PHASES } from '@/components/onboarding/phase-definitions';
 import { OnboardingPhase, type PhaseStatus } from '@/components/onboarding/onboarding-phase';
 import { OnboardingStep } from '@/components/onboarding/onboarding-step';
-import { BootstrapWizard } from '@/components/accounting/bootstrap-wizard';
-import { ImportDataSection } from '@/components/onboarding/ImportDataSection';
+
+// Lazy-load heavy components that are only shown on demand
+const BootstrapWizard = dynamic(
+  () => import('@/components/accounting/bootstrap-wizard').then((m) => ({ default: m.BootstrapWizard })),
+  { ssr: false, loading: () => <div className="h-32 animate-pulse rounded-lg bg-muted" /> },
+);
+const ImportDataSection = dynamic(
+  () => import('@/components/onboarding/ImportDataSection').then((m) => ({ default: m.ImportDataSection })),
+  { ssr: false, loading: () => <div className="h-24 animate-pulse rounded-lg bg-muted" /> },
+);
 
 // Steps that have automatic API-based completion detection (no manual toggle needed)
 const AUTO_DETECTED_STEPS = new Set([

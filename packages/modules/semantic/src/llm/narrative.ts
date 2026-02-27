@@ -3,6 +3,7 @@ import type { ResolvedIntent } from './types';
 import type { MetricDef, DimensionDef } from '../registry/types';
 import { getLLMAdapter, SEMANTIC_FAST_MODEL } from './adapters/anthropic';
 import { getNarrativeConfig } from '../config/narrative-config';
+import { maskRowsForLLM } from '../pii/pii-masker';
 
 // ── Industry translation ─────────────────────────────────────────
 
@@ -187,7 +188,7 @@ function buildDataSummary(result: QueryResult | null, intentSummary: string): st
   }
 
   const { rows, rowCount, truncated } = result;
-  const sampleRows = rows.slice(0, MAX_ROWS_IN_PROMPT);
+  const sampleRows = maskRowsForLLM(rows.slice(0, MAX_ROWS_IN_PROMPT));
   const columns = sampleRows.length > 0
     ? Object.keys(sampleRows[0]!).slice(0, MAX_COLS_IN_PROMPT)
     : [];
@@ -482,8 +483,8 @@ export function buildDataFallbackNarrative(
   lines.push(`Your query returned **${rowCount} result${rowCount === 1 ? '' : 's'}**. Here's a summary of the data:`);
   lines.push('');
 
-  // Summarize up to 10 rows in a readable way
-  const sample = rows.slice(0, 10);
+  // Summarize up to 10 rows in a readable way (mask PII before sending to LLM)
+  const sample = maskRowsForLLM(rows.slice(0, 10));
   const keys = sample.length > 0 ? Object.keys(sample[0]!) : [];
 
   if (keys.length > 0 && sample.length > 0) {

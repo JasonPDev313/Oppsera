@@ -23,6 +23,7 @@ export {
   holdOrder,
   recallOrder,
   setTaxExempt,
+  setServiceChargeExempt,
   createReturn,
 } from './commands';
 
@@ -57,6 +58,7 @@ export {
   holdOrderSchema,
   recallOrderSchema,
   setTaxExemptSchema,
+  setServiceChargeExemptSchema,
   createReturnSchema,
 } from './validation';
 export type {
@@ -76,6 +78,7 @@ export type {
   HoldOrderInput,
   RecallOrderInput,
   SetTaxExemptInput,
+  SetServiceChargeExemptInput,
   CreateReturnInput,
 } from './validation';
 

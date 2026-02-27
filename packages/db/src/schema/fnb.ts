@@ -624,6 +624,18 @@ export const fnbKitchenTickets = pgTable(
     sentBy: text('sent_by').notNull(),
     tableNumber: integer('table_number'), // denormalized
     serverName: text('server_name'), // denormalized
+    // KDS comprehensive settings (migration 0209)
+    priorityLevel: integer('priority_level').notNull().default(0),
+    isHeld: boolean('is_held').notNull().default(false),
+    heldAt: timestamp('held_at', { withTimezone: true }),
+    firedAt: timestamp('fired_at', { withTimezone: true }),
+    firedBy: text('fired_by'),
+    orderType: text('order_type'), // dine_in | takeout | delivery | bar
+    channel: text('channel'), // pos | online | kiosk | third_party
+    customerName: text('customer_name'),
+    estimatedPickupAt: timestamp('estimated_pickup_at', { withTimezone: true }),
+    bumpedAt: timestamp('bumped_at', { withTimezone: true }),
+    bumpedBy: text('bumped_by'),
     version: integer('version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -690,6 +702,13 @@ export const fnbKitchenTicketItems = pgTable(
     isRush: boolean('is_rush').notNull().default(false),
     isAllergy: boolean('is_allergy').notNull().default(false),
     isVip: boolean('is_vip').notNull().default(false),
+    // KDS comprehensive settings (migration 0209)
+    routingRuleId: text('routing_rule_id'),
+    kitchenLabel: text('kitchen_label'),
+    itemColor: text('item_color'),
+    priorityLevel: integer('priority_level').notNull().default(0),
+    estimatedPrepSeconds: integer('estimated_prep_seconds'),
+    bumpedBy: text('bumped_by'),
     startedAt: timestamp('started_at', { withTimezone: true }),
     readyAt: timestamp('ready_at', { withTimezone: true }),
     servedAt: timestamp('served_at', { withTimezone: true }),
@@ -724,6 +743,13 @@ export const fnbKitchenRoutingRules = pgTable(
     subDepartmentId: text('sub_department_id'),
     stationId: text('station_id').notNull(), // FK to fnb_kitchen_stations
     priority: integer('priority').notNull().default(0),
+    // KDS comprehensive settings (migration 0209)
+    ruleName: text('rule_name'),
+    categoryId: text('category_id'),
+    orderTypeCondition: text('order_type_condition'),
+    channelCondition: text('channel_condition'),
+    timeConditionStart: text('time_condition_start'),
+    timeConditionEnd: text('time_condition_end'),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -735,6 +761,9 @@ export const fnbKitchenRoutingRules = pgTable(
     index('idx_fnb_routing_rules_dept')
       .on(table.tenantId, table.locationId, table.departmentId)
       .where(sql`department_id IS NOT NULL`),
+    index('idx_fnb_routing_rules_category')
+      .on(table.tenantId, table.locationId, table.categoryId)
+      .where(sql`category_id IS NOT NULL`),
     index('idx_fnb_routing_rules_station').on(table.stationId),
   ],
 );
@@ -795,6 +824,17 @@ export const fnbKitchenStations = pgTable(
     terminalLocationId: text('terminal_location_id'), // FK to terminal_locations
     warningThresholdSeconds: integer('warning_threshold_seconds').notNull().default(480),
     criticalThresholdSeconds: integer('critical_threshold_seconds').notNull().default(720),
+    // KDS comprehensive settings (migration 0209)
+    infoThresholdSeconds: integer('info_threshold_seconds').notNull().default(300),
+    autoBumpOnAllReady: boolean('auto_bump_on_all_ready').notNull().default(false),
+    screenCommunicationMode: text('screen_communication_mode').notNull().default('independent'),
+    assemblyLineOrder: integer('assembly_line_order'),
+    pauseReceiving: boolean('pause_receiving').notNull().default(false),
+    supervisedByExpoId: text('supervised_by_expo_id'),
+    showOtherStationItems: boolean('show_other_station_items').notNull().default(false),
+    allowedOrderTypes: text('allowed_order_types').array().notNull().default(sql`'{}'`),
+    allowedChannels: text('allowed_channels').array().notNull().default(sql`'{}'`),
+    estimatedPrepSeconds: integer('estimated_prep_seconds'),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -833,6 +873,31 @@ export const fnbStationDisplayConfigs = pgTable(
     showCourseHeaders: boolean('show_course_headers').notNull().default(true),
     autoScrollEnabled: boolean('auto_scroll_enabled').notNull().default(false),
     soundAlertEnabled: boolean('sound_alert_enabled').notNull().default(true),
+    // KDS comprehensive settings (migration 0209)
+    viewMode: text('view_mode').notNull().default('ticket'),
+    theme: text('theme').notNull().default('dark'),
+    fontSize: text('font_size').notNull().default('medium'),
+    ticketSize: text('ticket_size').notNull().default('medium'),
+    showServerName: boolean('show_server_name').notNull().default(true),
+    showDiningOption: boolean('show_dining_option').notNull().default(true),
+    showOrderSource: boolean('show_order_source').notNull().default(false),
+    showSpecialInstructions: boolean('show_special_instructions').notNull().default(true),
+    showAllergenWarnings: boolean('show_allergen_warnings').notNull().default(true),
+    showItemColors: boolean('show_item_colors').notNull().default(true),
+    consolidateIdenticalItems: boolean('consolidate_identical_items').notNull().default(false),
+    showPaymentStatus: boolean('show_payment_status').notNull().default(false),
+    modifierDisplayMode: text('modifier_display_mode').notNull().default('vertical'),
+    orientation: text('orientation').notNull().default('landscape'),
+    allDaySummaryEnabled: boolean('all_day_summary_enabled').notNull().default(false),
+    allDayMaxItems: integer('all_day_max_items').notNull().default(30),
+    showPrepTimeEstimate: boolean('show_prep_time_estimate').notNull().default(true),
+    showCourseStatus: boolean('show_course_status').notNull().default(true),
+    flashOnNewTicket: boolean('flash_on_new_ticket').notNull().default(true),
+    flashOnModification: boolean('flash_on_modification').notNull().default(true),
+    autoBumpOnPayment: boolean('auto_bump_on_payment').notNull().default(false),
+    inputMode: text('input_mode').notNull().default('touch'),
+    bumpBarProfileId: text('bump_bar_profile_id'),
+    alertProfileId: text('alert_profile_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -870,6 +935,111 @@ export const fnbStationMetricsSnapshot = pgTable(
       table.tenantId,
       table.businessDate,
     ),
+  ],
+);
+
+// ═══════════════════════════════════════════════════════════════════
+// KDS Comprehensive Settings (Migration 0209)
+// ═══════════════════════════════════════════════════════════════════
+
+// ── F&B KDS Bump Bar Profiles ─────────────────────────────────────
+export const fnbKdsBumpBarProfiles = pgTable(
+  'fnb_kds_bump_bar_profiles',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    locationId: text('location_id')
+      .references(() => locations.id),
+    profileName: text('profile_name').notNull(),
+    buttonCount: integer('button_count').notNull().default(10),
+    keyMappings: jsonb('key_mappings').notNull().default(sql`'[]'`), // BumpBarKeyMapping[]
+    isDefault: boolean('is_default').notNull().default(false),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_bump_bar_profiles_tenant').on(table.tenantId, table.isActive),
+    uniqueIndex('uq_fnb_bump_bar_profiles_tenant_name').on(table.tenantId, table.profileName),
+  ],
+);
+
+// ── F&B KDS Alert Profiles ───────────────────────────────────────
+export const fnbKdsAlertProfiles = pgTable(
+  'fnb_kds_alert_profiles',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    locationId: text('location_id')
+      .references(() => locations.id),
+    profileName: text('profile_name').notNull(),
+    newTicketAlert: jsonb('new_ticket_alert'), // { tone, volume, flash }
+    warningAlert: jsonb('warning_alert'),
+    criticalAlert: jsonb('critical_alert'),
+    rushAlert: jsonb('rush_alert'),
+    allergyAlert: jsonb('allergy_alert'),
+    modificationAlert: jsonb('modification_alert'),
+    completeAlert: jsonb('complete_alert'),
+    isDefault: boolean('is_default').notNull().default(false),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_alert_profiles_tenant').on(table.tenantId, table.isActive),
+    uniqueIndex('uq_fnb_alert_profiles_tenant_name').on(table.tenantId, table.profileName),
+  ],
+);
+
+// ── F&B KDS Performance Targets ──────────────────────────────────
+export const fnbKdsPerformanceTargets = pgTable(
+  'fnb_kds_performance_targets',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    locationId: text('location_id')
+      .references(() => locations.id),
+    stationId: text('station_id')
+      .references(() => fnbKitchenStations.id),
+    orderType: text('order_type'), // dine_in | takeout | delivery | bar | null (all)
+    targetPrepSeconds: integer('target_prep_seconds').notNull(),
+    warningPrepSeconds: integer('warning_prep_seconds').notNull(),
+    criticalPrepSeconds: integer('critical_prep_seconds').notNull(),
+    speedOfServiceGoalSeconds: integer('speed_of_service_goal_seconds'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_perf_targets_station').on(table.tenantId, table.stationId),
+  ],
+);
+
+// ── F&B KDS Item Prep Times ──────────────────────────────────────
+export const fnbKdsItemPrepTimes = pgTable(
+  'fnb_kds_item_prep_times',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    catalogItemId: text('catalog_item_id').notNull(),
+    stationId: text('station_id')
+      .references(() => fnbKitchenStations.id),
+    estimatedPrepSeconds: integer('estimated_prep_seconds').notNull().default(300),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_item_prep_times_item').on(table.tenantId, table.catalogItemId),
+    index('idx_fnb_item_prep_times_station').on(table.tenantId, table.stationId),
   ],
 );
 

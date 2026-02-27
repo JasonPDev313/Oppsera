@@ -61,6 +61,8 @@ export { updateTenantTenderType } from './commands/update-tenant-tender-type';
 export { deactivateTenderType } from './commands/deactivate-tender-type';
 export { saveTransactionTypeMapping } from './commands/save-transaction-type-mapping';
 export { deleteTransactionTypeMapping } from './commands/delete-transaction-type-mapping';
+export { saveDiscountGlMapping, saveDiscountGlMappingsBatch } from './commands/save-discount-gl-mapping';
+export type { SaveDiscountGlMappingInput, SaveDiscountGlMappingsBatchInput } from './commands/save-discount-gl-mapping';
 
 // Queries (COA)
 export { getCoaHealth } from './queries/get-coa-health';
@@ -177,8 +179,12 @@ export { listBankReconciliations, getBankReconciliation } from './queries/list-b
 export type { BankReconciliationListItem, BankReconciliationDetail } from './queries/list-bank-reconciliations';
 export { getRemappableTenders } from './queries/get-remappable-tenders';
 export type { RemappableTender, MissingMapping } from './queries/get-remappable-tenders';
+export { getGlCodeSummary } from './queries/get-gl-code-summary';
+export type { GlCodeSummaryLine, GlCodeSummaryResult } from './queries/get-gl-code-summary';
 export { getTransactionTypeMappings } from './queries/get-transaction-type-mappings';
 export type { TransactionTypeMappingRow } from './queries/get-transaction-type-mappings';
+export { getDiscountGlMappings, getDiscountMappingCoverage } from './queries/get-discount-gl-mappings';
+export type { DiscountGlMappingRow, DiscountMappingCoverage } from './queries/get-discount-gl-mappings';
 export { getCloseOrchestratorRun, listCloseOrchestratorRuns, getLastCloseRun } from './queries/get-close-orchestrator-run';
 export type { CloseOrchestratorRun, CloseOrchestratorRunListItem, ListCloseOrchestratorRunsResult } from './queries/get-close-orchestrator-run';
 
@@ -195,6 +201,7 @@ export {
   resolveFolioEntryTypeAccount,
   resolveTransactionTypeMapping,
   logUnmappedEvent,
+  batchResolveDiscountGlMappings,
 } from './helpers/resolve-mapping';
 export type {
   SubDeptGL,

@@ -3,7 +3,10 @@ import { z } from 'zod';
 import { eq, and, asc } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getAuthAdapter } from '@oppsera/core/auth/get-adapter';
-import { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from '@oppsera/core/security';
+import {
+  RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders,
+  checkAccountLockout, recordLoginFailure, recordLoginSuccess,
+} from '@oppsera/core/security';
 import { AppError, ValidationError } from '@oppsera/shared';
 import { auditLogSystem } from '@oppsera/core/audit/helpers';
 import { createAdminClient, users, memberships } from '@oppsera/db';
@@ -55,8 +58,20 @@ export const POST = withMiddleware(
     const adapter = getAuthAdapter();
     const ip = request.headers.get('x-forwarded-for') ?? undefined;
 
+    // Account-level lockout check (5 failures → 15-min lock)
+    const lockout = checkAccountLockout(email);
+    if (lockout.locked) {
+      return NextResponse.json(
+        { error: { code: 'ACCOUNT_LOCKED', message: 'Account temporarily locked. Please try again later.' } },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil(lockout.retryAfterMs / 1000)) } },
+      );
+    }
+
     try {
       const result = await adapter.signIn(email, password);
+
+      // Clear lockout counter on success
+      recordLoginSuccess(email);
 
       // Resolve identity + update lastLoginAt + audit (best-effort, never blocks login)
       try {
@@ -71,10 +86,13 @@ export const POST = withMiddleware(
         } else {
           await auditLogSystem('', 'auth.login.success', 'user', 'unknown', { email, ip });
         }
-      } catch { /* best-effort */ }
+      } catch (err) { console.error('[audit]:', err); }
 
       return NextResponse.json({ data: result });
     } catch (error) {
+      // Record failure for lockout tracking
+      recordLoginFailure(email);
+
       // Audit failed login with resolved identity when possible
       try {
         const identity = await resolveUserIdentity(email);
@@ -85,7 +103,7 @@ export const POST = withMiddleware(
           identity?.userId ?? 'unknown',
           { email, ip },
         );
-      } catch { /* best-effort */ }
+      } catch (err) { console.error('[audit]:', err); }
 
       if (error instanceof AppError) throw error;
       throw new AppError('AUTH_SIGNIN_FAILED', 'Invalid credentials', 401);

@@ -49,12 +49,12 @@ export function InstructionButtons({
 
   if (variant === 'fnb') {
     return (
-      <div className="flex gap-1.5 mt-1">
+      <div className="flex gap-2 shrink-0">
         {allowNone && (
           <button
             type="button"
-            onClick={() => handleClick('none')}
-            className="rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all active:scale-[0.96]"
+            onClick={(e) => { e.stopPropagation(); handleClick('none'); }}
+            className="rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-[0.96]"
             style={{
               backgroundColor: value === 'none' ? 'var(--fnb-action-void)' : 'var(--fnb-bg-elevated)',
               color: value === 'none' ? '#fff' : 'var(--fnb-text-muted)',
@@ -66,8 +66,8 @@ export function InstructionButtons({
         {allowExtra && (
           <button
             type="button"
-            onClick={() => handleClick('extra')}
-            className="rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all active:scale-[0.96]"
+            onClick={(e) => { e.stopPropagation(); handleClick('extra'); }}
+            className="rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-[0.96]"
             style={{
               backgroundColor: value === 'extra' ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
               color: value === 'extra' ? '#fff' : 'var(--fnb-text-muted)',
@@ -79,8 +79,8 @@ export function InstructionButtons({
         {allowOnSide && (
           <button
             type="button"
-            onClick={() => handleClick('on_side')}
-            className="rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all active:scale-[0.96]"
+            onClick={(e) => { e.stopPropagation(); handleClick('on_side'); }}
+            className="rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-[0.96]"
             style={{
               backgroundColor: value === 'on_side' ? 'var(--fnb-info)' : 'var(--fnb-bg-elevated)',
               color: value === 'on_side' ? '#fff' : 'var(--fnb-text-muted)',

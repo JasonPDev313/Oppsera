@@ -31,3 +31,6 @@ export * from './rag';
 
 // ── Narrative config ─────────────────────────────────────────
 export * from './config';
+
+// ── PII masking ──────────────────────────────────────────────
+export { maskRowsForLLM, maskFreeText } from './pii/pii-masker';

@@ -26,8 +26,8 @@ describe('FNB_SETTINGS_DEFAULTS', () => {
     expect(Object.keys(FNB_SETTINGS_DEFAULTS.fnb_ordering)).toHaveLength(7);
   });
 
-  it('fnb_kitchen has 7 settings', () => {
-    expect(Object.keys(FNB_SETTINGS_DEFAULTS.fnb_kitchen)).toHaveLength(7);
+  it('fnb_kitchen has 40 settings', () => {
+    expect(Object.keys(FNB_SETTINGS_DEFAULTS.fnb_kitchen)).toHaveLength(40);
   });
 
   it('fnb_payment has 13 settings', () => {
@@ -50,12 +50,12 @@ describe('FNB_SETTINGS_DEFAULTS', () => {
     expect(Object.keys(FNB_SETTINGS_DEFAULTS.fnb_hardware)).toHaveLength(4);
   });
 
-  it('total settings across all modules is 79', () => {
+  it('total settings across all modules is 112', () => {
     let total = 0;
     for (const key of FNB_SETTINGS_MODULE_KEYS) {
       total += Object.keys(FNB_SETTINGS_DEFAULTS[key]).length;
     }
-    expect(total).toBe(79);
+    expect(total).toBe(112);
   });
 });
 

@@ -29,11 +29,13 @@ export interface Schedule {
   nextDeliveryAt?: string;
 }
 
-interface ScheduleFormInput {
+export interface ScheduleFormInput {
   name: string;
   reportType: string;
   frequency: string;
   deliveryHour: number;
+  deliveryDayOfWeek: number | null;
+  deliveryDayOfMonth: number | null;
   channel: string;
   recipients: string;
 }
@@ -50,12 +52,9 @@ interface ScheduledReportsPanelProps {
 // ── Constants ──────────────────────────────────────────────────────
 
 const REPORT_TYPES = [
-  { value: 'daily_sales', label: 'Daily Sales Summary' },
-  { value: 'weekly_sales', label: 'Weekly Sales Report' },
-  { value: 'inventory', label: 'Inventory Summary' },
-  { value: 'customer_activity', label: 'Customer Activity' },
-  { value: 'financial_summary', label: 'Financial Summary' },
-  { value: 'custom', label: 'Custom Report' },
+  { value: 'digest', label: 'AI Digest (Sales, KPIs & Trends)' },
+  { value: 'custom_report', label: 'Custom Report' },
+  { value: 'metric_snapshot', label: 'Metric Snapshot' },
 ];
 
 const FREQUENCY_OPTIONS = [
@@ -65,14 +64,29 @@ const FREQUENCY_OPTIONS = [
 ];
 
 const CHANNEL_OPTIONS = [
+  { value: 'in_app', label: 'In-App' },
   { value: 'email', label: 'Email' },
-  { value: 'slack', label: 'Slack' },
   { value: 'webhook', label: 'Webhook' },
 ];
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => ({
   value: i,
   label: `${i.toString().padStart(2, '0')}:00`,
+}));
+
+const DAY_OF_WEEK_OPTIONS = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+];
+
+const DAY_OF_MONTH_OPTIONS = Array.from({ length: 28 }, (_, i) => ({
+  value: i + 1,
+  label: `${i + 1}`,
 }));
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -215,9 +229,9 @@ export function ScheduledReportsPanel({
                     <span>&middot;</span>
                     <span>{HOUR_OPTIONS[schedule.deliveryHour]?.label ?? `${schedule.deliveryHour}:00`}</span>
                     <span>&middot;</span>
-                    <span className="inline-flex items-center gap-0.5 capitalize">
+                    <span className="inline-flex items-center gap-0.5">
                       <Mail className="h-2.5 w-2.5" />
-                      {schedule.channel}
+                      {CHANNEL_OPTIONS.find((c) => c.value === schedule.channel)?.label ?? schedule.channel}
                     </span>
                   </div>
 
@@ -308,6 +322,8 @@ function ScheduleFormDialog({
   const [reportType, setReportType] = useState(initial?.reportType ?? REPORT_TYPES[0]!.value);
   const [frequency, setFrequency] = useState(initial?.frequency ?? FREQUENCY_OPTIONS[0]!.value);
   const [deliveryHour, setDeliveryHour] = useState(initial?.deliveryHour ?? 8);
+  const [deliveryDayOfWeek, setDeliveryDayOfWeek] = useState<number>(1); // Monday
+  const [deliveryDayOfMonth, setDeliveryDayOfMonth] = useState<number>(1);
   const [channel, setChannel] = useState(initial?.channel ?? CHANNEL_OPTIONS[0]!.value);
   const [recipients, setRecipients] = useState('');
 
@@ -320,11 +336,13 @@ function ScheduleFormDialog({
         reportType,
         frequency,
         deliveryHour,
+        deliveryDayOfWeek: frequency === 'weekly' ? deliveryDayOfWeek : null,
+        deliveryDayOfMonth: frequency === 'monthly' ? deliveryDayOfMonth : null,
         channel,
         recipients: recipients.trim(),
       });
     }
-  }, [canSubmit, onSubmit, name, reportType, frequency, deliveryHour, channel, recipients]);
+  }, [canSubmit, onSubmit, name, reportType, frequency, deliveryHour, deliveryDayOfWeek, deliveryDayOfMonth, channel, recipients]);
 
   // Close on Escape
   useEffect(() => {
@@ -418,6 +436,42 @@ function ScheduleFormDialog({
           </div>
         </div>
 
+        {/* Day of week (weekly only) */}
+        {frequency === 'weekly' && (
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              Day of Week
+            </label>
+            <select
+              value={deliveryDayOfWeek}
+              onChange={(e) => setDeliveryDayOfWeek(Number(e.target.value))}
+              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
+            >
+              {DAY_OF_WEEK_OPTIONS.map((d) => (
+                <option key={d.value} value={d.value}>{d.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Day of month (monthly only) */}
+        {frequency === 'monthly' && (
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              Day of Month
+            </label>
+            <select
+              value={deliveryDayOfMonth}
+              onChange={(e) => setDeliveryDayOfMonth(Number(e.target.value))}
+              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
+            >
+              {DAY_OF_MONTH_OPTIONS.map((d) => (
+                <option key={d.value} value={d.value}>{d.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Channel */}
         <div>
           <label className="block text-xs font-medium text-muted-foreground mb-1">
@@ -441,22 +495,31 @@ function ScheduleFormDialog({
           </div>
         </div>
 
-        {/* Recipients */}
-        <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">
-            Recipients
-          </label>
-          <input
-            type="text"
-            value={recipients}
-            onChange={(e) => setRecipients(e.target.value)}
-            placeholder="email@example.com, another@example.com"
-            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
-          />
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            Comma-separated email addresses or channel names
+        {/* Recipients — show for email channel */}
+        {channel === 'email' && (
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              Recipients
+            </label>
+            <input
+              type="text"
+              value={recipients}
+              onChange={(e) => setRecipients(e.target.value)}
+              placeholder="email@example.com, another@example.com"
+              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
+            />
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Comma-separated email addresses. Leave blank to send to yourself.
+            </p>
+          </div>
+        )}
+
+        {/* In-app hint */}
+        {channel === 'in_app' && (
+          <p className="text-[11px] text-muted-foreground">
+            Reports will appear in your AI Insights feed.
           </p>
-        </div>
+        )}
 
         {/* Actions */}
         <div className="flex items-center gap-2 justify-end pt-2">

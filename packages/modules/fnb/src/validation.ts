@@ -451,7 +451,7 @@ export const TICKET_ITEM_STATUSES = [
 
 export const DELTA_TYPES = ['add', 'void', 'modify', 'rush'] as const;
 
-export const ROUTING_RULE_TYPES = ['item', 'modifier', 'department'] as const;
+export const ROUTING_RULE_TYPES = ['item', 'modifier', 'department', 'sub_department', 'category'] as const;
 
 export type FnbTicketStatus = (typeof TICKET_STATUSES)[number];
 export type FnbTicketItemStatus = (typeof TICKET_ITEM_STATUSES)[number];
@@ -463,6 +463,11 @@ export const createKitchenTicketSchema = z.object({
   tabId: z.string().min(1),
   orderId: z.string().min(1),
   courseNumber: z.number().int().min(1).optional(),
+  // Routing context — optional, used by auto-routing engine when stationId is not set per item
+  orderType: z.string().optional(),   // dine_in | takeout | delivery | bar
+  channel: z.string().optional(),     // pos | online | kiosk | third_party
+  customerName: z.string().optional(),
+  priorityLevel: z.number().int().min(0).max(8).optional(),
   items: z.array(z.object({
     orderLineId: z.string().min(1),
     itemName: z.string().min(1),
@@ -475,6 +480,15 @@ export const createKitchenTicketSchema = z.object({
     isAllergy: z.boolean().optional().default(false),
     isVip: z.boolean().optional().default(false),
     stationId: z.string().optional(),
+    // Catalog hierarchy for auto-routing (populated by POS when sending to kitchen)
+    catalogItemId: z.string().optional(),
+    departmentId: z.string().optional(),
+    subDepartmentId: z.string().optional(),
+    categoryId: z.string().optional(),
+    modifierIds: z.array(z.string()).optional(),
+    // Kitchen display overrides
+    kitchenLabel: z.string().optional(),
+    itemColor: z.string().optional(),
   })).min(1),
 });
 
@@ -1600,13 +1614,65 @@ export const fnbOrderingSettingsSchema = z.object({
 });
 
 export const fnbKitchenSettingsSchema = z.object({
+  // ── Timer thresholds ────────────────────────────────────────────
   kds_warning_threshold_seconds: z.number().int().min(60).max(3600).default(480),
   kds_critical_threshold_seconds: z.number().int().min(60).max(3600).default(720),
+  kds_info_threshold_seconds: z.number().int().min(30).max(3600).default(300),
+
+  // ── Bump behavior ──────────────────────────────────────────────
   kds_bump_behavior: z.enum(['remove', 'move_to_done']).default('remove'),
+  auto_bump_on_all_ready: z.boolean().default(false),
+  auto_bump_on_payment: z.boolean().default(false),
+
+  // ── Display ────────────────────────────────────────────────────
+  kds_default_view_mode: z.enum(['ticket', 'grid', 'split', 'all_day']).default('ticket'),
+  kds_default_theme: z.enum(['dark', 'light']).default('dark'),
+  kds_default_font_size: z.enum(['small', 'medium', 'large', 'xlarge']).default('medium'),
+  kds_default_ticket_size: z.enum(['small', 'medium', 'large', 'dynamic']).default('medium'),
+  kds_show_server_name: z.boolean().default(true),
+  kds_show_dining_option: z.boolean().default(true),
+  kds_show_order_source: z.boolean().default(false),
+  kds_show_special_instructions: z.boolean().default(true),
+  kds_show_allergen_warnings: z.boolean().default(true),
+  kds_show_item_colors: z.boolean().default(true),
+  kds_show_prep_time_estimate: z.boolean().default(false),
+  kds_show_course_status: z.boolean().default(true),
+  kds_show_payment_status: z.boolean().default(false),
+  kds_consolidate_identical_items: z.boolean().default(false),
+  kds_modifier_display_mode: z.enum(['vertical', 'horizontal', 'inline']).default('vertical'),
+  kds_flash_on_new_ticket: z.boolean().default(true),
+  kds_flash_on_modification: z.boolean().default(true),
+
+  // ── Input ──────────────────────────────────────────────────────
+  kds_default_input_mode: z.enum(['touch', 'bump_bar', 'both']).default('touch'),
+
+  // ── Expo ───────────────────────────────────────────────────────
   expo_mode_enabled: z.boolean().default(true),
+  expo_show_all_station_items: z.boolean().default(true),
+
+  // ── Routing ────────────────────────────────────────────────────
+  auto_route_enabled: z.boolean().default(true),
+  fallback_to_expo: z.boolean().default(true),
+
+  // ── Printing ───────────────────────────────────────────────────
   auto_print_on_kds_failure: z.boolean().default(true),
   delta_chit_enabled: z.boolean().default(true),
+
+  // ── Course pacing ──────────────────────────────────────────────
   course_pacing_auto_fire: z.boolean().default(false),
+
+  // ── Screen communication ───────────────────────────────────────
+  default_screen_comm_mode: z.enum(['independent', 'multi_clear', 'prep_expo', 'assembly_line', 'mirror']).default('independent'),
+
+  // ── Audio ──────────────────────────────────────────────────────
+  kds_sound_enabled: z.boolean().default(true),
+  kds_new_ticket_tone: z.enum(['chime', 'ding', 'alert', 'warning', 'urgent', 'rush', 'allergy', 'complete', 'bell', 'none']).default('chime'),
+  kds_warning_tone: z.enum(['chime', 'ding', 'alert', 'warning', 'urgent', 'rush', 'allergy', 'complete', 'bell', 'none']).default('warning'),
+  kds_critical_tone: z.enum(['chime', 'ding', 'alert', 'warning', 'urgent', 'rush', 'allergy', 'complete', 'bell', 'none']).default('urgent'),
+  kds_rush_tone: z.enum(['chime', 'ding', 'alert', 'warning', 'urgent', 'rush', 'allergy', 'complete', 'bell', 'none']).default('rush'),
+  kds_allergy_tone: z.enum(['chime', 'ding', 'alert', 'warning', 'urgent', 'rush', 'allergy', 'complete', 'bell', 'none']).default('allergy'),
+  kds_complete_tone: z.enum(['chime', 'ding', 'alert', 'warning', 'urgent', 'rush', 'allergy', 'complete', 'bell', 'none']).default('complete'),
+  kds_volume: z.number().min(0).max(1).default(0.5),
 });
 
 export const fnbPaymentSettingsSchema = z.object({
@@ -1732,6 +1798,153 @@ export const validateFnbSettingsSchema = z.object({
 });
 
 export type ValidateFnbSettingsInput = z.input<typeof validateFnbSettingsSchema>;
+
+// ── KDS Settings CRUD Schemas ────────────────────────────────────
+
+const kdsAlertToneEnum = z.enum(['chime', 'ding', 'alert', 'warning', 'urgent', 'rush', 'allergy', 'complete', 'bell', 'none']);
+
+export const alertEventConfigSchema = z.object({
+  tone: kdsAlertToneEnum.default('chime'),
+  volume: z.number().min(0).max(1).default(0.5),
+  flash: z.boolean().default(false),
+  flashColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  repeat: z.number().int().min(1).max(5).default(1),
+});
+
+export type AlertEventConfig = z.infer<typeof alertEventConfigSchema>;
+
+export const bumpBarKeyMappingSchema = z.object({
+  buttonIndex: z.number().int().min(0).max(19),
+  scanCode: z.number().int(),
+  action: z.string().min(1),
+  label: z.string().min(1).max(20),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+});
+
+export type BumpBarKeyMappingInput = z.infer<typeof bumpBarKeyMappingSchema>;
+
+// Bump bar profiles
+export const createBumpBarProfileSchema = z.object({
+  profileName: z.string().min(1).max(100),
+  buttonCount: z.number().int().min(1).max(20).default(10),
+  keyMappings: z.array(bumpBarKeyMappingSchema).min(1).max(20),
+  isDefault: z.boolean().default(false),
+  clientRequestId: z.string().min(1),
+});
+export type CreateBumpBarProfileInput = z.input<typeof createBumpBarProfileSchema>;
+
+export const updateBumpBarProfileSchema = z.object({
+  profileId: z.string().min(1),
+  profileName: z.string().min(1).max(100).optional(),
+  keyMappings: z.array(bumpBarKeyMappingSchema).min(1).max(20).optional(),
+  isDefault: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateBumpBarProfileInput = z.input<typeof updateBumpBarProfileSchema>;
+
+// Alert profiles
+export const createAlertProfileSchema = z.object({
+  profileName: z.string().min(1).max(100),
+  newTicketAlert: alertEventConfigSchema.optional(),
+  warningAlert: alertEventConfigSchema.optional(),
+  criticalAlert: alertEventConfigSchema.optional(),
+  rushAlert: alertEventConfigSchema.optional(),
+  allergyAlert: alertEventConfigSchema.optional(),
+  modificationAlert: alertEventConfigSchema.optional(),
+  completeAlert: alertEventConfigSchema.optional(),
+  isDefault: z.boolean().default(false),
+  clientRequestId: z.string().min(1),
+});
+export type CreateAlertProfileInput = z.input<typeof createAlertProfileSchema>;
+
+export const updateAlertProfileSchema = z.object({
+  profileId: z.string().min(1),
+  profileName: z.string().min(1).max(100).optional(),
+  newTicketAlert: alertEventConfigSchema.optional(),
+  warningAlert: alertEventConfigSchema.optional(),
+  criticalAlert: alertEventConfigSchema.optional(),
+  rushAlert: alertEventConfigSchema.optional(),
+  allergyAlert: alertEventConfigSchema.optional(),
+  modificationAlert: alertEventConfigSchema.optional(),
+  completeAlert: alertEventConfigSchema.optional(),
+  isDefault: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateAlertProfileInput = z.input<typeof updateAlertProfileSchema>;
+
+// Performance targets
+export const upsertPerformanceTargetSchema = z.object({
+  stationId: z.string().optional(),
+  orderType: z.enum(['dine_in', 'takeout', 'delivery', 'bar']).optional(),
+  targetPrepSeconds: z.number().int().min(30).max(7200),
+  warningPrepSeconds: z.number().int().min(30).max(7200),
+  criticalPrepSeconds: z.number().int().min(30).max(7200),
+  speedOfServiceGoalSeconds: z.number().int().min(30).max(7200).optional(),
+  clientRequestId: z.string().min(1),
+});
+export type UpsertPerformanceTargetInput = z.input<typeof upsertPerformanceTargetSchema>;
+
+// Item prep times
+export const upsertItemPrepTimeSchema = z.object({
+  catalogItemId: z.string().min(1),
+  stationId: z.string().optional(),
+  estimatedPrepSeconds: z.number().int().min(10).max(7200),
+  clientRequestId: z.string().min(1),
+});
+export type UpsertItemPrepTimeInput = z.input<typeof upsertItemPrepTimeSchema>;
+
+export const bulkUpsertItemPrepTimesSchema = z.object({
+  items: z.array(z.object({
+    catalogItemId: z.string().min(1),
+    stationId: z.string().optional(),
+    estimatedPrepSeconds: z.number().int().min(10).max(7200),
+  })).min(1).max(200),
+  clientRequestId: z.string().min(1),
+});
+export type BulkUpsertItemPrepTimesInput = z.input<typeof bulkUpsertItemPrepTimesSchema>;
+
+// Enhanced routing rule (extends existing createRoutingRuleSchema)
+export const createKdsRoutingRuleSchema = z.object({
+  ruleName: z.string().min(1).max(100).optional(),
+  ruleType: z.enum(['item', 'modifier', 'department', 'sub_department', 'category']),
+  catalogItemId: z.string().optional(),
+  modifierId: z.string().optional(),
+  departmentId: z.string().optional(),
+  subDepartmentId: z.string().optional(),
+  categoryId: z.string().optional(),
+  stationId: z.string().min(1),
+  priority: z.number().int().min(0).max(100).default(0),
+  orderTypeCondition: z.enum(['dine_in', 'takeout', 'delivery', 'bar']).optional(),
+  channelCondition: z.enum(['pos', 'online', 'kiosk', 'third_party']).optional(),
+  timeConditionStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  timeConditionEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  clientRequestId: z.string().min(1),
+});
+export type CreateKdsRoutingRuleInput = z.input<typeof createKdsRoutingRuleSchema>;
+
+export const updateKdsRoutingRuleSchema = z.object({
+  ruleId: z.string().min(1),
+  ruleName: z.string().min(1).max(100).optional(),
+  stationId: z.string().min(1).optional(),
+  priority: z.number().int().min(0).max(100).optional(),
+  orderTypeCondition: z.enum(['dine_in', 'takeout', 'delivery', 'bar']).nullable().optional(),
+  channelCondition: z.enum(['pos', 'online', 'kiosk', 'third_party']).nullable().optional(),
+  timeConditionStart: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  timeConditionEnd: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  isActive: z.boolean().optional(),
+  clientRequestId: z.string().min(1).optional(),
+});
+export type UpdateKdsRoutingRuleInput = z.input<typeof updateKdsRoutingRuleSchema>;
+
+// KDS view query input (enhanced)
+export const getKdsViewEnhancedSchema = z.object({
+  tenantId: z.string().min(1),
+  stationId: z.string().min(1),
+  locationId: z.string().min(1),
+  businessDate: z.string().min(1),
+  viewMode: z.enum(['ticket', 'grid', 'split', 'all_day']).default('ticket'),
+});
+export type GetKdsViewEnhancedInput = z.input<typeof getKdsViewEnhancedSchema>;
 
 // ═══════════════════════════════════════════════════════════════════
 // SESSION 13 — Real-Time Sync, Concurrency & Offline

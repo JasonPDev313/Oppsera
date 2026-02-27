@@ -20,6 +20,7 @@ export interface EmbedToken {
 
 export interface EmbedWidgetConfig {
   metricSlugs?: string[];
+  title?: string;
   chartType?: 'line' | 'bar' | 'pie' | 'table';
   dimensions?: string[];
   filters?: Record<string, unknown>;

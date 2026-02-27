@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { RefreshCw, Plus, Minus, Maximize2, LayoutGrid, Map, Eye, Pencil } from 'lucide-react';
+import { RefreshCw, Plus, Minus, Maximize2, LayoutGrid, Map, Eye, Pencil, Lock } from 'lucide-react';
 import type { FloorDisplayMode } from './FnbTableNode';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbFloor, useFnbRooms, useTableActions } from '@/hooks/use-fnb-floor';
@@ -16,6 +16,8 @@ import { SeatGuestsModal } from './SeatGuestsModal';
 import { TableActionMenu } from './TableActionMenu';
 import { TableGridView } from './TableGridView';
 import { MySectionDialog } from './MySectionDialog';
+import { ServerLockBanner } from '../ServerLockBanner';
+import { ServerPinModal } from '../ServerPinModal';
 import { useMySection } from '@/hooks/use-my-section';
 
 /** Minimum table size in editor pixels (matches FnbTableNode MIN_TABLE_SIZE) */
@@ -55,7 +57,7 @@ interface FnbFloorViewProps {
 
 export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   const store = useFnbPosStore();
-  const { locations } = useAuthContext();
+  const { user, locations } = useAuthContext();
   const { rooms, isLoading: roomsLoading } = useFnbRooms();
 
   // Select first room if none active, or if stored room was archived (no longer in active list).
@@ -99,6 +101,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   const [actionMenuTable, setActionMenuTable] = useState<FnbTableWithStatus | null>(null);
   const [syncFeedback, setSyncFeedback] = useState<'success' | 'error' | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const [lockPinModalOpen, setLockPinModalOpen] = useState(false);
 
   // Close portal dialogs when this view becomes inactive (gotcha #109)
   useEffect(() => {
@@ -107,6 +110,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       setActionMenuOpen(false);
       setSeatTargetTable(null);
       setActionMenuTable(null);
+      setLockPinModalOpen(false);
       store.setMySectionEditing(false);
     }
   }, [isActive, store]);
@@ -418,6 +422,8 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
       {/* Center: Table grid */}
       <div className="flex-1 flex flex-col min-w-0">
+        <ServerLockBanner />
+
         {/* Room header */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-border">
           <div className="flex items-center gap-2">
@@ -446,6 +452,17 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
               <RefreshCw className={`h-3 w-3 ${actions.isActing ? 'animate-spin' : ''}`} />
               Sync
             </button>
+            {!store.serverLock.isLocked && (
+              <button
+                type="button"
+                onClick={() => setLockPinModalOpen(true)}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1 bg-muted text-muted-foreground hover:bg-accent"
+                title="Lock POS to current server"
+              >
+                <Lock className="h-3 w-3" />
+                Lock
+              </button>
+            )}
             {/* View mode toggle */}
             <div className="flex rounded-lg overflow-hidden border border-border">
               <button
@@ -691,6 +708,20 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
         onClose={() => store.setMySectionEditing(false)}
         tables={tables}
         section={mySection}
+      />
+
+      <ServerPinModal
+        open={lockPinModalOpen}
+        onClose={() => setLockPinModalOpen(false)}
+        onSubmit={(pin) => {
+          const name = user?.name || user?.email?.split('@')[0] || 'Server';
+          store.lockToServer(name, userId);
+          try { localStorage.setItem('oppsera:fnb-server-pin', pin); } catch { /* ignore */ }
+          setLockPinModalOpen(false);
+          return true;
+        }}
+        title="Set Lock PIN"
+        description="Enter a 4-digit PIN to lock this terminal"
       />
 
       <TableActionMenu

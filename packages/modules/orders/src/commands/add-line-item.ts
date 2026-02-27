@@ -119,6 +119,9 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
       originalUnitPrice: input.priceOverride ? posItem.unitPriceCents : null,
       priceOverrideReason: input.priceOverride?.reason ?? null,
       priceOverriddenBy: input.priceOverride?.approvedBy ?? null,
+      priceOverrideDiscountCents: input.priceOverride
+        ? Math.max(0, Math.round((posItem.unitPriceCents - input.priceOverride.unitPrice) * Number(input.qty)))
+        : 0,
       lineSubtotal: taxResult.subtotal,
       lineTax: taxResult.taxTotal,
       lineTotal: taxResult.total,

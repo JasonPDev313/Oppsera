@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type {
   FnbScreen,
+  FnbNavTab,
   FnbNavigateParams,
   FnbDraftLine,
   FnbSplitWorkspace,
@@ -13,10 +14,17 @@ import type {
 
 // ── State Interface ──────────────────────────────────────────────
 
+export interface FnbServerLock {
+  isLocked: boolean;
+  serverName: string | null;
+  serverId: string | null;
+}
+
 export interface FnbPosState {
   // Screen navigation (internal to fnb-pos-content)
   currentScreen: FnbScreen;
   previousScreen: FnbScreen | null;
+  activeNavTab: FnbNavTab;
   activeTabId: string | null;
   activeRoomId: string | null;
 
@@ -32,6 +40,9 @@ export interface FnbPosState {
 
   // Course configuration (loaded from fnb_ordering settings)
   courseNames: string[];
+
+  // Server lock
+  serverLock: FnbServerLock;
 
   // UI preferences
   floorViewMode: 'layout' | 'grid';
@@ -58,6 +69,7 @@ export interface FnbPosActions {
   goBack: () => void;
   setActiveTab: (tabId: string | null) => void;
   setActiveRoom: (roomId: string) => void;
+  setNavTab: (tab: FnbNavTab) => void;
 
   // Draft line management
   addDraftLine: (tabId: string, line: FnbDraftLine) => void;
@@ -66,6 +78,7 @@ export interface FnbPosActions {
   clearDraft: (tabId: string) => void;
   getDraftLines: (tabId: string) => FnbDraftLine[];
   getDraftCount: (tabId: string) => number;
+  repeatLastItem: (tabId: string) => void;
 
   // Seat + course
   setSeat: (seatNumber: number) => void;
@@ -93,6 +106,10 @@ export interface FnbPosActions {
   toggleLeftHandMode: () => void;
   setTileSize: (size: 'compact' | 'standard' | 'large') => void;
   toggleSkipPaymentConfirm: () => void;
+
+  // Server lock
+  lockToServer: (name: string, id: string) => void;
+  unlockServer: (pin: string) => boolean;
 
   // Connection
   setOnline: (online: boolean) => void;
@@ -130,11 +147,22 @@ function getPersistedSkipConfirm(): boolean {
   try { return localStorage.getItem('oppsera:fnb-skip-confirm') === 'true'; } catch { return false; }
 }
 
+function getPersistedServerLock(): FnbServerLock {
+  if (typeof window === 'undefined') return { isLocked: false, serverName: null, serverId: null };
+  try {
+    const raw = localStorage.getItem('oppsera:fnb-server-lock');
+    if (!raw) return { isLocked: false, serverName: null, serverId: null };
+    const parsed = JSON.parse(raw) as FnbServerLock;
+    return parsed.isLocked ? parsed : { isLocked: false, serverName: null, serverId: null };
+  } catch { return { isLocked: false, serverName: null, serverId: null }; }
+}
+
 const DEFAULT_COURSE_NAMES = ['Apps', 'Entrees', 'Desserts'];
 
 const initialState: FnbPosState = {
   currentScreen: 'floor',
   previousScreen: null,
+  activeNavTab: 'tables',
   activeTabId: null,
   activeRoomId: getPersistedRoomId(),
   draftLines: {},
@@ -142,6 +170,7 @@ const initialState: FnbPosState = {
   activeCourseNumber: 1,
   courseNames: DEFAULT_COURSE_NAMES,
   splitWorkspace: null,
+  serverLock: getPersistedServerLock(),
   floorViewMode: 'layout',
   floorDisplayMode: 'status',
   sidebarMode: 'my-tables',
@@ -213,6 +242,20 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
       } catch { /* ignore */ }
     },
 
+    setNavTab: (tab) => {
+      const screenMap: Record<string, FnbScreen> = {
+        tables: 'floor',
+        open_tickets: 'open_tickets',
+        closed_tickets: 'closed_tickets',
+        sales: 'sales_summary',
+      };
+      set((state) => {
+        state.activeNavTab = tab;
+        state.previousScreen = state.currentScreen;
+        state.currentScreen = screenMap[tab] ?? 'floor';
+      });
+    },
+
     // ── Draft Line Management ───────────────────────────────────
 
     addDraftLine: (tabId, line) => {
@@ -257,6 +300,22 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
 
     getDraftCount: (tabId) => {
       return (get().draftLines[tabId] ?? []).length;
+    },
+
+    repeatLastItem: (tabId) => {
+      const lines = get().draftLines[tabId];
+      if (!lines || lines.length === 0) return;
+      const last = lines[lines.length - 1]!;
+      set((state) => {
+        if (!state.draftLines[tabId]) state.draftLines[tabId] = [];
+        state.draftLines[tabId].push({
+          ...last,
+          localId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          seatNumber: state.activeSeatNumber,
+          courseNumber: state.activeCourseNumber,
+          addedAt: Date.now(),
+        });
+      });
     },
 
     // ── Seat + Course ───────────────────────────────────────────
@@ -410,6 +469,27 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
       try { localStorage.setItem('oppsera:fnb-skip-confirm', String(!get().skipPaymentConfirm)); } catch { /* ignore */ }
     },
 
+    // ── Server Lock ──────────────────────────────────────────────
+
+    lockToServer: (name, id) => {
+      const lock: FnbServerLock = { isLocked: true, serverName: name, serverId: id };
+      set((state) => { state.serverLock = lock; });
+      try { localStorage.setItem('oppsera:fnb-server-lock', JSON.stringify(lock)); } catch { /* ignore */ }
+      try { localStorage.setItem('oppsera:fnb-server-pin', ''); } catch { /* ignore */ }
+    },
+
+    unlockServer: (pin) => {
+      try {
+        const storedPin = localStorage.getItem('oppsera:fnb-server-pin') ?? '';
+        if (storedPin && pin !== storedPin) return false;
+      } catch { /* ignore — allow unlock if storage unavailable */ }
+      const unlock: FnbServerLock = { isLocked: false, serverName: null, serverId: null };
+      set((state) => { state.serverLock = unlock; });
+      try { localStorage.removeItem('oppsera:fnb-server-lock'); } catch { /* ignore */ }
+      try { localStorage.removeItem('oppsera:fnb-server-pin'); } catch { /* ignore */ }
+      return true;
+    },
+
     // ── Connection ──────────────────────────────────────────────
 
     setOnline: (online) => {
@@ -428,6 +508,7 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
         leftHandMode: getPersistedLeftHandMode(), // preserve preference
         tileSize: getPersistedTileSize(), // preserve preference
         skipPaymentConfirm: getPersistedSkipConfirm(), // preserve preference
+        serverLock: getPersistedServerLock(), // preserve server lock
       }));
     },
   })),

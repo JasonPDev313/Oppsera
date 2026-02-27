@@ -48,13 +48,15 @@ export async function bumpTicket(
     }
 
     // Bump ticket to served
+    const now = new Date();
     const [updated] = await (tx as any)
       .update(fnbKitchenTickets)
       .set({
         status: 'served',
-        servedAt: new Date(),
+        servedAt: now,
+        bumpedBy: ctx.user.id,
         version: ticket.version + 1,
-        updatedAt: new Date(),
+        updatedAt: now,
       })
       .where(eq(fnbKitchenTickets.id, input.ticketId))
       .returning();
@@ -64,8 +66,9 @@ export async function bumpTicket(
       .update(fnbKitchenTicketItems)
       .set({
         itemStatus: 'served',
-        servedAt: new Date(),
-        updatedAt: new Date(),
+        servedAt: now,
+        bumpedBy: ctx.user.id,
+        updatedAt: now,
       })
       .where(and(
         eq(fnbKitchenTicketItems.ticketId, input.ticketId),

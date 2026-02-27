@@ -170,6 +170,7 @@ export function OrderTicket({
                     seatNumber={line.seatNumber ?? 1}
                     itemName={line.catalogItemName ?? 'Unknown'}
                     modifiers={line.modifiers}
+                    specialInstructions={line.specialInstructions}
                     priceCents={line.unitPriceCents ?? 0}
                     qty={line.qty ?? 1}
                     status={(line.status as 'draft' | 'sent' | 'fired' | 'served' | 'voided') ?? 'draft'}
@@ -230,7 +231,14 @@ export function OrderTicket({
                   <FnbOrderLine
                     seatNumber={draft.seatNumber}
                     itemName={draft.catalogItemName}
-                    modifiers={draft.modifiers.map((m) => m.name)}
+                    modifiers={draft.modifiers.map((m) => {
+                      // Format with instruction prefix for proper chip coloring
+                      if (m.instruction === 'none') return `NO ${m.name}`;
+                      if (m.instruction === 'extra') return `EXTRA ${m.name}`;
+                      if (m.instruction === 'on_side') return `${m.name} ON SIDE`;
+                      return m.name;
+                    })}
+                    specialInstructions={draft.specialInstructions}
                     priceCents={draft.unitPriceCents}
                     qty={draft.qty}
                     status="draft"

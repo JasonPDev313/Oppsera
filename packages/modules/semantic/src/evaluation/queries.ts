@@ -1,4 +1,4 @@
-import { db } from '@oppsera/db';
+import { db, withTenant } from '@oppsera/db';
 import {
   semanticEvalTurns,
   semanticEvalSessions,
@@ -170,15 +170,36 @@ export async function getEvalSession(
   sessionId: string,
   tenantId?: string,
 ): Promise<{ session: EvalSession; turns: EvalTurn[] } | null> {
-  const conditions = [eq(semanticEvalSessions.id, sessionId)];
+  // When tenantId is provided (web app path), use withTenant to set
+  // the RLS context. Without this, RLS filters out all rows.
   if (tenantId) {
-    conditions.push(eq(semanticEvalSessions.tenantId, tenantId));
+    return withTenant(tenantId, async (tx) => {
+      const [session] = await tx
+        .select()
+        .from(semanticEvalSessions)
+        .where(and(eq(semanticEvalSessions.id, sessionId), eq(semanticEvalSessions.tenantId, tenantId)))
+        .limit(1);
+
+      if (!session) return null;
+
+      const turns = await tx
+        .select()
+        .from(semanticEvalTurns)
+        .where(eq(semanticEvalTurns.sessionId, sessionId))
+        .orderBy(asc(semanticEvalTurns.turnNumber));
+
+      return {
+        session: mapSession(session),
+        turns: turns.map(mapTurn),
+      };
+    });
   }
 
+  // Admin cross-tenant path (no tenantId) — uses bare db
   const [session] = await db
     .select()
     .from(semanticEvalSessions)
-    .where(and(...conditions))
+    .where(eq(semanticEvalSessions.id, sessionId))
     .limit(1);
 
   if (!session) return null;
@@ -219,77 +240,80 @@ export async function listEvalSessions(
   tenantId: string,
   filters: { cursor?: string; limit?: number } = {},
 ): Promise<EvalSessionListResult> {
-  const pageSize = Math.min(filters.limit ?? 20, 100);
+  // Must use withTenant to set RLS context — without it, RLS filters out all rows
+  return withTenant(tenantId, async (tx) => {
+    const pageSize = Math.min(filters.limit ?? 20, 100);
 
-  const cursorClause = filters.cursor
-    ? sql`AND s.id < ${filters.cursor}`
-    : sql``;
+    const cursorClause = filters.cursor
+      ? sql`AND s.id < ${filters.cursor}`
+      : sql``;
 
-  const rows = await db.execute<{
-    id: string;
-    tenant_id: string;
-    session_id: string | null;
-    started_at: string;
-    ended_at: string | null;
-    message_count: string;
-    avg_user_rating: string | null;
-    status: string;
-    first_message: string | null;
-  }>(
-    sql`SELECT
-      s.id,
-      s.tenant_id,
-      s.session_id,
-      s.started_at::TEXT AS started_at,
-      s.ended_at::TEXT AS ended_at,
-      s.message_count,
-      s.avg_user_rating,
-      s.status,
-      (
-        SELECT t.user_message
-        FROM semantic_eval_turns t
-        WHERE t.session_id = s.id
-        ORDER BY t.turn_number ASC
-        LIMIT 1
-      ) AS first_message
-    FROM semantic_eval_sessions s
-    WHERE s.tenant_id = ${tenantId}
-      AND s.message_count > 0
-      ${cursorClause}
-    ORDER BY s.started_at DESC
-    LIMIT ${pageSize + 1}`,
-  );
+    const rows = await tx.execute<{
+      id: string;
+      tenant_id: string;
+      session_id: string | null;
+      started_at: string;
+      ended_at: string | null;
+      message_count: string;
+      avg_user_rating: string | null;
+      status: string;
+      first_message: string | null;
+    }>(
+      sql`SELECT
+        s.id,
+        s.tenant_id,
+        s.session_id,
+        s.started_at::TEXT AS started_at,
+        s.ended_at::TEXT AS ended_at,
+        s.message_count,
+        s.avg_user_rating,
+        s.status,
+        (
+          SELECT t.user_message
+          FROM semantic_eval_turns t
+          WHERE t.session_id = s.id
+          ORDER BY t.turn_number ASC
+          LIMIT 1
+        ) AS first_message
+      FROM semantic_eval_sessions s
+      WHERE s.tenant_id = ${tenantId}
+        AND s.message_count > 0
+        ${cursorClause}
+      ORDER BY s.started_at DESC
+      LIMIT ${pageSize + 1}`,
+    );
 
-  const items = Array.from(rows as Iterable<{
-    id: string;
-    tenant_id: string;
-    session_id: string | null;
-    started_at: string;
-    ended_at: string | null;
-    message_count: string;
-    avg_user_rating: string | null;
-    status: string;
-    first_message: string | null;
-  }>);
+    const items = Array.from(rows as Iterable<{
+      id: string;
+      tenant_id: string;
+      session_id: string | null;
+      started_at: string;
+      ended_at: string | null;
+      message_count: string;
+      avg_user_rating: string | null;
+      status: string;
+      first_message: string | null;
+    }>);
 
-  const hasMore = items.length > pageSize;
-  const page = hasMore ? items.slice(0, pageSize) : items;
+    const hasMore = items.length > pageSize;
+    const page = hasMore ? items.slice(0, pageSize) : items;
 
-  return {
-    sessions: page.map((r) => ({
-      id: r.id,
-      tenantId: r.tenant_id,
-      sessionId: r.session_id,
-      startedAt: r.started_at,
-      endedAt: r.ended_at,
-      messageCount: parseInt(r.message_count, 10),
-      avgUserRating: r.avg_user_rating ? Number(r.avg_user_rating) : null,
-      status: r.status as EvalSession['status'],
-      firstMessage: r.first_message,
-    })),
-    cursor: hasMore ? page[page.length - 1]!.id : null,
-    hasMore,
-  };
+    return {
+      sessions: page.map((r) => ({
+        id: r.id,
+        tenantId: r.tenant_id,
+        sessionId: r.session_id,
+        startedAt: r.started_at,
+        endedAt: r.ended_at,
+        messageCount: parseInt(r.message_count, 10),
+        avgUserRating: r.avg_user_rating ? Number(r.avg_user_rating) : null,
+        status: r.status as EvalSession['status'],
+        firstMessage: r.first_message,
+      })),
+      cursor: hasMore ? page[page.length - 1]!.id : null,
+      hasMore,
+    };
+  });
 }
 
 // ── getQualityDashboard ─────────────────────────────────────────

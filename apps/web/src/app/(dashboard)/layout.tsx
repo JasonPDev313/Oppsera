@@ -40,6 +40,7 @@ import { applyNavPreferences } from '@/lib/navigation-order';
 import { useNavPreferences } from '@/hooks/use-nav-preferences';
 import { useErpConfig } from '@/hooks/use-erp-config';
 import { filterNavByTier } from '@/lib/navigation-filter';
+import { AiAssistantStub } from '@/components/ai-assistant-stub';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
 
@@ -739,6 +740,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <AiAssistantStub />
             <CommandPalette />
             <button
               type="button"

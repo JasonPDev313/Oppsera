@@ -31,13 +31,21 @@ export async function bumpItem(
       .limit(1);
     if (!item) throw new TicketItemNotFoundError(input.ticketItemId);
 
+    const now = new Date();
+    const updateData: Record<string, unknown> = {
+      itemStatus: 'ready',
+      readyAt: now,
+      bumpedBy: ctx.user.id,
+      updatedAt: now,
+    };
+    // Record startedAt on first interaction (item was pending, never started)
+    if (!item.startedAt) {
+      updateData.startedAt = now;
+    }
+
     const [updated] = await (tx as any)
       .update(fnbKitchenTicketItems)
-      .set({
-        itemStatus: 'ready',
-        readyAt: new Date(),
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(fnbKitchenTicketItems.id, input.ticketItemId))
       .returning();
 

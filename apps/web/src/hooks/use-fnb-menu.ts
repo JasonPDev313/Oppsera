@@ -18,6 +18,12 @@ interface FnbModifierOption {
   name: string;
   priceCents: number;
   isDefault: boolean;
+  extraPriceDeltaCents?: number | null;
+  kitchenLabel?: string | null;
+  allowNone?: boolean;
+  allowExtra?: boolean;
+  allowOnSide?: boolean;
+  isDefaultOption?: boolean;
 }
 
 interface FnbModifierGroup {
@@ -27,6 +33,8 @@ interface FnbModifierGroup {
   minSelections: number;
   maxSelections: number;
   options: FnbModifierOption[];
+  instructionMode?: string;
+  defaultBehavior?: string;
 }
 
 interface FnbMenuItem {
@@ -76,6 +84,12 @@ interface RawPOSModifierOption {
   priceCents: number;
   sortOrder: number;
   isDefault: boolean;
+  extraPriceDeltaCents?: number | null;
+  kitchenLabel?: string | null;
+  allowNone?: boolean;
+  allowExtra?: boolean;
+  allowOnSide?: boolean;
+  isDefaultOption?: boolean;
 }
 
 interface RawPOSModifierGroup {
@@ -86,12 +100,19 @@ interface RawPOSModifierGroup {
   minSelections: number;
   maxSelections: number;
   options: RawPOSModifierOption[];
+  instructionMode?: string;
+  defaultBehavior?: string;
 }
 
 interface RawPOSItemModifierAssignment {
   catalogItemId: string;
   modifierGroupId: string;
   isDefault: boolean;
+  overrideRequired?: boolean | null;
+  overrideMinSelections?: number | null;
+  overrideMaxSelections?: number | null;
+  overrideInstructionMode?: string | null;
+  promptOrder?: number | null;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -222,18 +243,26 @@ async function fetchAndProcessMenu(): Promise<MenuCacheEntry> {
     itemModGroupMap.set(a.catalogItemId, existing);
   }
 
-  // Build modifier groups with options (already in POS-friendly format)
+  // Build modifier groups with options (including instruction fields from POS catalog)
   const modifierGroups: FnbModifierGroup[] = rawModGroups.map((g) => ({
     id: g.id,
     name: g.name,
     isRequired: g.isRequired,
     minSelections: g.minSelections,
     maxSelections: g.maxSelections,
+    instructionMode: g.instructionMode || 'all',
+    defaultBehavior: g.defaultBehavior,
     options: g.options.map((o) => ({
       id: o.id,
       name: o.name,
       priceCents: o.priceCents,
       isDefault: o.isDefault,
+      extraPriceDeltaCents: o.extraPriceDeltaCents ?? null,
+      kitchenLabel: o.kitchenLabel ?? null,
+      allowNone: o.allowNone ?? false,
+      allowExtra: o.allowExtra ?? false,
+      allowOnSide: o.allowOnSide ?? false,
+      isDefaultOption: o.isDefaultOption ?? false,
     })),
   }));
 

@@ -75,8 +75,13 @@ export const applyDiscountSchema = z.object({
   type: z.enum(['percentage', 'fixed']),
   value: z.number().positive(),
   reason: z.string().max(500).optional(),
+  discountClassification: z.enum([
+    'manual_discount', 'promo_code', 'employee_discount', 'loyalty_discount',
+    'member_discount', 'price_match', 'manager_comp', 'promo_comp',
+    'quality_recovery', 'price_override', 'other_comp',
+  ]).optional().default('manual_discount'),
 });
-export type ApplyDiscountInput = z.infer<typeof applyDiscountSchema>;
+export type ApplyDiscountInput = z.input<typeof applyDiscountSchema>;
 
 export const placeOrderSchema = z.object({
   ...idempotencyMixin,
@@ -138,3 +143,9 @@ export const setTaxExemptSchema = z.object({
   taxExemptReason: z.string().max(500).nullable().optional(),
 });
 export type SetTaxExemptInput = z.infer<typeof setTaxExemptSchema>;
+
+export const setServiceChargeExemptSchema = z.object({
+  ...idempotencyMixin,
+  serviceChargeExempt: z.boolean(),
+});
+export type SetServiceChargeExemptInput = z.infer<typeof setServiceChargeExemptSchema>;

@@ -737,6 +737,14 @@ export type {
   CheckInReservationInput, UpdateHostSettingsInput,
   GetWaitlistFilterInput, GetReservationsFilterInput, GetHostDashboardInput,
   GetWaitTimeEstimateInput, GetTableAvailabilityInput,
+  // KDS Comprehensive Settings
+  AlertEventConfig,
+  CreateBumpBarProfileInput, UpdateBumpBarProfileInput,
+  CreateAlertProfileInput, UpdateAlertProfileInput,
+  UpsertPerformanceTargetInput,
+  UpsertItemPrepTimeInput, BulkUpsertItemPrepTimesInput,
+  CreateKdsRoutingRuleInput, UpdateKdsRoutingRuleInput,
+  GetKdsViewEnhancedInput,
 } from './validation';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1076,6 +1084,50 @@ export type { HostSettings as HostSettingsV2, HostSettingsInput } from './servic
 
 // V2 Consumers
 export { handleTabClosedForHost, handleTurnCompletedForHost } from './consumers/host-consumers';
+
+// ═══════════════════════════════════════════════════════════════════
+// KDS Comprehensive Settings & Routing Engine
+// ═══════════════════════════════════════════════════════════════════
+
+// Commands
+export { upsertBumpBarProfile } from './commands/upsert-bump-bar-profile';
+export { upsertAlertProfile } from './commands/upsert-alert-profile';
+export { upsertPerformanceTarget } from './commands/upsert-performance-target';
+export { upsertItemPrepTime, bulkUpsertItemPrepTimes } from './commands/upsert-item-prep-time';
+
+// Queries
+export {
+  listBumpBarProfiles, getBumpBarProfile,
+  listAlertProfiles, getAlertProfile,
+  listPerformanceTargets, listItemPrepTimes,
+  getKdsStationSettings,
+} from './queries/list-kds-settings';
+export type {
+  BumpBarProfileListItem, BumpBarProfileDetail,
+  AlertProfileListItem, AlertProfileDetail,
+  PerformanceTargetItem, ItemPrepTimeItem,
+  KdsStationSettings,
+} from './queries/list-kds-settings';
+
+// Routing Engine
+export {
+  resolveStationRouting,
+  getStationPrepTimeForItem,
+} from './services/kds-routing-engine';
+export type {
+  RoutingContext, RoutableItem, RoutingResult,
+} from './services/kds-routing-engine';
+
+// KDS Validation Schemas
+export {
+  alertEventConfigSchema,
+  createBumpBarProfileSchema, updateBumpBarProfileSchema,
+  createAlertProfileSchema, updateAlertProfileSchema,
+  upsertPerformanceTargetSchema,
+  upsertItemPrepTimeSchema, bulkUpsertItemPrepTimesSchema,
+  createKdsRoutingRuleSchema, updateKdsRoutingRuleSchema,
+  getKdsViewEnhancedSchema,
+} from './validation';
 
 // Re-export reconciliation methods (used by ReconciliationReadApi)
 export { getFnbCloseStatus } from './reconciliation';

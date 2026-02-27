@@ -34,6 +34,7 @@ export async function applyDiscount(ctx: RequestContext, orderId: string, input:
       value: input.type === 'fixed' ? Math.round(input.value * 100) : input.value,
       amount,
       reason: input.reason ?? null,
+      discountClassification: input.discountClassification ?? 'manual_discount',
       createdBy: ctx.user.id,
     }).returning();
 
@@ -71,6 +72,7 @@ export async function applyDiscount(ctx: RequestContext, orderId: string, input:
       type: input.type,
       value: input.value,
       amount,
+      discountClassification: input.discountClassification ?? 'manual_discount',
     });
 
     return { result: discount!, events: [event] };

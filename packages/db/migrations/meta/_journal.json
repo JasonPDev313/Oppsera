@@ -1464,6 +1464,55 @@
       "when": 1708100208000,
       "tag": "0208_backup_inline_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 209,
+      "version": "7",
+      "when": 1708100209000,
+      "tag": "0209_kds_comprehensive_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 210,
+      "version": "7",
+      "when": 1708100210000,
+      "tag": "0210_semantic_authoring",
+      "breakpoints": true
+    },
+    {
+      "idx": 211,
+      "version": "7",
+      "when": 1708100211000,
+      "tag": "0211_coa_template_transaction_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 212,
+      "version": "7",
+      "when": 1708100212000,
+      "tag": "0212_discount_gl_classification",
+      "breakpoints": true
+    },
+    {
+      "idx": 213,
+      "version": "7",
+      "when": 1708100213000,
+      "tag": "0213_tenant_settings_upsert_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 214,
+      "version": "7",
+      "when": 1708100214000,
+      "tag": "0214_gl_dimension_compound_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 215,
+      "version": "7",
+      "when": 1708100215000,
+      "tag": "0215_expanded_discount_gl_templates",
+      "breakpoints": true
     }
   ]
 }

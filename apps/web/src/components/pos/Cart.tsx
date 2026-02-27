@@ -1,11 +1,23 @@
 'use client';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, Plus, Minus, Pencil, CheckSquare, Trash2, DollarSign } from 'lucide-react';
+import {
+  X,
+  Plus,
+  Minus,
+  Pencil,
+  CheckSquare,
+  Trash2,
+  DollarSign,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getItemTypeGroup } from '@/types/catalog';
 import type { Order, OrderLine } from '@/types/pos';
 import type { FnbMetadata } from '@oppsera/shared';
+import { LineItemEditPanel } from './LineItemEditPanel';
+import type { LineEditPermissions } from './LineItemEditPanel';
 
 function formatMoney(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -379,92 +391,7 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
   );
 }
 
-// ── Inline Line Editor ────────────────────────────────────────────
-
-function ExpandedLineEditor({
-  line,
-  onUpdateQty,
-  onRemove,
-  onUpdateNote,
-}: {
-  line: OrderLine;
-  onUpdateQty?: (lineId: string, newQty: number) => void;
-  onRemove: (lineId: string) => void;
-  onUpdateNote?: (lineId: string, note: string) => void;
-}) {
-  const qty = Number(line.qty);
-  const [note, setNote] = useState(line.notes ?? '');
-
-  return (
-    <div className="border-t border-border bg-muted px-3 py-2 space-y-2">
-      {/* Qty stepper */}
-      {onUpdateQty && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground w-8">Qty</span>
-          <button
-            type="button"
-            onClick={() => onUpdateQty(line.id, Math.max(1, qty - 1))}
-            disabled={qty <= 1}
-            className="flex h-7 w-7 items-center justify-center rounded border border-input text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30 active:scale-[0.97]"
-          >
-            <Minus className="h-3 w-3" />
-          </button>
-          <span className="min-w-8 text-center text-sm font-semibold text-foreground">{qty}</span>
-          <button
-            type="button"
-            onClick={() => onUpdateQty(line.id, qty + 1)}
-            className="flex h-7 w-7 items-center justify-center rounded border border-input text-muted-foreground transition-colors hover:bg-accent active:scale-[0.97]"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-        </div>
-      )}
-
-      {/* Note input */}
-      {onUpdateNote && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground w-8">Note</span>
-          <input
-            type="text"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            onBlur={() => onUpdateNote(line.id, note)}
-            onKeyDown={(e) => { if (e.key === 'Enter') onUpdateNote(line.id, note); }}
-            placeholder="Add a note..."
-            className="flex-1 rounded border border-input px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none"
-          />
-        </div>
-      )}
-
-      {/* Remove button */}
-      <button
-        type="button"
-        onClick={() => onRemove(line.id)}
-        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-500/30 px-2 py-1.5 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10 active:scale-[0.97]"
-      >
-        <X className="h-3 w-3" />
-        Remove Item
-      </button>
-    </div>
-  );
-}
-
-// ── Cart Component ────────────────────────────────────────────────
-
-interface CartProps {
-  order: Order | null;
-  onRemoveItem: (lineId: string) => void;
-  onUpdateQty?: (lineId: string, newQty: number) => void;
-  onUpdateLineNote?: (lineId: string, note: string) => void;
-  label?: string;
-  /** Multi-select mode */
-  selectMode?: boolean;
-  selectedLineIds?: Set<string>;
-  onToggleSelect?: (lineId: string) => void;
-  onToggleSelectMode?: () => void;
-  onBatchRemove?: () => void;
-  onBatchDiscount?: () => void;
-}
+// ── Cart Line (type-aware) ───────────────────────────────────────
 
 const CartLineItem = memo(function CartLineItem({ line, onRemoveItem, onUpdateQty }: {
   line: OrderLine;
@@ -504,7 +431,7 @@ interface ConsolidatedGroup {
 }
 
 function buildConsolidationKey(line: OrderLine): string {
-  return `${line.catalogItemId}|${JSON.stringify(line.modifiers ?? [])}|${JSON.stringify(line.selectedOptions ?? {})}`;
+  return `${line.catalogItemId}|${line.unitPrice}|${line.priceOverrideReason ?? ''}|${JSON.stringify(line.modifiers ?? [])}|${JSON.stringify(line.selectedOptions ?? {})}`;
 }
 
 function consolidateLines(lines: OrderLine[]): ConsolidatedGroup[] {
@@ -525,7 +452,182 @@ function consolidateLines(lines: OrderLine[]): ConsolidatedGroup[] {
   }));
 }
 
+// ── Group Sub-Row (expanded individual item in a group) ──────────
+
+function GroupSubRow({
+  line,
+  index,
+  isEditing,
+  onEdit,
+  onRemove,
+  onUpdateNote,
+  onPriceOverride,
+  onEditModifiers,
+  onVoidLine,
+  onCompLine,
+  permissions,
+}: {
+  line: OrderLine;
+  index: number;
+  isEditing: boolean;
+  onEdit: () => void;
+  onRemove: (lineId: string) => void;
+  onUpdateNote?: (lineId: string, note: string) => void;
+  onPriceOverride?: (line: OrderLine) => void;
+  onEditModifiers?: (line: OrderLine) => void;
+  onVoidLine?: (line: OrderLine) => void;
+  onCompLine?: (line: OrderLine) => void;
+  permissions?: LineEditPermissions;
+}) {
+  const hasDetail =
+    (line.modifiers && line.modifiers.length > 0) ||
+    line.specialInstructions ||
+    line.notes ||
+    line.originalUnitPrice != null ||
+    (line.selectedOptions && Object.keys(line.selectedOptions).length > 0);
+
+  return (
+    <div>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onEdit}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onEdit(); }}
+        className={`group flex items-start gap-2 pl-6 pr-3 py-1.5 cursor-pointer transition-colors hover:bg-accent/50 ${isEditing ? 'bg-accent/30' : ''}`}
+      >
+        {/* Index badge */}
+        <span className="shrink-0 mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500/15 text-[10px] font-bold text-indigo-400">
+          {index}
+        </span>
+
+        {/* Item detail */}
+        <div className="flex-1 min-w-0">
+          <span
+            className="text-xs font-medium text-foreground"
+            style={{ fontSize: 'calc(0.75rem * var(--pos-font-scale, 1))' }}
+          >
+            {line.catalogItemName}
+          </span>
+
+          {/* Price override */}
+          {line.originalUnitPrice != null && (
+            <div className="mt-0.5 flex items-center gap-1">
+              <span className="text-[10px] text-muted-foreground line-through">
+                {formatMoney(line.originalUnitPrice)}
+              </span>
+              <span className="text-[10px] font-medium text-foreground">
+                {formatMoney(line.unitPrice)}
+              </span>
+              {line.priceOverrideReason && (
+                <Badge variant="warning" className="text-[9px] px-1 py-0">
+                  {line.priceOverrideReason}
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Modifiers */}
+          {line.modifiers && line.modifiers.length > 0 && (
+            <div className="mt-0.5 space-y-0.5">
+              {line.modifiers.map((mod) => (
+                <div key={mod.modifierId} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <span className="h-1 w-1 rounded-full bg-muted-foreground/50 shrink-0" />
+                  <span>{mod.name}</span>
+                  {mod.priceAdjustment !== 0 && (
+                    <span>+{formatMoney(mod.priceAdjustment)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Selected options */}
+          {line.selectedOptions && Object.keys(line.selectedOptions).length > 0 && (
+            <p className="mt-0.5 text-[10px] text-muted-foreground">
+              {Object.entries(line.selectedOptions)
+                .map(([key, val]) => `${key}: ${val}`)
+                .join(' \u00B7 ')}
+            </p>
+          )}
+
+          {/* Special instructions */}
+          {line.specialInstructions && (
+            <p className="mt-0.5 text-[10px] italic text-amber-500">
+              &ldquo;{line.specialInstructions}&rdquo;
+            </p>
+          )}
+
+          {/* Notes */}
+          {line.notes && (
+            <p className="mt-0.5 text-[10px] text-muted-foreground">{line.notes}</p>
+          )}
+
+          {/* Hint if no detail */}
+          {!hasDetail && (
+            <p className="mt-0.5 text-[10px] text-muted-foreground/50 italic">No modifiers</p>
+          )}
+        </div>
+
+        {/* Right side: price + actions */}
+        <div className="flex items-center gap-1 shrink-0">
+          <Pencil className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+          <span
+            className="text-xs font-semibold text-foreground"
+            style={{ fontSize: 'calc(0.75rem * var(--pos-font-scale, 1))' }}
+          >
+            {formatMoney(line.lineTotal)}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRemove(line.id); }}
+            className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+            aria-label={`Remove item ${index}`}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Inline edit panel for this sub-row */}
+      {isEditing && onUpdateNote && permissions && (
+        <LineItemEditPanel
+          line={line}
+          onUpdateNote={onUpdateNote}
+          onRemove={onRemove}
+          onPriceOverride={onPriceOverride ?? (() => {})}
+          onEditModifiers={onEditModifiers ?? (() => {})}
+          onVoidLine={onVoidLine ?? (() => {})}
+          onCompLine={onCompLine ?? (() => {})}
+          onDone={() => onEdit()}
+          permissions={permissions}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── Cart Component ────────────────────────────────────────────────
+
+interface CartProps {
+  order: Order | null;
+  onRemoveItem: (lineId: string) => void;
+  onUpdateQty?: (lineId: string, newQty: number) => void;
+  onUpdateLineNote?: (lineId: string, note: string) => void;
+  label?: string;
+  /** Multi-select mode */
+  selectMode?: boolean;
+  selectedLineIds?: Set<string>;
+  onToggleSelect?: (lineId: string) => void;
+  onToggleSelectMode?: () => void;
+  onBatchRemove?: () => void;
+  onBatchDiscount?: () => void;
+  /** Line-level edit actions */
+  onPriceOverride?: (line: OrderLine) => void;
+  onEditModifiers?: (line: OrderLine) => void;
+  onVoidLine?: (line: OrderLine) => void;
+  onCompLine?: (line: OrderLine) => void;
+  permissions?: LineEditPermissions;
+}
 
 export const Cart = memo(function Cart({
   order,
@@ -539,16 +641,34 @@ export const Cart = memo(function Cart({
   onToggleSelectMode,
   onBatchRemove,
   onBatchDiscount,
+  onPriceOverride,
+  onEditModifiers,
+  onVoidLine,
+  onCompLine,
+  permissions,
 }: CartProps) {
   const lines = order?.lines ?? [];
   const itemCount = lines.length;
   const scrollRef = useRef<HTMLDivElement>(null);
   const sortedLines = useMemo(() => [...lines].sort((a, b) => a.sortOrder - b.sortOrder), [lines]);
 
-  // Inline editing — only one line expanded at a time
-  const [expandedLineId, setExpandedLineId] = useState<string | null>(null);
-  const toggleExpand = useCallback((lineId: string) => {
-    setExpandedLineId((prev) => (prev === lineId ? null : lineId));
+  // Two-level expansion state
+  const [expandedGroupKey, setExpandedGroupKey] = useState<string | null>(null);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+
+  const toggleGroupExpand = useCallback((groupKey: string) => {
+    setExpandedGroupKey((prev) => {
+      if (prev === groupKey) {
+        setEditingLineId(null); // collapse group = close editor
+        return null;
+      }
+      setEditingLineId(null);
+      return groupKey;
+    });
+  }, []);
+
+  const toggleLineEdit = useCallback((lineId: string) => {
+    setEditingLineId((prev) => (prev === lineId ? null : lineId));
   }, []);
 
   // Track new line IDs for slide-in animation
@@ -584,6 +704,32 @@ export const Cart = memo(function Cart({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [itemCount]);
+
+  // Auto-cleanup: if editingLineId no longer exists in lines, reset
+  useEffect(() => {
+    if (editingLineId && !lines.some((l) => l.id === editingLineId)) {
+      setEditingLineId(null);
+    }
+  }, [editingLineId, lines]);
+
+  // Auto-cleanup: if expandedGroupKey's group shrinks to count <= 1 or disappears, collapse
+  useEffect(() => {
+    if (expandedGroupKey) {
+      const group = consolidated.find((g) => g.key === expandedGroupKey);
+      if (!group || group.count <= 1) {
+        setExpandedGroupKey(null);
+        setEditingLineId(null);
+      }
+    }
+  }, [expandedGroupKey, consolidated]);
+
+  // Default permissions for the edit panel
+  const editPermissions: LineEditPermissions = permissions ?? {
+    priceOverride: false,
+    discount: false,
+    voidLine: false,
+    comp: false,
+  };
 
   return (
     <div role="region" aria-label={`${label} — ${itemCount} item${itemCount !== 1 ? 's' : ''}`} className="flex h-full flex-col">
@@ -661,117 +807,151 @@ export const Cart = memo(function Cart({
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
           {consolidated.map((group) => {
             const isNew = newLineIdsRef.current.has(group.displayLine.id);
-            const isExpanded = expandedLineId === group.displayLine.id;
+            const isGroupExpanded = expandedGroupKey === group.key;
+            const isSingleEditing = group.count === 1 && editingLineId === group.displayLine.id;
+
             return (
               <div
                 key={group.key}
                 className={isNew ? 'cart-line-enter' : ''}
               >
                 {group.count > 1 ? (
-                  /* Consolidated group row */
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => selectMode && onToggleSelect ? onToggleSelect(group.displayLine.id) : toggleExpand(group.displayLine.id)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectMode && onToggleSelect) { onToggleSelect(group.displayLine.id); } else { toggleExpand(group.displayLine.id); } } }}
-                    className="group flex cursor-pointer items-start justify-between gap-2 border-b border-border px-3 py-0.5 transition-colors hover:bg-accent"
-                  >
-                    {selectMode && (
-                      <input
-                        type="checkbox"
-                        checked={selectedLineIds?.has(group.displayLine.id) ?? false}
-                        onChange={() => onToggleSelect?.(group.displayLine.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="mt-1 h-4 w-4 shrink-0 rounded border-border text-indigo-600 focus:ring-indigo-500"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="font-medium text-foreground truncate"
-                          style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
-                        >
-                          {group.displayLine.catalogItemName}
-                        </span>
-                        <span className="shrink-0 rounded-full bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-400">
-                          x{group.count}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Pencil className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                      <div
-                        className="text-sm font-semibold text-foreground"
-                        style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
-                      >
-                        {formatMoney(group.totalCents)}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          for (const line of group.lines) {
-                            onRemoveItem(line.id);
-                          }
-                        }}
-                        className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
-                        aria-label={`Remove all ${group.displayLine.catalogItemName}`}
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* Single item row — wrap to make tappable */
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => selectMode && onToggleSelect ? onToggleSelect(group.displayLine.id) : toggleExpand(group.displayLine.id)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectMode && onToggleSelect) { onToggleSelect(group.displayLine.id); } else { toggleExpand(group.displayLine.id); } } }}
-                    className="cursor-pointer transition-colors hover:bg-accent"
-                  >
-                    {selectMode ? (
-                      <div className="flex items-start gap-2 border-b border-border px-3 py-0.5">
+                  /* ── Consolidated group ───────────────── */
+                  <>
+                    {/* Group header row */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => selectMode && onToggleSelect ? onToggleSelect(group.displayLine.id) : toggleGroupExpand(group.key)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectMode && onToggleSelect) { onToggleSelect(group.displayLine.id); } else { toggleGroupExpand(group.key); } } }}
+                      className={`group flex cursor-pointer items-start justify-between gap-2 border-b border-border px-3 py-0.5 transition-colors hover:bg-accent ${isGroupExpanded ? 'bg-accent/20' : ''}`}
+                    >
+                      {selectMode && (
                         <input
                           type="checkbox"
                           checked={selectedLineIds?.has(group.displayLine.id) ?? false}
                           onChange={() => onToggleSelect?.(group.displayLine.id)}
                           onClick={(e) => e.stopPropagation()}
-                          className="mt-1 h-4 w-4 shrink-0 rounded border-border text-indigo-600 focus:ring-indigo-500"
+                          className="mt-1 h-4 w-4 shrink-0 rounded border-border text-indigo-500 focus:ring-indigo-500"
                         />
-                        <div className="flex-1 min-w-0">
-                          <CartLineItem
-                            line={group.displayLine}
-                            onRemoveItem={onRemoveItem}
-                            onUpdateQty={onUpdateQty}
-                          />
+                      )}
+
+                      {/* Expand chevron */}
+                      {!selectMode && (
+                        isGroupExpanded
+                          ? <ChevronDown className="mt-1 h-3.5 w-3.5 shrink-0 text-indigo-400" />
+                          : <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="font-medium text-foreground truncate"
+                            style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+                          >
+                            {group.displayLine.catalogItemName}
+                          </span>
+                          <span className="shrink-0 rounded-full bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-400">
+                            x{group.count}
+                          </span>
                         </div>
                       </div>
-                    ) : (
-                      <CartLineItem
+                      <div className="flex items-center gap-1 shrink-0">
+                        <div
+                          className="text-sm font-semibold text-foreground"
+                          style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+                        >
+                          {formatMoney(group.totalCents)}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            for (const line of group.lines) {
+                              onRemoveItem(line.id);
+                            }
+                          }}
+                          className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+                          aria-label={`Remove all ${group.displayLine.catalogItemName}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Expanded sub-rows — one per individual line in the group */}
+                    {isGroupExpanded && (
+                      <div className="border-b border-border bg-muted/30">
+                        {group.lines.map((line, idx) => (
+                          <GroupSubRow
+                            key={line.id}
+                            line={line}
+                            index={idx + 1}
+                            isEditing={editingLineId === line.id}
+                            onEdit={() => toggleLineEdit(line.id)}
+                            onRemove={onRemoveItem}
+                            onUpdateNote={onUpdateLineNote}
+                            onPriceOverride={onPriceOverride}
+                            onEditModifiers={onEditModifiers}
+                            onVoidLine={onVoidLine}
+                            onCompLine={onCompLine}
+                            permissions={editPermissions}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  /* ── Single item row ─────────────────── */
+                  <>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => selectMode && onToggleSelect ? onToggleSelect(group.displayLine.id) : toggleLineEdit(group.displayLine.id)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectMode && onToggleSelect) { onToggleSelect(group.displayLine.id); } else { toggleLineEdit(group.displayLine.id); } } }}
+                      className={`cursor-pointer transition-colors hover:bg-accent ${isSingleEditing ? 'bg-accent/20' : ''}`}
+                    >
+                      {selectMode ? (
+                        <div className="flex items-start gap-2 border-b border-border px-3 py-0.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedLineIds?.has(group.displayLine.id) ?? false}
+                            onChange={() => onToggleSelect?.(group.displayLine.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-1 h-4 w-4 shrink-0 rounded border-border text-indigo-500 focus:ring-indigo-500"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <CartLineItem
+                              line={group.displayLine}
+                              onRemoveItem={onRemoveItem}
+                              onUpdateQty={onUpdateQty}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <CartLineItem
+                          line={group.displayLine}
+                          onRemoveItem={onRemoveItem}
+                          onUpdateQty={onUpdateQty}
+                        />
+                      )}
+                    </div>
+
+                    {/* Inline edit panel for single item */}
+                    {isSingleEditing && onUpdateLineNote && (
+                      <LineItemEditPanel
                         line={group.displayLine}
-                        onRemoveItem={onRemoveItem}
-                        onUpdateQty={onUpdateQty}
+                        onUpdateNote={onUpdateLineNote}
+                        onRemove={onRemoveItem}
+                        onPriceOverride={onPriceOverride ?? (() => {})}
+                        onEditModifiers={onEditModifiers ?? (() => {})}
+                        onVoidLine={onVoidLine ?? (() => {})}
+                        onCompLine={onCompLine ?? (() => {})}
+                        onDone={() => setEditingLineId(null)}
+                        permissions={editPermissions}
                       />
                     )}
-                  </div>
-                )}
-
-                {/* Expanded inline editor */}
-                {isExpanded && (
-                  <ExpandedLineEditor
-                    line={group.displayLine}
-                    onUpdateQty={onUpdateQty}
-                    onRemove={(lineId) => {
-                      if (group.count > 1) {
-                        for (const l of group.lines) onRemoveItem(l.id);
-                      } else {
-                        onRemoveItem(lineId);
-                      }
-                      setExpandedLineId(null);
-                    }}
-                    onUpdateNote={onUpdateLineNote}
-                  />
+                  </>
                 )}
               </div>
             );

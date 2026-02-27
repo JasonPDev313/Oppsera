@@ -133,6 +133,8 @@ export const glJournalLines = pgTable(
     subDepartmentId: text('sub_department_id'),
     terminalId: text('terminal_id'),
     channel: text('channel'),
+    // ── Discount classification (migration 0212) ──
+    discountClassification: text('discount_classification'),
     memo: text('memo'),
     sortOrder: integer('sort_order').notNull().default(0),
   },
@@ -196,6 +198,9 @@ export const accountingSettings = pgTable('accounting_settings', {
   defaultAchReceivableAccountId: text('default_ach_receivable_account_id'),
   // ── Surcharge revenue GL account (migration 0184) ──
   defaultSurchargeRevenueAccountId: text('default_surcharge_revenue_account_id'),
+  // ── Discount classification GL defaults (migration 0212) ──
+  defaultDiscountAccountId: text('default_discount_account_id'),
+  defaultPriceOverrideExpenseAccountId: text('default_price_override_expense_account_id'),
   // ── Multi-currency provisioning (migration 0121) ──
   supportedCurrencies: text('supported_currencies').array().notNull().default(sql`'{USD}'`),
   // ── Auto-close orchestrator (migration 0187) ──

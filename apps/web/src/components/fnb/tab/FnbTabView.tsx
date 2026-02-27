@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState, useEffect } from 'react';
-import { ChevronLeft, Users, ShoppingCart, QrCode, Copy, XCircle, Sparkles, Hand, UtensilsCrossed, LayoutGrid } from 'lucide-react';
+import { ChevronLeft, Users, ShoppingCart, QrCode, Copy, XCircle, Sparkles, Hand, UtensilsCrossed, LayoutGrid, Repeat } from 'lucide-react';
 
 // ── Handheld detection hook ─────────────────────────────────────
 
@@ -84,9 +84,11 @@ import { useFnbGuestPay } from '@/hooks/use-fnb-guest-pay';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { apiFetch } from '@/lib/api-client';
 import { TabHeader } from './TabHeader';
+import { TableContextCard } from './TableContextCard';
 import { SeatRail } from './SeatRail';
 import { CourseSelector } from './CourseSelector';
 import { OrderTicket } from './OrderTicket';
+import { ExemptionToggles } from './ExemptionToggles';
 import { TabActionBar } from './TabActionBar';
 import { FnbMenuNav, FnbMenuContent, FnbMenuError, recordRecentItem } from '@/components/fnb/menu/FnbMenuPanel';
 import { FnbModifierDrawer } from '@/components/fnb/menu/FnbModifierDrawer';
@@ -231,6 +233,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
     tab,
     isLoading,
     error,
+    refresh: refreshTab,
     fireCourse,
     sendCourse,
     addItems,
@@ -267,7 +270,20 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
       isRequired: boolean;
       minSelections: number;
       maxSelections: number;
-      options: Array<{ id: string; name: string; priceCents: number; isDefault: boolean }>;
+      instructionMode?: string;
+      defaultBehavior?: string;
+      options: Array<{
+        id: string;
+        name: string;
+        priceCents: number;
+        isDefault: boolean;
+        extraPriceDeltaCents?: number | null;
+        kitchenLabel?: string | null;
+        allowNone?: boolean;
+        allowExtra?: boolean;
+        allowOnSide?: boolean;
+        isDefaultOption?: boolean;
+      }>;
     }>;
   } | null>(null);
 
@@ -375,14 +391,8 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
     // Check if item has modifier groups
     const groups = menu.getModifierGroupsForItem(itemId);
     if (groups.length > 0) {
-      // Open modifier drawer instead of adding directly
-      setModifierDrawerItem({
-        id: itemId,
-        name: itemName,
-        priceCents,
-        itemType,
-        groups,
-      });
+      // Open modifier drawer (slides up from bottom)
+      setModifierDrawerItem({ id: itemId, name: itemName, priceCents, itemType, groups });
       setModifierDrawerOpen(true);
       return;
     }
@@ -405,7 +415,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
 
   // Modifier drawer confirm handler — adds item with selected modifiers to cart
   const handleModifierConfirm = useCallback((
-    selectedModifiers: { groupId: string; optionId: string; name: string; priceCents: number }[],
+    selectedModifiers: { groupId: string; optionId: string; name: string; priceCents: number; instruction?: 'none' | 'extra' | 'on_side' | null; kitchenLabel?: string | null }[],
     qty: number,
     notes: string,
   ) => {
@@ -418,7 +428,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
       qty,
       itemType: modifierDrawerItem.itemType,
       seatNumber: activeSeat || 1,
-      modifiers: selectedModifiers.map((m: any) => ({
+      modifiers: selectedModifiers.map((m) => ({
         modifierId: m.optionId,
         modifierGroupId: m.groupId,
         name: m.name,
@@ -431,6 +441,12 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
     });
     setModifierDrawerItem(null);
   }, [tabId, modifierDrawerItem, store, activeSeat, activeCourse]);
+
+  // Repeat last item handler
+  const handleRepeatLast = useCallback(() => {
+    if (!tabId) return;
+    store.repeatLastItem(tabId);
+  }, [tabId, store]);
 
   // ── Determine content state ────────────────────────────────────
 
@@ -512,6 +528,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
     return (
       <div className="flex h-full flex-col" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
         <TabHeader tab={tab} onBack={handleBack} />
+        <TableContextCard tab={tab} />
 
         {/* Active panel */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -570,6 +587,15 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
                   <span>{formatMoney(totalCents)}</span>
                 </div>
               </div>
+
+              {tab.primaryOrderId && (
+                <ExemptionToggles
+                  orderId={tab.primaryOrderId}
+                  isTaxExempt={tab.isTaxExempt ?? false}
+                  isServiceChargeExempt={tab.isServiceChargeExempt ?? false}
+                  onUpdate={refreshTab}
+                />
+              )}
 
               <TabActionBar
                 onSendAll={handleSendAll}
@@ -631,6 +657,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
     <div className="flex h-full flex-col" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
       {/* ── Full-width tab header ──────────────────────────────────── */}
       <TabHeader tab={tab} onBack={handleBack} />
+      <TableContextCard tab={tab} />
 
       {/* Guest Pay banner */}
       {guestPay.hasActive && guestPay.session && (
@@ -747,6 +774,18 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
               )}
             </div>
             <div className="flex items-center gap-3">
+              {/* Repeat last item */}
+              {draftLines.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleRepeatLast}
+                  className="flex items-center justify-center rounded transition-opacity hover:opacity-70"
+                  title="Repeat last item"
+                  style={{ color: 'var(--fnb-text-muted)' }}
+                >
+                  <Repeat className="h-3.5 w-3.5" />
+                </button>
+              )}
               {/* Left-hand mode toggle */}
               <button
                 type="button"
@@ -819,6 +858,16 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
               <span>{formatMoney(totalCents)}</span>
             </div>
           </div>
+
+          {/* Exemption toggles */}
+          {tab.primaryOrderId && (
+            <ExemptionToggles
+              orderId={tab.primaryOrderId}
+              isTaxExempt={tab.isTaxExempt ?? false}
+              isServiceChargeExempt={tab.isServiceChargeExempt ?? false}
+              onUpdate={refreshTab}
+            />
+          )}
 
           {/* Action bar (Send / Fire / Split / Void / Pay) */}
           <TabActionBar

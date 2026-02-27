@@ -14,4 +14,5 @@ export { deleteOrder } from './delete-order';
 export { holdOrder } from './hold-order';
 export { recallOrder } from './recall-order';
 export { setTaxExempt } from './set-tax-exempt';
+export { setServiceChargeExempt } from './set-service-charge-exempt';
 export { createReturn } from './create-return';

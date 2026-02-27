@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Database } from 'lucide-react';
+import { ArrowLeft, Database, BarChart3, GitBranch } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
+import { ToolGuide } from '@/components/insights/ToolGuide';
 import { SemanticAuthoringPanel } from '@/components/insights/SemanticAuthoringPanel';
 import type { MetricDef, DimensionDef } from '@/components/insights/SemanticAuthoringPanel';
 
@@ -158,7 +159,7 @@ export default function AuthoringContent({ embedded }: { embedded?: boolean }) {
   const handleTestExpression = useCallback(
     async (sql: string): Promise<Record<string, unknown>[]> => {
       const res = await apiFetch<{ data: { rows: Record<string, unknown>[] } }>(
-        '/api/v1/semantic/query',
+        '/api/v1/semantic/test-sql',
         {
           method: 'POST',
           body: JSON.stringify({ rawSql: sql, limit: 5 }),
@@ -196,6 +197,51 @@ export default function AuthoringContent({ embedded }: { embedded?: boolean }) {
           </div>
         </>
       )}
+
+      {/* Guide */}
+      <ToolGuide
+        storageKey="authoring"
+        useCases={[
+          'Define custom KPIs',
+          'Add business-specific metrics',
+          'Create drill-down dimensions',
+          'Extend the AI semantic layer',
+        ]}
+        steps={[
+          { label: 'Choose metric or dimension', detail: 'Decide whether you are creating a measurable value (metric) or a grouping axis (dimension).' },
+          { label: 'Write the SQL expression', detail: 'Define the SQL that calculates the value. Use the Test button to validate it against live data.' },
+          { label: 'Save and use', detail: 'Once saved, your custom definition is immediately available in AI Insights chat and analysis tools.' },
+        ]}
+        example={'Create a metric called "Average Ticket Size" with the SQL expression SUM(total_cents) / COUNT(*) on the orders table, then ask the AI "What is my average ticket size this month?"'}
+      />
+
+      {/* Concept cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+              <BarChart3 className="h-3.5 w-3.5 text-emerald-500" />
+            </div>
+            <h3 className="text-xs font-semibold text-foreground">Metrics</h3>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            A metric is a <strong className="text-foreground">measurable value</strong> like total sales, order count, or average ticket size.
+            Metrics use SQL aggregation functions (SUM, COUNT, AVG) to compute a single number from your data.
+          </p>
+        </div>
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 bg-purple-500/10 rounded-lg flex items-center justify-center">
+              <GitBranch className="h-3.5 w-3.5 text-purple-500" />
+            </div>
+            <h3 className="text-xs font-semibold text-foreground">Dimensions</h3>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            A dimension is a <strong className="text-foreground">grouping axis</strong> like location, date, category, or payment method.
+            Dimensions let you break down metrics by different attributes to find patterns and trends.
+          </p>
+        </div>
+      </div>
 
       {/* Loading */}
       {isLoading && (

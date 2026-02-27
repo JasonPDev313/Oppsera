@@ -42,13 +42,56 @@ export const FNB_ORDERING_DEFAULTS: Record<string, unknown> = {
 };
 
 export const FNB_KITCHEN_DEFAULTS: Record<string, unknown> = {
+  // Timer thresholds (seconds)
   kds_warning_threshold_seconds: 480,
   kds_critical_threshold_seconds: 720,
+  kds_info_threshold_seconds: 300,
+  // Bump behavior
   kds_bump_behavior: 'remove',
+  auto_bump_on_all_ready: false,
+  auto_bump_on_payment: false,
+  // Display
+  kds_default_view_mode: 'ticket',
+  kds_default_theme: 'dark',
+  kds_default_font_size: 'medium',
+  kds_default_ticket_size: 'medium',
+  kds_show_server_name: true,
+  kds_show_dining_option: true,
+  kds_show_order_source: false,
+  kds_show_special_instructions: true,
+  kds_show_allergen_warnings: true,
+  kds_show_item_colors: true,
+  kds_show_prep_time_estimate: false,
+  kds_show_course_status: true,
+  kds_show_payment_status: false,
+  kds_consolidate_identical_items: false,
+  kds_modifier_display_mode: 'vertical',
+  kds_flash_on_new_ticket: true,
+  kds_flash_on_modification: true,
+  // Input
+  kds_default_input_mode: 'touch',
+  // Expo
   expo_mode_enabled: true,
+  expo_show_all_station_items: true,
+  // Routing
+  auto_route_enabled: true,
+  fallback_to_expo: true,
+  // Printing
   auto_print_on_kds_failure: true,
   delta_chit_enabled: true,
+  // Course pacing
   course_pacing_auto_fire: false,
+  // Screen communication
+  default_screen_comm_mode: 'independent',
+  // Audio
+  kds_sound_enabled: true,
+  kds_new_ticket_tone: 'chime',
+  kds_warning_tone: 'warning',
+  kds_critical_tone: 'urgent',
+  kds_rush_tone: 'rush',
+  kds_allergy_tone: 'allergy',
+  kds_complete_tone: 'complete',
+  kds_volume: 0.5,
 };
 
 export const FNB_PAYMENT_DEFAULTS: Record<string, unknown> = {

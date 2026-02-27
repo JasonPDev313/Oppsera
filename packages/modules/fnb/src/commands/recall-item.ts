@@ -31,12 +31,14 @@ export async function recallItem(
       .limit(1);
     if (!item) throw new TicketItemNotFoundError(input.ticketItemId);
 
-    // Un-bump: set back to cooking
+    // Un-bump: set back to cooking, clear bump attribution
     const [updated] = await (tx as any)
       .update(fnbKitchenTicketItems)
       .set({
         itemStatus: 'cooking',
         readyAt: null,
+        servedAt: null,
+        bumpedBy: null,
         updatedAt: new Date(),
       })
       .where(eq(fnbKitchenTicketItems.id, input.ticketItemId))

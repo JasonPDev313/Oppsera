@@ -11,7 +11,9 @@ import {
   Globe,
   Database,
   History,
+  Info,
 } from 'lucide-react';
+import { ToolGuide } from '@/components/insights/ToolGuide';
 
 // ── Lazy-load each tab content ─────────────────────────────────────
 
@@ -53,13 +55,55 @@ const HistoryContent = dynamic(() => import('../history/history-content'), {
 // ── Tab definitions ────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'watchlist', label: 'Watchlist', icon: BarChart3 },
-  { key: 'analysis', label: 'Analysis Tools', icon: Search },
-  { key: 'reports', label: 'Scheduled Reports', icon: CalendarDays },
-  { key: 'lenses', label: 'Lenses', icon: Layers },
-  { key: 'embeds', label: 'Embeds', icon: Globe },
-  { key: 'authoring', label: 'Authoring', icon: Database },
-  { key: 'history', label: 'History', icon: History },
+  {
+    key: 'watchlist',
+    label: 'Watchlist',
+    icon: BarChart3,
+    color: 'text-emerald-500',
+    hint: 'Pin key metrics and track trends at a glance',
+  },
+  {
+    key: 'analysis',
+    label: 'Analysis Tools',
+    icon: Search,
+    color: 'text-blue-500',
+    hint: 'Root cause, correlations, forecast, and what-if analysis',
+  },
+  {
+    key: 'reports',
+    label: 'Scheduled Reports',
+    icon: CalendarDays,
+    color: 'text-purple-500',
+    hint: 'Set up automated AI-powered report delivery',
+  },
+  {
+    key: 'lenses',
+    label: 'Lenses',
+    icon: Layers,
+    color: 'text-indigo-500',
+    hint: 'Pre-configured analysis contexts for specific domains',
+  },
+  {
+    key: 'embeds',
+    label: 'Embeds',
+    icon: Globe,
+    color: 'text-teal-500',
+    hint: 'Create embeddable insight widgets for external sites',
+  },
+  {
+    key: 'authoring',
+    label: 'Authoring',
+    icon: Database,
+    color: 'text-orange-500',
+    hint: 'Define custom metrics and dimensions for the AI layer',
+  },
+  {
+    key: 'history',
+    label: 'History',
+    icon: History,
+    color: 'text-rose-500',
+    hint: 'Review, reopen, and export past conversations',
+  },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
@@ -79,6 +123,8 @@ function TabSkeleton() {
 export default function AiToolsContent() {
   const [activeTab, setActiveTab] = useState<TabKey>('watchlist');
 
+  const activeTabDef = TABS.find((t) => t.key === activeTab);
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -93,6 +139,23 @@ export default function AiToolsContent() {
           </p>
         </div>
       </div>
+
+      {/* Overview guide */}
+      <ToolGuide
+        storageKey="ai-tools-overview"
+        useCases={[
+          'Track key business metrics',
+          'Diagnose performance changes',
+          'Automate report delivery',
+          'Build custom AI queries',
+        ]}
+        steps={[
+          { label: 'Choose a tool', detail: 'Select a tab below to access the tool you need.' },
+          { label: 'Configure', detail: 'Set up metrics, schedules, or analysis parameters.' },
+          { label: 'Get insights', detail: 'View results, export data, or share with your team.' },
+        ]}
+        example="Start with the Watchlist tab to pin your most important KPIs, then use Analysis Tools to investigate any unusual changes."
+      />
 
       {/* Horizontal tab navigation */}
       <div className="border-b border-border">
@@ -118,6 +181,14 @@ export default function AiToolsContent() {
           })}
         </nav>
       </div>
+
+      {/* Active tab description */}
+      {activeTabDef && (
+        <div className="flex items-start gap-2 px-1">
+          <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+          <p className="text-xs text-muted-foreground">{activeTabDef.hint}</p>
+        </div>
+      )}
 
       {/* Tab content */}
       <div>

@@ -29,6 +29,9 @@ import {
   useUnmappedEventMutations,
   useFnbMappingCoverage,
   useSaveFnbMapping,
+  useDiscountMappings,
+  useDiscountMappingCoverage,
+  useDiscountMappingMutations,
 } from '@/hooks/use-mappings';
 import { useAuthContext } from '@/components/auth-provider';
 import { useToast } from '@/components/ui/toast';
@@ -44,6 +47,7 @@ import {
   DEBIT_KIND_ACCOUNT_FILTER,
   CREDIT_KIND_ACCOUNT_FILTER,
   getMappedStatusRule,
+  DISCOUNT_CLASSIFICATIONS,
 } from '@oppsera/shared';
 import type {
   FnbBatchCategoryKey,
@@ -53,7 +57,7 @@ import type {
 } from '@oppsera/shared';
 import type { SubDepartmentMapping, AccountType, TransactionTypeMapping } from '@/types/accounting';
 
-type TabKey = 'departments' | 'payments' | 'taxes' | 'fnb' | 'unmapped';
+type TabKey = 'departments' | 'payments' | 'taxes' | 'discounts' | 'fnb' | 'unmapped';
 
 export default function MappingsContent() {
   const [activeTab, setActiveTab] = useState<TabKey>('departments');
@@ -64,6 +68,7 @@ export default function MappingsContent() {
     { key: 'departments', label: 'Sub-Departments' },
     { key: 'payments', label: 'Transaction Types' },
     { key: 'taxes', label: 'Tax Groups' },
+    { key: 'discounts', label: 'Discounts' },
     { key: 'fnb', label: 'F&B Categories' },
     { key: 'unmapped', label: 'Unmapped Events', count: unmappedEvents.length },
   ];
@@ -140,6 +145,7 @@ export default function MappingsContent() {
       {activeTab === 'departments' && <DepartmentMappingsTab />}
       {activeTab === 'payments' && <PaymentTypeMappingsTab />}
       {activeTab === 'taxes' && <TaxGroupMappingsTab />}
+      {activeTab === 'discounts' && <DiscountMappingsTab />}
       {activeTab === 'fnb' && <FnbCategoryMappingsTab onNavigateToSubDepartments={() => setActiveTab('departments')} />}
       {activeTab === 'unmapped' && <UnmappedEventsTab />}
     </AccountingPageShell>
@@ -1258,6 +1264,337 @@ function TaxGroupMappingsTab() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ── Discount GL Mappings ──────────────────────────────────────
+
+function DiscountMappingsTab() {
+  const { data: mappings, isLoading: mappingsLoading, mutate: refetchMappings } = useDiscountMappings();
+  const { data: coverageList, isLoading: coverageLoading, mutate: refetchCoverage } = useDiscountMappingCoverage();
+  const { saveDiscountMappingsBatch } = useDiscountMappingMutations();
+  const { data: subDeptMappings, isLoading: subDeptsLoading } = useSubDepartmentMappings();
+  const { data: allAccounts } = useGLAccounts({ isActive: true });
+  const { toast } = useToast();
+  const [expandedClassifications, setExpandedClassifications] = useState<Set<string>>(new Set());
+  const [isSaving, setIsSaving] = useState(false);
+
+  const isLoading = mappingsLoading || coverageLoading || subDeptsLoading;
+
+  // Build a lookup: subDeptId → classification → glAccountId
+  const mappingLookup = useMemo(() => {
+    const lookup = new Map<string, Map<string, string>>();
+    for (const m of mappings) {
+      let classMap = lookup.get(m.subDepartmentId);
+      if (!classMap) {
+        classMap = new Map();
+        lookup.set(m.subDepartmentId, classMap);
+      }
+      classMap.set(m.discountClassification, m.glAccountId);
+    }
+    return lookup;
+  }, [mappings]);
+
+  // Deduplicate sub-departments (same logic as DepartmentMappingsTab)
+  const subDepartments = useMemo(() => {
+    const seen = new Set<string>();
+    const result: { id: string; name: string; departmentName: string }[] = [];
+    for (const m of subDeptMappings) {
+      if (seen.has(m.subDepartmentId)) continue;
+      seen.add(m.subDepartmentId);
+      result.push({
+        id: m.subDepartmentId,
+        name: m.subDepartmentName,
+        departmentName: m.departmentName,
+      });
+    }
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  }, [subDeptMappings]);
+
+  // Split classifications by GL treatment
+  const contraRevenueClassifications = DISCOUNT_CLASSIFICATIONS.filter(c => c.glTreatment === 'contra_revenue');
+  const expenseClassifications = DISCOUNT_CLASSIFICATIONS.filter(c => c.glTreatment === 'expense');
+
+  const toggleClassification = (key: string) => {
+    setExpandedClassifications(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleSave = async (subDepartmentId: string, classification: string, glAccountId: string | null) => {
+    if (!glAccountId) return;
+    setIsSaving(true);
+    try {
+      await saveDiscountMappingsBatch.mutateAsync([
+        { subDepartmentId, classification, glAccountId },
+      ]);
+      toast.success('Discount mapping saved');
+      refetchMappings();
+      refetchCoverage();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAutoMapDefaults = async () => {
+    if (!allAccounts || subDepartments.length === 0) return;
+    setIsSaving(true);
+
+    const batch: Array<{ subDepartmentId: string; classification: string; glAccountId: string }> = [];
+
+    for (const sd of subDepartments) {
+      for (const def of DISCOUNT_CLASSIFICATIONS) {
+        // Skip if already mapped
+        const existing = mappingLookup.get(sd.id)?.get(def.key);
+        if (existing) continue;
+
+        // Find a matching account by account number
+        const match = allAccounts.find(a => a.accountNumber === def.defaultAccountCode);
+        if (match) {
+          batch.push({
+            subDepartmentId: sd.id,
+            classification: def.key,
+            glAccountId: match.id,
+          });
+        }
+      }
+    }
+
+    if (batch.length === 0) {
+      toast.info('All sub-departments are already mapped, or no matching GL accounts found');
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      await saveDiscountMappingsBatch.mutateAsync(batch);
+      toast.success(`Auto-mapped ${batch.length} discount classification${batch.length !== 1 ? 's' : ''}`);
+      refetchMappings();
+      refetchCoverage();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Auto-map failed');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />
+        ))}
+      </div>
+    );
+  }
+
+  if (subDepartments.length === 0) {
+    return (
+      <AccountingEmptyState
+        title="No sub-departments found"
+        description="Configure departments and sub-departments in the Catalog module first. Discount GL mappings are per-sub-department."
+      />
+    );
+  }
+
+  // Compute overall coverage
+  const totalMapped = coverageList.reduce((s, c) => s + c.mapped, 0);
+  const totalPossible = coverageList.reduce((s, c) => s + c.total, 0);
+  const overallPct = totalPossible > 0 ? Math.round((totalMapped / totalPossible) * 100) : 0;
+
+  const renderClassificationGroup = (
+    title: string,
+    color: string,
+    borderColor: string,
+    classifications: typeof DISCOUNT_CLASSIFICATIONS,
+  ) => (
+    <div className="overflow-hidden rounded-lg border border-border bg-surface">
+      <div className={`px-4 py-2 border-b ${borderColor}`}>
+        <h3 className={`text-xs font-semibold uppercase tracking-wide ${color}`}>
+          {title}
+        </h3>
+      </div>
+      <div className="divide-y divide-border">
+        {classifications.map(def => {
+          const coverage = coverageList.find(c => c.classification === def.key);
+          const isExpanded = expandedClassifications.has(def.key);
+          const mapped = coverage?.mapped ?? 0;
+          const total = coverage?.total ?? subDepartments.length;
+          const allMapped = mapped === total && total > 0;
+
+          return (
+            <div key={def.key}>
+              {/* Classification header row */}
+              <button
+                type="button"
+                onClick={() => toggleClassification(def.key)}
+                className="flex w-full items-center justify-between px-4 py-3 hover:bg-accent/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  {isExpanded ? (
+                    <ChevronDown aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <div className="text-left">
+                    <div className="text-sm font-medium text-foreground">{def.label}</div>
+                    <div className="text-xs text-muted-foreground">{def.description}</div>
+                  </div>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+                    {def.defaultAccountCode}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          allMapped ? 'bg-green-500' : mapped > 0 ? 'bg-amber-500' : 'bg-red-400'
+                        }`}
+                        style={{ width: total > 0 ? `${(mapped / total) * 100}%` : '0%' }}
+                      />
+                    </div>
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                        allMapped
+                          ? 'bg-green-500/20 text-green-500'
+                          : mapped > 0
+                            ? 'bg-amber-500/20 text-amber-500'
+                            : 'bg-red-500/20 text-red-500'
+                      }`}
+                    >
+                      {mapped}/{total}
+                    </span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Expanded: sub-department mapping rows */}
+              {isExpanded && (
+                <div className="border-t border-border bg-muted">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="px-6 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Sub-Department
+                        </th>
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          GL Account
+                        </th>
+                        <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground w-16">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subDepartments.map(sd => {
+                        const accountId = mappingLookup.get(sd.id)?.get(def.key) ?? null;
+                        const isMapped = !!accountId;
+                        return (
+                          <tr
+                            key={sd.id}
+                            className={`border-b border-border last:border-0 ${!isMapped ? 'bg-amber-500/5' : ''}`}
+                          >
+                            <td className="px-6 py-2.5">
+                              <div className="text-sm text-foreground">{sd.name}</div>
+                              <div className="text-xs text-muted-foreground">{sd.departmentName}</div>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <AccountPicker
+                                value={accountId}
+                                onChange={(v) => handleSave(sd.id, def.key, v)}
+                                accountTypes={def.glTreatment === 'contra_revenue' ? ['revenue'] : ['expense']}
+                                suggestFor={def.label}
+                                mappingRole={def.glTreatment === 'contra_revenue' ? 'discount' : 'expense'}
+                                className="w-52"
+                              />
+                            </td>
+                            <td className="px-4 py-2.5 text-center">
+                              {isMapped ? (
+                                <CheckCircle aria-hidden="true" className="inline h-4 w-4 text-green-500" />
+                              ) : (
+                                <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Coverage + Auto-Map */}
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-4">
+        <div className="flex-1 space-y-1">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Discount Mapping Coverage</span>
+            <span className="text-lg font-bold text-foreground">{overallPct}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full rounded-full transition-all ${
+                overallPct === 100 ? 'bg-green-500' : overallPct > 0 ? 'bg-amber-500' : 'bg-red-400'
+              }`}
+              style={{ width: `${overallPct}%` }}
+            />
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {totalMapped} of {totalPossible} classification-level mappings configured across {subDepartments.length} sub-department{subDepartments.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleAutoMapDefaults}
+          disabled={isSaving || overallPct === 100}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
+        >
+          <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
+          {isSaving ? 'Mapping...' : 'Auto-Map Defaults'}
+        </button>
+      </div>
+
+      {/* Info */}
+      <div className="flex items-start gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-sm text-indigo-500">
+        <Info aria-hidden="true" className="h-4 w-4 shrink-0 mt-0.5" />
+        <div>
+          Each discount type posts to its own GL account per sub-department.
+          <span className="text-indigo-500/70"> Contra-revenue </span>
+          discounts (4100-range) reduce reported revenue.
+          <span className="text-indigo-500/70"> Expense </span>
+          comps (6150-range) are costs the business absorbs.
+        </div>
+      </div>
+
+      {/* Contra-Revenue group */}
+      {renderClassificationGroup(
+        'Contra-Revenue Discounts (reduce reported revenue)',
+        'text-blue-500',
+        'border-blue-500/30 bg-blue-500/5',
+        contraRevenueClassifications,
+      )}
+
+      {/* Expense group */}
+      {renderClassificationGroup(
+        'Expense Comps (costs absorbed by business)',
+        'text-amber-500',
+        'border-amber-500/30 bg-amber-500/5',
+        expenseClassifications,
+      )}
     </div>
   );
 }

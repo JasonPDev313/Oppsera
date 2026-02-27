@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { db } from '@oppsera/db';
+import { db, withTenant } from '@oppsera/db';
 import { semanticEvalSessions, semanticEvalTurns } from '@oppsera/db';
 import { sql, eq } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
@@ -233,68 +233,73 @@ class DefaultEvalCaptureService implements EvalCaptureServiceInterface {
     const qualityFlags = computeQualityFlags(partialTurn);
     const qualityScore = computeQualityScore({ ...partialTurn, qualityFlags });
 
-    // Ensure the eval session exists (upsert). The frontend generates session IDs
-    // that may not yet exist in the DB — we auto-create them on first turn.
-    await db
-      .insert(semanticEvalSessions)
-      .values({
-        id: sessionId,
+    // Wrap all DB operations in withTenant so RLS policies can validate
+    // the tenant_id via current_setting('app.current_tenant_id').
+    // Without this, RLS silently blocks all inserts/updates.
+    await withTenant(tenantId, async (tx) => {
+      // Ensure the eval session exists (upsert). The frontend generates session IDs
+      // that may not yet exist in the DB — we auto-create them on first turn.
+      await tx
+        .insert(semanticEvalSessions)
+        .values({
+          id: sessionId,
+          tenantId,
+          userId,
+          sessionId,
+          messageCount: 0,
+          lensId: lensId ?? null,
+          metadata: { userRole },
+        })
+        .onConflictDoNothing({ target: semanticEvalSessions.id });
+
+      await tx.insert(semanticEvalTurns).values({
+        id: evalTurnId,
         tenantId,
-        userId,
         sessionId,
-        messageCount: 0,
-        lensId: lensId ?? null,
-        metadata: { userRole },
-      })
-      .onConflictDoNothing({ target: semanticEvalSessions.id });
+        userId,
+        userRole,
+        turnNumber,
+        userMessage,
+        contextSnapshot: context,
+        llmProvider,
+        llmModel,
+        llmPlan: llmResponse.plan ?? null,
+        llmRationale: llmResponse.rationale,
+        llmConfidence: llmResponse.confidence.toString(),
+        llmTokensInput: llmTokens.input,
+        llmTokensOutput: llmTokens.output,
+        llmLatencyMs,
+        planHash: planHash || null,
+        wasClarification: llmResponse.clarificationNeeded,
+        clarificationMessage: llmResponse.clarificationMessage ?? null,
+        compiledSql: compiledSql ?? null,
+        sqlHash: sqlHash || null,
+        compilationErrors: compilationErrors ?? null,
+        safetyFlags: safetyFlagsInput ?? null,
+        tablesAccessed: tablesAccessed ?? null,
+        executionTimeMs: executionTimeMs ?? null,
+        rowCount: rowCount ?? null,
+        resultSample: resultSample ?? null,
+        resultFingerprint: resultFingerprint ?? null,
+        executionError: executionError ?? null,
+        cacheStatus: (cacheStatus as 'HIT' | 'MISS' | 'SKIP') ?? null,
+        narrative: narrative ?? null,
+        narrativeLensId: lensId ?? null,
+        responseSections: responseSections ?? null,
+        playbooksFired: playbooksFired ?? null,
+        qualityFlags: qualityFlags.length > 0 ? qualityFlags : null,
+        qualityScore: qualityScore !== null ? qualityScore.toString() : null,
+      });
 
-    await db.insert(semanticEvalTurns).values({
-      id: evalTurnId,
-      tenantId,
-      sessionId,
-      userId,
-      userRole,
-      turnNumber,
-      userMessage,
-      contextSnapshot: context,
-      llmProvider,
-      llmModel,
-      llmPlan: llmResponse.plan ?? null,
-      llmRationale: llmResponse.rationale,
-      llmConfidence: llmResponse.confidence.toString(),
-      llmTokensInput: llmTokens.input,
-      llmTokensOutput: llmTokens.output,
-      llmLatencyMs,
-      planHash: planHash || null,
-      wasClarification: llmResponse.clarificationNeeded,
-      clarificationMessage: llmResponse.clarificationMessage ?? null,
-      compiledSql: compiledSql ?? null,
-      sqlHash: sqlHash || null,
-      compilationErrors: compilationErrors ?? null,
-      safetyFlags: safetyFlagsInput ?? null,
-      tablesAccessed: tablesAccessed ?? null,
-      executionTimeMs: executionTimeMs ?? null,
-      rowCount: rowCount ?? null,
-      resultSample: resultSample ?? null,
-      resultFingerprint: resultFingerprint ?? null,
-      executionError: executionError ?? null,
-      cacheStatus: (cacheStatus as 'HIT' | 'MISS' | 'SKIP') ?? null,
-      narrative: narrative ?? null,
-      narrativeLensId: lensId ?? null,
-      responseSections: responseSections ?? null,
-      playbooksFired: playbooksFired ?? null,
-      qualityFlags: qualityFlags.length > 0 ? qualityFlags : null,
-      qualityScore: qualityScore !== null ? qualityScore.toString() : null,
+      // Atomically increment message count on the eval session
+      await tx
+        .update(semanticEvalSessions)
+        .set({
+          messageCount: sql`${semanticEvalSessions.messageCount} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(semanticEvalSessions.id, sessionId));
     });
-
-    // Atomically increment message count on the eval session
-    await db
-      .update(semanticEvalSessions)
-      .set({
-        messageCount: sql`${semanticEvalSessions.messageCount} + 1`,
-        updatedAt: new Date(),
-      })
-      .where(eq(semanticEvalSessions.id, sessionId));
 
     return evalTurnId;
   }

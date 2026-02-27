@@ -9144,3 +9144,191 @@ for errors).
 5. **ESLint jsx-a11y**: 15 error rules (hard failures), 13 warning rules
    (soft). `anchor-is-valid` is off (conflicts with Next.js `<Link>`).
 
+## 175. Modern ERP Report UX Standard (2026)
+
+All financial and accounting report pages MUST follow this standard. The
+reference implementation is
+`apps/web/src/app/(dashboard)/accounting/reports/gl-code-summary/gl-code-summary-content.tsx`.
+
+### Page Structure (Required — in order)
+
+1. **AccountingPageShell** — title, breadcrumbs, action buttons (Print + Export)
+2. **ReportFilterBar** — date preset dropdown, shift controls, location selector
+3. **Print Header** — `hidden print:block` with report name, period, location,
+   generated-at timestamp (only visible when printing)
+4. **Loading Skeleton** — KPI skeleton (4-cell grid) + table row skeleton
+   (10 rows), using `animate-pulse` on `bg-muted` rectangles
+5. **Empty State** — centered card with domain icon (50% opacity), title, and
+   helpful description
+6. **KPI Summary Cards** — 4-column grid (`grid-cols-2 lg:grid-cols-4`) with
+   icon, label, value, and accent color
+7. **Status Banner** — conditional balance/variance/health banner (green=good,
+   red=issue) with icon and message
+8. **Toolbar** — search input + Expand All / Collapse All controls (hidden in
+   print via `print:hidden`)
+9. **Desktop Table** — section-grouped table with collapsible rows
+10. **Mobile Card Layout** — `md:hidden print:hidden` stacked cards
+
+### KPI Summary Cards
+
+Use a `KPICard` component with this interface:
+```tsx
+function KPICard({ label, value, icon: Icon, accent }: {
+  label: string;      // e.g., "Total Debits"
+  value: string;      // e.g., "$12,345.67" or "Balanced"
+  icon: LucideIcon;   // e.g., DollarSign, Hash, CheckCircle
+  accent?: string;    // e.g., "text-green-500" (defaults to text-muted-foreground)
+})
+```
+Styling: `rounded-lg border border-border bg-surface p-4`. Icon + label row
+with `text-xs font-medium text-muted-foreground`. Value row with
+`text-xl font-semibold tabular-nums text-foreground`. Print override:
+`print:border-gray-300 print:p-2`.
+
+Always include 4 cards: the first two show the primary totals, the third shows
+a count/summary, the fourth shows a status indicator with conditional icon/color.
+
+### Status Banner
+
+Two variants:
+- **Success**: `border-green-500/30 bg-green-500/10` + green CheckCircle icon
+  + green text. Print: `print:border-gray-300 print:bg-gray-50 print:text-gray-700`.
+- **Warning/Error**: `border-red-500/30 bg-red-500/10` + red AlertTriangle icon
+  + red text.
+
+Include a contextual message (not just "Balanced" — say what is balanced and
+for what period).
+
+### Collapsible Sections
+
+State: `const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())`.
+
+Each section header row is clickable (`cursor-pointer select-none`) and toggles
+between `ChevronRight` (collapsed) and `ChevronDown` (expanded). Include:
+- **Colored dot**: `h-2.5 w-2.5 rounded-full bg-{color}-500` per section type
+- **Section label**: `text-sm font-semibold tracking-wide`
+- **Count badge**: `rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums`
+- **Section subtotals**: right-aligned monetary values (only show non-zero)
+
+Section colors are defined in a `SECTION_COLORS` constant (use distinct colors:
+green, indigo, amber, sky, violet, red, gray). Labels in a `SECTION_LABELS`
+constant. Display order in a `SECTION_ORDER` array.
+
+Expand/Collapse All buttons in the toolbar:
+```tsx
+const expandAll = useCallback(() => setCollapsedSections(new Set()), []);
+const collapseAll = useCallback(
+  () => setCollapsedSections(new Set(activeSections)),
+  [activeSections],
+);
+```
+
+### In-Report Search
+
+Real-time filter via `useState<string>`. Search box with `Search` icon (left),
+clear `X` button (right, shown when non-empty). Filter across all text columns
+(memo, account number, account name — use `.toLowerCase().includes(q)`).
+
+Show match count when search is active: `{filteredLines.length} of
+{data.lines.length} lines`.
+
+### Desktop Table Structure
+
+Wrapped in `hidden md:block print:block` + `overflow-hidden rounded-lg
+border border-border bg-surface`.
+
+- **Header row**: `bg-muted` with uppercase tracking-wide column labels
+- **Section header**: `bg-muted/60 hover:bg-muted cursor-pointer select-none`
+  with chevron + colored dot + label + badge + subtotals
+- **Detail rows**: indented left (`pl-10` or `pl-6` for print), `border-b
+  border-border/50`, `hover:bg-accent/30`. Account numbers in `font-mono`.
+- **Grand total row**: `border-t-2 border-border bg-muted font-bold`
+- **Variance/alert row**: `bg-red-500/10 font-semibold text-red-500` (only
+  shown when out of balance)
+
+Net column (rightmost): `Debit − Credit`, shown only when non-zero. Uses
+`text-muted-foreground` to visually de-emphasize.
+
+All monetary values use `tabular-nums` for alignment.
+
+### Mobile Card Layout
+
+`space-y-3 md:hidden print:hidden` — stacked section cards.
+
+Each section card:
+- Full-width `<button>` header with chevron, colored dot, label, badge,
+  and right-aligned DR/CR subtotals
+- Expandable detail area with `border-t border-border/50 divide-y
+  divide-border/30`
+- Each detail item: memo (bold), then row with monospace account number +
+  DR/CR values (with `DR` / `CR` labels)
+
+Mobile grand totals card: `rounded-lg border border-border bg-muted p-4` with
+debit total, credit total, and balance status (green CheckCircle or red
+AlertTriangle).
+
+### Print Optimization
+
+All interactive controls get `print:hidden` (filters, search, toolbar, action
+buttons, mobile cards). Add a dedicated print header with `hidden print:block`.
+
+Print-safe overrides on elements:
+- Borders: `print:border-gray-300` (replacing `border-border`)
+- Backgrounds: `print:bg-gray-100` for headers, `print:bg-gray-50` for section
+  headers
+- Colors: `print:text-gray-700` for text (replacing theme colors)
+- Table sections: `print:break-inside-avoid` on `<tbody>`
+- Grand total: `print:border-gray-400` for stronger separator
+- Section dots: color badges print natively (browsers handle `bg-{color}-500`
+  in print)
+
+### Action Buttons
+
+Two buttons in the page shell `actions` slot:
+1. **Print**: `Printer` icon + "Print" label, calls `window.print()`
+2. **Export CSV**: `Download` icon + "Export CSV" label, opens CSV URL in new tab
+
+Both disabled when data is empty (`disabled:cursor-not-allowed disabled:opacity-50`).
+Styling: `inline-flex items-center gap-2 rounded-lg border border-border px-3
+py-2 text-sm font-medium text-foreground hover:bg-accent`.
+
+### Data Hooks
+
+All report hooks follow this pattern:
+```tsx
+export function useReportData(params: ReportParams) {
+  const result = useQuery({
+    queryKey: ['report-key', params],
+    queryFn: () => apiFetch<Response>(url).then(r => r.data),
+    enabled: !!params.startDate && !!params.endDate,
+    staleTime: 30_000,
+  });
+  return {
+    data: result.data ?? { /* defaults */ },
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}
+```
+
+### Checklist for New Reports
+
+When creating any new report page, verify:
+- [ ] Code-split: thin `page.tsx` with `next/dynamic({ ssr: false })` + heavy
+  `*-content.tsx`
+- [ ] 4 KPI cards with icon, label, value, and accent
+- [ ] Status/balance banner (green/red) with contextual message
+- [ ] Collapsible sections with colored dots, count badges, chevrons
+- [ ] Section subtotals + grand total footer with double top border
+- [ ] Net/variance column where applicable
+- [ ] Search filter across all text columns
+- [ ] Expand All / Collapse All controls
+- [ ] Print button + `print:hidden` on controls + dedicated print header
+- [ ] Export CSV button opening API URL in new tab
+- [ ] Loading skeleton (KPI grid + table rows)
+- [ ] Empty state with domain icon + title + description
+- [ ] Mobile card layout with tappable section headers
+- [ ] All monetary values use `tabular-nums` and `formatAccountingMoney()`
+- [ ] Dark mode compliant (no `bg-white`, no `dark:` prefixes)
+

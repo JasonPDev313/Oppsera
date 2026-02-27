@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { CreditCard, DollarSign, FileText, X, Wallet, AlertTriangle } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
@@ -175,7 +175,8 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
     : null;
 
   // Quick amount buttons (cash only) — these ADD to the current amount
-  const quickAmounts = [100, 500, 1000, 2000, 5000, 10000]; // $1, $5, $10, $20, $50, $100
+  const numpadAmounts = [100, 500, 1000]; // $1, $5, $10
+  const billAmounts = [2000, 5000, 10000]; // $20, $50, $100
 
   const setExact = () => {
     setAmountGiven((remaining / 100).toFixed(2));
@@ -447,7 +448,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   }
 
   const HeaderIcon = tenderType === 'card' ? CreditCard : tenderType === 'check' ? FileText : DollarSign;
-  const headerColor = tenderType === 'card' ? 'text-indigo-600' : tenderType === 'check' ? 'text-blue-500' : 'text-green-500';
+  const headerColor = tenderType === 'card' ? 'text-indigo-500' : tenderType === 'check' ? 'text-blue-500' : 'text-green-500';
 
   return createPortal(
     <div className="fixed inset-0 z-60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="tender-dialog-title">
@@ -582,7 +583,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <CreditCard className={`h-5 w-5 ${selectedPaymentMethodId === method.id ? 'text-indigo-600' : 'text-muted-foreground'}`} />
+                          <CreditCard className={`h-5 w-5 ${selectedPaymentMethodId === method.id ? 'text-indigo-500' : 'text-muted-foreground'}`} />
                           <div>
                             <div className="text-sm font-medium text-foreground">
                               {method.brand ?? 'Card'} {method.last4 ? `****${method.last4}` : ''}
@@ -721,7 +722,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
 
               {/* Cash: Quick denomination buttons — additive */}
               <div className="grid grid-cols-3 gap-2">
-                {quickAmounts.map((cents) => (
+                {numpadAmounts.map((cents) => (
                   <button
                     key={cents}
                     type="button"
@@ -729,7 +730,20 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                       const current = Math.round(parseFloat(prev || '0') * 100);
                       return ((current + cents) / 100).toFixed(2);
                     })}
-                    className="rounded-lg border border-border bg-surface px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:border-muted-foreground"
+                    className="rounded-lg border border-border bg-surface px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:border-muted-foreground"
+                  >
+                    +{formatMoney(cents)}
+                  </button>
+                ))}
+                {billAmounts.map((cents) => (
+                  <button
+                    key={cents}
+                    type="button"
+                    onClick={() => setAmountGiven((prev) => {
+                      const current = Math.round(parseFloat(prev || '0') * 100);
+                      return ((current + cents) / 100).toFixed(2);
+                    })}
+                    className="rounded-lg border border-border bg-surface px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:border-muted-foreground"
                   >
                     +{formatMoney(cents)}
                   </button>
@@ -737,7 +751,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
               </div>
               <button
                 type="button"
-                onClick={() => { setExact(); handleSubmit(remaining); }}
+                onClick={() => { flushSync(() => setExact()); handleSubmit(remaining); }}
                 disabled={isSubmitting}
                 className="w-full rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-semibold text-green-500 transition-colors hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >

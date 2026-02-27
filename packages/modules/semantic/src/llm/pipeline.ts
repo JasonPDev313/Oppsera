@@ -20,6 +20,7 @@ import { setAdaptiveBackoffLevel } from '../cache/semantic-rate-limiter';
 import { generateFollowUps } from '../intelligence/follow-up-generator';
 import { inferChartConfig } from '../intelligence/chart-inferrer';
 import { scoreDataQuality } from '../intelligence/data-quality-scorer';
+import { maskRowsForLLM } from '../pii/pii-masker';
 
 export { getLLMAdapter, setLLMAdapter };
 
@@ -462,7 +463,7 @@ async function runMetricsMode(
   if (!skipNarrative) {
     // Check LLM cache for narrative — keyed on lens context + question + data fingerprint
     const narrativePromptKey = hashSystemPrompt(`metrics:${context.lensSlug ?? 'default'}:${queryResult.rowCount}`);
-    const dataSummary = JSON.stringify(queryResult.rows.slice(0, 3));
+    const dataSummary = JSON.stringify(maskRowsForLLM(queryResult.rows.slice(0, 3)));
     const cachedNarrative = getFromLLMCache(tenantId, narrativePromptKey, message + dataSummary, context.history);
 
     if (cachedNarrative) {
@@ -523,8 +524,8 @@ async function runMetricsMode(
     schemaTablesUsed: tablesAccessed,
   });
 
-  // ── Eval capture ──────────────────────────────────────────────
-  const resultSample = queryResult.rows.slice(0, 5);
+  // ── Eval capture (mask PII before storing) ──────────────────
+  const resultSample = maskRowsForLLM(queryResult.rows.slice(0, 5));
   evalTurnId = generateUlid();
   void captureEvalTurnBestEffort({
     id: evalTurnId, message, context, intent,
@@ -794,7 +795,7 @@ async function runSqlMode(
   if (!skipNarrative) {
     // Check LLM cache for narrative — keyed on lens context + question + data fingerprint
     const narrativePromptKey = hashSystemPrompt(`sql:${context.lensSlug ?? 'default'}:${queryResult.rowCount}`);
-    const dataSummary = JSON.stringify(queryResult.rows.slice(0, 3));
+    const dataSummary = JSON.stringify(maskRowsForLLM(queryResult.rows.slice(0, 3)));
     const cachedNarrative = getFromLLMCache(tenantId, narrativePromptKey, message + dataSummary, context.history);
 
     if (cachedNarrative) {
@@ -853,8 +854,8 @@ async function runSqlMode(
     schemaTablesUsed: tablesAccessed,
   });
 
-  // ── Eval capture ──────────────────────────────────────────────
-  const resultSample = queryResult.rows.slice(0, 5);
+  // ── Eval capture (mask PII before storing) ──────────────────
+  const resultSample = maskRowsForLLM(queryResult.rows.slice(0, 5));
   evalTurnId = generateUlid();
   void captureEvalTurnBestEffort({
     id: evalTurnId, message, context, intent,

@@ -11,8 +11,11 @@ import { generateUlid } from '@oppsera/shared';
 export const semanticMetrics = pgTable('semantic_metrics', {
   id: text('id').primaryKey().$defaultFn(generateUlid),
 
+  // Tenant scoping: NULL = system metric, set = custom tenant metric
+  tenantId: text('tenant_id'),
+
   // Identity
-  slug: text('slug').notNull().unique(), // e.g. "net_sales", "rounds_played"
+  slug: text('slug').notNull(), // e.g. "net_sales", "rounds_played"
   displayName: text('display_name').notNull(),
   description: text('description'),
 
@@ -54,8 +57,11 @@ export const semanticMetrics = pgTable('semantic_metrics', {
 export const semanticDimensions = pgTable('semantic_dimensions', {
   id: text('id').primaryKey().$defaultFn(generateUlid),
 
+  // Tenant scoping: NULL = system dimension, set = custom tenant dimension
+  tenantId: text('tenant_id'),
+
   // Identity
-  slug: text('slug').notNull().unique(), // e.g. "date", "location", "item_category"
+  slug: text('slug').notNull(), // e.g. "date", "location", "item_category"
   displayName: text('display_name').notNull(),
   description: text('description'),
 

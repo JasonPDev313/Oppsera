@@ -151,6 +151,25 @@ export function TicketCard({
         </div>
       )}
 
+      {/* Also At — cross-station awareness */}
+      {ticket.otherStations && ticket.otherStations.length > 0 && (
+        <div className="flex items-center gap-1 px-3 py-1" style={{ backgroundColor: 'var(--fnb-bg-elevated)' }}>
+          <span className="text-[9px] font-medium" style={{ color: 'var(--fnb-text-muted)' }}>Also at:</span>
+          {ticket.otherStations.map((s) => (
+            <span
+              key={s.stationId}
+              className="text-[9px] font-medium rounded-full px-1.5 py-0.5"
+              style={{
+                backgroundColor: 'var(--fnb-accent, rgba(99, 102, 241, 0.15))',
+                color: 'var(--fnb-text-secondary)',
+              }}
+            >
+              {s.stationName}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Items */}
       <div className="flex-1 overflow-y-auto">
         {ticket.items.map((item) => (

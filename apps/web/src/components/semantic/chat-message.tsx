@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, Database, Zap, AlertCircle, Code2, Info, Search, TrendingUp, GitBranch, Lightbulb } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { ChevronDown, ChevronRight, Database, Zap, AlertCircle, Code2, Info, Search, TrendingUp, GitBranch, Lightbulb, Pin, Check } from 'lucide-react';
 import type { ChatMessage, QueryPlan } from '@/hooks/use-semantic-chat';
 import { FeedbackWidget } from '@/components/insights/FeedbackWidget';
 import { InlineChart } from '@/components/insights/InlineChart';
 import { FollowUpChips } from '@/components/insights/FollowUpChips';
 import { DataQualityBadge } from '@/components/insights/DataQualityBadge';
 import { DataLineagePanel } from '@/components/insights/DataLineagePanel';
+import { apiFetch } from '@/lib/api-client';
 
 // ── Simple markdown renderer ──────────────────────────────────────
 // Renders bold, italics, code spans, and block code from LLM narrative.
@@ -435,6 +436,89 @@ function AnalysisActionBar({
   );
 }
 
+// ── PinMetricButton ───────────────────────────────────────────────
+// Inline button for each metric in a response's plan. Calls the
+// pinned-metrics API directly — no hook needed (fire-and-forget).
+
+function PinMetricButton({
+  metricSlug,
+  format,
+}: {
+  metricSlug: string;
+  format?: 'currency' | 'number' | 'percent';
+}) {
+  const [state, setState] = useState<'idle' | 'pinning' | 'pinned' | 'already'>('idle');
+
+  const handlePin = useCallback(async () => {
+    if (state !== 'idle') return;
+    setState('pinning');
+    try {
+      await apiFetch('/api/v1/semantic/pinned-metrics', {
+        method: 'POST',
+        body: JSON.stringify({
+          metricSlug,
+          displayName: metricSlug.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+          config: { format: format ?? 'number' },
+        }),
+      });
+      setState('pinned');
+    } catch (err) {
+      // 409 = already pinned
+      if (err instanceof Error && err.message.includes('already pinned')) {
+        setState('already');
+      } else {
+        setState('idle');
+      }
+    }
+  }, [metricSlug, format, state]);
+
+  if (state === 'pinned' || state === 'already') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-emerald-500 bg-emerald-500/10 rounded-full">
+        <Check className="h-3 w-3" />
+        {state === 'already' ? 'Already pinned' : 'Pinned'}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handlePin}
+      disabled={state === 'pinning'}
+      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-muted-foreground bg-muted/50 border border-border rounded-full hover:border-primary/50 hover:text-primary transition-colors disabled:opacity-50"
+      title={`Pin "${metricSlug.replace(/_/g, ' ')}" to watchlist`}
+    >
+      <Pin className="h-3 w-3" />
+      {state === 'pinning' ? 'Pinning...' : metricSlug.replace(/_/g, ' ')}
+    </button>
+  );
+}
+
+// ── PinMetricsBar ─────────────────────────────────────────────────
+// Shows pin buttons for all metrics found in the message's query plan.
+
+function PinMetricsBar({ message }: { message: ChatMessage }) {
+  const metrics = message.plan?.metrics;
+  if (!metrics || metrics.length === 0) return null;
+
+  // Infer format from the chart config or default to number
+  const format = message.chartConfig?.yFormat ?? 'number';
+
+  return (
+    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+      <span className="text-xs text-muted-foreground mr-0.5">Pin to watchlist:</span>
+      {metrics.map((slug) => (
+        <PinMetricButton
+          key={slug}
+          metricSlug={slug}
+          format={format}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ── ChatMessageBubble ─────────────────────────────────────────────
 
 interface ChatMessageBubbleProps {
@@ -568,6 +652,9 @@ export function ChatMessageBubble({ message, showDebug = false, onFollowUpSelect
             {message.evalTurnId && (
               <FeedbackWidget evalTurnId={message.evalTurnId} />
             )}
+
+            {/* Pin to watchlist — show when the response has metrics */}
+            {!message.isClarification && <PinMetricsBar message={message} />}
           </div>
         )}
 

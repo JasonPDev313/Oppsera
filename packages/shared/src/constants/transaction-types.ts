@@ -13,6 +13,8 @@ export type TransactionTypeCategory =
   | 'deposit'
   | 'refund'
   | 'settlement'
+  | 'discount'
+  | 'comp'
   | 'ar'
   | 'ap'
   | 'inventory'
@@ -118,9 +120,20 @@ export const SYSTEM_TRANSACTION_TYPES: readonly SystemTransactionType[] = [
   { code: 'chargeback', name: 'Chargeback / Dispute', category: 'settlement', description: 'Card chargeback or payment dispute', debitHint: 'expense', creditHint: 'asset', defaultDebitKind: 'expense', defaultCreditKind: 'cash_bank', sort: 610 },
   { code: 'processing_fee', name: 'Card Processing Fee', category: 'settlement', description: 'Merchant card processing fee', debitHint: 'expense', creditHint: 'asset', defaultDebitKind: 'expense', defaultCreditKind: 'clearing', sort: 620 },
 
-  // ── Discount / Comp ────────────────────────────────────────────
-  { code: 'discount', name: 'Discount Applied', category: 'other', description: 'Discount applied to transaction (contra-revenue)', debitHint: 'revenue', creditHint: null, defaultDebitKind: 'contra_revenue', defaultCreditKind: 'none', sort: 700 },
-  { code: 'comp', name: 'Comp / Giveaway', category: 'other', description: 'Complimentary items or services', debitHint: 'expense', creditHint: null, defaultDebitKind: 'expense', defaultCreditKind: 'none', sort: 710 },
+  // ── Discounts (contra-revenue — reduce reported revenue) ───────
+  { code: 'manual_discount',   name: 'Sales Discounts - Manual',    category: 'discount', description: 'Cashier-applied percentage or dollar off',                debitHint: 'revenue', creditHint: null, defaultDebitKind: 'contra_revenue', defaultCreditKind: 'none', sort: 700 },
+  { code: 'promo_code',        name: 'Promotional Discounts',       category: 'discount', description: 'Promo code or coupon redemptions',                        debitHint: 'revenue', creditHint: null, defaultDebitKind: 'contra_revenue', defaultCreditKind: 'none', sort: 701 },
+  { code: 'employee_discount', name: 'Employee Discounts',          category: 'discount', description: 'Staff meal or merchandise discounts',                     debitHint: 'revenue', creditHint: null, defaultDebitKind: 'contra_revenue', defaultCreditKind: 'none', sort: 702 },
+  { code: 'loyalty_discount',  name: 'Loyalty Program Discounts',   category: 'discount', description: 'Points redemption or member pricing',                     debitHint: 'revenue', creditHint: null, defaultDebitKind: 'contra_revenue', defaultCreditKind: 'none', sort: 703 },
+  { code: 'member_discount',   name: 'Member Discounts',            category: 'discount', description: 'Membership-based pricing (golf/club member rates)',       debitHint: 'revenue', creditHint: null, defaultDebitKind: 'contra_revenue', defaultCreditKind: 'none', sort: 704 },
+  { code: 'price_match',       name: 'Price Match Adjustments',     category: 'discount', description: 'Competitor price matching',                               debitHint: 'revenue', creditHint: null, defaultDebitKind: 'contra_revenue', defaultCreditKind: 'none', sort: 705 },
+
+  // ── Comps (expense — cost the business absorbs) ───────────────
+  { code: 'manager_comp',      name: 'Manager Comps',               category: 'comp',     description: 'Manager-authorized giveaways',                            debitHint: 'expense', creditHint: null, defaultDebitKind: 'expense', defaultCreditKind: 'none', sort: 710 },
+  { code: 'promo_comp',        name: 'Promotional Comps',           category: 'comp',     description: 'Marketing or promotion giveaways',                        debitHint: 'expense', creditHint: null, defaultDebitKind: 'expense', defaultCreditKind: 'none', sort: 711 },
+  { code: 'quality_recovery',  name: 'Quality Recovery Expense',    category: 'comp',     description: 'Food or service quality issue comps',                     debitHint: 'expense', creditHint: null, defaultDebitKind: 'expense', defaultCreditKind: 'none', sort: 712 },
+  { code: 'price_override',    name: 'Price Override Loss',         category: 'comp',     description: 'Revenue loss from manual price reductions',               debitHint: 'expense', creditHint: null, defaultDebitKind: 'expense', defaultCreditKind: 'none', sort: 713 },
+  { code: 'other_comp',        name: 'Other Comps & Write-offs',    category: 'comp',     description: 'Catch-all comp expense',                                  debitHint: 'expense', creditHint: null, defaultDebitKind: 'expense', defaultCreditKind: 'none', sort: 714 },
 
   // ── Over/Short ─────────────────────────────────────────────────
   { code: 'over_short', name: 'Over/Short', category: 'other', description: 'Cash drawer over/short variance', debitHint: 'expense', creditHint: 'asset', defaultDebitKind: 'expense', defaultCreditKind: 'cash_bank', sort: 800 },
@@ -156,6 +169,8 @@ export const TRANSACTION_TYPE_CATEGORY_LABELS: Record<TransactionTypeCategory, s
   deposit: 'Deposits',
   refund: 'Refunds & Voids',
   settlement: 'Settlement & Processing',
+  discount: 'Discounts',
+  comp: 'Comps & Write-offs',
   ar: 'Accounts Receivable',
   ap: 'Accounts Payable',
   inventory: 'Inventory',
@@ -172,6 +187,8 @@ export const TRANSACTION_TYPE_CATEGORY_ORDER: TransactionTypeCategory[] = [
   'deposit',
   'refund',
   'settlement',
+  'discount',
+  'comp',
   'membership',
   'ar',
   'ap',
@@ -192,6 +209,8 @@ export function getMappedStatusRule(category: TransactionTypeCategory): MappedSt
     case 'deposit': return 'both';
     case 'refund': return 'both';
     case 'settlement': return 'both';
+    case 'discount': return 'debit';
+    case 'comp': return 'debit';
     case 'ar': return 'both';
     case 'ap': return 'both';
     case 'inventory': return 'both';

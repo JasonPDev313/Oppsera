@@ -10,6 +10,11 @@ import { FnbFloorView } from '@/components/fnb/floor/FnbFloorView';
 import { FnbTabView } from '@/components/fnb/tab/FnbTabView';
 import { FnbSplitView } from '@/components/fnb/FnbSplitView';
 import { FnbPaymentView } from '@/components/fnb/FnbPaymentView';
+import { FnbBottomNav } from '@/components/fnb/FnbBottomNav';
+
+import { OpenTicketsView } from '@/components/fnb/views/OpenTicketsView';
+import { ClosedTicketsView } from '@/components/fnb/views/ClosedTicketsView';
+import { SalesSummaryView } from '@/components/fnb/views/SalesSummaryView';
 
 // ── Offline Banner ─────────────────────────────────────────────
 
@@ -94,16 +99,23 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
       {/* Offline indicator */}
       {!isOnline && <OfflineBanner queueCount={0} />}
 
-      <div className="flex-1 min-h-0">
-        <div className={currentScreen === 'floor' ? 'h-full' : 'hidden'}>
-          <FnbFloorView userId={userId} isActive={isActive && currentScreen === 'floor'} />
+      <div className="flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0">
+          <div className={currentScreen === 'floor' ? 'h-full' : 'hidden'}>
+            <FnbFloorView userId={userId} isActive={isActive && currentScreen === 'floor'} />
+          </div>
+          <div className={currentScreen === 'tab' ? 'h-full' : 'hidden'}>
+            <FnbTabView userId={userId} isActive={isActive && currentScreen === 'tab'} />
+          </div>
+          {currentScreen === 'open_tickets' && <OpenTicketsView userId={userId} />}
+          {currentScreen === 'closed_tickets' && <ClosedTicketsView userId={userId} />}
+          {currentScreen === 'sales_summary' && <SalesSummaryView userId={userId} />}
+          {currentScreen === 'payment' && <FnbPaymentView userId={userId} />}
+          {currentScreen === 'split' && <FnbSplitView userId={userId} />}
         </div>
-        <div className={currentScreen === 'tab' ? 'h-full' : 'hidden'}>
-          <FnbTabView userId={userId} isActive={isActive && currentScreen === 'tab'} />
-        </div>
-        {currentScreen === 'payment' && <FnbPaymentView userId={userId} />}
-        {currentScreen === 'split' && <FnbSplitView userId={userId} />}
+        <FnbBottomNav />
       </div>
+
     </div>
   );
 }

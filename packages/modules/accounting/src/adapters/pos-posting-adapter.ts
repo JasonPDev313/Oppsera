@@ -4,8 +4,10 @@ import {
   resolvePaymentTypeAccounts,
   batchResolveSubDepartmentAccounts,
   batchResolveTaxGroupAccounts,
+  batchResolveDiscountGlMappings,
   logUnmappedEvent,
 } from '../helpers/resolve-mapping';
+import { getDiscountClassificationDef } from '@oppsera/shared';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -52,6 +54,11 @@ interface TenderRecordedPayload {
     packageComponents: PackageComponent[] | null;
   }>;
   surchargeAmountCents?: number; // cents (per-tender surcharge)
+  discountBreakdown?: Array<{
+    classification: string; // 'manual_discount' | 'promo_code' | etc.
+    amountCents: number;    // total cents for this classification
+  }>;
+  priceOverrideLossCents?: number; // sum of all price override losses
   businessDate: string;
 }
 
@@ -64,6 +71,7 @@ interface GlLine {
   subDepartmentId?: string;
   terminalId?: string;
   channel?: string;
+  discountClassification?: string;
   memo?: string;
 }
 
@@ -169,9 +177,10 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
   // ── 2. CREDIT: Revenue + Tax + COGS + Discounts + Svc Charges ──
   if (data.lines && data.lines.length > 0) {
     // Batch-fetch all GL mappings upfront (1 query each instead of N per loop)
-    const [subDeptMap, taxGroupMap] = await Promise.all([
+    const [subDeptMap, taxGroupMap, discountGlMap] = await Promise.all([
       batchResolveSubDepartmentAccounts(db, tenantId),
       batchResolveTaxGroupAccounts(db, tenantId),
+      batchResolveDiscountGlMappings(db, tenantId),
     ]);
 
     // Group revenue by subDepartmentId (applying proportional ratio)
@@ -243,16 +252,75 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
             : `Revenue - unmapped (fallback: uncategorized)`,
         });
       }
+    }
 
-      // ── Discount debit (contra-revenue by sub-department) ────
-      // Always post the discount debit to maintain GL balance.
-      // Use sub-department mapping first, fall back to uncategorized revenue account.
-      if (discountTotal > 0 && totalRevenueCents > 0) {
+    // ── Discount debits (per-classification GL posting) ──────────
+    // When discountBreakdown is available, post each classification to its
+    // own GL account via the discount_gl_mappings table.
+    // Fallback cascade: discount_gl_mappings → defaultDiscountAccountId → defaultUncategorizedRevenueAccountId.
+    // When discountBreakdown is absent (old events), fall back to the legacy
+    // single-account proportional distribution.
+    if (data.discountBreakdown && data.discountBreakdown.length > 0) {
+      for (const entry of data.discountBreakdown) {
+        const classificationCents = Math.round(entry.amountCents * tenderRatio);
+        if (classificationCents <= 0) continue;
+
+        const def = getDiscountClassificationDef(entry.classification);
+
+        // Resolve GL account: per-sub-dept classification mapping → tenant default → uncategorized
+        // For order-level discounts we don't have a sub-department, so we check
+        // each sub-department's mapping in case there's a tenant-wide default.
+        // The primary lookup uses the first sub-department in the revenue map.
+        let discountAccountId: string | null = null;
+        let resolvedSubDeptId: string | undefined;
+
+        // Try sub-department-specific mapping
+        for (const [subDeptId] of revenueBySubDept) {
+          if (subDeptId === 'unmapped') continue;
+          const innerMap = discountGlMap.get(subDeptId);
+          if (innerMap) {
+            const mapped = innerMap.get(entry.classification);
+            if (mapped) {
+              discountAccountId = mapped;
+              resolvedSubDeptId = subDeptId;
+              break;
+            }
+          }
+        }
+
+        // Fallback: tenant-level default discount account
+        if (!discountAccountId) {
+          discountAccountId = settings.defaultDiscountAccountId
+            ?? settings.defaultUncategorizedRevenueAccountId
+            ?? null;
+          missingMappings.push(`discount_classification:${entry.classification}`);
+        }
+
+        if (discountAccountId) {
+          glLines.push({
+            accountId: discountAccountId,
+            debitAmount: (classificationCents / 100).toFixed(2),
+            creditAmount: '0',
+            locationId: data.locationId,
+            subDepartmentId: resolvedSubDeptId,
+            terminalId: data.terminalId,
+            channel: 'pos',
+            discountClassification: entry.classification,
+            memo: `Discount (${def?.label ?? entry.classification})`,
+          });
+        }
+      }
+    } else if (discountTotal > 0 && totalRevenueCents > 0) {
+      // Legacy fallback: old events without discountBreakdown —
+      // distribute discountTotal proportionally across sub-departments
+      for (const [subDeptId, amountCents] of revenueBySubDept) {
+        const subDeptMapping = subDeptId !== 'unmapped' ? (subDeptMap.get(subDeptId) ?? null) : null;
         const subDeptDiscountShare = Math.round(
           discountTotal * tenderRatio * (amountCents / totalRevenueCents),
         );
         if (subDeptDiscountShare > 0) {
           const discountAccountId = subDeptMapping?.discountAccountId
+            ?? settings.defaultDiscountAccountId
             ?? settings.defaultUncategorizedRevenueAccountId
             ?? null;
           if (!subDeptMapping?.discountAccountId) {
@@ -264,12 +332,55 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
               debitAmount: (subDeptDiscountShare / 100).toFixed(2),
               creditAmount: '0',
               locationId: data.locationId,
-              subDepartmentId: subDeptId,
+              subDepartmentId: subDeptId !== 'unmapped' ? subDeptId : undefined,
               terminalId: data.terminalId,
               channel: 'pos',
-              memo: `Discount - sub-dept ${subDeptId}`,
+              memo: `Discount - sub-dept ${subDeptId} (legacy)`,
             });
           }
+        }
+      }
+    }
+
+    // ── Price override loss debit (expense account 6153) ──────
+    // Tracks revenue lost from manual price reductions — currently invisible
+    // because price overrides just reduce the unit price. This makes the loss
+    // visible as a tracked expense in GL.
+    if (data.priceOverrideLossCents && data.priceOverrideLossCents > 0) {
+      const lossCents = Math.round(data.priceOverrideLossCents * tenderRatio);
+      if (lossCents > 0) {
+        const priceOverrideAccountId = settings.defaultPriceOverrideExpenseAccountId
+          ?? settings.defaultUncategorizedRevenueAccountId
+          ?? null;
+        if (priceOverrideAccountId) {
+          // Price override loss is informational — it's ALREADY reflected in the
+          // reduced revenue line (lower unit price). This entry is a memo-only
+          // debit/credit pair to a price override tracking account for reporting.
+          // We do NOT add a net debit here — the revenue credit is already lower.
+          glLines.push({
+            accountId: priceOverrideAccountId,
+            debitAmount: (lossCents / 100).toFixed(2),
+            creditAmount: '0',
+            locationId: data.locationId,
+            terminalId: data.terminalId,
+            channel: 'pos',
+            discountClassification: 'price_override',
+            memo: 'Price override loss (tracking)',
+          });
+          // Offset credit to uncategorized revenue — keeps GL balanced
+          const offsetAccountId = settings.defaultUncategorizedRevenueAccountId ?? priceOverrideAccountId;
+          glLines.push({
+            accountId: offsetAccountId,
+            debitAmount: '0',
+            creditAmount: (lossCents / 100).toFixed(2),
+            locationId: data.locationId,
+            terminalId: data.terminalId,
+            channel: 'pos',
+            discountClassification: 'price_override',
+            memo: 'Price override loss offset',
+          });
+        } else {
+          missingMappings.push('price_override_expense_account:missing');
         }
       }
     }

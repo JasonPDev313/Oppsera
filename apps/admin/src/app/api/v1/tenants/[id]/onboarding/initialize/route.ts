@@ -1,10 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { withAdminPermission } from '@/lib/with-admin-permission';
-import { db } from '@oppsera/db';
-import { tenants, tenantOnboardingChecklists, onboardingStepTemplates } from '@oppsera/db';
-import { eq } from 'drizzle-orm';
+import { sql } from '@oppsera/db';
 import { logAdminAudit, getClientIp } from '@/lib/admin-audit';
+import { withAdminDb } from '@/lib/admin-db';
 
 export const POST = withAdminPermission(async (req: NextRequest, session, params) => {
   const tenantId = params?.id;
@@ -12,77 +11,108 @@ export const POST = withAdminPermission(async (req: NextRequest, session, params
 
   const body = await req.json().catch(() => ({}));
 
-  // Get tenant (need industry)
-  const [tenant] = await db
-    .select({ id: tenants.id, industry: tenants.industry, onboardingStatus: tenants.onboardingStatus })
-    .from(tenants)
-    .where(eq(tenants.id, tenantId));
-
-  if (!tenant) {
-    return NextResponse.json({ error: { message: 'Tenant not found' } }, { status: 404 });
+  // Verify tenant exists
+  let tenantIndustry: string | null = null;
+  try {
+    const rows = await withAdminDb(async (tx) => {
+      return tx.execute(sql`SELECT id, industry FROM tenants WHERE id = ${tenantId} LIMIT 1`);
+    });
+    const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+    if (arr.length === 0) {
+      return NextResponse.json({ error: { message: 'Tenant not found' } }, { status: 404 });
+    }
+    tenantIndustry = (arr[0]!.industry as string) ?? null;
+  } catch {
+    // industry column doesn't exist — check with base query
+    const rows = await withAdminDb(async (tx) => {
+      return tx.execute(sql`SELECT id FROM tenants WHERE id = ${tenantId} LIMIT 1`);
+    });
+    if (Array.from(rows as Iterable<unknown>).length === 0) {
+      return NextResponse.json({ error: { message: 'Tenant not found' } }, { status: 404 });
+    }
   }
 
-  const industry = (body.industry ?? tenant.industry ?? 'general').trim();
+  const industry = (body.industry ?? tenantIndustry ?? 'general').trim();
 
   // Check if onboarding already initialized
-  const existingSteps = await db
-    .select({ id: tenantOnboardingChecklists.id })
-    .from(tenantOnboardingChecklists)
-    .where(eq(tenantOnboardingChecklists.tenantId, tenantId))
-    .limit(1);
-
-  if (existingSteps.length > 0) {
+  try {
+    const existingRows = await withAdminDb(async (tx) => {
+      return tx.execute(sql`
+        SELECT id FROM tenant_onboarding_checklists WHERE tenant_id = ${tenantId} LIMIT 1
+      `);
+    });
+    if (Array.from(existingRows as Iterable<unknown>).length > 0) {
+      return NextResponse.json({
+        error: { message: 'Onboarding already initialized. Delete existing steps first.' },
+      }, { status: 409 });
+    }
+  } catch {
     return NextResponse.json({
-      error: { message: 'Onboarding already initialized. Delete existing steps first.' },
-    }, { status: 409 });
+      error: { message: 'Onboarding tables not available. Run migration 0195 first.' },
+    }, { status: 503 });
   }
 
-  // Load templates for the industry
-  const templates = await db
-    .select()
-    .from(onboardingStepTemplates)
-    .where(eq(onboardingStepTemplates.industry, industry))
-    .orderBy(onboardingStepTemplates.sortOrder);
+  // Load templates
+  let templates: Array<Record<string, unknown>> = [];
+  try {
+    const rows = await withAdminDb(async (tx) => {
+      return tx.execute(sql`
+        SELECT step_key, step_label, step_group, sort_order
+        FROM onboarding_step_templates
+        WHERE industry = ${industry}
+        ORDER BY sort_order
+      `);
+    });
+    templates = Array.from(rows as Iterable<Record<string, unknown>>);
+
+    if (templates.length === 0) {
+      const generalRows = await withAdminDb(async (tx) => {
+        return tx.execute(sql`
+          SELECT step_key, step_label, step_group, sort_order
+          FROM onboarding_step_templates
+          WHERE industry = 'general'
+          ORDER BY sort_order
+        `);
+      });
+      templates = Array.from(generalRows as Iterable<Record<string, unknown>>);
+    }
+  } catch {
+    return NextResponse.json({
+      error: { message: 'Onboarding template tables not available. Run migration 0195 first.' },
+    }, { status: 503 });
+  }
 
   if (templates.length === 0) {
-    // Fall back to 'general' templates
-    const generalTemplates = await db
-      .select()
-      .from(onboardingStepTemplates)
-      .where(eq(onboardingStepTemplates.industry, 'general'))
-      .orderBy(onboardingStepTemplates.sortOrder);
-
-    if (generalTemplates.length === 0) {
-      return NextResponse.json({
-        error: { message: `No onboarding templates found for industry "${industry}" or "general"` },
-      }, { status: 404 });
-    }
-
-    templates.push(...generalTemplates);
+    return NextResponse.json({
+      error: { message: `No onboarding templates found for industry "${industry}" or "general"` },
+    }, { status: 404 });
   }
 
   // Create checklist items
   const created: Array<{ stepKey: string; stepLabel: string; stepGroup: string }> = [];
 
-  await db.transaction(async (tx) => {
+  await withAdminDb(async (tx) => {
     for (const tmpl of templates) {
-      await tx.insert(tenantOnboardingChecklists).values({
-        tenantId,
-        stepKey: tmpl.stepKey,
-        stepLabel: tmpl.stepLabel,
-        stepGroup: tmpl.stepGroup,
-        sortOrder: tmpl.sortOrder,
-        status: 'pending',
+      await tx.execute(sql`
+        INSERT INTO tenant_onboarding_checklists (tenant_id, step_key, step_label, step_group, sort_order, status)
+        VALUES (${tenantId}, ${tmpl.step_key as string}, ${tmpl.step_label as string}, ${tmpl.step_group as string}, ${tmpl.sort_order as number}, 'pending')
+      `);
+      created.push({
+        stepKey: tmpl.step_key as string,
+        stepLabel: tmpl.step_label as string,
+        stepGroup: tmpl.step_group as string,
       });
-      created.push({ stepKey: tmpl.stepKey, stepLabel: tmpl.stepLabel, stepGroup: tmpl.stepGroup });
     }
 
-    // Update tenant industry and onboarding status
-    await tx.update(tenants).set({
-      industry,
-      onboardingStatus: 'in_progress',
-      updatedAt: new Date(),
-    }).where(eq(tenants.id, tenantId));
+    // Update tenant industry and onboarding status (best-effort)
+    try {
+      await tx.execute(sql`
+        UPDATE tenants SET industry = ${industry}, onboarding_status = 'in_progress', updated_at = NOW()
+        WHERE id = ${tenantId}
+      `);
+    } catch {
+      // Phase 1A columns don't exist — skip
+    }
   });
 
   void logAdminAudit({

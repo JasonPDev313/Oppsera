@@ -3,7 +3,8 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError, ConflictError } from '@oppsera/shared';
-import { tenders, tenderReversals, orderLines, orders } from '@oppsera/db';
+import { tenders, tenderReversals, orderLines, orderDiscounts, orders } from '@oppsera/db';
+import { sql } from 'drizzle-orm';
 import { eq, and } from 'drizzle-orm';
 import type { RecordTenderInput } from '../validation';
 import {
@@ -170,6 +171,33 @@ export async function recordTender(
       packageComponents: l.packageComponents ?? null,
     }));
 
+    // 6b. Build discount breakdown by classification for per-classification GL posting
+    const discountRows = await (tx as any)
+      .select({
+        classification: orderDiscounts.discountClassification,
+        amount: orderDiscounts.amount,
+      })
+      .from(orderDiscounts)
+      .where(eq(orderDiscounts.orderId, orderId));
+
+    const discountBreakdownMap = new Map<string, number>();
+    for (const row of discountRows as { classification: string | null; amount: number }[]) {
+      const key = row.classification ?? 'manual_discount';
+      discountBreakdownMap.set(key, (discountBreakdownMap.get(key) ?? 0) + row.amount);
+    }
+    const discountBreakdown = Array.from(discountBreakdownMap.entries()).map(
+      ([classification, amountCents]) => ({ classification, amountCents }),
+    );
+
+    // 6c. Compute price override loss total from order lines
+    const priceOverrideLossRows = await (tx as any)
+      .select({
+        total: sql<number>`COALESCE(SUM(price_override_discount_cents), 0)::int`,
+      })
+      .from(orderLines)
+      .where(eq(orderLines.orderId, orderId));
+    const priceOverrideLossCents = (priceOverrideLossRows as any[])[0]?.total ?? 0;
+
     // 7. Generate legacy GL journal entry (gated behind enableLegacyGlPosting)
     // The new GL pipeline posts via the POS adapter event consumer on tender.recorded.v1.
     // When enableLegacyGlPosting is false, only the new pipeline runs.
@@ -277,6 +305,8 @@ export async function recordTender(
       billingAccountId: order.billingAccountId ?? null,
       surchargeAmountCents: input.surchargeAmountCents ?? 0,
       lines: enrichedLines,
+      discountBreakdown: discountBreakdown.length > 0 ? discountBreakdown : undefined,
+      priceOverrideLossCents: priceOverrideLossCents > 0 ? priceOverrideLossCents : undefined,
     });
 
     return {

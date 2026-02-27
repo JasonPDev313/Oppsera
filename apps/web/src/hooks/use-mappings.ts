@@ -376,6 +376,79 @@ export function useBankAccountMutations() {
   return { saveBankAccount };
 }
 
+// ── useDiscountMappings ─────────────────────────────────────
+
+export interface DiscountGlMappingRow {
+  subDepartmentId: string;
+  discountClassification: string;
+  glAccountId: string;
+  glAccountNumber: string | null;
+  glAccountName: string | null;
+}
+
+export interface DiscountMappingCoverage {
+  classification: string;
+  label: string;
+  glTreatment: string;
+  mapped: number;
+  total: number;
+}
+
+export function useDiscountMappings() {
+  const result = useQuery({
+    queryKey: ['discount-gl-mappings'],
+    queryFn: () =>
+      apiFetch<{ data: DiscountGlMappingRow[] }>(
+        '/api/v1/accounting/mappings/discount-classifications',
+      ).then((r) => r.data),
+    staleTime: 60_000,
+  });
+
+  return {
+    data: result.data ?? [],
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}
+
+export function useDiscountMappingCoverage() {
+  const result = useQuery({
+    queryKey: ['discount-mapping-coverage'],
+    queryFn: () =>
+      apiFetch<{ data: DiscountMappingCoverage[] }>(
+        '/api/v1/accounting/mappings/discount-classifications/coverage',
+      ).then((r) => r.data),
+    staleTime: 30_000,
+  });
+
+  return {
+    data: result.data ?? [],
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}
+
+export function useDiscountMappingMutations() {
+  const queryClient = useQueryClient();
+
+  const saveDiscountMappingsBatch = useMutation({
+    mutationFn: (mappings: Array<{ subDepartmentId: string; classification: string; glAccountId: string }>) =>
+      apiFetch('/api/v1/accounting/mappings/discount-classifications', {
+        method: 'PUT',
+        body: JSON.stringify({ mappings }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discount-gl-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['discount-mapping-coverage'] });
+      queryClient.invalidateQueries({ queryKey: ['mapping-coverage'] });
+    },
+  });
+
+  return { saveDiscountMappingsBatch };
+}
+
 // ── useFnbMappingCoverage ─────────────────────────────────
 
 export function useFnbMappingCoverage(locationId: string | undefined) {

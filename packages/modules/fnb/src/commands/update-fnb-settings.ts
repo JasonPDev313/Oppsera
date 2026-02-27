@@ -49,14 +49,14 @@ export async function updateFnbSettings(
         await tx.execute(
           sql`INSERT INTO tenant_settings (id, tenant_id, location_id, module_key, setting_key, value, created_at, updated_at)
               VALUES (${id}, ${ctx.tenantId}, ${locationId}, ${moduleKey}, ${key}, ${jsonValue}::jsonb, NOW(), NOW())
-              ON CONFLICT (tenant_id, COALESCE(location_id, ''), module_key, setting_key)
+              ON CONFLICT (tenant_id, module_key, setting_key, COALESCE(location_id, '__global__'))
               DO UPDATE SET value = ${jsonValue}::jsonb, updated_at = NOW()`,
         );
       } else {
         await tx.execute(
           sql`INSERT INTO tenant_settings (id, tenant_id, location_id, module_key, setting_key, value, created_at, updated_at)
               VALUES (${id}, ${ctx.tenantId}, ${sql`NULL`}, ${moduleKey}, ${key}, ${jsonValue}::jsonb, NOW(), NOW())
-              ON CONFLICT (tenant_id, COALESCE(location_id, ''), module_key, setting_key)
+              ON CONFLICT (tenant_id, module_key, setting_key, COALESCE(location_id, '__global__'))
               DO UPDATE SET value = ${jsonValue}::jsonb, updated_at = NOW()`,
         );
       }

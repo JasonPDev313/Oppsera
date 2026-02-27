@@ -1,7 +1,30 @@
 'use client';
 
-import { ArrowLeft, Clock, Users } from 'lucide-react';
+import { ArrowLeft, Clock, Users, Flame, CheckCircle2 } from 'lucide-react';
 import type { FnbTabDetail } from '@/types/fnb';
+
+function getFireStatus(tab: FnbTabDetail): { label: string; color: string; bg: string; icon: 'flame' | 'check' } | null {
+  const lines = tab.lines ?? [];
+  const courses = tab.courses ?? [];
+  if (lines.length === 0) return null;
+
+  const unsentCount = lines.filter((l) => l.status === 'draft' || l.status === 'unsent').length;
+  if (unsentCount > 0) {
+    return { label: `${unsentCount} unsent`, color: 'var(--fnb-warning)', bg: 'rgba(245,158,11,0.12)', icon: 'flame' };
+  }
+
+  const firingCount = courses.filter((c) => c.courseStatus === 'fired' || c.courseStatus === 'cooking').length;
+  if (firingCount > 0) {
+    return { label: `${firingCount} firing`, color: 'var(--fnb-action-fire)', bg: 'rgba(249,115,22,0.12)', icon: 'flame' };
+  }
+
+  const allServed = courses.length > 0 && courses.every((c) => c.courseStatus === 'served');
+  if (allServed) {
+    return { label: 'All served', color: 'var(--fnb-status-available)', bg: 'rgba(34,197,94,0.12)', icon: 'check' };
+  }
+
+  return null;
+}
 
 interface TabHeaderProps {
   tab: FnbTabDetail;
@@ -24,6 +47,7 @@ export function TabHeader({ tab, onBack }: TabHeaderProps) {
     bar_seating: 'Bar',
     delivery: 'Delivery',
   };
+  const fireStatus = getFireStatus(tab);
 
   return (
     <div
@@ -43,7 +67,10 @@ export function TabHeader({ tab, onBack }: TabHeaderProps) {
       {/* Table + Tab info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+          <span
+            className="text-2xl font-black tracking-tight rounded-lg px-2 py-0.5"
+            style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
+          >
             {tab.tableNumber ? `T${tab.tableNumber}` : `#${tab.tabNumber}`}
           </span>
           <span
@@ -58,6 +85,15 @@ export function TabHeader({ tab, onBack }: TabHeaderProps) {
           >
             {tab.status}
           </span>
+          {fireStatus && (
+            <span
+              className="rounded-full px-2 py-0.5 text-[10px] font-semibold flex items-center gap-1"
+              style={{ backgroundColor: fireStatus.bg, color: fireStatus.color }}
+            >
+              {fireStatus.icon === 'flame' ? <Flame className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+              {fireStatus.label}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3 mt-0.5">
           {tab.serverName && (

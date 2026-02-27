@@ -89,6 +89,25 @@ export const pmsFolioEntryTypeGlDefaults = pgTable(
   ],
 );
 
+// ── Discount GL Mappings ───────────────────────────────────────────
+// Per sub-department, per discount classification GL account mapping.
+// Normalized table avoids adding 11 columns to sub_department_gl_defaults.
+export const discountGlMappings = pgTable(
+  'discount_gl_mappings',
+  {
+    tenantId: text('tenant_id').notNull(),
+    subDepartmentId: text('sub_department_id').notNull(),
+    discountClassification: text('discount_classification').notNull(),
+    glAccountId: text('gl_account_id').references(() => glAccounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tenantId, table.subDepartmentId, table.discountClassification] }),
+    index('idx_discount_gl_mappings_tenant').on(table.tenantId),
+  ],
+);
+
 // ── Bank Accounts ─────────────────────────────────────────────────
 // Links physical bank accounts to GL accounts for deposit workflows.
 export const bankAccounts = pgTable(

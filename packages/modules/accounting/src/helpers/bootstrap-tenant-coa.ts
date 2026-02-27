@@ -131,6 +131,12 @@ export async function bootstrapTenantCoa(
     if (at.accountNumber === '1150') {
       controlAccountIds['ach_receivable'] = accountId;
     }
+    if (at.accountNumber === '4100') {
+      controlAccountIds['default_discount'] = accountId;
+    }
+    if (at.accountNumber === '6153') {
+      controlAccountIds['price_override_expense'] = accountId;
+    }
   }
 
   // 5. Create accounting_settings with sensible defaults
@@ -151,6 +157,8 @@ export async function bootstrapTenantCoa(
   if (controlAccountIds['uncategorized_revenue']) extendedDefaults.defaultUncategorizedRevenueAccountId = controlAccountIds['uncategorized_revenue'];
   if (controlAccountIds['surcharge_revenue']) extendedDefaults.defaultSurchargeRevenueAccountId = controlAccountIds['surcharge_revenue'];
   if (controlAccountIds['ach_receivable']) extendedDefaults.defaultAchReceivableAccountId = controlAccountIds['ach_receivable'];
+  if (controlAccountIds['default_discount']) extendedDefaults.defaultDiscountAccountId = controlAccountIds['default_discount'];
+  if (controlAccountIds['price_override_expense']) extendedDefaults.defaultPriceOverrideExpenseAccountId = controlAccountIds['price_override_expense'];
 
   if (Object.keys(extendedDefaults).length > 0) {
     try {

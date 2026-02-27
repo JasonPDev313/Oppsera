@@ -14,6 +14,7 @@ import type {
 
 const _snapshotCache = new Map<string, { data: FloorPlanWithLiveStatus; ts: number }>();
 const SNAPSHOT_TTL_MS = 30 * 60_000; // 30 minutes
+const MAX_SNAPSHOT_ENTRIES = 100;
 
 function getSnapshot(roomId: string): FloorPlanWithLiveStatus | undefined {
   const entry = _snapshotCache.get(roomId);
@@ -26,6 +27,13 @@ function getSnapshot(roomId: string): FloorPlanWithLiveStatus | undefined {
 }
 
 function setSnapshot(roomId: string, data: FloorPlanWithLiveStatus): void {
+  // LRU eviction: if at capacity, delete the oldest entry (first in Map insertion order)
+  if (_snapshotCache.size >= MAX_SNAPSHOT_ENTRIES && !_snapshotCache.has(roomId)) {
+    const oldestKey = _snapshotCache.keys().next().value;
+    if (oldestKey !== undefined) _snapshotCache.delete(oldestKey);
+  }
+  // Delete-then-set moves entry to end of Map (LRU touch)
+  _snapshotCache.delete(roomId);
   _snapshotCache.set(roomId, { data, ts: Date.now() });
 }
 

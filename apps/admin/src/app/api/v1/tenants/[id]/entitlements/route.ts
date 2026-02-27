@@ -1,21 +1,22 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { withAdminAuth } from '@/lib/with-admin-auth';
-import { db, sql } from '@oppsera/db';
+import { sql } from '@oppsera/db';
 import { MODULE_REGISTRY, validateModeChange, getEntitlementEngine } from '@oppsera/core';
 import type { AccessMode } from '@oppsera/core';
 import { generateUlid } from '@oppsera/shared';
+import { withAdminDb } from '@/lib/admin-db';
 
 export const GET = withAdminAuth(async (_req: NextRequest, _session, params) => {
   const tenantId = params?.id;
   if (!tenantId) return NextResponse.json({ error: { message: 'Missing tenant ID' } }, { status: 400 });
 
-  const rows = await db.execute(
+  const rows = await withAdminDb(async (tx) => tx.execute(
     sql`SELECT id, module_key, plan_tier, is_enabled, access_mode, activated_at, expires_at,
                changed_by, change_reason, updated_at
         FROM entitlements
         WHERE tenant_id = ${tenantId}`,
-  );
+  ));
 
   const existing = new Map<string, Record<string, unknown>>();
   for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
@@ -105,9 +106,9 @@ export const POST = withAdminAuth(async (req: NextRequest, session, params) => {
   }
 
   // Load current entitlements for dependency validation
-  const currentRows = await db.execute(
+  const currentRows = await withAdminDb(async (tx) => tx.execute(
     sql`SELECT module_key, access_mode, is_enabled FROM entitlements WHERE tenant_id = ${tenantId}`,
-  );
+  ));
   const currentModes = new Map<string, AccessMode>();
   currentModes.set('platform_core', 'full');
   for (const r of Array.from(currentRows as Iterable<Record<string, unknown>>)) {
@@ -135,19 +136,21 @@ export const POST = withAdminAuth(async (req: NextRequest, session, params) => {
         },
       }, { status: 400 });
     }
-    for (const dep of check.missingDependencies) {
-      await db.execute(sql`
-        INSERT INTO entitlements (id, tenant_id, module_key, plan_tier, is_enabled, access_mode, activated_at, changed_by, change_reason, previous_mode)
-        VALUES (${generateUlid()}, ${tenantId}, ${dep.key}, 'standard', true, 'view', NOW(), ${changedByLabel}, 'Auto-enabled as dependency', 'off')
-        ON CONFLICT (tenant_id, module_key)
-        DO UPDATE SET is_enabled = true, access_mode = 'view', changed_by = ${changedByLabel},
-          change_reason = 'Auto-enabled as dependency', previous_mode = entitlements.access_mode, updated_at = NOW()
-      `);
-      await db.execute(sql`
-        INSERT INTO entitlement_change_log (id, tenant_id, module_key, previous_mode, new_mode, changed_by, change_reason, change_source)
-        VALUES (${generateUlid()}, ${tenantId}, ${dep.key}, 'off', 'view', ${changedByLabel}, 'Auto-enabled as dependency', 'manual')
-      `);
-    }
+    await withAdminDb(async (tx) => {
+      for (const dep of check.missingDependencies) {
+        await tx.execute(sql`
+          INSERT INTO entitlements (id, tenant_id, module_key, plan_tier, is_enabled, access_mode, activated_at, changed_by, change_reason, previous_mode)
+          VALUES (${generateUlid()}, ${tenantId}, ${dep.key}, 'standard', true, 'view', NOW(), ${changedByLabel}, 'Auto-enabled as dependency', 'off')
+          ON CONFLICT (tenant_id, module_key)
+          DO UPDATE SET is_enabled = true, access_mode = 'view', changed_by = ${changedByLabel},
+            change_reason = 'Auto-enabled as dependency', previous_mode = entitlements.access_mode, updated_at = NOW()
+        `);
+        await tx.execute(sql`
+          INSERT INTO entitlement_change_log (id, tenant_id, module_key, previous_mode, new_mode, changed_by, change_reason, change_source)
+          VALUES (${generateUlid()}, ${tenantId}, ${dep.key}, 'off', 'view', ${changedByLabel}, 'Auto-enabled as dependency', 'manual')
+        `);
+      }
+    });
   }
 
   // Active dependents blocking disable
@@ -164,28 +167,29 @@ export const POST = withAdminAuth(async (req: NextRequest, session, params) => {
   const previousMode = currentModes.get(moduleKey) ?? 'off';
   const isEnabled = accessMode !== 'off';
 
-  // Upsert entitlement
-  await db.execute(sql`
-    INSERT INTO entitlements (id, tenant_id, module_key, plan_tier, is_enabled, access_mode, activated_at, changed_by, change_reason, previous_mode)
-    VALUES (${generateUlid()}, ${tenantId}, ${moduleKey}, ${planTier}, ${isEnabled}, ${accessMode}, NOW(), ${changedByLabel}, ${reason ?? null}, ${previousMode})
-    ON CONFLICT (tenant_id, module_key)
-    DO UPDATE SET
-      is_enabled = ${isEnabled},
-      access_mode = ${accessMode},
-      plan_tier = ${planTier},
-      changed_by = ${changedByLabel},
-      change_reason = ${reason ?? null},
-      previous_mode = entitlements.access_mode,
-      updated_at = NOW()
-  `);
-
-  // Log the change
-  if (previousMode !== accessMode) {
-    await db.execute(sql`
-      INSERT INTO entitlement_change_log (id, tenant_id, module_key, previous_mode, new_mode, changed_by, change_reason, change_source)
-      VALUES (${generateUlid()}, ${tenantId}, ${moduleKey}, ${previousMode}, ${accessMode}, ${changedByLabel}, ${reason ?? null}, 'manual')
+  // Upsert entitlement + log change in one transaction
+  await withAdminDb(async (tx) => {
+    await tx.execute(sql`
+      INSERT INTO entitlements (id, tenant_id, module_key, plan_tier, is_enabled, access_mode, activated_at, changed_by, change_reason, previous_mode)
+      VALUES (${generateUlid()}, ${tenantId}, ${moduleKey}, ${planTier}, ${isEnabled}, ${accessMode}, NOW(), ${changedByLabel}, ${reason ?? null}, ${previousMode})
+      ON CONFLICT (tenant_id, module_key)
+      DO UPDATE SET
+        is_enabled = ${isEnabled},
+        access_mode = ${accessMode},
+        plan_tier = ${planTier},
+        changed_by = ${changedByLabel},
+        change_reason = ${reason ?? null},
+        previous_mode = entitlements.access_mode,
+        updated_at = NOW()
     `);
-  }
+
+    if (previousMode !== accessMode) {
+      await tx.execute(sql`
+        INSERT INTO entitlement_change_log (id, tenant_id, module_key, previous_mode, new_mode, changed_by, change_reason, change_source)
+        VALUES (${generateUlid()}, ${tenantId}, ${moduleKey}, ${previousMode}, ${accessMode}, ${changedByLabel}, ${reason ?? null}, 'manual')
+      `);
+    }
+  });
 
   // Invalidate cache
   await getEntitlementEngine().invalidateEntitlements(tenantId);

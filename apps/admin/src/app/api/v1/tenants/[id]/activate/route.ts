@@ -10,7 +10,10 @@ export const POST = withAdminPermission(async (req: NextRequest, session, params
   const id = params?.id;
   if (!id) return NextResponse.json({ error: { message: 'Missing tenant ID' } }, { status: 400 });
 
-  const [tenant] = await db.select().from(tenants).where(eq(tenants.id, id));
+  const [tenant] = await db
+    .select({ id: tenants.id, status: tenants.status })
+    .from(tenants)
+    .where(eq(tenants.id, id));
   if (!tenant) {
     return NextResponse.json({ error: { message: 'Tenant not found' } }, { status: 404 });
   }
@@ -19,17 +22,20 @@ export const POST = withAdminPermission(async (req: NextRequest, session, params
     return NextResponse.json({ error: { message: 'Tenant is already active' } }, { status: 409 });
   }
 
+  // Set base columns, then try Phase 1A columns (best-effort)
   const [updated] = await db
     .update(tenants)
-    .set({
-      status: 'active',
-      activatedAt: new Date(),
-      suspendedAt: null,
-      suspendedReason: null,
-      updatedAt: new Date(),
-    })
+    .set({ status: 'active', updatedAt: new Date() })
     .where(eq(tenants.id, id))
-    .returning();
+    .returning({ id: tenants.id, status: tenants.status });
+
+  try {
+    await db.update(tenants)
+      .set({ activatedAt: new Date(), suspendedAt: null, suspendedReason: null })
+      .where(eq(tenants.id, id));
+  } catch {
+    // Phase 1A columns don't exist yet — skip
+  }
 
   void logAdminAudit({
     session,

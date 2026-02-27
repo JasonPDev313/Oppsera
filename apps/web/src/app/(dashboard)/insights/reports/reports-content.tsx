@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, CalendarClock } from 'lucide-react';
 import { useScheduledReports } from '@/hooks/use-scheduled-reports';
 import { ScheduledReportsPanel } from '@/components/insights/ScheduledReportsPanel';
+import { ToolGuide } from '@/components/insights/ToolGuide';
 
 // ── ReportsContent ────────────────────────────────────────────────
 
@@ -58,6 +59,23 @@ export default function ReportsContent({ embedded }: { embedded?: boolean }) {
         </>
       )}
 
+      {/* Guide */}
+      <ToolGuide
+        storageKey="scheduled-reports"
+        useCases={[
+          'Daily sales summaries',
+          'Weekly performance digests',
+          'Monthly metric snapshots',
+          'Automated team reporting',
+        ]}
+        steps={[
+          { label: 'Create a schedule', detail: 'Choose a report type (digest, custom report, or metric snapshot) and set the frequency.' },
+          { label: 'Set delivery', detail: 'Pick a delivery time and channel (in-app, email, or webhook). Add recipients if sharing.' },
+          { label: 'Receive automatically', detail: 'Reports are generated and delivered on schedule. Pause or edit anytime.' },
+        ]}
+        example={'Create a daily "Sales Digest" delivered at 8 AM via email so your team starts each morning with yesterday\'s performance summary.'}
+      />
+
       {/* Loading */}
       {isLoading && (
         <div className="flex items-center justify-center py-16">
@@ -72,21 +90,8 @@ export default function ReportsContent({ embedded }: { embedded?: boolean }) {
         </div>
       )}
 
-      {/* Empty state */}
-      {!isLoading && !error && reports.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-14 h-14 bg-muted rounded-2xl flex items-center justify-center mb-4">
-            <CalendarClock className="h-7 w-7 text-muted-foreground" />
-          </div>
-          <h3 className="text-base font-semibold text-foreground mb-1">No scheduled reports</h3>
-          <p className="text-sm text-muted-foreground max-w-xs">
-            Set up automated report delivery to receive AI-generated insights on a recurring schedule.
-          </p>
-        </div>
-      )}
-
-      {/* Scheduled reports panel */}
-      {!isLoading && !error && schedules.length > 0 && (
+      {/* Scheduled reports panel — always render; panel has its own empty state */}
+      {!isLoading && !error && (
         <ScheduledReportsPanel
           schedules={schedules}
           onCreate={(input) => {
@@ -95,7 +100,13 @@ export default function ReportsContent({ embedded }: { embedded?: boolean }) {
               reportType: input.reportType as 'digest' | 'custom_report' | 'metric_snapshot',
               frequency: input.frequency as 'daily' | 'weekly' | 'monthly',
               deliveryHour: input.deliveryHour,
+              deliveryDayOfWeek: input.deliveryDayOfWeek ?? undefined,
+              deliveryDayOfMonth: input.deliveryDayOfMonth ?? undefined,
               channel: input.channel as 'in_app' | 'email' | 'webhook',
+              recipientType: input.recipients ? 'custom' : 'self',
+              recipientUserIds: input.recipients
+                ? input.recipients.split(',').map((s) => s.trim()).filter(Boolean)
+                : undefined,
             });
           }}
           onUpdate={(id, input) => {
@@ -103,7 +114,13 @@ export default function ReportsContent({ embedded }: { embedded?: boolean }) {
               name: input.name,
               frequency: input.frequency as 'daily' | 'weekly' | 'monthly',
               deliveryHour: input.deliveryHour,
+              deliveryDayOfWeek: input.deliveryDayOfWeek ?? null,
+              deliveryDayOfMonth: input.deliveryDayOfMonth ?? null,
               channel: input.channel as 'in_app' | 'email' | 'webhook',
+              recipientType: input.recipients ? 'custom' : 'self',
+              recipientUserIds: input.recipients
+                ? input.recipients.split(',').map((s) => s.trim()).filter(Boolean)
+                : null,
             });
           }}
           onDelete={deleteReport}

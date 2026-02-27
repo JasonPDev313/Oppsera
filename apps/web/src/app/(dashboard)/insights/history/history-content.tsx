@@ -7,6 +7,7 @@ import { useSessionHistory, formatRelativeTime } from '@/hooks/use-session-histo
 import type { SessionSummary } from '@/hooks/use-session-history';
 import { apiFetch } from '@/lib/api-client';
 import { exportSessionAsTxt } from '@/lib/export-chat';
+import { ToolGuide } from '@/components/insights/ToolGuide';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -80,6 +81,23 @@ export default function HistoryContent({ embedded }: { embedded?: boolean }) {
           </div>
         </>
       )}
+
+      {/* Guide */}
+      <ToolGuide
+        storageKey="history"
+        useCases={[
+          'Revisit past analyses',
+          'Export conversations for sharing',
+          'Continue where you left off',
+          'Track question quality ratings',
+        ]}
+        steps={[
+          { label: 'Browse sessions', detail: 'Each conversation is saved automatically. The most recent appear first.' },
+          { label: 'Open or export', detail: 'Click "Open" to continue a conversation in chat, or "Export" to download it as a text file.' },
+          { label: 'Review ratings', detail: 'Star ratings show how helpful the AI responses were, helping you gauge answer quality.' },
+        ]}
+        example={'Find last week\'s revenue analysis by scrolling through your history, then click "Open" to ask follow-up questions with full context preserved.'}
+      />
 
       {/* Loading */}
       {isLoading && (

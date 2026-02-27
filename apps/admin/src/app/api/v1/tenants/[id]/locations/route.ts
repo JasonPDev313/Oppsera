@@ -1,9 +1,10 @@
 import type { NextRequest} from 'next/server';
 import { NextResponse } from 'next/server';
 import { withAdminAuth } from '@/lib/with-admin-auth';
-import { db, sql } from '@oppsera/db';
+import { sql } from '@oppsera/db';
 import { locations } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
+import { withAdminDb } from '@/lib/admin-db';
 
 export const GET = withAdminAuth(async (req: NextRequest, _session, params) => {
   const tenantId = params?.id;
@@ -30,7 +31,7 @@ export const GET = withAdminAuth(async (req: NextRequest, _session, params) => {
 
   const whereClause = sql.join(conditions, sql` AND `);
 
-  const rows = await db.execute(sql`
+  const rows = await withAdminDb(async (tx) => tx.execute(sql`
     SELECT
       l.id, l.tenant_id, l.name, l.location_type, l.parent_location_id,
       l.timezone, l.address_line1, l.city, l.state, l.postal_code, l.country,
@@ -40,7 +41,7 @@ export const GET = withAdminAuth(async (req: NextRequest, _session, params) => {
     FROM locations l
     WHERE ${whereClause}
     ORDER BY l.name ASC
-  `);
+  `));
 
   const items = Array.from(rows as Iterable<Record<string, unknown>>).map((r) => ({
     id: r.id as string,
@@ -86,9 +87,9 @@ export const POST = withAdminAuth(async (req: NextRequest, _session, params) => 
       return NextResponse.json({ error: { message: 'parentLocationId is required for venues' } }, { status: 400 });
     }
     // Validate parent exists and belongs to tenant
-    const parent = await db.execute(
+    const parent = await withAdminDb(async (tx) => tx.execute(
       sql`SELECT id FROM locations WHERE id = ${body.parentLocationId} AND tenant_id = ${tenantId} AND is_active = true LIMIT 1`,
-    );
+    ));
     if (Array.from(parent as Iterable<unknown>).length === 0) {
       return NextResponse.json({ error: { message: 'Parent location not found' } }, { status: 404 });
     }
@@ -96,7 +97,7 @@ export const POST = withAdminAuth(async (req: NextRequest, _session, params) => 
 
   const locationId = generateUlid();
 
-  await db.insert(locations).values({
+  await withAdminDb(async (tx) => tx.insert(locations).values({
     id: locationId,
     tenantId,
     name,
@@ -111,7 +112,7 @@ export const POST = withAdminAuth(async (req: NextRequest, _session, params) => 
     phone: body.phone ?? null,
     email: body.email ?? null,
     isActive: true,
-  });
+  }));
 
   return NextResponse.json(
     { data: { id: locationId, name, locationType, tenantId } },

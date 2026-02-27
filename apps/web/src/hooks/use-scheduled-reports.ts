@@ -87,7 +87,7 @@ export function useScheduledReports() {
     setIsLoading(true);
     try {
       const res = await apiFetch<ScheduledReportsListResponse>(
-        '/api/v1/semantic/scheduled-reports',
+        '/api/v1/semantic/scheduled-reports?activeOnly=false',
       );
       if (!mountedRef.current) return;
       setReports(res.data);

@@ -251,6 +251,37 @@ export async function batchResolveTaxGroupAccounts(
 }
 
 /**
+ * Batch-fetch all discount classification GL mappings for a tenant.
+ * Returns a nested Map: subDepartmentId → classification → glAccountId.
+ * Used by the POS adapter for per-classification GL posting.
+ */
+export async function batchResolveDiscountGlMappings(
+  tx: Database,
+  tenantId: string,
+): Promise<Map<string, Map<string, string>>> {
+  const rows = await tx.execute(sql`
+    SELECT sub_department_id, discount_classification, gl_account_id
+    FROM discount_gl_mappings
+    WHERE tenant_id = ${tenantId}
+  `);
+
+  const map = new Map<string, Map<string, string>>();
+  for (const row of Array.from(rows as Iterable<Record<string, unknown>>)) {
+    const subDeptId = String(row.sub_department_id);
+    const classification = String(row.discount_classification);
+    const accountId = String(row.gl_account_id);
+
+    let inner = map.get(subDeptId);
+    if (!inner) {
+      inner = new Map<string, string>();
+      map.set(subDeptId, inner);
+    }
+    inner.set(classification, accountId);
+  }
+  return map;
+}
+
+/**
  * Log an unmapped event for later resolution.
  * Called when a GL mapping is missing during automated posting.
  */

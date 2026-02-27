@@ -3,11 +3,11 @@ import { auditLog } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbKitchenRoutingRules } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import type { CreateRoutingRuleInput } from '../validation';
+import type { CreateKdsRoutingRuleInput } from '../validation';
 
 export async function createRoutingRule(
   ctx: RequestContext,
-  input: CreateRoutingRuleInput,
+  input: CreateKdsRoutingRuleInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
@@ -27,8 +27,14 @@ export async function createRoutingRule(
         modifierId: input.modifierId ?? null,
         departmentId: input.departmentId ?? null,
         subDepartmentId: input.subDepartmentId ?? null,
+        categoryId: input.categoryId ?? null,
         stationId: input.stationId,
         priority: input.priority,
+        ruleName: input.ruleName ?? null,
+        orderTypeCondition: input.orderTypeCondition ?? null,
+        channelCondition: input.channelCondition ?? null,
+        timeConditionStart: input.timeConditionStart ?? null,
+        timeConditionEnd: input.timeConditionEnd ?? null,
         isActive: true,
       })
       .returning();

@@ -144,6 +144,9 @@ export const orderLines = pgTable(
     subDepartmentId: text('sub_department_id'),
     taxGroupId: text('tax_group_id'),
 
+    // ── Price override discount tracking (migration 0212) ──
+    priceOverrideDiscountCents: integer('price_override_discount_cents').notNull().default(0),
+
     // ── Return tracking (migration 0103) ──
     originalLineId: text('original_line_id'), // links return line → original order line
 
@@ -200,10 +203,15 @@ export const orderDiscounts = pgTable(
     value: integer('value').notNull(),
     amount: integer('amount').notNull(),
     reason: text('reason'),
+    // ── Discount classification (migration 0212) ──
+    discountClassification: text('discount_classification'),
     createdBy: text('created_by').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_order_discounts_tenant_order').on(table.tenantId, table.orderId)],
+  (table) => [
+    index('idx_order_discounts_tenant_order').on(table.tenantId, table.orderId),
+    index('idx_order_discounts_tenant_classification').on(table.tenantId, table.discountClassification),
+  ],
 );
 
 // ── Order Counters ──────────────────────────────────────────────

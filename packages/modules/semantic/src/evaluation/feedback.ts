@@ -1,4 +1,4 @@
-import { db } from '@oppsera/db';
+import { db, withTenant } from '@oppsera/db';
 import {
   semanticEvalTurns,
   semanticEvalSessions,
@@ -28,62 +28,85 @@ export async function submitUserRating(
   userId: string,
   input: UserFeedbackInput,
 ): Promise<void> {
-  // Fetch the turn to validate ownership
-  const [turn] = await db
-    .select()
-    .from(semanticEvalTurns)
-    .where(and(eq(semanticEvalTurns.id, evalTurnId), eq(semanticEvalTurns.tenantId, tenantId)))
-    .limit(1);
+  // Wrap all DB operations in withTenant so RLS policies can validate
+  // the tenant_id via current_setting('app.current_tenant_id').
+  // Without this, RLS silently blocks all reads/writes.
+  const { turn, newScore } = await withTenant(tenantId, async (tx) => {
+    // Fetch the turn to validate ownership
+    const [t] = await tx
+      .select()
+      .from(semanticEvalTurns)
+      .where(and(eq(semanticEvalTurns.id, evalTurnId), eq(semanticEvalTurns.tenantId, tenantId)))
+      .limit(1);
 
-  if (!turn) {
-    throw new NotFoundError('Eval turn not found');
-  }
+    if (!t) {
+      throw new NotFoundError('Eval turn not found');
+    }
 
-  // Users can only rate their own interactions
-  if (turn.userId && turn.userId !== userId) {
-    throw new AuthorizationError('You can only rate your own interactions');
-  }
+    // Users can only rate their own interactions
+    if (t.userId && t.userId !== userId) {
+      throw new AuthorizationError('You can only rate your own interactions');
+    }
 
-  const now = new Date();
+    const now = new Date();
 
-  // Compute updated quality score with the new user rating
-  const adminScore = turn.adminScore !== null ? turn.adminScore : undefined;
-  const existingFlags = Array.isArray(turn.qualityFlags) ? turn.qualityFlags as QualityFlag[] : [];
+    // Compute updated quality score with the new user rating
+    const adminScore = t.adminScore !== null ? t.adminScore : undefined;
+    const existingFlags = Array.isArray(t.qualityFlags) ? t.qualityFlags as QualityFlag[] : [];
 
-  const updatedPartial = {
-    userRating: input.rating ?? (turn.userRating !== null ? turn.userRating : undefined),
-    adminScore: adminScore,
-    qualityFlags: existingFlags as QualityFlag[],
-    rowCount: turn.rowCount,
-    executionError: turn.executionError,
-    llmConfidence: turn.llmConfidence !== null ? Number(turn.llmConfidence) : null,
-    compilationErrors: Array.isArray(turn.compilationErrors) ? turn.compilationErrors as string[] : null,
-    resultFingerprint: turn.resultFingerprint as Record<string, unknown> | null,
-    executionTimeMs: turn.executionTimeMs,
-  };
+    const updatedPartial = {
+      userRating: input.rating ?? (t.userRating !== null ? t.userRating : undefined),
+      adminScore: adminScore,
+      qualityFlags: existingFlags as QualityFlag[],
+      rowCount: t.rowCount,
+      executionError: t.executionError,
+      llmConfidence: t.llmConfidence !== null ? Number(t.llmConfidence) : null,
+      compilationErrors: Array.isArray(t.compilationErrors) ? t.compilationErrors as string[] : null,
+      resultFingerprint: t.resultFingerprint as Record<string, unknown> | null,
+      executionTimeMs: t.executionTimeMs,
+    };
 
-  const recomputedFlags = computeQualityFlags(updatedPartial as Parameters<typeof computeQualityFlags>[0]);
-  const newScore = computeQualityScore({
-    ...updatedPartial,
-    qualityFlags: recomputedFlags,
-  } as Parameters<typeof computeQualityScore>[0]);
+    const recomputedFlags = computeQualityFlags(updatedPartial as Parameters<typeof computeQualityFlags>[0]);
+    const score = computeQualityScore({
+      ...updatedPartial,
+      qualityFlags: recomputedFlags,
+    } as Parameters<typeof computeQualityScore>[0]);
 
-  await db
-    .update(semanticEvalTurns)
-    .set({
-      userRating: input.rating ?? turn.userRating,
-      userThumbsUp: input.thumbsUp ?? turn.userThumbsUp,
-      userFeedbackText: input.text ?? turn.userFeedbackText,
-      userFeedbackTags: input.tags ?? turn.userFeedbackTags as FeedbackTag[],
-      userFeedbackAt: now,
-      qualityFlags: recomputedFlags.length > 0 ? recomputedFlags : turn.qualityFlags as QualityFlag[],
-      qualityScore: newScore !== null ? newScore.toString() : turn.qualityScore,
-      updatedAt: now,
-    })
-    .where(eq(semanticEvalTurns.id, evalTurnId));
+    await tx
+      .update(semanticEvalTurns)
+      .set({
+        userRating: input.rating ?? t.userRating,
+        userThumbsUp: input.thumbsUp ?? t.userThumbsUp,
+        userFeedbackText: input.text ?? t.userFeedbackText,
+        userFeedbackTags: input.tags ?? t.userFeedbackTags as FeedbackTag[],
+        userFeedbackAt: now,
+        qualityFlags: recomputedFlags.length > 0 ? recomputedFlags : t.qualityFlags as QualityFlag[],
+        qualityScore: score !== null ? score.toString() : t.qualityScore,
+        updatedAt: now,
+      })
+      .where(eq(semanticEvalTurns.id, evalTurnId));
 
-  // Update session rolling average for user rating
-  await updateSessionAvgUserRating(turn.sessionId, tenantId);
+    // Update session rolling average for user rating (inline, same transaction)
+    const result = await tx.execute<{ avg_rating: string }>(
+      sql`SELECT AVG(user_rating)::NUMERIC(3,2) as avg_rating
+          FROM semantic_eval_turns
+          WHERE session_id = ${t.sessionId}
+            AND tenant_id = ${tenantId}
+            AND user_rating IS NOT NULL`,
+    );
+    const rows = Array.from(result as Iterable<{ avg_rating: string }>);
+    const avgRating = rows[0]?.avg_rating;
+
+    await tx
+      .update(semanticEvalSessions)
+      .set({
+        avgUserRating: avgRating ?? null,
+        updatedAt: now,
+      })
+      .where(eq(semanticEvalSessions.id, t.sessionId));
+
+    return { turn: t, newScore: score };
+  });
 
   // ── Auto-promote to RAG training store on thumbs-up ──────────
   // When a user gives a high rating (>=4) and the turn produced valid data,
@@ -242,25 +265,28 @@ function inferModeFromTurn(turn: { llmPlan: unknown }): 'metrics' | 'sql' {
 // ── Session rolling averages ────────────────────────────────────
 
 async function updateSessionAvgUserRating(sessionId: string, tenantId: string): Promise<void> {
-  // Compute rolling average from all turns in session that have a user rating
-  const result = await db.execute<{ avg_rating: string }>(
-    sql`SELECT AVG(user_rating)::NUMERIC(3,2) as avg_rating
-        FROM semantic_eval_turns
-        WHERE session_id = ${sessionId}
-          AND tenant_id = ${tenantId}
-          AND user_rating IS NOT NULL`,
-  );
+  // Wrap in withTenant so RLS context is set for the eval tables.
+  await withTenant(tenantId, async (tx) => {
+    // Compute rolling average from all turns in session that have a user rating
+    const result = await tx.execute<{ avg_rating: string }>(
+      sql`SELECT AVG(user_rating)::NUMERIC(3,2) as avg_rating
+          FROM semantic_eval_turns
+          WHERE session_id = ${sessionId}
+            AND tenant_id = ${tenantId}
+            AND user_rating IS NOT NULL`,
+    );
 
-  const rows = Array.from(result as Iterable<{ avg_rating: string }>);
-  const avgRating = rows[0]?.avg_rating;
+    const rows = Array.from(result as Iterable<{ avg_rating: string }>);
+    const avgRating = rows[0]?.avg_rating;
 
-  await db
-    .update(semanticEvalSessions)
-    .set({
-      avgUserRating: avgRating ?? null,
-      updatedAt: new Date(),
-    })
-    .where(eq(semanticEvalSessions.id, sessionId));
+    await tx
+      .update(semanticEvalSessions)
+      .set({
+        avgUserRating: avgRating ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(semanticEvalSessions.id, sessionId));
+  });
 }
 
 async function updateSessionAvgAdminScore(sessionId: string): Promise<void> {

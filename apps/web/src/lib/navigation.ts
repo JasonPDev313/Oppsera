@@ -218,6 +218,7 @@ export const navigation: NavItem[] = [
       { name: 'Revenue & Cost', href: '/accounting/revenue', icon: DollarSign, requiredPermission: 'accounting.revenue.view' },
       { name: 'Tax', href: '/accounting/tax', icon: FileBarChart, requiredPermission: 'accounting.tax.view' },
       { name: 'Financials', href: '/accounting/financials', icon: Scale, requiredPermission: 'accounting.financials.view' },
+      { name: 'GL Code Summary', href: '/accounting/reports/gl-code-summary', icon: FileBarChart, requiredPermission: 'accounting.view' },
       { name: 'Period Close', href: '/accounting/period-close', icon: Lock, requiredPermission: 'accounting.period.close' },
     ],
   },

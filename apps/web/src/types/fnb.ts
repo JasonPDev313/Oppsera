@@ -56,6 +56,7 @@ export type FnbTicketItemStatus =
   | 'pending'
   | 'cooking'
   | 'ready'
+  | 'served'
   | 'bumped'
   | 'voided';
 
@@ -254,6 +255,8 @@ export interface FnbTabDetail {
   customerId: string | null;
   splitFromTabId: string | null;
   splitStrategy: FnbSplitStrategy | null;
+  isTaxExempt?: boolean;
+  isServiceChargeExempt?: boolean;
   runningTotalCents: number;
   taxTotalCents: number;
   openedAt: string;
@@ -302,17 +305,23 @@ export interface KdsTicketItem {
   itemId: string;
   orderLineId: string;
   itemName: string;
+  kitchenLabel: string | null;
+  itemColor: string | null;
   modifierSummary: string | null;
   specialInstructions: string | null;
   seatNumber: number | null;
   courseName: string | null;
   quantity: number;
   itemStatus: FnbTicketItemStatus;
+  priorityLevel: number;
+  estimatedPrepSeconds: number | null;
+  routingRuleId: string | null;
   isRush: boolean;
   isAllergy: boolean;
   isVip: boolean;
   startedAt: string | null;
   readyAt: string | null;
+  bumpedBy: string | null;
   elapsedSeconds: number;
 }
 
@@ -322,16 +331,25 @@ export interface KdsTicketCard {
   tabId: string;
   courseNumber: number | null;
   status: FnbTicketStatus;
+  priorityLevel: number;
+  isHeld: boolean;
+  orderType: string | null;
+  channel: string | null;
   tableNumber: number | null;
   serverName: string | null;
+  customerName: string | null;
   sentAt: string;
+  estimatedPickupAt: string | null;
   elapsedSeconds: number;
   items: KdsTicketItem[];
+  otherStations?: { stationId: string; stationName: string }[];
 }
 
 export interface KdsView {
   stationId: string;
   stationName: string;
+  stationType: string;
+  stationColor: string | null;
   warningThresholdSeconds: number;
   criticalThresholdSeconds: number;
   tickets: KdsTicketCard[];
@@ -343,11 +361,15 @@ export interface KdsView {
 export interface ExpoTicketItem {
   itemId: string;
   itemName: string;
+  kitchenLabel: string | null;
+  itemColor: string | null;
   modifierSummary: string | null;
   seatNumber: number | null;
   courseName: string | null;
   quantity: number;
   itemStatus: FnbTicketItemStatus;
+  priorityLevel: number;
+  estimatedPrepSeconds: number | null;
   stationId: string | null;
   stationName: string | null;
   isRush: boolean;
@@ -361,9 +383,15 @@ export interface ExpoTicketCard {
   tabId: string;
   courseNumber: number | null;
   status: FnbTicketStatus;
+  priorityLevel: number;
+  isHeld: boolean;
+  orderType: string | null;
+  channel: string | null;
   tableNumber: number | null;
   serverName: string | null;
+  customerName: string | null;
   sentAt: string;
+  estimatedPickupAt: string | null;
   elapsedSeconds: number;
   items: ExpoTicketItem[];
   allItemsReady: boolean;
@@ -705,8 +733,10 @@ export interface FnbDraftLine {
   courseNumber: number;
   modifiers: Array<{
     modifierId: string;
+    modifierGroupId?: string;
     name: string;
     priceAdjustment: number;
+    instruction?: 'none' | 'extra' | 'on_side' | null;
   }>;
   specialInstructions: string | null;
   addedAt: number; // timestamp for ordering
@@ -714,7 +744,9 @@ export interface FnbDraftLine {
 
 // ── Navigation State ──────────────────────────────────────────────
 
-export type FnbScreen = 'floor' | 'tab' | 'payment' | 'split';
+export type FnbScreen = 'floor' | 'tab' | 'payment' | 'split' | 'open_tickets' | 'closed_tickets' | 'sales_summary';
+
+export type FnbNavTab = 'tables' | 'open_tickets' | 'closed_tickets' | 'sales';
 
 export interface FnbNavigateParams {
   tabId?: string;

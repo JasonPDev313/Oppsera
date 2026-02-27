@@ -93,7 +93,18 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/(.*)',
+        // Embed pages must allow iframe embedding — override frame-blocking headers
+        source: '/embed/:path*',
+        headers: securityHeaders
+          .filter((h) => h.key !== 'X-Frame-Options')
+          .map((h) =>
+            h.key === 'Content-Security-Policy'
+              ? { ...h, value: h.value.replace("frame-ancestors 'none'", "frame-ancestors *") }
+              : h,
+          ),
+      },
+      {
+        source: '/((?!embed/).*)',
         headers: securityHeaders,
       },
     ];

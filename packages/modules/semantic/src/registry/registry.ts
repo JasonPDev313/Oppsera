@@ -116,8 +116,14 @@ function rowToLens(row: typeof semanticLenses.$inferSelect): LensDef {
 async function loadCache(): Promise<RegistryCache> {
   // Sequential queries — avoids grabbing 4 pool connections simultaneously,
   // which causes contention with middleware queries under concurrent load.
-  const metricRows = await db.select().from(semanticMetrics).where(eq(semanticMetrics.isActive, true));
-  const dimRows = await db.select().from(semanticDimensions).where(eq(semanticDimensions.isActive, true));
+  // Only cache system metrics/dimensions (tenant_id IS NULL). Tenant-specific
+  // entries are fetched on demand in the API routes to avoid cross-tenant leaks.
+  const metricRows = await db.select().from(semanticMetrics).where(
+    and(eq(semanticMetrics.isActive, true), isNull(semanticMetrics.tenantId)),
+  );
+  const dimRows = await db.select().from(semanticDimensions).where(
+    and(eq(semanticDimensions.isActive, true), isNull(semanticDimensions.tenantId)),
+  );
   const relRows = await db.select().from(semanticMetricDimensions);
   // Only cache system lenses (tenant_id IS NULL). Tenant-specific lenses are
   // fetched on demand in getLens() to avoid nondeterministic slug collisions.

@@ -22,6 +22,7 @@ export function BottomDock({ totalCovers, availableCount, seatedCount, onNewTab,
     >
       {/* Left: stats */}
       <div className="flex items-center gap-2 sm:gap-4">
+        <span className="text-[9px] text-muted-foreground opacity-50 hidden sm:inline">v1.0</span>
         <div className="flex items-center gap-1.5">
           <Users className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-semibold text-foreground">
@@ -33,7 +34,7 @@ export function BottomDock({ totalCovers, availableCount, seatedCount, onNewTab,
         <span className="text-xs hidden sm:inline text-green-500">
           {availableCount} open
         </span>
-        <span className="text-xs hidden sm:inline text-indigo-600">
+        <span className="text-xs hidden sm:inline text-indigo-500">
           {seatedCount} seated
         </span>
         {openRevenueCents != null && openRevenueCents > 0 && (

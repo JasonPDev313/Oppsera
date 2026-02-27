@@ -143,6 +143,7 @@ export type WidgetType = 'metric_card' | 'chart' | 'kpi_grid' | 'chat';
 
 export interface EmbedWidgetConfig {
   metricSlugs?: string[];
+  title?: string;
   chartType?: 'line' | 'bar' | 'pie' | 'table';
   dimensions?: string[];
   filters?: Record<string, unknown>;

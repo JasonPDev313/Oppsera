@@ -50,7 +50,9 @@ describe('Session 4 Validation', () => {
       expect(ROUTING_RULE_TYPES).toContain('item');
       expect(ROUTING_RULE_TYPES).toContain('modifier');
       expect(ROUTING_RULE_TYPES).toContain('department');
-      expect(ROUTING_RULE_TYPES).toHaveLength(3);
+      expect(ROUTING_RULE_TYPES).toContain('sub_department');
+      expect(ROUTING_RULE_TYPES).toContain('category');
+      expect(ROUTING_RULE_TYPES).toHaveLength(5);
     });
   });
 
@@ -343,7 +345,7 @@ describe('Session 4 Validation', () => {
 
     it('rejects invalid rule type', () => {
       const result = createRoutingRuleSchema.safeParse({
-        ruleType: 'category',
+        ruleType: 'unknown_type',
         stationId: 'station-1',
       });
       expect(result.success).toBe(false);
@@ -563,7 +565,7 @@ describe('Session 4 Validation', () => {
       const result = listRoutingRulesFilterSchema.safeParse({
         tenantId: 'tenant-1',
         locationId: 'loc-1',
-        ruleType: 'category',
+        ruleType: 'unknown_type',
       });
       expect(result.success).toBe(false);
     });

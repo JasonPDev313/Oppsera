@@ -195,18 +195,9 @@ export function useExpoView({
   const bumpTicket = useCallback(async (ticketId: string) => {
     setIsActing(true);
     try {
-      // For expo, use the first station's bump-ticket endpoint
-      // The bumpTicket command doesn't need stationId in the body
       await apiFetch(`/api/v1/fnb/stations/expo`, {
         method: 'POST',
         body: JSON.stringify({ ticketId }),
-      });
-      await fetchExpo();
-    } catch {
-      // Fallback: try kitchen tickets endpoint
-      await apiFetch(`/api/v1/fnb/kitchen/tickets/${ticketId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'served' }),
       });
       await fetchExpo();
     } finally {
@@ -285,9 +276,10 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
     warningThresholdSeconds?: number;
     criticalThresholdSeconds?: number;
   }) => {
+    if (!locationId) return;
     setIsActing(true);
     try {
-      await apiFetch('/api/v1/fnb/stations', {
+      await apiFetch(`/api/v1/fnb/stations?locationId=${locationId}`, {
         method: 'POST',
         body: JSON.stringify({
           ...input,
@@ -298,7 +290,7 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
     } finally {
       setIsActing(false);
     }
-  }, [fetchStations]);
+  }, [fetchStations, locationId]);
 
   const updateStation = useCallback(async (stationId: string, input: {
     displayName?: string;
@@ -311,7 +303,8 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
   }) => {
     setIsActing(true);
     try {
-      await apiFetch(`/api/v1/fnb/stations/${stationId}`, {
+      const params = locationId ? `?locationId=${locationId}` : '';
+      await apiFetch(`/api/v1/fnb/stations/${stationId}${params}`, {
         method: 'PATCH',
         body: JSON.stringify({
           ...input,
@@ -322,7 +315,7 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
     } finally {
       setIsActing(false);
     }
-  }, [fetchStations]);
+  }, [fetchStations, locationId]);
 
   const deactivateStation = useCallback(async (stationId: string) => {
     await updateStation(stationId, { isActive: false });

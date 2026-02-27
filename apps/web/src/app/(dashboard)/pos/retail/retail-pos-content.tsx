@@ -78,7 +78,10 @@ const NewCustomerDialog = dynamic(() => import('@/components/pos/NewCustomerDial
 const ToolsView = dynamic(() => import('@/components/pos/ToolsView').then(m => ({ default: m.ToolsView })), { ssr: false });
 const DiscountDialog = dynamic(() => import('@/components/pos/DiscountDialog').then(m => ({ default: m.DiscountDialog })), { ssr: false });
 const ServiceChargeDialog = dynamic(() => import('@/components/pos/ServiceChargeDialog').then(m => ({ default: m.ServiceChargeDialog })), { ssr: false });
-import type { CatalogItemForPOS, AddLineItemInput, HeldOrder, RecordTenderResult } from '@/types/pos';
+const PriceOverrideDialog = dynamic(() => import('@/components/pos/PriceOverrideDialog').then(m => ({ default: m.PriceOverrideDialog })), { ssr: false });
+const VoidLineDialog = dynamic(() => import('@/components/pos/VoidLineDialog').then(m => ({ default: m.VoidLineDialog })), { ssr: false });
+const CompDialog = dynamic(() => import('@/components/pos/CompDialog').then(m => ({ default: m.CompDialog })), { ssr: false });
+import type { CatalogItemForPOS, AddLineItemInput, HeldOrder, RecordTenderResult, OrderLine } from '@/types/pos';
 import type { FnbMetadata, RetailMetadata } from '@oppsera/shared';
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -343,6 +346,12 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   const [showQuickMenuEditor, setShowQuickMenuEditor] = useState(false);
   const [voidReason, setVoidReason] = useState('');
 
+  // Line-level edit dialogs (triggered from Cart → LineItemEditPanel)
+  const [editTargetLine, setEditTargetLine] = useState<OrderLine | null>(null);
+  const [showLinePriceOverride, setShowLinePriceOverride] = useState(false);
+  const [showLineVoidDialog, setShowLineVoidDialog] = useState(false);
+  const [showLineCompDialog, setShowLineCompDialog] = useState(false);
+
   // Multi-select cart mode
   const [cartSelectMode, setCartSelectMode] = useState(false);
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(new Set());
@@ -375,6 +384,121 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     setShowDiscountDialog(true);
   }, []);
 
+  // ── Line-level edit handlers (Cart → LineItemEditPanel) ──────────
+
+  const handleLinePriceOverride = useCallback((line: OrderLine) => {
+    // Check for discount signal from DiscountSubPanel
+    const discountLine = line as OrderLine & { _discountPrice?: number };
+    if (discountLine._discountPrice != null) {
+      // Discount applied inline — perform remove+re-add with the discounted price
+      const newPrice = discountLine._discountPrice;
+      pos.removeItem(line.id);
+      pos.addItem({
+        catalogItemId: line.catalogItemId,
+        qty: line.qty,
+        modifiers: line.modifiers?.map((m) => ({
+          modifierId: m.modifierId,
+          name: m.name,
+          priceAdjustment: m.priceAdjustment,
+          isDefault: m.isDefault,
+        })) ?? undefined,
+        specialInstructions: line.specialInstructions ?? undefined,
+        selectedOptions: line.selectedOptions ?? undefined,
+        notes: line.notes ?? undefined,
+        priceOverride: { unitPrice: newPrice, reason: 'discount', approvedBy: user?.name ?? 'manager' },
+        _display: { name: line.catalogItemName, unitPrice: newPrice, itemType: line.itemType, sku: line.catalogItemSku },
+      });
+      return;
+    }
+    setEditTargetLine(line);
+    setShowLinePriceOverride(true);
+  }, [pos, user]);
+
+  const handleLinePriceOverrideApply = useCallback(
+    (newPrice: number, reason: string, approvedBy: string) => {
+      if (!editTargetLine) return;
+      pos.removeItem(editTargetLine.id);
+      pos.addItem({
+        catalogItemId: editTargetLine.catalogItemId,
+        qty: editTargetLine.qty,
+        modifiers: editTargetLine.modifiers?.map((m) => ({
+          modifierId: m.modifierId,
+          name: m.name,
+          priceAdjustment: m.priceAdjustment,
+          isDefault: m.isDefault,
+        })) ?? undefined,
+        specialInstructions: editTargetLine.specialInstructions ?? undefined,
+        selectedOptions: editTargetLine.selectedOptions ?? undefined,
+        notes: editTargetLine.notes ?? undefined,
+        priceOverride: { unitPrice: newPrice, reason, approvedBy },
+        _display: { name: editTargetLine.catalogItemName, unitPrice: newPrice, itemType: editTargetLine.itemType, sku: editTargetLine.catalogItemSku },
+      });
+      setShowLinePriceOverride(false);
+      setEditTargetLine(null);
+    },
+    [editTargetLine, pos],
+  );
+
+  const handleLineVoid = useCallback((line: OrderLine) => {
+    setEditTargetLine(line);
+    setShowLineVoidDialog(true);
+  }, []);
+
+  const handleLineVoidConfirm = useCallback(
+    (_reason: string, _wasteTracking: boolean) => {
+      if (!editTargetLine) return;
+      pos.removeItem(editTargetLine.id);
+      setShowLineVoidDialog(false);
+      setEditTargetLine(null);
+    },
+    [editTargetLine, pos],
+  );
+
+  const handleLineComp = useCallback((line: OrderLine) => {
+    setEditTargetLine(line);
+    setShowLineCompDialog(true);
+  }, []);
+
+  const handleLineCompConfirm = useCallback(
+    (reason: string, _category: string) => {
+      if (!editTargetLine) return;
+      pos.removeItem(editTargetLine.id);
+      pos.addItem({
+        catalogItemId: editTargetLine.catalogItemId,
+        qty: editTargetLine.qty,
+        modifiers: editTargetLine.modifiers?.map((m) => ({
+          modifierId: m.modifierId,
+          name: m.name,
+          priceAdjustment: m.priceAdjustment,
+          isDefault: m.isDefault,
+        })) ?? undefined,
+        specialInstructions: editTargetLine.specialInstructions ?? undefined,
+        selectedOptions: editTargetLine.selectedOptions ?? undefined,
+        notes: editTargetLine.notes ?? undefined,
+        priceOverride: { unitPrice: 0, reason: `Comp: ${reason}`, approvedBy: user?.name ?? 'manager' },
+        _display: { name: editTargetLine.catalogItemName, unitPrice: 0, itemType: editTargetLine.itemType, sku: editTargetLine.catalogItemSku },
+      });
+      setShowLineCompDialog(false);
+      setEditTargetLine(null);
+    },
+    [editTargetLine, pos, user],
+  );
+
+  const handleLineEditModifiers = useCallback(
+    (line: OrderLine) => {
+      // Find the catalog item to open the modifier dialog
+      const item = catalog.allItems.find((i) => i.id === line.catalogItemId);
+      if (!item) {
+        toast.error('Item not found in catalog — it may have been archived');
+        return;
+      }
+      // Store the line being edited so we can remove it after modifier dialog confirms
+      setEditTargetLine(line);
+      setModifierItem(item);
+    },
+    [catalog, toast],
+  );
+
   // Close all portal-based dialogs when this POS mode becomes inactive.
   // Portals render to document.body outside the CSS-hidden container,
   // so they'd remain visible on top of the other POS mode without this.
@@ -397,6 +521,10 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       setShowGiftCardDialog(false);
       setShowSettings(false);
       setShowQuickMenuEditor(false);
+      setShowLinePriceOverride(false);
+      setShowLineVoidDialog(false);
+      setShowLineCompDialog(false);
+      setEditTargetLine(null);
       setCartSelectMode(false);
       setSelectedLineIds(new Set());
       setPosView('order');
@@ -465,6 +593,27 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       setModifierItem(null);
     },
     [pos, catalog, modifierItem, displayFor],
+  );
+
+  // Override modifier add to support re-editing existing lines from cart
+  const handleModifierAddWithEdit = useCallback(
+    (input: AddLineItemInput) => {
+      if (editTargetLine && modifierItem) {
+        // Editing an existing line — remove old, add new
+        pos.removeItem(editTargetLine.id);
+        pos.addItem({
+          ...input,
+          _display: { name: modifierItem.name, unitPrice: modifierItem.price, itemType: modifierItem.type, sku: modifierItem.sku },
+        });
+        catalog.addToRecent(modifierItem.id);
+        setEditTargetLine(null);
+        setModifierItem(null);
+      } else {
+        // Normal add from catalog
+        handleModifierAdd(input);
+      }
+    },
+    [editTargetLine, modifierItem, pos, catalog, handleModifierAdd],
   );
 
   const handleOptionAdd = useCallback(
@@ -1078,6 +1227,16 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                   onToggleSelectMode={toggleCartSelectMode}
                   onBatchRemove={handleBatchRemove}
                   onBatchDiscount={handleBatchDiscount}
+                  onPriceOverride={handleLinePriceOverride}
+                  onEditModifiers={handleLineEditModifiers}
+                  onVoidLine={handleLineVoid}
+                  onCompLine={handleLineComp}
+                  permissions={{
+                    priceOverride: posPerms.priceOverride,
+                    discount: posPerms.discount,
+                    voidLine: posPerms.voidOrder,
+                    comp: posPerms.voidOrder,
+                  }}
                 />
               </div>
 
@@ -1315,12 +1474,15 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
 
       {/* ── Dialogs ────────────────────────────────────────────────── */}
 
-      {/* Modifier Dialog (F&B items) */}
+      {/* Modifier Dialog (F&B items + edit modifiers from cart) */}
       <ModifierDialog
         open={modifierItem !== null}
-        onClose={() => setModifierItem(null)}
+        onClose={() => {
+          setModifierItem(null);
+          setEditTargetLine(null); // Clear edit target when closing without saving
+        }}
         item={modifierItem}
-        onAdd={handleModifierAdd}
+        onAdd={handleModifierAddWithEdit}
       />
 
       {/* Option Picker Dialog (Retail items with options) */}
@@ -1556,6 +1718,42 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         onVerify={managerOverride.verifyPin}
         error={managerOverride.pinError}
         title={managerOverride.pendingAction ? `Manager Override: ${managerOverride.pendingAction}` : 'Manager Override'}
+      />
+
+      {/* Line-level Price Override Dialog */}
+      <PriceOverrideDialog
+        open={showLinePriceOverride}
+        onClose={() => {
+          setShowLinePriceOverride(false);
+          setEditTargetLine(null);
+        }}
+        itemName={editTargetLine?.catalogItemName ?? ''}
+        currentPrice={editTargetLine?.unitPrice ?? 0}
+        onApply={handleLinePriceOverrideApply}
+      />
+
+      {/* Line-level Void Dialog */}
+      <VoidLineDialog
+        open={showLineVoidDialog}
+        onClose={() => {
+          setShowLineVoidDialog(false);
+          setEditTargetLine(null);
+        }}
+        onVoid={handleLineVoidConfirm}
+        itemName={editTargetLine?.catalogItemName}
+        amountCents={editTargetLine?.lineTotal}
+      />
+
+      {/* Line-level Comp Dialog */}
+      <CompDialog
+        open={showLineCompDialog}
+        onClose={() => {
+          setShowLineCompDialog(false);
+          setEditTargetLine(null);
+        }}
+        onComp={handleLineCompConfirm}
+        itemName={editTargetLine?.catalogItemName}
+        amountCents={editTargetLine?.lineTotal}
       />
 
       {/* Split Tender Panel */}

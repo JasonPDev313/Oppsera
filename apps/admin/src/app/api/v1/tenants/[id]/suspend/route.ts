@@ -16,7 +16,10 @@ export const POST = withAdminPermission(async (req: NextRequest, session, params
     return NextResponse.json({ error: { message: 'Reason is required to suspend a tenant' } }, { status: 400 });
   }
 
-  const [tenant] = await db.select().from(tenants).where(eq(tenants.id, id));
+  const [tenant] = await db
+    .select({ id: tenants.id, status: tenants.status })
+    .from(tenants)
+    .where(eq(tenants.id, id));
   if (!tenant) {
     return NextResponse.json({ error: { message: 'Tenant not found' } }, { status: 404 });
   }
@@ -25,16 +28,20 @@ export const POST = withAdminPermission(async (req: NextRequest, session, params
     return NextResponse.json({ error: { message: 'Tenant is already suspended' } }, { status: 409 });
   }
 
+  // Set base columns, then try Phase 1A columns (best-effort)
   const [updated] = await db
     .update(tenants)
-    .set({
-      status: 'suspended',
-      suspendedAt: new Date(),
-      suspendedReason: reason,
-      updatedAt: new Date(),
-    })
+    .set({ status: 'suspended', updatedAt: new Date() })
     .where(eq(tenants.id, id))
-    .returning();
+    .returning({ id: tenants.id, status: tenants.status });
+
+  try {
+    await db.update(tenants)
+      .set({ suspendedAt: new Date(), suspendedReason: reason })
+      .where(eq(tenants.id, id));
+  } catch {
+    // Phase 1A columns don't exist yet — skip
+  }
 
   void logAdminAudit({
     session,

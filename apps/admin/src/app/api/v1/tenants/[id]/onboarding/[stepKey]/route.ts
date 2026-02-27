@@ -1,10 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { withAdminPermission } from '@/lib/with-admin-permission';
-import { db } from '@oppsera/db';
-import { tenants, tenantOnboardingChecklists } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import { sql } from '@oppsera/db';
 import { logAdminAudit, getClientIp } from '@/lib/admin-audit';
+import { withAdminDb } from '@/lib/admin-db';
 
 const VALID_STATUSES = ['pending', 'in_progress', 'completed', 'skipped', 'blocked'] as const;
 
@@ -32,69 +31,93 @@ export const PATCH = withAdminPermission(async (req: NextRequest, session, param
   }
 
   // Find the onboarding step
-  const rows = await db
-    .select()
-    .from(tenantOnboardingChecklists)
-    .where(
-      and(
-        eq(tenantOnboardingChecklists.tenantId, tenantId),
-        eq(tenantOnboardingChecklists.stepKey, stepKey),
-      ),
-    );
-
-  if (rows.length === 0) {
-    return NextResponse.json({ error: { message: 'Onboarding step not found' } }, { status: 404 });
+  let step: Record<string, unknown> | null = null;
+  try {
+    const rows = await withAdminDb(async (tx) => {
+      return tx.execute(sql`
+        SELECT id, status FROM tenant_onboarding_checklists
+        WHERE tenant_id = ${tenantId} AND step_key = ${stepKey}
+        LIMIT 1
+      `);
+    });
+    const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+    if (arr.length === 0) {
+      return NextResponse.json({ error: { message: 'Onboarding step not found' } }, { status: 404 });
+    }
+    step = arr[0]!;
+  } catch {
+    return NextResponse.json({
+      error: { message: 'Onboarding tables not available. Run migration 0195 first.' },
+    }, { status: 503 });
   }
 
-  const step = rows[0]!;
-  const beforeStatus = step.status;
+  const beforeStatus = step.status as string;
 
-  const updates: Record<string, unknown> = {
-    status: newStatus,
-    updatedAt: new Date(),
-  };
+  // Build update
+  const setClauses = [
+    sql`status = ${newStatus}`,
+    sql`updated_at = NOW()`,
+  ];
 
   if (newStatus === 'completed') {
-    updates.completedAt = new Date();
-    updates.completedBy = session.adminId;
+    setClauses.push(sql`completed_at = NOW()`);
+    setClauses.push(sql`completed_by = ${session.adminId}`);
   } else if (newStatus !== 'blocked') {
-    updates.completedAt = null;
-    updates.completedBy = null;
+    setClauses.push(sql`completed_at = NULL`);
+    setClauses.push(sql`completed_by = NULL`);
   }
 
   if (blockerNotes !== undefined) {
-    updates.blockerNotes = newStatus === 'blocked' ? blockerNotes.trim() : null;
+    setClauses.push(sql`blocker_notes = ${newStatus === 'blocked' ? blockerNotes.trim() : null}`);
   }
 
-  await db
-    .update(tenantOnboardingChecklists)
-    .set(updates)
-    .where(eq(tenantOnboardingChecklists.id, step.id));
+  await withAdminDb(async (tx) => {
+    await tx.execute(sql`
+      UPDATE tenant_onboarding_checklists
+      SET ${sql.join(setClauses, sql`, `)}
+      WHERE id = ${step!.id as string}
+    `);
+  });
 
   // Recompute tenant onboarding status
-  const allSteps = await db
-    .select({ status: tenantOnboardingChecklists.status })
-    .from(tenantOnboardingChecklists)
-    .where(eq(tenantOnboardingChecklists.tenantId, tenantId));
-
-  const total = allSteps.length;
-  const completed = allSteps.filter((s) => s.status === 'completed' || s.status === 'skipped').length;
-  const blocked = allSteps.filter((s) => s.status === 'blocked').length;
-
   let derivedStatus = 'in_progress';
-  if (total > 0 && completed === total) derivedStatus = 'completed';
-  else if (blocked > 0) derivedStatus = 'stalled';
+  try {
+    const allStepRows = await withAdminDb(async (tx) => {
+      return tx.execute(sql`
+        SELECT status FROM tenant_onboarding_checklists WHERE tenant_id = ${tenantId}
+      `);
+    });
+    const allSteps = Array.from(allStepRows as Iterable<Record<string, unknown>>);
+    const total = allSteps.length;
+    const completed = allSteps.filter((s) => s.status === 'completed' || s.status === 'skipped').length;
+    const blocked = allSteps.filter((s) => s.status === 'blocked').length;
 
-  await db.update(tenants).set({ onboardingStatus: derivedStatus, updatedAt: new Date() }).where(eq(tenants.id, tenantId));
+    if (total > 0 && completed === total) derivedStatus = 'completed';
+    else if (blocked > 0) derivedStatus = 'stalled';
+
+    // Update tenant onboarding status (best-effort)
+    try {
+      await withAdminDb(async (tx) => {
+        await tx.execute(sql`
+          UPDATE tenants SET onboarding_status = ${derivedStatus}, updated_at = NOW()
+          WHERE id = ${tenantId}
+        `);
+      });
+    } catch {
+      // Phase 1A columns don't exist — skip
+    }
+  } catch {
+    // checklist table issue — skip status derivation
+  }
 
   void logAdminAudit({
     session,
     action: 'tenant.onboarding.step_updated',
     entityType: 'onboarding_step',
-    entityId: step.id,
+    entityId: step.id as string,
     tenantId,
     beforeSnapshot: { stepKey, status: beforeStatus },
-    afterSnapshot: { stepKey, status: newStatus, blockerNotes: updates.blockerNotes ?? null },
+    afterSnapshot: { stepKey, status: newStatus, blockerNotes: blockerNotes ?? null },
     ipAddress: getClientIp(req),
   });
 

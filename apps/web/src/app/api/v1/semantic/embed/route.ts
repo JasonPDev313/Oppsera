@@ -14,6 +14,7 @@ const createEmbedTokenSchema = z.object({
   widgetType: z.enum(['metric_card', 'chart', 'kpi_grid', 'chat']).default('metric_card'),
   config: z.object({
     metricSlugs: z.array(z.string()).max(20).optional(),
+    title: z.string().max(200).optional(),
     chartType: z.enum(['line', 'bar', 'pie', 'table']).optional(),
     dimensions: z.array(z.string()).max(10).optional(),
     filters: z.record(z.unknown()).optional(),

@@ -4,13 +4,13 @@ import { auditLog } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbKitchenRoutingRules } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import type { UpdateRoutingRuleInput } from '../validation';
+import type { UpdateKdsRoutingRuleInput } from '../validation';
 import { RoutingRuleNotFoundError } from '../errors';
 
 export async function updateRoutingRule(
   ctx: RequestContext,
   ruleId: string,
-  input: UpdateRoutingRuleInput,
+  input: UpdateKdsRoutingRuleInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
@@ -31,8 +31,13 @@ export async function updateRoutingRule(
     if (!rule) throw new RoutingRuleNotFoundError(ruleId);
 
     const setFields: Record<string, unknown> = { updatedAt: new Date() };
+    if (input.ruleName !== undefined) setFields.ruleName = input.ruleName;
     if (input.stationId !== undefined) setFields.stationId = input.stationId;
     if (input.priority !== undefined) setFields.priority = input.priority;
+    if (input.orderTypeCondition !== undefined) setFields.orderTypeCondition = input.orderTypeCondition;
+    if (input.channelCondition !== undefined) setFields.channelCondition = input.channelCondition;
+    if (input.timeConditionStart !== undefined) setFields.timeConditionStart = input.timeConditionStart;
+    if (input.timeConditionEnd !== undefined) setFields.timeConditionEnd = input.timeConditionEnd;
     if (input.isActive !== undefined) setFields.isActive = input.isActive;
 
     const [updated] = await (tx as any)
