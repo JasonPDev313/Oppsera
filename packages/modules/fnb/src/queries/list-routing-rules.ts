@@ -7,10 +7,14 @@ export interface RoutingRuleListItem {
   ruleName: string | null;
   ruleType: string;
   catalogItemId: string | null;
+  catalogItemName: string | null;
   modifierId: string | null;
   departmentId: string | null;
+  departmentName: string | null;
   subDepartmentId: string | null;
+  subDepartmentName: string | null;
   categoryId: string | null;
+  categoryName: string | null;
   stationId: string;
   stationName: string | null;
   priority: number;
@@ -48,9 +52,17 @@ export async function listRoutingRules(
                  rr.priority, rr.is_active,
                  rr.order_type_condition, rr.channel_condition,
                  rr.time_condition_start, rr.time_condition_end,
-                 ks.name AS station_name
+                 ks.name AS station_name,
+                 ci.name AS catalog_item_name,
+                 dept.name AS department_name,
+                 subdept.name AS sub_department_name,
+                 cat.name AS category_name
           FROM fnb_kitchen_routing_rules rr
           LEFT JOIN fnb_kitchen_stations ks ON ks.id = rr.station_id
+          LEFT JOIN catalog_items ci ON ci.id = rr.catalog_item_id
+          LEFT JOIN catalog_categories dept ON dept.id = rr.department_id
+          LEFT JOIN catalog_categories subdept ON subdept.id = rr.sub_department_id
+          LEFT JOIN catalog_categories cat ON cat.id = rr.category_id
           WHERE ${whereClause}
           ORDER BY rr.priority DESC, rr.id ASC`,
     );
@@ -60,10 +72,14 @@ export async function listRoutingRules(
       ruleName: (r.rule_name as string) ?? null,
       ruleType: r.rule_type as string,
       catalogItemId: (r.catalog_item_id as string) ?? null,
+      catalogItemName: (r.catalog_item_name as string) ?? null,
       modifierId: (r.modifier_id as string) ?? null,
       departmentId: (r.department_id as string) ?? null,
+      departmentName: (r.department_name as string) ?? null,
       subDepartmentId: (r.sub_department_id as string) ?? null,
+      subDepartmentName: (r.sub_department_name as string) ?? null,
       categoryId: (r.category_id as string) ?? null,
+      categoryName: (r.category_name as string) ?? null,
       stationId: r.station_id as string,
       stationName: (r.station_name as string) ?? null,
       priority: Number(r.priority),

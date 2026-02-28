@@ -2,24 +2,13 @@
 
 import { useState, useEffect, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer } from 'lucide-react';
+import { X, Printer, Mail } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
+import { printReceiptDocument } from '@/lib/receipt-printer';
+import { useReceiptBuilder } from '@/hooks/use-receipt-builder';
+import { ReceiptPreview } from '@/components/receipts/ReceiptPreview';
 import type { Order } from '@/types/pos';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
+import type { ReceiptVariant } from '@oppsera/shared';
 
 interface ReceiptPreviewDialogProps {
   open: boolean;
@@ -28,6 +17,8 @@ interface ReceiptPreviewDialogProps {
   locationName: string;
   /** Specific order to preview. If null, fetches the last order for the terminal. */
   order?: Order | null;
+  /** Receipt variant to render */
+  variant?: ReceiptVariant;
 }
 
 export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
@@ -36,9 +27,11 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
   locationId,
   locationName,
   order: propOrder,
+  variant = 'standard',
 }: ReceiptPreviewDialogProps) {
   const [order, setOrder] = useState<Order | null>(propOrder ?? null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingOrder, setIsFetchingOrder] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   // Fetch last order if none provided
   useEffect(() => {
@@ -48,22 +41,39 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
       return;
     }
 
-    setIsLoading(true);
+    setIsFetchingOrder(true);
     apiFetch<{ data: Order[] }>(`/api/v1/orders?locationId=${locationId}&limit=1&status=completed`)
       .then((res) => {
         if (res.data?.[0]) setOrder(res.data[0]);
       })
       .catch(() => {})
-      .finally(() => setIsLoading(false));
+      .finally(() => setIsFetchingOrder(false));
   }, [open, propOrder, locationId]);
 
-  const handlePrint = useCallback(() => {
-    window.print();
-  }, []);
+  // Build receipt document via server API
+  const { document: receiptDoc, isLoading: isBuilding } = useReceiptBuilder({
+    orderId: order?.id ?? null,
+    variant,
+    locationId,
+    locationName,
+    businessName: locationName,
+  });
+
+  const isLoading = isFetchingOrder || isBuilding;
+
+  const handlePrint = useCallback(async () => {
+    if (!receiptDoc) return;
+    setIsPrinting(true);
+    try {
+      await printReceiptDocument(receiptDoc);
+    } catch {
+      // Print failed or was cancelled — not critical
+    } finally {
+      setIsPrinting(false);
+    }
+  }, [receiptDoc]);
 
   if (!open) return null;
-
-  const lines = order?.lines ?? [];
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="receipt-preview-dialog-title">
@@ -75,9 +85,9 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
       />
 
       {/* Dialog */}
-      <div className="relative z-10 w-full max-w-md rounded-xl bg-surface shadow-2xl print:shadow-none print:rounded-none print:max-w-full">
-        {/* Header (hidden in print) */}
-        <div className="flex items-center justify-between border-b border-border px-4 py-3 print:hidden">
+      <div className="relative z-10 w-full max-w-md rounded-xl bg-surface shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 id="receipt-preview-dialog-title" className="text-base font-semibold text-foreground">Receipt Preview</h2>
           <button
             type="button"
@@ -90,89 +100,22 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
         </div>
 
         {/* Receipt body */}
-        <div className="px-6 py-4">
+        <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-sm text-muted-foreground">Loading receipt...</p>
             </div>
-          ) : !order ? (
+          ) : !receiptDoc ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-sm text-muted-foreground">No recent order found</p>
             </div>
           ) : (
-            <div className="space-y-4 font-mono text-sm">
-              {/* Business info */}
-              <div className="text-center">
-                <p className="font-bold text-base">{locationName}</p>
-                <p className="text-xs text-muted-foreground">
-                  Order #{order.orderNumber}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(order.createdAt)}
-                </p>
-              </div>
-
-              {/* Divider */}
-              <div className="border-t border-dashed border-border" />
-
-              {/* Line items */}
-              <div className="space-y-1">
-                {lines.map((line) => (
-                  <div key={line.id} className="flex justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <span className="truncate">
-                        {line.qty > 1 ? `${line.qty}x ` : ''}
-                        {line.catalogItemName}
-                      </span>
-                    </div>
-                    <span className="shrink-0">{formatMoney(line.lineTotal)}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Divider */}
-              <div className="border-t border-dashed border-border" />
-
-              {/* Totals */}
-              <div className="space-y-1">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>{formatMoney(order.subtotal)}</span>
-                </div>
-                {order.discountTotal > 0 && (
-                  <div className="flex justify-between text-green-500">
-                    <span>Discount</span>
-                    <span>-{formatMoney(order.discountTotal)}</span>
-                  </div>
-                )}
-                {order.serviceChargeTotal > 0 && (
-                  <div className="flex justify-between">
-                    <span>Charges</span>
-                    <span>{formatMoney(order.serviceChargeTotal)}</span>
-                  </div>
-                )}
-                {order.taxTotal > 0 && (
-                  <div className="flex justify-between">
-                    <span>Tax</span>
-                    <span>{formatMoney(order.taxTotal)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-bold text-base border-t border-border pt-1">
-                  <span>TOTAL</span>
-                  <span>{formatMoney(order.total)}</span>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="text-center text-xs text-muted-foreground pt-2">
-                <p>Thank you!</p>
-              </div>
-            </div>
+            <ReceiptPreview document={receiptDoc} />
           )}
         </div>
 
-        {/* Actions (hidden in print) */}
-        <div className="flex gap-3 border-t border-border px-4 py-3 print:hidden">
+        {/* Actions */}
+        <div className="flex gap-3 border-t border-border px-4 py-3">
           <button
             type="button"
             onClick={onClose}
@@ -183,11 +126,11 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
           <button
             type="button"
             onClick={handlePrint}
-            disabled={!order}
+            disabled={!receiptDoc || isPrinting}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-40"
           >
             <Printer className="h-4 w-4" aria-hidden="true" />
-            Print
+            {isPrinting ? 'Printing...' : 'Print'}
           </button>
         </div>
       </div>

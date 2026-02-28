@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { Heart } from 'lucide-react';
 
 interface TipPromptProps {
   subtotalCents: number;
@@ -83,9 +84,9 @@ export function TipPrompt({ subtotalCents, onSelect, disabled }: TipPromptProps)
 
   if (customMode) {
     return (
-      <div className="flex flex-col gap-3 p-3">
+      <div className="flex flex-col gap-3 p-3 fnb-fade-scale-in">
         <span
-          className="text-xs font-bold uppercase"
+          className="text-[10px] font-bold uppercase tracking-wider"
           style={{ color: 'var(--fnb-text-muted)' }}
         >
           Custom Tip
@@ -100,7 +101,7 @@ export function TipPrompt({ subtotalCents, onSelect, disabled }: TipPromptProps)
             min="0"
             value={customInput}
             onChange={(e) => setCustomInput(e.target.value)}
-            className="flex-1 rounded-lg px-3 py-2 text-lg font-mono outline-none"
+            className="flex-1 rounded-xl px-3 py-2.5 text-lg font-mono outline-none"
             style={{
               backgroundColor: 'var(--fnb-bg-elevated)',
               color: 'var(--fnb-text-primary)',
@@ -113,7 +114,7 @@ export function TipPrompt({ subtotalCents, onSelect, disabled }: TipPromptProps)
           <button
             type="button"
             onClick={() => setCustomMode(false)}
-            className="flex-1 rounded-lg py-2 text-xs font-bold transition-colors hover:opacity-80"
+            className="flex-1 rounded-xl py-2.5 text-xs font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
             style={{
               backgroundColor: 'var(--fnb-bg-elevated)',
               color: 'var(--fnb-text-secondary)',
@@ -125,7 +126,7 @@ export function TipPrompt({ subtotalCents, onSelect, disabled }: TipPromptProps)
             type="button"
             onClick={handleCustomSubmit}
             disabled={disabled || !customInput}
-            className="flex-1 rounded-lg py-2 text-xs font-bold text-white transition-colors hover:opacity-90 disabled:opacity-40"
+            className="flex-1 rounded-xl py-2.5 text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
             style={{ backgroundColor: 'var(--fnb-status-seated)' }}
           >
             Add Tip
@@ -136,31 +137,42 @@ export function TipPrompt({ subtotalCents, onSelect, disabled }: TipPromptProps)
   }
 
   return (
-    <div className="flex flex-col gap-3 p-3">
-      <span
-        className="text-xs font-bold uppercase"
-        style={{ color: 'var(--fnb-text-muted)' }}
-      >
-        Add Gratuity
-      </span>
+    <div className="flex flex-col gap-3 p-3 fnb-fade-scale-in">
+      {/* Section header */}
+      <div className="flex items-center gap-1.5">
+        <Heart className="h-3.5 w-3.5" style={{ color: 'var(--fnb-status-seated)' }} />
+        <span
+          className="text-[10px] font-bold uppercase tracking-wider"
+          style={{ color: 'var(--fnb-status-seated)' }}
+        >
+          Add Gratuity
+        </span>
+      </div>
+
+      {/* Tip percentage buttons */}
       <div className="flex flex-wrap sm:flex-nowrap gap-2">
-        {tipPercentages.map((pct) => {
+        {tipPercentages.map((pct, index) => {
           const tipCents = Math.round((subtotalCents * pct) / 100);
+          const isMiddle = index === 1;
           return (
             <button
               key={pct}
               type="button"
               onClick={() => handlePercentage(pct)}
               disabled={disabled}
-              className="flex-1 flex flex-col items-center justify-center rounded-xl border py-3 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
+              className="flex-1 flex flex-col items-center justify-center rounded-xl border py-3.5 transition-all hover:scale-[1.03] active:scale-[0.97] disabled:opacity-40"
               style={{
-                borderColor: 'rgba(148, 163, 184, 0.15)',
-                backgroundColor: 'var(--fnb-bg-elevated)',
+                borderColor: isMiddle
+                  ? 'color-mix(in srgb, var(--fnb-status-seated) 40%, transparent)'
+                  : 'rgba(148, 163, 184, 0.15)',
+                backgroundColor: isMiddle
+                  ? 'color-mix(in srgb, var(--fnb-status-seated) 8%, transparent)'
+                  : 'var(--fnb-bg-elevated)',
               }}
             >
               <span
-                className="text-lg font-bold"
-                style={{ color: 'var(--fnb-text-primary)' }}
+                className="text-xl font-bold"
+                style={{ color: isMiddle ? 'var(--fnb-status-seated)' : 'var(--fnb-text-primary)' }}
               >
                 {pct}%
               </span>
@@ -177,12 +189,14 @@ export function TipPrompt({ subtotalCents, onSelect, disabled }: TipPromptProps)
           );
         })}
       </div>
+
+      {/* Custom / No Tip buttons */}
       <div className="flex gap-2">
         <button
           type="button"
           onClick={() => setCustomMode(true)}
           disabled={disabled}
-          className="flex-1 rounded-lg py-2 text-xs font-bold transition-colors hover:opacity-80 disabled:opacity-40"
+          className="flex-1 rounded-xl py-2.5 text-xs font-bold transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
           style={{
             backgroundColor: 'var(--fnb-bg-elevated)',
             color: 'var(--fnb-text-secondary)',
@@ -194,7 +208,7 @@ export function TipPrompt({ subtotalCents, onSelect, disabled }: TipPromptProps)
           type="button"
           onClick={handleNoTip}
           disabled={disabled}
-          className="flex-1 rounded-lg py-2 text-xs font-bold transition-colors hover:opacity-80 disabled:opacity-40"
+          className="flex-1 rounded-xl py-2.5 text-xs font-bold transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
           style={{
             backgroundColor: 'var(--fnb-bg-elevated)',
             color: 'var(--fnb-text-muted)',
@@ -204,9 +218,9 @@ export function TipPrompt({ subtotalCents, onSelect, disabled }: TipPromptProps)
         </button>
       </div>
 
-      {/* Phase 3B: Timeout progress bar */}
+      {/* Timeout progress bar */}
       <div
-        className="h-1 rounded-full overflow-hidden"
+        className="h-1.5 rounded-full overflow-hidden"
         style={{ backgroundColor: 'rgba(148, 163, 184, 0.1)' }}
       >
         <div

@@ -12,6 +12,10 @@ export type { GetDashboardMetricsInput, DashboardMetrics, NonPosRevenue } from '
 export { getRecentActivity } from './get-recent-activity';
 export type { GetRecentActivityInput, RevenueActivityItem, GetRecentActivityResult } from './get-recent-activity';
 
+// ── Sales History (Unified View) ────────────────────────────────────
+export { getSalesHistory } from './get-sales-history';
+export type { GetSalesHistoryInput, SalesHistoryItem, SalesHistorySummary, GetSalesHistoryResult } from './get-sales-history';
+
 // ── Custom Reports (Session 21) ──────────────────────────────────
 export { getFieldCatalog } from './get-field-catalog';
 export { getReport, listReports } from './get-report';
@@ -24,6 +28,16 @@ export type { ReportRow, ListReportsInput, ListReportsResult } from './get-repor
 export type { RunReportInput, RunReportResult } from './run-report';
 export type { PreviewReportInput, PreviewReportResult } from './preview-report';
 export type { DashboardRow, ListDashboardsInput, ListDashboardsResult } from './get-dashboard';
+
+// ── Customer Spending ────────────────────────────────────────────────
+export { getCustomerSpending } from './get-customer-spending';
+export type {
+  GetCustomerSpendingInput,
+  CustomerSpendingRow,
+  DepartmentSpend,
+  CustomerSpendingSummary,
+  GetCustomerSpendingResult,
+} from './get-customer-spending';
 
 // ── Modifier Reporting ──────────────────────────────────────────────
 export { getModifierPerformance } from './get-modifier-performance';

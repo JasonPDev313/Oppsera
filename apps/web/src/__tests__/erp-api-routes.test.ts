@@ -432,7 +432,7 @@ describe('ERP API Routes', () => {
       const keys = body.data.map((v: any) => v.key);
       expect(keys).toContain('retail');
       expect(keys).toContain('restaurant');
-      expect(keys).toContain('golf_club');
+      expect(keys).toContain('hotel');
       expect(keys).toContain('general');
     });
   });

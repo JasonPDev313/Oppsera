@@ -52,11 +52,11 @@ export async function getAccountBalances(
         a.name,
         a.account_type,
         a.normal_balance,
-        COALESCE(SUM(jl.debit_amount), 0) AS debit_total,
-        COALESCE(SUM(jl.credit_amount), 0) AS credit_total,
+        COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) AS debit_total,
+        COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) AS credit_total,
         CASE WHEN a.normal_balance = 'debit'
-          THEN COALESCE(SUM(jl.debit_amount), 0) - COALESCE(SUM(jl.credit_amount), 0)
-          ELSE COALESCE(SUM(jl.credit_amount), 0) - COALESCE(SUM(jl.debit_amount), 0)
+          THEN COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) - COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0)
+          ELSE COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) - COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0)
         END AS balance
       FROM gl_accounts a
       LEFT JOIN gl_journal_lines jl ON jl.account_id = a.id

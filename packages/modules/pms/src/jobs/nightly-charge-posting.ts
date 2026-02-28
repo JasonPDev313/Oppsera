@@ -10,7 +10,7 @@
  * Performance: batch inserts all charges in 2 queries (room charges + tax)
  * plus a single batch folio total update.
  */
-import { withTenant, sql } from '@oppsera/db';
+import { withTenant, sql, eventOutbox } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 
 export interface NightlyChargeResult {
@@ -156,6 +156,92 @@ export async function runNightlyChargePosting(
       `);
 
       result.chargesPosted = rows.length;
+
+      // Emit pms.folio.charge_posted.v1 events for each charge + tax entry
+      // so the existing handleFolioChargePosted consumer picks them up
+      const now = new Date().toISOString();
+      const outboxRows: Array<{
+        id: string;
+        tenantId: string;
+        eventType: string;
+        eventId: string;
+        idempotencyKey: string;
+        payload: Record<string, unknown>;
+        occurredAt: Date;
+        publishedAt: null;
+      }> = [];
+
+      for (let i = 0; i < chargeIds.length; i++) {
+        const eventId = generateUlid();
+        outboxRows.push({
+          id: generateUlid(),
+          tenantId,
+          eventType: 'pms.folio.charge_posted.v1',
+          eventId,
+          idempotencyKey: `nightly-charge-${chargeIds[i]}`,
+          payload: {
+            eventId,
+            eventType: 'pms.folio.charge_posted.v1',
+            occurredAt: now,
+            tenantId,
+            locationId: propertyId,
+            actorUserId: 'system',
+            idempotencyKey: `nightly-charge-${chargeIds[i]}`,
+            data: {
+              folioId: chargeFolioIds[i],
+              entryId: chargeIds[i],
+              entryType: 'ROOM_CHARGE',
+              amountCents: chargeAmounts[i],
+              locationId: propertyId,
+              occurredAt: now,
+            },
+          },
+          occurredAt: new Date(),
+          publishedAt: null,
+        });
+      }
+
+      for (let i = 0; i < taxIds.length; i++) {
+        const eventId = generateUlid();
+        outboxRows.push({
+          id: generateUlid(),
+          tenantId,
+          eventType: 'pms.folio.charge_posted.v1',
+          eventId,
+          idempotencyKey: `nightly-tax-${taxIds[i]}`,
+          payload: {
+            eventId,
+            eventType: 'pms.folio.charge_posted.v1',
+            occurredAt: now,
+            tenantId,
+            locationId: propertyId,
+            actorUserId: 'system',
+            idempotencyKey: `nightly-tax-${taxIds[i]}`,
+            data: {
+              folioId: taxFolioIds[i],
+              entryId: taxIds[i],
+              entryType: 'TAX',
+              amountCents: taxAmounts[i],
+              locationId: propertyId,
+              occurredAt: now,
+            },
+          },
+          occurredAt: new Date(),
+          publishedAt: null,
+        });
+      }
+
+      // Batch insert outbox events (best-effort — don't block nightly posting on event emission)
+      if (outboxRows.length > 0) {
+        try {
+          await tx.insert(eventOutbox).values(outboxRows);
+        } catch (outboxErr) {
+          console.error(
+            `[pms.nightly-charge-posting] Failed to emit ${outboxRows.length} events to outbox:`,
+            outboxErr instanceof Error ? outboxErr.message : String(outboxErr),
+          );
+        }
+      }
     } catch (err) {
       // If batch fails, log error for all reservations
       for (const res of rows) {

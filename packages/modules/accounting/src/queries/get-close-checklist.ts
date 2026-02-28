@@ -53,7 +53,7 @@ export async function getCloseChecklist(
       // ── Wave 1: All independent queries in parallel ─────────────────
       // Combines the two accounting_settings queries into one and pipelines
       // all independent queries to eliminate sequential round-trip latency.
-      const [periodRows, draftRows, unmappedRows, trialRows, settingsRows, discountRows, deadLetterRows, recurringRows, bankRecRows, glTenderCoverageRows] = await Promise.all([
+      const [periodRows, draftRows, unmappedRows, trialRows, settingsRows, discountRows, deadLetterRows, recurringRows, bankRecRows, glTenderCoverageRows, fxCurrencyRows] = await Promise.all([
         // 1. Period status
         tx.execute(sql`
           SELECT status FROM accounting_close_periods
@@ -94,7 +94,8 @@ export async function getCloseChecklist(
             default_tips_payable_account_id,
             default_service_charge_revenue_account_id,
             cogs_posting_mode,
-            default_ap_control_account_id
+            default_ap_control_account_id,
+            supported_currencies
           FROM accounting_settings
           WHERE tenant_id = ${input.tenantId}
           LIMIT 1
@@ -142,6 +143,19 @@ export async function getCloseChecklist(
             AND status IN ('posted', 'voided')
             AND posting_period = ${input.postingPeriod}
         `),
+        // 22. Foreign-currency GL entries count (for FX revaluation check)
+        tx.execute(sql`
+          SELECT COUNT(DISTINCT je.transaction_currency)::int AS foreign_currency_count
+          FROM gl_journal_entries je
+          WHERE je.tenant_id = ${input.tenantId}
+            AND je.posting_period = ${input.postingPeriod}
+            AND je.status = 'posted'
+            AND je.transaction_currency IS NOT NULL
+            AND je.transaction_currency != COALESCE(
+              (SELECT base_currency FROM accounting_settings WHERE tenant_id = ${input.tenantId} LIMIT 1),
+              'USD'
+            )
+        `),
       ]);
 
       // ── Parse Wave 1 results ────────────────────────────────────────
@@ -168,6 +182,9 @@ export async function getCloseChecklist(
       const apControlAccountId = settingsArr.length > 0 && settingsArr[0]!.default_ap_control_account_id
         ? String(settingsArr[0]!.default_ap_control_account_id)
         : null;
+      const supportedCurrencies: string[] = settingsArr.length > 0 && Array.isArray(settingsArr[0]!.supported_currencies)
+        ? (settingsArr[0]!.supported_currencies as string[])
+        : ['USD'];
 
       const discountArr = Array.from(discountRows as Iterable<Record<string, unknown>>);
       const totalMapped = discountArr.length > 0 ? Number(discountArr[0]!.total_mapped) : 0;
@@ -186,6 +203,9 @@ export async function getCloseChecklist(
 
       const glCoverageArr = Array.from(glTenderCoverageRows as Iterable<Record<string, unknown>>);
       const glTenderCount = glCoverageArr.length > 0 ? Number(glCoverageArr[0]!.gl_tender_count) : 0;
+
+      const fxCurrencyArr = Array.from(fxCurrencyRows as Iterable<Record<string, unknown>>);
+      const foreignCurrencyCount = fxCurrencyArr.length > 0 ? Number(fxCurrencyArr[0]!.foreign_currency_count) : 0;
 
       // ── Wave 2: Conditional queries (depend on settings from Wave 1) ──
       let apReconciliation: { glBalance: number; subledgerBalance: number } | null = null;
@@ -289,6 +309,7 @@ export async function getCloseChecklist(
         recurringTotal, recurringOverdue,
         totalBankAccounts, unreconciledBanks,
         glTenderCount,
+        foreignCurrencyCount, supportedCurrencies,
       };
     }),
   ]);
@@ -315,6 +336,8 @@ export async function getCloseChecklist(
     totalBankAccounts: number;
     unreconciledBanks: number;
     glTenderCount: number;
+    foreignCurrencyCount: number;
+    supportedCurrencies: string[];
   };
   const items: CloseChecklistItem[] = [];
 
@@ -547,6 +570,15 @@ export async function getCloseChecklist(
       detail: gap > 0
         ? `${gap} of ${tenderTotal} tender${tenderTotal !== 1 ? 's' : ''} missing GL journal entries — check unmapped events for details`
         : `All ${tenderTotal} tenders have corresponding GL entries`,
+    });
+  }
+
+  // 22. Foreign Currency Revaluation
+  if (l.supportedCurrencies.length > 1 && l.foreignCurrencyCount > 0) {
+    items.push({
+      label: 'Foreign currency revaluation',
+      status: 'warning',
+      detail: `${l.foreignCurrencyCount} foreign currenc${l.foreignCurrencyCount !== 1 ? 'ies' : 'y'} used in GL entries this period — review unrealized FX gain/loss before closing`,
     });
   }
 

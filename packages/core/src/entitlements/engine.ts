@@ -1,11 +1,24 @@
 import { eq } from 'drizzle-orm';
-import { db, entitlements } from '@oppsera/db';
+import { db, entitlements, singleFlight, jitterTtl, isBreakerOpen, guardedQuery } from '@oppsera/db';
 import type { EntitlementCheck } from './index';
 import { getEntitlementCache } from './cache';
 import type { EntitlementCacheEntry } from './cache';
 import type { AccessMode } from './registry';
 
 const CACHE_TTL = 60;
+
+// Query timeout prevents a stuck entitlements query from holding a pool connection
+// indefinitely. With max:2 pool, one stuck query = 50% pool gone = cascading failure.
+const QUERY_TIMEOUT_MS = 5_000;
+
+/** Wraps a promise with a timeout. Rejects if the promise doesn't resolve within `ms` milliseconds. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 function buildCacheKey(tenantId: string): string {
   return `entitlements:${tenantId}`;
@@ -19,6 +32,44 @@ export class DefaultEntitlementEngine implements EntitlementCheck {
     const cached = await cache.get(cacheKey);
     if (cached) return cached;
 
+    // Circuit breaker open — fall back to stale cache immediately instead of queuing
+    if (isBreakerOpen()) {
+      const stale = await cache.getStale(cacheKey);
+      if (stale) {
+        console.warn(`[entitlements] Circuit breaker open, using stale cache for ${cacheKey}`);
+        return stale;
+      }
+    }
+
+    // Single-flight: when N concurrent requests need the same tenant's entitlements,
+    // only the first executes the DB query — the others await the same Promise.
+    return singleFlight(`entitlements:${tenantId}`, async () => {
+      // Re-check cache — another flight may have populated it while we waited
+      const rechecked = await cache.get(cacheKey);
+      if (rechecked) return rechecked;
+
+      try {
+        const map = await withTimeout(
+          guardedQuery('entitlements:load', () => this._fetchEntitlements(tenantId)),
+          QUERY_TIMEOUT_MS,
+          'entitlements query',
+        );
+        await cache.set(cacheKey, map, jitterTtl(CACHE_TTL));
+        return map;
+      } catch (err) {
+        // On timeout or DB error, try stale cache as fallback
+        const stale = await cache.getStale(cacheKey);
+        if (stale) {
+          console.warn(`[entitlements] DB query failed, using stale cache for ${cacheKey}: ${(err as Error).message}`);
+          return stale;
+        }
+        // No stale data available — re-throw
+        throw err;
+      }
+    });
+  }
+
+  private async _fetchEntitlements(tenantId: string): Promise<Map<string, EntitlementCacheEntry>> {
     const rows = await db.query.entitlements.findMany({
       where: eq(entitlements.tenantId, tenantId),
     });
@@ -32,8 +83,6 @@ export class DefaultEntitlementEngine implements EntitlementCheck {
         limits: (row.limits ?? {}) as Record<string, number>,
       });
     }
-
-    await cache.set(cacheKey, map, CACHE_TTL);
     return map;
   }
 

@@ -170,28 +170,28 @@ export function usePOSApi(deps: POSApiDeps) {
         order = await d.current.openOrder();
       }
 
-      // Optimistic update
+      // Optimistic update — appears instant to the user
       d.current.setCurrentOrder((prev) =>
         prev ? { ...prev, customerId, customerName: customerName ?? prev.customerName } : prev,
       );
 
-      try {
-        const res = await apiFetch<{ data: Order }>(`/api/v1/orders/${order.id}`, {
-          method: 'PATCH',
-          headers: d.current.locationHeaders,
-          body: JSON.stringify({
-            customerId,
-            clientRequestId: crypto.randomUUID(),
-          }),
+      // Fire-and-forget server sync — don't block the UI
+      apiFetch<{ data: Order }>(`/api/v1/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: d.current.locationHeaders,
+        body: JSON.stringify({
+          customerId,
+          clientRequestId: crypto.randomUUID(),
+        }),
+      })
+        .then((res) => d.current.setCurrentOrder(res.data))
+        .catch((err) => {
+          // Revert optimistic update on failure
+          d.current.setCurrentOrder((prev) =>
+            prev ? { ...prev, customerId: null, customerName: null } : prev,
+          );
+          d.current.handleMutationError(err).catch(() => {});
         });
-        d.current.setCurrentOrder(res.data);
-      } catch (err) {
-        // Revert optimistic update
-        d.current.setCurrentOrder((prev) =>
-          prev ? { ...prev, customerId: null, customerName: null } : prev,
-        );
-        await d.current.handleMutationError(err);
-      }
     },
     [],
   );
@@ -202,26 +202,29 @@ export function usePOSApi(deps: POSApiDeps) {
 
     const prevCustomerId = order.customerId;
     const prevCustomerName = order.customerName;
+
+    // Optimistic update — appears instant to the user
     d.current.setCurrentOrder((prev) =>
       prev ? { ...prev, customerId: null, customerName: null } : prev,
     );
 
-    try {
-      const res = await apiFetch<{ data: Order }>(`/api/v1/orders/${order.id}`, {
-        method: 'PATCH',
-        headers: d.current.locationHeaders,
-        body: JSON.stringify({
-          customerId: null,
-          clientRequestId: crypto.randomUUID(),
-        }),
+    // Fire-and-forget server sync — don't block the UI
+    apiFetch<{ data: Order }>(`/api/v1/orders/${order.id}`, {
+      method: 'PATCH',
+      headers: d.current.locationHeaders,
+      body: JSON.stringify({
+        customerId: null,
+        clientRequestId: crypto.randomUUID(),
+      }),
+    })
+      .then((res) => d.current.setCurrentOrder(res.data))
+      .catch((err) => {
+        // Revert optimistic update on failure
+        d.current.setCurrentOrder((prev) =>
+          prev ? { ...prev, customerId: prevCustomerId, customerName: prevCustomerName } : prev,
+        );
+        d.current.handleMutationError(err).catch(() => {});
       });
-      d.current.setCurrentOrder(res.data);
-    } catch (err) {
-      d.current.setCurrentOrder((prev) =>
-        prev ? { ...prev, customerId: prevCustomerId, customerName: prevCustomerName } : prev,
-      );
-      await d.current.handleMutationError(err);
-    }
   }, []);
 
   // ── Tax Exempt ─────────────────────────────────────────────────

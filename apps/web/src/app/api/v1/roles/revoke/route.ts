@@ -39,5 +39,5 @@ export const POST = withMiddleware(
 
     return new NextResponse(null, { status: 204 });
   },
-  { entitlement: 'platform_core', permission: 'users.manage', writeAccess: true },
+  { entitlement: 'platform_core', permission: 'users.manage', writeAccess: true, replayGuard: true, stepUp: 'permission_mgmt' },
 );

@@ -24,6 +24,7 @@ import { useBalanceSheet } from '@/hooks/use-statements';
 import { formatAccountingMoney } from '@/types/accounting';
 import type { FinancialStatementSection } from '@/types/accounting';
 import { buildQueryString } from '@/lib/query-string';
+import { DrillDownDrawer, DrillDownAmount } from '@/components/accounting/drill-down-drawer';
 
 // ── Category colors ──────────────────────────────────────────
 
@@ -79,6 +80,7 @@ function renderCategory(
   collapsedSections: Set<string>,
   toggleSection: (label: string) => void,
   search: string,
+  onDrillDown: (accountId: string, accountName: string) => void,
 ) {
   const q = search.toLowerCase();
   const filteredSections = search.trim()
@@ -153,7 +155,9 @@ function renderCategory(
                     {acct.accountName}
                   </td>
                   <td className="px-4 py-2 text-right text-sm tabular-nums text-foreground">
-                    {formatAccountingMoney(acct.amount)}
+                    <DrillDownAmount onClick={() => onDrillDown(acct.accountId, `${acct.accountNumber} ${acct.accountName}`)}>
+                      {formatAccountingMoney(acct.amount)}
+                    </DrillDownAmount>
                   </td>
                 </tr>
               ))}
@@ -192,6 +196,11 @@ export default function BalanceSheetContent() {
 
   const [search, setSearch] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [drillDown, setDrillDown] = useState<{ accountId: string; accountName: string } | null>(null);
+
+  const handleDrillDown = useCallback((accountId: string, accountName: string) => {
+    setDrillDown({ accountId, accountName });
+  }, []);
 
   // ── Derived ────────────────────────────────────────────────
 
@@ -443,9 +452,9 @@ export default function BalanceSheetContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {renderCategory('assets', 'Assets', bs.assets, bs.totalAssets, collapsedSections, toggleSection, search)}
-                  {renderCategory('liabilities', 'Liabilities', bs.liabilities, bs.totalLiabilities, collapsedSections, toggleSection, search)}
-                  {renderCategory('equity', 'Equity', bs.equity, bs.totalEquity, collapsedSections, toggleSection, search)}
+                  {renderCategory('assets', 'Assets', bs.assets, bs.totalAssets, collapsedSections, toggleSection, search, handleDrillDown)}
+                  {renderCategory('liabilities', 'Liabilities', bs.liabilities, bs.totalLiabilities, collapsedSections, toggleSection, search, handleDrillDown)}
+                  {renderCategory('equity', 'Equity', bs.equity, bs.totalEquity, collapsedSections, toggleSection, search, handleDrillDown)}
                 </tbody>
                 <tfoot>
                   {/* Total L+E */}
@@ -496,6 +505,7 @@ export default function BalanceSheetContent() {
                 collapsedSections={collapsedSections}
                 toggleSection={toggleSection}
                 search={search}
+                onDrillDown={handleDrillDown}
               />
             )}
             {/* Liabilities */}
@@ -508,6 +518,7 @@ export default function BalanceSheetContent() {
                 collapsedSections={collapsedSections}
                 toggleSection={toggleSection}
                 search={search}
+                onDrillDown={handleDrillDown}
               />
             )}
             {/* Equity */}
@@ -520,6 +531,7 @@ export default function BalanceSheetContent() {
                 collapsedSections={collapsedSections}
                 toggleSection={toggleSection}
                 search={search}
+                onDrillDown={handleDrillDown}
               />
             )}
 
@@ -552,6 +564,15 @@ export default function BalanceSheetContent() {
           </div>
         </div>
       )}
+
+      {/* ── Drill-Down Drawer ──────────────────────────── */}
+      <DrillDownDrawer
+        accountId={drillDown?.accountId ?? null}
+        accountName={drillDown?.accountName ?? ''}
+        to={filters.dateTo}
+        locationId={filters.selectedLocationId}
+        onClose={() => setDrillDown(null)}
+      />
     </AccountingPageShell>
   );
 }
@@ -566,6 +587,7 @@ function MobileCategory({
   collapsedSections,
   toggleSection,
   search,
+  onDrillDown,
 }: {
   category: string;
   label: string;
@@ -574,6 +596,7 @@ function MobileCategory({
   collapsedSections: Set<string>;
   toggleSection: (key: string) => void;
   search: string;
+  onDrillDown: (accountId: string, accountName: string) => void;
 }) {
   const q = search.toLowerCase();
   const filtered = search.trim()
@@ -625,7 +648,12 @@ function MobileCategory({
                       <span className="font-mono text-xs text-muted-foreground mr-1.5">{acct.accountNumber}</span>
                       <span className="text-sm text-foreground">{acct.accountName}</span>
                     </div>
-                    <span className="text-sm tabular-nums text-foreground">{formatAccountingMoney(acct.amount)}</span>
+                    <DrillDownAmount
+                      onClick={() => onDrillDown(acct.accountId, `${acct.accountNumber} ${acct.accountName}`)}
+                      className="text-sm tabular-nums text-foreground"
+                    >
+                      {formatAccountingMoney(acct.amount)}
+                    </DrillDownAmount>
                   </div>
                 ))}
               </div>

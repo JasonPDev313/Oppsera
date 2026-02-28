@@ -9,6 +9,8 @@ export interface EntitlementCacheEntry {
 
 export interface EntitlementCache {
   get(key: string): Promise<Map<string, EntitlementCacheEntry> | null>;
+  /** Returns stale (expired but not evicted) entry as fallback when DB is unreachable */
+  getStale(key: string): Promise<Map<string, EntitlementCacheEntry> | null>;
   set(key: string, entries: Map<string, EntitlementCacheEntry>, ttlSeconds: number): Promise<void>;
   delete(key: string): Promise<void>;
 }
@@ -17,6 +19,10 @@ export interface EntitlementCache {
 // Each entry is ~500 bytes (Map of 5-20 module entitlements).
 const ENTITLEMENT_CACHE_MAX_SIZE = 2_000;
 
+// Stale entries kept for up to 5 minutes as fallback when DB is unreachable.
+// Prevents pool-exhaustion cascades from taking down the entire app.
+const STALE_WINDOW_MS = 5 * 60 * 1000;
+
 export class InMemoryEntitlementCache implements EntitlementCache {
   private store = new Map<string, { entries: Map<string, EntitlementCacheEntry>; expiresAt: number }>();
 
@@ -24,12 +30,24 @@ export class InMemoryEntitlementCache implements EntitlementCache {
     const entry = this.store.get(key);
     if (!entry) return null;
     if (Date.now() > entry.expiresAt) {
-      this.store.delete(key);
+      // Don't delete — keep for getStale() fallback
       return null;
     }
     // LRU touch: move to end of insertion order
     this.store.delete(key);
     this.store.set(key, entry);
+    return new Map(entry.entries);
+  }
+
+  async getStale(key: string): Promise<Map<string, EntitlementCacheEntry> | null> {
+    const entry = this.store.get(key);
+    if (!entry) return null;
+    // Allow stale data up to STALE_WINDOW_MS past expiry
+    const staleDeadline = entry.expiresAt + STALE_WINDOW_MS;
+    if (Date.now() > staleDeadline) {
+      this.store.delete(key);
+      return null;
+    }
     return new Map(entry.entries);
   }
 

@@ -8,11 +8,13 @@ export const GET = withMiddleware(
     const url = new URL(request.url);
     const locationId = ctx.locationId ?? url.searchParams.get('locationId') ?? undefined;
     const date = url.searchParams.get('date') ?? undefined;
+    const fromDate = url.searchParams.get('from') ?? undefined;
 
     const metrics = await getDashboardMetrics({
       tenantId: ctx.tenantId,
       locationId,
       date,
+      fromDate,
     });
 
     return NextResponse.json({ data: metrics });

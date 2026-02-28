@@ -5,9 +5,14 @@ import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbTab } from '@/hooks/use-fnb-tab';
 import { usePaymentSession, usePreAuth, useTipActions } from '@/hooks/use-fnb-payments';
 import { useTokenizerConfig } from '@/hooks/use-tokenizer-config';
+import { useAuthContext } from '@/components/auth-provider';
 import { apiFetch } from '@/lib/api-client';
+import { printReceiptDocument } from '@/lib/receipt-printer';
+import { buildReceiptDocument, fnbTabToInput } from '@oppsera/shared';
+import type { FnbTabForReceipt } from '@oppsera/shared';
 import { PaymentScreen } from './payment/PaymentScreen';
 import type { CheckSummary } from '@/types/fnb';
+import type { FnbTabDetail } from '@/types/fnb';
 import type { TenderType } from './payment/TenderGrid';
 import type { ReceiptAction } from './payment/ReceiptOptions';
 import type { TenderResult } from './payment/PaymentScreen';
@@ -17,10 +22,40 @@ interface FnbPaymentViewProps {
   userId: string;
 }
 
+/** Map F&B tab + check data to FnbTabForReceipt for the receipt engine */
+function mapTabForReceipt(tab: FnbTabDetail, check: CheckSummary): FnbTabForReceipt {
+  return {
+    id: tab.id,
+    tabNumber: String(tab.tabNumber),
+    tableNumber: tab.tableNumber != null ? String(tab.tableNumber) : null,
+    serverName: tab.serverName ?? null,
+    guestCount: tab.partySize ?? null,
+    createdAt: tab.openedAt,
+    lines: tab.lines.filter((l) => l.status !== 'voided').map((line) => ({
+      id: line.id,
+      name: line.catalogItemName ?? 'Item',
+      qty: line.qty,
+      unitPriceCents: line.unitPriceCents,
+      lineTotalCents: line.extendedPriceCents,
+      seatNumber: line.seatNumber ?? null,
+      modifiers: (line.modifiers as Array<{ name: string; priceCents: number }>) ?? [],
+      specialInstructions: line.specialInstructions ?? null,
+      isVoided: false,
+      isComped: false,
+    })),
+    subtotalCents: check.subtotalCents,
+    discountCents: check.discountTotalCents,
+    serviceChargeCents: check.serviceChargeTotalCents,
+    taxCents: check.taxTotalCents,
+    totalCents: check.totalCents,
+  };
+}
+
 export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   const store = useFnbPosStore();
+  const { locations } = useAuthContext();
   const tabId = store.activeTabId;
-  const { tab, isLoading: isLoadingTab, error: tabError } = useFnbTab({ tabId });
+  const { tab, isLoading: isLoadingTab, error: tabError, notFound: tabNotFound, refresh: refreshTab } = useFnbTab({ tabId });
   const {
     sessions,
     startSession,
@@ -38,15 +73,28 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   const [check, setCheck] = useState<CheckSummary | null>(null);
   const [isLoadingCheck, setIsLoadingCheck] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
+  const [isPreparing, setIsPreparing] = useState(false);
   const isActingRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
+  // Tracks orderId returned by prepare-check before the tab hook refreshes
+  const preparedOrderIdRef = useRef<string | null>(null);
+  const prepareCalledRef = useRef<string | null>(null); // tracks tabId to prevent double-call
 
-  // ── Reusable check-fetch (fixes stale check bug — Phase 0A) ───
+  // ── Auto-navigate back when tab was closed/voided by another terminal ──
+  useEffect(() => {
+    if (tabNotFound) {
+      store.setActiveTab(null);
+      store.navigateTo('floor');
+    }
+  }, [tabNotFound, store]);
+
+  // ── Reusable check-fetch (uses tab.primaryOrderId or prepared fallback) ──
   const refreshCheck = useCallback(async () => {
-    if (!tab?.primaryOrderId) return;
+    const orderId = tab?.primaryOrderId ?? preparedOrderIdRef.current;
+    if (!tab?.id || !orderId) return;
     try {
       const res = await apiFetch<{ data: CheckSummary }>(
-        `/api/v1/fnb/tabs/${tab.id}/check?orderId=${tab.primaryOrderId}`,
+        `/api/v1/fnb/tabs/${tab.id}/check?orderId=${orderId}`,
       );
       setCheck(res.data);
       setCheckError(null);
@@ -55,7 +103,41 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     }
   }, [tab?.id, tab?.primaryOrderId]);
 
-  // Initial check fetch
+  // ── Auto-prepare check: create order from tab items if needed ──
+  useEffect(() => {
+    if (!tab || tab.primaryOrderId || isPreparing) return;
+    // Only call once per tabId
+    if (prepareCalledRef.current === tab.id) return;
+    const activeLines = tab.lines.filter((l) => l.status !== 'voided');
+    if (activeLines.length === 0) return;
+
+    prepareCalledRef.current = tab.id;
+    setIsPreparing(true);
+    setIsLoadingCheck(true);
+    setCheckError(null);
+
+    apiFetch<{ data: { orderId: string; check: CheckSummary } }>(
+      `/api/v1/fnb/tabs/${tab.id}/prepare-check`,
+      { method: 'POST' },
+    )
+      .then((res) => {
+        preparedOrderIdRef.current = res.data.orderId;
+        setCheck(res.data.check);
+        setCheckError(null);
+        // Refresh tab to pick up the server-set primaryOrderId
+        refreshTab();
+      })
+      .catch((e) => {
+        setCheckError(e instanceof Error ? e.message : 'Failed to prepare check');
+        prepareCalledRef.current = null; // Allow retry
+      })
+      .finally(() => {
+        setIsPreparing(false);
+        setIsLoadingCheck(false);
+      });
+  }, [tab, isPreparing, refreshTab]);
+
+  // Initial check fetch (only when primaryOrderId already exists)
   useEffect(() => {
     if (!tab?.primaryOrderId) return;
     setIsLoadingCheck(true);
@@ -103,9 +185,10 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
         // Ensure payment session exists (reuse active or create new)
         let sessionId = sessionIdRef.current;
         if (!sessionId) {
+          const effectiveOrderId = tab.primaryOrderId ?? preparedOrderIdRef.current;
           const session = await startSession({
             tabId: tab.id,
-            orderId: tab.primaryOrderId,
+            orderId: effectiveOrderId,
             totalAmountCents: check?.totalCents ?? 0,
             clientRequestId: crypto.randomUUID(),
           });
@@ -200,9 +283,26 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     [voidPreauth],
   );
 
-  const handleReceipt = useCallback((_action: ReceiptAction) => {
-    // Receipt printing/emailing handled by print service (Phase 10)
-  }, []);
+  const handleReceipt = useCallback(
+    (action: ReceiptAction, email?: string) => {
+      if (action === 'print' && tab && check) {
+        const locationName = locations[0]?.name ?? 'Restaurant';
+        const mapped = mapTabForReceipt(tab, check);
+        const input = fnbTabToInput(mapped, locationName);
+        const doc = buildReceiptDocument(input);
+        // Fire-and-forget — never block POS on print
+        printReceiptDocument(doc).catch(() => {});
+      }
+      if (action === 'email' && tab?.id && email) {
+        // Fire-and-forget — email receipt via API
+        apiFetch('/api/v1/receipts/email', {
+          method: 'POST',
+          body: JSON.stringify({ orderId: tab.id, email, variant: 'standard' }),
+        }).catch(() => {});
+      }
+    },
+    [tab, check, locations],
+  );
 
   const handleClose = useCallback(() => {
     sessionIdRef.current = null;
@@ -253,14 +353,14 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   }
 
   // ── Loading state: tab or check still fetching ────────────────
-  if (!tab || isLoadingTab || isLoadingCheck) {
+  if (!tab || isLoadingTab || isLoadingCheck || isPreparing) {
     return (
       <div
         className="flex h-full flex-col items-center justify-center gap-3"
         style={{ backgroundColor: 'var(--fnb-bg-primary)' }}
       >
         <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>
-          Loading payment...
+          {isPreparing ? 'Preparing check...' : 'Loading payment...'}
         </p>
         <button
           type="button"
@@ -386,6 +486,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
           onCancelPayment={handleFailSession}
           onCheckRefresh={refreshCheck}
           disabled={isOffline}
+          skipConfirm
           tokenizerConfig={tokenizerConfig}
           tokenizerLoading={tokenizerLoading}
           tokenizerError={tokenizerError}

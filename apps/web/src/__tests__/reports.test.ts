@@ -233,7 +233,7 @@ describe('GET /api/v1/reports/dashboard', () => {
       todayOrders: 15,
       todayVoids: 2,
       lowStockCount: 3,
-      activeCustomers30d: 42,
+      activeCustomers7d: 42,
     };
     mockGetDashboardMetrics.mockResolvedValue(metrics);
 
@@ -254,7 +254,7 @@ describe('GET /api/v1/reports/dashboard', () => {
       todayOrders: 0,
       todayVoids: 0,
       lowStockCount: 0,
-      activeCustomers30d: 0,
+      activeCustomers7d: 0,
     });
 
     const response = await dashboardGET(

@@ -116,5 +116,22 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
         surcharge_total = rm_daily_sales.surcharge_total + ${surchargeDollars},
         updated_at = NOW()
     `);
+
+    // Step 5: Update rm_revenue_activity with payment_method + tip
+    // Smart 'split' detection: if a different payment method already recorded, mark as 'split'
+    const tenderType = data.tenderType || 'unknown';
+    await (tx as any).execute(sql`
+      UPDATE rm_revenue_activity
+      SET payment_method = CASE
+            WHEN payment_method IS NOT NULL AND payment_method != ${tenderType}
+            THEN 'split'
+            ELSE ${tenderType}
+          END,
+          tip_dollars = COALESCE(tip_dollars, 0) + ${tipDollars},
+          updated_at = NOW()
+      WHERE tenant_id = ${event.tenantId}
+        AND source = 'pos_order'
+        AND source_id = ${data.orderId}
+    `);
   });
 }

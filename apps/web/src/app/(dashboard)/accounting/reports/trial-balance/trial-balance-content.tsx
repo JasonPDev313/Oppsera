@@ -23,6 +23,7 @@ import { useTrialBalance } from '@/hooks/use-journals';
 import { formatAccountingMoney } from '@/types/accounting';
 import type { AccountType, TrialBalanceRow } from '@/types/accounting';
 import { buildQueryString } from '@/lib/query-string';
+import { DrillDownDrawer, DrillDownAmount } from '@/components/accounting/drill-down-drawer';
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -87,6 +88,9 @@ export default function TrialBalanceContent() {
 
   // Section collapse state
   const [collapsed, setCollapsed] = useState<Set<AccountType>>(new Set());
+
+  // Drill-down state
+  const [drillDown, setDrillDown] = useState<{ accountId: string; accountName: string } | null>(null);
 
   const toggle = (type: AccountType) =>
     setCollapsed((prev) => {
@@ -389,10 +393,18 @@ export default function TrialBalanceContent() {
                           {row.classificationName ?? '—'}
                         </td>
                         <td className="px-4 py-2 text-right text-sm tabular-nums text-foreground">
-                          {row.debitBalance > 0 ? formatAccountingMoney(row.debitBalance) : ''}
+                          {row.debitBalance > 0 ? (
+                            <DrillDownAmount onClick={() => setDrillDown({ accountId: row.accountId, accountName: `${row.accountNumber} ${row.accountName}` })}>
+                              {formatAccountingMoney(row.debitBalance)}
+                            </DrillDownAmount>
+                          ) : ''}
                         </td>
                         <td className="px-4 py-2 text-right text-sm tabular-nums text-foreground">
-                          {row.creditBalance > 0 ? formatAccountingMoney(row.creditBalance) : ''}
+                          {row.creditBalance > 0 ? (
+                            <DrillDownAmount onClick={() => setDrillDown({ accountId: row.accountId, accountName: `${row.accountNumber} ${row.accountName}` })}>
+                              {formatAccountingMoney(row.creditBalance)}
+                            </DrillDownAmount>
+                          ) : ''}
                         </td>
                       </tr>
                     ))}
@@ -478,11 +490,14 @@ export default function TrialBalanceContent() {
                           <span className="mr-1.5 font-mono text-xs text-muted-foreground">{row.accountNumber}</span>
                           <span className="text-sm text-foreground">{row.accountName}</span>
                         </div>
-                        <span className="text-sm tabular-nums text-foreground">
+                        <DrillDownAmount
+                          onClick={() => setDrillDown({ accountId: row.accountId, accountName: `${row.accountNumber} ${row.accountName}` })}
+                          className="text-sm tabular-nums text-foreground"
+                        >
                           {row.debitBalance > 0
                             ? formatAccountingMoney(row.debitBalance)
                             : formatAccountingMoney(row.creditBalance)}
-                        </span>
+                        </DrillDownAmount>
                       </div>
                     ))}
                   </div>
@@ -510,6 +525,15 @@ export default function TrialBalanceContent() {
           </div>
         </div>
       )}
+
+      {/* ── Drill-Down Drawer ──────────────────────────── */}
+      <DrillDownDrawer
+        accountId={drillDown?.accountId ?? null}
+        accountName={drillDown?.accountName ?? ''}
+        to={filters.dateTo}
+        locationId={filters.selectedLocationId}
+        onClose={() => setDrillDown(null)}
+      />
 
       {/* ── Print footer ─────────────────────────────────── */}
       <div className="hidden print:block print:mt-4 print:text-xs print:text-muted-foreground print:italic">

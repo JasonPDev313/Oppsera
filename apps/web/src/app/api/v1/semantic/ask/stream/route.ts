@@ -1,8 +1,10 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { eq } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
+import { db, tenants } from '@oppsera/db';
 import { runPipelineStreaming } from '@oppsera/module-semantic/llm';
 import type { SSEEvent } from '@oppsera/module-semantic/llm';
 import { checkSemanticRateLimit } from '@oppsera/module-semantic/cache';
@@ -69,6 +71,11 @@ export const POST = withMiddleware(
       timeZone: timezone,
     });
 
+    // Determine excluded domains based on tenant business vertical
+    const [tenantRow] = await db.select({ businessVertical: tenants.businessVertical }).from(tenants).where(eq(tenants.id, ctx.tenantId)).limit(1);
+    const bv = tenantRow?.businessVertical ?? 'general';
+    const excludeDomains = (bv !== 'golf' && bv !== 'hybrid') ? ['golf'] : [];
+
     // Build the SSE ReadableStream
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
@@ -98,6 +105,7 @@ export const POST = withMiddleware(
                 timezone,
               },
               stream: true,
+              excludeDomains,
             },
             { onEvent: sendEvent },
           );

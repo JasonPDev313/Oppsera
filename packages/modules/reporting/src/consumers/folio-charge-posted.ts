@@ -18,8 +18,12 @@ const folioChargePostedSchema = z.object({
 
 const CONSUMER_NAME = 'reporting.folioChargePosted';
 
-// Only revenue-positive entry types contribute to revenue
-const REVENUE_ENTRY_TYPES = new Set(['ROOM_CHARGE', 'TAX', 'FEE']);
+// Non-revenue entry types that should NOT contribute to revenue totals.
+// Everything else (ROOM_CHARGE, TAX, FEE, SERVICE_CHARGE, MINI_BAR, PARKING,
+// SPA, RESTAURANT, LAUNDRY, PHONE, INTERNET, DAMAGE, INCIDENTAL, etc.) IS revenue.
+const NON_REVENUE_ENTRY_TYPES = new Set([
+  'PAYMENT', 'REFUND', 'CREDIT', 'ADJUSTMENT', 'DEPOSIT', 'TRANSFER',
+]);
 
 /**
  * Handles pms.folio.charge_posted.v1 events.
@@ -42,8 +46,8 @@ export async function handleFolioChargePosted(event: EventEnvelope): Promise<voi
   }
   const data = parsed.data;
 
-  // Skip non-revenue entry types
-  if (!REVENUE_ENTRY_TYPES.has(data.entryType)) return;
+  // Skip non-revenue entry types (payments, refunds, credits, adjustments)
+  if (NON_REVENUE_ENTRY_TYPES.has(data.entryType)) return;
 
   await withTenant(event.tenantId, async (tx) => {
     // Step 1: Atomic idempotency check
@@ -79,20 +83,36 @@ export async function handleFolioChargePosted(event: EventEnvelope): Promise<voi
     const sourceLabel = `Folio ${data.entryType} #${entryIdShort}`;
 
     // Step 3: Upsert rm_revenue_activity
+    const folioIdShort = data.folioId.slice(-8);
+    const referenceNumber = `F-${folioIdShort}`;
+    // Classify amount into subtotal, tax, or service charge based on entry type
+    const isTax = data.entryType === 'TAX';
+    const isServiceCharge = data.entryType === 'FEE' || data.entryType === 'SERVICE_CHARGE';
+    const subtotalDollars = (!isTax && !isServiceCharge) ? amountDollars : 0;
+    const taxDollars = isTax ? amountDollars : 0;
+    const serviceChargeFolio = isServiceCharge ? amountDollars : 0;
+
     await (tx as any).execute(sql`
       INSERT INTO rm_revenue_activity (
         id, tenant_id, location_id, business_date,
-        source, source_id, source_label, customer_name,
-        amount_dollars, status, metadata, occurred_at, created_at
+        source, source_sub_type, source_id, source_label, customer_name,
+        reference_number, customer_id,
+        amount_dollars, subtotal_dollars, tax_dollars, service_charge_dollars,
+        status, metadata, occurred_at, created_at
       )
       VALUES (
         ${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate},
-        ${'pms_folio'}, ${data.entryId}, ${sourceLabel}, ${data.guestName ?? null},
-        ${amountDollars}, ${'completed'}, ${JSON.stringify({ folioId: data.folioId, reservationId: data.reservationId, entryType: data.entryType })},
+        ${'pms_folio'}, ${'pms_folio'}, ${data.entryId}, ${sourceLabel}, ${data.guestName ?? null},
+        ${referenceNumber}, ${null},
+        ${amountDollars}, ${subtotalDollars}, ${taxDollars}, ${serviceChargeFolio},
+        ${'completed'}, ${JSON.stringify({ folioId: data.folioId, reservationId: data.reservationId, entryType: data.entryType })},
         ${occurredAt}::timestamptz, NOW()
       )
       ON CONFLICT (tenant_id, source, source_id) DO UPDATE SET
         amount_dollars = ${amountDollars},
+        subtotal_dollars = ${subtotalDollars},
+        tax_dollars = ${taxDollars},
+        service_charge_dollars = ${serviceChargeFolio},
         status = ${'completed'},
         occurred_at = ${occurredAt}::timestamptz
     `);

@@ -135,9 +135,35 @@ export function useTrialBalance(params: TrialBalanceParams = {}) {
     queryKey: ['trial-balance', params],
     queryFn: () => {
       const qs = buildQueryString(params);
-      return apiFetch<{ data: TrialBalanceRow[] }>(
-        `/api/v1/accounting/reports/trial-balance${qs}`,
-      ).then((r) => r.data);
+      return apiFetch<{
+        data: {
+          accounts: {
+            accountId: string;
+            accountNumber: string;
+            accountName: string;
+            accountType: string;
+            classificationName: string | null;
+            normalBalance: string;
+            debitTotal: number;
+            creditTotal: number;
+            netBalance: number;
+          }[];
+          totalDebits: number;
+          totalCredits: number;
+          isBalanced: boolean;
+          nonPostedEntryCount: number;
+        };
+      }>(`/api/v1/accounting/reports/trial-balance${qs}`).then((r) =>
+        (r.data.accounts ?? []).map((a) => ({
+          accountId: a.accountId,
+          accountNumber: a.accountNumber,
+          accountName: a.accountName,
+          accountType: a.accountType as TrialBalanceRow['accountType'],
+          classificationName: a.classificationName,
+          debitBalance: a.debitTotal,
+          creditBalance: a.creditTotal,
+        })),
+      );
     },
     staleTime: 30_000,
   });
@@ -207,9 +233,25 @@ export function useGLSummary(params: GLSummaryParams = {}) {
     queryKey: ['gl-summary', params],
     queryFn: () => {
       const qs = buildQueryString(params);
-      return apiFetch<{ data: GLSummaryRow[] }>(
-        `/api/v1/accounting/reports/summary${qs}`,
-      ).then((r) => r.data);
+      return apiFetch<{
+        data: {
+          classifications: {
+            classificationId: string | null;
+            classificationName: string | null;
+            accountType: string;
+            debitTotal: number;
+            creditTotal: number;
+            netBalance: number;
+          }[];
+        };
+      }>(`/api/v1/accounting/reports/summary${qs}`).then((r) =>
+        (r.data.classifications ?? []).map((c) => ({
+          groupLabel: c.classificationName ?? c.accountType,
+          totalDebits: c.debitTotal,
+          totalCredits: c.creditTotal,
+          netBalance: c.netBalance,
+        })),
+      );
     },
     staleTime: 30_000,
   });

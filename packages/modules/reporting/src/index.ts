@@ -17,6 +17,15 @@ export {
   handleArInvoicePosted,
   handleMembershipCharged,
   handleVoucherPurchased,
+  handleArInvoiceVoided,
+  handleVoucherRedeemed,
+  handleVoucherExpired,
+  handleOrderReturned,
+  handleChargebackReceived,
+  handleChargebackResolved,
+  handleFnbTenderApplied,
+  handleStoredValueRedeemed,
+  handleGuestPaySucceeded,
 } from './consumers';
 
 // ── Query Services ────────────────────────────────────────────
@@ -26,6 +35,7 @@ export {
   getInventorySummary,
   getDashboardMetrics,
   getRecentActivity,
+  getSalesHistory,
   getFieldCatalog,
   getReport,
   listReports,
@@ -33,6 +43,8 @@ export {
   previewReport,
   getDashboard,
   listDashboards,
+  // Customer spending
+  getCustomerSpending,
   // Modifier reporting queries
   getModifierPerformance,
   getModifierGroupHealth,
@@ -57,6 +69,10 @@ export type {
   GetRecentActivityInput,
   RevenueActivityItem,
   GetRecentActivityResult,
+  GetSalesHistoryInput,
+  SalesHistoryItem,
+  SalesHistorySummary,
+  GetSalesHistoryResult,
   FieldCatalogRow,
   ReportRow,
   ListReportsInput,
@@ -68,6 +84,12 @@ export type {
   DashboardRow,
   ListDashboardsInput,
   ListDashboardsResult,
+  // Customer spending types
+  GetCustomerSpendingInput,
+  CustomerSpendingRow,
+  DepartmentSpend,
+  CustomerSpendingSummary,
+  GetCustomerSpendingResult,
   // Modifier reporting types
   GetModifierPerformanceInput,
   ModifierPerformanceRow,

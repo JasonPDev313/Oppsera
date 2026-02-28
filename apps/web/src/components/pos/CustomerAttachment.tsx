@@ -40,6 +40,25 @@ export function CustomerAttachment({
   const [showChangeSearch, setShowChangeSearch] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevCustomerIdRef = useRef<string | null>(customerId);
+
+  // Reset internal state when customerId changes (e.g. tab switch)
+  useEffect(() => {
+    if (prevCustomerIdRef.current !== customerId) {
+      prevCustomerIdRef.current = customerId;
+      // Clear stale name from previous customer
+      if (!customerId) {
+        setAttachedName(null);
+        setShowChangeSearch(false);
+        setQuery('');
+        setShowDropdown(false);
+      } else {
+        // Different customer — clear old name so auto-resolve picks up the new one
+        setAttachedName(null);
+        setShowChangeSearch(false);
+      }
+    }
+  }, [customerId]);
 
   // Load cache on mount (instant if already warm)
   useEffect(() => {

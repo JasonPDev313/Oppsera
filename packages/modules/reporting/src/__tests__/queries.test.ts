@@ -440,7 +440,7 @@ describe('getDashboardMetrics', () => {
     expect(result.todayOrders).toBe(15);
     expect(result.todayVoids).toBe(2);
     expect(result.lowStockCount).toBe(3);
-    expect(result.activeCustomers30d).toBe(42);
+    expect(result.activeCustomers7d).toBe(42);
   });
 
   it('returns zeros when no data', async () => {
@@ -478,7 +478,7 @@ describe('getDashboardMetrics', () => {
     expect(result.todayOrders).toBe(0);
     expect(result.todayVoids).toBe(0);
     expect(result.lowStockCount).toBe(0);
-    expect(result.activeCustomers30d).toBe(0);
+    expect(result.activeCustomers7d).toBe(0);
   });
 
   it('defaults date to today when not provided', async () => {

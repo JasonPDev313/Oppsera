@@ -520,6 +520,52 @@ function PinMetricsBar({ message }: { message: ChatMessage }) {
   );
 }
 
+// ── ThinkingIndicator ─────────────────────────────────────────────
+// Shows pipeline stage progress while the AI is "thinking".
+
+export function ThinkingIndicator({
+  currentStatus,
+  completedStages,
+}: {
+  currentStatus: string | null;
+  completedStages: string[];
+}) {
+  if (!currentStatus && completedStages.length === 0) return null;
+
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[90%] w-full">
+        <div className="flex items-center gap-1.5 mb-1.5 text-primary">
+          <Zap className="h-3.5 w-3.5" />
+          <span className="text-xs font-medium">AI Insights</span>
+        </div>
+        <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+          <div className="space-y-1.5">
+            {completedStages.map((stage, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                <svg className="h-3.5 w-3.5 text-emerald-500 shrink-0" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M5 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>{stage}</span>
+              </div>
+            ))}
+            {currentStatus && (
+              <div className="flex items-center gap-2 text-xs text-foreground font-medium">
+                <svg className="h-3.5 w-3.5 text-primary shrink-0 animate-spin" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" opacity="0.25" />
+                  <path d="M8 1.5a6.5 6.5 0 0 1 6.5 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                <span>{currentStatus}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── ChatMessageBubble ─────────────────────────────────────────────
 
 interface ChatMessageBubbleProps {

@@ -46,6 +46,9 @@ export const TIER_WORKFLOW_DEFAULTS: Record<BusinessTier, Record<string, Workflo
     'ar.credit_hold':                 { autoMode: true,  approvalRequired: false, userVisible: false },
     'ar.dunning':                     { autoMode: true,  approvalRequired: false, userVisible: false },
     'ar.recurring_invoices':          { autoMode: true,  approvalRequired: false, userVisible: false },
+    // ── Expense Management ────────────────────────────────────────
+    'expense_management.approval':    { autoMode: true,  approvalRequired: false, userVisible: false },
+    'expense_management.posting':     { autoMode: true,  approvalRequired: false, userVisible: false },
   },
   MID_MARKET: {
     // ── Accounting ──────────────────────────────────────────────────
@@ -79,6 +82,9 @@ export const TIER_WORKFLOW_DEFAULTS: Record<BusinessTier, Record<string, Workflo
     'ar.credit_hold':                 { autoMode: true,  approvalRequired: false, userVisible: true },
     'ar.dunning':                     { autoMode: true,  approvalRequired: false, userVisible: false },
     'ar.recurring_invoices':          { autoMode: true,  approvalRequired: false, userVisible: false },
+    // ── Expense Management ────────────────────────────────────────
+    'expense_management.approval':    { autoMode: false, approvalRequired: false, userVisible: true },
+    'expense_management.posting':     { autoMode: true,  approvalRequired: false, userVisible: true },
   },
   ENTERPRISE: {
     // ── Accounting ──────────────────────────────────────────────────
@@ -112,5 +118,8 @@ export const TIER_WORKFLOW_DEFAULTS: Record<BusinessTier, Record<string, Workflo
     'ar.credit_hold':                 { autoMode: true,  approvalRequired: false, userVisible: true },
     'ar.dunning':                     { autoMode: false, approvalRequired: false, userVisible: true },
     'ar.recurring_invoices':          { autoMode: false, approvalRequired: false, userVisible: true },
+    // ── Expense Management ────────────────────────────────────────
+    'expense_management.approval':    { autoMode: false, approvalRequired: true,  userVisible: true },
+    'expense_management.posting':     { autoMode: false, approvalRequired: true,  userVisible: true },
   },
 };

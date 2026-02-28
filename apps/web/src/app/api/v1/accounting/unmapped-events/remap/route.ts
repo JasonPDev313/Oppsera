@@ -30,5 +30,5 @@ export const POST = withMiddleware(
       },
     });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true },
+  { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true, replayGuard: true, stepUp: 'bulk_operations' },
 );

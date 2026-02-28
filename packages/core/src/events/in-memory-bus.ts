@@ -2,7 +2,7 @@ import { EventEnvelopeSchema } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
 import { generateUlid } from '@oppsera/shared';
 import { eq, and } from 'drizzle-orm';
-import { db, processedEvents, eventDeadLetters } from '@oppsera/db';
+import { db, processedEvents, eventDeadLetters, guardedQuery } from '@oppsera/db';
 import type { EventBus, EventHandler } from './bus';
 
 interface NamedHandler {
@@ -173,37 +173,41 @@ export class InMemoryEventBus implements EventBus {
   ): Promise<void> {
     const tenantId = (event.data as Record<string, unknown>)?.tenantId as string | undefined;
 
-    await db.insert(eventDeadLetters).values({
-      id: generateUlid(),
-      tenantId: tenantId ?? null,
-      eventId: event.eventId,
-      eventType: event.eventType,
-      eventData: event as unknown as Record<string, unknown>,
-      consumerName,
-      errorMessage: error.message,
-      errorStack: error.stack ?? null,
-      attemptCount: maxRetries,
-      maxRetries,
-      firstFailedAt: new Date(),
-      lastFailedAt: new Date(),
-      status: 'failed',
-    });
+    await guardedQuery('bus:persistDeadLetter', () =>
+      db.insert(eventDeadLetters).values({
+        id: generateUlid(),
+        tenantId: tenantId ?? null,
+        eventId: event.eventId,
+        eventType: event.eventType,
+        eventData: event as unknown as Record<string, unknown>,
+        consumerName,
+        errorMessage: error.message,
+        errorStack: error.stack ?? null,
+        attemptCount: maxRetries,
+        maxRetries,
+        firstFailedAt: new Date(),
+        lastFailedAt: new Date(),
+        status: 'failed',
+      }),
+    );
   }
 
   private async checkProcessed(
     eventId: string,
     consumerName: string,
   ): Promise<boolean> {
-    const result = await db
-      .select()
-      .from(processedEvents)
-      .where(
-        and(
-          eq(processedEvents.eventId, eventId),
-          eq(processedEvents.consumerName, consumerName),
-        ),
-      )
-      .limit(1);
+    const result = await guardedQuery('bus:checkProcessed', () =>
+      db
+        .select()
+        .from(processedEvents)
+        .where(
+          and(
+            eq(processedEvents.eventId, eventId),
+            eq(processedEvents.consumerName, consumerName),
+          ),
+        )
+        .limit(1),
+    );
     return result.length > 0;
   }
 
@@ -211,14 +215,16 @@ export class InMemoryEventBus implements EventBus {
     eventId: string,
     consumerName: string,
   ): Promise<void> {
-    await db
-      .insert(processedEvents)
-      .values({
-        id: generateUlid(),
-        eventId,
-        consumerName,
-        processedAt: new Date(),
-      })
-      .onConflictDoNothing();
+    await guardedQuery('bus:markProcessed', () =>
+      db
+        .insert(processedEvents)
+        .values({
+          id: generateUlid(),
+          eventId,
+          consumerName,
+          processedAt: new Date(),
+        })
+        .onConflictDoNothing(),
+    );
   }
 }

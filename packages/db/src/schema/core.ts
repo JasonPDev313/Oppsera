@@ -71,6 +71,12 @@ export const locations = pgTable(
     parentLocationId: text('parent_location_id'),
     locationType: text('location_type').notNull().default('site'),
 
+    // ── Intercompany / legal entity fields (migration 0228) ──
+    legalEntityCode: text('legal_entity_code'),
+    taxEntityId: text('tax_entity_id'),
+    isLegalEntity: boolean('is_legal_entity').notNull().default(false),
+    consolidationGroup: text('consolidation_group'),
+
     // ── Location gap fields (migration 0042) ──
     phone: text('phone'),
     email: text('email'),

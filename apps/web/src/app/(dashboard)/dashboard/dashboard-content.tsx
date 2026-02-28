@@ -22,6 +22,7 @@ import {
   FileText,
   CreditCard,
   Gift,
+  Info,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
@@ -55,8 +56,8 @@ interface DashboardMetrics {
   todayOrders: number;
   todayVoids: number;
   lowStockCount: number;
-  activeCustomers30d: number;
-  period?: 'today' | 'all';
+  activeCustomers7d: number;
+  period?: 'today' | 'range' | 'all';
   totalBusinessRevenue: number;
   nonPosRevenue: { pms: number; ar: number; membership: number; voucher: number };
 }
@@ -107,6 +108,12 @@ function getTodayBusinessDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function getSevenDaysAgo(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 6); // 6 days back + today = 7-day window
+  return d.toISOString().slice(0, 10);
+}
+
 function getGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return 'Good morning';
@@ -131,6 +138,7 @@ export default function DashboardContent() {
   const [notes, setNotes] = useState(() => loadNotes());
   const [selectedLocationId, setSelectedLocationId] = useState(''); // '' = all locations
   const today = getTodayBusinessDate();
+  const fromDate = getSevenDaysAgo();
 
   // Derive the display name for the selected location
   const selectedLocationName = selectedLocationId
@@ -148,10 +156,10 @@ export default function DashboardContent() {
     isLoading: metricsLoading,
     dataUpdatedAt: metricsUpdatedAt,
   } = useQuery({
-    queryKey: ['dashboard', 'metrics', selectedLocationId, today],
+    queryKey: ['dashboard', 'metrics', selectedLocationId, today, fromDate],
     queryFn: ({ signal }) =>
       apiFetch<{ data: DashboardMetrics }>(
-        `/api/v1/reports/dashboard?date=${today}`,
+        `/api/v1/reports/dashboard?date=${today}&from=${fromDate}`,
         { signal, headers: locationHeaders },
       ).then((r) => r.data),
     staleTime: 60_000,
@@ -196,8 +204,8 @@ export default function DashboardContent() {
 
   // Derive display values — prefer reporting metrics, fall back to order data
   const isAllTime = metrics?.period === 'all';
-  const salesLabel = isAllTime ? 'Total Revenue' : 'Total Revenue Today';
-  const ordersLabel = isAllTime ? 'Total Orders' : 'Orders Today';
+  const salesLabel = isAllTime ? 'Total Revenue' : 'Revenue (Last 7 Days)';
+  const ordersLabel = isAllTime ? 'Total Orders' : 'Orders (Last 7 Days)';
   const nonPosTotal = metrics
     ? metrics.nonPosRevenue.pms + metrics.nonPosRevenue.ar + metrics.nonPosRevenue.membership + metrics.nonPosRevenue.voucher
     : 0;
@@ -305,11 +313,12 @@ export default function DashboardContent() {
           />
         )}
         <MetricCard
-          label="Active Customers (30d)"
-          value={metricsLoading ? null : String(metrics?.activeCustomers30d ?? 0)}
+          label="Returning Customers (7d)"
+          value={metricsLoading ? null : String(metrics?.activeCustomers7d ?? 0)}
           icon={Users}
           iconColor="text-indigo-500 bg-indigo-500/20"
           trend={selectedLocationId ? selectedLocationName : 'All locations'}
+          tooltip="Unique customers with at least one order linked to their profile in the last 7 days. Only counts orders with a customer attached — anonymous transactions without a customer profile are not included."
         />
       </div>
 
@@ -453,6 +462,7 @@ function MetricCard({
   iconColor,
   trend,
   href,
+  tooltip,
 }: {
   label: string;
   value: string | null;
@@ -460,6 +470,7 @@ function MetricCard({
   iconColor: string;
   trend?: string;
   href?: string;
+  tooltip?: string;
 }) {
   const content = (
     <div className="rounded-xl bg-surface p-6 shadow-sm ring-1 ring-gray-950/5 transition-shadow hover:shadow-md">
@@ -467,8 +478,11 @@ function MetricCard({
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
           <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-muted-foreground">{label}</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-medium text-muted-foreground">{label}</p>
+            {tooltip && <InfoTooltip text={tooltip} />}
+          </div>
           {value === null ? (
             <div className="mt-1 h-7 w-20 animate-pulse rounded bg-muted" />
           ) : (
@@ -484,6 +498,30 @@ function MetricCard({
     return <Link href={href}>{content}</Link>;
   }
   return content;
+}
+
+// ── Info Tooltip ────────────────────────────────────────────────
+// CSS-only hover/focus tooltip — no JS state, no portal, accessible.
+
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        className="inline-flex items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        aria-label="More info"
+      >
+        <Info className="h-3.5 w-3.5" />
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg border border-border bg-surface px-3 py-2 text-xs leading-relaxed text-muted-foreground opacity-0 shadow-lg transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+      >
+        {text}
+        <span className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-border" />
+      </span>
+    </span>
+  );
 }
 
 // ── Setup Status Banner ──────────────────────────────────────────

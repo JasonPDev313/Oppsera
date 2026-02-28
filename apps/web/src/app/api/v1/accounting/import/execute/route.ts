@@ -12,5 +12,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true },
+  { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true, replayGuard: true, stepUp: 'bulk_operations' },
 );

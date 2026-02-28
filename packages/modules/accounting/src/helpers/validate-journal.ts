@@ -2,11 +2,11 @@ import { eq, and, inArray } from 'drizzle-orm';
 import type { Database } from '@oppsera/db';
 import { glAccounts, accountingSettings } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
+import { AppError } from '@oppsera/shared';
 import {
   UnbalancedJournalError,
   PeriodLockedError,
   ControlAccountError,
-  CurrencyMismatchError,
 } from '../errors';
 
 export interface JournalLineInput {
@@ -24,6 +24,10 @@ interface ValidateJournalParams {
   tenantId: string;
   businessDate: string;
   currency?: string;
+  /** The currency line amounts are denominated in (defaults to base currency). */
+  transactionCurrency?: string;
+  /** Exchange rate from transactionCurrency → baseCurrency (required when transactionCurrency !== baseCurrency). */
+  exchangeRate?: number;
   lines: JournalLineInput[];
   sourceModule: string;
   hasControlAccountPermission?: boolean;
@@ -31,6 +35,10 @@ interface ValidateJournalParams {
 
 interface ValidatedJournal {
   postingPeriod: string;
+  /** Resolved transaction currency (3-letter ISO 4217). */
+  transactionCurrency: string;
+  /** Exchange rate from transactionCurrency → baseCurrency (string for DB storage). */
+  exchangeRate: string;
   settings: {
     baseCurrency: string;
     autoPostMode: string;
@@ -48,7 +56,7 @@ export async function validateJournal(
   tx: Database,
   params: ValidateJournalParams,
 ): Promise<ValidatedJournal> {
-  const { tenantId, businessDate, currency, lines, sourceModule, hasControlAccountPermission } = params;
+  const { tenantId, businessDate, currency, transactionCurrency, exchangeRate, lines, sourceModule, hasControlAccountPermission } = params;
 
   // 1. Load settings
   const [settingsRow] = await tx
@@ -63,12 +71,33 @@ export async function validateJournal(
     lockPeriodThrough: null,
     defaultRoundingAccountId: null,
     roundingToleranceCents: 5,
+    supportedCurrencies: ['USD'],
   };
 
-  // 2. Currency check
-  const entryCurrency = currency ?? 'USD';
-  if (entryCurrency !== settings.baseCurrency) {
-    throw new CurrencyMismatchError(entryCurrency, settings.baseCurrency);
+  // 2. Currency validation — resolve transactionCurrency and exchangeRate
+  const baseCurrency = settings.baseCurrency;
+  const resolvedTxnCurrency = transactionCurrency ?? currency ?? baseCurrency;
+  const supportedList: string[] = (settings as Record<string, unknown>).supportedCurrencies as string[] ?? [baseCurrency];
+
+  if (resolvedTxnCurrency !== baseCurrency && !supportedList.includes(resolvedTxnCurrency)) {
+    throw new AppError(
+      'UNSUPPORTED_CURRENCY',
+      `Currency "${resolvedTxnCurrency}" is not in the tenant's supported currencies list. Supported: ${supportedList.join(', ')}`,
+      400,
+    );
+  }
+
+  let resolvedRate: number;
+  if (resolvedTxnCurrency === baseCurrency) {
+    resolvedRate = 1;
+  } else if (exchangeRate != null) {
+    resolvedRate = exchangeRate;
+  } else {
+    throw new AppError(
+      'EXCHANGE_RATE_REQUIRED',
+      `Exchange rate is required when transactionCurrency (${resolvedTxnCurrency}) differs from baseCurrency (${baseCurrency})`,
+      400,
+    );
   }
 
   // 3. Derive posting period
@@ -185,6 +214,8 @@ export async function validateJournal(
 
   return {
     postingPeriod,
+    transactionCurrency: resolvedTxnCurrency,
+    exchangeRate: resolvedRate.toFixed(6),
     settings: {
       baseCurrency: settings.baseCurrency,
       autoPostMode: settings.autoPostMode,

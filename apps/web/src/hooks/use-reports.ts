@@ -7,6 +7,7 @@ import type {
   DailySalesRow,
   ItemSalesRow,
   InventorySummaryRow,
+  CustomerSpendingResult,
 } from '@/types/reports';
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -154,6 +155,57 @@ export function useItemSales(options: UseItemSalesOptions) {
   return {
     data: result.data ?? [],
     isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}
+
+// ── useCustomerSpending ──────────────────────────────────────────
+
+interface UseCustomerSpendingOptions {
+  dateFrom: string;
+  dateTo: string;
+  locationId?: string;
+  search?: string;
+  sortBy?: 'totalSpend' | 'customerName';
+  sortDir?: 'asc' | 'desc';
+  limit?: number;
+}
+
+export function useCustomerSpending(options: UseCustomerSpendingOptions) {
+  const result = useQuery({
+    queryKey: [
+      'customer-spending',
+      options.dateFrom,
+      options.dateTo,
+      options.locationId,
+      options.search,
+      options.sortBy,
+      options.sortDir,
+      options.limit,
+    ],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        dateFrom: options.dateFrom,
+        dateTo: options.dateTo,
+      });
+      if (options.locationId) params.set('locationId', options.locationId);
+      if (options.search) params.set('search', options.search);
+      if (options.sortBy) params.set('sortBy', options.sortBy);
+      if (options.sortDir) params.set('sortDir', options.sortDir);
+      if (options.limit) params.set('limit', String(options.limit));
+      return apiFetch<{ data: CustomerSpendingResult }>(
+        `/api/v1/reports/customer-spending?${params.toString()}`,
+      ).then((r) => r.data);
+    },
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    isFetching: result.isFetching,
     error: result.error,
     mutate: result.refetch,
   };

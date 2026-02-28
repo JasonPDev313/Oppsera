@@ -34,6 +34,8 @@ export function useRetailGuestPay({
   onPaymentConfirmedRef.current = onPaymentConfirmed;
 
   const abortRef = useRef<AbortController | null>(null);
+  const failureCountRef = useRef(0);
+  const MAX_CONSECUTIVE_FAILURES = 3;
 
   const fetchActive = useCallback(async (signal?: AbortSignal) => {
     if (!orderId) {
@@ -42,12 +44,16 @@ export function useRetailGuestPay({
       return;
     }
 
+    // Stop polling after too many consecutive failures (endpoint likely unavailable)
+    if (failureCountRef.current >= MAX_CONSECUTIVE_FAILURES) return;
+
     try {
       setIsLoading(true);
       const res = await apiFetch<{ data: { hasActive: boolean; session: GuestPaySession | null } }>(
         `/api/v1/orders/${orderId}/guest-pay/active`,
         { signal },
       );
+      failureCountRef.current = 0;
       const data = res.data;
       setSession(data.session);
       setHasActive(data.hasActive);
@@ -63,7 +69,7 @@ export function useRetailGuestPay({
       prevStatusRef.current = data.session?.status ?? null;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      // Silently fail on poll errors
+      failureCountRef.current++;
     } finally {
       setIsLoading(false);
     }

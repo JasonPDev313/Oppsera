@@ -22,6 +22,7 @@ import { useReportFilters } from '@/hooks/use-report-filters';
 import { useProfitAndLoss } from '@/hooks/use-statements';
 import { formatAccountingMoney } from '@/types/accounting';
 import { buildQueryString } from '@/lib/query-string';
+import { DrillDownDrawer, DrillDownAmount } from '@/components/accounting/drill-down-drawer';
 
 // ── Section colors ───────────────────────────────────────────
 
@@ -86,6 +87,7 @@ export default function PnlContent() {
 
   const [search, setSearch] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [drillDown, setDrillDown] = useState<{ accountId: string; accountName: string } | null>(null);
 
   // ── Derived data ───────────────────────────────────────────
 
@@ -438,7 +440,9 @@ export default function PnlContent() {
                               {acct.accountName}
                             </td>
                             <td className="px-4 py-2 text-right text-sm tabular-nums text-foreground">
-                              {formatAccountingMoney(acct.amount)}
+                              <DrillDownAmount onClick={() => setDrillDown({ accountId: acct.accountId, accountName: `${acct.accountNumber} ${acct.accountName}` })}>
+                                {formatAccountingMoney(acct.amount)}
+                              </DrillDownAmount>
                             </td>
                             <td className="px-4 py-2 text-right text-sm tabular-nums text-muted-foreground">
                               {pctOfRevenue(acct.amount)}
@@ -535,9 +539,12 @@ export default function PnlContent() {
                               <span className="font-mono text-xs text-muted-foreground mr-1.5">{acct.accountNumber}</span>
                               <span className="text-sm text-foreground">{acct.accountName}</span>
                             </div>
-                            <span className="text-sm tabular-nums text-foreground">
+                            <DrillDownAmount
+                              onClick={() => setDrillDown({ accountId: acct.accountId, accountName: `${acct.accountNumber} ${acct.accountName}` })}
+                              className="text-sm tabular-nums text-foreground"
+                            >
                               {formatAccountingMoney(acct.amount)}
-                            </span>
+                            </DrillDownAmount>
                           </div>
                         </div>
                       ))}
@@ -582,6 +589,16 @@ export default function PnlContent() {
           </div>
         </div>
       )}
+
+      {/* ── Drill-Down Drawer ──────────────────────────── */}
+      <DrillDownDrawer
+        accountId={drillDown?.accountId ?? null}
+        accountName={drillDown?.accountName ?? ''}
+        from={filters.dateFrom}
+        to={filters.dateTo}
+        locationId={filters.selectedLocationId}
+        onClose={() => setDrillDown(null)}
+      />
     </AccountingPageShell>
   );
 }

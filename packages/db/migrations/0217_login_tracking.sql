@@ -25,10 +25,12 @@ CREATE TABLE IF NOT EXISTS "login_records" (
 ALTER TABLE "login_records" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "login_records" FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "login_records_tenant_select" ON "login_records"
+DROP POLICY IF EXISTS "login_records_tenant_select" ON "login_records";
+CREATE POLICY "login_records_tenant_select" ON "login_records"
   FOR SELECT USING ("tenant_id" = (SELECT current_setting('app.current_tenant_id', true)));
 
-CREATE POLICY IF NOT EXISTS "login_records_insert_all" ON "login_records"
+DROP POLICY IF EXISTS "login_records_insert_all" ON "login_records";
+CREATE POLICY "login_records_insert_all" ON "login_records"
   FOR INSERT WITH CHECK (true);
 
 CREATE INDEX IF NOT EXISTS "idx_login_records_tenant_user"

@@ -18,6 +18,7 @@ import {
   Blocks,
   ScrollText,
   LayoutDashboard,
+  Receipt,
 } from 'lucide-react';
 import { useBusinessInfoAll, useUpdateBusinessInfo, useBatchUpdateContentBlocks } from '@/hooks/use-business-info';
 import dynamic from 'next/dynamic';
@@ -33,6 +34,7 @@ const RolesTab = dynamic(() => import('../settings-content').then(m => ({ defaul
 const ModulesTab = dynamic(() => import('../settings-content').then(m => ({ default: m.ModulesTab })), { ssr: false, loading: () => <TabSkeleton /> });
 const DashboardSettingsTab = dynamic(() => import('../settings-content').then(m => ({ default: m.DashboardSettingsTab })), { ssr: false, loading: () => <TabSkeleton /> });
 const AuditLogTab = dynamic(() => import('../settings-content').then(m => ({ default: m.AuditLogTab })), { ssr: false, loading: () => <TabSkeleton /> });
+const ReceiptSettingsTab = dynamic(() => import('@/components/receipts/ReceiptSettingsTab').then(m => ({ default: m.ReceiptSettingsTab })), { ssr: false, loading: () => <TabSkeleton /> });
 
 function TabSkeleton() {
   return (
@@ -187,7 +189,7 @@ const SELECT = 'w-full rounded-md border border-border bg-surface px-3 py-2 text
 
 // ── Main Page (Tabbed) ────────────────────────────────────────────
 
-type GeneralTab = 'business-info' | 'users' | 'roles' | 'modules' | 'dashboard' | 'audit';
+type GeneralTab = 'business-info' | 'users' | 'roles' | 'modules' | 'dashboard' | 'audit' | 'receipts';
 
 export default function GeneralInfoContent() {
   const [activeTab, setActiveTab] = useState<GeneralTab>('business-info');
@@ -200,6 +202,7 @@ export default function GeneralInfoContent() {
     { id: 'modules', label: 'Modules', icon: Blocks, requiredPermission: 'modules.manage' },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, requiredPermission: 'dashboard.configure' },
     { id: 'audit', label: 'Audit Log', icon: ScrollText, requiredPermission: 'audit.view' },
+    { id: 'receipts', label: 'Receipts', icon: Receipt, requiredPermission: 'settings.view' },
   ];
 
   const tabs = allTabs.filter((tab) => can(tab.requiredPermission));
@@ -245,6 +248,7 @@ export default function GeneralInfoContent() {
         {activeTab === 'modules' && <ModulesTab />}
         {activeTab === 'dashboard' && <DashboardSettingsTab />}
         {activeTab === 'audit' && <AuditLogTab />}
+        {activeTab === 'receipts' && <ReceiptSettingsTab />}
       </div>
     </div>
   );

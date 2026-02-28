@@ -1,5 +1,7 @@
 export interface PermissionCache {
   get(key: string): Promise<Set<string> | null>;
+  /** Returns stale (expired but not evicted) entry as fallback when DB is unreachable */
+  getStale(key: string): Promise<Set<string> | null>;
   set(key: string, permissions: Set<string>, ttlSeconds: number): Promise<void>;
   delete(pattern: string): Promise<void>;
 }
@@ -9,6 +11,10 @@ export interface PermissionCache {
 // 5K slots give ~83% hit rate; 15s TTL ensures fast permission revocation.
 const PERMISSION_CACHE_MAX_SIZE = 5_000;
 
+// Stale entries kept for up to 5 minutes as fallback when DB is unreachable.
+// Prevents pool-exhaustion cascades from taking down the entire app.
+const STALE_WINDOW_MS = 5 * 60 * 1000;
+
 export class InMemoryPermissionCache implements PermissionCache {
   private store = new Map<string, { permissions: Set<string>; expiresAt: number }>();
 
@@ -16,12 +22,24 @@ export class InMemoryPermissionCache implements PermissionCache {
     const entry = this.store.get(key);
     if (!entry) return null;
     if (Date.now() > entry.expiresAt) {
-      this.store.delete(key);
+      // Don't delete — keep for getStale() fallback
       return null;
     }
     // LRU touch: move to end of insertion order
     this.store.delete(key);
     this.store.set(key, entry);
+    return new Set(entry.permissions);
+  }
+
+  async getStale(key: string): Promise<Set<string> | null> {
+    const entry = this.store.get(key);
+    if (!entry) return null;
+    // Allow stale data up to STALE_WINDOW_MS past expiry
+    const staleDeadline = entry.expiresAt + STALE_WINDOW_MS;
+    if (Date.now() > staleDeadline) {
+      this.store.delete(key);
+      return null;
+    }
     return new Set(entry.permissions);
   }
 
@@ -73,6 +91,12 @@ export class RedisPermissionCache implements PermissionCache {
     const data = await this.redis.get(key);
     if (!data) return null;
     return new Set(JSON.parse(data) as string[]);
+  }
+
+  async getStale(key: string): Promise<Set<string> | null> {
+    // Redis handles TTL natively — once expired, data is gone.
+    // No stale fallback available with Redis (it evicts on expiry).
+    return this.get(key);
   }
 
   async set(key: string, permissions: Set<string>, ttlSeconds: number): Promise<void> {

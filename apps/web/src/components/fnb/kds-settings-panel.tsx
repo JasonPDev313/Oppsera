@@ -6,7 +6,7 @@ import {
   Monitor, Route, Keyboard, Bell, Target, Clock,
   Plus, ChevronDown, ChevronRight, Settings2, Pencil,
   Volume2, VolumeX, AlertTriangle, CheckCircle2,
-  Trash2, Power, X as XIcon,
+  Trash2, Power, X as XIcon, Wand2, Check,
 } from 'lucide-react';
 import {
   KDS_VIEW_MODES, KDS_VIEW_MODE_LABELS, KDS_VIEW_MODE_DETAILS,
@@ -14,6 +14,7 @@ import {
   KDS_THEMES, KDS_THEME_LABELS, KDS_THEME_DETAILS, KDS_INPUT_MODES,
   KDS_ROUTING_RULE_TYPES,
   DEFAULT_10_BUTTON_LAYOUT,
+  DEFAULT_20_BUTTON_LAYOUT,
 } from '@oppsera/shared';
 import type { KdsViewMode, KdsTheme, ScreenCommMode } from '@oppsera/shared';
 import {
@@ -23,7 +24,13 @@ import {
 } from '@/hooks/use-kds-settings';
 import { useFnbSettings } from '@/hooks/use-fnb-settings';
 import { useStationManagement } from '@/hooks/use-fnb-kitchen';
+import { useAllCategories, useDepartments, useSubDepartments, useCategories } from '@/hooks/use-catalog';
 import { apiFetch } from '@/lib/api-client';
+import {
+  recommendRoutingForDepartments,
+  findBestStation,
+} from '@/lib/kds-routing-recommender';
+import type { DepartmentForRecommendation, StationRecommendation } from '@/lib/kds-routing-recommender';
 
 // ── Label helpers for plain string arrays ──────────────────────
 
@@ -1031,6 +1038,7 @@ function RoutingTab({ locationId }: { locationId?: string }) {
   const { stations } = useStationManagement({ locationId });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingRule, setEditingRule] = useState<typeof rules[number] | null>(null);
+  const [showRecommendations, setShowRecommendations] = useState(false);
 
   if (isLoading) {
     return <div className="py-8 text-center text-muted-foreground text-sm">Loading routing rules...</div>;
@@ -1046,16 +1054,40 @@ function RoutingTab({ locationId }: { locationId?: string }) {
             Priority cascade: Item &rarr; Category &rarr; Sub-Department &rarr; Department &rarr; Modifier &rarr; Fallback.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreateDialog(true)}
-          disabled={isActing}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add Rule
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowRecommendations(!showRecommendations)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              showRecommendations
+                ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
+                : 'border border-border text-muted-foreground hover:text-foreground hover:bg-accent'
+            }`}
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            Smart Routing
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreateDialog(true)}
+            disabled={isActing}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Rule
+          </button>
+        </div>
       </div>
+
+      {/* Smart Routing Recommendations */}
+      {showRecommendations && (
+        <RoutingRecommendationPanel
+          stations={stations}
+          existingRules={rules}
+          onCreateRule={createRule}
+          isActing={isActing}
+        />
+      )}
 
       {/* Routing priority explanation */}
       <div className="bg-surface border border-border rounded-lg p-3">
@@ -1125,7 +1157,6 @@ function RoutingTab({ locationId }: { locationId?: string }) {
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left px-3 py-2 text-muted-foreground font-medium">Name / Target</th>
-                <th className="text-left px-3 py-2 text-muted-foreground font-medium">Type</th>
                 <th className="text-left px-3 py-2 text-muted-foreground font-medium">Station</th>
                 <th className="text-center px-3 py-2 text-muted-foreground font-medium">Priority</th>
                 <th className="text-left px-3 py-2 text-muted-foreground font-medium">Conditions</th>
@@ -1136,13 +1167,21 @@ function RoutingTab({ locationId }: { locationId?: string }) {
             <tbody>
               {rules.map((rule) => (
                 <tr key={rule.id} className="border-b border-border last:border-0 hover:bg-accent transition-colors">
-                  <td className="px-3 py-2 text-foreground">
-                    {rule.ruleName || <span className="text-muted-foreground italic">Unnamed</span>}
-                  </td>
                   <td className="px-3 py-2">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/30">
-                      {ROUTING_RULE_TYPE_LABELS[rule.ruleType] ?? rule.ruleType}
-                    </span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-foreground">
+                        {rule.ruleName
+                          || rule.departmentName
+                          || rule.subDepartmentName
+                          || rule.categoryName
+                          || rule.catalogItemName
+                          || rule.modifierId
+                          || <span className="text-muted-foreground italic">Unnamed</span>}
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/30 w-fit">
+                        {ROUTING_RULE_TYPE_LABELS[rule.ruleType] ?? rule.ruleType}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-3 py-2 text-foreground">{rule.stationName ?? rule.stationId}</td>
                   <td className="px-3 py-2 text-center">
@@ -1231,6 +1270,580 @@ function RoutingTab({ locationId }: { locationId?: string }) {
   );
 }
 
+// ── Smart Routing Recommendation Panel ────────────────────────
+
+const CONFIDENCE_STYLES = {
+  high: { bg: 'bg-green-500/10', text: 'text-green-500', border: 'border-green-500/30', label: 'High' },
+  medium: { bg: 'bg-amber-500/10', text: 'text-amber-500', border: 'border-amber-500/30', label: 'Medium' },
+  low: { bg: 'bg-red-500/10', text: 'text-red-500', border: 'border-red-500/30', label: 'Low' },
+} as const;
+
+interface RecommendationRow {
+  /** The catalog category ID (department or sub-department) */
+  categoryId: string;
+  categoryName: string;
+  parentDeptName?: string;
+  ruleType: 'department' | 'sub_department';
+  recommendedStationType: string;
+  confidence: 'high' | 'medium' | 'low';
+  matchedKeywords: string[];
+  /** Resolved station from the available station list */
+  resolvedStation: { id: string; name: string } | null;
+  /** User has overridden the station selection */
+  overrideStationId?: string;
+  /** User has accepted or dismissed this recommendation */
+  status: 'pending' | 'accepted' | 'dismissed';
+}
+
+function RoutingRecommendationPanel({
+  stations,
+  existingRules,
+  onCreateRule,
+  isActing,
+}: {
+  stations: Array<{ id: string; name: string; displayName: string; stationType: string; isActive: boolean }>;
+  existingRules: Array<{ departmentId: string | null; subDepartmentId: string | null; ruleType: string }>;
+  onCreateRule: (input: {
+    ruleName?: string;
+    ruleType: string;
+    departmentId?: string;
+    subDepartmentId?: string;
+    stationId: string;
+    priority?: number;
+    clientRequestId: string;
+  }) => Promise<void>;
+  isActing: boolean;
+}) {
+  const { data: allCategories, isLoading: catLoading } = useAllCategories();
+  const [rows, setRows] = useState<RecommendationRow[]>([]);
+  const [hasGenerated, setHasGenerated] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const [appliedCount, setAppliedCount] = useState(0);
+
+  // Build department hierarchy from flat categories
+  const departments = useCallback((): DepartmentForRecommendation[] => {
+    if (!allCategories) return [];
+    const topLevel = allCategories.filter((c) => c.parentId === null);
+    return topLevel.map((dept) => {
+      const children = allCategories
+        .filter((c) => c.parentId === dept.id)
+        .map((sub) => ({ id: sub.id, name: sub.name, itemCount: sub.itemCount }));
+      return {
+        id: dept.id,
+        name: dept.name,
+        children: children.length > 0 ? children : undefined,
+        itemCount: dept.itemCount,
+      };
+    });
+  }, [allCategories]);
+
+  const generateRecommendations = useCallback(() => {
+    const depts = departments();
+    if (depts.length === 0) return;
+
+    const recommendations = recommendRoutingForDepartments(depts);
+
+    // Flatten into rows, filtering out departments that already have rules
+    const existingDeptIds = new Set(
+      existingRules
+        .filter((r) => r.ruleType === 'department' && r.departmentId)
+        .map((r) => r.departmentId!),
+    );
+    const existingSubDeptIds = new Set(
+      existingRules
+        .filter((r) => r.ruleType === 'sub_department' && r.subDepartmentId)
+        .map((r) => r.subDepartmentId!),
+    );
+
+    const newRows: RecommendationRow[] = [];
+    for (const rec of recommendations) {
+      if (rec.subDepartmentRecommendations && rec.subDepartmentRecommendations.length > 0) {
+        // If department has sub-departments, recommend at sub-department level
+        for (const subRec of rec.subDepartmentRecommendations) {
+          if (existingSubDeptIds.has(subRec.id)) continue;
+          const resolved = findBestStation(subRec.recommendedStationType, stations);
+          newRows.push({
+            categoryId: subRec.id,
+            categoryName: subRec.name,
+            parentDeptName: rec.departmentName,
+            ruleType: 'sub_department',
+            recommendedStationType: subRec.recommendedStationType,
+            confidence: subRec.confidence,
+            matchedKeywords: subRec.matchedKeywords,
+            resolvedStation: resolved,
+            status: 'pending',
+          });
+        }
+      } else {
+        // No sub-departments — recommend at department level
+        if (existingDeptIds.has(rec.departmentId)) continue;
+        const resolved = findBestStation(rec.recommendedStationType, stations);
+        newRows.push({
+          categoryId: rec.departmentId,
+          categoryName: rec.departmentName,
+          ruleType: 'department',
+          recommendedStationType: rec.recommendedStationType,
+          confidence: rec.confidence,
+          matchedKeywords: rec.matchedKeywords,
+          resolvedStation: resolved,
+          status: 'pending',
+        });
+      }
+    }
+
+    setRows(newRows);
+    setHasGenerated(true);
+    setAppliedCount(0);
+  }, [departments, stations, existingRules]);
+
+  const handleOverrideStation = useCallback((categoryId: string, stationId: string) => {
+    setRows((prev) =>
+      prev.map((r) =>
+        r.categoryId === categoryId ? { ...r, overrideStationId: stationId } : r,
+      ),
+    );
+  }, []);
+
+  const handleDismiss = useCallback((categoryId: string) => {
+    setRows((prev) =>
+      prev.map((r) =>
+        r.categoryId === categoryId ? { ...r, status: 'dismissed' as const } : r,
+      ),
+    );
+  }, []);
+
+  const handleAcceptSingle = useCallback(async (row: RecommendationRow) => {
+    const stationId = row.overrideStationId || row.resolvedStation?.id;
+    if (!stationId) return;
+
+    const input: Parameters<typeof onCreateRule>[0] = {
+      ruleName: row.parentDeptName
+        ? `${row.parentDeptName} → ${row.categoryName}`
+        : row.categoryName,
+      ruleType: row.ruleType,
+      stationId,
+      priority: 50,
+      clientRequestId: `smart-route-${row.categoryId}-${Date.now()}`,
+    };
+    if (row.ruleType === 'department') {
+      (input as Record<string, unknown>).departmentId = row.categoryId;
+    } else {
+      (input as Record<string, unknown>).subDepartmentId = row.categoryId;
+    }
+
+    await onCreateRule(input);
+    setRows((prev) =>
+      prev.map((r) =>
+        r.categoryId === row.categoryId ? { ...r, status: 'accepted' as const } : r,
+      ),
+    );
+    setAppliedCount((c) => c + 1);
+  }, [onCreateRule]);
+
+  const handleAcceptAll = useCallback(async () => {
+    const pending = rows.filter(
+      (r) => r.status === 'pending' && (r.overrideStationId || r.resolvedStation),
+    );
+    if (pending.length === 0) return;
+
+    setIsApplying(true);
+    let applied = 0;
+    for (const row of pending) {
+      try {
+        await handleAcceptSingle(row);
+        applied++;
+      } catch {
+        // continue with next
+      }
+    }
+    setIsApplying(false);
+    setAppliedCount((c) => c + applied);
+  }, [rows, handleAcceptSingle]);
+
+  const pendingRows = rows.filter((r) => r.status === 'pending');
+  const acceptedRows = rows.filter((r) => r.status === 'accepted');
+
+  if (catLoading) {
+    return (
+      <div className="bg-surface border border-amber-500/30 rounded-lg p-4">
+        <div className="text-sm text-muted-foreground text-center">Loading catalog departments...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-surface border border-amber-500/30 rounded-lg overflow-hidden">
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Wand2 className="h-4 w-4 text-amber-500" aria-hidden="true" />
+          <div>
+            <h4 className="text-sm font-semibold text-foreground">Smart Routing Recommendations</h4>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Analyzes your menu departments and suggests which KDS station each should route to.
+            </p>
+          </div>
+        </div>
+        {!hasGenerated ? (
+          <button
+            type="button"
+            onClick={generateRecommendations}
+            disabled={!allCategories || allCategories.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            Generate Recommendations
+          </button>
+        ) : pendingRows.length > 0 ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground">
+              {pendingRows.length} pending
+            </span>
+            <button
+              type="button"
+              onClick={handleAcceptAll}
+              disabled={isActing || isApplying}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              <Check className="h-3.5 w-3.5" />
+              {isApplying ? 'Applying...' : `Accept All (${pendingRows.length})`}
+            </button>
+          </div>
+        ) : (
+          <span className="text-[10px] text-green-500 flex items-center gap-1">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {appliedCount > 0 ? `${appliedCount} rules created` : 'All processed'}
+          </span>
+        )}
+      </div>
+
+      {hasGenerated && rows.length === 0 && (
+        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+          All departments already have routing rules configured. Nothing to recommend.
+        </div>
+      )}
+
+      {hasGenerated && rows.length > 0 && (
+        <div className="divide-y divide-border">
+          {rows.map((row) => (
+            <RecommendationRowItem
+              key={row.categoryId}
+              row={row}
+              stations={stations}
+              onOverrideStation={handleOverrideStation}
+              onAccept={() => handleAcceptSingle(row)}
+              onDismiss={() => handleDismiss(row.categoryId)}
+              isActing={isActing || isApplying}
+            />
+          ))}
+        </div>
+      )}
+
+      {acceptedRows.length > 0 && pendingRows.length === 0 && rows.length > 0 && (
+        <div className="px-4 py-3 border-t border-border bg-green-500/5">
+          <p className="text-xs text-green-500 flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {acceptedRows.length} routing rule{acceptedRows.length !== 1 ? 's' : ''} created from recommendations.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RecommendationRowItem({
+  row,
+  stations,
+  onOverrideStation,
+  onAccept,
+  onDismiss,
+  isActing,
+}: {
+  row: RecommendationRow;
+  stations: Array<{ id: string; name: string; displayName: string; stationType: string; isActive: boolean }>;
+  onOverrideStation: (categoryId: string, stationId: string) => void;
+  onAccept: () => Promise<void>;
+  onDismiss: () => void;
+  isActing: boolean;
+}) {
+  const confStyle = CONFIDENCE_STYLES[row.confidence];
+  const currentStationId = row.overrideStationId || row.resolvedStation?.id || '';
+  const currentStationName = row.overrideStationId
+    ? stations.find((s) => s.id === row.overrideStationId)?.displayName
+      || stations.find((s) => s.id === row.overrideStationId)?.name
+      || '?'
+    : row.resolvedStation?.name || 'No matching station';
+
+  if (row.status === 'accepted') {
+    return (
+      <div className="px-4 py-2.5 flex items-center gap-3 bg-green-500/5">
+        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <span className="text-xs text-muted-foreground">
+            {row.parentDeptName ? `${row.parentDeptName} → ` : ''}
+            <span className="text-foreground font-medium">{row.categoryName}</span>
+            {' → '}
+            <span className="text-green-500">{currentStationName}</span>
+          </span>
+        </div>
+        <span className="text-[10px] text-green-500">Created</span>
+      </div>
+    );
+  }
+
+  if (row.status === 'dismissed') {
+    return (
+      <div className="px-4 py-2.5 flex items-center gap-3 opacity-50">
+        <XIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div className="flex-1 min-w-0">
+          <span className="text-xs text-muted-foreground line-through">
+            {row.parentDeptName ? `${row.parentDeptName} → ` : ''}
+            {row.categoryName}
+          </span>
+        </div>
+        <span className="text-[10px] text-muted-foreground">Skipped</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 py-3 flex items-center gap-3">
+      {/* Department info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-foreground truncate">
+            {row.parentDeptName && (
+              <span className="text-muted-foreground font-normal">{row.parentDeptName} → </span>
+            )}
+            {row.categoryName}
+          </span>
+          <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${confStyle.bg} ${confStyle.text} ${confStyle.border}`}>
+            {confStyle.label}
+          </span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/30">
+            {STATION_TYPE_LABELS[row.recommendedStationType] ?? row.recommendedStationType}
+          </span>
+        </div>
+        {row.matchedKeywords.length > 0 && (
+          <div className="mt-1 flex items-center gap-1 flex-wrap">
+            <span className="text-[9px] text-muted-foreground">Matched:</span>
+            {row.matchedKeywords.slice(0, 5).map((kw) => (
+              <span key={kw} className="text-[9px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-500">
+                {kw}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Station selector */}
+      <select
+        value={currentStationId}
+        onChange={(e) => onOverrideStation(row.categoryId, e.target.value)}
+        className="bg-surface border border-input rounded-md px-2 py-1 text-[11px] text-foreground w-36 shrink-0"
+      >
+        {stations.filter((s) => s.isActive).map((s) => (
+          <option key={s.id} value={s.id}>{s.displayName || s.name}</option>
+        ))}
+      </select>
+
+      {/* Accept / Dismiss */}
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={onAccept}
+          disabled={!currentStationId || isActing}
+          className="p-1.5 rounded-md bg-green-500/10 text-green-500 hover:bg-green-500/20 transition-colors disabled:opacity-50"
+          title="Accept recommendation"
+        >
+          <Check className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
+          title="Dismiss"
+        >
+          <XIcon className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Target Selector Component (multi-select checkboxes) ──────
+
+function TargetSelector({
+  ruleType,
+  selectedIds,
+  onToggle,
+}: {
+  ruleType: string;
+  selectedIds: Set<string>;
+  onToggle: (id: string, name: string) => void;
+}) {
+  const { data: departments, isLoading: deptLoading } = useDepartments();
+  const [parentDeptId, setParentDeptId] = useState<string>('');
+  const { data: subDepts } = useSubDepartments(parentDeptId || undefined);
+  const [parentSubDeptId, setParentSubDeptId] = useState<string>('');
+  const { data: categories } = useCategories(parentSubDeptId || undefined);
+
+  // Reset cascading selections when rule type changes
+  useEffect(() => {
+    setParentDeptId('');
+    setParentSubDeptId('');
+  }, [ruleType]);
+
+  if (ruleType === 'item' || ruleType === 'modifier') {
+    return null; // handled separately as text input
+  }
+
+  if (deptLoading) {
+    return <div className="text-xs text-muted-foreground py-2">Loading catalog...</div>;
+  }
+
+  if (ruleType === 'department') {
+    return (
+      <div className="space-y-1.5">
+        <span className="text-xs font-medium text-foreground">
+          Select Departments <span className="text-red-500">*</span>
+        </span>
+        <div className="border border-border rounded-md max-h-48 overflow-y-auto">
+          {departments.length === 0 ? (
+            <div className="px-3 py-4 text-xs text-muted-foreground text-center">No departments found in catalog</div>
+          ) : (
+            departments.map((dept) => (
+              <label
+                key={dept.id}
+                className="flex items-center gap-2 px-3 py-2 hover:bg-accent cursor-pointer transition-colors border-b border-border last:border-0"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(dept.id)}
+                  onChange={() => onToggle(dept.id, dept.name)}
+                  className="rounded border-input text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-foreground">{dept.name}</span>
+              </label>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (ruleType === 'sub_department') {
+    return (
+      <div className="space-y-3">
+        <label className="block space-y-1">
+          <span className="text-xs font-medium text-foreground">Department</span>
+          <select
+            value={parentDeptId}
+            onChange={(e) => { setParentDeptId(e.target.value); setParentSubDeptId(''); }}
+            className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
+          >
+            <option value="">Select a department...</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+        </label>
+        {parentDeptId && (
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-foreground">
+              Select Sub-Departments <span className="text-red-500">*</span>
+            </span>
+            <div className="border border-border rounded-md max-h-48 overflow-y-auto">
+              {subDepts.length === 0 ? (
+                <div className="px-3 py-4 text-xs text-muted-foreground text-center">No sub-departments under this department</div>
+              ) : (
+                subDepts.map((sd) => (
+                  <label
+                    key={sd.id}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-accent cursor-pointer transition-colors border-b border-border last:border-0"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(sd.id)}
+                      onChange={() => onToggle(sd.id, sd.name)}
+                      className="rounded border-input text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-foreground">{sd.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (ruleType === 'category') {
+    return (
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-foreground">Department</span>
+            <select
+              value={parentDeptId}
+              onChange={(e) => { setParentDeptId(e.target.value); setParentSubDeptId(''); }}
+              className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
+            >
+              <option value="">Select...</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-foreground">Sub-Department</span>
+            <select
+              value={parentSubDeptId}
+              onChange={(e) => setParentSubDeptId(e.target.value)}
+              className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
+              disabled={!parentDeptId}
+            >
+              <option value="">Select...</option>
+              {subDepts.map((sd) => (
+                <option key={sd.id} value={sd.id}>{sd.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {parentSubDeptId && (
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-foreground">
+              Select Categories <span className="text-red-500">*</span>
+            </span>
+            <div className="border border-border rounded-md max-h-48 overflow-y-auto">
+              {categories.length === 0 ? (
+                <div className="px-3 py-4 text-xs text-muted-foreground text-center">No categories under this sub-department</div>
+              ) : (
+                categories.map((cat) => (
+                  <label
+                    key={cat.id}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-accent cursor-pointer transition-colors border-b border-border last:border-0"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(cat.id)}
+                      onChange={() => onToggle(cat.id, cat.name)}
+                      className="rounded border-input text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-foreground">{cat.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 // ── Create Routing Rule Dialog ────────────────────────────────
 
 function CreateRoutingRuleDialog({
@@ -1261,20 +1874,21 @@ function CreateRoutingRuleDialog({
 }) {
   const [ruleName, setRuleName] = useState('');
   const [ruleType, setRuleType] = useState('department');
-  const [targetId, setTargetId] = useState('');
   const [stationId, setStationId] = useState(stations[0]?.id ?? '');
   const [priority, setPriority] = useState(0);
   const [orderType, setOrderType] = useState('');
   const [channel, setChannel] = useState('');
   const [timeStart, setTimeStart] = useState('');
   const [timeEnd, setTimeEnd] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const backdropRef = useRef<HTMLDivElement>(null);
 
-  const targetLabel = ruleType === 'item' ? 'Catalog Item ID'
-    : ruleType === 'modifier' ? 'Modifier ID'
-    : ruleType === 'category' ? 'Category ID'
-    : ruleType === 'sub_department' ? 'Sub-Department ID'
-    : 'Department ID';
+  // Multi-select state for department/sub_department/category
+  const [selectedTargets, setSelectedTargets] = useState<Map<string, string>>(new Map()); // id → name
+  // Text input for item/modifier types
+  const [targetId, setTargetId] = useState('');
+
+  const usesMultiSelect = ruleType === 'department' || ruleType === 'sub_department' || ruleType === 'category';
 
   const targetKey = ruleType === 'item' ? 'catalogItemId'
     : ruleType === 'modifier' ? 'modifierId'
@@ -1282,24 +1896,80 @@ function CreateRoutingRuleDialog({
     : ruleType === 'sub_department' ? 'subDepartmentId'
     : 'departmentId';
 
+  // Reset selections when rule type changes
+  useEffect(() => {
+    setSelectedTargets(new Map());
+    setTargetId('');
+  }, [ruleType]);
+
+  const handleToggleTarget = useCallback((id: string, name: string) => {
+    setSelectedTargets((prev) => {
+      const next = new Map(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.set(id, name);
+      }
+      return next;
+    });
+  }, []);
+
+  const selectedCount = usesMultiSelect ? selectedTargets.size : (targetId.trim() ? 1 : 0);
+
   const handleSubmit = useCallback(async () => {
-    if (!stationId) return;
-    const input: Record<string, unknown> = {
-      ruleType,
-      stationId,
-      priority,
-      clientRequestId: `create-rr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    };
-    if (ruleName.trim()) input.ruleName = ruleName.trim();
-    if (targetId.trim()) input[targetKey] = targetId.trim();
-    if (orderType) input.orderTypeCondition = orderType;
-    if (channel) input.channelCondition = channel;
-    if (timeStart && timeEnd) {
-      input.timeConditionStart = timeStart;
-      input.timeConditionEnd = timeEnd;
+    if (!stationId || selectedCount === 0) return;
+    setIsSubmitting(true);
+    try {
+      if (usesMultiSelect) {
+        // Create one rule per selected target
+        const entries = Array.from(selectedTargets.entries());
+        for (let i = 0; i < entries.length; i++) {
+          const [id, name] = entries[i]!;
+          const input: Record<string, unknown> = {
+            ruleType,
+            stationId,
+            priority,
+            ruleName: ruleName.trim() || name,
+            [targetKey]: id,
+            clientRequestId: `create-rr-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+          };
+          if (orderType) input.orderTypeCondition = orderType;
+          if (channel) input.channelCondition = channel;
+          if (timeStart && timeEnd) {
+            input.timeConditionStart = timeStart;
+            input.timeConditionEnd = timeEnd;
+          }
+          await onSubmit(input as any);
+        }
+      } else {
+        // Single rule for item/modifier
+        const input: Record<string, unknown> = {
+          ruleType,
+          stationId,
+          priority,
+          clientRequestId: `create-rr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        };
+        if (ruleName.trim()) input.ruleName = ruleName.trim();
+        if (targetId.trim()) input[targetKey] = targetId.trim();
+        if (orderType) input.orderTypeCondition = orderType;
+        if (channel) input.channelCondition = channel;
+        if (timeStart && timeEnd) {
+          input.timeConditionStart = timeStart;
+          input.timeConditionEnd = timeEnd;
+        }
+        await onSubmit(input as any);
+      }
+      onClose();
+    } finally {
+      setIsSubmitting(false);
     }
-    await onSubmit(input as any);
-  }, [ruleName, ruleType, targetId, targetKey, stationId, priority, orderType, channel, timeStart, timeEnd, onSubmit]);
+  }, [ruleName, ruleType, targetId, targetKey, stationId, priority, orderType, channel, timeStart, timeEnd, selectedTargets, selectedCount, usesMultiSelect, onSubmit, onClose]);
+
+  const submitLabel = isSubmitting
+    ? 'Creating...'
+    : usesMultiSelect && selectedCount > 1
+      ? `Create ${selectedCount} Rules`
+      : 'Create Rule';
 
   return createPortal(
     <div
@@ -1316,18 +1986,6 @@ function CreateRoutingRuleDialog({
         </div>
 
         <div className="px-4 py-4 space-y-4">
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-foreground">Rule Name</span>
-            <input
-              type="text"
-              value={ruleName}
-              onChange={(e) => setRuleName(e.target.value)}
-              placeholder="e.g. All Grilled Items to Grill 1"
-              maxLength={100}
-              className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </label>
-
           <div className="grid grid-cols-2 gap-4">
             <label className="block space-y-1">
               <span className="text-xs font-medium text-foreground">Rule Type <span className="text-red-500">*</span></span>
@@ -1356,13 +2014,57 @@ function CreateRoutingRuleDialog({
             </label>
           </div>
 
+          {/* Multi-select target picker for department/sub_department/category */}
+          {usesMultiSelect ? (
+            <TargetSelector
+              ruleType={ruleType}
+              selectedIds={new Set(selectedTargets.keys())}
+              onToggle={handleToggleTarget}
+            />
+          ) : (
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-foreground">
+                {ruleType === 'item' ? 'Catalog Item ID' : 'Modifier ID'}
+              </span>
+              <input
+                type="text"
+                value={targetId}
+                onChange={(e) => setTargetId(e.target.value)}
+                placeholder={`Enter ${ruleType === 'item' ? 'catalog item ID' : 'modifier ID'}`}
+                className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </label>
+          )}
+
+          {/* Selected targets summary */}
+          {usesMultiSelect && selectedTargets.size > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {Array.from(selectedTargets.entries()).map(([id, name]) => (
+                <span
+                  key={id}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/30"
+                >
+                  {name}
+                  <button
+                    type="button"
+                    onClick={() => handleToggleTarget(id, name)}
+                    className="hover:text-red-500 transition-colors"
+                  >
+                    <XIcon className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
           <label className="block space-y-1">
-            <span className="text-xs font-medium text-foreground">{targetLabel}</span>
+            <span className="text-xs font-medium text-foreground">Rule Name</span>
             <input
               type="text"
-              value={targetId}
-              onChange={(e) => setTargetId(e.target.value)}
-              placeholder={`Enter ${targetLabel.toLowerCase()}`}
+              value={ruleName}
+              onChange={(e) => setRuleName(e.target.value)}
+              placeholder={usesMultiSelect ? 'Optional — defaults to target name' : 'e.g. Salmon to Grill'}
+              maxLength={100}
               className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </label>
@@ -1444,10 +2146,10 @@ function CreateRoutingRuleDialog({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!stationId || isActing}
+            disabled={!stationId || selectedCount === 0 || isActing || isSubmitting}
             className="px-4 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
           >
-            {isActing ? 'Creating...' : 'Create Rule'}
+            {submitLabel}
           </button>
         </div>
       </div>
@@ -1647,16 +2349,31 @@ function EditRoutingRuleDialog({
 function BumpBarsTab({ locationId }: { locationId?: string }) {
   const { profiles, isLoading, isActing, createProfile } = useBumpBarProfiles(locationId);
   const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
+  const [showCreateMenu, setShowCreateMenu] = useState(false);
+  const createMenuRef = useRef<HTMLDivElement>(null);
 
-  const handleCreateProfile = useCallback(() => {
+  const handleCreateProfile = useCallback((buttonCount: 10 | 20) => {
     createProfile({
-      profileName: `Profile ${profiles.length + 1}`,
-      buttonCount: 10,
-      keyMappings: DEFAULT_10_BUTTON_LAYOUT,
+      profileName: `${buttonCount}-Button Profile ${profiles.length + 1}`,
+      buttonCount,
+      keyMappings: buttonCount === 20 ? DEFAULT_20_BUTTON_LAYOUT : DEFAULT_10_BUTTON_LAYOUT,
       isDefault: profiles.length === 0,
       clientRequestId: `create-bbp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     });
+    setShowCreateMenu(false);
   }, [createProfile, profiles.length]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!showCreateMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (createMenuRef.current && !createMenuRef.current.contains(e.target as Node)) {
+        setShowCreateMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showCreateMenu]);
 
   if (isLoading) {
     return <div className="py-8 text-center text-muted-foreground text-sm">Loading bump bar profiles...</div>;
@@ -1671,15 +2388,38 @@ function BumpBarsTab({ locationId }: { locationId?: string }) {
             Configure physical bump bar button layouts. Supports 10-button and 20-button configurations.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleCreateProfile}
-          disabled={isActing}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add Profile
-        </button>
+        <div className="relative" ref={createMenuRef}>
+          <button
+            type="button"
+            onClick={() => setShowCreateMenu(!showCreateMenu)}
+            disabled={isActing}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Profile
+            <ChevronDown className="h-3 w-3 ml-0.5" />
+          </button>
+          {showCreateMenu && (
+            <div className="absolute right-0 top-full mt-1 w-48 bg-surface border border-border rounded-lg shadow-lg z-20 py-1">
+              <button
+                type="button"
+                onClick={() => handleCreateProfile(10)}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-accent transition-colors"
+              >
+                <div className="font-medium text-foreground">10-Button Layout</div>
+                <div className="text-muted-foreground mt-0.5">Standard bump bar</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCreateProfile(20)}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-accent transition-colors"
+              >
+                <div className="font-medium text-foreground">20-Button Layout</div>
+                <div className="text-muted-foreground mt-0.5">Extended bump bar (2 rows)</div>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Profiles list */}

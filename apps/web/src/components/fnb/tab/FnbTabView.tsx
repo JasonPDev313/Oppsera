@@ -233,6 +233,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
     tab,
     isLoading,
     error,
+    notFound,
     refresh: refreshTab,
     fireCourse,
     sendCourse,
@@ -240,6 +241,14 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
     updatePartySize,
     isActing,
   } = useFnbTab({ tabId, pollEnabled: isTabScreen });
+
+  // Auto-navigate back to floor when tab was closed/voided elsewhere
+  useEffect(() => {
+    if (notFound) {
+      store.setActiveTab(null);
+      store.navigateTo('floor');
+    }
+  }, [notFound, store]);
 
   const menu = useFnbMenu();
 

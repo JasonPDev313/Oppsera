@@ -9,8 +9,8 @@ import type { FnbTabDetail, CheckSummary } from '@/types/fnb';
 // between tabs (user taps Table A → Table B → back to Table A).
 
 const _tabCache = new Map<string, { data: FnbTabDetail; ts: number }>();
-const TAB_CACHE_TTL_MS = 60_000; // 60 seconds
-const MAX_TAB_CACHE_ENTRIES = 50;
+const TAB_CACHE_TTL_MS = 5 * 60_000; // 5 minutes — covers rapid table switching during service
+const MAX_TAB_CACHE_ENTRIES = 200; // busy restaurant may have 50-100 open tabs
 
 function getTabSnapshot(tabId: string): FnbTabDetail | undefined {
   const entry = _tabCache.get(tabId);
@@ -29,6 +29,49 @@ function setTabSnapshot(tabId: string, data: FnbTabDetail): void {
   }
   _tabCache.delete(tabId);
   _tabCache.set(tabId, { data, ts: Date.now() });
+}
+
+// ── In-flight dedup ─────────────────────────────────────────────
+// Prevents concurrent fetches for the same tab (e.g. pre-warm + hook mount)
+
+const _inflight = new Map<string, Promise<FnbTabDetail | null>>();
+
+async function fetchAndCacheTab(tabId: string): Promise<FnbTabDetail | null> {
+  // Return in-flight promise if already fetching this tab
+  const existing = _inflight.get(tabId);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    try {
+      const json = await apiFetch<{ data: FnbTabDetail }>(`/api/v1/fnb/tabs/${tabId}`);
+      setTabSnapshot(tabId, json.data);
+      return json.data;
+    } catch {
+      return null;
+    } finally {
+      _inflight.delete(tabId);
+    }
+  })();
+
+  _inflight.set(tabId, promise);
+  return promise;
+}
+
+/**
+ * Pre-warm the tab cache for all open tabs.
+ * Call at POS startup with tab IDs extracted from the floor plan.
+ * Fire-and-forget — errors are silently swallowed.
+ * Skips tabs that are already cached and fresh.
+ */
+export async function warmOpenTabs(tabIds: string[]): Promise<void> {
+  const uncached = tabIds.filter((id) => !getTabSnapshot(id));
+  if (uncached.length === 0) return;
+  // Fetch all uncached tabs in parallel (max 20 concurrent to avoid flooding)
+  const batchSize = 20;
+  for (let i = 0; i < uncached.length; i += batchSize) {
+    const batch = uncached.slice(i, i + batchSize);
+    await Promise.all(batch.map((id) => fetchAndCacheTab(id)));
+  }
 }
 
 // ── Tab Detail Hook ─────────────────────────────────────────────
@@ -55,6 +98,8 @@ interface UseFnbTabReturn {
   tab: FnbTabDetail | null;
   isLoading: boolean;
   error: string | null;
+  /** True when the server returned 404 — tab was closed/voided/deleted. */
+  notFound: boolean;
   refresh: () => Promise<void>;
   // Actions
   closeTab: (expectedVersion: number) => Promise<void>;
@@ -74,6 +119,7 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [isActing, setIsActing] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const prevTabIdRef = useRef<string | null>(null);
@@ -89,6 +135,7 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
         const cached = tabId ? getTabSnapshot(tabId) : null;
         setTab(cached ?? null);
         setError(null);
+        setNotFound(false);
       }
       prevTabIdRef.current = tabId;
     }
@@ -102,7 +149,7 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
     abortRef.current = controller;
 
     try {
-      // Only show loading spinner when there's no cached data
+      // Only show loading spinner when there's no cached data at all
       if (!tabRef.current) setIsLoading(true);
       const json = await apiFetch<{ data: FnbTabDetail }>(`/api/v1/fnb/tabs/${tabId}`, {
         signal: controller.signal,
@@ -110,13 +157,27 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
       setTab(json.data);
       setTabSnapshot(tabId, json.data);
       setError(null);
+      setNotFound(false);
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return;
+      // Detect 404 — tab was closed/voided/deleted. Clear stale cache
+      // and stop polling by setting notFound flag.
+      const is404 = (e as { statusCode?: number })?.statusCode === 404;
+      if (is404) {
+        _tabCache.delete(tabId);
+        setTab(null);
+        setNotFound(true);
+      }
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setIsLoading(false);
     }
   }, [tabId]);
+
+  // On tab switch, show cached snapshot instantly and only set loading if
+  // cache is empty. The background refresh (fetchTab) still fires but won't
+  // show a spinner since tabRef.current is already set from cache.
+
 
   // Initial fetch (always fires when tabId changes)
   useEffect(() => {
@@ -124,12 +185,12 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
     return () => abortRef.current?.abort();
   }, [fetchTab]);
 
-  // Polling (paused when screen is hidden)
+  // Polling (paused when screen is hidden or tab not found)
   useEffect(() => {
-    if (!tabId || pollIntervalMs <= 0 || !pollEnabled) return;
+    if (!tabId || pollIntervalMs <= 0 || !pollEnabled || notFound) return;
     const interval = setInterval(fetchTab, pollIntervalMs);
     return () => clearInterval(interval);
-  }, [tabId, pollIntervalMs, fetchTab, pollEnabled]);
+  }, [tabId, pollIntervalMs, fetchTab, pollEnabled, notFound]);
 
   // Refresh on POS visibility resume (e.g. returning from idle)
   useEffect(() => {
@@ -140,11 +201,11 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
 
   // ── Actions ──────────────────────────────────────────────────
 
-  const act = useCallback(async (fn: () => Promise<unknown>) => {
+  const act = useCallback(async (fn: () => Promise<unknown>, skipRefetch = false) => {
     setIsActing(true);
     try {
       await fn();
-      await fetchTab();
+      if (!skipRefetch) await fetchTab();
     } finally {
       setIsActing(false);
     }
@@ -152,18 +213,22 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
 
   const closeTabFn = useCallback(async (expectedVersion: number) => {
     if (!tabId) return;
+    // Skip refetch — tab won't exist after close
     await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/close`, {
       method: 'POST',
       body: JSON.stringify({ expectedVersion }),
-    }));
+    }), true);
+    _tabCache.delete(tabId);
   }, [tabId, act]);
 
   const voidTabFn = useCallback(async (reason: string, expectedVersion: number) => {
     if (!tabId) return;
+    // Skip refetch — tab won't exist after void
     await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/void`, {
       method: 'POST',
       body: JSON.stringify({ reason, expectedVersion }),
-    }));
+    }), true);
+    _tabCache.delete(tabId);
   }, [tabId, act]);
 
   const transferTabFn = useCallback(async (input: { toServerUserId?: string; toTableId?: string; reason?: string; expectedVersion: number }) => {
@@ -219,6 +284,7 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
     tab,
     isLoading,
     error,
+    notFound,
     refresh: fetchTab,
     closeTab: closeTabFn,
     voidTab: voidTabFn,

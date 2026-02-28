@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 
 const RevenueContent = dynamic(() => import('./revenue-content'), {
@@ -8,5 +9,9 @@ const RevenueContent = dynamic(() => import('./revenue-content'), {
 });
 
 export default function RevenuePage() {
-  return <RevenueContent />;
+  return (
+    <Suspense fallback={<div className="animate-pulse space-y-4 p-6"><div className="h-8 w-48 rounded bg-muted" /><div className="h-10 w-full rounded bg-muted" /><div className="h-64 w-full rounded bg-muted" /></div>}>
+      <RevenueContent />
+    </Suspense>
+  );
 }

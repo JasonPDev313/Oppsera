@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { eq } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
+import { db, tenants } from '@oppsera/db';
 import { runPipeline } from '@oppsera/module-semantic/llm';
 import { checkSemanticRateLimit } from '@oppsera/module-semantic/cache';
 
@@ -67,6 +69,11 @@ export const POST = withMiddleware(
       timeZone: timezone,
     });
 
+    // Determine excluded domains based on tenant business vertical
+    const [tenantRow] = await db.select({ businessVertical: tenants.businessVertical }).from(tenants).where(eq(tenants.id, ctx.tenantId)).limit(1);
+    const bv = tenantRow?.businessVertical ?? 'general';
+    const excludeDomains = (bv !== 'golf' && bv !== 'hybrid') ? ['golf'] : [];
+
     let output;
     try {
       output = await runPipeline({
@@ -83,6 +90,7 @@ export const POST = withMiddleware(
           timezone,
         },
         skipNarrative: false,
+        excludeDomains,
       });
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);

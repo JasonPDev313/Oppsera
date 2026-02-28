@@ -52,6 +52,7 @@ export interface AccountingSettings {
   // Day-end close (migration 0189)
   dayEndCloseEnabled: boolean;
   dayEndCloseTime: string; // HH:MM
+  supportedCurrencies: string[];
 }
 
 /**
@@ -116,5 +117,6 @@ export async function getAccountingSettings(
     autoCloseSkipHolidays: row.autoCloseSkipHolidays,
     dayEndCloseEnabled: row.dayEndCloseEnabled,
     dayEndCloseTime: row.dayEndCloseTime ?? '23:00',
+    supportedCurrencies: row.supportedCurrencies ?? ['USD'],
   };
 }

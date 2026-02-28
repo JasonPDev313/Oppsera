@@ -14,7 +14,6 @@ interface ProfilePreferencesTabProps {
 
 const CATEGORY_LABELS: Record<string, string> = {
   food_bev: 'Food & Beverage',
-  golf: 'Golf',
   retail: 'Retail',
   service: 'Service',
   facility: 'Facility',

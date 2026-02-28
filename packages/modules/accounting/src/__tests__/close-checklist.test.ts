@@ -33,17 +33,18 @@ function buildMockTx(results: any[]) {
 }
 
 // Default local query results (accounting-owned tables)
-// Wave 1 (all 10 queries in parallel via Promise.all):
+// Wave 1 (all 11 queries in parallel via Promise.all):
 //   1. period status
 //   2. draft count
 //   3. unmapped count
 //   4. trial balance
-//   5. combined settings (legacy/tips/svc/cogs/ap_control)
+//   5. combined settings (legacy/tips/svc/cogs/ap_control/supported_currencies)
 //   6. discount mapping completeness
 //   7. dead letter count
 //   8. recurring entries
 //   9. bank reconciliation
 //   10. GL posting coverage (gl_tender_count)
+//   11. Foreign-currency GL entry count (fxCurrencyRows)
 // Wave 2 (conditional, depends on Wave 1 settings):
 //   - AP reconciliation (3 queries if ap_control_account_id is set)
 //   - Legacy GL reconciliation (2 queries if legacy enabled)
@@ -83,6 +84,8 @@ function defaultLocalResults(overrides: Record<string, any> = {}) {
     overrides.bankRec ?? [{ total_bank_accounts: 0, unreconciled: 0 }],
     // 10. GL posting coverage
     overrides.glCoverage ?? [{ gl_tender_count: 0 }],
+    // 11. Foreign-currency GL entry count
+    overrides.fxCurrency ?? [{ foreign_currency_count: 0 }],
   ];
 
   // Wave 2 conditional queries:
@@ -257,6 +260,48 @@ describe('getCloseChecklist', () => {
     const discountItem = result.items.find(i => i.label === 'Sub-department discount account mappings');
     expect(discountItem).toBeDefined();
     expect(discountItem!.status).toBe('pass');
+  });
+
+  it('should warn about FX revaluation when multi-currency entries exist', async () => {
+    const { withTenant } = await import('@oppsera/db');
+    (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
+      const mockTx = buildMockTx(defaultLocalResults({
+        trialBalance: [{ total_debits: '0', total_credits: '0' }],
+        settings: [{
+          enable_legacy_gl_posting: false,
+          default_tips_payable_account_id: 'acct-tips',
+          default_service_charge_revenue_account_id: 'acct-svc',
+          cogs_posting_mode: 'disabled',
+          supported_currencies: ['USD', 'EUR', 'GBP'],
+        }],
+        discountMapping: [{ total_mapped: 0, missing_discount: 0 }],
+        fxCurrency: [{ foreign_currency_count: 2 }],
+      }));
+      return fn(mockTx);
+    });
+
+    const result = await getCloseChecklist({ tenantId: 'tenant-1', postingPeriod: '2026-01' });
+
+    const fxItem = result.items.find(i => i.label === 'Foreign currency revaluation');
+    expect(fxItem).toBeDefined();
+    expect(fxItem!.status).toBe('warning');
+    expect(fxItem!.detail).toContain('2 foreign currencies');
+  });
+
+  it('should not show FX revaluation when single-currency tenant', async () => {
+    const { withTenant } = await import('@oppsera/db');
+    (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
+      const mockTx = buildMockTx(defaultLocalResults({
+        trialBalance: [{ total_debits: '0', total_credits: '0' }],
+        discountMapping: [{ total_mapped: 0, missing_discount: 0 }],
+      }));
+      return fn(mockTx);
+    });
+
+    const result = await getCloseChecklist({ tenantId: 'tenant-1', postingPeriod: '2026-01' });
+
+    const fxItem = result.items.find(i => i.label === 'Foreign currency revaluation');
+    expect(fxItem).toBeUndefined();
   });
 
   it('should show POS legacy reconciliation with difference when totals mismatch', async () => {

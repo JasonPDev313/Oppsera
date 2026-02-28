@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
+import { DrillDownDrawer, DrillDownAmount } from '@/components/accounting/drill-down-drawer';
 import { ReportFilterBar } from '@/components/reports/report-filter-bar';
 import { useReportFilters } from '@/hooks/use-report-filters';
 import { useGlCodeSummary } from '@/hooks/use-gl-code-summary';
@@ -96,6 +97,7 @@ export default function GlCodeSummaryContent() {
 
   const [search, setSearch] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [drillDown, setDrillDown] = useState<{ accountId: string; accountName: string } | null>(null);
 
   // ── Derived data ──────────────────────────────────────────
 
@@ -453,14 +455,36 @@ export default function GlCodeSummaryContent() {
                               </span>
                             </td>
                             <td className="px-4 py-2 text-right text-sm tabular-nums text-foreground">
-                              {line.totalDebit > 0
-                                ? formatAccountingMoney(line.totalDebit)
-                                : ''}
+                              {line.totalDebit > 0 ? (
+                                <DrillDownAmount
+                                  onClick={() =>
+                                    setDrillDown({
+                                      accountId: line.accountId,
+                                      accountName: `${line.accountNumber} ${line.accountName}`,
+                                    })
+                                  }
+                                >
+                                  {formatAccountingMoney(line.totalDebit)}
+                                </DrillDownAmount>
+                              ) : (
+                                ''
+                              )}
                             </td>
                             <td className="px-4 py-2 text-right text-sm tabular-nums text-foreground">
-                              {line.totalCredit > 0
-                                ? formatAccountingMoney(line.totalCredit)
-                                : ''}
+                              {line.totalCredit > 0 ? (
+                                <DrillDownAmount
+                                  onClick={() =>
+                                    setDrillDown({
+                                      accountId: line.accountId,
+                                      accountName: `${line.accountNumber} ${line.accountName}`,
+                                    })
+                                  }
+                                >
+                                  {formatAccountingMoney(line.totalCredit)}
+                                </DrillDownAmount>
+                              ) : (
+                                ''
+                              )}
                             </td>
                             <td className="px-4 py-2 text-right text-sm tabular-nums text-muted-foreground">
                               {line.totalDebit - line.totalCredit !== 0
@@ -588,20 +612,36 @@ export default function GlCodeSummaryContent() {
                             </span>
                             <div className="flex gap-3 text-sm tabular-nums">
                               {line.totalDebit > 0 && (
-                                <span className="text-foreground">
+                                <DrillDownAmount
+                                  onClick={() =>
+                                    setDrillDown({
+                                      accountId: line.accountId,
+                                      accountName: `${line.accountNumber} ${line.accountName}`,
+                                    })
+                                  }
+                                  className="text-foreground"
+                                >
                                   <span className="mr-1 text-xs text-muted-foreground">
                                     DR
                                   </span>
                                   {formatAccountingMoney(line.totalDebit)}
-                                </span>
+                                </DrillDownAmount>
                               )}
                               {line.totalCredit > 0 && (
-                                <span className="text-foreground">
+                                <DrillDownAmount
+                                  onClick={() =>
+                                    setDrillDown({
+                                      accountId: line.accountId,
+                                      accountName: `${line.accountNumber} ${line.accountName}`,
+                                    })
+                                  }
+                                  className="text-foreground"
+                                >
                                   <span className="mr-1 text-xs text-muted-foreground">
                                     CR
                                   </span>
                                   {formatAccountingMoney(line.totalCredit)}
-                                </span>
+                                </DrillDownAmount>
                               )}
                             </div>
                           </div>
@@ -650,6 +690,14 @@ export default function GlCodeSummaryContent() {
           </div>
         </div>
       )}
+      <DrillDownDrawer
+        accountId={drillDown?.accountId ?? null}
+        accountName={drillDown?.accountName ?? ''}
+        from={filters.dateFrom}
+        to={filters.dateTo}
+        locationId={filters.selectedLocationId}
+        onClose={() => setDrillDown(null)}
+      />
     </AccountingPageShell>
   );
 }

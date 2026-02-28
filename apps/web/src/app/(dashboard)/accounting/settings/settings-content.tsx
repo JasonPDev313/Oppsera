@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { AlertTriangle } from 'lucide-react';
 import { AlertCircle } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
@@ -11,6 +12,10 @@ import { useAccountingSettings } from '@/hooks/use-accounting';
 import { useToast } from '@/components/ui/toast';
 import { apiFetch } from '@/lib/api-client';
 import type { BreakageRecognitionMethod } from '@/types/accounting';
+
+const CurrencySettingsTab = dynamic(() => import('@/components/accounting/currency-settings-tab'), {
+  loading: () => <div className="h-40 animate-pulse rounded-lg bg-muted" />,
+});
 
 const MONTHS = [
   { value: '1', label: 'January' },
@@ -156,13 +161,6 @@ export default function SettingsContent() {
         <section className="space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">General</h2>
           <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
-            <FormField label="Base Currency">
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
-                USD — US Dollar
-                <span className="text-xs text-muted-foreground">(Multi-currency coming soon)</span>
-              </div>
-            </FormField>
-
             <FormField label="Fiscal Year Start Month">
               <Select
                 options={MONTHS}
@@ -196,6 +194,12 @@ export default function SettingsContent() {
               </div>
             </FormField>
           </div>
+        </section>
+
+        {/* Multi-Currency */}
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Currency</h2>
+          <CurrencySettingsTab />
         </section>
 
         {/* Default Accounts */}

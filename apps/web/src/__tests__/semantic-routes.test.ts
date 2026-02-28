@@ -50,18 +50,17 @@ vi.mock('@oppsera/shared', () => ({
 }));
 
 // Mock @oppsera/db to avoid DATABASE_URL requirement in tests.
-// Route handlers query custom tenant metrics/dimensions via db.select().from().where().
+// Route handlers query custom tenant metrics/dimensions via db.select().from().where().limit().
 vi.mock('@oppsera/db', () => {
   const chainable = (): Record<string, unknown> => {
     const proxy: Record<string, unknown> = {};
     const methods = ['select', 'from', 'where', 'limit', 'orderBy', 'insert', 'values', 'returning', 'update', 'set', 'onConflictDoUpdate'];
     for (const m of methods) {
-      proxy[m] = vi.fn(() => {
-        // Terminal methods that return data resolve to empty array
-        if (m === 'where' || m === 'limit' || m === 'returning') return Promise.resolve([]);
-        return proxy;
-      });
+      proxy[m] = vi.fn(() => proxy);
     }
+    // Make the proxy thenable so `await db.select().from().where()` AND
+    // `await db.select().from().where().limit()` both resolve to []
+    proxy.then = (resolve: (v: unknown) => unknown) => Promise.resolve([]).then(resolve);
     return proxy;
   };
   return {

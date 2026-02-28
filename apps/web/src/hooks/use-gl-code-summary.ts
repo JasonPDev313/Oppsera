@@ -7,6 +7,7 @@ import { buildQueryString } from '@/lib/query-string';
 export interface GlCodeSummaryLine {
   section: 'revenue' | 'tender' | 'tax' | 'tip' | 'discount' | 'expense' | 'other';
   memo: string;
+  accountId: string;
   accountNumber: string;
   accountName: string;
   accountDisplay: string;

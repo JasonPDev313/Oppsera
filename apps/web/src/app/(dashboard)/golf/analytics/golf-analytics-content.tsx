@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Flag } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
+import { useTenantTier } from '@/hooks/use-erp-config';
 import { useGolfDashboard } from '@/hooks/use-golf-reports';
 import { useReportFilters } from '@/hooks/use-report-filters';
 import { GolfMetricCards } from '@/components/golf-reports/golf-metric-cards';
@@ -25,8 +27,17 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export default function GolfAnalyticsContent() {
   const { locations } = useAuthContext();
+  const router = useRouter();
+  const { tier, isLoading: tierLoading } = useTenantTier();
   const [activeTab, setActiveTab] = useState<TabKey>('utilization');
   const filters = useReportFilters({ defaultPreset: 'last_30_days' });
+
+  // Redirect non-golf tenants
+  const isGolfTenant = tier?.businessVertical === 'golf' || tier?.businessVertical === 'hybrid';
+  if (!tierLoading && tier && !isGolfTenant) {
+    router.replace('/dashboard');
+    return null;
+  }
 
   const dashboard = useGolfDashboard(
     undefined, // courseId — future use

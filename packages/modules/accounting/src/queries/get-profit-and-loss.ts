@@ -75,8 +75,8 @@ export async function getProfitAndLoss(input: GetPnlInput): Promise<ProfitAndLos
           a.is_contra_account,
           COALESCE(c.name, a.account_type) AS classification_name,
           CASE WHEN a.account_type = 'revenue'
-            THEN COALESCE(SUM(jl.credit_amount) - SUM(jl.debit_amount), 0)
-            ELSE COALESCE(SUM(jl.debit_amount) - SUM(jl.credit_amount), 0)
+            THEN COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)) - SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0)
+            ELSE COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)) - SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0)
           END AS amount
         FROM gl_accounts a
         LEFT JOIN gl_classifications c ON c.id = a.classification_id
@@ -95,8 +95,8 @@ export async function getProfitAndLoss(input: GetPnlInput): Promise<ProfitAndLos
           AND a.account_type IN ('revenue', 'expense')
           AND (jl.id IS NULL OR je.id IS NOT NULL)
         GROUP BY a.id, a.account_number, a.name, a.account_type, a.is_contra_account, c.name
-        HAVING COALESCE(SUM(jl.debit_amount), 0) != 0
-            OR COALESCE(SUM(jl.credit_amount), 0) != 0
+        HAVING COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0
+            OR COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0
         ORDER BY a.account_number
       `);
 

@@ -43,6 +43,8 @@ import {
   ArrowLeftRight,
   AlertTriangle,
   Grid3X3,
+  FolderKanban,
+  Warehouse,
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
 
@@ -146,6 +148,7 @@ export const navigation: NavItem[] = [
     children: [
       { name: 'Overview', href: '/reports', icon: BarChart3, requiredPermission: 'reports.view' },
       { name: 'Modifiers', href: '/reports/modifiers', icon: Sliders, requiredPermission: 'reports.view' },
+      { name: 'Customer Spending', href: '/reports/customer-spending', icon: Users, requiredPermission: 'reports.view' },
       { name: 'Custom Reports', href: '/reports/custom', icon: FileBarChart, requiredPermission: 'reports.custom.view' },
       { name: 'Dashboards', href: '/dashboards', icon: LayoutGrid, requiredPermission: 'reports.custom.view' },
     ],
@@ -203,9 +206,12 @@ export const navigation: NavItem[] = [
       { name: 'GL Mappings', href: '/accounting/mappings', icon: ArrowLeftRight, requiredPermission: 'accounting.mappings.manage' },
       { name: 'Payables', href: '/accounting/payables', icon: Receipt, moduleKey: 'ap', requiredPermission: 'ap.view' },
       { name: 'Receivables', href: '/accounting/receivables', icon: Wallet, moduleKey: 'ar', requiredPermission: 'ar.view' },
+      { name: 'Projects', href: '/accounting/projects', icon: FolderKanban, moduleKey: 'project_costing', requiredPermission: 'project_costing.view' },
+      { name: 'Expenses', href: '/accounting/expenses', icon: ClipboardList, moduleKey: 'expense_management', requiredPermission: 'expenses.view' },
       { name: 'Banking', href: '/accounting/banking', icon: Building2, requiredPermission: 'accounting.banking.view' },
       { name: 'Revenue & Cost', href: '/accounting/revenue', icon: DollarSign, requiredPermission: 'accounting.revenue.view' },
       { name: 'Tax', href: '/accounting/tax', icon: FileBarChart, requiredPermission: 'accounting.tax.view' },
+      { name: 'Fixed Assets', href: '/accounting/fixed-assets', icon: Warehouse, requiredPermission: 'accounting.view' },
       { name: 'Financials', href: '/accounting/financials', icon: Scale, requiredPermission: 'accounting.financials.view' },
       { name: 'GL Code Summary', href: '/accounting/reports/gl-code-summary', icon: FileBarChart, requiredPermission: 'accounting.view' },
       { name: 'Period Close', href: '/accounting/period-close', icon: Lock, requiredPermission: 'accounting.period.close' },

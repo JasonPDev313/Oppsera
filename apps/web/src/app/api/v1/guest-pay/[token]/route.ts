@@ -35,5 +35,5 @@ export const GET = withMiddleware(
       },
     });
   },
-  { public: true },
+  { public: true, botDetection: 'strict' },
 );

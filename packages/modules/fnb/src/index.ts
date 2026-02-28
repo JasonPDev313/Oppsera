@@ -1092,6 +1092,7 @@ export { handleTabClosedForHost, handleTurnCompletedForHost } from './consumers/
 // Commands
 export { upsertBumpBarProfile } from './commands/upsert-bump-bar-profile';
 export { upsertAlertProfile } from './commands/upsert-alert-profile';
+export { updateAlertProfile } from './commands/update-alert-profile';
 export { upsertPerformanceTarget } from './commands/upsert-performance-target';
 export { upsertItemPrepTime, bulkUpsertItemPrepTimes } from './commands/upsert-item-prep-time';
 

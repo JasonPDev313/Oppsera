@@ -4,7 +4,7 @@ import { eq, and, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { listDimensions } from '@oppsera/module-semantic/registry';
-import { db, semanticDimensions } from '@oppsera/db';
+import { db, semanticDimensions, tenants } from '@oppsera/db';
 import { generateUlid, ValidationError } from '@oppsera/shared';
 
 // ── Validation ────────────────────────────────────────────────────
@@ -24,7 +24,17 @@ export const GET = withMiddleware(
     const domain = new URL(request.url).searchParams.get('domain') ?? undefined;
 
     // System dimensions from registry cache
-    const systemDimensions = await listDimensions(domain);
+    const [systemDimensionsRaw, tenantRows] = await Promise.all([
+      listDimensions(domain),
+      db.select({ businessVertical: tenants.businessVertical }).from(tenants).where(eq(tenants.id, ctx.tenantId)).limit(1),
+    ]);
+    const businessVertical = tenantRows[0]?.businessVertical ?? 'general';
+
+    // Filter out golf-domain dimensions for non-golf tenants (matches lenses filtering pattern)
+    const isGolfTenant = businessVertical === 'golf' || businessVertical === 'hybrid';
+    const systemDimensions = isGolfTenant
+      ? systemDimensionsRaw
+      : systemDimensionsRaw.filter((d) => d.domain !== 'golf');
 
     // Custom tenant dimensions from DB
     const customRows = await db

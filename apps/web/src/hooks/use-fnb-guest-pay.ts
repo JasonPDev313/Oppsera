@@ -34,6 +34,8 @@ export function useFnbGuestPay({
   onPaymentConfirmedRef.current = onPaymentConfirmed;
 
   const abortRef = useRef<AbortController | null>(null);
+  const failureCountRef = useRef(0);
+  const MAX_CONSECUTIVE_FAILURES = 3;
 
   const fetchActive = useCallback(async (signal?: AbortSignal) => {
     if (!tabId) {
@@ -42,12 +44,16 @@ export function useFnbGuestPay({
       return;
     }
 
+    // Stop polling after too many consecutive failures (endpoint likely unavailable)
+    if (failureCountRef.current >= MAX_CONSECUTIVE_FAILURES) return;
+
     try {
       setIsLoading(true);
       const res = await apiFetch<{ data: { hasActive: boolean; session: GuestPaySession | null } }>(
         `/api/v1/fnb/guest-pay/sessions/tab/${tabId}/active`,
         { signal },
       );
+      failureCountRef.current = 0;
       const data = res.data;
       setSession(data.session);
       setHasActive(data.hasActive);
@@ -64,7 +70,7 @@ export function useFnbGuestPay({
     } catch (err) {
       // Ignore aborted requests (cleanup on unmount / tab switch)
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      // Silently fail on other poll errors
+      failureCountRef.current++;
     } finally {
       setIsLoading(false);
     }

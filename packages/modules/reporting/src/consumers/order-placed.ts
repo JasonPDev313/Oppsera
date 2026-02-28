@@ -25,6 +25,11 @@ const orderPlacedSchema = z.object({
   discountTotal: z.number().optional(),
   serviceChargeTotal: z.number().optional(),
   total: z.number(),
+  // Sales History enrichment
+  tabName: z.string().nullish(),
+  tableNumber: z.union([z.string(), z.number()]).nullish(),
+  employeeId: z.string().nullish(),
+  employeeName: z.string().nullish(),
   lines: z.array(z.object({
     catalogItemId: z.string(),
     catalogItemName: z.string().optional(),
@@ -127,21 +132,42 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
     `);
 
     // Step 4b: Upsert rm_revenue_activity with source='pos_order'
+    // Detect F&B: if tabName or tableNumber present, this is an F&B order
+    const isFnb = !!(data.tabName || data.tableNumber);
+    const sourceSubType = isFnb ? 'pos_fnb' : 'pos_retail';
     const orderLabel = data.orderNumber ? `Order #${data.orderNumber}` : `Order ${data.orderId.slice(-6)}`;
     await (tx as any).execute(sql`
       INSERT INTO rm_revenue_activity (
         id, tenant_id, location_id, business_date,
-        source, source_id, source_label, customer_name,
-        amount_dollars, status, metadata, occurred_at, created_at
+        source, source_sub_type, source_id, source_label,
+        reference_number, customer_name, customer_id,
+        employee_id, employee_name,
+        amount_dollars, subtotal_dollars, tax_dollars,
+        discount_dollars, service_charge_dollars,
+        status, metadata, occurred_at, created_at
       )
       VALUES (
         ${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate},
-        ${'pos_order'}, ${data.orderId}, ${orderLabel}, ${data.customerName ?? null},
-        ${net}, ${'completed'}, ${JSON.stringify({ customerId: data.customerId })},
+        ${'pos_order'}, ${sourceSubType}, ${data.orderId}, ${orderLabel},
+        ${data.orderNumber ?? null}, ${data.customerName ?? null}, ${data.customerId ?? null},
+        ${data.employeeId ?? null}, ${data.employeeName ?? null},
+        ${net}, ${gross}, ${tax},
+        ${discount}, ${serviceCharge},
+        ${'completed'}, ${JSON.stringify({ customerId: data.customerId })},
         ${occurredAt}::timestamptz, NOW()
       )
       ON CONFLICT (tenant_id, source, source_id) DO UPDATE SET
         amount_dollars = ${net},
+        subtotal_dollars = ${gross},
+        tax_dollars = ${tax},
+        discount_dollars = ${discount},
+        service_charge_dollars = ${serviceCharge},
+        source_sub_type = ${sourceSubType},
+        reference_number = COALESCE(${data.orderNumber ?? null}, rm_revenue_activity.reference_number),
+        customer_name = COALESCE(${data.customerName ?? null}, rm_revenue_activity.customer_name),
+        customer_id = COALESCE(${data.customerId ?? null}, rm_revenue_activity.customer_id),
+        employee_id = COALESCE(${data.employeeId ?? null}, rm_revenue_activity.employee_id),
+        employee_name = COALESCE(${data.employeeName ?? null}, rm_revenue_activity.employee_name),
         status = ${'completed'},
         occurred_at = ${occurredAt}::timestamptz
     `);

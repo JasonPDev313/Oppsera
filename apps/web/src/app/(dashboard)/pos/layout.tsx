@@ -10,6 +10,8 @@ import { refreshTokenIfNeeded, apiFetch } from '@/lib/api-client';
 import { warmCustomerCache } from '@/lib/customer-cache';
 import { warmFloorPlanCache } from '@/hooks/use-fnb-floor';
 import { warmMenuCache } from '@/hooks/use-fnb-menu';
+import { warmOpenTabs } from '@/hooks/use-fnb-tab';
+import { warmFnbSettings } from '@/hooks/use-fnb-settings';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useTerminalSession } from '@/components/terminal-session-provider';
 import { POSErrorBoundary } from '@/components/pos/pos-error-boundary';
@@ -148,11 +150,19 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     warmCustomerCache();
     warmMenuCache();
-    // Warm floor plan: fetch room list, then warm first room
+    warmFnbSettings('fnb_ordering');
+    warmFnbSettings('fnb_general');
+    // Warm floor plan: fetch room list, then warm first room + all open tabs
     apiFetch<{ data: Array<{ id: string }> }>('/api/v1/room-layouts?isActive=true')
-      .then(json => {
+      .then(async (json) => {
         const firstRoom = json.data?.[0];
-        if (firstRoom) warmFloorPlanCache(firstRoom.id);
+        if (!firstRoom) return;
+        const floorPlan = await warmFloorPlanCache(firstRoom.id);
+        // Extract open tab IDs from floor plan tables and pre-warm them
+        const tabIds = (floorPlan?.tables ?? [])
+          .map((t) => t.currentTabId)
+          .filter((id): id is string => !!id);
+        if (tabIds.length > 0) warmOpenTabs(tabIds);
       })
       .catch(() => {}); // non-critical
   }, []);

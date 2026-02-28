@@ -19,6 +19,12 @@ import {
   Monitor,
   Repeat,
   CheckSquare,
+  ClipboardList,
+  ShieldCheck,
+  Target,
+  TrendingUp,
+  Warehouse,
+  Calendar,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -76,6 +82,18 @@ export const accountingSections: AccountingSection[] = [
     ],
   },
   {
+    id: 'expenses',
+    label: 'Expenses',
+    href: '/accounting/expenses',
+    moduleKey: 'expense_management',
+    tabs: [
+      { id: 'all-expenses', label: 'All Expenses', icon: ClipboardList, requiredPermission: 'expenses.view' },
+      { id: 'approvals', label: 'Approvals', icon: ShieldCheck, requiredPermission: 'expenses.approve' },
+      { id: 'summary', label: 'Summary', icon: BarChart3, requiredPermission: 'expenses.view' },
+      { id: 'policies', label: 'Policies', icon: FileBarChart, requiredPermission: 'expenses.manage' },
+    ],
+  },
+  {
     id: 'banking',
     label: 'Banking',
     href: '/accounting/banking',
@@ -103,6 +121,24 @@ export const accountingSections: AccountingSection[] = [
     tabs: [
       { id: 'remittance', label: 'Tax Remittance', icon: FileBarChart, requiredPermission: 'accounting.tax.view' },
       { id: 'reports', label: 'Tax Reports', icon: BarChart3, requiredPermission: 'accounting.tax.view' },
+    ],
+  },
+  {
+    id: 'budgets',
+    label: 'Budgets',
+    href: '/accounting/budgets',
+    tabs: [
+      { id: 'budgets', label: 'Budgets', icon: Target, requiredPermission: 'accounting.budgets.view' },
+      { id: 'budget-vs-actual', label: 'Budget vs Actual', icon: TrendingUp, requiredPermission: 'accounting.budgets.view' },
+    ],
+  },
+  {
+    id: 'fixed-assets',
+    label: 'Fixed Assets',
+    href: '/accounting/fixed-assets',
+    tabs: [
+      { id: 'register', label: 'Asset Register', icon: Warehouse, requiredPermission: 'accounting.view' },
+      { id: 'depreciation', label: 'Depreciation', icon: Calendar, requiredPermission: 'accounting.view' },
     ],
   },
   {

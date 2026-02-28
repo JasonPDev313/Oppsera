@@ -17,6 +17,8 @@ export async function initializeAccountingPostingApi(): Promise<void> {
         sourceReferenceId: input.sourceReferenceId,
         memo: input.memo,
         currency: input.currency,
+        transactionCurrency: input.transactionCurrency,
+        exchangeRate: input.exchangeRate,
         lines: input.lines,
         forcePost: input.forcePost,
       }, { hasControlAccountPermission: true });

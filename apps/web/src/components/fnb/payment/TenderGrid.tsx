@@ -33,16 +33,49 @@ const TENDERS: {
 ];
 
 const FAST_CASH = [
-  { label: 'Exact', cents: 0 },
-  { label: '$10', cents: 1000 },
-  { label: '$20', cents: 2000 },
-  { label: '$50', cents: 5000 },
-  { label: '$100', cents: 10000 },
+  { label: 'Exact', cents: 0, primary: true },
+  { label: '$10', cents: 1000, primary: false },
+  { label: '$20', cents: 2000, primary: false },
+  { label: '$50', cents: 5000, primary: false },
+  { label: '$100', cents: 10000, primary: false },
 ];
 
 export function TenderGrid({ onSelect, onFastCash, totalCents, disabled }: TenderGridProps) {
   return (
     <div className="flex flex-col gap-3">
+      {/* Fast Cash — PRIMARY speed path (one-tap payment) */}
+      {onFastCash && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <Zap className="h-3.5 w-3.5" style={{ color: 'var(--fnb-tender-cash)' }} />
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--fnb-tender-cash)' }}>
+              Quick Pay
+            </span>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {FAST_CASH.map(({ label, cents, primary }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => onFastCash(cents === 0 ? (totalCents ?? 0) : cents)}
+                disabled={disabled}
+                className="rounded-xl py-3 font-bold transition-all hover:scale-[1.03] active:scale-[0.97] disabled:opacity-40"
+                style={{
+                  backgroundColor: primary
+                    ? 'var(--fnb-tender-cash)'
+                    : 'color-mix(in srgb, var(--fnb-tender-cash) 15%, transparent)',
+                  color: primary ? '#fff' : 'var(--fnb-tender-cash)',
+                  border: `1.5px solid color-mix(in srgb, var(--fnb-tender-cash) ${primary ? '100' : '35'}%, transparent)`,
+                  fontSize: primary ? '0.8125rem' : '0.75rem',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Tender type buttons */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3">
         {TENDERS.map(({ type, label, icon: Icon, color, secondaryIcons }) => (
@@ -54,8 +87,8 @@ export function TenderGrid({ onSelect, onFastCash, totalCents, disabled }: Tende
             className="flex flex-col items-center justify-center rounded-xl border transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 w-full"
             style={{
               minHeight: 72,
-              borderColor: color,
-              backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)`,
+              borderColor: `color-mix(in srgb, ${color} 40%, transparent)`,
+              backgroundColor: `color-mix(in srgb, ${color} 8%, transparent)`,
               color,
             }}
           >
@@ -69,36 +102,6 @@ export function TenderGrid({ onSelect, onFastCash, totalCents, disabled }: Tende
           </button>
         ))}
       </div>
-
-      {/* Fast Cash row — one-tap cash payment */}
-      {onFastCash && (
-        <div>
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Zap className="h-3 w-3" style={{ color: 'var(--fnb-tender-cash)' }} />
-            <span className="text-[10px] font-bold uppercase" style={{ color: 'var(--fnb-text-muted)' }}>
-              Fast Cash
-            </span>
-          </div>
-          <div className="flex gap-1.5">
-            {FAST_CASH.map(({ label, cents }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => onFastCash(cents === 0 ? (totalCents ?? 0) : cents)}
-                disabled={disabled}
-                className="flex-1 rounded-lg py-2.5 text-xs font-bold transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40"
-                style={{
-                  backgroundColor: 'color-mix(in srgb, var(--fnb-tender-cash) 12%, transparent)',
-                  color: 'var(--fnb-tender-cash)',
-                  border: '1px solid color-mix(in srgb, var(--fnb-tender-cash) 25%, transparent)',
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

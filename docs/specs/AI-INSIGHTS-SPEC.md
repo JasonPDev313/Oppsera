@@ -120,10 +120,10 @@ oppsera/
 | `packages/modules/semantic/src/cache/llm-cache.ts` | ~100 | LLM response cache (LRU + TTL) |
 | `packages/modules/semantic/src/rag/few-shot-retriever.ts` | ~200 | RAG diversity + dedup |
 | `packages/db/src/schema/semantic.ts` | 217 | All 7 DB table definitions |
-| `apps/web/src/hooks/use-semantic-chat.ts` | 515 | Main chat hook (SSE streaming + fallback) |
+| `apps/web/src/hooks/use-semantic-chat.ts` | 575 | Main chat hook (SSE streaming + fallback + thinking status) |
 | `apps/web/src/hooks/use-feedback.ts` | 40 | Feedback submission hook |
 | `apps/web/src/hooks/use-session-history.ts` | 119 | Session list with cursor pagination |
-| `apps/web/src/components/semantic/chat-message.tsx` | 687 | Message bubble with tables, charts, debug |
+| `apps/web/src/components/semantic/chat-message.tsx` | 730 | Message bubble + ThinkingIndicator with tables, charts, debug |
 | `apps/web/src/components/semantic/chat-input.tsx` | 78 | Auto-resize textarea input |
 | `apps/web/src/components/insights/InlineChart.tsx` | 580 | Recharts wrapper (6 chart types) |
 | `apps/web/src/components/insights/FeedbackWidget.tsx` | 214 | Thumbs + stars + tags + text |
@@ -131,7 +131,7 @@ oppsera/
 | `apps/web/src/components/insights/DataQualityBadge.tsx` | 162 | Grade badge (A–F) with factor breakdown |
 | `apps/web/src/components/insights/FollowUpChips.tsx` | 63 | Suggested question chips |
 | `apps/web/src/components/insights/RatingStars.tsx` | 74 | 5-star rating component |
-| `apps/web/src/app/(dashboard)/insights/insights-content.tsx` | 539 | Main insights page |
+| `apps/web/src/app/(dashboard)/insights/insights-content.tsx` | 538 | Main insights page (with ThinkingIndicator wiring) |
 | `apps/web/src/app/(dashboard)/insights/lenses/lenses-content.tsx` | 191 | Lens management page |
 | `apps/web/src/app/(dashboard)/insights/tools/tools-content.tsx` | 510 | Analysis tools page (4 tabs) |
 
@@ -415,7 +415,7 @@ Emits progressive SSE events at each pipeline boundary:
 
 | Event Type | Payload | When |
 |-----------|---------|------|
-| `status` | `{ stage: string }` | Each pipeline stage transition |
+| `status` | `{ stage: string, message: string }` | Each pipeline stage transition (5 stages: starting, loading, intent, executing, narrating). Frontend `ThinkingIndicator` displays `message` field. |
 | `intent_resolved` | `{ plan, confidence, mode }` | After intent resolution |
 | `data_ready` | `{ rows, rowCount }` | After query execution |
 | `narrative_chunk` | `{ text: string }` | Progressive text deltas from LLM |
@@ -887,7 +887,7 @@ InsightsContent (539 lines — main page)
 
 ### `useSemanticChat(options?)` — Main Chat Hook
 
-**File**: `apps/web/src/hooks/use-semantic-chat.ts` (515 lines)
+**File**: `apps/web/src/hooks/use-semantic-chat.ts` (575 lines)
 
 ```typescript
 interface UseSemanticChatOptions {
@@ -902,6 +902,8 @@ interface UseSemanticChatOptions {
   isLoading: boolean;
   isStreaming: boolean;
   error: string | null;
+  streamingStatus: string | null;   // Current pipeline stage message (e.g., "Running analysis…")
+  completedStages: string[];        // Previously completed stage messages (e.g., ["Starting analysis…", "Understanding your question…"])
   sendMessage: (text: string) => Promise<void>;
   cancelRequest: () => void;
   clearMessages: () => void;
@@ -917,6 +919,7 @@ interface UseSemanticChatOptions {
 - Request cancellation via `cancelRequest()`
 - Session persistence — `initFromSession()` maps DB turns to `ChatMessage[]`
 - Dual-mode pipeline support (metrics vs SQL) — transparent to caller
+- **Thinking status indicator**: SSE `status` events (previously ignored) are now captured. `streamingStatus` holds the current pipeline stage message, `completedStages` accumulates completed stage messages. Both are cleared when the first `narrative_chunk` arrives (thinking done, narrative streaming begins). Reset on `sendMessage`, `cancelRequest`, `clearMessages`, `complete`, and `error`.
 
 ### `useSubmitFeedback()` — Feedback Hook
 
@@ -1037,13 +1040,14 @@ authenticate → resolveTenant → resolveLocation → requireEntitlement → re
 |-----------|------|--------------|
 | `ChatInput` | `components/semantic/chat-input.tsx` | Auto-resize textarea with send/cancel |
 | `ChatMessageBubble` | `components/semantic/chat-message.tsx` | Full message renderer (markdown, tables, charts, debug) |
+| `ThinkingIndicator` | `components/semantic/chat-message.tsx` | Pipeline stage progress (checkmarks + spinner) |
 | `InlineChart` | `components/insights/InlineChart.tsx` | 6 chart types via Recharts |
 | `FeedbackWidget` | `components/insights/FeedbackWidget.tsx` | Thumbs + stars + tags + text |
 | `RatingStars` | `components/insights/RatingStars.tsx` | 5-star rating component |
 | `DataQualityBadge` | `components/insights/DataQualityBadge.tsx` | Grade A–F with factor breakdown |
 | `FollowUpChips` | `components/insights/FollowUpChips.tsx` | Suggested question chips |
 | `ChatHistorySidebar` | `components/insights/ChatHistorySidebar.tsx` | Session history panel |
-| `useSemanticChat` | `hooks/use-semantic-chat.ts` | SSE streaming chat with session management |
+| `useSemanticChat` | `hooks/use-semantic-chat.ts` | SSE streaming chat with session management + thinking status |
 | `useSubmitFeedback` | `hooks/use-feedback.ts` | Feedback submission |
 | `useSessionHistory` | `hooks/use-session-history.ts` | Cursor-paginated session list |
 
@@ -1163,12 +1167,12 @@ export const POST = withMiddleware(handler, {
 // Reuse the existing hooks and components
 import { useSemanticChat } from '@/hooks/use-semantic-chat';
 import { ChatInput } from '@/components/semantic/chat-input';
-import { ChatMessageBubble } from '@/components/semantic/chat-message';
+import { ChatMessageBubble, ThinkingIndicator } from '@/components/semantic/chat-message';
 import { InlineChart } from '@/components/insights/InlineChart';
 import { FeedbackWidget } from '@/components/insights/FeedbackWidget';
 
 function MyNewTool() {
-  const { messages, isLoading, isStreaming, sendMessage, cancelRequest } =
+  const { messages, isLoading, isStreaming, streamingStatus, completedStages, sendMessage, cancelRequest } =
     useSemanticChat({ lensSlug: 'my-lens' });
 
   return (
@@ -1176,6 +1180,10 @@ function MyNewTool() {
       {messages.map((msg) => (
         <ChatMessageBubble key={msg.id} message={msg} isStreaming={isStreaming} />
       ))}
+      {/* Show pipeline thinking stages while streaming before narrative arrives */}
+      {isStreaming && streamingStatus && (
+        <ThinkingIndicator currentStatus={streamingStatus} completedStages={completedStages} />
+      )}
       <ChatInput onSend={sendMessage} onCancel={cancelRequest} isLoading={isLoading} />
     </div>
   );

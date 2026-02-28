@@ -65,6 +65,29 @@ export { saveDiscountGlMapping, saveDiscountGlMappingsBatch } from './commands/s
 export type { SaveDiscountGlMappingInput, SaveDiscountGlMappingsBatchInput } from './commands/save-discount-gl-mapping';
 export { backfillGlFromTenders } from './commands/backfill-gl-from-tenders';
 export type { BackfillGlResult, BackfillGlOptions, BackfillTenderError } from './commands/backfill-gl-from-tenders';
+export { updateExchangeRate } from './commands/update-exchange-rate';
+export { updateSupportedCurrencies } from './commands/update-supported-currencies';
+export { createBudget } from './commands/create-budget';
+export type { CreateBudgetInput } from './commands/create-budget';
+export { updateBudget } from './commands/update-budget';
+export type { UpdateBudgetInput } from './commands/update-budget';
+export { approveBudget } from './commands/approve-budget';
+export { lockBudget } from './commands/lock-budget';
+export { upsertBudgetLines } from './commands/upsert-budget-lines';
+export type { BudgetLineInput } from './commands/upsert-budget-lines';
+export { attachDocument } from './commands/attach-document';
+export type { AttachDocumentInput } from './commands/attach-document';
+export { removeDocument } from './commands/remove-document';
+export { createFixedAsset } from './commands/create-fixed-asset';
+export type { CreateFixedAssetInput } from './commands/create-fixed-asset';
+export { updateFixedAsset } from './commands/update-fixed-asset';
+export type { UpdateFixedAssetInput } from './commands/update-fixed-asset';
+export { recordDepreciation } from './commands/record-depreciation';
+export type { RecordDepreciationInput } from './commands/record-depreciation';
+export { disposeFixedAsset } from './commands/dispose-fixed-asset';
+export type { DisposeFixedAssetInput } from './commands/dispose-fixed-asset';
+export { runMonthlyDepreciation } from './commands/run-monthly-depreciation';
+export type { RunMonthlyDepreciationInput, MonthlyDepreciationResult } from './commands/run-monthly-depreciation';
 
 // Queries (COA)
 export { getCoaHealth } from './queries/get-coa-health';
@@ -156,6 +179,28 @@ export { getFinancialHealthSummary } from './queries/get-financial-health-summar
 export type { FinancialHealthSummary } from './queries/get-financial-health-summary';
 export { listStatementLayouts } from './queries/list-statement-layouts';
 export type { StatementLayoutItem } from './queries/list-statement-layouts';
+export { getAgedTrialBalance } from './queries/get-aged-trial-balance';
+export type { AgedTrialBalanceAccount, AgedTrialBalanceTotals, AgedTrialBalanceReport } from './queries/get-aged-trial-balance';
+export { getCashFlowForecast } from './queries/get-cash-flow-forecast';
+export type { CashFlowForecastItem, CashFlowForecastDay, CashFlowForecastReport } from './queries/get-cash-flow-forecast';
+export { getConsolidatedPL } from './queries/get-consolidated-pl';
+export type { LocationPnl, ConsolidatedPL } from './queries/get-consolidated-pl';
+export { listBudgets } from './queries/list-budgets';
+export type { BudgetListItem, ListBudgetsResult } from './queries/list-budgets';
+export { getBudget } from './queries/get-budget';
+export type { BudgetDetail, BudgetLine } from './queries/get-budget';
+export { getBudgetVsActual } from './queries/get-budget-vs-actual';
+export type { BudgetVsActualReport, BudgetVsActualSection, BudgetVsActualLine } from './queries/get-budget-vs-actual';
+export { listFixedAssets } from './queries/list-fixed-assets';
+export { getJournalDocuments } from './queries/get-journal-documents';
+export type { GetJournalDocumentsInput } from './queries/get-journal-documents';
+export type { FixedAssetListItem } from './queries/list-fixed-assets';
+export { getFixedAsset } from './queries/get-fixed-asset';
+export type { FixedAssetDetail, DepreciationHistoryItem } from './queries/get-fixed-asset';
+export { getAssetSummary } from './queries/get-asset-summary';
+export type { AssetSummaryReport, AssetCategorySummary, AssetItemSummary } from './queries/get-asset-summary';
+export { getDepreciationSchedule } from './queries/get-depreciation-schedule';
+export type { DepreciationSchedule, DepreciationScheduleItem } from './queries/get-depreciation-schedule';
 export { listSettlements } from './queries/list-settlements';
 export type { SettlementListItem } from './queries/list-settlements';
 export { getSettlement } from './queries/get-settlement';
@@ -211,6 +256,12 @@ export { getGlPostingGaps, GL_SOURCE_MODULES } from './queries/get-gl-posting-ga
 export type { GlPostingGap } from './queries/get-gl-posting-gaps';
 export { getTransactionTypeMappings } from './queries/get-transaction-type-mappings';
 export type { TransactionTypeMappingRow } from './queries/get-transaction-type-mappings';
+export { getExchangeRate } from './queries/get-exchange-rate';
+export type { ExchangeRateResult } from './queries/get-exchange-rate';
+export { listExchangeRates } from './queries/list-exchange-rates';
+export type { ExchangeRateListItem, ListExchangeRatesInput, ListExchangeRatesResult } from './queries/list-exchange-rates';
+export { getUnrealizedGainLoss } from './queries/get-unrealized-gain-loss';
+export type { UnrealizedGainLossLine, UnrealizedGainLossReport } from './queries/get-unrealized-gain-loss';
 export { getDiscountGlMappings, getDiscountMappingCoverage } from './queries/get-discount-gl-mappings';
 export type { DiscountGlMappingRow, DiscountMappingCoverage } from './queries/get-discount-gl-mappings';
 export { getCloseOrchestratorRun, listCloseOrchestratorRuns, getLastCloseRun } from './queries/get-close-orchestrator-run';
@@ -388,6 +439,14 @@ export {
   updateTenantTenderTypeSchema,
   saveTransactionTypeMappingSchema,
   deleteTransactionTypeMappingSchema,
+  updateExchangeRateSchema,
+  updateSupportedCurrenciesSchema,
+  createFixedAssetSchema,
+  updateFixedAssetSchema,
+  recordDepreciationSchema,
+  disposeFixedAssetSchema,
+  runMonthlyDepreciationSchema,
+  listFixedAssetsSchema,
 } from './validation';
 export type {
   PostJournalEntryInput,
@@ -434,4 +493,12 @@ export type {
   UpdateTenantTenderTypeInput,
   SaveTransactionTypeMappingInput,
   DeleteTransactionTypeMappingInput,
+  UpdateExchangeRateInput,
+  UpdateSupportedCurrenciesInput,
+  CreateFixedAssetInput as CreateFixedAssetValidationInput,
+  UpdateFixedAssetInput as UpdateFixedAssetValidationInput,
+  RecordDepreciationInput as RecordDepreciationValidationInput,
+  DisposeFixedAssetInput as DisposeFixedAssetValidationInput,
+  RunMonthlyDepreciationInput as RunMonthlyDepreciationValidationInput,
+  ListFixedAssetsInput,
 } from './validation';

@@ -3,7 +3,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError } from '@oppsera/shared';
-import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes, catalogCategories, catalogModifierGroups } from '@oppsera/db';
+import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes, catalogCategories, catalogModifierGroups, customers } from '@oppsera/db';
 import { eq, inArray } from 'drizzle-orm';
 import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
 import type { PlaceOrderInput } from '../validation';
@@ -89,8 +89,11 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
     let assignedGroupsMap = new Map<string, string[]>();
     const modGroupMetaMap = new Map<string, { name: string; isRequired: boolean }>();
 
-    // Run both enrichments concurrently
-    const [_catResult, _modResult] = await Promise.all([
+    // Resolve customer name if customerId is set (for event payload enrichment)
+    let resolvedCustomerName: string | null = null;
+
+    // Run all enrichments concurrently
+    const [_catResult, _modResult, _custResult] = await Promise.all([
       // Category name resolution
       subDeptIds.length > 0
         ? (tx as any).select({ id: catalogCategories.id, name: catalogCategories.name })
@@ -118,6 +121,13 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
             }
           })()
         : Promise.resolve(),
+      // Customer name resolution (for event payload — consumers use it for read models)
+      order.customerId
+        ? (tx as any).select({ displayName: customers.displayName })
+            .from(customers)
+            .where(eq(customers.id, order.customerId))
+            .then((rows: any[]) => { if (rows[0]) resolvedCustomerName = rows[0].displayName; })
+        : Promise.resolve(),
     ]);
 
     const event = buildEventFromContext(ctx, 'order.placed.v1', {
@@ -128,10 +138,17 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       subtotal: order.subtotal,
       taxTotal: order.taxTotal,
       discountTotal: order.discountTotal ?? 0,
+      serviceChargeTotal: order.serviceChargeTotal ?? 0,
       total: order.total,
       lineCount: lines.length,
       customerId: order.customerId ?? null,
+      customerName: resolvedCustomerName,
       billingAccountId: order.billingAccountId ?? null,
+      // Sales History enrichment: F&B detection + employee
+      tabName: (order.metadata as Record<string, unknown> | null)?.tabName ?? null,
+      tableNumber: (order.metadata as Record<string, unknown> | null)?.tableNumber ?? null,
+      employeeId: ctx.user.id,
+      employeeName: ctx.user.name ?? ctx.user.email ?? null,
       lines: lines.map((l: any) => ({
         catalogItemId: l.catalogItemId,
         catalogItemName: l.catalogItemName ?? 'Unknown',

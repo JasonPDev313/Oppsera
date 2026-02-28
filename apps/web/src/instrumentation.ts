@@ -69,6 +69,7 @@ export async function register() {
         const reporting = await import('@oppsera/module-reporting');
         bus.subscribe('order.placed.v1', reporting.handleOrderPlaced);
         bus.subscribe('order.voided.v1', reporting.handleOrderVoided);
+        bus.subscribe('order.returned.v1', reporting.handleOrderReturned);
         bus.subscribe('tender.recorded.v1', reporting.handleTenderRecorded);
         bus.subscribe('inventory.movement.created.v1', reporting.handleInventoryMovement);
         // Modifier analytics read models (rm_modifier_item_sales, rm_modifier_daypart, rm_modifier_group_attach)
@@ -206,6 +207,15 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('ar.invoice.posted.v1', reporting.handleArInvoicePosted);
       bus.subscribe('membership.billing.charged.v1', reporting.handleMembershipCharged);
       bus.subscribe('voucher.purchased.v1', reporting.handleVoucherPurchased);
+      bus.subscribe('ar.invoice.voided.v1', reporting.handleArInvoiceVoided);
+      bus.subscribe('voucher.redeemed.v1', reporting.handleVoucherRedeemed);
+      bus.subscribe('voucher.expired.v1', reporting.handleVoucherExpired);
+      bus.subscribe('chargeback.received.v1', reporting.handleChargebackReceived);
+      bus.subscribe('chargeback.resolved.v1', reporting.handleChargebackResolved);
+      // F&B tender, guest pay, stored value → reporting read models
+      bus.subscribe('fnb.payment.tender_applied.v1', reporting.handleFnbTenderApplied);
+      bus.subscribe('fnb.guestpay.payment_succeeded.v1', reporting.handleGuestPaySucceeded);
+      bus.subscribe('customer.stored_value.redeemed.v1', reporting.handleStoredValueRedeemed);
     }),
 
     // F&B Reporting consumers
@@ -262,6 +272,12 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('pms.guest.created.v1', handlePmsGuestCreated);
     }),
 
+    // Project Costing — GL entry → project cost read model
+    importSafe('Project Costing consumer', async () => {
+      const projectCosting = await import('@oppsera/module-project-costing');
+      bus.subscribe('accounting.journal.posted.v1', projectCosting.handleGlEntryPostedForProjectCost);
+    }),
+
     // Smart Tag event-driven evaluation consumers
     importSafe('Smart tag evaluation consumers', async () => {
       const customers = await import('@oppsera/module-customers');
@@ -270,6 +286,14 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('order.voided.v1', customers.handleTagEvaluationOnOrderVoided);
       bus.subscribe('customer.visit.recorded.v1', customers.handleTagEvaluationOnVisitRecorded);
       bus.subscribe('customer.membership.created.v1', customers.handleTagEvaluationOnMembershipChanged);
+    }),
+
+    // Expense Management — read model projections
+    importSafe('Expense consumers', async () => {
+      const expenses = await import('@oppsera/module-expenses');
+      bus.subscribe('expense.posted.v1', expenses.handleExpensePosted);
+      bus.subscribe('expense.voided.v1', expenses.handleExpenseVoided);
+      bus.subscribe('expense.reimbursed.v1', expenses.handleExpenseReimbursed);
     }),
   ]);
 }

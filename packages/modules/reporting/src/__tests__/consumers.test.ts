@@ -640,8 +640,8 @@ describe('handleTenderRecorded', () => {
 
     await handleTenderRecorded(event as any);
 
-    // idempotency + daily sales upsert = 2 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales upsert + revenue activity update = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('increments tenderCard for card tenders', async () => {
@@ -661,7 +661,8 @@ describe('handleTenderRecorded', () => {
 
     await handleTenderRecorded(event as any);
 
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales upsert + revenue activity update = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('does not affect other rm_daily_sales fields', async () => {
@@ -681,8 +682,8 @@ describe('handleTenderRecorded', () => {
 
     await handleTenderRecorded(event as any);
 
-    // Only 2 execute calls — no item_sales, no customer_activity, no extra updates
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales upsert + revenue activity update = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
     // No select calls beyond location lookup
     expect(mockSelect).toHaveBeenCalledTimes(1);
   });
@@ -704,7 +705,8 @@ describe('handleTenderRecorded', () => {
 
     await handleTenderRecorded(event as any);
 
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales upsert + revenue activity update = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('increments tenderHouseAccount for house_account tenders', async () => {
@@ -724,7 +726,8 @@ describe('handleTenderRecorded', () => {
 
     await handleTenderRecorded(event as any);
 
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales upsert + revenue activity update = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('increments tenderAch for ach tenders', async () => {
@@ -744,7 +747,8 @@ describe('handleTenderRecorded', () => {
 
     await handleTenderRecorded(event as any);
 
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales upsert + revenue activity update = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('routes unknown tender types to tenderOther', async () => {
@@ -764,7 +768,8 @@ describe('handleTenderRecorded', () => {
 
     await handleTenderRecorded(event as any);
 
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales upsert + revenue activity update = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('records tipAmount in tipTotal column', async () => {
@@ -785,8 +790,8 @@ describe('handleTenderRecorded', () => {
 
     await handleTenderRecorded(event as any);
 
-    // Should still be 2 execute calls — tip is included in the same upsert
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales upsert + revenue activity update = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('records surchargeAmountCents in surchargeTotal column', async () => {
@@ -807,7 +812,8 @@ describe('handleTenderRecorded', () => {
 
     await handleTenderRecorded(event as any);
 
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales upsert + revenue activity update = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('records tips AND surcharges together in single upsert', async () => {
@@ -829,8 +835,8 @@ describe('handleTenderRecorded', () => {
 
     await handleTenderRecorded(event as any);
 
-    // Single upsert handles tender amount + tip + surcharge atomically
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales upsert + revenue activity update = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 });
 

@@ -17,6 +17,10 @@ import {
   Scale,
   Calculator,
   Activity,
+  Target,
+  Clock,
+  Building2,
+  Building,
 } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import Link from 'next/link';
@@ -90,7 +94,7 @@ const REPORT_CATEGORIES = [
         title: 'Profit & Loss',
         description:
           'Revenue, expenses, and net income for a selected period with comparative analysis.',
-        href: '/accounting/reports/summary',
+        href: '/accounting/statements/profit-loss',
         accent: 'bg-green-500/10 text-green-500',
       },
       {
@@ -98,7 +102,7 @@ const REPORT_CATEGORIES = [
         title: 'Balance Sheet',
         description:
           'Assets, liabilities, and equity as of a specific date. Validates A = L + E.',
-        href: '/accounting/reports/summary',
+        href: '/accounting/statements/balance-sheet',
         accent: 'bg-blue-500/10 text-blue-500',
       },
       {
@@ -106,8 +110,16 @@ const REPORT_CATEGORIES = [
         title: 'Cash Flow Statement',
         description:
           'Cash inflows and outflows organized by operating, investing, and financing activities.',
-        href: '/accounting/reports/summary',
+        href: '/accounting/reports/cash-flow-forecast',
         accent: 'bg-indigo-500/10 text-indigo-500',
+      },
+      {
+        icon: Building2,
+        title: 'Multi-Location P&L',
+        description:
+          'Consolidated profit & loss across locations with per-location columns and variance analysis.',
+        href: '/accounting/reports/consolidated-pl',
+        accent: 'bg-teal-500/10 text-teal-500',
       },
     ],
   },
@@ -146,6 +158,14 @@ const REPORT_CATEGORIES = [
           'Browse and search all journal entries with line-level drill-down and source tracing.',
         href: '/accounting/reports/journal-entries',
         accent: 'bg-amber-500/10 text-amber-500',
+      },
+      {
+        icon: Clock,
+        title: 'Aged Trial Balance',
+        description:
+          'Account balances bucketed by age (Current, 1–30, 31–60, 61–90, 90+) with grand totals.',
+        href: '/accounting/reports/aged-trial-balance',
+        accent: 'bg-rose-500/10 text-rose-500',
       },
     ],
   },
@@ -205,6 +225,14 @@ const REPORT_CATEGORIES = [
         href: '/accounting/reports/bank-reconciliation',
         accent: 'bg-sky-500/10 text-sky-500',
       },
+      {
+        icon: TrendingUp,
+        title: 'Cash Flow Forecast',
+        description:
+          'Forward-looking cash projection using AP due dates, AR receipts, and recurring entries.',
+        href: '/accounting/reports/cash-flow-forecast',
+        accent: 'bg-emerald-500/10 text-emerald-500',
+      },
     ],
   },
   {
@@ -218,6 +246,42 @@ const REPORT_CATEGORIES = [
           'On-hand quantities, reorder points, and stock status for all inventory items.',
         href: '/accounting/reports/inventory-valuation',
         accent: 'bg-emerald-500/10 text-emerald-500',
+      },
+    ],
+  },
+  {
+    title: 'Budgeting',
+    icon: Target,
+    reports: [
+      {
+        icon: Target,
+        title: 'Budget vs Actual',
+        description:
+          'Variance analysis comparing budgeted amounts to actual GL activity by account and period.',
+        href: '/accounting/reports/budget-vs-actual',
+        accent: 'bg-indigo-500/10 text-indigo-500',
+      },
+    ],
+  },
+  {
+    title: 'Fixed Assets',
+    icon: Building,
+    reports: [
+      {
+        icon: Building,
+        title: 'Asset Register Summary',
+        description:
+          'Total assets, net book value, and monthly depreciation by category with fully depreciated counts.',
+        href: '/accounting/reports/fixed-asset-summary',
+        accent: 'bg-stone-500/10 text-stone-500',
+      },
+      {
+        icon: Calculator,
+        title: 'Depreciation Schedule',
+        description:
+          'Projected depreciation for each fixed asset showing period amounts, accumulated totals, and net book value.',
+        href: '/accounting/fixed-assets',
+        accent: 'bg-slate-500/10 text-slate-500',
       },
     ],
   },

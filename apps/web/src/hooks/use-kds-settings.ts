@@ -314,10 +314,14 @@ interface RoutingRule {
   ruleName: string | null;
   ruleType: string;
   catalogItemId: string | null;
+  catalogItemName: string | null;
   modifierId: string | null;
   departmentId: string | null;
+  departmentName: string | null;
   subDepartmentId: string | null;
+  subDepartmentName: string | null;
   categoryId: string | null;
+  categoryName: string | null;
   stationId: string;
   stationName: string | null;
   priority: number;

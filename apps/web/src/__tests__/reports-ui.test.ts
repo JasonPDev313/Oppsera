@@ -102,7 +102,7 @@ describe('hook URL construction', () => {
   });
 
   it('useReportsDashboard builds correct URL without locationId', async () => {
-    mockApiFetch.mockResolvedValueOnce({ data: { todaySales: 0, todayOrders: 0, todayVoids: 0, lowStockCount: 0, activeCustomers30d: 0 } });
+    mockApiFetch.mockResolvedValueOnce({ data: { todaySales: 0, todayOrders: 0, todayVoids: 0, lowStockCount: 0, activeCustomers7d: 0 } });
 
     const params = new URLSearchParams({ date: new Date().toISOString().slice(0, 10) });
     await mockApiFetch(`/api/v1/reports/dashboard?${params.toString()}`);
@@ -196,14 +196,14 @@ describe('API response parsing', () => {
         todayOrders: 15,
         todayVoids: 2,
         lowStockCount: 3,
-        activeCustomers30d: 42,
+        activeCustomers7d: 42,
       },
     };
     mockApiFetch.mockResolvedValueOnce(mockData);
 
     const result = await mockApiFetch('/api/v1/reports/dashboard?date=2026-02-18');
     expect(result.data.todaySales).toBe(150000);
-    expect(result.data.activeCustomers30d).toBe(42);
+    expect(result.data.activeCustomers7d).toBe(42);
   });
 
   it('daily sales response shape is { data: DailySalesRow[] }', async () => {

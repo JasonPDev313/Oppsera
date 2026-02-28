@@ -68,7 +68,7 @@ export default function ReportsPage() {
       todayOrders: totalOrders,
       todayVoids: totalVoids,
       lowStockCount: dashboard.data?.lowStockCount ?? 0,
-      activeCustomers30d: dashboard.data?.activeCustomers30d ?? 0,
+      activeCustomers7d: dashboard.data?.activeCustomers7d ?? 0,
     };
   }, [dailySales.data, dailySales.isLoading, dashboard.data, dashboard.isLoading]);
 

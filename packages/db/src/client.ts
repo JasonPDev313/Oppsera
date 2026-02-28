@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { sql } from 'drizzle-orm';
 import postgres from 'postgres';
 import * as schema from './schema';
+import { guardedQuery } from './pool-guard';
 
 type DrizzleDB = ReturnType<typeof drizzle<typeof schema>>;
 
@@ -53,10 +54,12 @@ export async function withTenant<T>(
   tenantId: string,
   callback: (tx: Database) => Promise<T>,
 ): Promise<T> {
-  return db.transaction(async (tx) => {
-    await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`);
-    return callback(tx as unknown as Database);
-  });
+  return guardedQuery('withTenant', () =>
+    db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`);
+      return callback(tx as unknown as Database);
+    }),
+  );
 }
 
 const globalForAdmin = globalThis as unknown as { __oppsera_admin_db?: DrizzleDB };

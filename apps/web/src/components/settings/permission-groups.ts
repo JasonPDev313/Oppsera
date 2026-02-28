@@ -78,9 +78,10 @@ export const PERMISSION_GROUPS: PermissionGroupEntry[] = [
       { label: 'COGS', permissions: ['cogs.manage'] },
     ],
   },
-  // ── AP / AR ───────────────────────────────────────────────
+  // ── AP / AR / Expenses ────────────────────────────────────
   { label: 'Accounts Payable', permissions: ['ap.view', 'ap.manage'] },
   { label: 'Accounts Receivable', permissions: ['ar.view', 'ar.manage'] },
+  { label: 'Expense Management', permissions: ['expenses.view', 'expenses.create', 'expenses.approve', 'expenses.manage'] },
   // ── F&B POS ───────────────────────────────────────────────
   {
     label: 'F&B POS',
@@ -132,7 +133,7 @@ export const CATEGORY_TABS: CategoryTab[] = [
   { key: 'platform', label: 'Platform', groupLabels: ['Platform'] },
   { key: 'pos', label: 'POS', groupLabels: ['POS / Orders', 'Payments', 'Inventory Items', 'Inventory'] },
   { key: 'fnb', label: 'F&B', groupLabels: ['F&B POS'] },
-  { key: 'accounting', label: 'Accounting', groupLabels: ['Accounting', 'Accounts Payable', 'Accounts Receivable'] },
+  { key: 'accounting', label: 'Accounting', groupLabels: ['Accounting', 'Accounts Payable', 'Accounts Receivable', 'Expense Management'] },
   { key: 'pms', label: 'PMS', groupLabels: ['Property Management'] },
   { key: 'customers', label: 'Customers', groupLabels: ['Customers'] },
   { key: 'reports', label: 'Reports & AI', groupLabels: ['Reports', 'Golf', 'AI Insights'] },

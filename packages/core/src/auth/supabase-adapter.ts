@@ -1,7 +1,7 @@
 import { createPublicKey, type KeyObject } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { eq, and, asc } from 'drizzle-orm';
-import { db } from '@oppsera/db';
+import { db, jitterTtlMs, isBreakerOpen } from '@oppsera/db';
 import { users, memberships, tenants } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
 import { createSupabaseAdmin } from './supabase-client';
@@ -34,13 +34,15 @@ function getVerificationKey(): { key: string | KeyObject; algorithms: jwt.Algori
 // that's 50MB aggregate — well within Vercel Pro's 3GB memory limit per function.
 const AUTH_CACHE_TTL = 120_000;
 const AUTH_CACHE_MAX_SIZE = 2_000;
-const authUserCache = new Map<string, { user: AuthUser; ts: number }>();
+// Stale entries kept for 5 minutes as fallback when DB is unreachable.
+const AUTH_STALE_WINDOW_MS = 5 * 60 * 1000;
+const authUserCache = new Map<string, { user: AuthUser; ts: number; ttl: number }>();
 
 function getCachedAuthUser(authProviderId: string): AuthUser | null {
   const entry = authUserCache.get(authProviderId);
   if (!entry) return null;
-  if (Date.now() - entry.ts > AUTH_CACHE_TTL) {
-    authUserCache.delete(authProviderId);
+  if (Date.now() - entry.ts > entry.ttl) {
+    // Don't delete — keep for stale fallback
     return null;
   }
   // LRU touch: move to end of insertion order so frequently-used entries survive eviction
@@ -49,10 +51,22 @@ function getCachedAuthUser(authProviderId: string): AuthUser | null {
   return entry.user;
 }
 
+function getStaleCachedAuthUser(authProviderId: string): AuthUser | null {
+  const entry = authUserCache.get(authProviderId);
+  if (!entry) return null;
+  const staleDeadline = entry.ts + entry.ttl + AUTH_STALE_WINDOW_MS;
+  if (Date.now() > staleDeadline) {
+    authUserCache.delete(authProviderId);
+    return null;
+  }
+  return entry.user;
+}
+
 function setCachedAuthUser(authProviderId: string, user: AuthUser) {
   // Delete-before-set ensures this key moves to end of insertion order (LRU)
   authUserCache.delete(authProviderId);
-  authUserCache.set(authProviderId, { user, ts: Date.now() });
+  // Jitter the TTL ±15% to prevent synchronized cache expirations (thundering herd)
+  authUserCache.set(authProviderId, { user, ts: Date.now(), ttl: jitterTtlMs(AUTH_CACHE_TTL) });
   // Evict oldest entries when over capacity (batch evict to avoid per-insert overhead)
   if (authUserCache.size > AUTH_CACHE_MAX_SIZE) {
     const keysIter = authUserCache.keys();
@@ -94,6 +108,15 @@ export class SupabaseAuthAdapter implements AuthAdapter {
       const cached = getCachedAuthUser(authProviderId);
       if (cached) return cached;
 
+      // Circuit breaker open — fall back to stale cache if available
+      if (isBreakerOpen()) {
+        const stale = getStaleCachedAuthUser(authProviderId);
+        if (stale) {
+          console.warn(`[auth] Circuit breaker open, using stale cache for ${authProviderId}`);
+          return stale;
+        }
+      }
+
       // Deduplicate concurrent DB lookups for the same user.
       // When 10 requests arrive simultaneously with a cold cache, only
       // the first executes the queries — the other 9 await the same Promise.
@@ -126,8 +149,33 @@ export class SupabaseAuthAdapter implements AuthAdapter {
     }
   }
 
-  /** Extracted DB lookup — called once per authProviderId, shared across concurrent requests. */
+  /** Extracted DB lookup — called once per authProviderId, shared across concurrent requests.
+   *  Wrapped in a 5s timeout to prevent pool exhaustion from stuck queries. */
   private async _lookupAuthUser(authProviderId: string): Promise<AuthUser | null> {
+    // 5s timeout prevents a stuck query from holding a pool connection indefinitely.
+    // With max:2 pool, one stuck query = 50% pool exhaustion = cascading failures.
+    let timer: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Auth DB lookup timed out after 5000ms')), 5000);
+    });
+
+    try {
+      return await Promise.race([this._doLookup(authProviderId), timeout]);
+    } catch (err) {
+      // On timeout or DB error, try stale cache as fallback
+      const stale = getStaleCachedAuthUser(authProviderId);
+      if (stale) {
+        console.warn(`[auth] DB lookup failed, using stale cache for ${authProviderId}: ${(err as Error).message}`);
+        return stale;
+      }
+      // No stale data available — re-throw
+      throw err;
+    } finally {
+      clearTimeout(timer!);
+    }
+  }
+
+  private async _doLookup(authProviderId: string): Promise<AuthUser | null> {
     // Single query: user LEFT JOIN membership LEFT JOIN tenant.
     // Combines what was 2 sequential queries into 1 — critical with max:2 pool on Vercel.
     // LEFT JOIN handles users without a membership (needs onboarding).

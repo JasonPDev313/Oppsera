@@ -61,6 +61,8 @@ import { TenderDialog } from '@/components/pos/TenderDialog';
 import { PaymentPanel } from '@/components/pos/shared/PaymentPanel';
 import { ReceiptPreviewDialog } from '@/components/pos/shared/ReceiptPreviewDialog';
 import { ReturnDialog } from '@/components/pos/shared/ReturnDialog';
+import { printOrderReceipt } from '@/lib/pos-printer';
+import type { OrderForReceipt, TenderForReceipt } from '@/lib/pos-printer';
 import { SplitTenderPanel } from '@/components/pos/shared/SplitTenderPanel';
 import { GiftCardTenderDialog } from '@/components/pos/shared/GiftCardTenderDialog';
 import { POSSearchBar } from '@/components/pos/shared/POSSearchBar';
@@ -737,14 +739,35 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   }, [pos.currentOrder?.id, guestPay, toast]);
 
   const handlePaymentComplete = useCallback(
-    (_result: RecordTenderResult) => {
+    (result: RecordTenderResult) => {
+      // Capture order data BEFORE clearing for receipt print
+      const order = posRef.current.currentOrder;
+      if (order) {
+        const tenderInfo: TenderForReceipt = {
+          tenderType: result.tender.tenderType,
+          amount: result.tender.amount,
+          tipAmount: result.tender.tipAmount,
+          changeGiven: result.tender.changeGiven,
+          isReversed: false,
+        };
+        const locationName = locations[0]?.name ?? 'Store';
+        const businessName = locations[0]?.name ?? 'Store';
+        // Fire-and-forget — never block POS on print
+        printOrderReceipt(
+          order as unknown as OrderForReceipt,
+          businessName,
+          locationName,
+          [tenderInfo],
+        ).catch(() => {});
+      }
+
       setShowTenderDialog(false);
       setPosView('order');
       setRemainingBalance(null);
       posRef.current.clearOrder();
       registerTabsRef.current.clearActiveTab();
     },
-    [],
+    [locations],
   );
 
   const handlePaymentCancel = useCallback(() => {
@@ -851,6 +874,12 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     [],
   );
 
+  // ── Detach customer + clear tab label ─────────────────────────
+  const handleDetachCustomer = useCallback(() => {
+    posRef.current.detachCustomer();
+    registerTabsRef.current.renameTab(registerTabsRef.current.activeTabNumber, '');
+  }, []);
+
   // ── Universal search handlers ──────────────────────────────────
   const handleSearchItemSelect = useCallback(
     (item: CatalogItemForPOS) => {
@@ -936,7 +965,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         orderLabels={orderLabels}
         customerId={pos.currentOrder?.customerId ?? null}
         onAttachCustomer={handleAttachCustomer}
-        onDetachCustomer={pos.detachCustomer}
+        onDetachCustomer={handleDetachCustomer}
         onSaveTab={handleSaveTab}
         onChangeServer={registerTabs.changeServer}
         onViewProfile={(id) => profileDrawer.open(id, { source: 'pos' })}
@@ -1243,7 +1272,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                   customerId={pos.currentOrder?.customerId ?? null}
                   customerName={pos.currentOrder?.customerName ?? null}
                   onAttach={handleAttachCustomer}
-                  onDetach={pos.detachCustomer}
+                  onDetach={handleDetachCustomer}
                   onViewProfile={(id) => profileDrawer.open(id, { source: 'pos' })}
                 />
               </div>
@@ -1367,14 +1396,15 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                     {isOrderPlaced ? 'Sent' : 'Send'}
                   </button>
 
-                  {/* QR Print Check button */}
+                  {/* Print Check button */}
                   <button
                     type="button"
                     onClick={handlePrintCheck}
                     disabled={!hasItems}
-                    className="flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-base font-semibold text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    <QrCode aria-hidden="true" className="h-5 w-5" />
+                    <Printer aria-hidden="true" className="h-4 w-4" />
+                    Print
                   </button>
 
                   {/* Pay button */}

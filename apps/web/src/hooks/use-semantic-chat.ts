@@ -1,9 +1,22 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { apiFetch } from '@/lib/api-client';
+import { apiFetch, getStoredToken } from '@/lib/api-client';
 
 const REQUEST_TIMEOUT_MS = 90_000; // 90s — covers 3 LLM calls (intent + SQL gen + narrative) + DB execution
+
+/** Build auth headers matching apiFetch — needed for raw fetch (SSE streaming). */
+function buildAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const token = getStoredToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  try {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('oppsera:terminal-session') : null;
+    const roleId = stored ? JSON.parse(stored).roleId : null;
+    if (roleId) headers['x-role-id'] = roleId;
+  } catch { /* ignore */ }
+  return headers;
+}
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -99,6 +112,8 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [streamingStatus, setStreamingStatus] = useState<string | null>(null);
+  const [completedStages, setCompletedStages] = useState<string[]>([]);
 
   // Stable session ID for multi-turn context
   const sessionIdRef = useRef<string>(
@@ -120,6 +135,8 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
     abortControllerRef.current = null;
     setIsLoading(false);
     setIsStreaming(false);
+    setStreamingStatus(null);
+    setCompletedStages([]);
   }, []);
 
   // ── SSE streaming send ──────────────────────────────────────────
@@ -132,7 +149,7 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
   ): Promise<boolean> => {
     const res = await fetch('/api/v1/semantic/ask/stream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...buildAuthHeaders() },
       signal: controller.signal,
       body: JSON.stringify({
         message: message.trim(),
@@ -186,9 +203,23 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
         }
 
         switch (event.type) {
+          case 'status': {
+            const statusData = event.data as { stage?: string; message?: string } | undefined;
+            if (statusData?.message) {
+              // Move previous status to completed stages
+              setStreamingStatus((prev) => {
+                if (prev) setCompletedStages((stages) => [...stages, prev]);
+                return statusData.message!;
+              });
+            }
+            break;
+          }
+
           case 'narrative_chunk': {
             const chunk = (event.data as { text?: string })?.text ?? '';
             narrativeAcc += chunk;
+            // First narrative chunk = thinking is done
+            setStreamingStatus(null);
             // Update the assistant message content progressively
             const content = narrativeAcc;
             setMessages((prev) =>
@@ -199,11 +230,15 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
 
           case 'complete': {
             completeData = event.data as Record<string, unknown>;
+            setStreamingStatus(null);
+            setCompletedStages([]);
             break;
           }
 
           case 'error': {
             const errData = event.data as { message?: string } | undefined;
+            setStreamingStatus(null);
+            setCompletedStages([]);
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantMsgId
@@ -384,6 +419,8 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
     setIsLoading(true);
     setIsStreaming(false);
     setError(null);
+    setStreamingStatus(null);
+    setCompletedStages([]);
 
     // Build conversation history for multi-turn context (last 10 turns)
     const history = messages
@@ -465,6 +502,8 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
       abortControllerRef.current = null;
       setIsLoading(false);
       setIsStreaming(false);
+      setStreamingStatus(null);
+      setCompletedStages([]);
     }
   }, [messages, isLoading, options.lensSlug, options.timezone, sendMessageStreaming, sendMessageFallback]);
 
@@ -474,6 +513,8 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
     setMessages([]);
     setError(null);
     setIsLoading(false);
+    setStreamingStatus(null);
+    setCompletedStages([]);
     turnNumberRef.current = 1;
     sessionIdRef.current = `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }, []);
@@ -496,6 +537,8 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
     isLoading,
     isStreaming,
     error,
+    streamingStatus,
+    completedStages,
     sendMessage,
     cancelRequest,
     clearMessages,

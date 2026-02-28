@@ -26,9 +26,6 @@ const FIELD_GROUPS = [
     { key: 'dateOfBirth', label: 'Date of Birth' }, { key: 'gender', label: 'Gender' },
     { key: 'anniversary', label: 'Anniversary' },
   ]},
-  { key: 'golf', label: 'Golf', fields: [
-    { key: 'handicapIndex', label: 'Handicap Index' }, { key: 'ghinNumber', label: 'GHIN Number' },
-  ]},
   { key: 'financial', label: 'Financial', fields: [
     { key: 'houseAccountBalance', label: 'House Account Balance' },
     { key: 'creditLimit', label: 'Credit Limit' }, { key: 'taxExempt', label: 'Tax Exempt' },

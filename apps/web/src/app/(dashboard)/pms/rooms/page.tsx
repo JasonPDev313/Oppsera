@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 
@@ -9,5 +10,9 @@ const RoomsContent = dynamic(() => import('./rooms-content'), {
 });
 
 export default function RoomsPage() {
-  return <RoomsContent />;
+  return (
+    <Suspense fallback={<PageSkeleton rows={8} />}>
+      <RoomsContent />
+    </Suspense>
+  );
 }

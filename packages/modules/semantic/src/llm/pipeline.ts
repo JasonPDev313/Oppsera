@@ -128,7 +128,10 @@ async function _runPipelineStreamingInner(
         console.error('[semantic] Lens load failed:', err);
         return null;
       }),
-      buildSchemaCatalog().catch(() => null),
+      buildSchemaCatalog().catch((err) => {
+        console.error('[semantic] Schema catalog load FAILED (lens path):', err);
+        return null;
+      }),
     ]);
     lens = lensResult;
     schemaCatalog = schemaResult;
@@ -142,13 +145,27 @@ async function _runPipelineStreamingInner(
         console.error('[semantic] Registry catalog load FAILED:', err);
         return EMPTY_CATALOG;
       }),
-      buildSchemaCatalog().catch(() => null),
+      buildSchemaCatalog().catch((err) => {
+        console.error('[semantic] Schema catalog load FAILED:', err);
+        return null;
+      }),
     ]);
     catalog = registryResult;
     schemaCatalog = schemaResult;
   }
 
   const lensPromptFragment = lens?.systemPromptFragment ?? null;
+
+  // ── Domain exclusion filtering (e.g. hide golf from non-golf tenants) ──
+  if (input.excludeDomains && input.excludeDomains.length > 0) {
+    const excluded = new Set(input.excludeDomains);
+    catalog = {
+      ...catalog,
+      metrics: catalog.metrics.filter((m: { domain: string }) => !excluded.has(m.domain)),
+      dimensions: catalog.dimensions.filter((d: { domain: string }) => !excluded.has(d.domain)),
+      lenses: catalog.lenses.filter((l: { domain: string }) => !excluded.has(l.domain)),
+    };
+  }
 
   console.log(`[semantic/stream] Catalog loaded: ${catalog.metrics.length} metrics, ${catalog.dimensions.length} dims, schema=${schemaCatalog ? schemaCatalog.tables.length + ' tables' : 'null'}`);
   if (catalog.metrics.length === 0) {
@@ -584,7 +601,7 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
         return null;
       }),
       buildSchemaCatalog().catch((err) => {
-        if (SEMANTIC_DEBUG) console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
+        console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
         return null;
       }),
     ]);
@@ -602,12 +619,23 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
         return EMPTY_CATALOG;
       }),
       buildSchemaCatalog().catch((err) => {
-        if (SEMANTIC_DEBUG) console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
+        console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
         return null;
       }),
     ]);
     catalog = registryResult;
     schemaCatalog = schemaResult;
+  }
+
+  // ── Domain exclusion filtering (e.g. hide golf from non-golf tenants) ──
+  if (input.excludeDomains && input.excludeDomains.length > 0) {
+    const excluded = new Set(input.excludeDomains);
+    catalog = {
+      ...catalog,
+      metrics: catalog.metrics.filter((m: { domain: string }) => !excluded.has(m.domain)),
+      dimensions: catalog.dimensions.filter((d: { domain: string }) => !excluded.has(d.domain)),
+      lenses: catalog.lenses.filter((l: { domain: string }) => !excluded.has(l.domain)),
+    };
   }
 
   console.log(`[semantic] Registry loaded in ${Date.now() - startMs}ms (${catalog.metrics.length} metrics, ${catalog.dimensions.length} dims, ${schemaCatalog?.tables.length ?? 0} schema tables)`);

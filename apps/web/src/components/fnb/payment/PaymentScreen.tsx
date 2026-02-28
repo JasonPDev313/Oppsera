@@ -12,7 +12,7 @@ import { PreAuthCapture } from './PreAuthCapture';
 import { PaymentAdjustments } from './PaymentAdjustments';
 import { GiftCardPanel } from './GiftCardPanel';
 import { HouseAccountPanel } from './HouseAccountPanel';
-import { CheckCircle, AlertTriangle, RotateCcw, ArrowRight, Undo2, XCircle, RefreshCw, Keyboard } from 'lucide-react';
+import { CheckCircle, AlertTriangle, RotateCcw, ArrowRight, Undo2, XCircle, RefreshCw, Keyboard, Loader2 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -318,8 +318,8 @@ export function PaymentScreen({
 
   // ── Receipt → close ───────────────────────────────────────────
   const handleReceipt = useCallback(
-    (action: ReceiptAction) => {
-      onReceipt(action);
+    (action: ReceiptAction, email?: string) => {
+      onReceipt(action, email);
       onClose();
     },
     [onReceipt, onClose],
@@ -741,6 +741,7 @@ export function PaymentScreen({
             <CashKeypad
               totalCents={check.remainingCents}
               onSubmit={handleCashSubmit}
+              onBack={() => setStep('tender_select')}
               disabled={disabled || isProcessing}
             />
           </div>
@@ -862,7 +863,14 @@ export function PaymentScreen({
                 className="flex-2 rounded-lg py-3 text-sm font-bold text-white transition-colors hover:opacity-90 disabled:opacity-40"
                 style={{ backgroundColor: 'var(--fnb-action-pay)' }}
               >
-                {isProcessing ? 'Processing...' : 'Confirm Payment'}
+                {isProcessing ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 fnb-spin" />
+                    Processing…
+                  </span>
+                ) : (
+                  'Confirm Payment'
+                )}
               </button>
             </div>
           </div>
@@ -870,24 +878,24 @@ export function PaymentScreen({
 
         {/* ── STEP: partial_summary ────────────────────────────── */}
         {step === 'partial_summary' && (
-          <div className="w-full max-w-md flex flex-col gap-4">
+          <div className="w-full max-w-md flex flex-col gap-4 fnb-fade-scale-in">
             <div className="text-center">
               <div
-                className="inline-flex items-center justify-center h-14 w-14 rounded-full mb-3"
+                className="inline-flex items-center justify-center h-16 w-16 rounded-full mb-3 fnb-success-pop"
                 style={{ backgroundColor: 'var(--fnb-payment-partial-bg)' }}
               >
                 <CheckCircle
-                  className="h-7 w-7"
+                  className="h-8 w-8"
                   style={{ color: 'var(--fnb-warning)' }}
                 />
               </div>
               <h3
-                className="text-sm font-bold"
+                className="text-base font-bold"
                 style={{ color: 'var(--fnb-text-primary)' }}
               >
                 Partial Payment Recorded
               </h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
+              <p className="text-sm mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
                 {formatMoney(lastTenderAmount)} applied
               </p>
             </div>
@@ -944,24 +952,27 @@ export function PaymentScreen({
 
         {/* ── STEP: receipt ─────────────────────────────────────── */}
         {step === 'receipt' && (
-          <div className="w-full max-w-md flex flex-col gap-4">
+          <div className="w-full max-w-md flex flex-col gap-4 fnb-fade-scale-in">
             <div className="text-center">
               <div
-                className="inline-flex items-center justify-center h-16 w-16 rounded-full mb-3"
-                style={{ backgroundColor: 'var(--fnb-payment-success-bg)' }}
+                className="inline-flex items-center justify-center h-20 w-20 rounded-full mb-3 fnb-success-pop"
+                style={{
+                  backgroundColor: 'var(--fnb-payment-success-bg)',
+                  '--fnb-glow-color': 'rgba(34, 197, 94, 0.25)',
+                } as React.CSSProperties}
               >
                 <CheckCircle
-                  className="h-8 w-8"
+                  className="h-10 w-10"
                   style={{ color: 'var(--fnb-status-available)' }}
                 />
               </div>
               <h3
-                className="text-sm font-bold"
+                className="text-base font-bold"
                 style={{ color: 'var(--fnb-text-primary)' }}
               >
                 Payment Complete
               </h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
+              <p className="text-sm mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
                 {formatMoney(check.totalCents)} paid
                 {tenders.length > 1 && ` (${tenders.length} payments)`}
               </p>
@@ -972,13 +983,13 @@ export function PaymentScreen({
             <button
               type="button"
               onClick={() => onClose()}
-              className="flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-colors hover:opacity-80"
+              className="flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all hover:scale-[1.01] active:scale-[0.99]"
               style={{
                 backgroundColor: 'var(--fnb-bg-elevated)',
                 color: 'var(--fnb-text-secondary)',
               }}
             >
-              <RotateCcw className="h-3.5 w-3.5" />
+              <RotateCcw className="h-4 w-4" />
               Start New Tab
             </button>
           </div>
@@ -986,24 +997,24 @@ export function PaymentScreen({
 
         {/* ── STEP: error ──────────────────────────────────────── */}
         {step === 'error' && (
-          <div className="w-full max-w-md flex flex-col gap-4">
+          <div className="w-full max-w-md flex flex-col gap-4 fnb-fade-scale-in">
             <div className="text-center">
               <div
-                className="inline-flex items-center justify-center h-14 w-14 rounded-full mb-3"
+                className="inline-flex items-center justify-center h-16 w-16 rounded-full mb-3"
                 style={{ backgroundColor: 'var(--fnb-payment-error-bg)' }}
               >
                 <AlertTriangle
-                  className="h-7 w-7"
+                  className="h-8 w-8 fnb-scale-pulse"
                   style={{ color: 'var(--fnb-danger)' }}
                 />
               </div>
               <h3
-                className="text-sm font-bold"
+                className="text-base font-bold"
                 style={{ color: 'var(--fnb-text-primary)' }}
               >
                 Payment Failed
               </h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
+              <p className="text-sm mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
                 {errorMessage || 'An error occurred while processing payment'}
               </p>
             </div>

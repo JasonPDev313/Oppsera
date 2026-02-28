@@ -1,4 +1,4 @@
-import { eq, and, gte, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, sql } from 'drizzle-orm';
 import {
   withTenant,
   rmInventoryOnHand,
@@ -9,7 +9,8 @@ import {
 export interface GetDashboardMetricsInput {
   tenantId: string;
   locationId?: string;
-  date?: string; // 'YYYY-MM-DD', defaults to today
+  date?: string; // 'YYYY-MM-DD', defaults to today (end of range)
+  fromDate?: string; // 'YYYY-MM-DD', start of range (inclusive)
 }
 
 export interface NonPosRevenue {
@@ -24,9 +25,9 @@ export interface DashboardMetrics {
   todayOrders: number;
   todayVoids: number;
   lowStockCount: number;
-  activeCustomers30d: number;
-  /** 'today' when filtered to business_date, 'all' when using all-time fallback */
-  period: 'today' | 'all';
+  activeCustomers7d: number;
+  /** 'today' for single-date, 'range' for date range, 'all' for all-time fallback */
+  period: 'today' | 'range' | 'all';
   /** Total business revenue including non-POS sources */
   totalBusinessRevenue: number;
   /** Breakdown of non-POS revenue by source */
@@ -38,6 +39,7 @@ const num = (v: string | number | null | undefined): number => Number(v) || 0;
 /**
  * Retrieves dashboard summary metrics.
  *
+ * Supports date range via fromDate/date params (e.g., last 7 days).
  * Prefers CQRS read models (rm_daily_sales, rm_inventory_on_hand) for speed.
  * Falls back to querying operational tables directly when read models are empty
  * (e.g., after direct seeding that bypassed the event system).
@@ -47,13 +49,20 @@ export async function getDashboardMetrics(
   input: GetDashboardMetricsInput,
 ): Promise<DashboardMetrics> {
   const today = input.date ?? new Date().toISOString().slice(0, 10);
+  const fromDate = input.fromDate;
+  const isRange = !!fromDate;
 
   return withTenant(input.tenantId, async (tx) => {
     // 1. Daily sales metrics — try read model first (fast indexed lookup)
     const salesConditions = [
       eq(rmDailySales.tenantId, input.tenantId),
-      eq(rmDailySales.businessDate, today),
     ];
+    if (isRange) {
+      salesConditions.push(gte(rmDailySales.businessDate, fromDate));
+      salesConditions.push(lte(rmDailySales.businessDate, today));
+    } else {
+      salesConditions.push(eq(rmDailySales.businessDate, today));
+    }
     if (input.locationId) {
       salesConditions.push(eq(rmDailySales.locationId, input.locationId));
     }
@@ -75,7 +84,7 @@ export async function getDashboardMetrics(
     let todaySales = num(salesRow?.netSales);
     let todayOrders = salesRow?.orderCount ?? 0;
     let todayVoids = salesRow?.voidCount ?? 0;
-    let period: 'today' | 'all' = 'today';
+    let period: 'today' | 'range' | 'all' = isRange ? 'range' : 'today';
     let totalBusinessRevenue = todaySales;
     const nonPosRevenue: NonPosRevenue = {
       pms: num(salesRow?.pmsRevenue),
@@ -94,7 +103,11 @@ export async function getDashboardMetrics(
         ? sql` AND location_id = ${input.locationId}`
         : sql``;
 
-      // Try today's business_date first (sargable — uses index)
+      // Try date range or today's business_date (sargable — uses index)
+      const dateFilter = isRange
+        ? sql`AND business_date >= ${fromDate} AND business_date <= ${today}`
+        : sql`AND business_date = ${today}`;
+
       const [fallbackRow] = await tx.execute(sql`
         SELECT
           coalesce(sum(CASE WHEN status != 'voided' THEN total ELSE 0 END), 0)::bigint AS net_sales_cents,
@@ -102,7 +115,7 @@ export async function getDashboardMetrics(
           count(*) FILTER (WHERE status = 'voided')::int AS void_count
         FROM orders
         WHERE tenant_id = ${input.tenantId}
-          AND business_date = ${today}
+          ${dateFilter}
           AND status IN ('placed', 'paid', 'voided')
           ${locFilter}
       `);
@@ -190,9 +203,9 @@ export async function getDashboardMetrics(
       }
     }
 
-    // 3. Active customers in last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // 3. Active customers in last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const [customerRow] = await tx
       .select({
@@ -202,16 +215,57 @@ export async function getDashboardMetrics(
       .where(
         and(
           eq(rmCustomerActivity.tenantId, input.tenantId),
-          gte(rmCustomerActivity.lastVisitAt, thirtyDaysAgo),
+          gte(rmCustomerActivity.lastVisitAt, sevenDaysAgo),
         ),
       );
+
+    let activeCustomers7d = customerRow?.count ?? 0;
+
+    // Fallback: count distinct customers from orders table when read model is empty
+    if (activeCustomers7d === 0) {
+      const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
+      const custLocFilter = input.locationId
+        ? sql` AND location_id = ${input.locationId}`
+        : sql``;
+
+      const [custFallback] = await tx.execute(sql`
+        SELECT count(DISTINCT customer_id)::int AS cnt
+        FROM orders
+        WHERE tenant_id = ${input.tenantId}
+          AND customer_id IS NOT NULL
+          AND status IN ('placed', 'paid')
+          AND created_at >= ${sevenDaysAgoStr}::date
+          ${custLocFilter}
+      `);
+
+      if (custFallback) {
+        const cnt = Number((custFallback as Record<string, unknown>).cnt) || 0;
+        if (cnt > 0) activeCustomers7d = cnt;
+      }
+
+      // Final fallback: all-time distinct customers if date-filtered is still 0
+      if (activeCustomers7d === 0) {
+        const [allTimeCust] = await tx.execute(sql`
+          SELECT count(DISTINCT customer_id)::int AS cnt
+          FROM orders
+          WHERE tenant_id = ${input.tenantId}
+            AND customer_id IS NOT NULL
+            AND status IN ('placed', 'paid')
+            ${custLocFilter}
+        `);
+
+        if (allTimeCust) {
+          activeCustomers7d = Number((allTimeCust as Record<string, unknown>).cnt) || 0;
+        }
+      }
+    }
 
     return {
       todaySales,
       todayOrders,
       todayVoids,
       lowStockCount,
-      activeCustomers30d: customerRow?.count ?? 0,
+      activeCustomers7d,
       period,
       totalBusinessRevenue,
       nonPosRevenue,

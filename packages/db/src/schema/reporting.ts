@@ -171,10 +171,21 @@ export const rmRevenueActivity = pgTable(
     locationId: text('location_id').notNull(),
     businessDate: date('business_date').notNull(),
     source: text('source').notNull(), // 'pos_order','pms_folio','ar_invoice','membership','voucher'
+    sourceSubType: text('source_sub_type'), // 'pos_retail','pos_fnb' — splits pos_order
     sourceId: text('source_id').notNull(),
     sourceLabel: text('source_label').notNull(),
+    referenceNumber: text('reference_number'), // order number, invoice #, folio ID
     customerName: text('customer_name'),
+    customerId: text('customer_id'), // FK-free customer reference
+    employeeId: text('employee_id'), // cashier/server who created it
+    employeeName: text('employee_name'), // denormalized for display
+    paymentMethod: text('payment_method'), // cash, card, house_account, split
     amountDollars: numeric('amount_dollars', { precision: 19, scale: 4 }).notNull().default('0'),
+    subtotalDollars: numeric('subtotal_dollars', { precision: 19, scale: 4 }).default('0'),
+    taxDollars: numeric('tax_dollars', { precision: 19, scale: 4 }).default('0'),
+    discountDollars: numeric('discount_dollars', { precision: 19, scale: 4 }).default('0'),
+    tipDollars: numeric('tip_dollars', { precision: 19, scale: 4 }).default('0'),
+    serviceChargeDollars: numeric('service_charge_dollars', { precision: 19, scale: 4 }).default('0'),
     status: text('status').notNull().default('completed'), // completed, voided, refunded
     metadata: jsonb('metadata'),
     occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),

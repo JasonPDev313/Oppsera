@@ -54,8 +54,8 @@ export async function getBalanceSheet(input: GetBalanceSheetInput): Promise<Bala
         a.normal_balance,
         COALESCE(c.name, a.account_type) AS classification_name,
         CASE WHEN a.normal_balance = 'debit'
-          THEN COALESCE(SUM(jl.debit_amount), 0) - COALESCE(SUM(jl.credit_amount), 0)
-          ELSE COALESCE(SUM(jl.credit_amount), 0) - COALESCE(SUM(jl.debit_amount), 0)
+          THEN COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) - COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0)
+          ELSE COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) - COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0)
         END AS balance
       FROM gl_accounts a
       LEFT JOIN gl_classifications c ON c.id = a.classification_id
@@ -70,8 +70,8 @@ export async function getBalanceSheet(input: GetBalanceSheetInput): Promise<Bala
         AND a.account_type IN ('asset', 'liability', 'equity')
         AND (jl.id IS NULL OR je.id IS NOT NULL)
       GROUP BY a.id, a.account_number, a.name, a.account_type, a.normal_balance, c.name
-      HAVING COALESCE(SUM(jl.debit_amount), 0) != 0
-          OR COALESCE(SUM(jl.credit_amount), 0) != 0
+      HAVING COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0
+          OR COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0
       ORDER BY a.account_number
     `);
 
@@ -94,10 +94,10 @@ export async function getBalanceSheet(input: GetBalanceSheetInput): Promise<Bala
     const incomeRows = await tx.execute(sql`
       SELECT
         COALESCE(
-          SUM(CASE WHEN a.account_type = 'revenue' THEN jl.credit_amount - jl.debit_amount ELSE 0 END), 0
+          SUM(CASE WHEN a.account_type = 'revenue' THEN (jl.credit_amount - jl.debit_amount) * COALESCE(je.exchange_rate, 1) ELSE 0 END), 0
         ) AS total_revenue,
         COALESCE(
-          SUM(CASE WHEN a.account_type = 'expense' THEN jl.debit_amount - jl.credit_amount ELSE 0 END), 0
+          SUM(CASE WHEN a.account_type = 'expense' THEN (jl.debit_amount - jl.credit_amount) * COALESCE(je.exchange_rate, 1) ELSE 0 END), 0
         ) AS total_expenses
       FROM gl_journal_lines jl
       JOIN gl_journal_entries je ON je.id = jl.journal_entry_id

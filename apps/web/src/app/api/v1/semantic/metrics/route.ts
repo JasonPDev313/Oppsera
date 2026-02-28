@@ -4,7 +4,7 @@ import { eq, and, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { listMetrics } from '@oppsera/module-semantic/registry';
-import { db, semanticMetrics } from '@oppsera/db';
+import { db, semanticMetrics, tenants } from '@oppsera/db';
 import { generateUlid, ValidationError } from '@oppsera/shared';
 
 // ── Validation ────────────────────────────────────────────────────
@@ -26,7 +26,17 @@ export const GET = withMiddleware(
     const domain = new URL(request.url).searchParams.get('domain') ?? undefined;
 
     // System metrics from registry cache
-    const systemMetrics = await listMetrics(domain);
+    const [systemMetricsRaw, tenantRows] = await Promise.all([
+      listMetrics(domain),
+      db.select({ businessVertical: tenants.businessVertical }).from(tenants).where(eq(tenants.id, ctx.tenantId)).limit(1),
+    ]);
+    const businessVertical = tenantRows[0]?.businessVertical ?? 'general';
+
+    // Filter out golf-domain metrics for non-golf tenants (matches lenses filtering pattern)
+    const isGolfTenant = businessVertical === 'golf' || businessVertical === 'hybrid';
+    const systemMetrics = isGolfTenant
+      ? systemMetricsRaw
+      : systemMetricsRaw.filter((m) => m.domain !== 'golf');
 
     // Custom tenant metrics from DB
     const customRows = await db

@@ -10,7 +10,7 @@ import {
 import Link from 'next/link';
 import { useSemanticChat } from '@/hooks/use-semantic-chat';
 import type { LoadedTurn } from '@/hooks/use-semantic-chat';
-import { ChatMessageBubble } from '@/components/semantic/chat-message';
+import { ChatMessageBubble, ThinkingIndicator } from '@/components/semantic/chat-message';
 import { ChatInput } from '@/components/semantic/chat-input';
 import { ChatHistorySidebar } from '@/components/insights/ChatHistorySidebar';
 import { NotificationBell } from '@/components/insights/NotificationBell';
@@ -75,7 +75,7 @@ export default function InsightsContent() {
   const lensDropdownRef = useRef<HTMLDivElement>(null);
 
   const chat = useSemanticChat({ lensSlug: selectedLensSlug ?? undefined });
-  const { messages, isLoading, isStreaming, error, sendMessage, cancelRequest, clearMessages, initFromSession } = chat;
+  const { messages, isLoading, isStreaming, error, streamingStatus, completedStages, sendMessage, cancelRequest, clearMessages, initFromSession } = chat;
   const searchParams = useSearchParams();
   const router = useRouter();
   const [showDebug, setShowDebug] = useState(false);
@@ -375,7 +375,16 @@ export default function InsightsContent() {
               />
             ))}
 
-            {isLoading && !isStreaming && (
+            {/* Thinking indicator — shows pipeline stage progress during streaming */}
+            {isStreaming && streamingStatus && (
+              <ThinkingIndicator
+                currentStatus={streamingStatus}
+                completedStages={completedStages}
+              />
+            )}
+
+            {/* Bouncing dots — fallback for non-streaming or before first SSE event */}
+            {isLoading && !isStreaming && !streamingStatus && (
               <div className="flex justify-start">
                 <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
                   <div className="flex items-center gap-2 text-muted-foreground">

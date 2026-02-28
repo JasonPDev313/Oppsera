@@ -85,6 +85,7 @@ vi.mock('@oppsera/shared', () => ({
       this.statusCode = statusCode;
     }
   },
+  generateUlid: () => `test-${Date.now()}`,
 }));
 
 // ── Helper ────────────────────────────────────────────────────

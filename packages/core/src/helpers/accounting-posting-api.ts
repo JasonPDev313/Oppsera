@@ -8,6 +8,10 @@ export interface AccountingPostJournalInput {
   sourceReferenceId: string;
   memo: string;
   currency?: string;
+  /** The currency line amounts are denominated in (defaults to base currency). */
+  transactionCurrency?: string;
+  /** Exchange rate from transactionCurrency → baseCurrency (required when transactionCurrency !== baseCurrency). */
+  exchangeRate?: number;
   lines: Array<{
     accountId: string;
     debitAmount?: string;

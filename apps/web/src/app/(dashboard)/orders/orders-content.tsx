@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
 import {
   ClipboardList,
   Download,
@@ -15,35 +14,38 @@ import {
   Unlock,
   Trash2,
   ShoppingCart,
+  UtensilsCrossed,
   Building2,
   CreditCard,
-  Gift,
+  Ticket,
+  CircleDot,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
 import { SearchInput } from '@/components/ui/search-input';
 import { Select } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ActionMenu } from '@/components/ui/action-menu';
 import type { ActionMenuItem } from '@/components/ui/action-menu';
 import { useAuthContext } from '@/components/auth-provider';
 import { useProfileDrawer } from '@/components/customer-profile-drawer/ProfileDrawerContext';
-import { useOrders } from '@/hooks/use-orders';
 import { useToast } from '@/components/ui/toast';
 import { apiFetch } from '@/lib/api-client';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { RefundDialog } from '@/components/orders/RefundDialog';
 import { TipAdjustDialog } from '@/components/orders/TipAdjustDialog';
-import type { Order } from '@/types/pos';
+import { useSalesHistory } from '@/hooks/use-sales-history';
+import { downloadCsvExport } from '@/hooks/use-reports';
+import { getSourceDef, getSortedSources } from '@oppsera/shared';
+import type { SalesHistoryItem } from '@oppsera/module-reporting';
 
 // ── Constants ───────────────────────────────────────────────────
 
 const statusOptions = [
   { value: '', label: 'All Statuses' },
-  { value: 'open', label: 'Open' },
-  { value: 'placed', label: 'Placed' },
-  { value: 'paid', label: 'Paid' },
+  { value: 'completed', label: 'Completed' },
   { value: 'voided', label: 'Voided' },
+  { value: 'refunded', label: 'Refunded' },
 ];
 
 const paymentMethodOptions = [
@@ -51,30 +53,62 @@ const paymentMethodOptions = [
   { value: 'cash', label: 'Cash' },
   { value: 'card', label: 'Card' },
   { value: 'gift_card', label: 'Gift Card' },
-  { value: 'store_credit', label: 'Store Credit' },
   { value: 'house_account', label: 'House Account' },
+  { value: 'ach', label: 'ACH' },
+  { value: 'split', label: 'Split Tender' },
 ];
 
-const STATUS_BADGES: Record<string, { label: string; variant: string }> = {
-  open: { label: 'Open', variant: 'info' },
-  placed: { label: 'Placed', variant: 'warning' },
-  paid: { label: 'Paid', variant: 'success' },
-  voided: { label: 'Voided', variant: 'error' },
+const ICON_MAP: Record<string, LucideIcon> = {
+  ShoppingCart,
+  UtensilsCrossed,
+  Building2,
+  FileText,
+  CreditCard,
+  Ticket,
+  CircleDot,
 };
 
-const PAYMENT_TYPE_LABELS: Record<string, string> = {
+const DOT_COLOR: Record<string, string> = {
+  blue: 'bg-blue-500',
+  orange: 'bg-orange-500',
+  purple: 'bg-purple-500',
+  emerald: 'bg-emerald-500',
+  amber: 'bg-amber-500',
+  pink: 'bg-pink-500',
+  gray: 'bg-gray-500',
+};
+
+const CHIP_ACTIVE: Record<string, string> = {
+  blue: 'bg-blue-500/15 text-blue-500 border-blue-500/40',
+  orange: 'bg-orange-500/15 text-orange-500 border-orange-500/40',
+  purple: 'bg-purple-500/15 text-purple-500 border-purple-500/40',
+  emerald: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/40',
+  amber: 'bg-amber-500/15 text-amber-500 border-amber-500/40',
+  pink: 'bg-pink-500/15 text-pink-500 border-pink-500/40',
+  gray: 'bg-gray-500/15 text-muted-foreground border-border',
+};
+
+const STATUS_STYLES: Record<string, { label: string; classes: string }> = {
+  completed: { label: 'Completed', classes: 'bg-green-500/10 text-green-500' },
+  paid: { label: 'Paid', classes: 'bg-green-500/10 text-green-500' },
+  voided: { label: 'Voided', classes: 'bg-red-500/10 text-red-500' },
+  refunded: { label: 'Refunded', classes: 'bg-red-500/10 text-red-500' },
+};
+
+const PAYMENT_LABELS: Record<string, string> = {
   cash: 'Cash',
   card: 'Card',
   gift_card: 'Gift Card',
-  store_credit: 'Store Credit',
   house_account: 'House Acct',
+  ach: 'ACH',
+  split: 'Split',
   other: 'Other',
 };
 
 // ── Helpers ────────────────────────────────────────────────────
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+function formatDollars(amount: number): string {
+  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDateTime(dateStr: string): string {
@@ -86,150 +120,144 @@ function formatDateTime(dateStr: string): string {
   });
 }
 
-type OrderRow = Order & Record<string, unknown>;
-
-// ── All Revenue types & helpers ──────────────────────────────
-
-interface RevenueActivityItem {
-  id: string;
-  source: string;
-  sourceId: string;
-  sourceLabel: string;
-  customerName: string | null;
-  amountDollars: number;
-  status: string;
-  occurredAt: string;
-  metadata: Record<string, unknown> | null;
+function resolveIcon(effectiveSource: string): LucideIcon {
+  if (effectiveSource === 'pos_order') return ShoppingCart;
+  const def = getSourceDef(effectiveSource);
+  return ICON_MAP[def.icon] ?? CircleDot;
 }
 
-function getSourceIcon(source: string) {
-  switch (source) {
-    case 'pos_order': return ShoppingCart;
-    case 'pms_folio': return Building2;
-    case 'ar_invoice': return FileText;
-    case 'membership': return CreditCard;
-    case 'voucher': return Gift;
-    default: return DollarSign;
-  }
+function resolveColor(effectiveSource: string): string {
+  if (effectiveSource === 'pos_order') return 'blue';
+  return getSourceDef(effectiveSource).color;
 }
 
-function getSourceIconColor(source: string): string {
-  switch (source) {
-    case 'pos_order': return 'bg-blue-500/10 text-blue-500';
-    case 'pms_folio': return 'bg-purple-500/10 text-purple-500';
-    case 'ar_invoice': return 'bg-emerald-500/10 text-emerald-500';
-    case 'membership': return 'bg-amber-500/10 text-amber-500';
-    case 'voucher': return 'bg-pink-500/10 text-pink-500';
-    default: return 'bg-muted text-muted-foreground';
-  }
+function resolveLabel(effectiveSource: string): string {
+  if (effectiveSource === 'pos_order') return 'POS Sale';
+  return getSourceDef(effectiveSource).shortLabel;
 }
 
-function formatDollars(amount: number): string {
-  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function isPosSource(effectiveSource: string): boolean {
+  return effectiveSource.startsWith('pos_');
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  pos_order: 'POS Order',
-  pms_folio: 'PMS Folio',
-  ar_invoice: 'AR Invoice',
-  membership: 'Membership',
-  voucher: 'Voucher',
-};
+type SalesRow = SalesHistoryItem & Record<string, unknown>;
 
-const sourceFilterOptions = [
-  { value: '', label: 'All Sources' },
-  { value: 'pos_order', label: 'POS Orders' },
-  { value: 'pms_folio', label: 'PMS Folios' },
-  { value: 'ar_invoice', label: 'AR Invoices' },
-  { value: 'membership', label: 'Membership' },
-  { value: 'voucher', label: 'Vouchers' },
-];
+// ── Source Filter Chips ──────────────────────────────────────
 
-// ── Summary Bar ────────────────────────────────────────────────
-
-function SummaryBar({ orders }: { orders: Order[] }) {
-  const stats = useMemo(() => {
-    let revenue = 0;
-    let discounts = 0;
-    let tax = 0;
-    let tips = 0;
-    let paidCount = 0;
-
-    for (const o of orders) {
-      if (o.status === 'voided') continue;
-      revenue += o.total;
-      discounts += o.discountTotal;
-      tax += o.taxTotal;
-      tips += o.tipTotal ?? 0;
-      if (o.status === 'paid') paidCount++;
-    }
-
-    return { count: orders.length, paidCount, revenue, discounts, tax, tips };
-  }, [orders]);
-
-  const items = [
-    { label: 'Orders', value: String(stats.count) },
-    { label: 'Revenue', value: formatMoney(stats.revenue) },
-    { label: 'Discounts', value: formatMoney(stats.discounts) },
-    { label: 'Tax', value: formatMoney(stats.tax) },
-    { label: 'Tips', value: formatMoney(stats.tips) },
-  ];
+function SourceChips({
+  selected,
+  onToggle,
+  onClear,
+}: {
+  selected: Set<string>;
+  onToggle: (key: string) => void;
+  onClear: () => void;
+}) {
+  const sources = useMemo(() => getSortedSources(), []);
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className="rounded-lg border border-border bg-surface px-4 py-3"
+    <div className="flex flex-wrap items-center gap-2">
+      {sources.map((src) => {
+        const isOn = selected.has(src.key);
+        const Icon = ICON_MAP[src.icon] ?? CircleDot;
+        return (
+          <button
+            key={src.key}
+            type="button"
+            onClick={() => onToggle(src.key)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+              isOn
+                ? CHIP_ACTIVE[src.color] || CHIP_ACTIVE.gray
+                : 'border-border text-muted-foreground hover:text-foreground hover:bg-accent'
+            }`}
+          >
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            {src.label}
+          </button>
+        );
+      })}
+      {selected.size > 0 && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-xs text-muted-foreground hover:text-foreground"
         >
-          <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
-          <p className="mt-1 text-lg font-semibold text-foreground">{item.value}</p>
-        </div>
-      ))}
+          Clear
+        </button>
+      )}
     </div>
   );
 }
 
-// ── CSV Export ──────────────────────────────────────────────────
+// ── Summary Bar ──────────────────────────────────────────────
 
-function exportCSV(orders: Order[]) {
-  const headers = [
-    'Order #',
-    'Date',
-    'Status',
-    'Customer',
-    'Subtotal',
-    'Discount',
-    'Tax',
-    'Service Charge',
-    'Total',
-    'Tip',
-    'Payment Type',
-    'Paid At',
-  ];
-  const rows = orders.map((o) => [
-    o.orderNumber,
-    o.businessDate,
-    o.status,
-    o.customerName ?? '',
-    (o.subtotal / 100).toFixed(2),
-    (o.discountTotal / 100).toFixed(2),
-    (o.taxTotal / 100).toFixed(2),
-    (o.serviceChargeTotal / 100).toFixed(2),
-    (o.total / 100).toFixed(2),
-    ((o.tipTotal ?? 0) / 100).toFixed(2),
-    o.paymentType ?? '',
-    o.paidAt ?? '',
-  ]);
+function SummaryBar({
+  summary,
+}: {
+  summary: {
+    totalAmount: number;
+    totalCount: number;
+    bySource: Array<{ source: string; totalAmount: number; count: number }>;
+  } | null;
+}) {
+  if (!summary) return null;
 
-  const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `sales-export-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const avg = summary.totalCount > 0 ? summary.totalAmount / summary.totalCount : 0;
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="rounded-lg border border-border bg-surface px-4 py-3">
+        <p className="text-xs font-medium text-muted-foreground">Total Revenue</p>
+        <p className="mt-1 text-lg font-semibold text-foreground tabular-nums">
+          {formatDollars(summary.totalAmount)}
+        </p>
+      </div>
+      <div className="rounded-lg border border-border bg-surface px-4 py-3">
+        <p className="text-xs font-medium text-muted-foreground">Transactions</p>
+        <p className="mt-1 text-lg font-semibold text-foreground tabular-nums">
+          {summary.totalCount.toLocaleString()}
+        </p>
+      </div>
+      {summary.totalCount > 0 && (
+        <div className="rounded-lg border border-border bg-surface px-4 py-3">
+          <p className="text-xs font-medium text-muted-foreground">Avg Transaction</p>
+          <p className="mt-1 text-lg font-semibold text-foreground tabular-nums">
+            {formatDollars(avg)}
+          </p>
+        </div>
+      )}
+
+      {/* Per-source breakdown pills */}
+      {summary.bySource.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 ml-auto">
+          {summary.bySource.map((s) => {
+            const color = resolveColor(s.source);
+            const Icon = resolveIcon(s.source);
+            return (
+              <div
+                key={s.source}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs"
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${DOT_COLOR[color] ?? 'bg-gray-500'}`}
+                />
+                <Icon
+                  className="h-3 w-3 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <span className="text-muted-foreground">
+                  {resolveLabel(s.source)}
+                </span>
+                <span className="font-medium text-foreground tabular-nums">
+                  {formatDollars(s.totalAmount)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Page Component ─────────────────────────────────────────────
@@ -240,161 +268,71 @@ export default function OrdersPage() {
   const { toast } = useToast();
   const profileDrawer = useProfileDrawer();
 
-  // Tab toggle: POS Orders vs All Revenue
-  const [activeTab, setActiveTab] = useState<'pos' | 'all'>('pos');
-
-  // Location selector — default to "All" (empty = no location filter)
+  // ── Filter state ────────────────────────────────────────────
+  const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set());
   const [selectedLocationId, setSelectedLocationId] = useState('');
-  // For actions that require a locationId header, fall back to first location
-  const actionLocationId = selectedLocationId || locations[0]?.id || '';
-
-  // All Revenue tab source filter
-  const [sourceFilter, setSourceFilter] = useState('');
-
-  // Filters
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  // Void dialog
+  const actionLocationId = selectedLocationId || locations[0]?.id || '';
+
+  const toggleSource = useCallback((key: string) => {
+    setSelectedSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const clearSources = useCallback(() => setSelectedSources(new Set()), []);
+
+  // ── Data ────────────────────────────────────────────────────
+  const { items, summary, isLoading, isLoadingMore, hasMore, loadMore, refetch } =
+    useSalesHistory({
+      sources: selectedSources.size > 0 ? Array.from(selectedSources) : undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      search: search || undefined,
+      status: statusFilter || undefined,
+      paymentMethod: paymentFilter || undefined,
+      locationId: selectedLocationId || undefined,
+    });
+
+  // ── Dialog state ────────────────────────────────────────────
   const [voidOrderId, setVoidOrderId] = useState<string | null>(null);
-  const [voidOrderNumber, setVoidOrderNumber] = useState('');
+  const [voidLabel, setVoidLabel] = useState('');
   const [isVoiding, setIsVoiding] = useState(false);
 
-  // Delete dialog
   const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
-  const [deleteOrderNumber, setDeleteOrderNumber] = useState('');
+  const [deleteLabel, setDeleteLabel] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Re-open dialog
   const [reopenOrderId, setReopenOrderId] = useState<string | null>(null);
-  const [reopenOrderNumber, setReopenOrderNumber] = useState('');
+  const [reopenLabel, setReopenLabel] = useState('');
   const [isReopening, setIsReopening] = useState(false);
 
-  // Refund dialog
-  const [refundOrder, setRefundOrder] = useState<{ id: string; orderNumber: string } | null>(null);
+  const [refundOrder, setRefundOrder] = useState<{
+    id: string;
+    orderNumber: string;
+  } | null>(null);
+  const [tipOrder, setTipOrder] = useState<{
+    id: string;
+    orderNumber: string;
+  } | null>(null);
 
-  // Tip adjust dialog
-  const [tipOrder, setTipOrder] = useState<{ id: string; orderNumber: string } | null>(null);
-
-  const { data: orders, isLoading, hasMore, loadMore, mutate } = useOrders({
-    status: statusFilter || undefined,
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
-    search: search || undefined,
-    paymentMethod: paymentFilter || undefined,
-    locationId: selectedLocationId || undefined,
-  });
-
-  // ── All Revenue query ─────────────────────────────────────────
-  const locationHeaders = selectedLocationId ? { 'X-Location-Id': selectedLocationId } : undefined;
-  const activityParams = new URLSearchParams();
-  activityParams.set('limit', '50');
-  if (sourceFilter) activityParams.set('source', sourceFilter);
-
-  const {
-    data: activityData,
-    isLoading: activityLoading,
-  } = useQuery({
-    queryKey: ['orders', 'all-revenue', sourceFilter, selectedLocationId],
-    queryFn: ({ signal }) =>
-      apiFetch<{ data: RevenueActivityItem[]; meta: { cursor: string | null; hasMore: boolean } }>(
-        `/api/v1/reports/recent-activity?${activityParams.toString()}`,
-        { signal, headers: locationHeaders },
-      ),
-    enabled: activeTab === 'all',
-    staleTime: 60_000,
-  });
-
-  const activityItems = activityData?.data ?? [];
-
-  type ActivityRow = RevenueActivityItem & Record<string, unknown>;
-
-  const activityColumns = useMemo(
-    () => [
-      {
-        key: 'source',
-        header: 'Source',
-        width: '200px',
-        render: (row: ActivityRow) => {
-          const Icon = getSourceIcon(row.source);
-          const color = getSourceIconColor(row.source);
-          return (
-            <div className="flex items-center gap-2">
-              <span className={`flex h-7 w-7 items-center justify-center rounded-full ${color}`}>
-                <Icon className="h-3.5 w-3.5" />
-              </span>
-              <span className="text-sm font-medium text-foreground">{row.sourceLabel}</span>
-            </div>
-          );
-        },
-      },
-      {
-        key: 'sourceType',
-        header: 'Type',
-        width: '100px',
-        render: (row: ActivityRow) => (
-          <span className="text-xs text-muted-foreground">
-            {SOURCE_LABELS[row.source] ?? row.source}
-          </span>
-        ),
-      },
-      {
-        key: 'customerName',
-        header: 'Customer',
-        render: (row: ActivityRow) => (
-          <span className="text-sm text-foreground">
-            {row.customerName || '\u2014'}
-          </span>
-        ),
-      },
-      {
-        key: 'amountDollars',
-        header: 'Amount',
-        width: '100px',
-        render: (row: ActivityRow) => (
-          <span className="text-sm font-semibold text-foreground tabular-nums">
-            {formatDollars(row.amountDollars)}
-          </span>
-        ),
-      },
-      {
-        key: 'status',
-        header: 'Status',
-        width: '100px',
-        render: (row: ActivityRow) => {
-          const cfg: Record<string, { label: string; classes: string }> = {
-            completed: { label: 'Completed', classes: 'bg-green-500/20 text-green-500' },
-            paid: { label: 'Paid', classes: 'bg-green-500/20 text-green-500' },
-            placed: { label: 'Placed', classes: 'bg-amber-500/20 text-amber-500' },
-            voided: { label: 'Voided', classes: 'bg-red-500/20 text-red-500' },
-            refunded: { label: 'Refunded', classes: 'bg-red-500/20 text-red-500' },
-          };
-          const c = cfg[row.status] ?? { label: row.status, classes: 'bg-muted text-muted-foreground' };
-          return (
-            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${c.classes}`}>
-              {c.label}
-            </span>
-          );
-        },
-      },
-      {
-        key: 'occurredAt',
-        header: 'Date',
-        width: '130px',
-        render: (row: ActivityRow) => (
-          <span className="text-xs text-muted-foreground">
-            {formatDateTime(row.occurredAt)}
-          </span>
-        ),
-      },
-    ],
-    [],
-  );
-
-  const hasFilters = !!search || !!statusFilter || !!paymentFilter || !!dateFrom || !!dateTo || !!selectedLocationId;
+  // ── Filter helpers ──────────────────────────────────────────
+  const hasFilters =
+    !!search ||
+    !!statusFilter ||
+    !!paymentFilter ||
+    !!dateFrom ||
+    !!dateTo ||
+    !!selectedLocationId ||
+    selectedSources.size > 0;
 
   const clearFilters = useCallback(() => {
     setSearch('');
@@ -403,10 +341,10 @@ export default function OrdersPage() {
     setDateFrom('');
     setDateTo('');
     setSelectedLocationId('');
+    setSelectedSources(new Set());
   }, []);
 
-  // ── Void handler ──────────────────────────────────────────────
-
+  // ── Void ────────────────────────────────────────────────────
   const handleVoidConfirm = useCallback(async () => {
     if (!voidOrderId) return;
     setIsVoiding(true);
@@ -417,17 +355,15 @@ export default function OrdersPage() {
       });
       toast.success('Order voided');
       setVoidOrderId(null);
-      mutate();
+      refetch();
     } catch (err) {
-      const e = err instanceof Error ? err : new Error('Failed to void');
-      toast.error(e.message);
+      toast.error(err instanceof Error ? err.message : 'Failed to void');
     } finally {
       setIsVoiding(false);
     }
-  }, [voidOrderId, actionLocationId, toast, mutate]);
+  }, [voidOrderId, actionLocationId, toast, refetch]);
 
-  // ── Delete handler ─────────────────────────────────────────────
-
+  // ── Delete ──────────────────────────────────────────────────
   const handleDeleteConfirm = useCallback(async () => {
     if (!deleteOrderId) return;
     setIsDeleting(true);
@@ -438,17 +374,15 @@ export default function OrdersPage() {
       });
       toast.success('Order deleted');
       setDeleteOrderId(null);
-      mutate();
+      refetch();
     } catch (err) {
-      const e = err instanceof Error ? err : new Error('Failed to delete');
-      toast.error(e.message);
+      toast.error(err instanceof Error ? err.message : 'Failed to delete');
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteOrderId, actionLocationId, toast, mutate]);
+  }, [deleteOrderId, actionLocationId, toast, refetch]);
 
-  // ── Re-open handler ───────────────────────────────────────────
-
+  // ── Re-open ─────────────────────────────────────────────────
   const handleReopenConfirm = useCallback(async () => {
     if (!reopenOrderId) return;
     setIsReopening(true);
@@ -459,17 +393,15 @@ export default function OrdersPage() {
       });
       toast.success('Order reopened');
       setReopenOrderId(null);
-      mutate();
+      refetch();
     } catch (err) {
-      const e = err instanceof Error ? err : new Error('Failed to reopen');
-      toast.error(e.message);
+      toast.error(err instanceof Error ? err.message : 'Failed to reopen');
     } finally {
       setIsReopening(false);
     }
-  }, [reopenOrderId, actionLocationId, toast, mutate]);
+  }, [reopenOrderId, actionLocationId, toast, refetch]);
 
-  // ── Clone handler ─────────────────────────────────────────────
-
+  // ── Clone ───────────────────────────────────────────────────
   const handleClone = useCallback(
     async (orderId: string) => {
       try {
@@ -484,78 +416,107 @@ export default function OrdersPage() {
         toast.success('Order cloned');
         router.push(`/orders/${res.data.orderId}`);
       } catch (err) {
-        const e = err instanceof Error ? err : new Error('Failed to clone');
-        toast.error(e.message);
+        toast.error(err instanceof Error ? err.message : 'Failed to clone');
       }
     },
     [actionLocationId, toast, router],
   );
 
-  // ── Build action menu items for a row ─────────────────────────
+  // ── Export ──────────────────────────────────────────────────
+  const handleExport = useCallback(async () => {
+    try {
+      const params: Record<string, string | undefined> = {
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        search: search || undefined,
+        status: statusFilter || undefined,
+        paymentMethod: paymentFilter || undefined,
+        locationId: selectedLocationId || undefined,
+      };
+      if (selectedSources.size > 0) {
+        params.sources = Array.from(selectedSources).join(',');
+      }
+      await downloadCsvExport('/api/v1/reports/sales-history/export', params);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export failed');
+    }
+  }, [dateFrom, dateTo, search, statusFilter, paymentFilter, selectedLocationId, selectedSources, toast]);
 
+  // ── Row actions ──────────────────────────────────────────────
   const buildActions = useCallback(
-    (row: Order): ActionMenuItem[] => {
-      const s = row.status;
-      return [
+    (row: SalesHistoryItem): ActionMenuItem[] => {
+      const pos = isPosSource(row.effectiveSource);
+      const ref = row.referenceNumber || row.sourceLabel;
+
+      const base: ActionMenuItem[] = [
         {
           key: 'view-customer',
           label: 'View Customer',
           icon: User,
           onClick: () => {
-            if (row.customerId) profileDrawer.open(row.customerId, { source: 'orders' });
+            if (row.customerId)
+              profileDrawer.open(row.customerId, { source: 'orders' });
           },
           disabled: !row.customerId,
           disabledReason: 'No customer attached',
         },
+      ];
+
+      if (!pos) return base;
+
+      return [
+        ...base,
         {
           key: 'receipt',
-          label: 'Receipt',
+          label: 'View Receipt',
           icon: FileText,
-          onClick: () => router.push(`/orders/${row.id}`),
+          onClick: () => router.push(`/orders/${row.sourceId}`),
         },
         {
           key: 'refund',
           label: 'Refund',
           icon: RotateCcw,
-          onClick: () => setRefundOrder({ id: row.id, orderNumber: row.orderNumber }),
-          disabled: s !== 'paid',
-          disabledReason: 'Order must be paid',
+          onClick: () =>
+            setRefundOrder({ id: row.sourceId, orderNumber: ref }),
+          disabled: row.status !== 'completed',
+          disabledReason: 'Order must be completed',
         },
         {
           key: 'void',
           label: 'Void',
           icon: Ban,
           onClick: () => {
-            setVoidOrderId(row.id);
-            setVoidOrderNumber(row.orderNumber);
+            setVoidOrderId(row.sourceId);
+            setVoidLabel(ref);
           },
-          disabled: s !== 'open' && s !== 'placed',
-          disabledReason: 'Only open/placed orders can be voided',
+          disabled: row.status !== 'completed',
+          disabledReason: 'Order must be completed',
         },
         {
           key: 'add-tip',
           label: 'Add Tip',
           icon: DollarSign,
-          onClick: () => setTipOrder({ id: row.id, orderNumber: row.orderNumber }),
-          disabled: s !== 'paid',
-          disabledReason: 'Order must be paid',
+          onClick: () =>
+            setTipOrder({ id: row.sourceId, orderNumber: ref }),
+          disabled: row.status !== 'completed',
+          disabledReason: 'Order must be completed',
         },
         {
           key: 'reopen',
           label: 'Re-Open',
           icon: Unlock,
           onClick: () => {
-            setReopenOrderId(row.id);
-            setReopenOrderNumber(row.orderNumber);
+            setReopenOrderId(row.sourceId);
+            setReopenLabel(ref);
           },
-          disabled: s !== 'voided',
+          disabled: row.status !== 'voided',
           disabledReason: 'Only voided orders can be reopened',
         },
         {
           key: 'clone',
           label: 'Clone',
           icon: Copy,
-          onClick: () => handleClone(row.id),
+          onClick: () => handleClone(row.sourceId),
         },
         {
           key: 'delete',
@@ -564,158 +525,189 @@ export default function OrdersPage() {
           destructive: true,
           dividerBefore: true,
           onClick: () => {
-            setDeleteOrderId(row.id);
-            setDeleteOrderNumber(row.orderNumber);
+            setDeleteOrderId(row.sourceId);
+            setDeleteLabel(ref);
           },
-          disabled: s !== 'open' && s !== 'voided',
-          disabledReason: 'Only open/voided orders can be deleted',
+          disabled: row.status !== 'voided',
+          disabledReason: 'Only voided orders can be deleted',
         },
       ];
     },
     [profileDrawer, router, handleClone],
   );
 
-  // ── Columns ───────────────────────────────────────────────────
-
+  // ── Columns ──────────────────────────────────────────────────
   const columns = useMemo(
     () => [
       {
-        key: 'orderNumber',
-        header: 'Order #',
-        width: '100px',
-        render: (row: OrderRow) => (
-          <span className="font-semibold text-foreground">{row.orderNumber}</span>
+        key: 'occurredAt',
+        header: 'Date/Time',
+        width: '130px',
+        render: (row: SalesRow) => (
+          <span className="text-xs text-muted-foreground">
+            {formatDateTime(row.occurredAt)}
+          </span>
         ),
       },
       {
-        key: 'createdAt',
-        header: 'Created',
-        width: '130px',
-        render: (row: OrderRow) => (
-          <span className="text-xs text-muted-foreground">
-            {formatDateTime(row.createdAt)}
+        key: 'effectiveSource',
+        header: 'Revenue Source',
+        width: '160px',
+        render: (row: SalesRow) => {
+          const color = resolveColor(row.effectiveSource);
+          const Icon = resolveIcon(row.effectiveSource);
+          return (
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${DOT_COLOR[color] ?? 'bg-gray-500'}`}
+              />
+              <Icon
+                className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <span className="truncate text-sm text-foreground">
+                {resolveLabel(row.effectiveSource)}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        key: 'referenceNumber',
+        header: 'Reference #',
+        width: '120px',
+        render: (row: SalesRow) => (
+          <span className="text-sm font-medium text-foreground">
+            {row.referenceNumber || '\u2014'}
           </span>
         ),
       },
       {
         key: 'customerName',
         header: 'Customer',
-        render: (row: OrderRow) => (
+        render: (row: SalesRow) => (
           <span className="text-sm text-foreground">
-            {(row as Order).customerName || '\u2014'}
+            {row.customerName || '\u2014'}
           </span>
         ),
       },
       {
-        key: 'subtotal',
+        key: 'employeeName',
+        header: 'Employee',
+        width: '120px',
+        render: (row: SalesRow) => (
+          <span className="text-sm text-muted-foreground">
+            {row.employeeName || '\u2014'}
+          </span>
+        ),
+      },
+      {
+        key: 'subtotalDollars',
         header: 'Subtotal',
         width: '90px',
-        render: (row: OrderRow) => (
-          <span className="text-sm text-muted-foreground">{formatMoney(row.subtotal)}</span>
-        ),
-      },
-      {
-        key: 'discountTotal',
-        header: 'Discount',
-        width: '90px',
-        render: (row: OrderRow) =>
-          row.discountTotal > 0 ? (
-            <span className="text-sm text-red-500">-{formatMoney(row.discountTotal)}</span>
-          ) : (
-            <span className="text-sm text-muted-foreground">{'\u2014'}</span>
-          ),
-      },
-      {
-        key: 'taxTotal',
-        header: 'Tax',
-        width: '80px',
-        render: (row: OrderRow) => (
-          <span className="text-sm text-muted-foreground">{formatMoney(row.taxTotal)}</span>
-        ),
-      },
-      {
-        key: 'serviceChargeTotal',
-        header: 'Svc Charge',
-        width: '90px',
-        render: (row: OrderRow) =>
-          row.serviceChargeTotal > 0 ? (
-            <span className="text-sm text-muted-foreground">
-              {formatMoney(row.serviceChargeTotal)}
-            </span>
-          ) : (
-            <span className="text-sm text-muted-foreground">{'\u2014'}</span>
-          ),
-      },
-      {
-        key: 'total',
-        header: 'Total',
-        width: '90px',
-        render: (row: OrderRow) => (
-          <span className="text-sm font-semibold text-foreground">
-            {formatMoney(row.total)}
+        render: (row: SalesRow) => (
+          <span className="text-sm tabular-nums text-muted-foreground">
+            {row.subtotalDollars > 0 ? formatDollars(row.subtotalDollars) : '\u2014'}
           </span>
         ),
       },
       {
-        key: 'tipTotal',
-        header: 'Tip',
-        width: '70px',
-        render: (row: OrderRow) => {
-          const tip = (row as Order).tipTotal ?? 0;
-          return tip > 0 ? (
-            <span className="text-sm text-blue-500">{formatMoney(tip)}</span>
-          ) : (
-            <span className="text-sm text-muted-foreground">{'\u2014'}</span>
-          );
-        },
-      },
-      {
-        key: 'paymentType',
-        header: 'Payment',
+        key: 'discountDollars',
+        header: 'Discount',
         width: '90px',
-        render: (row: OrderRow) => {
-          const pt = (row as Order).paymentType;
-          return pt ? (
-            <span className="text-xs text-muted-foreground">
-              {PAYMENT_TYPE_LABELS[pt] ?? pt}
+        render: (row: SalesRow) =>
+          row.discountDollars > 0 ? (
+            <span className="text-sm tabular-nums text-red-500">
+              -{formatDollars(row.discountDollars)}
             </span>
           ) : (
             <span className="text-sm text-muted-foreground">{'\u2014'}</span>
-          );
-        },
+          ),
       },
       {
-        key: 'paidAt',
-        header: 'Paid At',
-        width: '120px',
-        render: (row: OrderRow) => {
-          const pa = (row as Order).paidAt;
-          return pa ? (
-            <span className="text-xs text-muted-foreground">{formatDateTime(pa)}</span>
+        key: 'taxDollars',
+        header: 'Tax',
+        width: '80px',
+        render: (row: SalesRow) => (
+          <span className="text-sm tabular-nums text-muted-foreground">
+            {row.taxDollars > 0 ? formatDollars(row.taxDollars) : '\u2014'}
+          </span>
+        ),
+      },
+      {
+        key: 'serviceChargeDollars',
+        header: 'Svc Charge',
+        width: '90px',
+        render: (row: SalesRow) =>
+          row.serviceChargeDollars > 0 ? (
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {formatDollars(row.serviceChargeDollars)}
+            </span>
           ) : (
             <span className="text-sm text-muted-foreground">{'\u2014'}</span>
-          );
-        },
+          ),
+      },
+      {
+        key: 'amountDollars',
+        header: 'Total',
+        width: '100px',
+        render: (row: SalesRow) => (
+          <span className="text-sm font-semibold tabular-nums text-foreground">
+            {formatDollars(row.amountDollars)}
+          </span>
+        ),
+      },
+      {
+        key: 'tipDollars',
+        header: 'Tip',
+        width: '70px',
+        render: (row: SalesRow) =>
+          row.tipDollars > 0 ? (
+            <span className="text-sm tabular-nums text-blue-500">
+              {formatDollars(row.tipDollars)}
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">{'\u2014'}</span>
+          ),
+      },
+      {
+        key: 'paymentMethod',
+        header: 'Payment',
+        width: '90px',
+        render: (row: SalesRow) =>
+          row.paymentMethod ? (
+            <span className="text-xs text-muted-foreground">
+              {PAYMENT_LABELS[row.paymentMethod] ?? row.paymentMethod}
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">{'\u2014'}</span>
+          ),
       },
       {
         key: 'status',
         header: 'Status',
-        width: '80px',
-        render: (row: OrderRow) => {
-          const badge = STATUS_BADGES[row.status] || {
+        width: '100px',
+        render: (row: SalesRow) => {
+          const s = STATUS_STYLES[row.status] ?? {
             label: row.status,
-            variant: 'neutral',
+            classes: 'bg-muted text-muted-foreground',
           };
-          return <Badge variant={badge.variant}>{badge.label}</Badge>;
+          return (
+            <span
+              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${s.classes}`}
+            >
+              {s.label}
+            </span>
+          );
         },
       },
       {
         key: 'actions',
         header: '',
         width: '48px',
-        render: (row: OrderRow) => (
+        render: (row: SalesRow) => (
           <div onClick={(e) => e.stopPropagation()}>
-            <ActionMenu items={buildActions(row as Order)} />
+            <ActionMenu items={buildActions(row)} />
           </div>
         ),
       },
@@ -723,230 +715,166 @@ export default function OrdersPage() {
     [buildActions],
   );
 
+  // ── Row click ───────────────────────────────────────────────
+  const handleRowClick = useCallback(
+    (row: SalesRow) => {
+      if (isPosSource(row.effectiveSource)) {
+        router.push(`/orders/${row.sourceId}`);
+      }
+    },
+    [router],
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-foreground">Sales History</h1>
-        {activeTab === 'pos' && (
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={items.length === 0}
+          className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Download className="h-4 w-4" aria-hidden="true" />
+          Export
+        </button>
+      </div>
+
+      {/* Source filter chips */}
+      <SourceChips
+        selected={selectedSources}
+        onToggle={toggleSource}
+        onClear={clearSources}
+      />
+
+      {/* Summary bar */}
+      <SummaryBar summary={summary} />
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-3">
+        {locations.length > 1 && (
+          <Select
+            options={[
+              { value: '', label: 'All Locations' },
+              ...locations.map((l) => ({ value: l.id, label: l.name })),
+            ]}
+            value={selectedLocationId}
+            onChange={(v) => setSelectedLocationId(v as string)}
+            placeholder="All Locations"
+            className="w-full md:w-44"
+          />
+        )}
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search ref #, customer, description..."
+          className="w-full md:w-64"
+        />
+        <Select
+          options={statusOptions}
+          value={statusFilter}
+          onChange={(v) => setStatusFilter(v as string)}
+          placeholder="All Statuses"
+          className="w-full md:w-40"
+        />
+        <Select
+          options={paymentMethodOptions}
+          value={paymentFilter}
+          onChange={(v) => setPaymentFilter(v as string)}
+          placeholder="All Payment Types"
+          className="w-full md:w-44"
+        />
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            placeholder="From"
+          />
+          <span className="text-muted-foreground">&ndash;</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            placeholder="To"
+          />
+        </div>
+        {hasFilters && (
           <button
             type="button"
-            onClick={() => exportCSV(orders)}
-            disabled={orders.length === 0}
-            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={clearFilters}
+            className="text-sm text-muted-foreground hover:text-foreground"
           >
-            <Download className="h-4 w-4" aria-hidden="true" />
-            Export
+            Clear filters
           </button>
         )}
       </div>
 
-      {/* Tab toggle */}
-      <div className="flex gap-1 rounded-lg border border-border bg-surface p-1">
-        <button
-          type="button"
-          onClick={() => setActiveTab('pos')}
-          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'pos'
-              ? 'bg-indigo-600 text-white'
-              : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-          }`}
-        >
-          POS Orders
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('all')}
-          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'all'
-              ? 'bg-indigo-600 text-white'
-              : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-          }`}
-        >
-          All Revenue
-        </button>
-      </div>
-
-      {/* ── POS Orders Tab ─────────────────────────────────────────── */}
-      {activeTab === 'pos' && (
+      {/* Table */}
+      {!isLoading && items.length === 0 && !hasFilters ? (
+        <EmptyState
+          icon={ClipboardList}
+          title="No sales history"
+          description="Revenue from POS orders, F&B, room charges, invoices, memberships, and more will appear here"
+        />
+      ) : (
         <>
-          {/* Summary bar */}
-          {orders.length > 0 && <SummaryBar orders={orders} />}
-
-          {/* Filter bar */}
-          <div className="flex flex-wrap items-center gap-3">
-            {locations.length > 1 && (
-              <Select
-                options={[
-                  { value: '', label: 'All Locations' },
-                  ...locations.map((l) => ({ value: l.id, label: l.name })),
-                ]}
-                value={selectedLocationId}
-                onChange={(v) => setSelectedLocationId(v as string)}
-                placeholder="All Locations"
-                className="w-full md:w-44"
-              />
-            )}
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              placeholder="Search order #, customer..."
-              className="w-full md:w-64"
-            />
-            <Select
-              options={statusOptions}
-              value={statusFilter}
-              onChange={(v) => setStatusFilter(v as string)}
-              placeholder="All Statuses"
-              className="w-full md:w-40"
-            />
-            <Select
-              options={paymentMethodOptions}
-              value={paymentFilter}
-              onChange={(v) => setPaymentFilter(v as string)}
-              placeholder="All Payment Types"
-              className="w-full md:w-44"
-            />
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                placeholder="From"
-              />
-              <span className="text-muted-foreground">&ndash;</span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                placeholder="To"
-              />
-            </div>
-            {hasFilters && (
+          <DataTable
+            columns={columns}
+            data={items as SalesRow[]}
+            isLoading={isLoading}
+            emptyMessage="No transactions match your filters"
+            onRowClick={handleRowClick}
+          />
+          {(hasMore || isLoadingMore) && (
+            <div className="flex justify-center">
               <button
                 type="button"
-                onClick={clearFilters}
-                className="text-sm text-muted-foreground hover:text-foreground"
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Clear filters
+                {isLoadingMore ? 'Loading...' : 'Load More'}
               </button>
-            )}
-          </div>
-
-          {/* Table */}
-          {!isLoading && orders.length === 0 && !hasFilters ? (
-            <EmptyState
-              icon={ClipboardList}
-              title="No orders yet"
-              description="Orders will appear here once they are created"
-            />
-          ) : (
-            <>
-              <DataTable
-                columns={columns}
-                data={orders as OrderRow[]}
-                isLoading={isLoading}
-                emptyMessage="No orders match your filters"
-                onRowClick={(row) => router.push(`/orders/${row.id}`)}
-              />
-              {hasMore && (
-                <div className="flex justify-center">
-                  <button
-                    type="button"
-                    onClick={loadMore}
-                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-                  >
-                    Load More
-                  </button>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </>
       )}
 
-      {/* ── All Revenue Tab ────────────────────────────────────────── */}
-      {activeTab === 'all' && (
-        <>
-          {/* Source filter */}
-          <div className="flex flex-wrap items-center gap-3">
-            {locations.length > 1 && (
-              <Select
-                options={[
-                  { value: '', label: 'All Locations' },
-                  ...locations.map((l) => ({ value: l.id, label: l.name })),
-                ]}
-                value={selectedLocationId}
-                onChange={(v) => setSelectedLocationId(v as string)}
-                placeholder="All Locations"
-                className="w-full md:w-44"
-              />
-            )}
-            <Select
-              options={sourceFilterOptions}
-              value={sourceFilter}
-              onChange={(v) => setSourceFilter(v as string)}
-              placeholder="All Sources"
-              className="w-full md:w-44"
-            />
-          </div>
-
-          {/* All Revenue table */}
-          {!activityLoading && activityItems.length === 0 ? (
-            <EmptyState
-              icon={DollarSign}
-              title="No revenue activity"
-              description="Revenue from POS orders, PMS folios, AR invoices, memberships, and vouchers will appear here"
-            />
-          ) : (
-            <DataTable
-              columns={activityColumns}
-              data={activityItems as ActivityRow[]}
-              isLoading={activityLoading}
-              emptyMessage="No activity matches your filters"
-              onRowClick={(row) => {
-                if (row.source === 'pos_order') {
-                  router.push(`/orders/${(row as RevenueActivityItem).sourceId}`);
-                }
-              }}
-            />
-          )}
-        </>
-      )}
-
-      {/* Void Confirm Dialog */}
+      {/* Void Dialog */}
       <ConfirmDialog
         open={voidOrderId !== null}
         onClose={() => setVoidOrderId(null)}
         onConfirm={handleVoidConfirm}
         title="Void Order"
-        description={`Are you sure you want to void order ${voidOrderNumber}? This action cannot be undone.`}
+        description={`Are you sure you want to void ${voidLabel}? This action cannot be undone.`}
         confirmLabel="Void Order"
         destructive
         isLoading={isVoiding}
       />
 
-      {/* Delete Confirm Dialog */}
+      {/* Delete Dialog */}
       <ConfirmDialog
         open={deleteOrderId !== null}
         onClose={() => setDeleteOrderId(null)}
         onConfirm={handleDeleteConfirm}
         title="Delete Order"
-        description={`Are you sure you want to delete order ${deleteOrderNumber}? This will remove it from your sales history.`}
+        description={`Are you sure you want to delete ${deleteLabel}? This will remove it from your sales history.`}
         confirmLabel="Delete Order"
         destructive
         isLoading={isDeleting}
       />
 
-      {/* Re-open Confirm Dialog */}
+      {/* Re-open Dialog */}
       <ConfirmDialog
         open={reopenOrderId !== null}
         onClose={() => setReopenOrderId(null)}
         onConfirm={handleReopenConfirm}
         title="Re-Open Order"
-        description={`Re-open voided order ${reopenOrderNumber}? It will return to Open status.`}
+        description={`Re-open voided order ${reopenLabel}? It will return to Open status.`}
         confirmLabel="Re-Open"
         isLoading={isReopening}
       />
@@ -958,7 +886,7 @@ export default function OrdersPage() {
         orderId={refundOrder?.id ?? ''}
         orderNumber={refundOrder?.orderNumber ?? ''}
         locationId={actionLocationId}
-        onComplete={() => mutate()}
+        onComplete={() => refetch()}
       />
 
       {/* Tip Adjust Dialog */}
@@ -968,7 +896,7 @@ export default function OrdersPage() {
         orderId={tipOrder?.id ?? ''}
         orderNumber={tipOrder?.orderNumber ?? ''}
         locationId={actionLocationId}
-        onComplete={() => mutate()}
+        onComplete={() => refetch()}
       />
     </div>
   );

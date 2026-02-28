@@ -3,6 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
+import { generateUlid } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { UpsertPerformanceTargetInput } from '../validation';
 
@@ -24,18 +25,19 @@ export async function upsertPerformanceTarget(
     const orderType = input.orderType ?? null;
     const locationId = ctx.locationId ?? null;
 
+    const id = generateUlid();
+
     const rows = await (tx as any).execute(
       sql`INSERT INTO fnb_kds_performance_targets (
-            tenant_id, location_id, station_id, order_type,
+            id, tenant_id, location_id, station_id, order_type,
             target_prep_seconds, warning_prep_seconds, critical_prep_seconds,
             speed_of_service_goal_seconds, is_active
           ) VALUES (
-            ${ctx.tenantId}, ${locationId}, ${stationId}, ${orderType},
+            ${id}, ${ctx.tenantId}, ${locationId}, ${stationId}, ${orderType},
             ${input.targetPrepSeconds}, ${input.warningPrepSeconds}, ${input.criticalPrepSeconds},
             ${input.speedOfServiceGoalSeconds ?? null}, true
           )
           ON CONFLICT (tenant_id, COALESCE(station_id, ''), COALESCE(order_type, ''))
-          WHERE is_active = true
           DO UPDATE SET
             target_prep_seconds = EXCLUDED.target_prep_seconds,
             warning_prep_seconds = EXCLUDED.warning_prep_seconds,

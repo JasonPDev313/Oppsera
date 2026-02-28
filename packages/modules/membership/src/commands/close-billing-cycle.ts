@@ -3,7 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { membershipSubscriptions, membershipPlans } from '@oppsera/db';
+import { membershipSubscriptions, membershipPlans, membershipAccounts } from '@oppsera/db';
 import type { CloseBillingCycleInput } from '../validation';
 import { advanceByFrequency } from '../helpers/proration';
 
@@ -47,13 +47,15 @@ export async function closeBillingCycle(
 
     for (const sub of subscriptions) {
       try {
-        // Look up the plan to get the dues amount and frequency
+        // Look up the plan to get the dues amount, frequency, and GL accounts
         const [plan] = await (tx as any)
           .select({
             id: membershipPlans.id,
             duesAmountCents: membershipPlans.duesAmountCents,
             priceCents: membershipPlans.priceCents,
             billingFrequency: membershipPlans.billingFrequency,
+            revenueGlAccountId: membershipPlans.revenueGlAccountId,
+            deferredRevenueGlAccountId: membershipPlans.deferredRevenueGlAccountId,
           })
           .from(membershipPlans)
           .where(
@@ -71,6 +73,22 @@ export async function closeBillingCycle(
           });
           continue;
         }
+
+        // Look up the membership account for customer and billing context
+        const [account] = await (tx as any)
+          .select({
+            id: membershipAccounts.id,
+            customerId: membershipAccounts.customerId,
+            billingAccountId: membershipAccounts.billingAccountId,
+          })
+          .from(membershipAccounts)
+          .where(
+            and(
+              eq(membershipAccounts.tenantId, ctx.tenantId),
+              eq(membershipAccounts.id, sub.membershipAccountId),
+            ),
+          )
+          .limit(1);
 
         const chargeAmountCents = plan.duesAmountCents ?? plan.priceCents;
         const frequency = plan.billingFrequency ?? 'monthly';
@@ -91,6 +109,22 @@ export async function closeBillingCycle(
               eq(membershipSubscriptions.id, sub.id),
             ),
           );
+
+        // Emit per-subscription charge event for reporting + GL consumers
+        const chargeEvent = buildEventFromContext(ctx, 'membership.billing.charged.v1', {
+          membershipId: sub.id,
+          membershipPlanId: plan.id,
+          customerId: account?.customerId ?? null,
+          billingAccountId: account?.billingAccountId ?? null,
+          amountCents: chargeAmountCents,
+          locationId: ctx.locationId,
+          businessDate: input.cycleDate,
+          billingPeriodStart: sub.nextBillDate,
+          billingPeriodEnd: newNextBillDate,
+          revenueGlAccountId: plan.revenueGlAccountId ?? null,
+          deferredRevenueGlAccountId: plan.deferredRevenueGlAccountId ?? null,
+        });
+        events.push(chargeEvent);
 
         summary.processedCount += 1;
         summary.totalBilledCents += chargeAmountCents;

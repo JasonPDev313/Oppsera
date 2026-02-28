@@ -128,14 +128,21 @@ async function loadCache(): Promise<RegistryCache> {
         and(eq(semanticDimensions.isActive, true), isNull(semanticDimensions.tenantId)),
       ),
     ]);
-    // Only cache system lenses (tenant_id IS NULL). Tenant-specific lenses are
-    // fetched on demand in getLens() to avoid nondeterministic slug collisions.
-    const [relRows, lensRows] = await Promise.all([
-      db.select().from(semanticMetricDimensions),
-      db.select().from(semanticLenses).where(
-        and(eq(semanticLenses.isActive, true), isNull(semanticLenses.tenantId)),
-      ),
-    ]);
+
+    // Lenses + relations fetched separately — if lenses have a schema mismatch
+    // (e.g., missing column from a pending migration), metrics/dimensions still load.
+    let relRows: Array<typeof semanticMetricDimensions.$inferSelect> = [];
+    let lensRows: Array<typeof semanticLenses.$inferSelect> = [];
+    try {
+      [relRows, lensRows] = await Promise.all([
+        db.select().from(semanticMetricDimensions),
+        db.select().from(semanticLenses).where(
+          and(eq(semanticLenses.isActive, true), isNull(semanticLenses.tenantId)),
+        ),
+      ]);
+    } catch (lensErr) {
+      logSchemaMismatchHint('lenses/relations', lensErr);
+    }
 
     const metrics = new Map<string, MetricDef>();
     for (const row of metricRows) {
@@ -168,14 +175,33 @@ async function loadCache(): Promise<RegistryCache> {
     }
     return result;
   } catch (err) {
-    console.error('[semantic/registry] loadCache FAILED — DB query error. Returning empty cache. Error:', err);
+    logSchemaMismatchHint('metrics/dimensions', err);
+    // Use loadedAt: 0 so getCache() retries immediately on next request
+    // instead of serving empty data for 5 minutes.
     return {
       metrics: new Map(),
       dimensions: new Map(),
       relations: [],
       lenses: new Map(),
-      loadedAt: Date.now(),
+      loadedAt: 0,
     };
+  }
+}
+
+/** Detects schema mismatch errors (missing column/table) and logs actionable guidance. */
+function logSchemaMismatchHint(context: string, err: unknown): void {
+  const msg = err instanceof Error ? err.message : String(err);
+  const isSchemaMismatch = msg.includes('does not exist')
+    || msg.includes('column')
+    || msg.includes('relation')
+    || msg.includes('undefined column');
+  if (isSchemaMismatch) {
+    console.error(
+      `[semantic/registry] SCHEMA MISMATCH loading ${context} — Drizzle schema references a column/table that doesn't exist in the DB. ` +
+      `Run: pnpm db:migrate (local) or pnpm db:migrate:remote (production). Error: ${msg}`,
+    );
+  } else {
+    console.error(`[semantic/registry] loadCache FAILED for ${context} — DB query error. Error:`, err);
   }
 }
 

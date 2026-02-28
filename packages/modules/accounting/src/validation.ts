@@ -23,6 +23,10 @@ export const postJournalEntrySchema = z.object({
   sourceReferenceId: z.string().optional(),
   memo: z.string().optional(),
   currency: z.string().optional(),
+  /** The currency the line amounts are denominated in (defaults to base currency). */
+  transactionCurrency: z.string().length(3).optional(),
+  /** Exchange rate from transactionCurrency → baseCurrency (required when transactionCurrency !== baseCurrency). */
+  exchangeRate: z.number().positive().optional(),
   lines: z.array(journalLineSchema).min(1),
   forcePost: z.boolean().optional().default(false),
 });
@@ -532,3 +536,89 @@ export const batchRemapSchema = z.object({
 });
 
 export type BatchRemapInput = z.input<typeof batchRemapSchema>;
+
+// ── Multi-Currency Schemas ──────────────────────────────────────────
+
+export const updateExchangeRateSchema = z.object({
+  fromCurrency: z.string().length(3),
+  toCurrency: z.string().length(3),
+  rate: z.number().positive(),
+  effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  source: z.string().max(100).optional(),
+});
+
+export type UpdateExchangeRateInput = z.input<typeof updateExchangeRateSchema>;
+
+export const updateSupportedCurrenciesSchema = z.object({
+  currencies: z.array(z.string().length(3)).min(1),
+});
+
+export type UpdateSupportedCurrenciesInput = z.input<typeof updateSupportedCurrenciesSchema>;
+
+// ── Fixed Asset Register ─────────────────────────────────────────
+
+const FIXED_ASSET_CATEGORIES = ['building', 'equipment', 'vehicle', 'furniture', 'technology', 'leasehold_improvement', 'other'] as const;
+const FIXED_ASSET_STATUSES = ['active', 'fully_depreciated', 'disposed', 'written_off'] as const;
+const DEPRECIATION_METHODS = ['straight_line', 'declining_balance', 'sum_of_years'] as const;
+
+export const createFixedAssetSchema = z.object({
+  assetNumber: z.string().min(1).max(50),
+  name: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  category: z.enum(FIXED_ASSET_CATEGORIES),
+  acquisitionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  acquisitionCost: z.string().regex(/^\d+(\.\d{1,2})?$/),
+  salvageValue: z.string().regex(/^\d+(\.\d{1,2})?$/).optional().default('0'),
+  usefulLifeMonths: z.number().int().positive().max(600),
+  depreciationMethod: z.enum(DEPRECIATION_METHODS).optional().default('straight_line'),
+  locationId: z.string().optional(),
+  assetGlAccountId: z.string().optional(),
+  depreciationExpenseAccountId: z.string().optional(),
+  accumulatedDepreciationAccountId: z.string().optional(),
+  notes: z.string().max(2000).optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+export type CreateFixedAssetInput = z.input<typeof createFixedAssetSchema>;
+
+export const updateFixedAssetSchema = z.object({
+  assetId: z.string().min(1),
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(1000).nullable().optional(),
+  category: z.enum(FIXED_ASSET_CATEGORIES).optional(),
+  locationId: z.string().nullable().optional(),
+  assetGlAccountId: z.string().nullable().optional(),
+  depreciationExpenseAccountId: z.string().nullable().optional(),
+  accumulatedDepreciationAccountId: z.string().nullable().optional(),
+  disposalGlAccountId: z.string().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+export type UpdateFixedAssetInput = z.input<typeof updateFixedAssetSchema>;
+
+export const recordDepreciationSchema = z.object({
+  assetId: z.string().min(1),
+  periodDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+export type RecordDepreciationInput = z.input<typeof recordDepreciationSchema>;
+
+export const disposeFixedAssetSchema = z.object({
+  assetId: z.string().min(1),
+  disposalDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  disposalProceeds: z.string().regex(/^\d+(\.\d{1,2})?$/).optional().default('0'),
+  disposalGlAccountId: z.string().optional(),
+});
+export type DisposeFixedAssetInput = z.input<typeof disposeFixedAssetSchema>;
+
+export const runMonthlyDepreciationSchema = z.object({
+  periodDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+export type RunMonthlyDepreciationInput = z.input<typeof runMonthlyDepreciationSchema>;
+
+export const listFixedAssetsSchema = z.object({
+  status: z.enum(FIXED_ASSET_STATUSES).optional(),
+  category: z.enum(FIXED_ASSET_CATEGORIES).optional(),
+  locationId: z.string().optional(),
+  cursor: z.string().optional(),
+  limit: z.number().int().positive().max(100).optional().default(50),
+});
+export type ListFixedAssetsInput = z.input<typeof listFixedAssetsSchema>;

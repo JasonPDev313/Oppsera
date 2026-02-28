@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 
@@ -9,5 +10,9 @@ const CustomersContent = dynamic(() => import('./customers-content'), {
 });
 
 export default function CustomersPage() {
-  return <CustomersContent />;
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <CustomersContent />
+    </Suspense>
+  );
 }

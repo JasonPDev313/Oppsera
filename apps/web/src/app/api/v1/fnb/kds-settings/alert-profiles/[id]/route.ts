@@ -4,7 +4,7 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
 import {
   getAlertProfile,
-  upsertAlertProfile,
+  updateAlertProfile,
   updateAlertProfileSchema,
 } from '@oppsera/module-fnb';
 
@@ -44,7 +44,7 @@ export const PATCH = withMiddleware(
       );
     }
 
-    const profile = await upsertAlertProfile(ctx, { ...parsed.data, profileId } as any);
+    const profile = await updateAlertProfile(ctx, { ...parsed.data, profileId });
     return NextResponse.json({ data: profile });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage', writeAccess: true },

@@ -93,6 +93,39 @@ async function attemptTokenRefresh(): Promise<boolean> {
   }
 }
 
+// ── Step-up token cache ───────────────────────────────────────────
+// Module-level cache so tokens survive component unmounts but not page refreshes.
+const _stepUpTokenCache = new Map<string, { token: string; expiresAt: number }>();
+
+/** Set a step-up token for a category. */
+export function setStepUpToken(category: string, token: string, expiresAt: number): void {
+  _stepUpTokenCache.set(category, { token, expiresAt });
+}
+
+/** Get any valid cached step-up token. Returns the first non-expired token. */
+function getActiveStepUpToken(): string | null {
+  const now = Date.now();
+  for (const [category, entry] of _stepUpTokenCache) {
+    if (now >= entry.expiresAt) {
+      _stepUpTokenCache.delete(category);
+      continue;
+    }
+    return entry.token;
+  }
+  return null;
+}
+
+/** Check if a valid step-up token exists for a specific category. */
+export function hasStepUpToken(category: string): boolean {
+  const entry = _stepUpTokenCache.get(category);
+  if (!entry) return false;
+  if (Date.now() >= entry.expiresAt) {
+    _stepUpTokenCache.delete(category);
+    return false;
+  }
+  return true;
+}
+
 function getActiveRoleId(): string | null {
   try {
     if (typeof window === 'undefined') return null;
@@ -192,6 +225,18 @@ export async function apiFetch<T = unknown>(
     if (activeRoleId) {
       headers['x-role-id'] = activeRoleId;
     }
+  }
+
+  // Replay protection: nonce + timestamp on all mutations
+  if (method !== 'GET' && method !== 'HEAD') {
+    headers['X-Request-Nonce'] = crypto.randomUUID();
+    headers['X-Request-Timestamp'] = String(Date.now());
+  }
+
+  // Step-up token (if cached for the request's category)
+  const stepUpToken = getActiveStepUpToken();
+  if (stepUpToken) {
+    headers['X-Step-Up-Token'] = stepUpToken;
   }
 
   // Auth paths and /me are excluded from circuit breaker failure counting.

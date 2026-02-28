@@ -647,9 +647,13 @@ describe('Session 6 — closeBillingCycle', () => {
     mockSelectReturns.mockReturnValueOnce([sub1, sub2]);
     // 2nd select: fetch plan for sub1 (select.from.where.limit)
     mockSelectReturns.mockReturnValueOnce([plan]);
+    // 3rd select: fetch account for sub1 (select.from.where.limit)
+    mockSelectReturns.mockReturnValueOnce([makeAccountRow()]);
     // sub1 update.set.where — no .returning(), no consumption
-    // 3rd select: fetch plan for sub2 (select.from.where.limit)
+    // 4th select: fetch plan for sub2 (select.from.where.limit)
     mockSelectReturns.mockReturnValueOnce([plan]);
+    // 5th select: fetch account for sub2 (select.from.where.limit)
+    mockSelectReturns.mockReturnValueOnce([makeAccountRow({ id: 'acct_002', customerId: 'cust_002' })]);
     // sub2 update.set.where — no .returning(), no consumption
 
     const result = await closeBillingCycle(makeCtx(), {
@@ -668,6 +672,7 @@ describe('Session 6 — closeBillingCycle', () => {
     mockSelectReturns.mockReturnValueOnce([sub]);
     // 2nd select: plan lookup (select.from.where.limit)
     mockSelectReturns.mockReturnValueOnce([plan]);
+    // 3rd select: account lookup (select.from.where.limit) — falls back to [] default
     // update.set.where — no .returning(), no consumption
 
     const result = await closeBillingCycle(makeCtx(), {
@@ -708,9 +713,13 @@ describe('Session 6 — closeBillingCycle', () => {
     mockSelectReturns.mockReturnValueOnce([sub1, sub2]);
     // 2nd select: plan for sub1 (select.from.where.limit)
     mockSelectReturns.mockReturnValueOnce([plan]);
+    // 3rd select: account for sub1 (select.from.where.limit)
+    mockSelectReturns.mockReturnValueOnce([makeAccountRow()]);
     // sub1 update — no consumption
-    // 3rd select: plan for sub2 (select.from.where.limit)
+    // 4th select: plan for sub2 (select.from.where.limit)
     mockSelectReturns.mockReturnValueOnce([plan]);
+    // 5th select: account for sub2 (select.from.where.limit)
+    mockSelectReturns.mockReturnValueOnce([makeAccountRow({ id: 'acct_002', customerId: 'cust_002' })]);
     // sub2 update — no consumption
 
     const result = await closeBillingCycle(makeCtx(), {

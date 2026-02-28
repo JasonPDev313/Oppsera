@@ -69,5 +69,5 @@ export const POST = withMiddleware(
       { status: 404 },
     );
   },
-  { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true },
+  { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true, replayGuard: true, stepUp: 'financial_critical' },
 );

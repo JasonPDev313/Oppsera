@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { jitterTtlMs } from '@oppsera/db';
 
 // ── Semantic Query Result Cache ───────────────────────────────────
 // In-memory LRU cache for executed query results.
@@ -16,6 +17,8 @@ export interface CachedQueryResult {
   rows: Record<string, unknown>[];
   rowCount: number;
   cachedAt: number;
+  /** Per-entry jittered TTL in ms. Prevents synchronized cache expirations. */
+  ttl: number;
 }
 
 export interface QueryCacheStats {
@@ -61,7 +64,7 @@ export function getFromQueryCache(
     return null;
   }
 
-  if (Date.now() - entry.cachedAt > QUERY_CACHE_TTL_MS) {
+  if (Date.now() - entry.cachedAt > (entry.ttl ?? QUERY_CACHE_TTL_MS)) {
     _cache.delete(key);
     const ct = _tenantCounts.get(tenantId) ?? 0;
     if (ct > 0) _tenantCounts.set(tenantId, ct - 1);
@@ -113,7 +116,7 @@ export function setInQueryCache(
     }
   }
 
-  _cache.set(key, { rows, rowCount, cachedAt: Date.now() });
+  _cache.set(key, { rows, rowCount, cachedAt: Date.now(), ttl: jitterTtlMs(QUERY_CACHE_TTL_MS) });
   if (!isUpdate) {
     _tenantCounts.set(tenantId, (_tenantCounts.get(tenantId) ?? 0) + 1);
   }

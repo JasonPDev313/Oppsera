@@ -128,6 +128,8 @@ export interface PipelineInput {
   skipNarrative?: boolean;     // return raw data without narrative (for API mode)
   /** Enable SSE streaming — narrative chunks are emitted progressively via onEvent callback. */
   stream?: boolean;
+  /** Domain slugs to exclude from the registry catalog (e.g. ['golf'] for non-golf tenants). */
+  excludeDomains?: string[];
 }
 
 // ── SSE Streaming types ──────────────────────────────────────────

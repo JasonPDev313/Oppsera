@@ -61,7 +61,6 @@ function formatDate(iso: string): string {
 
 const PREFERENCE_CATEGORIES = [
   'food_beverage',
-  'golf',
   'retail',
   'service',
   'facility',
@@ -73,7 +72,6 @@ const PREFERENCE_CATEGORIES = [
 
 const CATEGORY_LABELS: Record<string, string> = {
   food_beverage: 'Food & Beverage',
-  golf: 'Golf',
   retail: 'Retail',
   service: 'Service',
   facility: 'Facility',
@@ -87,7 +85,6 @@ const CATEGORY_ICONS: Record<string, typeof Heart> = {
   food_beverage: Heart,
   dietary: Heart,
   communication: Bell,
-  golf: Settings,
   retail: Settings,
   service: Settings,
   facility: Settings,

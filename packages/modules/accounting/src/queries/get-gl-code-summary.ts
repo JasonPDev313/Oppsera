@@ -4,6 +4,7 @@ import { withTenant } from '@oppsera/db';
 export interface GlCodeSummaryLine {
   section: 'revenue' | 'tender' | 'tax' | 'tip' | 'discount' | 'expense' | 'other';
   memo: string;
+  accountId: string;
   accountNumber: string;
   accountName: string;
   accountDisplay: string;
@@ -111,12 +112,13 @@ export async function getGlCodeSummary(
       SELECT
         section,
         display_memo,
+        account_id,
         account_number,
         account_name,
         SUM(debit_amt) AS total_debit,
         SUM(credit_amt) AS total_credit
       FROM classified
-      GROUP BY section, display_memo, account_number, account_name
+      GROUP BY section, display_memo, account_id, account_number, account_name
       ORDER BY
         CASE section
           WHEN 'revenue' THEN 1
@@ -148,6 +150,7 @@ export async function getGlCodeSummary(
       return {
         section: String(row.section) as GlCodeSummaryLine['section'],
         memo: String(row.display_memo),
+        accountId: String(row.account_id),
         accountNumber,
         accountName,
         accountDisplay: `${accountNumber} - ${accountName}`,

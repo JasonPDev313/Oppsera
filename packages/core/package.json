@@ -5,6 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./events": "./src/events/index.ts",
+    "./audit": "./src/audit/index.ts",
+    "./helpers": "./src/helpers/index.ts",
     "./*": "./src/*.ts",
     "./auth/*": "./src/auth/*.ts",
     "./security": "./src/security/index.ts"

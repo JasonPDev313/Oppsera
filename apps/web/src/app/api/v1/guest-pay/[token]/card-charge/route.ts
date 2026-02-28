@@ -4,8 +4,10 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { AppError } from '@oppsera/shared';
 import { getGuestPaySessionByToken } from '@oppsera/module-fnb';
 import { hasPaymentsGateway, getPaymentsGatewayApi } from '@oppsera/core/helpers/payments-gateway-api';
-import { db } from '@oppsera/db';
+import type { RequestContext } from '@oppsera/core/auth/context';
+import { db, eventOutbox } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
+import { generateUlid } from '@oppsera/shared';
 import { z } from 'zod';
 
 // ── Zod schema for card-charge request body ─────────────────
@@ -90,31 +92,29 @@ export const POST = withMiddleware(
     const sessionId = session.id;
     const clientRequestId = `guest-pay-${sessionId}-${Date.now()}`;
 
-    // Use a minimal context for gateway — guest pay is unauthenticated
-    const ctx = {
-      tenantId: '', // Will be resolved from session
-      locationId: '', // Will be resolved from session
-      user: { id: 'guest', email: 'guest@pay', name: 'Guest' },
-      requestId: clientRequestId,
-    };
-
-    // Look up actual tenant/location from the session (we need the raw DB row)
+    // Look up actual tenant/location/tab/order from the session (we need the raw DB row)
     const sessionRows = await db.execute(
-      sql`SELECT tenant_id, location_id FROM guest_pay_sessions WHERE id = ${sessionId}`,
+      sql`SELECT tenant_id, location_id, tab_id, order_id FROM guest_pay_sessions WHERE id = ${sessionId}`,
     );
     const sessionRow = Array.from(sessionRows as Iterable<Record<string, unknown>>)[0];
     if (!sessionRow) {
       throw new AppError('SESSION_NOT_FOUND', 'Session data not found', 404);
     }
 
-    ctx.tenantId = sessionRow.tenant_id as string;
-    ctx.locationId = sessionRow.location_id as string;
+    // Use a minimal context for gateway — guest pay is unauthenticated
+    const ctx: RequestContext = {
+      tenantId: sessionRow.tenant_id as string,
+      locationId: sessionRow.location_id as string,
+      user: { id: 'guest', email: 'guest@pay', name: 'Guest', tenantId: sessionRow.tenant_id as string, tenantStatus: 'active', membershipStatus: 'none' },
+      requestId: clientRequestId,
+      isPlatformAdmin: false,
+    };
 
     // 5. Process card payment via gateway
     let gatewayResult;
     try {
       const gateway = getPaymentsGatewayApi();
-      gatewayResult = await gateway.sale(ctx as any, {
+      gatewayResult = await gateway.sale(ctx, {
         amountCents: chargeAmountCents,
         token: cardToken.trim(),
         tipCents: tipAmountCents > 0 ? tipAmountCents : undefined,
@@ -156,7 +156,43 @@ export const POST = withMiddleware(
           WHERE id = ${sessionId} AND status = 'active'`,
     );
 
-    // 8. Return success with card details
+    // 8. Emit guest pay payment succeeded event for reporting pipeline
+    try {
+      const eventId = generateUlid();
+      const now = new Date().toISOString();
+      await db.insert(eventOutbox).values({
+        id: generateUlid(),
+        tenantId: ctx.tenantId,
+        eventType: 'fnb.guestpay.payment_succeeded.v1',
+        eventId,
+        idempotencyKey: `guest-pay-succeeded-${sessionId}`,
+        payload: {
+          eventId,
+          eventType: 'fnb.guestpay.payment_succeeded.v1',
+          occurredAt: now,
+          tenantId: ctx.tenantId,
+          locationId: ctx.locationId,
+          actorUserId: 'guest',
+          idempotencyKey: `guest-pay-succeeded-${sessionId}`,
+          data: {
+            sessionId,
+            locationId: ctx.locationId,
+            amountCents: session.totalCents,
+            tipCents: tipAmountCents,
+            paymentMethod: 'card',
+            tabId: (sessionRow.tab_id as string) ?? null,
+            orderId: (sessionRow.order_id as string) ?? null,
+          },
+        },
+        occurredAt: new Date(),
+        publishedAt: null,
+      });
+    } catch {
+      // Best-effort — don't block payment response on event emission
+      console.error(`[guest-pay] Failed to emit payment_succeeded event for session ${sessionId}`);
+    }
+
+    // 9. Return success with card details
     return NextResponse.json({
       data: {
         status: 'paid',

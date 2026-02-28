@@ -40,7 +40,7 @@ const CARDS: {
     warnWhen: (v) => v > 0,
   },
   {
-    key: 'activeCustomers30d',
+    key: 'activeCustomers7d',
     label: 'Active Customers',
     icon: Users,
     iconColor: 'bg-indigo-500/20 text-indigo-500',

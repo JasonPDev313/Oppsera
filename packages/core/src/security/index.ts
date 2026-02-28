@@ -18,3 +18,18 @@ export type {
   ListLoginRecordsInput, ListAdminLoginRecordsInput,
   LoginRecordRow, ListLoginRecordsResult,
 } from './login-queries';
+
+export {
+  checkReplayGuard, setReplayGuardStore, getReplayGuardStore,
+} from './replay-guard';
+export type { ReplayGuardStore } from './replay-guard';
+
+export {
+  checkBotScore, recordBotResponseStatus,
+  setBotDetectorStore, getBotDetectorStore,
+} from './bot-detector';
+export type { BotDetectorStore, BotCheckResult } from './bot-detector';
+
+export {
+  requireStepUp, createStepUpToken, StepUpRequiredError,
+} from './step-up-auth';

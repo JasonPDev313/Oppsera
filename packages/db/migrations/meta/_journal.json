@@ -1576,6 +1576,90 @@
       "when": 1708100224000,
       "tag": "0224_unified_revenue_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 225,
+      "version": "7",
+      "when": 1708100225000,
+      "tag": "0225_sales_history_enrichment",
+      "breakpoints": true
+    },
+    {
+      "idx": 226,
+      "version": "7",
+      "when": 1708100226000,
+      "tag": "0226_lock_timeout",
+      "breakpoints": true
+    },
+    {
+      "idx": 227,
+      "version": "7",
+      "when": 1708100227000,
+      "tag": "0227_multi_currency_engine",
+      "breakpoints": true
+    },
+    {
+      "idx": 228,
+      "version": "7",
+      "when": 1708100228000,
+      "tag": "0228_intercompany_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 229,
+      "version": "7",
+      "when": 1708100229000,
+      "tag": "0229_project_job_costing",
+      "breakpoints": true
+    },
+    {
+      "idx": 230,
+      "version": "7",
+      "when": 1708100230000,
+      "tag": "0230_customer_spending_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "7",
+      "when": 1708100231000,
+      "tag": "0231_expense_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 232,
+      "version": "7",
+      "when": 1708100232000,
+      "tag": "0232_receipt_public_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 233,
+      "version": "7",
+      "when": 1709078400000,
+      "tag": "0233_principal_index_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 234,
+      "version": "7",
+      "when": 1709164800000,
+      "tag": "0234_budgets",
+      "breakpoints": true
+    },
+    {
+      "idx": 235,
+      "version": "7",
+      "when": 1709251200000,
+      "tag": "0235_fixed_assets",
+      "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1709337600000,
+      "tag": "0236_gl_document_attachments",
+      "breakpoints": true
     }
   ]
 }

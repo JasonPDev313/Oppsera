@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
+import { warmOpenTabs } from '@/hooks/use-fnb-tab';
 import type {
   FloorPlanWithLiveStatus,
   FnbTableWithStatus,
@@ -46,17 +47,20 @@ const ROOMS_SNAPSHOT_TTL_MS = 30 * 60_000;
  * Call during POS setup so the floor view renders instantly.
  * Fire-and-forget — errors are silently swallowed.
  */
-export async function warmFloorPlanCache(roomId: string): Promise<void> {
-  if (!roomId) return;
+export async function warmFloorPlanCache(roomId: string): Promise<FloorPlanWithLiveStatus | null> {
+  if (!roomId) return null;
   // Skip if already cached and fresh
-  if (getSnapshot(roomId)) return;
+  const cached = getSnapshot(roomId);
+  if (cached) return cached;
   try {
     const json = await apiFetch<{ data: FloorPlanWithLiveStatus }>(
       `/api/v1/fnb/tables/floor-plan?roomId=${roomId}`,
     );
     setSnapshot(roomId, json.data);
+    return json.data;
   } catch {
     // non-critical — cold start will fetch normally
+    return null;
   }
 }
 
@@ -142,6 +146,16 @@ export function useFnbFloor({ roomId, pollIntervalMs = 20 * 60_000 }: UseFnbFloo
     window.addEventListener('pos-visibility-resume', handler);
     return () => window.removeEventListener('pos-visibility-resume', handler);
   }, [refresh]);
+
+  // Auto-warm tab cache whenever floor plan data refreshes (poll or visibility resume).
+  // Fire-and-forget — warmOpenTabs skips already-cached tabs and deduplicates in-flight.
+  useEffect(() => {
+    if (!data?.tables) return;
+    const tabIds = data.tables
+      .map((t) => t.currentTabId)
+      .filter((id): id is string => !!id);
+    if (tabIds.length > 0) warmOpenTabs(tabIds);
+  }, [data]);
 
   return {
     data: data ?? null,

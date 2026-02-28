@@ -1,24 +1,25 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Delete } from 'lucide-react';
+import { Delete, ArrowLeft } from 'lucide-react';
 
 interface CashKeypadProps {
   totalCents: number;
   onSubmit: (amountCents: number) => void;
+  onBack?: () => void;
   disabled?: boolean;
 }
 
 const QUICK_AMOUNTS = [
-  { label: 'Exact', cents: 0 },
-  { label: '$5', cents: 500 },
-  { label: '$10', cents: 1000 },
-  { label: '$20', cents: 2000 },
-  { label: '$50', cents: 5000 },
-  { label: '$100', cents: 10000 },
+  { label: 'Exact', cents: 0, primary: true },
+  { label: '$5', cents: 500, primary: false },
+  { label: '$10', cents: 1000, primary: false },
+  { label: '$20', cents: 2000, primary: false },
+  { label: '$50', cents: 5000, primary: false },
+  { label: '$100', cents: 10000, primary: false },
 ];
 
-export function CashKeypad({ totalCents, onSubmit, disabled }: CashKeypadProps) {
+export function CashKeypad({ totalCents, onSubmit, onBack, disabled }: CashKeypadProps) {
   const [input, setInput] = useState('');
 
   const inputCents = input ? Math.round(parseFloat(input) * 100) : 0;
@@ -60,10 +61,33 @@ export function CashKeypad({ totalCents, onSubmit, disabled }: CashKeypadProps) 
   const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 fnb-fade-scale-in">
+      {/* Header with back button */}
+      <div className="flex items-center gap-2">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center justify-center rounded-lg h-8 w-8 transition-all hover:scale-105 active:scale-95"
+            style={{
+              backgroundColor: 'var(--fnb-bg-elevated)',
+              color: 'var(--fnb-text-secondary)',
+            }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+        )}
+        <span
+          className="text-[10px] font-bold uppercase tracking-wider"
+          style={{ color: 'var(--fnb-tender-cash)' }}
+        >
+          Cash Payment
+        </span>
+      </div>
+
       {/* Display */}
       <div
-        className="rounded-lg p-3 text-center"
+        className="rounded-xl p-4 text-center"
         style={{ backgroundColor: 'var(--fnb-bg-elevated)' }}
       >
         <div
@@ -73,17 +97,17 @@ export function CashKeypad({ totalCents, onSubmit, disabled }: CashKeypadProps) 
           Amount Tendered
         </div>
         <div
-          className="text-2xl font-mono font-bold"
+          className="text-3xl font-mono font-bold"
           style={{ color: 'var(--fnb-text-primary)', fontFamily: 'var(--fnb-font-mono)' }}
         >
           {input ? `$${input}` : '$0.00'}
         </div>
       </div>
 
-      {/* Large change-due display (Phase 2B) */}
+      {/* Large change-due display */}
       {inputCents > 0 && inputCents >= totalCents && (
         <div
-          className="rounded-xl p-4 text-center"
+          className="rounded-xl p-4 text-center fnb-success-pop"
           style={{ backgroundColor: 'var(--fnb-payment-success-bg)' }}
         >
           <div
@@ -105,18 +129,24 @@ export function CashKeypad({ totalCents, onSubmit, disabled }: CashKeypadProps) 
         </div>
       )}
 
-      {/* Quick amounts — 3×2 grid (Phase 2A) */}
+      {/* Quick amounts — 3×2 grid */}
       <div className="grid grid-cols-3 gap-2">
-        {QUICK_AMOUNTS.map(({ label, cents }) => (
+        {QUICK_AMOUNTS.map(({ label, cents, primary }) => (
           <button
             key={label}
             type="button"
             onClick={() => handleQuickAmount(cents)}
             disabled={disabled}
-            className="rounded-lg py-2 text-xs font-bold transition-colors hover:opacity-80 disabled:opacity-40"
+            className="rounded-xl py-2.5 font-bold transition-all hover:scale-[1.03] active:scale-[0.97] disabled:opacity-40"
             style={{
-              backgroundColor: 'var(--fnb-bg-elevated)',
-              color: 'var(--fnb-text-secondary)',
+              backgroundColor: primary
+                ? 'var(--fnb-tender-cash)'
+                : 'var(--fnb-bg-elevated)',
+              color: primary ? '#fff' : 'var(--fnb-text-secondary)',
+              border: primary
+                ? '1.5px solid var(--fnb-tender-cash)'
+                : '1.5px solid transparent',
+              fontSize: '0.8125rem',
             }}
           >
             {label}
@@ -138,11 +168,13 @@ export function CashKeypad({ totalCents, onSubmit, disabled }: CashKeypadProps) 
               if (key === 'del') handleClear();
             }}
             disabled={disabled}
-            className="flex items-center justify-center rounded-lg font-bold text-base sm:text-lg transition-colors hover:opacity-80 disabled:opacity-40"
+            className="flex items-center justify-center rounded-xl font-bold text-lg transition-all hover:scale-[1.02] active:scale-[0.97] disabled:opacity-40"
             style={{
-              height: 56,
-              backgroundColor: 'var(--fnb-bg-elevated)',
-              color: 'var(--fnb-text-primary)',
+              height: 60,
+              backgroundColor: key === 'del'
+                ? 'color-mix(in srgb, var(--fnb-danger) 12%, transparent)'
+                : 'var(--fnb-bg-elevated)',
+              color: key === 'del' ? 'var(--fnb-danger)' : 'var(--fnb-text-primary)',
             }}
           >
             {key === 'del' ? <Delete className="h-5 w-5" /> : key}
@@ -155,7 +187,7 @@ export function CashKeypad({ totalCents, onSubmit, disabled }: CashKeypadProps) 
         type="button"
         onClick={handleSubmit}
         disabled={disabled || inputCents < totalCents}
-        className="rounded-lg py-3 text-sm font-bold text-white transition-colors hover:opacity-90 disabled:opacity-40"
+        className="rounded-xl py-3.5 text-sm font-bold text-white transition-all hover:scale-[1.01] active:scale-[0.99] hover:opacity-90 disabled:opacity-40"
         style={{ backgroundColor: 'var(--fnb-status-available)' }}
       >
         Pay {input ? formatMoney(inputCents) : 'Cash'}

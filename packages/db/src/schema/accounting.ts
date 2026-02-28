@@ -136,6 +136,9 @@ export const glJournalLines = pgTable(
     channel: text('channel'),
     // ── Discount classification (migration 0212) ──
     discountClassification: text('discount_classification'),
+    // ── Project costing dimensions (migration 0229) ──
+    projectId: text('project_id'),
+    projectTaskId: text('project_task_id'),
     memo: text('memo'),
     sortOrder: integer('sort_order').notNull().default(0),
   },
@@ -463,6 +466,38 @@ export const glCoaImportLogs = pgTable(
   ],
 );
 
+// ── currency_exchange_rates (migration 0227) ────────────────────
+// Stores exchange rates per currency pair per date per tenant.
+export const currencyExchangeRates = pgTable(
+  'currency_exchange_rates',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    fromCurrency: text('from_currency').notNull(),
+    toCurrency: text('to_currency').notNull(),
+    rate: numeric('rate', { precision: 12, scale: 6 }).notNull(),
+    effectiveDate: date('effective_date').notNull(),
+    source: text('source').notNull().default('manual'), // 'manual' | 'api' | 'import'
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by'),
+  },
+  (table) => [
+    uniqueIndex('uq_currency_exchange_rates_pair_date').on(
+      table.tenantId,
+      table.fromCurrency,
+      table.toCurrency,
+      table.effectiveDate,
+    ),
+    index('idx_currency_exchange_rates_lookup').on(
+      table.tenantId,
+      table.fromCurrency,
+      table.toCurrency,
+    ),
+  ],
+);
+
 // ── coa_import_sessions (migration 0160) ─────────────────────────
 // Multi-step wizard state persistence for intelligent COA import.
 // Lifecycle: uploaded → analyzed → mapping_review → previewed → importing → complete | failed
@@ -530,3 +565,31 @@ export const coaImportSessions = pgTable(
     index('idx_coa_import_sessions_status').on(table.tenantId, table.status),
   ],
 );
+
+// ── gl_document_attachments ──────────────────────────────────────
+// Receipts, invoices, and documents attached to GL journal entries.
+export const glDocumentAttachments = pgTable(
+  'gl_document_attachments',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    journalEntryId: text('journal_entry_id')
+      .notNull()
+      .references(() => glJournalEntries.id),
+    fileName: text('file_name').notNull(),
+    fileType: text('file_type').notNull(),
+    fileSizeBytes: integer('file_size_bytes').notNull(),
+    storageKey: text('storage_key').notNull(),
+    description: text('description'),
+    uploadedBy: text('uploaded_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('idx_gl_doc_attachments_tenant_journal').on(t.tenantId, t.journalEntryId),
+  ],
+);
+
+export type GlDocumentAttachment = typeof glDocumentAttachments.$inferSelect;
+export type NewGlDocumentAttachment = typeof glDocumentAttachments.$inferInsert;
