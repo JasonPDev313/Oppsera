@@ -177,7 +177,7 @@ function makeExpenseRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makePolicyRow(overrides: Record<string, unknown> = {}) {
+function _makePolicyRow(overrides: Record<string, unknown> = {}) {
   const base = {
     id: 'policy-1',
     tenant_id: TENANT_ID,
@@ -218,9 +218,8 @@ function createMockTx() {
       const idx = selectCallCount - 1;
       const data = idx < results.length ? results[idx] : [];
       // Make the chain thenable so await works
-      const self = this;
-      self._lastSelectResult = data;
-      return self;
+      tx._lastSelectResult = data;
+      return tx;
     }),
     limit: vi.fn(function (this: any) {
       return Promise.resolve(this._lastSelectResult ?? []);

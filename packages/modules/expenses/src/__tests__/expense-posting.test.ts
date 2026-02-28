@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { RequestContext } from '@oppsera/core';
 
 // ── Mocks (hoisted) ────────────────────────────────────────────
 
@@ -244,7 +245,7 @@ function createCtx() {
     locationId: 'loc-1',
     user: { id: USER_ID, email: 'test@example.com', role: 'manager' },
     requestId: 'req-1',
-  } as unknown as import('@oppsera/core').RequestContext;
+  } as unknown as RequestContext;
 }
 
 // ── GL Posting Tests ────────────────────────────────────────────
@@ -394,7 +395,7 @@ describe('Expense GL Posting', () => {
     tx._selectResults = [[expense]];
     tx._returningResults = [[{ ...expense, status: 'posted', gl_journal_entry_id: 'je-1' }]];
 
-    const result = await postExpense(
+    await postExpense(
       createCtx(),
       EXPENSE_ID,
     );

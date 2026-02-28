@@ -134,15 +134,6 @@ export async function getSalesHistory(
         : sql`occurred_at DESC, id DESC`;
     }
 
-    // Summary doesn't include cursor (we want all-data summary, not page-scoped)
-    const summaryConditions = conditions.filter(
-      (c) => c !== conditions.find((x) => {
-        // Remove cursor condition for summary
-        const str = (x as { queryChunks?: unknown[] })?.queryChunks?.toString?.();
-        return str?.includes?.('id <');
-      }),
-    );
-
     // Rebuild summary WHERE without cursor
     const summaryConds: ReturnType<typeof sql>[] = [
       sql`tenant_id = ${input.tenantId}`,

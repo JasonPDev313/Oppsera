@@ -16,7 +16,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  */
 
 // ── Hoisted mocks ─────────────────────────────────────────────
-const { mockExecute, mockSelect, mockWithTenant } = vi.hoisted(() => {
+const { mockExecute, mockSelect: _mockSelect, mockWithTenant } = vi.hoisted(() => {
   function makeSelectChain(result: unknown[] = []) {
     const chain: Record<string, ReturnType<typeof vi.fn>> = {};
     chain.from = vi.fn().mockReturnValue(chain);
