@@ -59,6 +59,23 @@ vi.mock('@oppsera/core/auth/with-middleware', () => ({
   withMiddleware: mockWithMiddleware,
 }));
 
+vi.mock('@oppsera/db', () => {
+  // Use a stable chainable object (not vi.fn) so clearAllMocks doesn't break the chain
+  const limitFn = () => Promise.resolve([{ businessVertical: 'golf' }]);
+  const whereFn = () => ({ limit: limitFn });
+  const fromFn = () => ({ where: whereFn });
+  const selectFn = () => ({ from: fromFn });
+  return {
+    db: { select: selectFn },
+    tenants: { id: 'tenants.id', businessVertical: 'tenants.businessVertical' },
+    sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
+  };
+});
+
+vi.mock('drizzle-orm', () => ({
+  eq: (...args: unknown[]) => args,
+}));
+
 vi.mock('@oppsera/module-golf-reporting', () => ({
   getGolfDashboardMetrics: mockGetGolfDashboardMetrics,
   getGolfUtilization: mockGetGolfUtilization,
