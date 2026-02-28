@@ -10259,3 +10259,169 @@ blocks, because `vi.clearAllMocks()` resets `vi.fn()` return values but not plai
 Run `pnpm test` before pushing to catch test failures locally. CI runs lint → type-check → test → build,
 and failures block the deployment pipeline.
 
+## §205 — Vercel Serverless DB Safety Rules
+
+### The Vercel Event Loop Freeze Problem
+
+On Vercel serverless, the Node.js event loop is **frozen** after the HTTP response is sent. Any
+in-flight Promises (especially DB queries) become "zombie" connections: the query may have completed
+on the Postgres side, but the Node.js client never reads the result. The connection sits in
+`ClientRead` state until `statement_timeout` or `idle_in_transaction_session_timeout` kills it.
+
+With `max: 2` pool per Vercel instance, just **2 stuck connections = total pool exhaustion =
+all requests fail including login**. This caused production outages on 2026-02-27 and 2026-02-28.
+
+### Rule 1: NEVER Fire-and-Forget DB Operations After HTTP Response
+
+**CRITICAL**: Any `void someDbQuery().catch(() => {})` or unawaited Promise that touches the database
+is lethal on Vercel. The HTTP response is sent, Vercel freezes the event loop, the DB connection
+is stuck forever (until server-side timeout kills it).
+
+```typescript
+// ❌ LETHAL on Vercel — connection stuck in ClientRead until timeout
+void ensureReadModelsPopulated(db, tenantId, table).catch(() => {});
+recordLoginEvent({ ... }).catch(() => {});
+void withTenant(tenantId, async (tx) => { /* GL posting */ }).catch(() => {});
+
+// ✅ SAFE — await completes BEFORE response is sent
+await ensureReadModelsPopulated(db, tenantId, table);
+// Or: remove entirely and rely on lazy loading / SWR cache
+```
+
+**Exception**: Pure in-memory operations are safe to fire-and-forget (e.g., `recordBotResponseStatus()`
+which only writes to a Map, not to the DB).
+
+### Rule 2: All DB Work Must Complete Before `return NextResponse.json(...)`
+
+In API route handlers, every DB query, transaction, or side effect must be `await`ed BEFORE
+the response is returned. After the `return` statement, Vercel may freeze the process at any time.
+
+```typescript
+// ❌ BAD — DB write happens after response is queued
+const response = NextResponse.json({ data: result });
+auditLog(ctx, 'action', 'entity', id).catch(() => {}); // May never complete
+return response;
+
+// ✅ GOOD — all DB work completes before response
+try { await auditLog(ctx, 'action', 'entity', id); } catch { /* non-fatal */ }
+return NextResponse.json({ data: result });
+```
+
+### Rule 3: `instrumentation.ts` Must Not Fire-and-Forget DB Queries
+
+The `register()` function in `instrumentation.ts` runs once per cold start. Fire-and-forget DB
+queries here compete with critical-path requests for the `max:2` pool. If the cold start freezes
+(Vercel timeout), these connections become permanent zombies.
+
+```typescript
+// ❌ LETHAL — 4 DB queries that may never complete
+void importSafe('Pre-warm', async () => {
+  const catalog = await buildRegistryCatalog(); // 4 DB queries
+});
+
+// ✅ SAFE — rely on lazy loading with SWR cache
+// The SWR cache in registry.ts handles cold starts — first semantic query loads it.
+```
+
+**Allowed in `instrumentation.ts`**: `bus.subscribe()` calls (no DB), `SELECT 1` warm-up
+(completes in <10ms), pure in-memory setup.
+
+### Rule 4: Wrap All DB Access in `guardedQuery()`
+
+Every DB operation should go through `guardedQuery()` from `pool-guard.ts`. This provides:
+- Concurrency limiting (prevents pool exhaustion from concurrent requests)
+- Circuit breaker (fail-fast during pool exhaustion recovery)
+- Slow query logging
+- Queue depth warnings
+
+```typescript
+// ❌ BAD — bypasses pool guard, no concurrency control
+const rows = await db.select().from(table).where(eq(table.tenantId, tenantId));
+
+// ✅ GOOD — goes through pool guard via withTenant
+const rows = await withTenant(tenantId, async (tx) => {
+  return tx.select().from(table);
+});
+
+// ✅ ALSO GOOD — explicit guardedQuery for non-tenant-scoped queries
+const rows = await guardedQuery('myOperation', () =>
+  db.select().from(table).where(eq(table.id, id))
+);
+```
+
+**Modules that MUST use `guardedQuery` or `withTenant`**: semantic registry, usage tracker,
+outbox worker, admin backup, dead letter service, observability queries.
+
+### Rule 5: Post-Transaction Side Effects Must Be Awaited
+
+The pattern of "core transaction completes → fire-and-forget side effects" is common but
+dangerous on Vercel. GL posting, audit logging, and event publishing that happen after the
+main `publishWithOutbox` transaction must be awaited (or wrapped in try/catch that logs but
+doesn't block the response path if they fail).
+
+```typescript
+// ❌ BAD — GL posting may never complete on Vercel
+const result = await publishWithOutbox(ctx, async (tx) => { /* ... */ });
+withTenant(ctx.tenantId, async (glTx) => {
+  await generateJournalEntry(glTx, /* ... */);
+}).catch(() => { console.error('GL failed'); });
+return result;
+
+// ✅ GOOD — await GL posting with try/catch (non-fatal)
+const result = await publishWithOutbox(ctx, async (tx) => { /* ... */ });
+try {
+  await withTenant(ctx.tenantId, async (glTx) => {
+    await generateJournalEntry(glTx, /* ... */);
+  });
+} catch (err) {
+  console.error('Legacy GL failed:', err instanceof Error ? err.message : err);
+}
+return result;
+```
+
+### Rule 6: Login Route Must Not Fire-and-Forget Identity Resolution + DB Writes
+
+The login route is the most critical path. Fire-and-forget `resolveGeo().then(resolveUserIdentity().then(recordLoginEvent()))`
+creates a chain of 3+ DB queries that execute after the login response is sent. On Vercel, these
+become zombie connections that block the next login attempt.
+
+**Fix**: Either `await` the login event recording before returning, or remove it from the
+critical login path entirely (move to a background job or event consumer).
+
+### Rule 7: Usage Tracker Must Not Use setInterval + Fire-and-Forget Flush
+
+`setInterval` timers on Vercel are unreliable — the process may freeze between intervals. When the
+timer fires, `flushBuffer().catch(() => {})` runs DB writes that may never complete.
+
+**Fix**: Flush the usage buffer inside the request lifecycle (e.g., at the end of `withMiddleware`)
+using `await`, not via a timer. Or: flush only when the buffer reaches a threshold, synchronously
+within the request that triggered the threshold.
+
+### Diagnostic: Detecting Stuck Connections
+
+When pool exhaustion is suspected:
+
+```bash
+# Run the deep diagnostic script
+node tools/scripts/db-deep-diag.cjs
+
+# Key indicators of Vercel freeze-related exhaustion:
+# - Connections in "idle" state with wait_event = "ClientRead"
+# - Queries are SELECT (read-only) but connections held for >30s
+# - Connection summary shows high total but 0 active, many ClientRead
+```
+
+### Postgres-Level Safety Nets
+
+These `ALTER DATABASE` settings are the last line of defense:
+
+```sql
+ALTER DATABASE postgres SET statement_timeout = '30s';
+ALTER DATABASE postgres SET idle_in_transaction_session_timeout = '60s';
+ALTER DATABASE postgres SET lock_timeout = '5s';
+```
+
+**IMPORTANT**: Do NOT set these via postgres.js `connection` startup params — Supavisor
+(port 6543) rejects all connection startup parameters and kills the connection. Always use
+`ALTER DATABASE` for server-level timeouts.
+

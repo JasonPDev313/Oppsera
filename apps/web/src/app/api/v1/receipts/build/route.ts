@@ -96,14 +96,14 @@ export const POST = withMiddleware(
         receiptToken = link.token;
         lookupCode = link.lookupCode;
 
-        // Fire-and-forget event (no consumers in V1)
+        // Publish event — await to prevent Vercel zombie connections (§205)
         const event = buildEventFromContext(ctx, 'receipt.link.created.v1', {
           orderId,
           token: link.token,
           lookupCode: link.lookupCode,
           variant,
         });
-        getEventBus().publish(event).catch(() => {});
+        try { await getEventBus().publish(event); } catch { /* non-fatal, no consumers in V1 */ }
       }
     } catch {
       // Never block POS — link creation failure is non-fatal

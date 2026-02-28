@@ -33,8 +33,8 @@ export const GET = withMiddleware(
       );
     }
 
-    // Fire-and-forget view tracking
-    incrementViewCount(link.id).catch(() => {});
+    // Await view tracking — fire-and-forget causes Vercel zombie connections (§205)
+    try { await incrementViewCount(link.id); } catch { /* non-fatal */ }
 
     // Redact internal IDs from metadata
     const doc = link.receiptDocumentSnapshot;

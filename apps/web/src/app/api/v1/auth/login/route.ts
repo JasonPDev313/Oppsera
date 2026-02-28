@@ -34,6 +34,33 @@ async function resolveUserIdentity(email: string) {
   }
 }
 
+/**
+ * Record login event with geo data. Awaited before response to prevent
+ * Vercel event loop freeze from creating zombie DB connections.
+ * Non-fatal — never blocks login response on recording failure.
+ */
+async function safeRecordLoginEvent(
+  headers: Headers,
+  ip: string | undefined,
+  identity: { userId: string; tenantId: string | null } | null,
+  email: string,
+  outcome: 'success' | 'failed' | 'locked',
+  userAgent: string | undefined,
+  failureReason?: string,
+): Promise<void> {
+  try {
+    const geo = await resolveGeo(headers, ip);
+    await recordLoginEvent({
+      tenantId: identity?.tenantId ?? '',
+      userId: identity?.userId ?? null,
+      email, outcome, ipAddress: ip, userAgent, geo,
+      failureReason,
+    });
+  } catch {
+    // Non-fatal — never block login on recording failure
+  }
+}
+
 export const POST = withMiddleware(
   async (request) => {
     const rlKey = getRateLimitKey(request, 'auth:login');
@@ -64,17 +91,9 @@ export const POST = withMiddleware(
     // Account-level lockout check (5 failures → 15-min lock)
     const lockout = checkAccountLockout(email);
     if (lockout.locked) {
-      // Fire-and-forget: record locked-out attempt
-      resolveGeo(request.headers, ip).then((geo) => {
-        resolveUserIdentity(email).then((identity) => {
-          recordLoginEvent({
-            tenantId: identity?.tenantId ?? '',
-            userId: identity?.userId ?? null,
-            email, outcome: 'locked', ipAddress: ip, userAgent, geo,
-            failureReason: 'Account temporarily locked',
-          });
-        });
-      }).catch(() => {});
+      // Await login event recording BEFORE returning — Vercel freezes event loop after response
+      const identity = await resolveUserIdentity(email);
+      await safeRecordLoginEvent(request.headers, ip, identity, email, 'locked', userAgent, 'Account temporarily locked');
 
       return NextResponse.json(
         { error: { code: 'ACCOUNT_LOCKED', message: 'Account temporarily locked. Please try again later.' } },
@@ -104,21 +123,15 @@ export const POST = withMiddleware(
         }
       } catch (err) { console.error('[audit]:', err); }
 
-      // Fire-and-forget: record login event with geo (reuses identity from above)
-      resolveGeo(request.headers, ip).then((geo) => {
-        recordLoginEvent({
-          tenantId: identity?.tenantId ?? '',
-          userId: identity?.userId ?? null,
-          email, outcome: 'success', ipAddress: ip, userAgent, geo,
-        });
-      }).catch(() => {});
+      // Await login event recording BEFORE returning — Vercel freezes event loop after response
+      await safeRecordLoginEvent(request.headers, ip, identity, email, 'success', userAgent);
 
       return NextResponse.json({ data: result });
     } catch (error) {
       // Record failure for lockout tracking
       recordLoginFailure(email);
 
-      // Audit failed login with resolved identity — reuse for recording
+      // Audit failed login with resolved identity
       let failIdentity: { userId: string; tenantId: string | null } | null = null;
       try {
         failIdentity = await resolveUserIdentity(email);
@@ -131,15 +144,8 @@ export const POST = withMiddleware(
         );
       } catch (err) { console.error('[audit]:', err); }
 
-      // Fire-and-forget: record failed login event with geo (reuses identity from above)
-      resolveGeo(request.headers, ip).then((geo) => {
-        recordLoginEvent({
-          tenantId: failIdentity?.tenantId ?? '',
-          userId: failIdentity?.userId ?? null,
-          email, outcome: 'failed', ipAddress: ip, userAgent, geo,
-          failureReason: 'Invalid credentials',
-        });
-      }).catch(() => {});
+      // Await login event recording BEFORE throwing — Vercel freezes event loop after response
+      await safeRecordLoginEvent(request.headers, ip, failIdentity, email, 'failed', userAgent, 'Invalid credentials');
 
       if (error instanceof AppError) throw error;
       throw new AppError('AUTH_SIGNIN_FAILED', 'Invalid credentials', 401);

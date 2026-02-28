@@ -262,10 +262,14 @@ export async function executeCompiledQuery(
     throw new ExecutionError(`Query execution failed: ${msg}`, 'QUERY_ERROR');
   }
 
-  // If 0 rows from a read model table, kick off background backfill for next request.
-  // Don't block the current request — return 0 rows immediately.
+  // If 0 rows from a read model table, attempt backfill within this request.
+  // MUST await — fire-and-forget DB queries on Vercel create zombie connections (§205).
   if (rows.length === 0 && compiled.primaryTable.startsWith('rm_')) {
-    void ensureReadModelsPopulated(pg, tenantId, compiled.primaryTable).catch(() => {});
+    try {
+      await ensureReadModelsPopulated(pg, tenantId, compiled.primaryTable);
+    } catch {
+      // Non-fatal — 0 rows is still a valid response; backfill can happen on next request
+    }
   }
 
   const executionTimeMs = Date.now() - startMs;

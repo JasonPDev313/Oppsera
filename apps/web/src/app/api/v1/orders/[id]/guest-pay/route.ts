@@ -221,7 +221,7 @@ export const POST = withMiddleware(
       return { result: sessionResult, events };
     });
 
-    await auditLog(ctx, 'guest_pay.session_created', 'guest_pay_sessions', result.sessionId as string).catch(() => {});
+    try { await auditLog(ctx, 'guest_pay.session_created', 'guest_pay_sessions', result.sessionId as string); } catch { /* non-fatal */ }
     return NextResponse.json({ data: result }, { status: 201 });
   },
   { entitlement: 'orders', permission: 'orders.create', writeAccess: true },

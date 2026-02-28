@@ -354,48 +354,48 @@ export async function placeAndRecordTender(
     };
   });
 
-  // Post-transaction: legacy GL journal entry (fire-and-forget, never blocks POS)
+  // Post-transaction: legacy GL journal entry — MUST await (Vercel freezes event loop after response, §205)
   if (legacyGlData) {
-    withTenant(ctx.tenantId, async (glTx) => {
-      const journalResult = await generateJournalEntry(
-        glTx,
-        {
-          id: legacyGlData!.tenderId,
-          tenantId: legacyGlData!.tenantId,
-          locationId: legacyGlData!.locationId,
-          orderId: legacyGlData!.orderId,
-          tenderType: legacyGlData!.tenderType,
-          amount: legacyGlData!.tenderAmount,
-          tipAmount: legacyGlData!.tipAmount,
-        },
-        {
-          businessDate: legacyGlData!.businessDate,
-          subtotal: legacyGlData!.subtotal,
-          taxTotal: legacyGlData!.taxTotal,
-          serviceChargeTotal: legacyGlData!.serviceChargeTotal,
-          discountTotal: legacyGlData!.discountTotal,
-          total: legacyGlData!.total,
-          lines: legacyGlData!.orderLinesForGL,
-        },
-        legacyGlData!.isFullyPaid,
-      );
-      // Update tender with allocation snapshot (denormalized, non-critical)
-      await (glTx as any).update(tenders).set({
-        allocationSnapshot: journalResult.allocationSnapshot,
-      }).where(eq(tenders.id, legacyGlData!.tenderId));
-    }).catch(() => {
+    try {
+      await withTenant(ctx.tenantId, async (glTx) => {
+        const journalResult = await generateJournalEntry(
+          glTx,
+          {
+            id: legacyGlData!.tenderId,
+            tenantId: legacyGlData!.tenantId,
+            locationId: legacyGlData!.locationId,
+            orderId: legacyGlData!.orderId,
+            tenderType: legacyGlData!.tenderType,
+            amount: legacyGlData!.tenderAmount,
+            tipAmount: legacyGlData!.tipAmount,
+          },
+          {
+            businessDate: legacyGlData!.businessDate,
+            subtotal: legacyGlData!.subtotal,
+            taxTotal: legacyGlData!.taxTotal,
+            serviceChargeTotal: legacyGlData!.serviceChargeTotal,
+            discountTotal: legacyGlData!.discountTotal,
+            total: legacyGlData!.total,
+            lines: legacyGlData!.orderLinesForGL,
+          },
+          legacyGlData!.isFullyPaid,
+        );
+        // Update tender with allocation snapshot (denormalized, non-critical)
+        await (glTx as any).update(tenders).set({
+          allocationSnapshot: journalResult.allocationSnapshot,
+        }).where(eq(tenders.id, legacyGlData!.tenderId));
+      });
+    } catch (err) {
       // Legacy GL failure never blocks POS — log and continue
-      console.error(`Legacy GL failed for tender in order ${orderId}`);
-    });
+      console.error(`Legacy GL failed for tender in order ${orderId}:`, err instanceof Error ? err.message : err);
+    }
   }
 
-  // Fire-and-forget audit logs
-  auditLog(ctx, 'order.placed', 'order', orderId).catch((e) => {
-    console.error('Audit log failed for order.placed:', e instanceof Error ? e.message : e);
-  });
-  auditLog(ctx, 'tender.recorded', 'order', orderId).catch((e) => {
-    console.error('Audit log failed for tender.recorded:', e instanceof Error ? e.message : e);
-  });
+  // Audit logs — awaited with try/catch (non-fatal, but MUST complete before response per §205)
+  try { await auditLog(ctx, 'order.placed', 'order', orderId); }
+  catch (e) { console.error('Audit log failed for order.placed:', e instanceof Error ? e.message : e); }
+  try { await auditLog(ctx, 'tender.recorded', 'order', orderId); }
+  catch (e) { console.error('Audit log failed for tender.recorded:', e instanceof Error ? e.message : e); }
 
   return result;
 }

@@ -129,9 +129,17 @@ export function recordUsage(event: UsageEvent): void {
     }
   }
 
-  // Overflow trigger
+  // Overflow guard: discard oldest entries instead of fire-and-forget DB flush.
+  // On Vercel, fire-and-forget flushBuffer() can start db.transaction() which
+  // gets frozen by event loop freeze, causing zombie connections (§205 Rule 1).
   if (buffer.size > MAX_BUFFER_SIZE) {
-    flushBuffer().catch(() => {});
+    const keysIter = buffer.keys();
+    const toEvict = buffer.size - MAX_BUFFER_SIZE;
+    for (let i = 0; i < toEvict; i++) {
+      const { value, done } = keysIter.next();
+      if (done) break;
+      buffer.delete(value);
+    }
   }
 }
 
@@ -144,10 +152,16 @@ let _tablesExist = false;
 async function checkTablesExist(): Promise<boolean> {
   if (_tablesChecked) return _tablesExist;
   try {
-    const result = await db.execute(sql`
-      SELECT 1 FROM information_schema.tables
-      WHERE table_name = 'rm_usage_hourly' LIMIT 1
-    `);
+    // 5s timeout: if DB pool is exhausted, fail fast instead of hanging
+    const result = await Promise.race([
+      db.execute(sql`
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'rm_usage_hourly' LIMIT 1
+      `),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('checkTablesExist timed out')), 5_000),
+      ),
+    ]);
     _tablesExist = Array.from(result as Iterable<unknown>).length > 0;
   } catch {
     _tablesExist = false;
@@ -325,7 +339,10 @@ async function flushToDb(snapshot: Map<string, BucketData>): Promise<void> {
   // postgres.js connection pooling, each db.execute() can go to a
   // different connection, leaving connections stuck in open transactions.
   // db.transaction() properly holds a single connection for the duration.
+  // Safety: SET LOCAL statement_timeout prevents this transaction from holding
+  // a connection indefinitely if Vercel freezes the event loop (§205).
   await db.transaction(async (tx) => {
+    await tx.execute(sql`SET LOCAL statement_timeout = '10s'`);
     // ── Hourly: batch in chunks of 50 ─────────────────────────
     for (let i = 0; i < hourlyRows.length; i += 50) {
       const chunk = hourlyRows.slice(i, i + 50);
@@ -445,11 +462,25 @@ function generateId(): string {
 // ── Timer Setup ──────────────────────────────────────────────
 
 let _flushTimer: ReturnType<typeof setInterval> | null = null;
+/** Guard against concurrent flush from timer overlap (Vercel freeze/unfreeze) */
+let _flushing = false;
 
 export function startFlushTimer(): void {
   if (_flushTimer) return;
-  _flushTimer = setInterval(() => {
-    flushBuffer().catch(() => {});
+  _flushTimer = setInterval(async () => {
+    // Prevent concurrent flush — Vercel can freeze/unfreeze the event loop,
+    // causing a previous flush to still be running when the timer fires.
+    // Without this guard, two concurrent db.transaction() calls can exhaust
+    // the pool (max: 2) and cause cascading failures (§205).
+    if (_flushing) return;
+    _flushing = true;
+    try {
+      await flushBuffer();
+    } catch (err) {
+      console.error('[UsageTracker] timer flush failed:', err instanceof Error ? err.message : err);
+    } finally {
+      _flushing = false;
+    }
   }, FLUSH_INTERVAL_MS);
   // Don't prevent Vercel shutdown
   if (_flushTimer && typeof _flushTimer === 'object' && 'unref' in _flushTimer) {

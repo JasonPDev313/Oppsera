@@ -375,9 +375,9 @@ async function _executeMiddleware(
 
           response = await requestContext.run(ctx, () => handler(request, ctx));
 
-          // Track impersonation action count (fire-and-forget)
+          // Track impersonation action count — await to prevent Vercel zombie connections (§205)
           if (ctx.impersonation) {
-            incrementImpersonationActionCount(ctx.impersonation.sessionId).catch(() => {});
+            try { await incrementImpersonationActionCount(ctx.impersonation.sessionId); } catch { /* non-fatal */ }
           }
 
           // Record response status for bot detection scoring (fire-and-forget)
