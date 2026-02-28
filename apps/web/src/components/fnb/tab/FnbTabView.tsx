@@ -336,7 +336,25 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
     }
   };
 
-  const handlePay = () => {
+  const handlePay = async () => {
+    if (!tabId) return;
+    // Persist any unsent draft lines before navigating to payment,
+    // otherwise the payment screen won't find items on the tab.
+    if (draftLines.length > 0) {
+      await addItems(draftLines.map((d) => ({
+        catalogItemId: d.catalogItemId,
+        catalogItemName: d.catalogItemName,
+        unitPriceCents: d.unitPriceCents,
+        qty: d.qty,
+        seatNumber: d.seatNumber,
+        courseNumber: d.courseNumber,
+        modifiers: d.modifiers,
+        specialInstructions: d.specialInstructions,
+      })));
+      store.clearDraft(tabId);
+      // Refresh tab so payment screen sees persisted items
+      await refreshTab();
+    }
     store.navigateTo('payment');
   };
 

@@ -23,6 +23,9 @@ export async function hostSeatFromWaitlist(
   entryId: string,
   input: Partial<HostSeatFromWaitlistInput>,
 ): Promise<{ data: Record<string, unknown>; suggestions?: TableSuggestion[] }> {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to seat from waitlist');
+  }
   // If no tableIds provided, return suggestions instead of seating
   if (!input.tableIds || input.tableIds.length === 0) {
     const existing = await fetchWaitlistReadOnly(ctx.tenantId, entryId);

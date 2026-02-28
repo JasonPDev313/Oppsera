@@ -61,8 +61,9 @@ import { TenderDialog } from '@/components/pos/TenderDialog';
 import { PaymentPanel } from '@/components/pos/shared/PaymentPanel';
 import { ReceiptPreviewDialog } from '@/components/pos/shared/ReceiptPreviewDialog';
 import { ReturnDialog } from '@/components/pos/shared/ReturnDialog';
-import { printOrderReceipt } from '@/lib/pos-printer';
-import type { OrderForReceipt, TenderForReceipt } from '@/lib/pos-printer';
+import { printReceiptDocument } from '@/lib/receipt-printer';
+import { apiFetch } from '@/lib/api-client';
+import type { ReceiptDocument } from '@oppsera/shared';
 import { SplitTenderPanel } from '@/components/pos/shared/SplitTenderPanel';
 import { GiftCardTenderDialog } from '@/components/pos/shared/GiftCardTenderDialog';
 import { POSSearchBar } from '@/components/pos/shared/POSSearchBar';
@@ -740,25 +741,17 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
 
   const handlePaymentComplete = useCallback(
     (result: RecordTenderResult) => {
-      // Capture order data BEFORE clearing for receipt print
-      const order = posRef.current.currentOrder;
-      if (order) {
-        const tenderInfo: TenderForReceipt = {
-          tenderType: result.tender.tenderType,
-          amount: result.tender.amount,
-          tipAmount: result.tender.tipAmount,
-          changeGiven: result.tender.changeGiven,
-          isReversed: false,
-        };
-        const locationName = locations[0]?.name ?? 'Store';
-        const businessName = locations[0]?.name ?? 'Store';
+      // Capture order ID BEFORE clearing for receipt print
+      const orderId = posRef.current.currentOrder?.id;
+      if (orderId) {
         // Fire-and-forget — never block POS on print
-        printOrderReceipt(
-          order as unknown as OrderForReceipt,
-          businessName,
-          locationName,
-          [tenderInfo],
-        ).catch(() => {});
+        // Uses modern receipt engine which respects custom receipt settings
+        apiFetch<{ data: ReceiptDocument }>('/api/v1/receipts/build', {
+          method: 'POST',
+          body: JSON.stringify({ orderId, variant: 'standard' }),
+        })
+          .then((res) => printReceiptDocument(res.data))
+          .catch(() => {});
       }
 
       setShowTenderDialog(false);
@@ -767,7 +760,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       posRef.current.clearOrder();
       registerTabsRef.current.clearActiveTab();
     },
-    [locations],
+    [],
   );
 
   const handlePaymentCancel = useCallback(() => {

@@ -96,6 +96,9 @@ export async function saveMySection(
       `);
       const roomRow = Array.from(roomRows as Iterable<Record<string, unknown>>)[0];
       const locationId = roomRow ? String(roomRow.location_id) : ctx.locationId;
+      if (!locationId) {
+        throw new Error('Location ID is required to save my section');
+      }
 
       const values = savableIds.map((tableId) =>
         sql`(${generateUlid()}, ${ctx.tenantId}, ${locationId}, ${input.roomId}, ${ctx.user.id}, ${tableId}, ${input.businessDate}, NOW())`,

@@ -589,7 +589,7 @@ export type ListRoutingRulesFilterInput = z.input<typeof listRoutingRulesFilterS
 // Session 5: KDS Stations & Expo
 // ═══════════════════════════════════════════════════════════════════
 
-export const STATION_TYPES = ['prep', 'expo', 'bar'] as const;
+export const STATION_TYPES = ['prep', 'expo', 'bar', 'dessert', 'salad', 'grill', 'fry', 'pizza', 'custom'] as const;
 
 export const DISPLAY_MODES = ['standard', 'compact', 'expo'] as const;
 
@@ -1881,7 +1881,13 @@ export const upsertPerformanceTargetSchema = z.object({
   criticalPrepSeconds: z.number().int().min(30).max(7200),
   speedOfServiceGoalSeconds: z.number().int().min(30).max(7200).optional(),
   clientRequestId: z.string().min(1),
-});
+}).refine(
+  (d) => d.targetPrepSeconds <= d.warningPrepSeconds,
+  { message: 'targetPrepSeconds must be ≤ warningPrepSeconds', path: ['targetPrepSeconds'] },
+).refine(
+  (d) => d.warningPrepSeconds <= d.criticalPrepSeconds,
+  { message: 'warningPrepSeconds must be ≤ criticalPrepSeconds', path: ['warningPrepSeconds'] },
+);
 export type UpsertPerformanceTargetInput = z.input<typeof upsertPerformanceTargetSchema>;
 
 // Item prep times

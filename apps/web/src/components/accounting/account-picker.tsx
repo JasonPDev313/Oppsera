@@ -499,7 +499,7 @@ export function AccountPicker({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top?: number; bottom?: number; left: number; width: number; maxListH?: number } | null>(null);
 
   const { data: accounts, isLoading } = useGLAccounts({
     accountType: accountTypes?.length === 1 ? accountTypes[0] : undefined,
@@ -547,6 +547,31 @@ export function AccountPicker({
     [value, filteredAccounts, suggestFor, mappingRole],
   );
 
+  // Dropdown height estimate: search bar ~44px + suggestion ~40px + padding ~8px ≈ 92px chrome
+  const DROPDOWN_CHROME_PX = 92;
+  const MIN_LIST_H = 120;
+  const DEFAULT_LIST_H = 256; // max-h-64
+
+  const computeDropdownPos = useCallback((rect: DOMRect) => {
+    const spaceBelow = window.innerHeight - rect.bottom - 8;
+    const spaceAbove = rect.top - 8;
+    const neededTotal = DROPDOWN_CHROME_PX + DEFAULT_LIST_H;
+    const width = Math.max(rect.width, 300);
+
+    if (spaceBelow >= neededTotal) {
+      // Enough room below — open downward
+      return { top: rect.bottom + 4, left: rect.left, width };
+    }
+    if (spaceAbove > spaceBelow && spaceAbove >= DROPDOWN_CHROME_PX + MIN_LIST_H) {
+      // More room above — open upward, cap list height
+      const maxListH = Math.min(DEFAULT_LIST_H, spaceAbove - DROPDOWN_CHROME_PX);
+      return { bottom: window.innerHeight - rect.top + 4, left: rect.left, width, maxListH };
+    }
+    // Neither side is great — open below but cap list height
+    const maxListH = Math.max(MIN_LIST_H, spaceBelow - DROPDOWN_CHROME_PX);
+    return { top: rect.bottom + 4, left: rect.left, width, maxListH };
+  }, []);
+
   const handleClose = useCallback(() => {
     setIsOpen(false);
     setSearch('');
@@ -558,17 +583,13 @@ export function AccountPicker({
       handleClose();
       return;
     }
-    // Calculate position from the button
+    // Calculate position from the button with viewport flip
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      setDropdownPos({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: Math.max(rect.width, 300),
-      });
+      setDropdownPos(computeDropdownPos(rect));
     }
     setIsOpen(true);
-  }, [disabled, isOpen, handleClose]);
+  }, [disabled, isOpen, handleClose, computeDropdownPos]);
 
   // Close on click-outside (check both button and portal dropdown)
   useEffect(() => {
@@ -599,11 +620,7 @@ export function AccountPicker({
     const reposition = () => {
       if (buttonRef.current) {
         const rect = buttonRef.current.getBoundingClientRect();
-        setDropdownPos({
-          top: rect.bottom + 4,
-          left: rect.left,
-          width: Math.max(rect.width, 300),
-        });
+        setDropdownPos(computeDropdownPos(rect));
       }
     };
     window.addEventListener('scroll', reposition, true);
@@ -612,7 +629,7 @@ export function AccountPicker({
       window.removeEventListener('scroll', reposition, true);
       window.removeEventListener('resize', reposition);
     };
-  }, [isOpen]);
+  }, [isOpen, computeDropdownPos]);
 
   useEffect(() => {
     if (isOpen && searchRef.current) {
@@ -624,7 +641,11 @@ export function AccountPicker({
     <div
       ref={dropdownRef}
       className="fixed z-50 rounded-lg border border-border bg-surface shadow-lg"
-      style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+      style={{
+        ...(dropdownPos.top != null ? { top: dropdownPos.top } : { bottom: dropdownPos.bottom }),
+        left: dropdownPos.left,
+        width: dropdownPos.width,
+      }}
     >
       {/* Suggestion banner */}
       {suggestedAccount && (
@@ -657,7 +678,7 @@ export function AccountPicker({
           />
         </div>
       </div>
-      <div className="max-h-64 overflow-auto py-1">
+      <div className="overflow-auto py-1" style={{ maxHeight: dropdownPos.maxListH ?? 256 }}>
         {isLoading && (
           <p className="px-3 py-2 text-sm text-muted-foreground">Loading accounts...</p>
         )}

@@ -9,6 +9,9 @@ export async function createAvailabilityWindow(
   ctx: RequestContext,
   input: CreateAvailabilityWindowInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to create an availability window');
+  }
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'createAvailabilityWindow',

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useToast } from '@/components/ui/toast';
 import { createPortal } from 'react-dom';
 import {
   Monitor, Route, Keyboard, Bell, Target, Clock,
@@ -29,6 +30,8 @@ import { apiFetch } from '@/lib/api-client';
 import {
   recommendRoutingForDepartments,
   findBestStation,
+  NO_KDS_STATION_ID,
+  NO_KDS_STATION_NAME,
 } from '@/lib/kds-routing-recommender';
 import type { DepartmentForRecommendation } from '@/lib/kds-routing-recommender';
 
@@ -52,6 +55,7 @@ const STATION_TYPE_LABELS: Record<string, string> = {
   fry: 'Fry',
   pizza: 'Pizza',
   custom: 'Custom',
+  none: 'No KDS',
 };
 
 const ROUTING_RULE_TYPE_LABELS: Record<string, string> = {
@@ -429,13 +433,21 @@ function StationsTab({ locationId }: { locationId?: string }) {
         <button
           type="button"
           onClick={() => setShowCreateDialog(true)}
-          disabled={isActing}
+          disabled={!locationId || isActing}
+          title={!locationId ? 'Select a location first' : undefined}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
         >
           <Plus className="h-3.5 w-3.5" />
           Add Station
         </button>
       </div>
+
+      {!locationId && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          Select a location to manage KDS settings.
+        </div>
+      )}
 
       {showCreateDialog && (
         <CreateStationDialog
@@ -735,7 +747,13 @@ function CreateStationDialog({
         criticalThresholdSeconds: criticalSeconds,
       });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to create station';
+      console.error('[CreateStationDialog] Error creating station:', err);
+      const apiErr = err as { code?: string; message?: string; statusCode?: number; details?: Array<{ field?: string; message?: string }> };
+      let msg = apiErr?.message ?? (err instanceof Error ? err.message : 'Failed to create station');
+      if (apiErr?.statusCode) msg = `[${apiErr.statusCode}] ${msg}`;
+      if (Array.isArray(apiErr?.details) && apiErr.details.length > 0) {
+        msg += '\n' + apiErr.details.map((d) => `• ${d.field ?? '?'}: ${d.message ?? 'unknown'}`).join('\n');
+      }
       setError(msg);
     }
   }, [name, displayName, stationType, color, warningSeconds, criticalSeconds, onSubmit]);
@@ -756,7 +774,7 @@ function CreateStationDialog({
 
         <div className="px-4 py-4 space-y-4">
           {error && (
-            <div className="rounded-md bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs text-red-400">
+            <div className="rounded-md bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs text-red-400 whitespace-pre-line">
               {error}
             </div>
           )}
@@ -793,9 +811,11 @@ function CreateStationDialog({
                 onChange={(e) => setStationType(e.target.value)}
                 className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
               >
-                {Object.entries(STATION_TYPE_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
+                {Object.entries(STATION_TYPE_LABELS)
+                  .filter(([val]) => val !== 'none')
+                  .map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
               </select>
             </label>
 
@@ -938,9 +958,11 @@ function EditStationDialog({
                 onChange={(e) => setStationType(e.target.value)}
                 className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
               >
-                {Object.entries(STATION_TYPE_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
+                {Object.entries(STATION_TYPE_LABELS)
+                  .filter(([val]) => val !== 'none')
+                  .map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
               </select>
             </label>
 
@@ -1070,7 +1092,8 @@ function RoutingTab({ locationId }: { locationId?: string }) {
           <button
             type="button"
             onClick={() => setShowCreateDialog(true)}
-            disabled={isActing}
+            disabled={!locationId || isActing}
+            title={!locationId ? 'Select a location first' : undefined}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -1078,6 +1101,13 @@ function RoutingTab({ locationId }: { locationId?: string }) {
           </button>
         </div>
       </div>
+
+      {!locationId && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          Select a location to manage routing rules.
+        </div>
+      )}
 
       {/* Smart Routing Recommendations */}
       {showRecommendations && (
@@ -1416,6 +1446,18 @@ function RoutingRecommendationPanel({
     const stationId = row.overrideStationId || row.resolvedStation?.id;
     if (!stationId) return;
 
+    // "No KDS" means this department doesn't need KDS routing —
+    // acknowledge it without creating a rule (no rule = no kitchen ticket)
+    if (stationId === NO_KDS_STATION_ID) {
+      setRows((prev) =>
+        prev.map((r) =>
+          r.categoryId === row.categoryId ? { ...r, status: 'accepted' as const } : r,
+        ),
+      );
+      setAppliedCount((c) => c + 1);
+      return;
+    }
+
     const input: Parameters<typeof onCreateRule>[0] = {
       ruleName: row.parentDeptName
         ? `${row.parentDeptName} → ${row.categoryName}`
@@ -1538,14 +1580,23 @@ function RoutingRecommendationPanel({
         </div>
       )}
 
-      {acceptedRows.length > 0 && pendingRows.length === 0 && rows.length > 0 && (
-        <div className="px-4 py-3 border-t border-border bg-green-500/5">
-          <p className="text-xs text-green-500 flex items-center gap-1.5">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            {acceptedRows.length} routing rule{acceptedRows.length !== 1 ? 's' : ''} created from recommendations.
-          </p>
-        </div>
-      )}
+      {acceptedRows.length > 0 && pendingRows.length === 0 && rows.length > 0 && (() => {
+        const noKdsCount = acceptedRows.filter((r) =>
+          (r.overrideStationId || r.resolvedStation?.id) === NO_KDS_STATION_ID,
+        ).length;
+        const rulesCreated = acceptedRows.length - noKdsCount;
+        return (
+          <div className="px-4 py-3 border-t border-border bg-green-500/5">
+            <p className="text-xs text-green-500 flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {rulesCreated > 0 && `${rulesCreated} routing rule${rulesCreated !== 1 ? 's' : ''} created`}
+              {rulesCreated > 0 && noKdsCount > 0 && ', '}
+              {noKdsCount > 0 && `${noKdsCount} department${noKdsCount !== 1 ? 's' : ''} set to No KDS`}
+              {' from recommendations.'}
+            </p>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -1567,11 +1618,14 @@ function RecommendationRowItem({
 }) {
   const confStyle = CONFIDENCE_STYLES[row.confidence];
   const currentStationId = row.overrideStationId || row.resolvedStation?.id || '';
-  const currentStationName = row.overrideStationId
-    ? stations.find((s) => s.id === row.overrideStationId)?.displayName
-      || stations.find((s) => s.id === row.overrideStationId)?.name
-      || '?'
-    : row.resolvedStation?.name || 'No matching station';
+  const isNoKds = currentStationId === NO_KDS_STATION_ID;
+  const currentStationName = isNoKds
+    ? NO_KDS_STATION_NAME
+    : row.overrideStationId
+      ? stations.find((s) => s.id === row.overrideStationId)?.displayName
+        || stations.find((s) => s.id === row.overrideStationId)?.name
+        || '?'
+      : row.resolvedStation?.name || 'No matching station';
 
   if (row.status === 'accepted') {
     return (
@@ -1582,10 +1636,10 @@ function RecommendationRowItem({
             {row.parentDeptName ? `${row.parentDeptName} → ` : ''}
             <span className="text-foreground font-medium">{row.categoryName}</span>
             {' → '}
-            <span className="text-green-500">{currentStationName}</span>
+            <span className={isNoKds ? 'text-muted-foreground italic' : 'text-green-500'}>{currentStationName}</span>
           </span>
         </div>
-        <span className="text-[10px] text-green-500">Created</span>
+        <span className="text-[10px] text-green-500">{isNoKds ? 'Skipped (No KDS)' : 'Created'}</span>
       </div>
     );
   }
@@ -1641,6 +1695,7 @@ function RecommendationRowItem({
         onChange={(e) => onOverrideStation(row.categoryId, e.target.value)}
         className="bg-surface border border-input rounded-md px-2 py-1 text-[11px] text-foreground w-36 shrink-0"
       >
+        <option value={NO_KDS_STATION_ID}>{NO_KDS_STATION_NAME}</option>
         {stations.filter((s) => s.isActive).map((s) => (
           <option key={s.id} value={s.id}>{s.displayName || s.name}</option>
         ))}
@@ -1874,7 +1929,6 @@ function CreateRoutingRuleDialog({
 }) {
   const [ruleName, setRuleName] = useState('');
   const [ruleType, setRuleType] = useState('department');
-  const [stationId, setStationId] = useState(stations[0]?.id ?? '');
   const [priority, setPriority] = useState(0);
   const [orderType, setOrderType] = useState('');
   const [channel, setChannel] = useState('');
@@ -1882,6 +1936,13 @@ function CreateRoutingRuleDialog({
   const [timeEnd, setTimeEnd] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const backdropRef = useRef<HTMLDivElement>(null);
+
+  // Multi-select state for stations
+  const [selectedStations, setSelectedStations] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    if (stations[0]) initial.add(stations[0].id);
+    return initial;
+  });
 
   // Multi-select state for department/sub_department/category
   const [selectedTargets, setSelectedTargets] = useState<Map<string, string>>(new Map()); // id → name
@@ -1902,6 +1963,19 @@ function CreateRoutingRuleDialog({
     setTargetId('');
   }, [ruleType]);
 
+  const handleToggleStation = useCallback((id: string) => {
+    setSelectedStations((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        // Don't allow deselecting the last station
+        if (next.size > 1) next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
   const handleToggleTarget = useCallback((id: string, name: string) => {
     setSelectedTargets((prev) => {
       const next = new Map(prev);
@@ -1914,25 +1988,49 @@ function CreateRoutingRuleDialog({
     });
   }, []);
 
-  const selectedCount = usesMultiSelect ? selectedTargets.size : (targetId.trim() ? 1 : 0);
+  const targetCount = usesMultiSelect ? selectedTargets.size : (targetId.trim() ? 1 : 0);
+  const totalRuleCount = selectedStations.size * targetCount;
 
   const handleSubmit = useCallback(async () => {
-    if (!stationId || selectedCount === 0) return;
+    if (selectedStations.size === 0 || targetCount === 0) return;
     setIsSubmitting(true);
     try {
+      const stationIds = Array.from(selectedStations);
       if (usesMultiSelect) {
-        // Create one rule per selected target
+        // Create one rule per station × target
         const entries = Array.from(selectedTargets.entries());
-        for (let i = 0; i < entries.length; i++) {
-          const [id, name] = entries[i]!;
+        let idx = 0;
+        for (const sid of stationIds) {
+          for (const [id, name] of entries) {
+            const input: Record<string, unknown> = {
+              ruleType,
+              stationId: sid,
+              priority,
+              ruleName: ruleName.trim() || name,
+              [targetKey]: id,
+              clientRequestId: `create-rr-${Date.now()}-${idx++}-${Math.random().toString(36).slice(2, 8)}`,
+            };
+            if (orderType) input.orderTypeCondition = orderType;
+            if (channel) input.channelCondition = channel;
+            if (timeStart && timeEnd) {
+              input.timeConditionStart = timeStart;
+              input.timeConditionEnd = timeEnd;
+            }
+            await onSubmit(input as any);
+          }
+        }
+      } else {
+        // One rule per station for item/modifier
+        let idx = 0;
+        for (const sid of stationIds) {
           const input: Record<string, unknown> = {
             ruleType,
-            stationId,
+            stationId: sid,
             priority,
-            ruleName: ruleName.trim() || name,
-            [targetKey]: id,
-            clientRequestId: `create-rr-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+            clientRequestId: `create-rr-${Date.now()}-${idx++}-${Math.random().toString(36).slice(2, 8)}`,
           };
+          if (ruleName.trim()) input.ruleName = ruleName.trim();
+          if (targetId.trim()) input[targetKey] = targetId.trim();
           if (orderType) input.orderTypeCondition = orderType;
           if (channel) input.channelCondition = channel;
           if (timeStart && timeEnd) {
@@ -1941,34 +2039,17 @@ function CreateRoutingRuleDialog({
           }
           await onSubmit(input as any);
         }
-      } else {
-        // Single rule for item/modifier
-        const input: Record<string, unknown> = {
-          ruleType,
-          stationId,
-          priority,
-          clientRequestId: `create-rr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        };
-        if (ruleName.trim()) input.ruleName = ruleName.trim();
-        if (targetId.trim()) input[targetKey] = targetId.trim();
-        if (orderType) input.orderTypeCondition = orderType;
-        if (channel) input.channelCondition = channel;
-        if (timeStart && timeEnd) {
-          input.timeConditionStart = timeStart;
-          input.timeConditionEnd = timeEnd;
-        }
-        await onSubmit(input as any);
       }
       onClose();
     } finally {
       setIsSubmitting(false);
     }
-  }, [ruleName, ruleType, targetId, targetKey, stationId, priority, orderType, channel, timeStart, timeEnd, selectedTargets, selectedCount, usesMultiSelect, onSubmit, onClose]);
+  }, [ruleName, ruleType, targetId, targetKey, selectedStations, priority, orderType, channel, timeStart, timeEnd, selectedTargets, targetCount, usesMultiSelect, onSubmit, onClose]);
 
   const submitLabel = isSubmitting
     ? 'Creating...'
-    : usesMultiSelect && selectedCount > 1
-      ? `Create ${selectedCount} Rules`
+    : totalRuleCount > 1
+      ? `Create ${totalRuleCount} Rules`
       : 'Create Rule';
 
   return createPortal(
@@ -1986,33 +2067,46 @@ function CreateRoutingRuleDialog({
         </div>
 
         <div className="px-4 py-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-foreground">Rule Type <span className="text-red-500">*</span></span>
-              <select
-                value={ruleType}
-                onChange={(e) => setRuleType(e.target.value)}
-                className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
-              >
-                {Object.entries(ROUTING_RULE_TYPE_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-foreground">Target Station <span className="text-red-500">*</span></span>
-              <select
-                value={stationId}
-                onChange={(e) => setStationId(e.target.value)}
-                className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
-              >
-                {stations.map((s) => (
-                  <option key={s.id} value={s.id}>{s.displayName || s.name}</option>
-                ))}
-              </select>
-            </label>
+          {/* Target Station(s) — pick first so the flow is: where → what → which */}
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-foreground">
+              Target Station{stations.length > 1 ? '(s)' : ''} <span className="text-red-500">*</span>
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {stations.map((s) => {
+                const isSelected = selectedStations.has(s.id);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => handleToggleStation(s.id)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
+                      isSelected
+                        ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/40'
+                        : 'bg-surface text-muted-foreground border-border hover:bg-accent'
+                    }`}
+                  >
+                    {isSelected && <Check className="h-3 w-3" />}
+                    {s.displayName || s.name}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Rule Type */}
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-foreground">Rule Type <span className="text-red-500">*</span></span>
+            <select
+              value={ruleType}
+              onChange={(e) => setRuleType(e.target.value)}
+              className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
+            >
+              {Object.entries(ROUTING_RULE_TYPE_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          </label>
 
           {/* Multi-select target picker for department/sub_department/category */}
           {usesMultiSelect ? (
@@ -2146,7 +2240,7 @@ function CreateRoutingRuleDialog({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!stationId || selectedCount === 0 || isActing || isSubmitting}
+            disabled={selectedStations.size === 0 || targetCount === 0 || isActing || isSubmitting}
             className="px-4 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
           >
             {submitLabel}
@@ -2351,17 +2445,24 @@ function BumpBarsTab({ locationId }: { locationId?: string }) {
   const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const createMenuRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
-  const handleCreateProfile = useCallback((buttonCount: 10 | 20) => {
-    createProfile({
-      profileName: `${buttonCount}-Button Profile ${profiles.length + 1}`,
-      buttonCount,
-      keyMappings: buttonCount === 20 ? DEFAULT_20_BUTTON_LAYOUT : DEFAULT_10_BUTTON_LAYOUT,
-      isDefault: profiles.length === 0,
-      clientRequestId: `create-bbp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    });
+  const handleCreateProfile = useCallback(async (buttonCount: 10 | 20) => {
     setShowCreateMenu(false);
-  }, [createProfile, profiles.length]);
+    try {
+      await createProfile({
+        profileName: `${buttonCount}-Button Profile ${profiles.length + 1}`,
+        buttonCount,
+        keyMappings: buttonCount === 20 ? DEFAULT_20_BUTTON_LAYOUT : DEFAULT_10_BUTTON_LAYOUT,
+        isDefault: profiles.length === 0,
+        clientRequestId: `create-bbp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      });
+      toast.success('Bump bar profile created');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to create bump bar profile';
+      toast.error(msg);
+    }
+  }, [createProfile, profiles.length, toast]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -2392,7 +2493,8 @@ function BumpBarsTab({ locationId }: { locationId?: string }) {
           <button
             type="button"
             onClick={() => setShowCreateMenu(!showCreateMenu)}
-            disabled={isActing}
+            disabled={!locationId || isActing}
+            title={!locationId ? 'Select a location first' : undefined}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -2546,13 +2648,21 @@ function AlertsTab({ locationId }: { locationId?: string }) {
         <button
           type="button"
           onClick={handleCreateProfile}
-          disabled={isActing}
+          disabled={!locationId || isActing}
+          title={!locationId ? 'Select a location first' : undefined}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
         >
           <Plus className="h-3.5 w-3.5" />
           Add Profile
         </button>
       </div>
+
+      {!locationId && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          Select a location to manage alert profiles.
+        </div>
+      )}
 
       {profiles.length === 0 ? (
         <div className="py-8 text-center">
@@ -2655,14 +2765,18 @@ function AlertProfileCard({
 function PerformanceTab({ locationId }: { locationId?: string }) {
   const { targets, isLoading, isActing, upsertTarget } = usePerformanceTargets(locationId);
 
-  const handleAddTarget = useCallback(() => {
-    upsertTarget({
-      targetPrepSeconds: 300,
-      warningPrepSeconds: 480,
-      criticalPrepSeconds: 720,
-      speedOfServiceGoalSeconds: 600,
-      clientRequestId: `create-pt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    });
+  const handleAddTarget = useCallback(async () => {
+    try {
+      await upsertTarget({
+        targetPrepSeconds: 300,
+        warningPrepSeconds: 480,
+        criticalPrepSeconds: 720,
+        speedOfServiceGoalSeconds: 600,
+        clientRequestId: `create-pt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      });
+    } catch (err) {
+      console.error('[KDS] Failed to add performance target:', err);
+    }
   }, [upsertTarget]);
 
   if (isLoading) {
@@ -2681,13 +2795,21 @@ function PerformanceTab({ locationId }: { locationId?: string }) {
         <button
           type="button"
           onClick={handleAddTarget}
-          disabled={isActing}
+          disabled={!locationId || isActing}
+          title={!locationId ? 'Select a location first' : undefined}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
         >
           <Plus className="h-3.5 w-3.5" />
           Add Target
         </button>
       </div>
+
+      {!locationId && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          Select a location to manage performance targets.
+        </div>
+      )}
 
       {targets.length === 0 ? (
         <div className="py-8 text-center">

@@ -3,7 +3,40 @@
  *
  * Analyzes department/sub-department names and suggests which KDS station type
  * each should route to. Uses keyword matching against known food service patterns.
+ * Non-food/drink departments (apparel, merchandise, etc.) get "none" (No KDS).
  */
+
+// ── Sentinel for non-food/drink departments ──────────────────────
+
+export const NO_KDS_STATION_ID = 'none';
+export const NO_KDS_STATION_NAME = 'No KDS';
+
+// ── Non-food/drink keyword groups ────────────────────────────────
+// Categories matching these keywords are NOT food/drink and should
+// not be routed to any KDS station.
+
+const NON_FOOD_KEYWORDS: string[] = [
+  // Retail / Pro Shop / Merchandise
+  'apparel', 'clothing', 'clothes', 'shirt', 'polo', 'hat', 'cap', 'visor',
+  'jacket', 'vest', 'pants', 'shorts', 'skirt', 'dress', 'outerwear',
+  'footwear', 'shoe', 'shoes', 'sandal', 'sneaker', 'boot',
+  'merchandise', 'merch', 'retail', 'pro shop', 'gift shop', 'shop',
+  'souvenir', 'accessory', 'accessories', 'jewelry', 'watch', 'sunglasses',
+  'bag', 'tote', 'backpack', 'luggage', 'umbrella', 'towel',
+  // Golf equipment & supplies
+  'golf ball', 'golf club', 'glove', 'tee', 'tees', 'marker', 'divot',
+  'equipment', 'gear', 'supplies', 'cart', 'rental', 'rentals',
+  // Services / Fees / Non-tangible
+  'lesson', 'lessons', 'instruction', 'clinic', 'class', 'training',
+  'greens fee', 'green fee', 'range', 'driving range', 'locker',
+  'spa', 'massage', 'fitness', 'gym', 'pool', 'tennis', 'court',
+  'event', 'events', 'banquet', 'catering setup', 'room rental',
+  'membership', 'dues', 'fee', 'fees', 'surcharge', 'gratuity',
+  'gift card', 'gift certificate', 'voucher', 'coupon',
+  // Miscellaneous non-food
+  'book', 'magazine', 'toy', 'game', 'novelty', 'decor', 'decoration',
+  'candle', 'cosmetic', 'skincare', 'toiletry',
+];
 
 // ── Station-type keyword groups ───────────────────────────────────
 
@@ -89,11 +122,46 @@ function tokenize(name: string): string[] {
     .filter(Boolean);
 }
 
+function scoreNonFood(
+  name: string,
+  tokens: string[],
+): { score: number; matched: string[] } {
+  const lowerName = name.toLowerCase();
+  let score = 0;
+  const matched: string[] = [];
+
+  for (const keyword of NON_FOOD_KEYWORDS) {
+    if (tokens.includes(keyword)) {
+      score += 3;
+      matched.push(keyword);
+      continue;
+    }
+    if (keyword.includes(' ') && lowerName.includes(keyword)) {
+      score += 4;
+      matched.push(keyword);
+      continue;
+    }
+    for (const token of tokens) {
+      if (token.length >= 4 && (token.includes(keyword) || keyword.includes(token))) {
+        score += 1.5;
+        matched.push(keyword);
+        break;
+      }
+    }
+  }
+
+  return { score, matched };
+}
+
 function scoreStationType(
   name: string,
   tokens: string[],
 ): { stationType: string; score: number; matched: string[] } {
   const lowerName = name.toLowerCase();
+
+  // Check non-food keywords first
+  const nonFood = scoreNonFood(name, tokens);
+
   let bestType = 'prep'; // default fallback
   let bestScore = 0;
   let bestMatched: string[] = [];
@@ -130,6 +198,25 @@ function scoreStationType(
       bestType = stationType;
       bestMatched = matched;
     }
+  }
+
+  // If non-food score beats food score, recommend "none" (No KDS)
+  // Also: if NO food keywords matched at all (bestScore === 0) AND
+  // non-food keywords DID match, strongly recommend No KDS
+  if (nonFood.score > 0 && nonFood.score >= bestScore) {
+    return {
+      stationType: 'none',
+      score: nonFood.score,
+      matched: [...new Set(nonFood.matched)],
+    };
+  }
+
+  // If nothing matched at all (score 0 for both), check if the name
+  // simply doesn't look like food — default to 'none' instead of 'prep'
+  if (bestScore === 0 && nonFood.score === 0) {
+    // Keep 'prep' as fallback only when no signals at all — this preserves
+    // existing behavior for ambiguous departments
+    return { stationType: bestType, score: bestScore, matched: bestMatched };
   }
 
   return { stationType: bestType, score: bestScore, matched: bestMatched };
@@ -189,11 +276,17 @@ export function recommendRoutingForDepartments(
 /**
  * Find the best matching station from a list based on station type.
  * Matches on stationType first, then on name similarity.
+ * Returns the NO_KDS sentinel for 'none' station type (non-food departments).
  */
 export function findBestStation(
   stationType: string,
   stations: Array<{ id: string; name: string; displayName: string; stationType: string; isActive: boolean }>,
 ): { id: string; name: string } | null {
+  // "none" means this department doesn't need KDS routing
+  if (stationType === 'none') {
+    return { id: NO_KDS_STATION_ID, name: NO_KDS_STATION_NAME };
+  }
+
   if (stations.length === 0) return null;
 
   // Active stations only

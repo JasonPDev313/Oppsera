@@ -36,7 +36,10 @@
       "Bash(cross-env NODE_OPTIONS=--max-old-space-size=2048 npx next dev:*)",
       "Bash(npx @tailwindcss/cli:*)",
       "WebFetch(domain:dzone.com)",
-      "WebFetch(domain:konghq.com)"
+      "WebFetch(domain:konghq.com)",
+      "WebFetch(domain:digitalasset.intuit.com)",
+      "WebFetch(domain:www.xotels.com)",
+      "WebFetch(domain:fasttracconsulting.com)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",

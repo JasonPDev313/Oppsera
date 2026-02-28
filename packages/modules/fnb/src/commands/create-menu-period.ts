@@ -13,6 +13,9 @@ export async function createMenuPeriod(
   ctx: RequestContext,
   input: CreateMenuPeriodInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to create a menu period');
+  }
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'createMenuPeriod',

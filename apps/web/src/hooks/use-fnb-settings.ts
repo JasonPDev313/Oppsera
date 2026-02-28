@@ -100,20 +100,25 @@ export function useFnbSettings({ moduleKey, locationId }: UseFnbSettingsOptions)
     async (newSettings: Record<string, unknown>) => {
       setIsActing(true);
       try {
-        const res = await apiFetch<{ data: FnbSettingsResult }>(
+        await apiFetch(
           `/api/v1/fnb/settings/${moduleKey}`,
           {
             method: 'PATCH',
             body: JSON.stringify({ settings: newSettings, locationId }),
           },
         );
-        setSettings(res.data.settings);
-        return res.data;
+        // The PATCH response returns { moduleKey, locationId, updatedKeys } — NOT the
+        // full settings object. Optimistically apply the input we just sent (the server
+        // validated it via Zod), update the module-level cache, and background-refresh
+        // to pick up any server-side defaults or transformations.
+        setSettings(newSettings);
+        _settingsCache.set(key, { data: newSettings, ts: Date.now() });
+        refresh().catch(() => {});
       } finally {
         setIsActing(false);
       }
     },
-    [moduleKey, locationId],
+    [moduleKey, locationId, key, refresh],
   );
 
   const updateSetting = useCallback(

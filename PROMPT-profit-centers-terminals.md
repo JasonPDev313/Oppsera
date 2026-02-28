@@ -120,7 +120,7 @@ The following tables already use `terminal_id` or `terminal_location_id` — con
 | `fnb_soft_locks` | `terminal_id` | (references terminals) |
 | `inventory_movements` | `terminal_id` | (references terminals) |
 | `cash_payouts` | `terminal_id` | (references terminals) |
-| `tee_bookings` | `terminal_id` | (references terminals) |
+| `tee_times` | `terminal_id` | (references terminals) |
 | `terminal_card_reader_settings` | `terminal_id` | `terminals(id)` |
 | `terminal_location_floor_plans` | `terminal_location_id` | `terminal_locations(id)` |
 | `terminal_location_tip_suggestions` | `terminal_location_id` | `terminal_locations(id)` |

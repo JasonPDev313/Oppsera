@@ -17,6 +17,10 @@ export async function hostRemoveFromWaitlist(
   entryId: string,
   input: HostRemoveFromWaitlistInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to remove from waitlist');
+  }
+
   const result = await publishWithOutbox(ctx, async (tx) => {
     const existing = await fetchHostWaitlistEntry(tx, ctx.tenantId, entryId);
     const oldStatus = String(existing.status);

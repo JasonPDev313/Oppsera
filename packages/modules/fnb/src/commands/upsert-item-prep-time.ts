@@ -20,22 +20,38 @@ export async function upsertItemPrepTime(
 
     const stationId = input.stationId ?? null;
 
-    // Upsert on natural key (tenant_id, catalog_item_id, station_id)
-    const rows = await (tx as any).execute(
-      sql`INSERT INTO fnb_kds_item_prep_times (
-            tenant_id, catalog_item_id, station_id,
-            estimated_prep_seconds, is_active
-          ) VALUES (
-            ${ctx.tenantId}, ${input.catalogItemId}, ${stationId},
-            ${input.estimatedPrepSeconds}, true
-          )
-          ON CONFLICT (tenant_id, catalog_item_id, COALESCE(station_id, ''))
-          WHERE is_active = true
-          DO UPDATE SET
-            estimated_prep_seconds = EXCLUDED.estimated_prep_seconds,
-            updated_at = NOW()
-          RETURNING *`,
+    // Manual upsert — ON CONFLICT doesn't support COALESCE expressions directly
+    const existingRows = await (tx as any).execute(
+      sql`SELECT id FROM fnb_kds_item_prep_times
+          WHERE tenant_id = ${ctx.tenantId}
+            AND catalog_item_id = ${input.catalogItemId}
+            AND COALESCE(station_id, '') = COALESCE(${stationId}, '')
+            AND is_active = true
+          LIMIT 1`,
     );
+    const existing = Array.from(existingRows as Iterable<Record<string, unknown>>)[0];
+
+    let rows;
+    if (existing) {
+      rows = await (tx as any).execute(
+        sql`UPDATE fnb_kds_item_prep_times SET
+              estimated_prep_seconds = ${input.estimatedPrepSeconds},
+              updated_at = NOW()
+            WHERE id = ${existing.id as string}
+            RETURNING *`,
+      );
+    } else {
+      rows = await (tx as any).execute(
+        sql`INSERT INTO fnb_kds_item_prep_times (
+              tenant_id, catalog_item_id, station_id,
+              estimated_prep_seconds, is_active
+            ) VALUES (
+              ${ctx.tenantId}, ${input.catalogItemId}, ${stationId},
+              ${input.estimatedPrepSeconds}, true
+            )
+            RETURNING *`,
+      );
+    }
 
     const saved = Array.from(rows as Iterable<Record<string, unknown>>)[0]!;
 
@@ -71,21 +87,37 @@ export async function bulkUpsertItemPrepTimes(
     for (const item of input.items) {
       const stationId = item.stationId ?? null;
 
-      const rows = await (tx as any).execute(
-        sql`INSERT INTO fnb_kds_item_prep_times (
-              tenant_id, catalog_item_id, station_id,
-              estimated_prep_seconds, is_active
-            ) VALUES (
-              ${ctx.tenantId}, ${item.catalogItemId}, ${stationId},
-              ${item.estimatedPrepSeconds}, true
-            )
-            ON CONFLICT (tenant_id, catalog_item_id, COALESCE(station_id, ''))
-            WHERE is_active = true
-            DO UPDATE SET
-              estimated_prep_seconds = EXCLUDED.estimated_prep_seconds,
-              updated_at = NOW()
-            RETURNING *`,
+      const existingRows = await (tx as any).execute(
+        sql`SELECT id FROM fnb_kds_item_prep_times
+            WHERE tenant_id = ${ctx.tenantId}
+              AND catalog_item_id = ${item.catalogItemId}
+              AND COALESCE(station_id, '') = COALESCE(${stationId}, '')
+              AND is_active = true
+            LIMIT 1`,
       );
+      const existing = Array.from(existingRows as Iterable<Record<string, unknown>>)[0];
+
+      let rows;
+      if (existing) {
+        rows = await (tx as any).execute(
+          sql`UPDATE fnb_kds_item_prep_times SET
+                estimated_prep_seconds = ${item.estimatedPrepSeconds},
+                updated_at = NOW()
+              WHERE id = ${existing.id as string}
+              RETURNING *`,
+        );
+      } else {
+        rows = await (tx as any).execute(
+          sql`INSERT INTO fnb_kds_item_prep_times (
+                tenant_id, catalog_item_id, station_id,
+                estimated_prep_seconds, is_active
+              ) VALUES (
+                ${ctx.tenantId}, ${item.catalogItemId}, ${stationId},
+                ${item.estimatedPrepSeconds}, true
+              )
+              RETURNING *`,
+        );
+      }
 
       const saved = Array.from(rows as Iterable<Record<string, unknown>>)[0]!;
       savedItems.push(saved);

@@ -377,13 +377,20 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
 
   // ── Error state: check failed to load ─────────────────────────
   if (!check) {
+    const hasNoItems = tab && tab.lines.filter((l) => l.status !== 'voided').length === 0;
+    const errorMessage = checkError
+      ? checkError
+      : hasNoItems
+        ? 'No items on this tab — add items before paying'
+        : 'No check available';
+
     return (
       <div
         className="flex h-full flex-col items-center justify-center gap-3"
         style={{ backgroundColor: 'var(--fnb-bg-primary)' }}
       >
         <p className="text-sm font-medium" style={{ color: checkError ? 'var(--fnb-danger)' : 'var(--fnb-text-muted)' }}>
-          {checkError ?? 'No check available'}
+          {errorMessage}
         </p>
         <div className="flex items-center gap-3">
           <button
@@ -398,13 +405,14 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
             <ArrowLeft className="h-4 w-4" />
             Back to Tab
           </button>
-          {checkError && (
+          {!hasNoItems && (
             <button
               type="button"
               onClick={() => {
                 setIsLoadingCheck(true);
                 setCheckError(null);
-                refreshCheck().finally(() => setIsLoadingCheck(false));
+                prepareCalledRef.current = null;
+                refreshTab();
               }}
               className="rounded-lg px-4 py-2 text-sm font-bold transition-colors hover:opacity-80"
               style={{

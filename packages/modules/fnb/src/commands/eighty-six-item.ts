@@ -13,6 +13,9 @@ export async function eightySixItem(
   ctx: RequestContext,
   input: EightySixItemInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to 86 an item');
+  }
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'eightySixItem',

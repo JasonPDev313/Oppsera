@@ -10,6 +10,10 @@ export async function removeFromWaitlist(
   entryId: string,
   reason: 'canceled' | 'no_show',
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to remove from waitlist');
+  }
+
   const result = await publishWithOutbox(ctx, async (tx) => {
     const rows = await tx.execute(sql`
       UPDATE fnb_waitlist_entries

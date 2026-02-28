@@ -23,6 +23,7 @@ import type {
   ReprintInfoBlock,
   ReceiptVariant,
 } from './types';
+import { RECEIPT_FONT_CSS } from '../schemas/receipt-settings';
 import type { ReceiptSettings } from '../schemas/receipt-settings';
 
 // ── QR URL template resolver ─────────────────────────────────────
@@ -287,6 +288,10 @@ export function buildReceiptDocument(input: BuildReceiptInput): ReceiptDocument 
       locationId: input.locationId,
       generatedAt: new Date().toISOString(),
       printerWidth: s.printerWidth,
+      fontFamilyCss: RECEIPT_FONT_CSS[s.fontFamily],
+      bodyFontSizePx: s.bodyFontSizePx,
+      headerFontSizePx: s.headerFontSizePx,
+      lineHeight: s.lineHeight,
     },
   };
 }

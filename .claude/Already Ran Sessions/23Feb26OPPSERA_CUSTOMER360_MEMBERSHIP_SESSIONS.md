@@ -538,7 +538,7 @@ Rule capabilities: dept/subdept/category/item scope, time windows, quantity rule
 
 ## 11. Privileges & Access
 
-**Golf**: tee booking, advance window, guest allowance, course access, day/time restrictions.
+**Golf**: tee time, advance window, guest allowance, course access, day/time restrictions.
 **Charging**: charge account, credit limit, manager override, past-due holds.
 **Facility**: pool, fitness, tennis, dining, guest access.
 **Flags**: billing, medical, profile, operational → header badges + overview alerts + inline markers.

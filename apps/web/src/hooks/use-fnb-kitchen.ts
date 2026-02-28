@@ -75,11 +75,13 @@ export function useKdsView({
     fetchKds();
   }, [fetchKds]);
 
+  const locQs = locationId ? `?locationId=${locationId}` : '';
+
   const bumpItem = useCallback(async (ticketItemId: string) => {
     if (!stationId) return;
     setIsActing(true);
     try {
-      await apiFetch(`/api/v1/fnb/stations/${stationId}/bump-item`, {
+      await apiFetch(`/api/v1/fnb/stations/${stationId}/bump-item${locQs}`, {
         method: 'POST',
         body: JSON.stringify({ ticketItemId, stationId }),
       });
@@ -87,13 +89,13 @@ export function useKdsView({
     } finally {
       setIsActing(false);
     }
-  }, [stationId, fetchKds]);
+  }, [stationId, locQs, fetchKds]);
 
   const bumpTicket = useCallback(async (ticketId: string) => {
     if (!stationId) return;
     setIsActing(true);
     try {
-      await apiFetch(`/api/v1/fnb/stations/${stationId}/bump-ticket`, {
+      await apiFetch(`/api/v1/fnb/stations/${stationId}/bump-ticket${locQs}`, {
         method: 'POST',
         body: JSON.stringify({ ticketId }),
       });
@@ -101,13 +103,13 @@ export function useKdsView({
     } finally {
       setIsActing(false);
     }
-  }, [stationId, fetchKds]);
+  }, [stationId, locQs, fetchKds]);
 
   const recallItem = useCallback(async (ticketItemId: string) => {
     if (!stationId) return;
     setIsActing(true);
     try {
-      await apiFetch(`/api/v1/fnb/stations/${stationId}/recall`, {
+      await apiFetch(`/api/v1/fnb/stations/${stationId}/recall${locQs}`, {
         method: 'POST',
         body: JSON.stringify({ ticketItemId, stationId }),
       });
@@ -115,13 +117,13 @@ export function useKdsView({
     } finally {
       setIsActing(false);
     }
-  }, [stationId, fetchKds]);
+  }, [stationId, locQs, fetchKds]);
 
   const callBack = useCallback(async (ticketItemId: string, reason?: string) => {
     if (!stationId) return;
     setIsActing(true);
     try {
-      await apiFetch(`/api/v1/fnb/stations/${stationId}/callback`, {
+      await apiFetch(`/api/v1/fnb/stations/${stationId}/callback${locQs}`, {
         method: 'POST',
         body: JSON.stringify({ ticketItemId, stationId, reason }),
       });
@@ -129,7 +131,7 @@ export function useKdsView({
     } finally {
       setIsActing(false);
     }
-  }, [stationId, fetchKds]);
+  }, [stationId, locQs, fetchKds]);
 
   return { kdsView, isLoading, error, bumpItem, bumpTicket, recallItem, callBack, isActing, refresh };
 }
@@ -195,7 +197,8 @@ export function useExpoView({
   const bumpTicket = useCallback(async (ticketId: string) => {
     setIsActing(true);
     try {
-      await apiFetch(`/api/v1/fnb/stations/expo`, {
+      const qs = locationId ? `?locationId=${locationId}` : '';
+      await apiFetch(`/api/v1/fnb/stations/expo${qs}`, {
         method: 'POST',
         body: JSON.stringify({ ticketId }),
       });
@@ -203,7 +206,7 @@ export function useExpoView({
     } finally {
       setIsActing(false);
     }
-  }, [fetchExpo]);
+  }, [locationId, fetchExpo]);
 
   return { expoView, isLoading, error, bumpTicket, isActing, refresh };
 }
@@ -279,12 +282,20 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
     if (!locationId) throw new Error('No location selected — cannot create station');
     setIsActing(true);
     try {
+      // Explicitly construct the payload with type coercion to prevent Zod validation mismatches
+      const payload: Record<string, unknown> = {
+        name: String(input.name).trim(),
+        displayName: String(input.displayName || input.name).trim(),
+        clientRequestId: `create-station-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      };
+      if (input.stationType) payload.stationType = String(input.stationType);
+      if (input.color) payload.color = String(input.color);
+      if (input.sortOrder != null) payload.sortOrder = Number(input.sortOrder);
+      if (input.warningThresholdSeconds != null) payload.warningThresholdSeconds = Math.round(Number(input.warningThresholdSeconds));
+      if (input.criticalThresholdSeconds != null) payload.criticalThresholdSeconds = Math.round(Number(input.criticalThresholdSeconds));
       await apiFetch(`/api/v1/fnb/stations?locationId=${locationId}`, {
         method: 'POST',
-        body: JSON.stringify({
-          ...input,
-          clientRequestId: `create-station-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        }),
+        body: JSON.stringify(payload),
       });
       await fetchStations();
     } finally {

@@ -159,7 +159,7 @@ Migration from legacy MSSQL (`GF_*` prefixed, ~290 tables) to new Postgres 16 mu
 | Orders | Active/Closed/Voided/Deleted | open/placed/paid/voided/deleted |
 | Payments | Captured/Voided/Pending | captured/voided/pending |
 | Memberships | A/I/E/C/P | active/inactive/expired/canceled/paused |
-| Tee Bookings | CheckedIn/NoShow/Pending | checked_in/no_show/pending |
+| Tee Times | CheckedIn/NoShow/Pending | checked_in/no_show/pending |
 | Vouchers | Active/Redeemed/Expired | active/partial/redeemed/expired/refunded |
 
 ---

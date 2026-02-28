@@ -1371,7 +1371,7 @@ BUILD THESE FILES:
 OUTPUT: Complete route handlers, commands, queries, security modules. Follow withMiddleware pattern exactly. Use auditLog after every write operation.
 
 Session 5 of 12 — Golf-Specific Analytics Dataset
-CONTEXT: I'm building golf-specific analytics for OppsEra's semantic layer. Sessions 1-4 created the registry, engine, LLM, and APIs. You have my CLAUDE.md and CONVENTIONS.md. My database has extensive golf tables including: courses, course_holes, tee_bookings, tee_booking_players, tee_sheets, tee_seasons, tee_types, tee_pricing_plans, rack_rates, tee_categories, shotgun_starts, golf_league_profiles, golf_outing_profiles, and golf-specific read models: rm_golf_tee_time_demand, rm_golf_tee_time_fact, rm_golf_revenue_daily, rm_golf_pace_daily, rm_golf_ops_daily, rm_golf_channel_daily, rm_golf_customer_play, rm_golf_hourly_distribution, rm_golf_booking_lead_time, rm_golf_pace_checkpoints.
+CONTEXT: I'm building golf-specific analytics for OppsEra's semantic layer. Sessions 1-4 created the registry, engine, LLM, and APIs. You have my CLAUDE.md and CONVENTIONS.md. My database has extensive golf tables including: courses, course_holes, tee_times, tee_time_players, tee_sheets, tee_seasons, tee_types, tee_pricing_plans, rack_rates, tee_categories, shotgun_starts, golf_league_profiles, golf_outing_profiles, and golf-specific read models: rm_golf_tee_time_demand, rm_golf_tee_time_fact, rm_golf_revenue_daily, rm_golf_pace_daily, rm_golf_ops_daily, rm_golf_channel_daily, rm_golf_customer_play, rm_golf_hourly_distribution, rm_golf_booking_lead_time, rm_golf_pace_checkpoints.
 
 IMPORTANT CONTEXT FROM PRIOR SESSIONS:
 - Join paths now include cardinality (one_to_one/one_to_many/many_to_one) and grainImpact (safe/may_duplicate/requires_distinct)
@@ -1446,7 +1446,7 @@ BUILD THESE FILES:
    - GolfCustomerPlay → rm_golf_customer_play
    - GolfHourlyDist → rm_golf_hourly_distribution
    - GolfBookingLeadTime → rm_golf_booking_lead_time
-   - TeeBooking → tee_bookings (whitelisted OLTP read)
+   - TeeTime → tee_times (whitelisted OLTP read)
 
 4) **packages/modules/semantic/src/registry/golf-join-graph.ts** — Golf join paths WITH cardinality + grainImpact:
    - rm_golf_revenue_daily → locations: many_to_one, safe

@@ -22,6 +22,9 @@ export async function seatReservation(
   reservationId: string,
   input: Partial<SeatReservationInput>,
 ): Promise<{ data: Record<string, unknown>; suggestions?: TableSuggestion[] }> {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to seat a reservation');
+  }
   // If no tableIds provided, return suggestions instead of seating
   if (!input.tableIds || input.tableIds.length === 0) {
     const existing = await fetchReservationReadOnly(ctx.tenantId, reservationId);

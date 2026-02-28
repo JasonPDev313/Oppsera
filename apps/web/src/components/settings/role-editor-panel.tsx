@@ -348,6 +348,25 @@ export function RoleEditorPanel({
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={() => {
+                  const all = PERMISSION_GROUPS.flatMap((g) => getAllGroupPerms(g));
+                  setSelectedPerms(new Set(all));
+                }}
+                className="text-xs font-medium text-indigo-500 hover:text-indigo-400"
+              >
+                Select All
+              </button>
+              <span className="text-muted-foreground/50">|</span>
+              <button
+                type="button"
+                onClick={() => setSelectedPerms(new Set())}
+                className="text-xs font-medium text-red-500 hover:text-red-400"
+              >
+                Clear All
+              </button>
+              <span className="text-muted-foreground/30 mx-1">|</span>
+              <button
+                type="button"
                 onClick={expandAll}
                 className="text-xs font-medium text-indigo-500 hover:text-indigo-400"
               >

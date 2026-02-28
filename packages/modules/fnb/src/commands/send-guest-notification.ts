@@ -13,6 +13,10 @@ export async function sendGuestNotification(
   ctx: RequestContext,
   input: SendGuestNotificationInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to send a guest notification');
+  }
+
   const notification = await withTenant(ctx.tenantId, async (tx) => {
     const rows = await tx.execute(sql`
       INSERT INTO fnb_guest_notifications (

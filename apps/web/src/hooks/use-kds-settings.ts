@@ -66,6 +66,18 @@ interface ItemPrepTime {
   estimatedPrepSeconds: number;
 }
 
+/** Build ?locationId=xxx query string suffix. Shared across all KDS hooks. */
+function locationQs(locationId?: string): string {
+  return locationId ? `?locationId=${locationId}` : '';
+}
+
+/** Throw early if locationId is missing — prevents DB NOT NULL violations. */
+function requireLocationId(locationId?: string): asserts locationId is string {
+  if (!locationId) {
+    throw new Error('Location is required. Please select a location before making changes.');
+  }
+}
+
 // ── Bump Bar Profiles Hook ─────────────────────────────────────
 
 export function useBumpBarProfiles(locationId?: string) {
@@ -75,9 +87,8 @@ export function useBumpBarProfiles(locationId?: string) {
 
   const refresh = useCallback(async () => {
     try {
-      const qs = locationId ? `?locationId=${locationId}` : '';
       const res = await apiFetch<{ data: BumpBarProfile[] }>(
-        `/api/v1/fnb/kds-settings/bump-bar-profiles${qs}`,
+        `/api/v1/fnb/kds-settings/bump-bar-profiles${locationQs(locationId)}`,
       );
       setProfiles(res.data ?? []);
     } catch {
@@ -96,17 +107,21 @@ export function useBumpBarProfiles(locationId?: string) {
     isDefault?: boolean;
     clientRequestId: string;
   }) => {
+    requireLocationId(locationId);
     setIsActing(true);
     try {
-      await apiFetch('/api/v1/fnb/kds-settings/bump-bar-profiles', {
+      await apiFetch(`/api/v1/fnb/kds-settings/bump-bar-profiles${locationQs(locationId)}`, {
         method: 'POST',
         body: JSON.stringify(input),
       });
       await refresh();
+    } catch (err) {
+      setIsActing(false);
+      throw err;
     } finally {
       setIsActing(false);
     }
-  }, [refresh]);
+  }, [locationId, refresh]);
 
   const updateProfile = useCallback(async (profileId: string, input: {
     profileName?: string;
@@ -115,9 +130,10 @@ export function useBumpBarProfiles(locationId?: string) {
     isDefault?: boolean;
     clientRequestId: string;
   }) => {
+    requireLocationId(locationId);
     setIsActing(true);
     try {
-      await apiFetch(`/api/v1/fnb/kds-settings/bump-bar-profiles/${profileId}`, {
+      await apiFetch(`/api/v1/fnb/kds-settings/bump-bar-profiles/${profileId}${locationQs(locationId)}`, {
         method: 'PATCH',
         body: JSON.stringify(input),
       });
@@ -125,7 +141,7 @@ export function useBumpBarProfiles(locationId?: string) {
     } finally {
       setIsActing(false);
     }
-  }, [refresh]);
+  }, [locationId, refresh]);
 
   return { profiles, isLoading, isActing, createProfile, updateProfile, refresh };
 }
@@ -139,9 +155,8 @@ export function useAlertProfiles(locationId?: string) {
 
   const refresh = useCallback(async () => {
     try {
-      const qs = locationId ? `?locationId=${locationId}` : '';
       const res = await apiFetch<{ data: AlertProfile[] }>(
-        `/api/v1/fnb/kds-settings/alert-profiles${qs}`,
+        `/api/v1/fnb/kds-settings/alert-profiles${locationQs(locationId)}`,
       );
       setProfiles(res.data ?? []);
     } catch {
@@ -165,9 +180,10 @@ export function useAlertProfiles(locationId?: string) {
     isDefault?: boolean;
     clientRequestId: string;
   }) => {
+    requireLocationId(locationId);
     setIsActing(true);
     try {
-      await apiFetch('/api/v1/fnb/kds-settings/alert-profiles', {
+      await apiFetch(`/api/v1/fnb/kds-settings/alert-profiles${locationQs(locationId)}`, {
         method: 'POST',
         body: JSON.stringify(input),
       });
@@ -175,12 +191,13 @@ export function useAlertProfiles(locationId?: string) {
     } finally {
       setIsActing(false);
     }
-  }, [refresh]);
+  }, [locationId, refresh]);
 
   const updateProfile = useCallback(async (profileId: string, input: Record<string, unknown>) => {
+    requireLocationId(locationId);
     setIsActing(true);
     try {
-      await apiFetch(`/api/v1/fnb/kds-settings/alert-profiles/${profileId}`, {
+      await apiFetch(`/api/v1/fnb/kds-settings/alert-profiles/${profileId}${locationQs(locationId)}`, {
         method: 'PATCH',
         body: JSON.stringify(input),
       });
@@ -188,7 +205,7 @@ export function useAlertProfiles(locationId?: string) {
     } finally {
       setIsActing(false);
     }
-  }, [refresh]);
+  }, [locationId, refresh]);
 
   return { profiles, isLoading, isActing, createProfile, updateProfile, refresh };
 }
@@ -202,9 +219,8 @@ export function usePerformanceTargets(locationId?: string) {
 
   const refresh = useCallback(async () => {
     try {
-      const qs = locationId ? `?locationId=${locationId}` : '';
       const res = await apiFetch<{ data: PerformanceTarget[] }>(
-        `/api/v1/fnb/kds-settings/performance-targets${qs}`,
+        `/api/v1/fnb/kds-settings/performance-targets${locationQs(locationId)}`,
       );
       setTargets(res.data ?? []);
     } catch {
@@ -225,9 +241,10 @@ export function usePerformanceTargets(locationId?: string) {
     speedOfServiceGoalSeconds?: number;
     clientRequestId: string;
   }) => {
+    requireLocationId(locationId);
     setIsActing(true);
     try {
-      await apiFetch('/api/v1/fnb/kds-settings/performance-targets', {
+      await apiFetch(`/api/v1/fnb/kds-settings/performance-targets${locationQs(locationId)}`, {
         method: 'POST',
         body: JSON.stringify(input),
       });
@@ -235,7 +252,7 @@ export function usePerformanceTargets(locationId?: string) {
     } finally {
       setIsActing(false);
     }
-  }, [refresh]);
+  }, [locationId, refresh]);
 
   return { targets, isLoading, isActing, upsertTarget, refresh };
 }
@@ -375,9 +392,10 @@ export function useRoutingRules(locationId?: string) {
     timeConditionEnd?: string;
     clientRequestId: string;
   }) => {
+    requireLocationId(locationId);
     setIsActing(true);
     try {
-      await apiFetch('/api/v1/fnb/kds-settings/routing-rules', {
+      await apiFetch(`/api/v1/fnb/kds-settings/routing-rules${locationQs(locationId)}`, {
         method: 'POST',
         body: JSON.stringify(input),
       });
@@ -385,7 +403,7 @@ export function useRoutingRules(locationId?: string) {
     } finally {
       setIsActing(false);
     }
-  }, [refresh]);
+  }, [locationId, refresh]);
 
   const updateRule = useCallback(async (ruleId: string, input: {
     ruleName?: string;
@@ -398,9 +416,10 @@ export function useRoutingRules(locationId?: string) {
     isActive?: boolean;
     clientRequestId?: string;
   }) => {
+    requireLocationId(locationId);
     setIsActing(true);
     try {
-      await apiFetch(`/api/v1/fnb/kds-settings/routing-rules/${ruleId}`, {
+      await apiFetch(`/api/v1/fnb/kds-settings/routing-rules/${ruleId}${locationQs(locationId)}`, {
         method: 'PATCH',
         body: JSON.stringify(input),
       });
@@ -408,19 +427,20 @@ export function useRoutingRules(locationId?: string) {
     } finally {
       setIsActing(false);
     }
-  }, [refresh]);
+  }, [locationId, refresh]);
 
   const deleteRule = useCallback(async (ruleId: string) => {
+    requireLocationId(locationId);
     setIsActing(true);
     try {
-      await apiFetch(`/api/v1/fnb/kds-settings/routing-rules/${ruleId}`, {
+      await apiFetch(`/api/v1/fnb/kds-settings/routing-rules/${ruleId}${locationQs(locationId)}`, {
         method: 'DELETE',
       });
       await refresh();
     } finally {
       setIsActing(false);
     }
-  }, [refresh]);
+  }, [locationId, refresh]);
 
   return {
     rules, isLoading, isActing,

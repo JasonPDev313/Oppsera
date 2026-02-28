@@ -9,6 +9,9 @@ export async function createRoutingRule(
   ctx: RequestContext,
   input: CreateKdsRoutingRuleInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to create a routing rule');
+  }
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'createRoutingRule',

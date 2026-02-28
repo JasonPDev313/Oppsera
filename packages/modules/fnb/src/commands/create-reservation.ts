@@ -9,6 +9,9 @@ export async function createReservation(
   ctx: RequestContext,
   input: CreateReservationInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to create a reservation');
+  }
   const result = await publishWithOutbox(ctx, async (tx) => {
     // Compute end time
     const duration = input.durationMinutes ?? 90;

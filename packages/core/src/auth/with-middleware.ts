@@ -36,6 +36,8 @@ interface MiddlewareOptions {
   stepUp?: StepUpCategory;
   /** Bot detection mode. 'standard' (default for all routes) or 'strict' for public endpoints. Set to false to disable. */
   botDetection?: 'standard' | 'strict' | false;
+  /** When true, requires locationId (via x-location-id header or locationId query param). Returns 400 if missing. */
+  requireLocation?: boolean;
 }
 
 // ── Global middleware timeout ──────────────────────────────────────────────────
@@ -320,6 +322,13 @@ async function _executeMiddleware(
           const locationId = await resolveLocation(request, ctx);
           if (locationId) {
             ctx.locationId = locationId;
+          }
+
+          if (options?.requireLocation && !ctx.locationId) {
+            return NextResponse.json(
+              { error: { code: 'LOCATION_REQUIRED', message: 'Location ID is required. Provide x-location-id header or locationId query param.' } },
+              { status: 400 },
+            );
           }
 
           // Read active role from header (set by frontend when user selects a role)

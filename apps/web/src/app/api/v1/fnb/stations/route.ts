@@ -34,5 +34,5 @@ export const POST = withMiddleware(
     const station = await createStation(ctx, parsed.data);
     return NextResponse.json({ data: station }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage' , writeAccess: true },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage', writeAccess: true },
 );

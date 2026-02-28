@@ -402,9 +402,9 @@ export function renderPrintHtml(doc: ReceiptDocument): string {
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     width: ${widthMm};
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 11px;
-    line-height: 1.4;
+    font-family: ${doc.metadata.fontFamilyCss};
+    font-size: ${doc.metadata.bodyFontSizePx}px;
+    line-height: ${doc.metadata.lineHeight};
     color: #000;
     background: #fff;
     padding: 2mm 3mm;
@@ -414,18 +414,18 @@ export function renderPrintHtml(doc: ReceiptDocument): string {
 
   /* Layout */
   .header { text-align: center; padding-bottom: 6px; }
-  .biz-name { font-size: 14px; font-weight: 700; letter-spacing: 1px; }
-  .loc-name { font-size: 12px; }
-  .sub-text { font-size: 10px; }
+  .biz-name { font-size: ${doc.metadata.headerFontSizePx}px; font-weight: 700; letter-spacing: 1px; }
+  .loc-name { font-size: ${Math.round(doc.metadata.headerFontSizePx * 0.85)}px; }
+  .sub-text { font-size: ${Math.round(doc.metadata.bodyFontSizePx * 0.9)}px; }
   .logo { max-height: 40px; max-width: 160px; margin-bottom: 4px; }
 
   .row { display: flex; justify-content: space-between; line-height: 1.5; }
   .center { text-align: center; }
   .indent { padding-left: 8px; }
   .indent2 { padding-left: 16px; }
-  .dim { color: #666; font-size: 10px; }
+  .dim { color: #666; font-size: ${Math.round(doc.metadata.bodyFontSizePx * 0.9)}px; }
   .discount { color: #16a34a; }
-  .instructions { font-style: italic; color: #888; font-size: 10px; }
+  .instructions { font-style: italic; color: #888; font-size: ${Math.round(doc.metadata.bodyFontSizePx * 0.9)}px; }
 
   /* Separators */
   .sep { border-top: 1px solid #000; margin: 4px 0; }
@@ -433,20 +433,20 @@ export function renderPrintHtml(doc: ReceiptDocument): string {
 
   /* Items */
   .item-name { font-weight: 600; margin-top: 4px; }
-  .seat-header { font-size: 10px; letter-spacing: 1px; margin-top: 8px; border-bottom: 1px dashed #999; padding-bottom: 2px; }
+  .seat-header { font-size: ${Math.round(doc.metadata.bodyFontSizePx * 0.9)}px; letter-spacing: 1px; margin-top: 8px; border-bottom: 1px dashed #999; padding-bottom: 2px; }
   .badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 0 3px; border: 1px solid; border-radius: 2px; }
   .badge.void { color: #dc2626; border-color: #dc2626; }
   .badge.comp { color: #d97706; border-color: #d97706; }
 
   /* Totals */
   .grand-total { padding: 4px 0; }
-  .grand-total .row { font-size: 14px; font-weight: 700; }
+  .grand-total .row { font-size: ${doc.metadata.headerFontSizePx}px; font-weight: 700; }
 
   /* Sections */
   .order-info, .items, .totals, .payment, .footer, .loyalty, .signature, .refund-info, .void-info, .reprint-info { padding: 4px 0; }
 
   /* Watermark */
-  .watermark { text-align: center; font-size: 14px; font-weight: 700; letter-spacing: 2px; padding: 6px 0; }
+  .watermark { text-align: center; font-size: ${doc.metadata.headerFontSizePx}px; font-weight: 700; letter-spacing: 2px; padding: 6px 0; }
 
   /* QR Code */
   .qr-section { text-align: center; padding: 8px 0; }
@@ -455,7 +455,7 @@ export function renderPrintHtml(doc: ReceiptDocument): string {
   /* Footer */
   .thank-you { font-weight: 600; padding: 6px 0; }
   .gift-msg { text-align: center; font-style: italic; padding: 6px 0; border: 1px dashed #999; margin-bottom: 6px; }
-  .return-policy { font-size: 9px; color: #666; padding: 4px 0; }
+  .return-policy { font-size: ${Math.max(8, doc.metadata.bodyFontSizePx - 2)}px; color: #666; padding: 4px 0; }
 </style>
 </head>
 <body>

@@ -11,6 +11,10 @@ export async function seatFromWaitlist(
   entryId: string,
   input: SeatFromWaitlistInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to seat from waitlist');
+  }
+
   const result = await publishWithOutbox(ctx, async (tx) => {
     // Fetch entry
     const entryRows = await tx.execute(sql`

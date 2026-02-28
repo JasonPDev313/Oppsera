@@ -189,6 +189,10 @@ export interface ReceiptDocumentMetadata {
   locationId: string;
   generatedAt: string; // ISO timestamp
   printerWidth: PrinterWidth;
+  fontFamilyCss: string;
+  bodyFontSizePx: number;
+  headerFontSizePx: number;
+  lineHeight: number;
 }
 
 export interface ReceiptDocument {

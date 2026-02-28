@@ -15,6 +15,10 @@ export async function createKitchenTicket(
   ctx: RequestContext,
   input: CreateKitchenTicketInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to create a kitchen ticket');
+  }
+
   // ── Pre-transaction: resolve routing for items without explicit stationId ──
   // Per gotcha #123: read-only data fetching happens OUTSIDE the transaction
   // to avoid lock contention and N serial DB round-trips.

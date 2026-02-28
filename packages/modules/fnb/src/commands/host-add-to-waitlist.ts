@@ -37,6 +37,9 @@ export async function hostAddToWaitlist(
   ctx: RequestContext,
   input: HostAddToWaitlistInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to add to waitlist');
+  }
   // Use user-provided quoted wait if given, otherwise estimate
   let quotedWaitMinutes = input.quotedWaitMinutes ?? 15;
   if (input.quotedWaitMinutes == null) {

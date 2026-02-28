@@ -20,7 +20,8 @@ import { useReceiptSettings } from '@/hooks/use-receipt-settings';
 import { ReceiptPreview } from '@/components/receipts/ReceiptPreview';
 import { buildReceiptDocument } from '@oppsera/shared';
 import { DEFAULT_RECEIPT_SETTINGS } from '@oppsera/shared';
-import type { ReceiptSettings, BuildReceiptInput, ReceiptVariant } from '@oppsera/shared';
+import type { ReceiptSettings, BuildReceiptInput, ReceiptVariant, ReceiptFontFamily } from '@oppsera/shared';
+import { RECEIPT_FONT_FAMILIES, RECEIPT_FONT_LABELS } from '@oppsera/shared';
 
 // ── Shared CSS classes ─────────────────────────────────────────
 
@@ -377,8 +378,65 @@ export function ReceiptSettingsTab() {
           </div>
         </Section>
 
+        {/* Typography */}
+        <Section id="typography" icon={Type} title="Typography">
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-foreground">Font Family</label>
+              <select
+                value={draft.fontFamily}
+                onChange={(e) => patch('fontFamily', e.target.value as ReceiptFontFamily)}
+                className={SELECT}
+              >
+                {RECEIPT_FONT_FAMILIES.map((f) => (
+                  <option key={f} value={f}>{RECEIPT_FONT_LABELS[f]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-foreground">Body Font Size</label>
+                <input
+                  type="number"
+                  min={8}
+                  max={16}
+                  value={draft.bodyFontSizePx}
+                  onChange={(e) => patch('bodyFontSizePx', Math.min(16, Math.max(8, Number(e.target.value))))}
+                  className={INPUT}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">8–16 px</p>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-foreground">Header Font Size</label>
+                <input
+                  type="number"
+                  min={10}
+                  max={20}
+                  value={draft.headerFontSizePx}
+                  onChange={(e) => patch('headerFontSizePx', Math.min(20, Math.max(10, Number(e.target.value))))}
+                  className={INPUT}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">10–20 px</p>
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-foreground">Line Height</label>
+              <input
+                type="number"
+                min={1.0}
+                max={2.0}
+                step={0.1}
+                value={draft.lineHeight}
+                onChange={(e) => patch('lineHeight', Math.min(2.0, Math.max(1.0, Number(e.target.value))))}
+                className={INPUT}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">1.0 (tight) – 2.0 (spacious)</p>
+            </div>
+          </div>
+        </Section>
+
         {/* Header */}
-        <Section id="header" icon={Type} title="Header">
+        <Section id="header" icon={Receipt} title="Header">
           <div className="space-y-3">
             <Toggle
               label="Show Logo"

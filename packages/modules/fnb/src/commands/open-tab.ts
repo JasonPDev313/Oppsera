@@ -13,6 +13,9 @@ export async function openTab(
   ctx: RequestContext,
   input: OpenTabInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to open a tab');
+  }
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'openTab',

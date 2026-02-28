@@ -10,6 +10,10 @@ export async function updateHostSettings(
   ctx: RequestContext,
   input: UpdateHostSettingsInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to update host settings');
+  }
+
   return withTenant(ctx.tenantId, async (tx) => {
     const rows = await tx.execute(sql`
       INSERT INTO fnb_host_settings (

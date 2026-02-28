@@ -25,7 +25,16 @@ export const GET = withMiddleware(
 // POST /api/v1/fnb/kds-settings/performance-targets — upsert performance target
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: { code: 'INVALID_JSON', message: 'Request body must be valid JSON' } },
+        { status: 400 },
+      );
+    }
+
     const parsed = upsertPerformanceTargetSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(
@@ -34,7 +43,7 @@ export const POST = withMiddleware(
       );
     }
     const target = await upsertPerformanceTarget(ctx, parsed.data);
-    return NextResponse.json({ data: target }, { status: 201 });
+    return NextResponse.json({ data: target }, { status: 200 });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage', writeAccess: true },
 );

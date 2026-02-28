@@ -10,7 +10,7 @@ import { useOrder } from '@/hooks/use-orders';
 import { useToast } from '@/components/ui/toast';
 import { apiFetch } from '@/lib/api-client';
 import { getItemTypeGroup, ITEM_TYPE_BADGES } from '@/types/catalog';
-import { ReceiptView } from '@/components/orders/ReceiptView';
+import { ReceiptPreviewDialog } from '@/components/pos/shared/ReceiptPreviewDialog';
 import type { OrderLine, OrderCharge, OrderDiscount } from '@/types/pos';
 
 // ── Badge mappings ────────────────────────────────────────────────
@@ -728,14 +728,13 @@ export default function OrderDetailPage() {
         isLoading={isVoiding}
       />
 
-      {/* Receipt View (80mm thermal print) */}
-      <ReceiptView
+      {/* Receipt Preview (advanced block-based receipt) */}
+      <ReceiptPreviewDialog
         open={showReceipt}
         onClose={() => setShowReceipt(false)}
         order={order}
-        businessName={businessName}
-        locationName={locationName}
         locationId={locationId}
+        locationName={locationName}
       />
     </div>
   );

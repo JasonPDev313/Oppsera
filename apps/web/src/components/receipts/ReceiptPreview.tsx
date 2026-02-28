@@ -426,8 +426,14 @@ interface ReceiptPreviewProps {
 }
 
 export function ReceiptPreview({ document: doc, className }: ReceiptPreviewProps) {
+  const fontStyle = {
+    fontFamily: doc.metadata.fontFamilyCss,
+    fontSize: `${doc.metadata.bodyFontSizePx}px`,
+    lineHeight: doc.metadata.lineHeight,
+  };
+
   return (
-    <div className={`font-mono text-sm space-y-2 ${className ?? ''}`}>
+    <div className={`space-y-2 ${className ?? ''}`} style={fontStyle}>
       {doc.blocks.map((block, i) => (
         <div key={`${block.type}-${i}`}>
           <BlockRenderer block={block} />

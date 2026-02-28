@@ -9,6 +9,10 @@ export async function addToWaitlist(
   ctx: RequestContext,
   input: AddToWaitlistInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to add to waitlist');
+  }
+
   const result = await publishWithOutbox(ctx, async (tx) => {
     // Get next position in queue
     const posRows = await tx.execute(sql`

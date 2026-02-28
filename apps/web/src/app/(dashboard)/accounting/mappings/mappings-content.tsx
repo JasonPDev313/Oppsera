@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -17,6 +17,7 @@ import {
   Plus,
   Receipt,
   RefreshCw,
+  Loader2,
   Sparkles,
   Tag,
   Trash2,
@@ -24,6 +25,7 @@ import {
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { GLReadinessBanner } from '@/components/accounting/gl-readiness-banner';
 import { AccountPicker, getSuggestedAccount } from '@/components/accounting/account-picker';
+import { apiFetch } from '@/lib/api-client';
 import { useGLAccounts } from '@/hooks/use-accounting';
 import { AccountingEmptyState } from '@/components/accounting/accounting-empty-state';
 import {
@@ -66,21 +68,349 @@ import type {
   DebitKind,
   CreditKind,
 } from '@oppsera/shared';
-import type { SubDepartmentMapping, AccountType, TransactionTypeMapping } from '@/types/accounting';
+import type { SubDepartmentMapping, AccountType, TransactionTypeMapping, FnbMappingCoverageResult, GLAccount } from '@/types/accounting';
 
 type TabKey = 'departments' | 'payments' | 'taxes' | 'discounts' | 'fnb' | 'unmapped';
 
+// ── Global Map All Types ──────────────────────────────────────
+
+interface PhaseResult {
+  name: string;
+  mapped: number;
+  failed: number;
+}
+
+interface GlobalMapProgress {
+  phase: string;
+  current: number;
+  total: number;
+  mapped: number;
+  failed: number;
+  phases: PhaseResult[];
+}
+
 export default function MappingsContent() {
   const [activeTab, setActiveTab] = useState<TabKey>('departments');
-  const { data: coverage } = useMappingCoverage();
+  const { data: coverage, mutate: refetchCoverage } = useMappingCoverage();
   const { data: unmappedEvents } = useUnmappedEvents({ status: 'unresolved' });
+
+  // ── Global Map All state ────────────────────────────────────
+  const [isGlobalMapping, setIsGlobalMapping] = useState(false);
+  const [globalProgress, setGlobalProgress] = useState<GlobalMapProgress | null>(null);
+
+  // ── Hoisted data hooks (React Query deduplicates — zero extra cost) ──
+  const { data: subDeptMappings } = useSubDepartmentMappings();
+  const { data: allTransactionTypes } = useTransactionTypeMappings();
+  const { data: taxGroupMappings } = useTaxGroupMappings();
+  const { data: glAccounts } = useGLAccounts({ isActive: true });
+  const { data: discountMappings } = useDiscountMappings();
+  const { data: smartResolutionData } = useSmartResolutionSuggestions();
+  const { locations } = useAuthContext();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // ── Hoisted mutation hooks ──────────────────────────────────
+  const { saveSubDepartmentDefaults, saveTaxGroupDefaults, saveTransactionTypeMapping } = useMappingMutations();
+  const { saveDiscountMappingsBatch } = useDiscountMappingMutations();
+  const { saveFnbMapping } = useSaveFnbMapping();
+  const applySmartResolutions = useApplySmartResolutions();
+
+  // ── Global Map All orchestrator ──────────────────────────────
+  const handleGlobalMapAll = useCallback(async () => {
+    if (!glAccounts || glAccounts.length === 0) return;
+    setIsGlobalMapping(true);
+    const phases: PhaseResult[] = [];
+    let totalMapped = 0;
+    let totalFailed = 0;
+
+    const updateProgress = (phase: string, current: number, total: number) => {
+      setGlobalProgress({
+        phase,
+        current,
+        total,
+        mapped: totalMapped,
+        failed: totalFailed,
+        phases: [...phases],
+      });
+    };
+
+    // ── Phase 1: Sub-Departments ──────────────────────────────
+    try {
+      updateProgress('Sub-Departments', 0, 1);
+      let mapped = 0;
+      let failed = 0;
+      const revAccounts = glAccounts.filter((a) => a.accountType === 'revenue');
+      const expAccounts = glAccounts.filter((a) => a.accountType === 'expense');
+      const assetAccounts = glAccounts.filter((a) => a.accountType === 'asset');
+
+      for (const m of subDeptMappings) {
+        if (m.revenueAccountId) continue;
+        const revSuggestion = getSuggestedAccount(revAccounts, m.subDepartmentName, 'revenue');
+        if (!revSuggestion) continue;
+        try {
+          await saveSubDepartmentDefaults.mutateAsync({
+            subDepartmentId: m.subDepartmentId,
+            revenueAccountId: revSuggestion.id,
+            cogsAccountId: getSuggestedAccount(expAccounts, m.subDepartmentName, 'cogs')?.id ?? m.cogsAccountId,
+            inventoryAssetAccountId: getSuggestedAccount(assetAccounts, m.subDepartmentName, 'inventory')?.id ?? m.inventoryAssetAccountId,
+            discountAccountId: m.discountAccountId,
+            returnsAccountId: getSuggestedAccount(revAccounts, m.subDepartmentName, 'returns')?.id ?? m.returnsAccountId,
+          });
+          mapped++;
+        } catch { failed++; }
+      }
+      totalMapped += mapped;
+      totalFailed += failed;
+      phases.push({ name: 'Sub-Departments', mapped, failed });
+    } catch {
+      phases.push({ name: 'Sub-Departments', mapped: 0, failed: 1 });
+      totalFailed++;
+    }
+
+    // ── Phase 2: Transaction Types ────────────────────────────
+    try {
+      updateProgress('Transaction Types', 0, 1);
+      let mapped = 0;
+      let failed = 0;
+
+      for (const t of allTransactionTypes) {
+        if (t.isMapped) continue;
+        const rule = getMappedStatusRule(t.category);
+        let debitId: string | null = t.debitAccountId;
+        let creditId: string | null = t.creditAccountId;
+
+        if ((rule === 'debit' || rule === 'both') && !debitId && !isDebitDisabled(t.code)) {
+          const debitTypes = getDebitAccountTypes(t.code) as string[];
+          const candidates = glAccounts.filter((a) => debitTypes.includes(a.accountType));
+          const suggestion = getSuggestedAccount(candidates, t.name, getDebitMappingRole(t.code) ?? 'cash');
+          if (suggestion) debitId = suggestion.id;
+        }
+        if ((rule === 'credit' || rule === 'both') && !creditId && !isCreditDisabled(t.code)) {
+          const creditTypes = getCreditAccountTypes(t.code) as string[];
+          const candidates = glAccounts.filter((a) => creditTypes.includes(a.accountType));
+          const suggestion = getSuggestedAccount(candidates, t.name, getCreditMappingRole(t.code) ?? 'revenue');
+          if (suggestion) creditId = suggestion.id;
+        }
+
+        if (debitId === t.debitAccountId && creditId === t.creditAccountId) continue;
+        try {
+          await saveTransactionTypeMapping.mutateAsync({
+            code: t.code,
+            creditAccountId: creditId,
+            debitAccountId: debitId,
+          });
+          mapped++;
+        } catch { failed++; }
+      }
+      totalMapped += mapped;
+      totalFailed += failed;
+      phases.push({ name: 'Transaction Types', mapped, failed });
+    } catch {
+      phases.push({ name: 'Transaction Types', mapped: 0, failed: 1 });
+      totalFailed++;
+    }
+
+    // ── Phase 3: Tax Groups ───────────────────────────────────
+    try {
+      updateProgress('Tax Groups', 0, 1);
+      let mapped = 0;
+      let failed = 0;
+      const liabilityAccounts = glAccounts.filter((a) => a.accountType === 'liability');
+
+      for (const m of taxGroupMappings) {
+        if (m.taxPayableAccountId) continue;
+        const suggestion = getSuggestedAccount(liabilityAccounts, m.taxGroupName, 'tax');
+        if (!suggestion) continue;
+        try {
+          await saveTaxGroupDefaults.mutateAsync({
+            taxGroupId: m.taxGroupId,
+            taxPayableAccountId: suggestion.id,
+          });
+          mapped++;
+        } catch { failed++; }
+      }
+      totalMapped += mapped;
+      totalFailed += failed;
+      phases.push({ name: 'Tax Groups', mapped, failed });
+    } catch {
+      phases.push({ name: 'Tax Groups', mapped: 0, failed: 1 });
+      totalFailed++;
+    }
+
+    // ── Phase 4: Discounts ────────────────────────────────────
+    try {
+      updateProgress('Discounts', 0, 1);
+      // Build sub-department list from sub-dept mappings
+      const seen = new Set<string>();
+      const subDepts: { id: string; name: string }[] = [];
+      for (const m of subDeptMappings) {
+        if (seen.has(m.subDepartmentId)) continue;
+        seen.add(m.subDepartmentId);
+        subDepts.push({ id: m.subDepartmentId, name: m.subDepartmentName });
+      }
+
+      // Build existing mapping lookup
+      const mappingLookup = new Map<string, Map<string, string>>();
+      for (const m of discountMappings) {
+        let classMap = mappingLookup.get(m.subDepartmentId);
+        if (!classMap) {
+          classMap = new Map();
+          mappingLookup.set(m.subDepartmentId, classMap);
+        }
+        classMap.set(m.discountClassification, m.glAccountId);
+      }
+
+      const batch: Array<{ subDepartmentId: string; classification: string; glAccountId: string }> = [];
+      for (const sd of subDepts) {
+        for (const def of DISCOUNT_CLASSIFICATIONS) {
+          const existing = mappingLookup.get(sd.id)?.get(def.key);
+          if (existing) continue;
+          const match = glAccounts.find(a => a.accountNumber === def.defaultAccountCode);
+          if (match) {
+            batch.push({ subDepartmentId: sd.id, classification: def.key, glAccountId: match.id });
+          }
+        }
+      }
+
+      let mapped = 0;
+      let failed = 0;
+      if (batch.length > 0) {
+        try {
+          await saveDiscountMappingsBatch.mutateAsync(batch);
+          mapped = batch.length;
+        } catch { failed = batch.length; }
+      }
+      totalMapped += mapped;
+      totalFailed += failed;
+      phases.push({ name: 'Discounts', mapped, failed });
+    } catch {
+      phases.push({ name: 'Discounts', mapped: 0, failed: 1 });
+      totalFailed++;
+    }
+
+    // ── Phase 5: F&B Categories (per location) ────────────────
+    try {
+      updateProgress('F&B Categories', 0, locations.length);
+      let mapped = 0;
+      let failed = 0;
+
+      for (let i = 0; i < locations.length; i++) {
+        const loc = locations[i]!;
+        updateProgress('F&B Categories', i + 1, locations.length);
+
+        try {
+          const coverageRes = await apiFetch<{ data: FnbMappingCoverageResult }>(
+            `/api/v1/accounting/mappings/fnb-categories?locationId=${loc.id}`,
+          );
+          const locCoverage = coverageRes.data;
+          if (!locCoverage?.categories) continue;
+
+          for (const cat of locCoverage.categories) {
+            if (cat.key === 'sales_revenue' || cat.isMapped) continue;
+            const config = FNB_CATEGORY_CONFIG[cat.key as FnbBatchCategoryKey];
+            if (!config) continue;
+            const suggestion = getFnbCategorySuggestion(glAccounts, cat.key as FnbBatchCategoryKey);
+            if (!suggestion) continue;
+
+            const mapping: Record<string, string | null> = {
+              locationId: loc.id,
+              entityType: config.entityType,
+            };
+            mapping[config.mappingColumn] = suggestion.id;
+
+            try {
+              await saveFnbMapping(mapping as any);
+              mapped++;
+            } catch { failed++; }
+          }
+        } catch {
+          // Location-level failure — continue to next location
+          failed++;
+        }
+      }
+      totalMapped += mapped;
+      totalFailed += failed;
+      phases.push({ name: 'F&B Categories', mapped, failed });
+    } catch {
+      phases.push({ name: 'F&B Categories', mapped: 0, failed: 1 });
+      totalFailed++;
+    }
+
+    // ── Phase 6: Unmapped Events (Smart Resolution) ───────────
+    try {
+      updateProgress('Unmapped Events', 0, 1);
+      let mapped = 0;
+      let failed = 0;
+
+      if (smartResolutionData?.suggestions) {
+        const actionable = smartResolutionData.suggestions.filter((s) => !s.alreadyMapped);
+        if (actionable.length > 0) {
+          try {
+            const result = await applySmartResolutions.mutateAsync(
+              actionable.map((s) => ({
+                entityType: s.entityType,
+                entityId: s.entityId,
+                suggestedAccountId: s.suggestedAccountId,
+              })),
+            );
+            mapped = result.mappingsCreated + result.eventsResolved;
+            failed = result.failed;
+          } catch { failed = actionable.length; }
+        }
+      }
+      totalMapped += mapped;
+      totalFailed += failed;
+      phases.push({ name: 'Unmapped Events', mapped, failed });
+    } catch {
+      phases.push({ name: 'Unmapped Events', mapped: 0, failed: 1 });
+      totalFailed++;
+    }
+
+    // ── Finalize ──────────────────────────────────────────────
+    setGlobalProgress({
+      phase: 'Complete',
+      current: 6,
+      total: 6,
+      mapped: totalMapped,
+      failed: totalFailed,
+      phases,
+    });
+
+    // Invalidate all caches
+    await queryClient.invalidateQueries({ queryKey: ['mapping-coverage'] });
+    await queryClient.invalidateQueries({ queryKey: ['sub-department-mappings'] });
+    await queryClient.invalidateQueries({ queryKey: ['transaction-type-mappings'] });
+    await queryClient.invalidateQueries({ queryKey: ['tax-group-mappings'] });
+    await queryClient.invalidateQueries({ queryKey: ['discount-gl-mappings'] });
+    await queryClient.invalidateQueries({ queryKey: ['discount-mapping-coverage'] });
+    await queryClient.invalidateQueries({ queryKey: ['smart-resolution-suggestions'] });
+    await queryClient.invalidateQueries({ queryKey: ['unmapped-events'] });
+
+    if (totalMapped > 0 && totalFailed === 0) {
+      toast.success(`Global mapping complete: ${totalMapped} item${totalMapped !== 1 ? 's' : ''} mapped across ${phases.filter(p => p.mapped > 0).length} categories`);
+    } else if (totalMapped > 0) {
+      toast.info(`Global mapping: ${totalMapped} mapped, ${totalFailed} failed across ${phases.length} categories`);
+    } else {
+      toast.info('No unmapped items found, or no matching GL accounts available');
+    }
+
+    setIsGlobalMapping(false);
+    // Clear progress after 5 seconds
+    setTimeout(() => setGlobalProgress(null), 5000);
+  }, [
+    glAccounts, subDeptMappings, allTransactionTypes, taxGroupMappings,
+    discountMappings, locations, smartResolutionData,
+    saveSubDepartmentDefaults, saveTransactionTypeMapping, saveTaxGroupDefaults,
+    saveDiscountMappingsBatch, saveFnbMapping, applySmartResolutions,
+    queryClient, toast,
+  ]);
 
   const tabs: { key: TabKey; label: string; count?: number }[] = [
     { key: 'departments', label: 'Sub-Departments' },
     { key: 'payments', label: 'Transaction Types' },
     { key: 'taxes', label: 'Tax Groups' },
     { key: 'discounts', label: 'Discounts' },
-    { key: 'fnb', label: 'F&B Categories' },
+    { key: 'fnb', label: 'F&B Operations' },
     { key: 'unmapped', label: 'Unmapped Events', count: unmappedEvents.length },
   ];
 
@@ -95,8 +425,25 @@ export default function MappingsContent() {
       {coverage && (
         <div className="rounded-lg border border-border bg-surface p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Mapping Coverage</h2>
-            <span className="text-lg font-bold text-foreground">{coverage.overallPercentage}%</span>
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm font-semibold text-foreground">Mapping Coverage</h2>
+              <span className="text-lg font-bold text-foreground">{coverage.overallPercentage}%</span>
+            </div>
+            {coverage.overallPercentage < 100 && (
+              <button
+                type="button"
+                onClick={handleGlobalMapAll}
+                disabled={isGlobalMapping || !glAccounts?.length}
+                className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isGlobalMapping ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles aria-hidden="true" className="h-4 w-4" />
+                )}
+                {isGlobalMapping ? 'Mapping...' : 'Map All Unmapped'}
+              </button>
+            )}
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {[
@@ -122,10 +469,61 @@ export default function MappingsContent() {
               </div>
             ))}
           </div>
-          {coverage.overallPercentage < 100 && (
+          {coverage.overallPercentage < 100 && !isGlobalMapping && !globalProgress && (
             <div className="flex items-center gap-2 rounded bg-amber-500/10 border border-amber-500/40 p-2 text-sm text-amber-500">
               <AlertTriangle aria-hidden="true" className="h-4 w-4 shrink-0" />
               Items without GL mappings will not post to the General Ledger.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Global Map All Progress */}
+      {globalProgress && (
+        <div className="rounded-lg border border-border bg-surface p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">
+              {globalProgress.phase === 'Complete' ? 'Mapping Complete' : `Mapping: ${globalProgress.phase}`}
+            </h3>
+            {globalProgress.phase !== 'Complete' && (
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-indigo-500" />
+            )}
+          </div>
+          <div className="space-y-1.5">
+            {['Sub-Departments', 'Transaction Types', 'Tax Groups', 'Discounts', 'F&B Categories', 'Unmapped Events'].map((phaseName) => {
+              const completed = globalProgress.phases.find(p => p.name === phaseName);
+              const isCurrent = globalProgress.phase === phaseName;
+              return (
+                <div key={phaseName} className="flex items-center gap-2 text-sm">
+                  {completed ? (
+                    <CheckCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-green-500" />
+                  ) : isCurrent ? (
+                    <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin text-indigo-500" />
+                  ) : (
+                    <div className="h-4 w-4 shrink-0 rounded-full border border-border" />
+                  )}
+                  <span className={completed ? 'text-foreground' : isCurrent ? 'text-indigo-500 font-medium' : 'text-muted-foreground'}>
+                    {phaseName}
+                  </span>
+                  {completed && (
+                    <span className="text-muted-foreground">
+                      — {completed.mapped} mapped{completed.failed > 0 ? `, ${completed.failed} failed` : ''}
+                    </span>
+                  )}
+                  {isCurrent && globalProgress.total > 1 && (
+                    <span className="text-muted-foreground">
+                      ({globalProgress.current}/{globalProgress.total})
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {globalProgress.phase === 'Complete' && (
+            <div className="flex items-center gap-2 rounded bg-green-500/10 border border-green-500/30 p-2 text-sm text-green-500">
+              <CheckCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
+              {globalProgress.mapped} item{globalProgress.mapped !== 1 ? 's' : ''} mapped
+              {globalProgress.failed > 0 ? `, ${globalProgress.failed} failed` : ''}
             </div>
           )}
         </div>
@@ -1201,7 +1599,59 @@ function TransactionTypeRow({
 function TaxGroupMappingsTab() {
   const { data: mappings, isLoading, mutate } = useTaxGroupMappings();
   const { saveTaxGroupDefaults } = useMappingMutations();
+  const { data: allAccounts } = useGLAccounts({ isActive: true });
   const { toast } = useToast();
+  const [isAutoMapping, setIsAutoMapping] = useState(false);
+
+  const totalMapped = mappings.filter((m) => !!m.taxPayableAccountId).length;
+
+  const suggestionsAvailable = useMemo(() => {
+    if (!allAccounts || allAccounts.length === 0) return 0;
+    let count = 0;
+    const liabilityAccounts = allAccounts.filter((a) => a.accountType === 'liability');
+    for (const m of mappings) {
+      if (m.taxPayableAccountId) continue;
+      const suggestion = getSuggestedAccount(liabilityAccounts, m.taxGroupName, 'tax');
+      if (suggestion) count++;
+    }
+    return count;
+  }, [mappings, allAccounts]);
+
+  const handleAutoMapAll = async () => {
+    if (!allAccounts || allAccounts.length === 0) return;
+    setIsAutoMapping(true);
+    let mapped = 0;
+    let failed = 0;
+
+    const liabilityAccounts = allAccounts.filter((a) => a.accountType === 'liability');
+
+    for (const m of mappings) {
+      if (m.taxPayableAccountId) continue;
+      const suggestion = getSuggestedAccount(liabilityAccounts, m.taxGroupName, 'tax');
+      if (suggestion) {
+        try {
+          await saveTaxGroupDefaults.mutateAsync({
+            taxGroupId: m.taxGroupId,
+            taxPayableAccountId: suggestion.id,
+          });
+          mapped++;
+        } catch {
+          failed++;
+        }
+      }
+    }
+
+    setIsAutoMapping(false);
+    mutate();
+
+    if (mapped > 0 && failed === 0) {
+      toast.success(`Auto-mapped ${mapped} tax group${mapped !== 1 ? 's' : ''}`);
+    } else if (mapped > 0 && failed > 0) {
+      toast.info(`Auto-mapped ${mapped}, ${failed} failed`);
+    } else if (failed > 0) {
+      toast.error(`Auto-mapping failed for ${failed} tax group${failed !== 1 ? 's' : ''}`);
+    }
+  };
 
   const handleSave = async (mapping: typeof mappings[number]) => {
     try {
@@ -1234,48 +1684,71 @@ function TaxGroupMappingsTab() {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-surface">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border bg-muted">
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Tax Group</th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Rate</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Tax Payable Account</th>
-              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mappings.map((m) => {
-              const isMapped = !!m.taxPayableAccountId;
-              return (
-                <tr key={m.taxGroupId} className={`border-b border-border last:border-0 ${!isMapped ? 'bg-amber-500/5' : ''}`}>
-                  <td className="px-4 py-3 text-sm font-medium text-foreground">{m.taxGroupName}</td>
-                  <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">{m.rate}%</td>
-                  <td className="px-4 py-3">
-                    <AccountPicker
-                      value={m.taxPayableAccountId}
-                      onChange={(v) => handleSave({ ...m, taxPayableAccountId: v })}
-                      accountTypes={['liability']}
-                      suggestFor={m.taxGroupName}
-                      mappingRole="tax"
-                      className="w-56"
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {isMapped ? (
-                      <CheckCircle aria-hidden="true" className="inline h-5 w-5 text-green-500" />
-                    ) : (
-                      <span className="inline-flex rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-500">
-                        Not Mapped
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+    <div className="space-y-4">
+      {/* Info banner with coverage + auto-map */}
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-sm text-indigo-500">
+        <div className="flex items-center gap-2">
+          <CheckCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-indigo-500" />
+          <span>
+            {totalMapped}/{mappings.length} tax group{mappings.length !== 1 ? 's' : ''} mapped to GL accounts.
+          </span>
+        </div>
+        {suggestionsAvailable > 0 && (
+          <button
+            type="button"
+            onClick={handleAutoMapAll}
+            disabled={isAutoMapping}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
+          >
+            <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
+            {isAutoMapping ? 'Mapping...' : `Auto-Map ${suggestionsAvailable} Suggested`}
+          </button>
+        )}
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Tax Group</th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Rate</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Tax Payable Account</th>
+                <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mappings.map((m) => {
+                const isMapped = !!m.taxPayableAccountId;
+                return (
+                  <tr key={m.taxGroupId} className={`border-b border-border last:border-0 ${!isMapped ? 'bg-amber-500/5' : ''}`}>
+                    <td className="px-4 py-3 text-sm font-medium text-foreground">{m.taxGroupName}</td>
+                    <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">{m.rate}%</td>
+                    <td className="px-4 py-3">
+                      <AccountPicker
+                        value={m.taxPayableAccountId}
+                        onChange={(v) => handleSave({ ...m, taxPayableAccountId: v })}
+                        accountTypes={['liability']}
+                        suggestFor={m.taxGroupName}
+                        mappingRole="tax"
+                        className="w-56"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {isMapped ? (
+                        <CheckCircle aria-hidden="true" className="inline h-5 w-5 text-green-500" />
+                      ) : (
+                        <span className="inline-flex rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-500">
+                          Not Mapped
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -1354,6 +1827,21 @@ function DiscountMappingsTab() {
       setIsSaving(false);
     }
   };
+
+  // Count how many sub-department × classification combos can be auto-mapped
+  const discountSuggestionsAvailable = useMemo(() => {
+    if (!allAccounts || subDepartments.length === 0) return 0;
+    let count = 0;
+    for (const sd of subDepartments) {
+      for (const def of DISCOUNT_CLASSIFICATIONS) {
+        const existing = mappingLookup.get(sd.id)?.get(def.key);
+        if (existing) continue;
+        const match = allAccounts.find(a => a.accountNumber === def.defaultAccountCode);
+        if (match) count++;
+      }
+    }
+    return count;
+  }, [allAccounts, subDepartments, mappingLookup]);
 
   const handleAutoMapDefaults = async () => {
     if (!allAccounts || subDepartments.length === 0) return;
@@ -1573,11 +2061,11 @@ function DiscountMappingsTab() {
         <button
           type="button"
           onClick={handleAutoMapDefaults}
-          disabled={isSaving || overallPct === 100}
+          disabled={isSaving || discountSuggestionsAvailable === 0}
           className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
         >
           <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
-          {isSaving ? 'Mapping...' : 'Auto-Map Defaults'}
+          {isSaving ? 'Mapping...' : discountSuggestionsAvailable > 0 ? `Auto-Map ${discountSuggestionsAvailable} Defaults` : 'All Mapped'}
         </button>
       </div>
 
@@ -1612,6 +2100,43 @@ function DiscountMappingsTab() {
   );
 }
 
+// ── F&B Category Suggestion Helper ──────────────────────────
+
+/** Category-specific GL account suggestion for F&B operational categories. */
+function getFnbCategorySuggestion(
+  allAccounts: { id: string; name: string; accountNumber: string; controlAccountType?: string | null }[],
+  categoryKey: FnbBatchCategoryKey,
+): { id: string; name: string } | null {
+  const n = (term: string) =>
+    allAccounts.find((a) => a.name.toLowerCase().includes(term.toLowerCase())) ?? null;
+
+  switch (categoryKey) {
+    case 'tax_payable':
+      return n('sales tax payable') ?? allAccounts.find((a) => a.controlAccountType === 'sales_tax') ?? null;
+    case 'tips_payable_credit':
+    case 'tips_payable_cash':
+      return n('tips payable') ?? n('tips undistributed') ?? null;
+    case 'auto_gratuity':
+      return n('auto-gratuity') ?? n('gratuity') ?? n('tips payable') ?? null;
+    case 'service_charge_revenue':
+      return n('service charge revenue') ?? n('service charge') ?? null;
+    case 'discount':
+      return n('discount') ?? n('returns & allowances') ?? null;
+    case 'comp_expense':
+      return n('comp expense') ?? n('comp') ?? n('giveaway') ?? null;
+    case 'cash_on_hand':
+      return n('cash on hand') ?? n('operating check') ?? null;
+    case 'undeposited_funds':
+      return n('undeposited funds') ?? n('merchant clearing') ?? null;
+    case 'cash_over_short':
+      return n('cash over/short') ?? n('cash over') ?? n('over/short') ?? null;
+    case 'processing_fee':
+      return n('credit card processing') ?? n('processing fee') ?? n('merchant fee') ?? null;
+    default:
+      return null;
+  }
+}
+
 // ── F&B Category Mappings ─────────────────────────────────────
 
 function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSubDepartments: () => void }) {
@@ -1619,7 +2144,56 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
   const [locationId, setLocationId] = useState(locations[0]?.id ?? '');
   const { data: coverage, isLoading, refetch } = useFnbMappingCoverage(locationId || undefined);
   const { saveFnbMapping } = useSaveFnbMapping();
+  const { data: glAccounts } = useGLAccounts({ isActive: true });
   const { toast } = useToast();
+  const [isAutoMapping, setIsAutoMapping] = useState(false);
+
+  const suggestionsAvailable = useMemo(() => {
+    if (!coverage?.categories || !glAccounts?.length) return 0;
+    let count = 0;
+    for (const cat of coverage.categories) {
+      if (cat.key === 'sales_revenue' || cat.isMapped) continue;
+      const suggestion = getFnbCategorySuggestion(glAccounts, cat.key as FnbBatchCategoryKey);
+      if (suggestion) count++;
+    }
+    return count;
+  }, [coverage, glAccounts]);
+
+  const handleAutoMapAll = async () => {
+    if (!coverage?.categories || !glAccounts?.length || !locationId) return;
+    setIsAutoMapping(true);
+    let mapped = 0;
+    try {
+      for (const cat of coverage.categories) {
+        if (cat.key === 'sales_revenue' || cat.isMapped) continue;
+        const config = FNB_CATEGORY_CONFIG[cat.key as FnbBatchCategoryKey];
+        if (!config) continue;
+        const suggestion = getFnbCategorySuggestion(glAccounts, cat.key as FnbBatchCategoryKey);
+        if (!suggestion) continue;
+
+        const mapping: Record<string, string | null> = {
+          locationId,
+          entityType: config.entityType,
+        };
+        mapping[config.mappingColumn] = suggestion.id;
+
+        try {
+          await saveFnbMapping(mapping as any);
+          mapped++;
+        } catch {
+          // skip individual failures
+        }
+      }
+      if (mapped > 0) {
+        toast.success(`Auto-mapped ${mapped} F&B categor${mapped === 1 ? 'y' : 'ies'}`);
+        refetch();
+      } else {
+        toast.info('No matching accounts found for unmapped categories');
+      }
+    } finally {
+      setIsAutoMapping(false);
+    }
+  };
 
   const locationOptions = useMemo(
     () => locations.map((l) => ({ value: l.id, label: l.name })),
@@ -1709,6 +2283,28 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
 
       {!locationId && (
         <p className="text-sm text-muted-foreground">Select a location to configure F&B GL mappings.</p>
+      )}
+
+      {/* Auto-map banner */}
+      {locationId && coverage && suggestionsAvailable > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3">
+          <div className="flex items-start gap-2 text-sm text-indigo-500">
+            <Info aria-hidden="true" className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>
+              F&B operational categories map tips, comps, cash variance, and processing fees to GL accounts.
+              {' '}<strong>{suggestionsAvailable}</strong> unmapped categor{suggestionsAvailable === 1 ? 'y has' : 'ies have'} suggested matches.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleAutoMapAll}
+            disabled={isAutoMapping}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
+          >
+            <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
+            {isAutoMapping ? 'Mapping...' : `Auto-Map ${suggestionsAvailable} Suggested`}
+          </button>
+        </div>
       )}
 
       {isLoading && (

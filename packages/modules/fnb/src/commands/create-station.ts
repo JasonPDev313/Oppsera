@@ -13,6 +13,9 @@ export async function createStation(
   ctx: RequestContext,
   input: CreateStationInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to create a station');
+  }
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'createStation',

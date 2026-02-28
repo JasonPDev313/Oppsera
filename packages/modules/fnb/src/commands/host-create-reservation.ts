@@ -36,6 +36,9 @@ export async function hostCreateReservation(
   ctx: RequestContext,
   input: HostCreateReservationInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to create a reservation');
+  }
   const result = await publishWithOutbox(ctx, async (tx) => {
     // Calculate end time from reservationTime + duration (default 90 min)
     const duration = 90;

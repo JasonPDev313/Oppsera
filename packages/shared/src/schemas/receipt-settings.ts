@@ -5,9 +5,46 @@ import { z } from 'zod';
  * Stored in `tenant_settings` table with moduleKey='receipts', settingKey='config'.
  * Cascading: location-specific → tenant-wide → DEFAULT_RECEIPT_SETTINGS.
  */
+export const RECEIPT_FONT_FAMILIES = [
+  'courier_new',
+  'consolas',
+  'lucida_console',
+  'arial_narrow',
+  'verdana',
+  'tahoma',
+] as const;
+
+export type ReceiptFontFamily = (typeof RECEIPT_FONT_FAMILIES)[number];
+
+/** CSS font-family stacks for each named receipt font. */
+export const RECEIPT_FONT_CSS: Record<ReceiptFontFamily, string> = {
+  courier_new: "'Courier New', Courier, monospace",
+  consolas: "'Consolas', 'Menlo', monospace",
+  lucida_console: "'Lucida Console', Monaco, monospace",
+  arial_narrow: "'Arial Narrow', Arial, sans-serif",
+  verdana: "'Verdana', Geneva, sans-serif",
+  tahoma: "'Tahoma', Geneva, sans-serif",
+};
+
+/** Display labels for the settings UI. */
+export const RECEIPT_FONT_LABELS: Record<ReceiptFontFamily, string> = {
+  courier_new: 'Courier New (classic receipt)',
+  consolas: 'Consolas (modern monospace)',
+  lucida_console: 'Lucida Console (clean monospace)',
+  arial_narrow: 'Arial Narrow (compact, saves paper)',
+  verdana: 'Verdana (readable at small sizes)',
+  tahoma: 'Tahoma (compact proportional)',
+};
+
 export const receiptSettingsSchema = z.object({
   // Printer
   printerWidth: z.enum(['58mm', '80mm']).default('80mm'),
+
+  // Typography
+  fontFamily: z.enum(RECEIPT_FONT_FAMILIES).default('courier_new'),
+  bodyFontSizePx: z.number().int().min(8).max(16).default(11),
+  headerFontSizePx: z.number().int().min(10).max(20).default(14),
+  lineHeight: z.number().min(1.0).max(2.0).default(1.4),
 
   // Header
   showLogo: z.boolean().default(false),

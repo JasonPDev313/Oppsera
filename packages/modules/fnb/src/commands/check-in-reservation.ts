@@ -15,6 +15,10 @@ export async function checkInReservation(
   reservationId: string,
   input: CheckInReservationInput,
 ) {
+  if (!ctx.locationId) {
+    throw new Error('Location ID is required to check in a reservation');
+  }
+
   const result = await publishWithOutbox(ctx, async (tx): Promise<{ result: { id: string; status: string; seated: boolean; tableId?: string }; events: ReturnType<typeof buildEventFromContext>[] }> => {
     const resRows = await tx.execute(sql`
       SELECT * FROM fnb_reservations
