@@ -30,7 +30,7 @@ export * from './vouchers';
 export * from './minimum-spend';
 export * from './reservations';
 export * from './tee-times';
-export * from './tee-bookings';
+export * from './tee-time-entities';
 export * from './events';
 export * from './events-golf';
 export * from './misc';

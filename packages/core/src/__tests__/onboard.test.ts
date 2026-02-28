@@ -3,8 +3,8 @@ import { BUSINESS_TYPES, generateSlug } from '@oppsera/shared';
 
 describe('Onboarding', () => {
   describe('BUSINESS_TYPES', () => {
-    it('has 6 business types', () => {
-      expect(BUSINESS_TYPES).toHaveLength(6);
+    it('has 5 business types', () => {
+      expect(BUSINESS_TYPES).toHaveLength(5);
     });
 
     it('each type has required fields', () => {
@@ -18,9 +18,9 @@ describe('Onboarding', () => {
       }
     });
 
-    it('golf type has 4 departments', () => {
-      const golf = BUSINESS_TYPES.find((bt) => bt.key === 'golf');
-      expect(golf?.starterHierarchy).toHaveLength(4);
+    it('hotel type has 4 departments', () => {
+      const hotel = BUSINESS_TYPES.find((bt) => bt.key === 'hotel');
+      expect(hotel?.starterHierarchy).toHaveLength(4);
     });
 
     it('restaurant type has Food and Beverage departments', () => {

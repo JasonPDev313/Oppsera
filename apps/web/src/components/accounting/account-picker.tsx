@@ -320,7 +320,7 @@ export function getSuggestedAccount(
           ?? accounts.find((a) => a.name.toLowerCase().includes('comp'))
           ?? null;
       }
-      if (/tee|booking/i.test(suggestFor)) {
+      if (/tee|tee.time/i.test(suggestFor)) {
         return accounts.find((a) => a.name.toLowerCase().includes('green fee'))
           ?? accounts.find((a) => a.name.toLowerCase().includes('tee'))
           ?? null;

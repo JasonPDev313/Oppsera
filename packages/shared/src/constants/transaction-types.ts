@@ -93,7 +93,7 @@ export const SYSTEM_TRANSACTION_TYPES: readonly SystemTransactionType[] = [
   { code: 'gift_card_sold', name: 'Gift Card / Voucher Sold', category: 'revenue', description: 'Sale of a new gift card or voucher', debitHint: 'asset', creditHint: 'liability', defaultDebitKind: 'cash_bank', defaultCreditKind: 'deposit_liability', sort: 110 },
   { code: 'gift_card_redeemed', name: 'Gift Card / Voucher Redeemed', category: 'revenue', description: 'Redemption of a gift card for goods/services', debitHint: 'liability', creditHint: 'revenue', defaultDebitKind: 'liability_reduction', defaultCreditKind: 'revenue', sort: 120 },
   { code: 'gift_card_expired', name: 'Gift Card Breakage', category: 'revenue', description: 'Expired/unclaimed gift card breakage income', debitHint: 'liability', creditHint: 'revenue', defaultDebitKind: 'liability_reduction', defaultCreditKind: 'revenue', sort: 130 },
-  { code: 'tee_booking', name: 'Tee Bookings', category: 'revenue', description: 'Revenue from tee time bookings', debitHint: 'asset', creditHint: 'revenue', defaultDebitKind: 'none', defaultCreditKind: 'revenue', sort: 140 },
+  { code: 'tee_time', name: 'Tee Times', category: 'revenue', description: 'Revenue from tee time bookings', debitHint: 'asset', creditHint: 'revenue', defaultDebitKind: 'none', defaultCreditKind: 'revenue', sort: 140 },
   { code: 'convenience_fee', name: 'Convenience Fee', category: 'revenue', description: 'Surcharge or convenience fee collected', debitHint: 'asset', creditHint: 'revenue', defaultDebitKind: 'none', defaultCreditKind: 'revenue', sort: 150 },
 
   // ── Tax ────────────────────────────────────────────────────────

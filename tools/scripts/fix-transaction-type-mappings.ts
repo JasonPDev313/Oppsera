@@ -91,7 +91,7 @@ const TRANSACTION_TYPE_MAPPINGS: MappingDef[] = [
   { code: 'gift_card_sold',     debitAccountNumber: '1010', creditAccountNumber: '2200' },
   { code: 'gift_card_redeemed', debitAccountNumber: '2200', creditAccountNumber: '4090' },
   { code: 'gift_card_expired',  debitAccountNumber: '2200', creditAccountNumber: '4090' },
-  { code: 'tee_booking',        debitAccountNumber: null,   creditAccountNumber: '4010' },
+  { code: 'tee_time',            debitAccountNumber: null,   creditAccountNumber: '4010' },
   { code: 'convenience_fee',    debitAccountNumber: null,   creditAccountNumber: '4510' },
   { code: 'event_registration', debitAccountNumber: null,   creditAccountNumber: '4060' },
   // Tax

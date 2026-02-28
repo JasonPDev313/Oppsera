@@ -1660,6 +1660,13 @@
       "when": 1709337600000,
       "tag": "0236_gl_document_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 237,
+      "version": "7",
+      "when": 1709424000000,
+      "tag": "0237_rename_tee_booking_transaction_type",
+      "breakpoints": true
     }
   ]
 }

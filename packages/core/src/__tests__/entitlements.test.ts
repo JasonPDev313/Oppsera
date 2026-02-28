@@ -402,7 +402,9 @@ describe('MODULE_REGISTRY', () => {
     const v1Keys = MODULE_REGISTRY.filter((m) => m.phase === 'v1').map((m) => m.key);
     expect(v1Keys).toContain('platform_core');
     expect(v1Keys).toContain('catalog');
+    expect(v1Keys).toContain('orders');
     expect(v1Keys).toContain('pos_retail');
+    expect(v1Keys).toContain('pos_fnb');
     expect(v1Keys).toContain('payments');
     expect(v1Keys).toContain('inventory');
     expect(v1Keys).toContain('customers');
@@ -410,9 +412,13 @@ describe('MODULE_REGISTRY', () => {
     expect(v1Keys).toContain('room_layouts');
     expect(v1Keys).toContain('accounting');
     expect(v1Keys).toContain('ap');
+    expect(v1Keys).toContain('project_costing');
+    expect(v1Keys).toContain('expense_management');
     expect(v1Keys).toContain('ar');
+    expect(v1Keys).toContain('pms');
     expect(v1Keys).toContain('semantic');
-    expect(v1Keys).toContain('golf_ops');
+    expect(v1Keys).toContain('club_membership');
+    expect(v1Keys).toContain('legacy_import');
   });
 
   it('each module has key, name, phase, description', () => {

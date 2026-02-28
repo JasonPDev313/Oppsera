@@ -216,10 +216,10 @@ describe('workflow-engine', () => {
   });
 
   describe('getAllWorkflowConfigs', () => {
-    it('returns all 26 workflows for SMB tier', async () => {
+    it('returns all 28 workflows for SMB tier', async () => {
       const configs = await getAllWorkflowConfigs('tnt_test');
       const keys = Object.keys(configs);
-      expect(keys).toHaveLength(26);
+      expect(keys).toHaveLength(28);
     });
 
     it('returns configs keyed by module.workflow', async () => {
