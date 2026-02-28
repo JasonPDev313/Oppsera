@@ -1,4 +1,4 @@
-import { db } from '@oppsera/db';
+import { db, guardedQuery } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 
 // ── Schema Catalog ───────────────────────────────────────────────
@@ -482,13 +482,15 @@ export async function buildSchemaCatalog(): Promise<SchemaCatalog> {
 
 async function _loadSchemaCatalog(): Promise<SchemaCatalog> {
   // Step 1: Find all tables that have a tenant_id column (tenant-scoped)
-  const tenantTables = await db.execute(sql`
-    SELECT DISTINCT table_name
-    FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND column_name = 'tenant_id'
-    ORDER BY table_name
-  `);
+  const tenantTables = await guardedQuery('semantic:schemaCatalog:tables', () =>
+    db.execute(sql`
+      SELECT DISTINCT table_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND column_name = 'tenant_id'
+      ORDER BY table_name
+    `),
+  );
 
   const tenantTableNames = new Set(
     Array.from(tenantTables as Iterable<{ table_name: string }>)
@@ -498,26 +500,28 @@ async function _loadSchemaCatalog(): Promise<SchemaCatalog> {
 
   // Step 2: Fetch columns for all tenant-scoped tables
   const tableNameArray = Array.from(tenantTableNames);
-  const columns = await db.execute(sql`
-    SELECT
-      c.table_name,
-      c.column_name,
-      c.data_type,
-      c.is_nullable,
-      CASE WHEN kcu.column_name IS NOT NULL THEN true ELSE false END AS is_pk
-    FROM information_schema.columns c
-    LEFT JOIN information_schema.table_constraints tc
-      ON tc.table_name = c.table_name
-      AND tc.table_schema = c.table_schema
-      AND tc.constraint_type = 'PRIMARY KEY'
-    LEFT JOIN information_schema.key_column_usage kcu
-      ON kcu.constraint_name = tc.constraint_name
+  const columns = await guardedQuery('semantic:schemaCatalog:columns', () =>
+    db.execute(sql`
+      SELECT
+        c.table_name,
+        c.column_name,
+        c.data_type,
+        c.is_nullable,
+        CASE WHEN kcu.column_name IS NOT NULL THEN true ELSE false END AS is_pk
+      FROM information_schema.columns c
+      LEFT JOIN information_schema.table_constraints tc
+        ON tc.table_name = c.table_name
+        AND tc.table_schema = c.table_schema
+        AND tc.constraint_type = 'PRIMARY KEY'
+      LEFT JOIN information_schema.key_column_usage kcu
+        ON kcu.constraint_name = tc.constraint_name
       AND kcu.table_schema = tc.table_schema
       AND kcu.column_name = c.column_name
     WHERE c.table_schema = 'public'
       AND c.table_name = ANY(${tableNameArray})
     ORDER BY c.table_name, c.ordinal_position
-  `);
+  `),
+  );
 
   // Step 3: Group columns by table
   const tableMap = new Map<string, ColumnInfo[]>();

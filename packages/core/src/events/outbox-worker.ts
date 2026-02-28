@@ -1,5 +1,5 @@
 import { EventEnvelopeSchema } from '@oppsera/shared';
-import { db, sql } from '@oppsera/db';
+import { db, sql, guardedQuery } from '@oppsera/db';
 import type { EventBus } from './bus';
 
 export class OutboxWorker {
@@ -126,11 +126,13 @@ export class OutboxWorker {
     try {
       // First: delete events older than 1 hour — they're stale beyond recovery.
       // This prevents infinite backlog growth from frozen Vercel instances.
-      const deleted = await db.execute(sql`
-        DELETE FROM event_outbox
-        WHERE created_at < NOW() - INTERVAL '1 hour'
-        RETURNING id
-      `) as unknown as Array<{ id: string }>;
+      const deleted = await guardedQuery('outbox:purgeStale', () =>
+        db.execute(sql`
+          DELETE FROM event_outbox
+          WHERE created_at < NOW() - INTERVAL '1 hour'
+          RETURNING id
+        `),
+      ) as unknown as Array<{ id: string }>;
 
       if (deleted.length > 0) {
         console.warn(`[outbox] Purged ${deleted.length} event(s) older than 1 hour`);
@@ -139,13 +141,15 @@ export class OutboxWorker {
       // Then: recover stale claims (claimed > 10 min ago but not yet processed).
       // Uses a simple time-based check instead of scanning processed_events.
       // Events that repeatedly fail will be caught by the 1-hour purge above.
-      const result = await db.execute(sql`
-        UPDATE event_outbox
-        SET published_at = NULL
-        WHERE published_at IS NOT NULL
-          AND published_at < NOW() - INTERVAL '${sql.raw(String(OutboxWorker.STALE_CLAIM_THRESHOLD_MINUTES))} minutes'
-        RETURNING id
-      `) as unknown as Array<{ id: string }>;
+      const result = await guardedQuery('outbox:recoverStale', () =>
+        db.execute(sql`
+          UPDATE event_outbox
+          SET published_at = NULL
+          WHERE published_at IS NOT NULL
+            AND published_at < NOW() - INTERVAL '${sql.raw(String(OutboxWorker.STALE_CLAIM_THRESHOLD_MINUTES))} minutes'
+          RETURNING id
+        `),
+      ) as unknown as Array<{ id: string }>;
 
       if (result.length > 0) {
         console.warn(`[outbox] Recovered ${result.length} stale claimed event(s) for reprocessing`);
@@ -171,21 +175,23 @@ export class OutboxWorker {
     // Step 1: Atomically claim rows — UPDATE + RETURNING in one statement.
     // FOR UPDATE SKIP LOCKED prevents duplicate processing across instances.
     // The transaction commits immediately after this single statement.
-    const claimed = await db.execute(sql`
-      WITH batch AS (
-        SELECT id
-        FROM event_outbox
-        WHERE published_at IS NULL
-        ORDER BY created_at ASC
-        LIMIT ${this.batchSize}
-        FOR UPDATE SKIP LOCKED
-      )
-      UPDATE event_outbox
-      SET published_at = NOW()
-      FROM batch
-      WHERE event_outbox.id = batch.id
-      RETURNING event_outbox.id, event_outbox.payload, event_outbox.event_type, event_outbox.event_id
-    `) as unknown as Array<{ id: string; payload: unknown; event_type: string; event_id: string }>;
+    const claimed = await guardedQuery('outbox:claimBatch', () =>
+      db.execute(sql`
+        WITH batch AS (
+          SELECT id
+          FROM event_outbox
+          WHERE published_at IS NULL
+          ORDER BY created_at ASC
+          LIMIT ${this.batchSize}
+          FOR UPDATE SKIP LOCKED
+        )
+        UPDATE event_outbox
+        SET published_at = NOW()
+        FROM batch
+        WHERE event_outbox.id = batch.id
+        RETURNING event_outbox.id, event_outbox.payload, event_outbox.event_type, event_outbox.event_id
+      `),
+    ) as unknown as Array<{ id: string; payload: unknown; event_type: string; event_id: string }>;
 
     if (claimed.length === 0) return 0;
 
@@ -220,7 +226,9 @@ export class OutboxWorker {
     if (deleteIds.length > 0) {
       try {
         const idList = sql.join(deleteIds.map(id => sql`${id}`), sql`, `);
-        await db.execute(sql`DELETE FROM event_outbox WHERE id IN (${idList})`);
+        await guardedQuery('outbox:deleteProcessed', () =>
+          db.execute(sql`DELETE FROM event_outbox WHERE id IN (${idList})`),
+        );
       } catch (err) {
         // Best-effort — if delete fails, events stay claimed (harmless)
         console.error('[outbox] Failed to delete processed events:', err);

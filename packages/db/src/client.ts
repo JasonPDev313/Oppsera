@@ -31,6 +31,10 @@ function getDb(): DrizzleDB {
       idle_timeout: 20,
       max_lifetime: 300,
       connect_timeout: 10,
+      onnotice: (notice) => {
+        // Log Postgres notices (timeout kills, warnings, etc.)
+        console.warn(`[pg-notice] ${notice.severity}: ${notice.message}`);
+      },
     });
     globalForDb.__oppsera_db = drizzle(client, { schema });
   }
@@ -49,6 +53,52 @@ export const db: DrizzleDB = new Proxy({} as DrizzleDB, {
 });
 
 export type Database = DrizzleDB;
+
+// ── guardedDb proxy ─────────────────────────────────────────────────────────
+// Wraps ALL db.select/insert/update/delete/execute/transaction calls through
+// guardedQuery() automatically. Any code using guardedDb gets concurrency
+// limiting, circuit breaker, per-query timeout, and pool exhaustion detection.
+const GUARDED_METHODS = new Set(['select', 'insert', 'update', 'delete', 'execute', 'transaction']);
+
+export const guardedDb: DrizzleDB = new Proxy({} as DrizzleDB, {
+  get(_target, prop, receiver) {
+    const instance = getDb();
+    const value = Reflect.get(instance, prop, receiver);
+    if (typeof value !== 'function') return value;
+    if (!GUARDED_METHODS.has(prop as string)) return value.bind(instance);
+
+    // For transaction(), wrap the whole transaction call
+    if (prop === 'transaction') {
+      return (...args: Parameters<DrizzleDB['transaction']>) =>
+        guardedQuery(`guardedDb.transaction`, () => value.apply(instance, args));
+    }
+
+    // For select/insert/update/delete/execute — these return query builders.
+    // We wrap the terminal .execute() / .then() of the builder chain.
+    return (...args: unknown[]) => {
+      const builder = value.apply(instance, args);
+      if (builder && typeof builder === 'object' && typeof builder.then === 'function') {
+        // Already a thenable (e.g., db.execute(sql`...`)) — wrap it
+        const opName = `guardedDb.${String(prop)}`;
+        return guardedQuery(opName, () => builder);
+      }
+      // Query builder — wrap its .then() so awaiting it goes through guardedQuery
+      const originalThen = builder.then?.bind(builder);
+      if (originalThen) {
+        builder.then = (
+          onFulfilled?: (value: unknown) => unknown,
+          onRejected?: (reason: unknown) => unknown,
+        ) => {
+          const opName = `guardedDb.${String(prop)}`;
+          return guardedQuery(opName, () => new Promise((resolve, reject) => {
+            originalThen(resolve, reject);
+          })).then(onFulfilled, onRejected);
+        };
+      }
+      return builder;
+    };
+  },
+});
 
 export async function withTenant<T>(
   tenantId: string,

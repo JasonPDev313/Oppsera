@@ -1,5 +1,5 @@
-import { sql, eq, and, desc } from 'drizzle-orm';
-import { db, eventDeadLetters } from '@oppsera/db';
+import { sql, eq, and, desc, type SQL } from 'drizzle-orm';
+import { db, eventDeadLetters, guardedQuery } from '@oppsera/db';
 import type { EventBus } from './bus';
 
 export interface DeadLetterEntry {
@@ -66,7 +66,7 @@ export async function listDeadLetters(
   input: ListDeadLettersInput,
 ): Promise<{ items: DeadLetterEntry[]; cursor: string | null; hasMore: boolean }> {
   const limit = input.limit ?? 50;
-  const conditions = [];
+  const conditions: SQL[] = [];
 
   if (input.status) {
     conditions.push(eq(eventDeadLetters.status, input.status));
@@ -84,12 +84,14 @@ export async function listDeadLetters(
     conditions.push(sql`${eventDeadLetters.id} < ${input.cursor}`);
   }
 
-  const rows = await db
-    .select()
-    .from(eventDeadLetters)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(eventDeadLetters.createdAt), desc(eventDeadLetters.id))
-    .limit(limit + 1);
+  const rows = await guardedQuery('dlq:list', () =>
+    db
+      .select()
+      .from(eventDeadLetters)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(eventDeadLetters.createdAt), desc(eventDeadLetters.id))
+      .limit(limit + 1),
+  );
 
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
@@ -102,21 +104,25 @@ export async function listDeadLetters(
 }
 
 export async function getDeadLetter(id: string): Promise<DeadLetterEntry | null> {
-  const [row] = await db
-    .select()
-    .from(eventDeadLetters)
-    .where(eq(eventDeadLetters.id, id))
-    .limit(1);
+  const [row] = await guardedQuery('dlq:get', () =>
+    db
+      .select()
+      .from(eventDeadLetters)
+      .where(eq(eventDeadLetters.id, id))
+      .limit(1),
+  );
 
   return row ? mapRow(row) : null;
 }
 
 export async function getDeadLetterStats(): Promise<DeadLetterStats> {
-  const statusRows = await db.execute(sql`
-    SELECT status, COUNT(*)::int AS count
-    FROM event_dead_letters
-    GROUP BY status
-  `);
+  const statusRows = await guardedQuery('dlq:stats:status', () =>
+    db.execute(sql`
+      SELECT status, COUNT(*)::int AS count
+      FROM event_dead_letters
+      GROUP BY status
+    `),
+  );
   const statusArr = Array.from(statusRows as Iterable<Record<string, unknown>>);
 
   let totalFailed = 0;
@@ -142,27 +148,31 @@ export async function getDeadLetterStats(): Promise<DeadLetterStats> {
     }
   }
 
-  const typeRows = await db.execute(sql`
-    SELECT event_type, COUNT(*)::int AS count
-    FROM event_dead_letters
-    WHERE status IN ('failed', 'retrying')
-    GROUP BY event_type
-    ORDER BY count DESC
-    LIMIT 20
-  `);
+  const typeRows = await guardedQuery('dlq:stats:byType', () =>
+    db.execute(sql`
+      SELECT event_type, COUNT(*)::int AS count
+      FROM event_dead_letters
+      WHERE status IN ('failed', 'retrying')
+      GROUP BY event_type
+      ORDER BY count DESC
+      LIMIT 20
+    `),
+  );
   const byEventType = Array.from(typeRows as Iterable<Record<string, unknown>>).map((r) => ({
     eventType: String(r.event_type),
     count: Number(r.count),
   }));
 
-  const consumerRows = await db.execute(sql`
-    SELECT consumer_name, COUNT(*)::int AS count
-    FROM event_dead_letters
-    WHERE status IN ('failed', 'retrying')
-    GROUP BY consumer_name
-    ORDER BY count DESC
-    LIMIT 20
-  `);
+  const consumerRows = await guardedQuery('dlq:stats:byConsumer', () =>
+    db.execute(sql`
+      SELECT consumer_name, COUNT(*)::int AS count
+      FROM event_dead_letters
+      WHERE status IN ('failed', 'retrying')
+      GROUP BY consumer_name
+      ORDER BY count DESC
+      LIMIT 20
+    `),
+  );
   const byConsumer = Array.from(consumerRows as Iterable<Record<string, unknown>>).map((r) => ({
     consumerName: String(r.consumer_name),
     count: Number(r.count),
@@ -175,11 +185,13 @@ export async function retryDeadLetter(
   id: string,
   eventBus: EventBus,
 ): Promise<{ success: boolean; error?: string }> {
-  const [row] = await db
-    .select()
-    .from(eventDeadLetters)
-    .where(eq(eventDeadLetters.id, id))
-    .limit(1);
+  const [row] = await guardedQuery('dlq:retry:fetch', () =>
+    db
+      .select()
+      .from(eventDeadLetters)
+      .where(eq(eventDeadLetters.id, id))
+      .limit(1),
+  );
 
   if (!row) return { success: false, error: 'Dead letter not found' };
   // Accept both 'failed' and 'retrying' (crash recovery: a prior retry may have crashed
@@ -189,10 +201,12 @@ export async function retryDeadLetter(
   }
 
   // Mark as retrying (don't set lastFailedAt yet — only set it on actual failure)
-  await db
-    .update(eventDeadLetters)
-    .set({ status: 'retrying' })
-    .where(eq(eventDeadLetters.id, id));
+  await guardedQuery('dlq:retry:markRetrying', () =>
+    db
+      .update(eventDeadLetters)
+      .set({ status: 'retrying' })
+      .where(eq(eventDeadLetters.id, id)),
+  );
 
   try {
     // Re-publish through the event bus
@@ -200,29 +214,33 @@ export async function retryDeadLetter(
     await eventBus.publish(eventData as any);
 
     // Mark as resolved
-    await db
-      .update(eventDeadLetters)
-      .set({
-        status: 'resolved',
-        resolvedAt: new Date(),
-        resolvedBy: 'system:retry',
-        resolutionNotes: 'Automatically resolved via retry',
-      })
-      .where(eq(eventDeadLetters.id, id));
+    await guardedQuery('dlq:retry:resolve', () =>
+      db
+        .update(eventDeadLetters)
+        .set({
+          status: 'resolved',
+          resolvedAt: new Date(),
+          resolvedBy: 'system:retry',
+          resolutionNotes: 'Automatically resolved via retry',
+        })
+        .where(eq(eventDeadLetters.id, id)),
+    );
 
     return { success: true };
   } catch (err) {
     // Re-failed — increment attempt count and mark as failed again
-    await db
-      .update(eventDeadLetters)
-      .set({
-        status: 'failed',
-        attemptCount: row.attemptCount + 1,
-        lastFailedAt: new Date(),
-        errorMessage: err instanceof Error ? err.message : String(err),
-        errorStack: err instanceof Error ? err.stack ?? null : null,
-      })
-      .where(eq(eventDeadLetters.id, id));
+    await guardedQuery('dlq:retry:reFailed', () =>
+      db
+        .update(eventDeadLetters)
+        .set({
+          status: 'failed',
+          attemptCount: row.attemptCount + 1,
+          lastFailedAt: new Date(),
+          errorMessage: err instanceof Error ? err.message : String(err),
+          errorStack: err instanceof Error ? err.stack ?? null : null,
+        })
+        .where(eq(eventDeadLetters.id, id)),
+    );
 
     return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -233,19 +251,21 @@ export async function resolveDeadLetter(
   resolvedBy: string,
   notes?: string,
 ): Promise<boolean> {
-  const result = await db
-    .update(eventDeadLetters)
-    .set({
-      status: 'resolved',
-      resolvedAt: new Date(),
-      resolvedBy,
-      resolutionNotes: notes ?? null,
-    })
-    .where(and(
-      eq(eventDeadLetters.id, id),
-      sql`${eventDeadLetters.status} IN ('failed', 'retrying')`,
-    ))
-    .returning({ id: eventDeadLetters.id });
+  const result = await guardedQuery('dlq:resolve', () =>
+    db
+      .update(eventDeadLetters)
+      .set({
+        status: 'resolved',
+        resolvedAt: new Date(),
+        resolvedBy,
+        resolutionNotes: notes ?? null,
+      })
+      .where(and(
+        eq(eventDeadLetters.id, id),
+        sql`${eventDeadLetters.status} IN ('failed', 'retrying')`,
+      ))
+      .returning({ id: eventDeadLetters.id }),
+  );
 
   return result.length > 0;
 }
@@ -255,19 +275,21 @@ export async function discardDeadLetter(
   resolvedBy: string,
   notes?: string,
 ): Promise<boolean> {
-  const result = await db
-    .update(eventDeadLetters)
-    .set({
-      status: 'discarded',
-      resolvedAt: new Date(),
-      resolvedBy,
-      resolutionNotes: notes ?? null,
-    })
-    .where(and(
-      eq(eventDeadLetters.id, id),
-      sql`${eventDeadLetters.status} IN ('failed', 'retrying')`,
-    ))
-    .returning({ id: eventDeadLetters.id });
+  const result = await guardedQuery('dlq:discard', () =>
+    db
+      .update(eventDeadLetters)
+      .set({
+        status: 'discarded',
+        resolvedAt: new Date(),
+        resolvedBy,
+        resolutionNotes: notes ?? null,
+      })
+      .where(and(
+        eq(eventDeadLetters.id, id),
+        sql`${eventDeadLetters.status} IN ('failed', 'retrying')`,
+      ))
+      .returning({ id: eventDeadLetters.id }),
+  );
 
   return result.length > 0;
 }

@@ -36,13 +36,15 @@ export async function POST(req: NextRequest) {
       // Constant-time comparison even on missing user
       await bcrypt.compare(password, '$2b$12$invalidhashpaddingtoconstanttime');
 
-      // Fire-and-forget: record failed login
-      resolveGeo(req.headers, ip).then((geo) => {
-        recordAdminLoginEvent({
+      // Await login event recording before returning — fire-and-forget on Vercel
+      // leaves connections stuck in ClientRead (gotcha #466)
+      try {
+        const geo = await resolveGeo(req.headers, ip);
+        await recordAdminLoginEvent({
           adminId: null, email, outcome: 'failed', ipAddress: ip, userAgent, geo,
           failureReason: admin ? 'Account inactive' : 'Unknown email',
         });
-      }).catch(() => {});
+      } catch { /* non-fatal — login response takes priority */ }
 
       return NextResponse.json(
         { error: { message: 'Invalid email or password' } },
@@ -52,13 +54,14 @@ export async function POST(req: NextRequest) {
 
     const valid = await bcrypt.compare(password, admin.passwordHash);
     if (!valid) {
-      // Fire-and-forget: record failed login
-      resolveGeo(req.headers, ip).then((geo) => {
-        recordAdminLoginEvent({
+      // Await login event recording before returning
+      try {
+        const geo = await resolveGeo(req.headers, ip);
+        await recordAdminLoginEvent({
           adminId: admin.id, email, outcome: 'failed', ipAddress: ip, userAgent, geo,
           failureReason: 'Invalid password',
         });
-      }).catch(() => {});
+      } catch { /* non-fatal */ }
 
       return NextResponse.json(
         { error: { message: 'Invalid email or password' } },
@@ -87,15 +90,15 @@ export async function POST(req: NextRequest) {
 
     res.cookies.set(cookie.name, cookie.value, cookie.options as Parameters<typeof res.cookies.set>[2]);
 
-    // Best-effort last login update
-    updateAdminLastLogin(admin.id).catch(() => undefined);
-
-    // Fire-and-forget: record successful admin login with geo
-    resolveGeo(req.headers, ip).then((geo) => {
-      recordAdminLoginEvent({
+    // Await all DB writes before returning — fire-and-forget on Vercel
+    // leaves connections stuck in ClientRead (gotcha #466)
+    try { await updateAdminLastLogin(admin.id); } catch { /* non-fatal */ }
+    try {
+      const geo = await resolveGeo(req.headers, ip);
+      await recordAdminLoginEvent({
         adminId: admin.id, email, outcome: 'success', ipAddress: ip, userAgent, geo,
       });
-    }).catch(() => {});
+    } catch { /* non-fatal */ }
 
     return res;
   } catch {

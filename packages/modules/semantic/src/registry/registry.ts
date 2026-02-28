@@ -1,4 +1,4 @@
-import { db } from '@oppsera/db';
+import { db, guardedQuery } from '@oppsera/db';
 import {
   semanticMetrics,
   semanticDimensions,
@@ -122,11 +122,15 @@ async function loadCache(): Promise<RegistryCache> {
     // Only cache system metrics/dimensions (tenant_id IS NULL). Tenant-specific
     // entries are fetched on demand in the API routes to avoid cross-tenant leaks.
     const [metricRows, dimRows] = await Promise.all([
-      db.select().from(semanticMetrics).where(
-        and(eq(semanticMetrics.isActive, true), isNull(semanticMetrics.tenantId)),
+      guardedQuery('semantic:registry:metrics', () =>
+        db.select().from(semanticMetrics).where(
+          and(eq(semanticMetrics.isActive, true), isNull(semanticMetrics.tenantId)),
+        ),
       ),
-      db.select().from(semanticDimensions).where(
-        and(eq(semanticDimensions.isActive, true), isNull(semanticDimensions.tenantId)),
+      guardedQuery('semantic:registry:dimensions', () =>
+        db.select().from(semanticDimensions).where(
+          and(eq(semanticDimensions.isActive, true), isNull(semanticDimensions.tenantId)),
+        ),
       ),
     ]);
 
@@ -136,9 +140,13 @@ async function loadCache(): Promise<RegistryCache> {
     let lensRows: Array<typeof semanticLenses.$inferSelect> = [];
     try {
       [relRows, lensRows] = await Promise.all([
-        db.select().from(semanticMetricDimensions),
-        db.select().from(semanticLenses).where(
-          and(eq(semanticLenses.isActive, true), isNull(semanticLenses.tenantId)),
+        guardedQuery('semantic:registry:relations', () =>
+          db.select().from(semanticMetricDimensions),
+        ),
+        guardedQuery('semantic:registry:lenses', () =>
+          db.select().from(semanticLenses).where(
+            and(eq(semanticLenses.isActive, true), isNull(semanticLenses.tenantId)),
+          ),
         ),
       ]);
     } catch (lensErr) {
@@ -288,11 +296,13 @@ export async function getLens(slug: string, tenantId?: string): Promise<LensDef 
       if (cached.lens) return cached.lens;
       // cached.lens === null means no tenant-specific lens — fall through to system
     } else {
-      const [tenantLens] = await db.select().from(semanticLenses).where(
-        and(
-          eq(semanticLenses.slug, slug),
-          eq(semanticLenses.tenantId, tenantId),
-          eq(semanticLenses.isActive, true),
+      const [tenantLens] = await guardedQuery('semantic:registry:tenantLens', () =>
+        db.select().from(semanticLenses).where(
+          and(
+            eq(semanticLenses.slug, slug),
+            eq(semanticLenses.tenantId, tenantId),
+            eq(semanticLenses.isActive, true),
+          ),
         ),
       );
       // Evict oldest if at capacity

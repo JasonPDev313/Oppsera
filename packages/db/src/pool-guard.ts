@@ -15,6 +15,7 @@ const CONCURRENCY_LIMIT = parseInt(process.env.DB_CONCURRENCY || String(POOL_MAX
 const BREAKER_COOLDOWN_MS = 10_000;
 const QUEUE_WARN_THRESHOLD = 5;
 const SLOW_QUERY_THRESHOLD_MS = 5_000;
+const QUERY_TIMEOUT_MS = parseInt(process.env.DB_QUERY_TIMEOUT || '15000', 10);
 
 // ── Simple semaphore (no external deps) ──────────────────────────────────────
 class Semaphore {
@@ -85,14 +86,20 @@ export function isPoolExhaustion(err: unknown): boolean {
   );
 }
 
+// ── Active operations tracking ───────────────────────────────────────────────
+const _activeOps = new Map<string, { opName: string; startedAt: number }>();
+let _opIdCounter = 0;
+
 // ── Guarded DB execution ─────────────────────────────────────────────────────
 /**
- * Wraps a DB operation with concurrency limiting + circuit breaker.
+ * Wraps a DB operation with concurrency limiting + circuit breaker + per-query timeout.
  *
  * - If circuit breaker is open, rejects immediately (fail-fast)
  * - If concurrency limit is reached, queues the operation
  * - If pool exhaustion is detected in the error, trips the circuit breaker
+ * - If a query exceeds QUERY_TIMEOUT_MS, the Promise rejects and the semaphore is released
  * - Logs slow queries (>5s) and queue depth warnings
+ * - Tracks active ops for diagnostics
  */
 export async function guardedQuery<T>(opName: string, fn: () => Promise<T>): Promise<T> {
   // Circuit breaker — fail fast during pool exhaustion recovery
@@ -111,8 +118,28 @@ export async function guardedQuery<T>(opName: string, fn: () => Promise<T>): Pro
 
   await semaphore.acquire();
   const start = Date.now();
+  const opId = String(++_opIdCounter);
+  _activeOps.set(opId, { opName, startedAt: start });
+
   try {
-    const result = await fn();
+    // Per-query timeout — prevents a stuck query from holding a pool connection forever
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const result = await Promise.race([
+      fn(),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          const err = new Error(
+            `[pool-guard] Query timeout: ${opName} exceeded ${QUERY_TIMEOUT_MS}ms`,
+          );
+          (err as { code?: string }).code = 'QUERY_TIMEOUT';
+          console.error(err.message);
+          reject(err);
+        }, QUERY_TIMEOUT_MS);
+      }),
+    ]).finally(() => {
+      if (timeoutId) clearTimeout(timeoutId);
+    });
+
     const duration = Date.now() - start;
     if (duration > SLOW_QUERY_THRESHOLD_MS) {
       console.warn(`[pool-guard] Slow DB op: ${opName} took ${duration}ms`);
@@ -126,6 +153,7 @@ export async function guardedQuery<T>(opName: string, fn: () => Promise<T>): Pro
     }
     throw err;
   } finally {
+    _activeOps.delete(opId);
     semaphore.release();
   }
 }
@@ -162,11 +190,19 @@ export function jitterTtlMs(baseTtlMs: number): number {
 
 // ── Observability ────────────────────────────────────────────────────────────
 export function getPoolGuardStats() {
+  const now = Date.now();
+  const activeOps = Array.from(_activeOps.values()).map((op) => ({
+    opName: op.opName,
+    durationMs: now - op.startedAt,
+  }));
+
   return {
     active: semaphore.active,
     queued: semaphore.pending,
     breakerOpen: isBreakerOpen(),
     breakerTripCount,
     concurrencyLimit: CONCURRENCY_LIMIT,
+    queryTimeoutMs: QUERY_TIMEOUT_MS,
+    activeOps,
   };
 }

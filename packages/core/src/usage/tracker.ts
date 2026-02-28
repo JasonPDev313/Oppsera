@@ -7,7 +7,7 @@
  *  - Vercel-compatible (each instance flushes independently, ON CONFLICT sums)
  *  - At most 30s of data loss on instance recycle (acceptable for analytics)
  */
-import { db } from '@oppsera/db';
+import { db, guardedQuery } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 
@@ -153,11 +153,15 @@ async function checkTablesExist(): Promise<boolean> {
   if (_tablesChecked) return _tablesExist;
   try {
     // 5s timeout: if DB pool is exhausted, fail fast instead of hanging
+    // guardedQuery provides its own timeout (15s), but we also keep the 5s race
+    // for this specific check since table existence is critical for startup.
     const result = await Promise.race([
-      db.execute(sql`
-        SELECT 1 FROM information_schema.tables
-        WHERE table_name = 'rm_usage_hourly' LIMIT 1
-      `),
+      guardedQuery('usage:checkTables', () =>
+        db.execute(sql`
+          SELECT 1 FROM information_schema.tables
+          WHERE table_name = 'rm_usage_hourly' LIMIT 1
+        `),
+      ),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('checkTablesExist timed out')), 5_000),
       ),
@@ -341,7 +345,8 @@ async function flushToDb(snapshot: Map<string, BucketData>): Promise<void> {
   // db.transaction() properly holds a single connection for the duration.
   // Safety: SET LOCAL statement_timeout prevents this transaction from holding
   // a connection indefinitely if Vercel freezes the event loop (§205).
-  await db.transaction(async (tx) => {
+  // Wrapped in guardedQuery for concurrency limiting + circuit breaker.
+  await guardedQuery('usage:flush', () => db.transaction(async (tx) => {
     await tx.execute(sql`SET LOCAL statement_timeout = '10s'`);
     // ── Hourly: batch in chunks of 50 ─────────────────────────
     for (let i = 0; i < hourlyRows.length; i += 50) {
@@ -450,7 +455,7 @@ async function flushToDb(snapshot: Map<string, BucketData>): Promise<void> {
           updated_at = NOW()
       `);
     }
-  });
+  }));
 }
 
 // ── ID Generation ────────────────────────────────────────────
