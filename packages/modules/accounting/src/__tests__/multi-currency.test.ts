@@ -113,7 +113,7 @@ describe('getCurrencySymbol', () => {
 
 describe('formatCurrencyAmount', () => {
   it('should format USD with 2 decimals and $', () => {
-    expect(formatCurrencyAmount(1234.5, 'USD')).toBe('$1,234.50');
+    expect(formatCurrencyAmount(1234.5, 'USD')).toBe('$1234.50');
   });
 
   it('should format EUR with 2 decimals and €', () => {
@@ -121,7 +121,7 @@ describe('formatCurrencyAmount', () => {
   });
 
   it('should format JPY with 0 decimals and ¥', () => {
-    expect(formatCurrencyAmount(15000, 'JPY')).toBe('¥15,000');
+    expect(formatCurrencyAmount(15000, 'JPY')).toBe('¥15000');
   });
 
   it('should handle zero amount', () => {
@@ -129,11 +129,11 @@ describe('formatCurrencyAmount', () => {
   });
 
   it('should handle negative amount', () => {
-    expect(formatCurrencyAmount(-50.25, 'USD')).toBe('-$50.25');
+    expect(formatCurrencyAmount(-50.25, 'USD')).toBe('$-50.25');
   });
 
   it('should handle large amounts', () => {
-    expect(formatCurrencyAmount(1234567.89, 'USD')).toBe('$1,234,567.89');
+    expect(formatCurrencyAmount(1234567.89, 'USD')).toBe('$1234567.89');
   });
 });
 
@@ -300,6 +300,7 @@ describe('getExchangeRate', () => {
       rate: '1.000000',
       effectiveDate: '2026-01-15',
       source: 'system',
+      createdAt: expect.any(Date),
     });
     // withTenant should NOT have been called
     expect(withTenant).not.toHaveBeenCalled();

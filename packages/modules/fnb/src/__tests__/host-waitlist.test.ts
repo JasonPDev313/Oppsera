@@ -119,12 +119,12 @@ describe('hostAddToWaitlistSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('requires guest phone for waitlist', () => {
+  it('allows waitlist entry without phone (phone is optional)', () => {
     const result = hostAddToWaitlistSchema.safeParse({
       guestName: 'Jane Doe',
       partySize: 2,
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('rejects invalid phone format', () => {

@@ -13,7 +13,7 @@ import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import { tenants } from './core';
 
-// ── Tee Times (formerly Tee Bookings) ───────────────────────────
+// ── Tee Times ───────────────────────────────────────────────────
 
 export const teeTimes = pgTable(
   'tee_times',
