@@ -6,14 +6,9 @@
 -- Methodology: Cross-referenced 88 existing performance indexes to identify gaps
 --
 -- ===========================================================================
--- IMPORTANT: CREATE INDEX CONCURRENTLY cannot run inside a transaction.
--- Drizzle migrations run inside a transaction by default.
---
--- For production:
---   psql $DATABASE_URL -f packages/db/migrations/0233_principal_index_pack.sql
---
--- For local dev (no concurrent sessions, OK to remove CONCURRENTLY):
---   pnpm db:migrate
+-- NOTE: Uses regular CREATE INDEX (not CONCURRENTLY) for Drizzle migration
+-- compatibility. For large production tables, consider running indexes manually
+-- with CONCURRENTLY via psql to avoid table locks.
 -- ===========================================================================
 
 
@@ -28,7 +23,7 @@
 --          the largest GL table. p95 350ms+ → est. 80ms.
 -- Write cost: Moderate (insert-only, never updated). ~4-8 lines per tender.
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_gl_journal_lines_account_entry_amounts
+CREATE INDEX IF NOT EXISTS idx_gl_journal_lines_account_entry_amounts
   ON gl_journal_lines (account_id, journal_entry_id)
   INCLUDE (debit_amount, credit_amount);
 
@@ -44,7 +39,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_gl_journal_lines_account_entry_amoun
 --          Combined with date, eliminates full JOIN scans. p95 500ms+ → est. 120ms.
 -- Write cost: Low — only materialized on status='posted' transition.
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_gl_journal_entries_tenant_posted_date
+CREATE INDEX IF NOT EXISTS idx_gl_journal_entries_tenant_posted_date
   ON gl_journal_entries (tenant_id, business_date)
   WHERE status = 'posted';
 
@@ -60,7 +55,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_gl_journal_entries_tenant_posted_dat
 --          p95 120ms → est. 15ms.
 -- Write cost: Very low (upsert once per event, ~365 rows/tenant/location/year).
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rm_daily_sales_dashboard_covering
+CREATE INDEX IF NOT EXISTS idx_rm_daily_sales_dashboard_covering
   ON rm_daily_sales (tenant_id, business_date DESC, location_id)
   INCLUDE (net_sales, order_count, void_count, pms_revenue, ar_revenue,
            membership_revenue, voucher_revenue, total_business_revenue);
@@ -77,7 +72,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rm_daily_sales_dashboard_covering
 -- Write cost: Low — orders created often but rarely transition to voided.
 -- Note: Keeps existing full index for admin/void queries.
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_orders_tenant_location_active
+CREATE INDEX IF NOT EXISTS idx_orders_tenant_location_active
   ON orders (tenant_id, location_id, created_at DESC)
   WHERE status IN ('open', 'placed', 'paid');
 
@@ -92,7 +87,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_orders_tenant_location_active
 --          p95 130ms → est. 25ms.
 -- Write cost: Very low (same upsert pattern as rm_daily_sales).
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rm_item_sales_revenue_covering
+CREATE INDEX IF NOT EXISTS idx_rm_item_sales_revenue_covering
   ON rm_item_sales (tenant_id, business_date)
   INCLUDE (gross_revenue, quantity_sold, catalog_item_name);
 
@@ -108,7 +103,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rm_item_sales_revenue_covering
 --          p95 80ms → est. 5ms.
 -- Write cost: Negligible (events inserted infrequently, resolved_at rarely changes).
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_gl_unmapped_events_tenant_unresolved
+CREATE INDEX IF NOT EXISTS idx_gl_unmapped_events_tenant_unresolved
   ON gl_unmapped_events (tenant_id, created_at DESC)
   WHERE resolved_at IS NULL;
 

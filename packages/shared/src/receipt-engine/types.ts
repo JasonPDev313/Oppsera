@@ -5,6 +5,8 @@
  * All amounts are in CENTS (integer). Renderers convert to dollars at render time.
  */
 
+import type { ReceiptSettings } from '../schemas/receipt-settings';
+
 // ── Receipt Variants ─────────────────────────────────────────────
 
 export type ReceiptVariant =
@@ -241,7 +243,7 @@ export interface BuildReceiptInput {
   memberNumber?: string | null;
 
   // Config
-  settings: import('../schemas/receipt-settings').ReceiptSettings;
+  settings: ReceiptSettings;
   variant: ReceiptVariant;
   tenantId: string;
   locationId: string;

@@ -20,7 +20,6 @@ import type {
   SignatureBlock,
   WatermarkBlock,
   RefundInfoBlock,
-  VoidInfoBlock,
   ReprintInfoBlock,
   ReceiptVariant,
 } from './types';
