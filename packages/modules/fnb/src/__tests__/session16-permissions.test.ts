@@ -9,8 +9,8 @@ import {
 import type { SystemRole } from '../helpers/fnb-permissions';
 
 describe('FNB_PERMISSIONS', () => {
-  it('has 28 permissions', () => {
-    expect(FNB_PERMISSIONS).toHaveLength(28);
+  it('has at least 28 permissions', () => {
+    expect(FNB_PERMISSIONS.length).toBeGreaterThanOrEqual(28);
   });
 
   it('all permissions start with pos_fnb.', () => {

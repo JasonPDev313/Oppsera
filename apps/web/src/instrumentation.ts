@@ -122,6 +122,15 @@ export async function register() {
       }),
     ]);
 
+    // ── DB connection warm-up (fire-and-forget) ──────────────────────
+    // Pre-establish the postgres.js pool connection during cold start so
+    // the first user request doesn't pay the Supavisor connection cost
+    // (which can take several seconds through the transaction pooler).
+    void importSafe('DB pool warm-up', async () => {
+      const { db, sql } = await import('@oppsera/db');
+      await db.execute(sql`SELECT 1`);
+    });
+
     // ── DEFERRED PATH: Non-critical modules loaded after critical path ──
     // Golf, PMS, F&B reporting, and advanced accounting consumers are loaded
     // in the background. They handle module-specific events that don't affect

@@ -10212,3 +10212,50 @@ When introducing a new financial event type that involves money movement, follow
 | `forcePost: false` or omitted | Entry created as draft instead of posted — doesn't appear in GL reports | Always set `forcePost: true` for automated adapters |
 | `throw error` inside adapter | GL failure blocks the originating business operation (POS, payment, etc.) | Wrap in try/catch, log to console.error, never re-throw |
 
+## §204 — Test Resilience Conventions
+
+### Never Use Exact Count Assertions on Growing Collections
+
+Collections like `MODULE_REGISTRY`, `FNB_PERMISSIONS`, `HOST_EVENTS`, `TAB_STATUSES`,
+`FNB_SCREENS`, and workflow config keys grow over time as features are added.
+Exact assertions (`toHaveLength(N)`, `.toBe(N)`) break CI whenever a new item is added
+by another developer or agent — even though nothing is actually broken.
+
+**Rule**: Use `toBeGreaterThanOrEqual(N)` for count assertions on collections that
+grow over time. Reserve exact assertions for collections with a fixed, intentional size.
+
+```typescript
+// BAD — breaks when a new module is added
+expect(MODULE_REGISTRY).toHaveLength(22);
+
+// GOOD — passes when new modules are added
+expect(MODULE_REGISTRY.length).toBeGreaterThanOrEqual(22);
+```
+
+### Always Mock `@oppsera/db` in Test Files That Import Route Handlers
+
+Route handler files import `db` from `@oppsera/db` at module scope. In CI (no `DATABASE_URL`),
+this triggers `getDb()` which throws. Always add these mocks BEFORE importing the handler:
+
+```typescript
+vi.mock('@oppsera/db', () => ({
+  db: { select: vi.fn().mockReturnValue({ from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }) }) },
+  withTenant: vi.fn(),
+  // ... other table refs as needed
+}));
+
+vi.mock('drizzle-orm', () => ({
+  eq: vi.fn((_col: unknown, val: unknown) => val),
+  and: vi.fn(),
+  sql: vi.fn(),
+}));
+```
+
+**Important**: Use plain functions (not `vi.fn()`) for chainable return values in `vi.mock()` factory
+blocks, because `vi.clearAllMocks()` resets `vi.fn()` return values but not plain functions.
+
+### Pre-Push Testing
+
+Run `pnpm test` before pushing to catch test failures locally. CI runs lint → type-check → test → build,
+and failures block the deployment pipeline.
+

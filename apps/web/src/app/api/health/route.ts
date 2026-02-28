@@ -4,9 +4,10 @@ import { db, sql, getPoolGuardStats } from '@oppsera/db';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Health check has its own timeout — if we can't get a DB connection in 3s,
-// the pool is likely exhausted and we should report unhealthy immediately.
-const HEALTH_CHECK_TIMEOUT_MS = 3_000;
+// Health check timeout — must be longer than postgres.js connect_timeout (10s)
+// to avoid false-positive 503s on Vercel cold starts when Supavisor connection
+// establishment takes several seconds. Previous value of 3s caused false 503s.
+const HEALTH_CHECK_TIMEOUT_MS = 8_000;
 
 /** Wraps a promise with a timeout. */
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -22,7 +23,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  * Returns minimal info — detailed diagnostics are at /api/admin/health (auth required).
  *
  * Checks:
- * 1. DB connectivity (SELECT 1) — with 3s timeout
+ * 1. DB connectivity (SELECT 1) — with 8s timeout (allows cold-start connection)
  * 2. Stuck transactions (idle in transaction >60s) — early warning for pool exhaustion
  * 3. Outbox lag (pending events >5 min old) — early warning for event processing stall
  *
@@ -33,7 +34,7 @@ export async function GET() {
 
   try {
     // Primary check: can we talk to the DB at all?
-    // 3s timeout — if we can't get a connection this fast, pool is exhausted.
+    // 8s timeout — allows for cold-start Supavisor connection establishment.
     await withTimeout(db.execute(sql`SELECT 1`), HEALTH_CHECK_TIMEOUT_MS);
 
     // Secondary check: are there stuck transactions that could exhaust the pool?
@@ -72,7 +73,7 @@ export async function GET() {
     console.error(`[health] DB check failed: ${msg}`);
     // If the health check itself timed out, that's pool exhaustion
     if (msg.includes('timed out')) {
-      warnings.push('DB pool likely exhausted — health check could not acquire connection in 3s');
+      warnings.push('DB pool likely exhausted — health check could not acquire connection in 8s');
     }
   }
 

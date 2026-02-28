@@ -9,8 +9,8 @@ import {
 } from '../helpers/ux-screen-map';
 
 describe('FNB_SCREENS', () => {
-  it('has 10 screens', () => {
-    expect(Object.keys(FNB_SCREENS)).toHaveLength(10);
+  it('has at least 10 screens', () => {
+    expect(Object.keys(FNB_SCREENS).length).toBeGreaterThanOrEqual(10);
   });
 
   it('each screen has required properties', () => {
