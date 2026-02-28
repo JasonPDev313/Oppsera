@@ -11,7 +11,7 @@ interface ProjectListTabProps {
 export function ProjectListTab({ onSelect }: ProjectListTabProps) {
   const [filters, setFilters] = useState<ProjectFilters>({});
   const [search, setSearch] = useState('');
-  const { data: projects, meta, isLoading, mutate } = useProjects({
+  const { data: projects, meta, isLoading, mutate: _mutate } = useProjects({
     ...filters,
     search: search || undefined,
   });
@@ -73,7 +73,7 @@ export function ProjectListTab({ onSelect }: ProjectListTabProps) {
               {projects.map((p: Project) => {
                 const budget = p.budgetAmount ?? 0;
                 const variance = budget - p.totalCost;
-                const pct = budget > 0 ? (p.totalCost / budget) * 100 : null;
+                const _pct = budget > 0 ? (p.totalCost / budget) * 100 : null;
                 return (
                   <tr
                     key={p.id}

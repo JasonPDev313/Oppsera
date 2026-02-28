@@ -7,6 +7,7 @@ import { AccountingSectionLayout, type SectionTab } from '@/components/accountin
 import { ProjectListTab } from '@/components/accounting/project-list-tab';
 import { ProjectDetailPanel } from '@/components/accounting/project-detail-panel';
 import { CreateProjectDialog } from '@/components/accounting/create-project-dialog';
+import { useProject, useProjectMutations, useProjectProfitability, useProjectCostDetail } from '@/hooks/use-project-costing';
 
 const tabs: SectionTab[] = [
   { id: 'projects', label: 'Projects', icon: FolderOpen },
@@ -88,9 +89,8 @@ function EmptySelection({ message }: { message: string }) {
 }
 
 function TasksTabContent({ projectId }: { projectId: string }) {
-  const { useProject, useProjectMutations } = require('@/hooks/use-project-costing');
   const { data: project, isLoading } = useProject(projectId);
-  const { createTask, updateTask, closeTask } = useProjectMutations();
+  const { createTask, closeTask } = useProjectMutations();
   const [showAddTask, setShowAddTask] = useState(false);
   const [taskName, setTaskName] = useState('');
   const [taskBudget, setTaskBudget] = useState('');
@@ -225,7 +225,6 @@ function TasksTabContent({ projectId }: { projectId: string }) {
 }
 
 function ProfitabilityTabContent({ projectId }: { projectId: string }) {
-  const { useProjectProfitability } = require('@/hooks/use-project-costing');
   const { data, isLoading } = useProjectProfitability(projectId);
 
   if (isLoading) {
@@ -322,7 +321,6 @@ function ProfitabilityTabContent({ projectId }: { projectId: string }) {
 }
 
 function CostDetailTabContent({ projectId }: { projectId: string }) {
-  const { useProjectCostDetail } = require('@/hooks/use-project-costing');
   const [filters, setFilters] = useState<any>({});
   const { data, meta, isLoading } = useProjectCostDetail(projectId, filters);
 

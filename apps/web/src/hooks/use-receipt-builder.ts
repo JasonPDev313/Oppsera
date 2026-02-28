@@ -7,17 +7,15 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import {
   buildReceiptDocument,
   orderForReceiptToInput,
-  DEFAULT_RECEIPT_SETTINGS,
 } from '@oppsera/shared';
 import type {
   ReceiptDocument,
   ReceiptVariant,
-  BuildReceiptInput,
   LegacyOrderForReceipt,
   LegacyTenderForReceipt,
 } from '@oppsera/shared';

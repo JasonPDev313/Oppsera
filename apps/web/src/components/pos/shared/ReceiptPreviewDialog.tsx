@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer, Mail } from 'lucide-react';
+import { X, Printer } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { printReceiptDocument } from '@/lib/receipt-printer';
 import { useReceiptBuilder } from '@/hooks/use-receipt-builder';

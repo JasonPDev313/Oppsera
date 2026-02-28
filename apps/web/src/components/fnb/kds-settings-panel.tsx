@@ -30,7 +30,7 @@ import {
   recommendRoutingForDepartments,
   findBestStation,
 } from '@/lib/kds-routing-recommender';
-import type { DepartmentForRecommendation, StationRecommendation } from '@/lib/kds-routing-recommender';
+import type { DepartmentForRecommendation } from '@/lib/kds-routing-recommender';
 
 // ── Label helpers for plain string arrays ──────────────────────
 

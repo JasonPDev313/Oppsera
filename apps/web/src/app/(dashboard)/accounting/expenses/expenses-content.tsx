@@ -145,7 +145,7 @@ export default function ExpensesContent() {
 
 function ExpenseListTab() {
   const [filters, setFilters] = useState<ExpenseFilters>({});
-  const { data: expenses, isLoading, meta, mutate } = useExpenses({ ...filters, limit: 50 });
+  const { data: expenses, isLoading, meta, mutate: _mutate } = useExpenses({ ...filters, limit: 50 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   return (

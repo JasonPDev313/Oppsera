@@ -9,7 +9,6 @@ import {
   Package,
   DollarSign,
   TrendingDown,
-  Calendar,
   MoreVertical,
   Trash2,
   Edit,
@@ -57,7 +56,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-const METHOD_LABELS: Record<string, string> = {
+const _METHOD_LABELS: Record<string, string> = {
   straight_line: 'Straight Line',
   declining_balance: 'Declining Balance',
   sum_of_years: 'Sum of Years',

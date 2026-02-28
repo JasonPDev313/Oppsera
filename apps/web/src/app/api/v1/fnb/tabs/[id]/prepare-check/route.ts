@@ -3,8 +3,6 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { sql } from 'drizzle-orm';
 import { db } from '@oppsera/db';
-import { fnbTabs } from '@oppsera/db/schema/fnb';
-import { eq, and } from 'drizzle-orm';
 import { getTabDetail, getCheckSummary } from '@oppsera/module-fnb';
 import { openOrder, addLineItemsBatch, placeOrder } from '@oppsera/module-orders';
 

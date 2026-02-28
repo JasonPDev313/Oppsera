@@ -26,7 +26,7 @@ import { formatAccountingMoney } from '@/types/accounting';
 
 // ── Constants ─────────────────────────────────────────────────
 
-const SECTION_KIND_ORDER = ['revenue', 'contra', 'expense'] as const;
+const _SECTION_KIND_ORDER = ['revenue', 'contra', 'expense'] as const;
 
 function classifySection(label: string): 'revenue' | 'contra' | 'expense' {
   if (label.toLowerCase().startsWith('less:')) return 'contra';
@@ -270,7 +270,7 @@ export default function ConsolidatedPLContent() {
   const [toDate, setToDate] = useState(defaults.to);
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
 
-  const { data: allLocations, isLoading: locationsLoading } = useLocations();
+  const { data: allLocations, isLoading: _locationsLoading } = useLocations();
 
   const { data, isLoading, mutate } = useConsolidatedPL({
     from: fromDate,

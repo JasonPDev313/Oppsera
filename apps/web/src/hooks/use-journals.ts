@@ -7,7 +7,6 @@ import type {
   JournalEntry,
   TrialBalanceRow,
   GLDetailRow,
-  GLSummaryRow,
 } from '@/types/accounting';
 
 // ── useJournalEntries ────────────────────────────────────────
