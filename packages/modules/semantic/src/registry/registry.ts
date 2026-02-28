@@ -115,51 +115,68 @@ function rowToLens(row: typeof semanticLenses.$inferSelect): LensDef {
 // ── Cache loader ─────────────────────────────────────────────────
 
 async function loadCache(): Promise<RegistryCache> {
-  // Fetch in 2 parallel batches of 2 — safe with max:2 pool (each batch
-  // uses 1 connection at a time via Drizzle's query pipeline).
-  // Only cache system metrics/dimensions (tenant_id IS NULL). Tenant-specific
-  // entries are fetched on demand in the API routes to avoid cross-tenant leaks.
-  const [metricRows, dimRows] = await Promise.all([
-    db.select().from(semanticMetrics).where(
-      and(eq(semanticMetrics.isActive, true), isNull(semanticMetrics.tenantId)),
-    ),
-    db.select().from(semanticDimensions).where(
-      and(eq(semanticDimensions.isActive, true), isNull(semanticDimensions.tenantId)),
-    ),
-  ]);
-  // Only cache system lenses (tenant_id IS NULL). Tenant-specific lenses are
-  // fetched on demand in getLens() to avoid nondeterministic slug collisions.
-  const [relRows, lensRows] = await Promise.all([
-    db.select().from(semanticMetricDimensions),
-    db.select().from(semanticLenses).where(
-      and(eq(semanticLenses.isActive, true), isNull(semanticLenses.tenantId)),
-    ),
-  ]);
+  try {
+    // Fetch in 2 parallel batches of 2 — safe with max:2 pool (each batch
+    // uses 1 connection at a time via Drizzle's query pipeline).
+    // Only cache system metrics/dimensions (tenant_id IS NULL). Tenant-specific
+    // entries are fetched on demand in the API routes to avoid cross-tenant leaks.
+    const [metricRows, dimRows] = await Promise.all([
+      db.select().from(semanticMetrics).where(
+        and(eq(semanticMetrics.isActive, true), isNull(semanticMetrics.tenantId)),
+      ),
+      db.select().from(semanticDimensions).where(
+        and(eq(semanticDimensions.isActive, true), isNull(semanticDimensions.tenantId)),
+      ),
+    ]);
+    // Only cache system lenses (tenant_id IS NULL). Tenant-specific lenses are
+    // fetched on demand in getLens() to avoid nondeterministic slug collisions.
+    const [relRows, lensRows] = await Promise.all([
+      db.select().from(semanticMetricDimensions),
+      db.select().from(semanticLenses).where(
+        and(eq(semanticLenses.isActive, true), isNull(semanticLenses.tenantId)),
+      ),
+    ]);
 
-  const metrics = new Map<string, MetricDef>();
-  for (const row of metricRows) {
-    metrics.set(row.slug, rowToMetric(row));
+    const metrics = new Map<string, MetricDef>();
+    for (const row of metricRows) {
+      metrics.set(row.slug, rowToMetric(row));
+    }
+
+    const dimensions = new Map<string, DimensionDef>();
+    for (const row of dimRows) {
+      dimensions.set(row.slug, rowToDimension(row));
+    }
+
+    const relations: MetricDimensionRelation[] = relRows.map((r) => ({
+      metricSlug: r.metricSlug,
+      dimensionSlug: r.dimensionSlug,
+      isRequired: r.isRequired,
+      isDefault: r.isDefault,
+      sortOrder: r.sortOrder,
+    }));
+
+    const lenses = new Map<string, LensDef>();
+    for (const row of lensRows) {
+      lenses.set(row.slug, rowToLens(row));
+    }
+
+    const result = { metrics, dimensions, relations, lenses, loadedAt: Date.now() };
+    if (metrics.size === 0) {
+      console.warn('[semantic/registry] loadCache succeeded but found 0 metrics — semantic tables may be empty. Run: pnpm --filter @oppsera/module-semantic semantic:sync');
+    } else {
+      console.log(`[semantic/registry] Cache loaded: ${metrics.size} metrics, ${dimensions.size} dimensions, ${relations.length} relations, ${lenses.size} lenses`);
+    }
+    return result;
+  } catch (err) {
+    console.error('[semantic/registry] loadCache FAILED — DB query error. Returning empty cache. Error:', err);
+    return {
+      metrics: new Map(),
+      dimensions: new Map(),
+      relations: [],
+      lenses: new Map(),
+      loadedAt: Date.now(),
+    };
   }
-
-  const dimensions = new Map<string, DimensionDef>();
-  for (const row of dimRows) {
-    dimensions.set(row.slug, rowToDimension(row));
-  }
-
-  const relations: MetricDimensionRelation[] = relRows.map((r) => ({
-    metricSlug: r.metricSlug,
-    dimensionSlug: r.dimensionSlug,
-    isRequired: r.isRequired,
-    isDefault: r.isDefault,
-    sortOrder: r.sortOrder,
-  }));
-
-  const lenses = new Map<string, LensDef>();
-  for (const row of lensRows) {
-    lenses.set(row.slug, rowToLens(row));
-  }
-
-  return { metrics, dimensions, relations, lenses, loadedAt: Date.now() };
 }
 
 async function getCache(): Promise<RegistryCache> {

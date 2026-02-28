@@ -85,7 +85,9 @@ export const POST = withMiddleware(
         skipNarrative: false,
       });
     } catch (err) {
-      console.error('[semantic/ask] Pipeline error:', err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errStack = err instanceof Error ? err.stack : '';
+      console.error(`[semantic/ask] Pipeline error: ${errMsg}`, errStack);
       return NextResponse.json(
         { error: { code: 'PIPELINE_ERROR', message: 'Unable to process your query. Please try rephrasing or try again later.' } },
         { status: 500 },

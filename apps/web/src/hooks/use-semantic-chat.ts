@@ -412,21 +412,54 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
         return;
       }
 
+      // For transient errors (not timeout), retry the non-streaming fallback once
+      // after a 2s delay. Many failures are cold-start or momentary pool exhaustion.
+      if (!isTimeout && !controller.signal.aborted) {
+        try {
+          await new Promise((r) => setTimeout(r, 2000));
+          if (controller.signal.aborted) throw err; // cancelled during wait
+          // Remove the empty/partial streaming message before retry
+          setMessages((prev) => prev.filter((m) => m.id !== assistantMsgId));
+          await sendMessageFallback(message, history, controller);
+          return; // retry succeeded — skip error handling
+        } catch {
+          // Retry also failed — fall through to show error
+        }
+      }
+
       const errorText = isTimeout
         ? 'Request timed out. The AI took too long to respond — please try a simpler question.'
         : err instanceof Error ? err.message : 'Failed to get a response';
       setError(errorText);
 
-      const errorMsg: ChatMessage = {
-        id: `err_${crypto.randomUUID()}`,
-        role: 'assistant',
-        content: isTimeout
-          ? 'This is taking too long. Try asking a simpler question, or try again in a moment.'
-          : 'Sorry, something went wrong. Please try again.',
-        error: errorText,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, errorMsg]);
+      const errorContent = isTimeout
+        ? 'This is taking too long. Try asking a simpler question, or try again in a moment.'
+        : 'Sorry, something went wrong. Please try again.';
+
+      // Fix double-error-message: if streaming already added an assistant message
+      // (either empty or with an SSE error), update THAT message instead of appending a new one.
+      setMessages((prev) => {
+        const existingIdx = prev.findIndex((m) => m.id === assistantMsgId);
+        if (existingIdx !== -1) {
+          // Streaming already handled the error via SSE error event — skip
+          if (prev[existingIdx]!.error) return prev;
+          // Streaming added an empty/partial message — update it with the error
+          return prev.map((m) =>
+            m.id === assistantMsgId ? { ...m, content: errorContent, error: errorText } : m,
+          );
+        }
+        // Streaming never added a message — append a new error message
+        return [
+          ...prev,
+          {
+            id: `err_${crypto.randomUUID()}`,
+            role: 'assistant' as const,
+            content: errorContent,
+            error: errorText,
+            timestamp: Date.now(),
+          },
+        ];
+      });
     } finally {
       clearTimeout(timeout);
       abortControllerRef.current = null;

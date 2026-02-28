@@ -129,6 +129,16 @@ export async function register() {
     registerDeferredConsumers(bus).catch((e) =>
       console.error('[instrumentation] Deferred consumer registration failed:', e),
     );
+
+    // ── Pre-warm semantic registry cache ──────────────────────────
+    // Load the registry into memory so the first user query doesn't
+    // cold-start it (which can timeout on Vercel if the DB pool is busy).
+    // Best-effort — failure here just means first query does the load.
+    void importSafe('Semantic registry pre-warm', async () => {
+      const { buildRegistryCatalog } = await import('@oppsera/module-semantic');
+      const catalog = await buildRegistryCatalog();
+      console.log(`[instrumentation] Semantic registry pre-warmed: ${catalog.metrics.length} metrics, ${catalog.dimensions.length} dimensions`);
+    });
   }
   // TODO: Uncomment when @sentry/nextjs is installed:
   // if (process.env.NEXT_RUNTIME === 'edge') {

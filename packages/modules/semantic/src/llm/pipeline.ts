@@ -114,21 +114,34 @@ async function _runPipelineStreamingInner(
   // ── 1. Load lens + registry + schema in parallel ────────────
   emit({ type: 'status', data: { stage: 'loading', message: 'Loading data catalog…' } });
 
+  const EMPTY_CATALOG: Awaited<ReturnType<typeof buildRegistryCatalog>> = {
+    metrics: [], dimensions: [], lenses: [], generatedAt: new Date().toISOString(),
+  };
+
   let lens: Awaited<ReturnType<typeof getLens>> = null;
   let catalog: Awaited<ReturnType<typeof buildRegistryCatalog>>;
   let schemaCatalog: SchemaCatalog | null;
 
   if (lensSlug) {
     const [lensResult, schemaResult] = await Promise.all([
-      getLens(lensSlug, tenantId),
+      getLens(lensSlug, tenantId).catch((err) => {
+        console.error('[semantic] Lens load failed:', err);
+        return null;
+      }),
       buildSchemaCatalog().catch(() => null),
     ]);
     lens = lensResult;
     schemaCatalog = schemaResult;
-    catalog = await buildRegistryCatalog(lens?.domain);
+    catalog = await buildRegistryCatalog(lens?.domain).catch((err) => {
+      console.error('[semantic] Registry catalog load FAILED (lens domain):', err);
+      return EMPTY_CATALOG;
+    });
   } else {
     const [registryResult, schemaResult] = await Promise.all([
-      buildRegistryCatalog(),
+      buildRegistryCatalog().catch((err) => {
+        console.error('[semantic] Registry catalog load FAILED:', err);
+        return EMPTY_CATALOG;
+      }),
       buildSchemaCatalog().catch(() => null),
     ]);
     catalog = registryResult;
@@ -136,6 +149,28 @@ async function _runPipelineStreamingInner(
   }
 
   const lensPromptFragment = lens?.systemPromptFragment ?? null;
+
+  console.log(`[semantic/stream] Catalog loaded: ${catalog.metrics.length} metrics, ${catalog.dimensions.length} dims, schema=${schemaCatalog ? schemaCatalog.tables.length + ' tables' : 'null'}`);
+  if (catalog.metrics.length === 0) {
+    console.warn('[semantic/stream] WARNING: Registry has 0 metrics — pipeline will fall back to SQL mode or clarification. Ensure semantic:sync has been run.');
+  }
+
+  // ── Health guard: if both registry AND schema catalog are empty, fail fast ──
+  if (catalog.metrics.length === 0 && !schemaCatalog) {
+    const helpMsg = 'AI Insights is temporarily unavailable. The analytics engine is still initializing — please try again in a moment.';
+    console.error('[semantic/stream] HEALTH GUARD: 0 metrics AND no schema catalog — cannot process any query.');
+    emit({ type: 'error', data: { code: 'REGISTRY_EMPTY', message: helpMsg } });
+    return {
+      mode: 'metrics', narrative: `## Answer\n\n${helpMsg}`,
+      sections: [{ type: 'answer' as const, content: helpMsg }],
+      data: null, plan: null, isClarification: false, clarificationText: null,
+      evalTurnId: null, llmConfidence: null, llmLatencyMs: 0,
+      executionTimeMs: null, tokensInput: 0, tokensOutput: 0,
+      provider: '', model: '', compiledSql: null,
+      compilationErrors: ['Registry empty and schema catalog unavailable'],
+      tablesAccessed: [], cacheStatus: 'SKIP',
+    };
+  }
 
   // ── 2. Intent resolution ────────────────────────────────────
   emit({ type: 'status', data: { stage: 'intent', message: 'Understanding your question…' } });
@@ -533,6 +568,10 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
   // ── 1. Load lens + registry catalog + schema catalog in parallel ──
   if (SEMANTIC_DEBUG) console.log('[semantic] Pipeline start — loading registry + schema...');
 
+  const EMPTY_CATALOG: Awaited<ReturnType<typeof buildRegistryCatalog>> = {
+    metrics: [], dimensions: [], lenses: [], generatedAt: new Date().toISOString(),
+  };
+
   let lens: Awaited<ReturnType<typeof getLens>> = null;
   let catalog: Awaited<ReturnType<typeof buildRegistryCatalog>>;
   let schemaCatalog: SchemaCatalog | null;
@@ -540,7 +579,10 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
   if (lensSlug) {
     // Lens specified — must resolve lens first to get domain filter for registry
     const [lensResult, schemaResult] = await Promise.all([
-      getLens(lensSlug, tenantId),
+      getLens(lensSlug, tenantId).catch((err) => {
+        console.error('[semantic] Lens load failed:', err);
+        return null;
+      }),
       buildSchemaCatalog().catch((err) => {
         if (SEMANTIC_DEBUG) console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
         return null;
@@ -548,11 +590,17 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
     ]);
     lens = lensResult;
     schemaCatalog = schemaResult;
-    catalog = await buildRegistryCatalog(lens?.domain);
+    catalog = await buildRegistryCatalog(lens?.domain).catch((err) => {
+      console.error('[semantic] Registry catalog load FAILED (lens domain):', err);
+      return EMPTY_CATALOG;
+    });
   } else {
     // No lens — registry catalog (no domain filter) + schema catalog can run in parallel
     const [registryResult, schemaResult] = await Promise.all([
-      buildRegistryCatalog(),
+      buildRegistryCatalog().catch((err) => {
+        console.error('[semantic] Registry catalog load FAILED:', err);
+        return EMPTY_CATALOG;
+      }),
       buildSchemaCatalog().catch((err) => {
         if (SEMANTIC_DEBUG) console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
         return null;
@@ -562,7 +610,28 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
     schemaCatalog = schemaResult;
   }
 
-  if (SEMANTIC_DEBUG) console.log(`[semantic] Registry loaded in ${Date.now() - startMs}ms (${catalog.metrics.length} metrics, ${catalog.dimensions.length} dims, ${schemaCatalog?.tables.length ?? 0} schema tables)`);
+  console.log(`[semantic] Registry loaded in ${Date.now() - startMs}ms (${catalog.metrics.length} metrics, ${catalog.dimensions.length} dims, ${schemaCatalog?.tables.length ?? 0} schema tables)`);
+  if (catalog.metrics.length === 0) {
+    console.warn('[semantic] WARNING: Registry has 0 metrics — pipeline will fall back to SQL mode or clarification. Ensure semantic:sync has been run.');
+  }
+
+  // ── Health guard: if both registry AND schema catalog are empty, fail fast ──
+  // This prevents confusing errors deep in the pipeline when the semantic
+  // system hasn't been initialized (migrations not run, sync not run, DB down).
+  if (catalog.metrics.length === 0 && !schemaCatalog) {
+    const helpMsg = 'AI Insights is temporarily unavailable. The analytics engine is still initializing — please try again in a moment.';
+    console.error('[semantic] HEALTH GUARD: 0 metrics AND no schema catalog — cannot process any query. Run: pnpm --filter @oppsera/module-semantic semantic:sync');
+    return {
+      mode: 'metrics', narrative: `## Answer\n\n${helpMsg}`,
+      sections: [{ type: 'answer' as const, content: helpMsg }],
+      data: null, plan: null, isClarification: false, clarificationText: null,
+      evalTurnId: null, llmConfidence: null, llmLatencyMs: 0,
+      executionTimeMs: null, tokensInput: 0, tokensOutput: 0,
+      provider: '', model: '', compiledSql: null,
+      compilationErrors: ['Registry empty and schema catalog unavailable'],
+      tablesAccessed: [], cacheStatus: 'SKIP',
+    };
+  }
 
   const lensPromptFragment = lens?.systemPromptFragment ?? null;
 
