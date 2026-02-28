@@ -50,6 +50,13 @@ vi.mock('@oppsera/db', () => ({
     raw: vi.fn((str: string) => str),
   }),
   schema: {},
+  isBreakerOpen: vi.fn().mockReturnValue(false),
+  guardedQuery: vi.fn().mockImplementation((_op: string, fn: () => Promise<unknown>) => fn()),
+  singleFlight: vi.fn().mockImplementation((_key: string, fn: () => Promise<unknown>) => fn()),
+  jitterTtl: vi.fn().mockImplementation((base: number) => base),
+  jitterTtlMs: vi.fn().mockImplementation((base: number) => base),
+  isPoolExhaustion: vi.fn().mockReturnValue(false),
+  getPoolGuardStats: vi.fn().mockReturnValue({ tripped: 0, queries: 0 }),
 }));
 
 vi.mock('drizzle-orm', () => ({
