@@ -78,6 +78,7 @@ vi.mock('@oppsera/db', () => {
     tenants: { id: 'tenants.id', status: 'tenants.status' },
     locations: { tenantId: 'locations.tenantId', isActive: 'locations.isActive' },
     schema: {},
+    isBreakerOpen: vi.fn().mockReturnValue(false),
   };
 });
 

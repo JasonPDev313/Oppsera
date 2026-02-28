@@ -131,6 +131,7 @@ vi.mock('@oppsera/db', () => ({
   },
   users: { id: 'users.id' },
   schema: {},
+  isBreakerOpen: vi.fn().mockReturnValue(false),
 }));
 
 vi.mock('../auth/supabase-client', () => ({

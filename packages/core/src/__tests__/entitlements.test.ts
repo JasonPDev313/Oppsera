@@ -65,6 +65,7 @@ vi.mock('@oppsera/db', () => ({
     isActive: 'locations.isActive',
   },
   schema: {},
+  isBreakerOpen: vi.fn().mockReturnValue(false),
 }));
 
 vi.mock('../auth/supabase-client', () => ({
