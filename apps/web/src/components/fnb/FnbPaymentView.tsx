@@ -104,9 +104,11 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   }, [tab?.id, tab?.primaryOrderId]);
 
   // ── Auto-prepare check: create order from tab items if needed ──
+  const prepareAbortRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     if (!tab || tab.primaryOrderId || isPreparing) return;
-    // Only call once per tabId
+    // Only call once per tabId — NOT reset on error (Retry button resets manually)
     if (prepareCalledRef.current === tab.id) return;
     const activeLines = tab.lines.filter((l) => l.status !== 'voided');
     if (activeLines.length === 0) return;
@@ -116,9 +118,14 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     setIsLoadingCheck(true);
     setCheckError(null);
 
+    // Cancel any prior in-flight request
+    prepareAbortRef.current?.abort();
+    const ac = new AbortController();
+    prepareAbortRef.current = ac;
+
     apiFetch<{ data: { orderId: string; check: CheckSummary } }>(
       `/api/v1/fnb/tabs/${tab.id}/prepare-check`,
-      { method: 'POST' },
+      { method: 'POST', signal: ac.signal },
     )
       .then((res) => {
         preparedOrderIdRef.current = res.data.orderId;
@@ -128,13 +135,20 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
         refreshTab();
       })
       .catch((e) => {
-        setCheckError(e instanceof Error ? e.message : 'Failed to prepare check');
-        prepareCalledRef.current = null; // Allow retry
+        // Ignore aborted requests (user navigated away)
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        const msg = e instanceof Error ? e.message : 'Failed to prepare check';
+        console.error('[FnbPayment] prepare-check failed:', msg, e);
+        setCheckError(msg);
+        // Do NOT reset prepareCalledRef here — that causes an infinite retry loop.
+        // The Retry button resets it manually.
       })
       .finally(() => {
         setIsPreparing(false);
         setIsLoadingCheck(false);
       });
+
+    return () => { ac.abort(); };
   }, [tab, isPreparing, refreshTab]);
 
   // Initial check fetch (only when primaryOrderId already exists)

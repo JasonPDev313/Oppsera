@@ -37,6 +37,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000;    // 5 min: serve from cache
 const SWR_WINDOW_MS = 10 * 60 * 1000;  // 10 min: serve stale, refresh in background
 let _cache: RegistryCache | null = null;
 let _refreshInFlight = false;
+let _loadPromise: Promise<RegistryCache> | null = null;
 
 // ── Row → domain type mappers ─────────────────────────────────────
 
@@ -226,8 +227,13 @@ async function getCache(): Promise<RegistryCache> {
     return _cache;
   }
 
-  // No cache or too stale — must block and refresh synchronously
-  _cache = await loadCache();
+  // No cache or too stale — deduplicate concurrent cold-start loads
+  // Without this, buildRegistryCatalog()'s 3 parallel list*() calls each
+  // trigger independent loadCache() calls, exhausting the max:2 DB pool.
+  if (!_loadPromise) {
+    _loadPromise = loadCache().finally(() => { _loadPromise = null; });
+  }
+  _cache = await _loadPromise;
   return _cache;
 }
 
@@ -434,6 +440,7 @@ export async function buildRegistryCatalog(domain?: string): Promise<RegistryCat
 
 export function invalidateRegistryCache(): void {
   _cache = null;
+  _loadPromise = null;
 }
 
 export function setRegistryCache(cache: RegistryCache): void {

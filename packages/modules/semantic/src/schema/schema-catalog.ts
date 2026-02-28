@@ -425,6 +425,7 @@ const COLUMN_DESCRIPTIONS: Record<string, Record<string, string>> = {
 
 let _cache: SchemaCatalog | null = null;
 let _refreshInFlight = false;
+let _loadPromise: Promise<SchemaCatalog> | null = null;
 
 // ── Builder ──────────────────────────────────────────────────────
 
@@ -471,8 +472,11 @@ export async function buildSchemaCatalog(): Promise<SchemaCatalog> {
     }
   }
 
-  // No cache or expired beyond SWR window — block and refresh synchronously
-  _cache = await _loadSchemaCatalog();
+  // No cache or expired beyond SWR window — deduplicate concurrent loads
+  if (!_loadPromise) {
+    _loadPromise = _loadSchemaCatalog().finally(() => { _loadPromise = null; });
+  }
+  _cache = await _loadPromise;
   return _cache;
 }
 

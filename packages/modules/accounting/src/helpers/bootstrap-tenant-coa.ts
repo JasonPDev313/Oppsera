@@ -137,6 +137,34 @@ export async function bootstrapTenantCoa(
     if (at.accountNumber === '6153') {
       controlAccountIds['price_override_expense'] = accountId;
     }
+    // ── COA expansion (migration 0238) ──
+    if (at.accountNumber === '1160') {
+      controlAccountIds['credit_card_receivable'] = accountId;
+    }
+    if (at.accountNumber === '2120') {
+      controlAccountIds['gift_card_liability'] = accountId;
+    }
+    if (at.accountNumber === '6010') {
+      controlAccountIds['cc_processing_fee'] = accountId;
+    }
+    if (at.accountNumber === '6030') {
+      controlAccountIds['bad_debt_expense'] = accountId;
+    }
+    if (at.accountNumber === '4700') {
+      controlAccountIds['interest_income'] = accountId;
+    }
+    if (at.accountNumber === '6140') {
+      controlAccountIds['interest_expense'] = accountId;
+    }
+    if (at.accountNumber === '6040') {
+      controlAccountIds['delivery_commission'] = accountId;
+    }
+    if (at.accountNumber === '1120') {
+      controlAccountIds['petty_cash'] = accountId;
+    }
+    if (at.accountNumber === '2350') {
+      controlAccountIds['employee_reimbursable'] = accountId;
+    }
   }
 
   // 5. Create accounting_settings with sensible defaults
@@ -159,6 +187,16 @@ export async function bootstrapTenantCoa(
   if (controlAccountIds['ach_receivable']) extendedDefaults.defaultAchReceivableAccountId = controlAccountIds['ach_receivable'];
   if (controlAccountIds['default_discount']) extendedDefaults.defaultDiscountAccountId = controlAccountIds['default_discount'];
   if (controlAccountIds['price_override_expense']) extendedDefaults.defaultPriceOverrideExpenseAccountId = controlAccountIds['price_override_expense'];
+  // ── COA expansion (migration 0238) ──
+  if (controlAccountIds['credit_card_receivable']) extendedDefaults.defaultCreditCardReceivableAccountId = controlAccountIds['credit_card_receivable'];
+  if (controlAccountIds['gift_card_liability']) extendedDefaults.defaultGiftCardLiabilityAccountId = controlAccountIds['gift_card_liability'];
+  if (controlAccountIds['cc_processing_fee']) extendedDefaults.defaultCcProcessingFeeAccountId = controlAccountIds['cc_processing_fee'];
+  if (controlAccountIds['bad_debt_expense']) extendedDefaults.defaultBadDebtExpenseAccountId = controlAccountIds['bad_debt_expense'];
+  if (controlAccountIds['interest_income']) extendedDefaults.defaultInterestIncomeAccountId = controlAccountIds['interest_income'];
+  if (controlAccountIds['interest_expense']) extendedDefaults.defaultInterestExpenseAccountId = controlAccountIds['interest_expense'];
+  if (controlAccountIds['delivery_commission']) extendedDefaults.defaultDeliveryCommissionAccountId = controlAccountIds['delivery_commission'];
+  if (controlAccountIds['petty_cash']) extendedDefaults.defaultPettyCashAccountId = controlAccountIds['petty_cash'];
+  if (controlAccountIds['employee_reimbursable']) extendedDefaults.defaultEmployeeReimbursableAccountId = controlAccountIds['employee_reimbursable'];
 
   if (Object.keys(extendedDefaults).length > 0) {
     try {

@@ -205,6 +205,17 @@ export const accountingSettings = pgTable('accounting_settings', {
   // ── Discount classification GL defaults (migration 0212) ──
   defaultDiscountAccountId: text('default_discount_account_id'),
   defaultPriceOverrideExpenseAccountId: text('default_price_override_expense_account_id'),
+  // ── Expense management GL defaults (migration 0231) ──
+  defaultPettyCashAccountId: text('default_petty_cash_account_id'),
+  defaultEmployeeReimbursableAccountId: text('default_employee_reimbursable_account_id'),
+  // ── COA expansion GL defaults (migration 0238) ──
+  defaultCreditCardReceivableAccountId: text('default_credit_card_receivable_account_id'),
+  defaultGiftCardLiabilityAccountId: text('default_gift_card_liability_account_id'),
+  defaultCcProcessingFeeAccountId: text('default_cc_processing_fee_account_id'),
+  defaultBadDebtExpenseAccountId: text('default_bad_debt_expense_account_id'),
+  defaultInterestIncomeAccountId: text('default_interest_income_account_id'),
+  defaultInterestExpenseAccountId: text('default_interest_expense_account_id'),
+  defaultDeliveryCommissionAccountId: text('default_delivery_commission_account_id'),
   // ── Multi-currency provisioning (migration 0121) ──
   supportedCurrencies: text('supported_currencies').array().notNull().default(sql`'{USD}'`),
   // ── Auto-close orchestrator (migration 0187) ──

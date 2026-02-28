@@ -122,14 +122,13 @@ export async function register() {
       }),
     ]);
 
-    // ── DB connection warm-up (fire-and-forget) ──────────────────────
-    // Pre-establish the postgres.js pool connection during cold start so
-    // the first user request doesn't pay the Supavisor connection cost
-    // (which can take several seconds through the transaction pooler).
-    void importSafe('DB pool warm-up', async () => {
-      const { db, sql } = await import('@oppsera/db');
-      await db.execute(sql`SELECT 1`);
-    });
+    // ── DB connection warm-up REMOVED (2026-02-28) ──────────────────
+    // Fire-and-forget DB queries on Vercel cause pool exhaustion:
+    // when the event loop freezes after HTTP response, the warm-up
+    // connection sits in ClientRead until statement_timeout (30s),
+    // blocking the max:2 pool. The critical-path Promise.all above
+    // already initializes the event system (which warms the pool).
+    // See: Production Outage 2026-02-28 in MEMORY.md
 
     // ── DEFERRED PATH: Non-critical modules loaded after critical path ──
     // Golf, PMS, F&B reporting, and advanced accounting consumers are loaded

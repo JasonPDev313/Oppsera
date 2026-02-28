@@ -77,10 +77,11 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() => window.location.reload()}
-              className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+              onClick={roleSelection.retry}
+              disabled={roleSelection.isLoading}
+              className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
             >
-              Retry
+              {roleSelection.isLoading ? 'Retrying...' : 'Retry'}
             </button>
             <button
               type="button"

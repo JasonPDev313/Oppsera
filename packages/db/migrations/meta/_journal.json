@@ -1667,6 +1667,13 @@
       "when": 1709424000000,
       "tag": "0237_rename_tee_booking_transaction_type",
       "breakpoints": true
+    },
+    {
+      "idx": 238,
+      "version": "7",
+      "when": 1709510400000,
+      "tag": "0238_coa_expansion",
+      "breakpoints": true
     }
   ]
 }

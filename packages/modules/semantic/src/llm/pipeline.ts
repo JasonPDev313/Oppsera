@@ -122,36 +122,31 @@ async function _runPipelineStreamingInner(
   let catalog: Awaited<ReturnType<typeof buildRegistryCatalog>>;
   let schemaCatalog: SchemaCatalog | null;
 
+  // Serialize catalog loads to avoid pool contention on cold start.
+  // With max:2 DB pool, running registry (up to 4 queries) + schema (2 queries)
+  // in parallel causes connection starvation and Vercel timeout.
   if (lensSlug) {
-    const [lensResult, schemaResult] = await Promise.all([
-      getLens(lensSlug, tenantId).catch((err) => {
-        console.error('[semantic] Lens load failed:', err);
-        return null;
-      }),
-      buildSchemaCatalog().catch((err) => {
-        console.error('[semantic] Schema catalog load FAILED (lens path):', err);
-        return null;
-      }),
-    ]);
-    lens = lensResult;
-    schemaCatalog = schemaResult;
+    lens = await getLens(lensSlug, tenantId).catch((err) => {
+      console.error('[semantic] Lens load failed:', err);
+      return null;
+    });
     catalog = await buildRegistryCatalog(lens?.domain).catch((err) => {
       console.error('[semantic] Registry catalog load FAILED (lens domain):', err);
       return EMPTY_CATALOG;
     });
+    schemaCatalog = await buildSchemaCatalog().catch((err) => {
+      console.error('[semantic] Schema catalog load FAILED (lens path):', err);
+      return null;
+    });
   } else {
-    const [registryResult, schemaResult] = await Promise.all([
-      buildRegistryCatalog().catch((err) => {
-        console.error('[semantic] Registry catalog load FAILED:', err);
-        return EMPTY_CATALOG;
-      }),
-      buildSchemaCatalog().catch((err) => {
-        console.error('[semantic] Schema catalog load FAILED:', err);
-        return null;
-      }),
-    ]);
-    catalog = registryResult;
-    schemaCatalog = schemaResult;
+    catalog = await buildRegistryCatalog().catch((err) => {
+      console.error('[semantic] Registry catalog load FAILED:', err);
+      return EMPTY_CATALOG;
+    });
+    schemaCatalog = await buildSchemaCatalog().catch((err) => {
+      console.error('[semantic] Schema catalog load FAILED:', err);
+      return null;
+    });
   }
 
   const lensPromptFragment = lens?.systemPromptFragment ?? null;
@@ -593,38 +588,31 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
   let catalog: Awaited<ReturnType<typeof buildRegistryCatalog>>;
   let schemaCatalog: SchemaCatalog | null;
 
+  // Serialize catalog loads to avoid pool contention on cold start.
+  // With max:2 DB pool, running registry (up to 4 queries) + schema (2 queries)
+  // in parallel causes connection starvation and Vercel timeout.
   if (lensSlug) {
-    // Lens specified — must resolve lens first to get domain filter for registry
-    const [lensResult, schemaResult] = await Promise.all([
-      getLens(lensSlug, tenantId).catch((err) => {
-        console.error('[semantic] Lens load failed:', err);
-        return null;
-      }),
-      buildSchemaCatalog().catch((err) => {
-        console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
-        return null;
-      }),
-    ]);
-    lens = lensResult;
-    schemaCatalog = schemaResult;
+    lens = await getLens(lensSlug, tenantId).catch((err) => {
+      console.error('[semantic] Lens load failed:', err);
+      return null;
+    });
     catalog = await buildRegistryCatalog(lens?.domain).catch((err) => {
       console.error('[semantic] Registry catalog load FAILED (lens domain):', err);
       return EMPTY_CATALOG;
     });
+    schemaCatalog = await buildSchemaCatalog().catch((err) => {
+      console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
+      return null;
+    });
   } else {
-    // No lens — registry catalog (no domain filter) + schema catalog can run in parallel
-    const [registryResult, schemaResult] = await Promise.all([
-      buildRegistryCatalog().catch((err) => {
-        console.error('[semantic] Registry catalog load FAILED:', err);
-        return EMPTY_CATALOG;
-      }),
-      buildSchemaCatalog().catch((err) => {
-        console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
-        return null;
-      }),
-    ]);
-    catalog = registryResult;
-    schemaCatalog = schemaResult;
+    catalog = await buildRegistryCatalog().catch((err) => {
+      console.error('[semantic] Registry catalog load FAILED:', err);
+      return EMPTY_CATALOG;
+    });
+    schemaCatalog = await buildSchemaCatalog().catch((err) => {
+      console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
+      return null;
+    });
   }
 
   // ── Domain exclusion filtering (e.g. hide golf from non-golf tenants) ──

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useToast } from '@/components/ui/toast';
 import { createPortal } from 'react-dom';
 import {
@@ -8,6 +8,7 @@ import {
   Plus, ChevronDown, ChevronRight, Settings2, Pencil,
   Volume2, VolumeX, AlertTriangle, CheckCircle2,
   Trash2, Power, X as XIcon, Wand2, Check,
+  Search, Layers, ChevronLeft,
 } from 'lucide-react';
 import {
   KDS_VIEW_MODES, KDS_VIEW_MODE_LABELS, KDS_VIEW_MODE_DETAILS,
@@ -2989,6 +2990,8 @@ interface CatalogItemSearchResult {
   itemType: string;
 }
 
+type ItemPickerMode = 'search' | 'browse';
+
 function AddPrepTimeDialog({
   stations,
   onSave,
@@ -3001,33 +3004,101 @@ function AddPrepTimeDialog({
   isActing: boolean;
 }) {
   const [selectedItem, setSelectedItem] = useState<CatalogItemSearchResult | null>(null);
+  const [stationId, setStationId] = useState('');
+  const [prepMinutes, setPrepMinutes] = useState(5);
+  const [pickerMode, setPickerMode] = useState<ItemPickerMode>('search');
+
+  // ── Search mode state ──
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<CatalogItemSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [stationId, setStationId] = useState('');
-  const [prepMinutes, setPrepMinutes] = useState(5);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Browse mode state ──
+  const { data: allCategories } = useAllCategories();
+  const [browseDeptId, setBrowseDeptId] = useState<string | null>(null);
+  const [browseSubDeptId, setBrowseSubDeptId] = useState<string | null>(null);
+  const [browseCatId, setBrowseCatId] = useState<string | null>(null);
+  const [browseItems, setBrowseItems] = useState<CatalogItemSearchResult[]>([]);
+  const [isBrowseLoading, setIsBrowseLoading] = useState(false);
+  const [browseSearch, setBrowseSearch] = useState('');
+
+  // Build hierarchy maps from allCategories (single fetch, client-side filter)
+  const departments = useMemo(
+    () => (allCategories ?? []).filter((c) => c.parentId === null).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+    [allCategories],
+  );
+
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string, typeof departments>();
+    for (const cat of allCategories ?? []) {
+      if (cat.parentId) {
+        const siblings = map.get(cat.parentId) ?? [];
+        siblings.push(cat);
+        map.set(cat.parentId, siblings);
+      }
+    }
+    return map;
+  }, [allCategories]);
+
+  const currentSubDepts = useMemo(
+    () => (browseDeptId ? (childrenByParent.get(browseDeptId) ?? []).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : []),
+    [browseDeptId, childrenByParent],
+  );
+
+  const currentCategories = useMemo(
+    () => (browseSubDeptId ? (childrenByParent.get(browseSubDeptId) ?? []).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : []),
+    [browseSubDeptId, childrenByParent],
+  );
+
+  // Determine the categoryId to fetch items for — deepest selected level
+  const activeCategoryId = browseCatId ?? browseSubDeptId ?? browseDeptId;
+
+  // Fetch items when browsing into a category
+  useEffect(() => {
+    if (pickerMode !== 'browse' || !activeCategoryId) {
+      setBrowseItems([]);
+      return;
+    }
+    let cancelled = false;
+    setIsBrowseLoading(true);
+    apiFetch<{ data: CatalogItemSearchResult[]; meta: { cursor: string | null; hasMore: boolean } }>(
+      `/api/v1/catalog/items?categoryId=${activeCategoryId}&limit=200`,
+    ).then((res) => {
+      if (!cancelled) setBrowseItems(res.data ?? []);
+    }).catch(() => {
+      if (!cancelled) setBrowseItems([]);
+    }).finally(() => {
+      if (!cancelled) setIsBrowseLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [pickerMode, activeCategoryId]);
+
+  // Filter browse items by inline search
+  const filteredBrowseItems = useMemo(() => {
+    if (!browseSearch.trim()) return browseItems;
+    const q = browseSearch.toLowerCase().trim();
+    return browseItems.filter((i) => i.name.toLowerCase().includes(q) || (i.sku && i.sku.toLowerCase().includes(q)));
+  }, [browseItems, browseSearch]);
+
+  // ── Search mode handlers ──
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
     setSelectedItem(null);
-
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-
     if (query.trim().length < 2) {
       setSearchResults([]);
       setShowDropdown(false);
       return;
     }
-
     searchTimeoutRef.current = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await apiFetch<{ data: { items: CatalogItemSearchResult[] } }>(
-          `/api/v1/catalog/items?search=${encodeURIComponent(query.trim())}&limit=10`,
+        const res = await apiFetch<{ data: CatalogItemSearchResult[]; meta: { cursor: string | null; hasMore: boolean } }>(
+          `/api/v1/catalog/items?search=${encodeURIComponent(query.trim())}&limit=20`,
         );
-        const items = res.data?.items ?? [];
+        const items = res.data ?? [];
         setSearchResults(items);
         setShowDropdown(items.length > 0);
       } catch {
@@ -3044,6 +3115,46 @@ function AddPrepTimeDialog({
     setShowDropdown(false);
   }, []);
 
+  // ── Browse hierarchy navigation ──
+  const handleSelectDept = (id: string) => {
+    setBrowseDeptId(id);
+    setBrowseSubDeptId(null);
+    setBrowseCatId(null);
+    setBrowseSearch('');
+  };
+  const handleSelectSubDept = (id: string) => {
+    setBrowseSubDeptId(id);
+    setBrowseCatId(null);
+    setBrowseSearch('');
+  };
+  const handleSelectCat = (id: string) => {
+    setBrowseCatId(id);
+    setBrowseSearch('');
+  };
+  const handleBrowseBack = () => {
+    if (browseCatId) { setBrowseCatId(null); setBrowseSearch(''); }
+    else if (browseSubDeptId) { setBrowseSubDeptId(null); setBrowseSearch(''); }
+    else if (browseDeptId) { setBrowseDeptId(null); setBrowseSearch(''); }
+  };
+
+  // Breadcrumb label
+  const breadcrumb = useMemo(() => {
+    const parts: string[] = [];
+    if (browseDeptId) {
+      const dept = departments.find((d) => d.id === browseDeptId);
+      if (dept) parts.push(dept.name);
+    }
+    if (browseSubDeptId) {
+      const sub = currentSubDepts.find((s) => s.id === browseSubDeptId);
+      if (sub) parts.push(sub.name);
+    }
+    if (browseCatId) {
+      const cat = currentCategories.find((c) => c.id === browseCatId);
+      if (cat) parts.push(cat.name);
+    }
+    return parts;
+  }, [browseDeptId, browseSubDeptId, browseCatId, departments, currentSubDepts, currentCategories]);
+
   const handleSubmit = () => {
     if (!selectedItem) return;
     void onSave({
@@ -3056,7 +3167,7 @@ function AddPrepTimeDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-md mx-4 p-5">
+      <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl mx-4 p-5 flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground">Add Item Prep Time</h3>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
@@ -3064,70 +3175,227 @@ function AddPrepTimeDialog({
           </button>
         </div>
 
-        <div className="space-y-3">
-          <div className="relative">
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Search Item *</label>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              onFocus={() => { if (searchResults.length > 0 && !selectedItem) setShowDropdown(true); }}
-              placeholder="Type to search by name or SKU..."
-              className="w-full px-3 py-1.5 text-xs bg-surface border border-input rounded-md text-foreground placeholder:text-muted-foreground"
-            />
-            {isSearching && (
-              <div className="absolute right-2 top-7 text-[10px] text-muted-foreground">Searching...</div>
+        <div className="space-y-3 flex-1 overflow-hidden flex flex-col">
+          {/* ── Item Selection ── */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Select Item *</label>
+
+            {/* Mode toggle */}
+            <div className="flex gap-1 mb-2">
+              <button
+                type="button"
+                onClick={() => setPickerMode('search')}
+                className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
+                  pickerMode === 'search'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
+                }`}
+              >
+                <Search className="h-3 w-3" aria-hidden="true" />
+                Search
+              </button>
+              <button
+                type="button"
+                onClick={() => setPickerMode('browse')}
+                className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
+                  pickerMode === 'browse'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
+                }`}
+              >
+                <Layers className="h-3 w-3" aria-hidden="true" />
+                Browse by Category
+              </button>
+            </div>
+
+            {/* Search mode */}
+            {pickerMode === 'search' && (
+              <div className="relative">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    onFocus={() => { if (searchResults.length > 0 && !selectedItem) setShowDropdown(true); }}
+                    placeholder="Type to search by name or SKU..."
+                    className="w-full pl-7 pr-3 py-1.5 text-xs bg-surface border border-input rounded-md text-foreground placeholder:text-muted-foreground"
+                  />
+                </div>
+                {isSearching && (
+                  <div className="absolute right-2 top-1.5 text-[10px] text-muted-foreground">Searching...</div>
+                )}
+                {showDropdown && searchResults.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full bg-surface border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    {searchResults.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleSelectItem(item)}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
+                      >
+                        <div className="font-medium text-foreground">{item.name}</div>
+                        {item.sku && <div className="text-[10px] text-muted-foreground mt-0.5">SKU: {item.sku}</div>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {!isSearching && searchQuery.trim().length >= 2 && searchResults.length === 0 && !selectedItem && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">No items found</p>
+                )}
+              </div>
             )}
+
+            {/* Browse mode */}
+            {pickerMode === 'browse' && (
+              <div className="border border-border rounded-md overflow-hidden">
+                {/* Breadcrumb / back bar */}
+                {browseDeptId && (
+                  <div className="flex items-center gap-1 px-2.5 py-1.5 border-b border-border bg-muted/50">
+                    <button type="button" onClick={handleBrowseBack} className="p-0.5 rounded hover:bg-accent text-muted-foreground">
+                      <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                    <span className="text-[11px] text-muted-foreground truncate">{breadcrumb.join(' › ')}</span>
+                  </div>
+                )}
+
+                {/* Inline search when items are visible */}
+                {activeCategoryId && (
+                  <div className="px-2.5 py-1.5 border-b border-border">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                      <input
+                        type="text"
+                        value={browseSearch}
+                        onChange={(e) => setBrowseSearch(e.target.value)}
+                        placeholder="Filter items..."
+                        className="w-full pl-6 pr-2 py-1 text-[11px] bg-surface border border-input rounded text-foreground placeholder:text-muted-foreground"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Content area */}
+                <div className="max-h-52 overflow-y-auto">
+                  {/* Show departments */}
+                  {!browseDeptId && (
+                    departments.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-muted-foreground">No departments found</div>
+                    ) : (
+                      departments.map((dept) => (
+                        <button
+                          key={dept.id}
+                          type="button"
+                          onClick={() => handleSelectDept(dept.id)}
+                          className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
+                        >
+                          <span className="font-medium text-foreground">{dept.name}</span>
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                        </button>
+                      ))
+                    )
+                  )}
+
+                  {/* Show sub-departments (if dept selected, subs exist, and no sub selected yet) */}
+                  {browseDeptId && !browseSubDeptId && currentSubDepts.length > 0 && (
+                    currentSubDepts.map((sub) => (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => handleSelectSubDept(sub.id)}
+                        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
+                      >
+                        <span className="font-medium text-foreground">{sub.name}</span>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                      </button>
+                    ))
+                  )}
+
+                  {/* Show categories (if sub-dept selected, cats exist, and no cat selected yet) */}
+                  {browseSubDeptId && !browseCatId && currentCategories.length > 0 && (
+                    currentCategories.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => handleSelectCat(cat.id)}
+                        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
+                      >
+                        <span className="font-medium text-foreground">{cat.name}</span>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                      </button>
+                    ))
+                  )}
+
+                  {/* Show items — when at a leaf level or a level with no children */}
+                  {activeCategoryId && (
+                    // Only show items when we're at a leaf level (no further children to drill into)
+                    ((browseDeptId && !browseSubDeptId && currentSubDepts.length === 0) ||
+                     (browseSubDeptId && !browseCatId && currentCategories.length === 0) ||
+                     browseCatId) && (
+                      isBrowseLoading ? (
+                        <div className="py-6 text-center text-xs text-muted-foreground">Loading items...</div>
+                      ) : filteredBrowseItems.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-muted-foreground">
+                          {browseSearch ? 'No matching items' : 'No items in this category'}
+                        </div>
+                      ) : (
+                        filteredBrowseItems.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => { setSelectedItem(item); setSearchQuery(item.name); }}
+                            className={`w-full text-left px-3 py-2 text-xs transition-colors border-b border-border last:border-0 ${
+                              selectedItem?.id === item.id
+                                ? 'bg-indigo-500/10 text-indigo-400'
+                                : 'hover:bg-accent text-foreground'
+                            }`}
+                          >
+                            <div className="font-medium">{item.name}</div>
+                            {item.sku && <div className="text-[10px] text-muted-foreground mt-0.5">SKU: {item.sku}</div>}
+                          </button>
+                        ))
+                      )
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Selected item indicator */}
             {selectedItem && (
-              <p className="text-[10px] text-green-500 mt-0.5">
+              <p className="text-[10px] text-green-500 mt-1">
                 Selected: {selectedItem.name}{selectedItem.sku ? ` (${selectedItem.sku})` : ''}
               </p>
             )}
-            {showDropdown && searchResults.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-surface border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                {searchResults.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleSelectItem(item)}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
-                  >
-                    <div className="font-medium text-foreground">{item.name}</div>
-                    {item.sku && <div className="text-[10px] text-muted-foreground mt-0.5">SKU: {item.sku}</div>}
-                  </button>
+          </div>
+
+          {/* ── Station + Prep Time (side by side) ── */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Station (optional)</label>
+              <select
+                value={stationId}
+                onChange={(e) => setStationId(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs bg-surface border border-input rounded-md text-foreground"
+              >
+                <option value="">All Stations</option>
+                {stations.map((s) => (
+                  <option key={s.id} value={s.id}>{s.displayName}</option>
                 ))}
-              </div>
-            )}
-            {!isSearching && searchQuery.trim().length >= 2 && searchResults.length === 0 && !selectedItem && (
-              <p className="text-[10px] text-muted-foreground mt-0.5">No items found</p>
-            )}
-          </div>
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Station (optional)</label>
-            <select
-              value={stationId}
-              onChange={(e) => setStationId(e.target.value)}
-              className="w-full px-3 py-1.5 text-xs bg-surface border border-input rounded-md text-foreground"
-            >
-              <option value="">All Stations</option>
-              {stations.map((s) => (
-                <option key={s.id} value={s.id}>{s.displayName}</option>
-              ))}
-            </select>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Leave empty for a global default</p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Prep Time (minutes)</label>
-            <input
-              type="number"
-              value={prepMinutes}
-              onChange={(e) => setPrepMinutes(Math.max(1, Number(e.target.value)))}
-              min={1}
-              max={120}
-              className="w-full px-3 py-1.5 text-xs bg-surface border border-input rounded-md text-foreground"
-            />
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Prep Time (minutes)</label>
+              <input
+                type="number"
+                value={prepMinutes}
+                onChange={(e) => setPrepMinutes(Math.max(1, Number(e.target.value)))}
+                min={1}
+                max={120}
+                className="w-full px-3 py-1.5 text-xs bg-surface border border-input rounded-md text-foreground"
+              />
+            </div>
           </div>
         </div>
 

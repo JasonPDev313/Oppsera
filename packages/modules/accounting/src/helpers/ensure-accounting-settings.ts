@@ -22,6 +22,16 @@ const ACCOUNT_WIRING: Array<{
   { accountNumber: '6153', settingsField: 'defaultPriceOverrideExpenseAccountId' },
   { accountNumber: '1100', settingsField: 'defaultARControlAccountId' },
   { accountNumber: '4110', settingsField: 'defaultReturnsAccountId' },
+  // ── COA expansion (migration 0238) ──
+  { accountNumber: '1160', settingsField: 'defaultCreditCardReceivableAccountId' },
+  { accountNumber: '2120', settingsField: 'defaultGiftCardLiabilityAccountId' },
+  { accountNumber: '6010', settingsField: 'defaultCcProcessingFeeAccountId' },
+  { accountNumber: '6030', settingsField: 'defaultBadDebtExpenseAccountId' },
+  { accountNumber: '4700', settingsField: 'defaultInterestIncomeAccountId' },
+  { accountNumber: '6140', settingsField: 'defaultInterestExpenseAccountId' },
+  { accountNumber: '6040', settingsField: 'defaultDeliveryCommissionAccountId' },
+  { accountNumber: '1120', settingsField: 'defaultPettyCashAccountId' },
+  { accountNumber: '2350', settingsField: 'defaultEmployeeReimbursableAccountId' },
 ];
 
 /**
