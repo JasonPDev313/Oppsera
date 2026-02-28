@@ -129,15 +129,6 @@ import {
 
 import { handleGlEntryPostedForProjectCost } from '../consumers/gl-entry-posted';
 
-// ── Test Context ──────────────────────────────────────────────
-
-const mockCtx = {
-  tenantId: 'T1',
-  locationId: 'L1',
-  user: { id: 'U1', email: 'test@test.com', role: 'owner' },
-  requestId: 'REQ1',
-};
-
 // ─────────────────────────────────────────────────────────────
 // VALIDATION TESTS
 // ─────────────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ import { publishWithOutbox } from '@oppsera/core/events';
 import { auditLog } from '@oppsera/core/audit';
 import { buildEventFromContext } from '@oppsera/core/events';
 import { projects, projectTasks } from '@oppsera/db';
-import { AppError, generateUlid } from '@oppsera/shared';
+import { AppError } from '@oppsera/shared';
 import type { z } from 'zod';
 import type { createTaskSchema } from '../validation';
 

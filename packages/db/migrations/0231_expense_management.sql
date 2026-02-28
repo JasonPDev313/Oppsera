@@ -246,21 +246,21 @@ ALTER TABLE accounting_settings
 
 -- ── Seed expense-related GL account templates ───────────────────────────────
 
-INSERT INTO gl_account_templates (id, business_type, account_number, name, account_type, normal_balance, classification_code, is_system, sort_order)
+INSERT INTO gl_account_templates (id, template_key, account_number, name, account_type, normal_balance, classification_name, sort_order)
 VALUES
   -- Employee Reimbursable Payable
-  (gen_random_uuid()::text, 'golf',       '2310', 'Employee Reimbursable Payable', 'liability', 'credit', 'CL', TRUE, 2310),
-  (gen_random_uuid()::text, 'retail',     '2310', 'Employee Reimbursable Payable', 'liability', 'credit', 'CL', TRUE, 2310),
-  (gen_random_uuid()::text, 'restaurant', '2310', 'Employee Reimbursable Payable', 'liability', 'credit', 'CL', TRUE, 2310),
-  (gen_random_uuid()::text, 'hybrid',     '2310', 'Employee Reimbursable Payable', 'liability', 'credit', 'CL', TRUE, 2310),
+  (gen_random_uuid()::text, 'golf_default',       '2310', 'Employee Reimbursable Payable', 'liability', 'credit', 'Current Liabilities', 2310),
+  (gen_random_uuid()::text, 'retail_default',     '2310', 'Employee Reimbursable Payable', 'liability', 'credit', 'Current Liabilities', 2310),
+  (gen_random_uuid()::text, 'restaurant_default', '2310', 'Employee Reimbursable Payable', 'liability', 'credit', 'Current Liabilities', 2310),
+  (gen_random_uuid()::text, 'hybrid_default',     '2310', 'Employee Reimbursable Payable', 'liability', 'credit', 'Current Liabilities', 2310),
   -- Employee Expense
-  (gen_random_uuid()::text, 'golf',       '6200', 'Employee Expense', 'expense', 'debit', 'OE', TRUE, 6200),
-  (gen_random_uuid()::text, 'retail',     '6200', 'Employee Expense', 'expense', 'debit', 'OE', TRUE, 6200),
-  (gen_random_uuid()::text, 'restaurant', '6200', 'Employee Expense', 'expense', 'debit', 'OE', TRUE, 6200),
-  (gen_random_uuid()::text, 'hybrid',     '6200', 'Employee Expense', 'expense', 'debit', 'OE', TRUE, 6200),
+  (gen_random_uuid()::text, 'golf_default',       '6200', 'Employee Expense', 'expense', 'debit', 'Operating Expenses', 6200),
+  (gen_random_uuid()::text, 'retail_default',     '6200', 'Employee Expense', 'expense', 'debit', 'Operating Expenses', 6200),
+  (gen_random_uuid()::text, 'restaurant_default', '6200', 'Employee Expense', 'expense', 'debit', 'Operating Expenses', 6200),
+  (gen_random_uuid()::text, 'hybrid_default',     '6200', 'Employee Expense', 'expense', 'debit', 'Operating Expenses', 6200),
   -- Petty Cash
-  (gen_random_uuid()::text, 'golf',       '1120', 'Petty Cash', 'asset', 'debit', 'CA', TRUE, 1120),
-  (gen_random_uuid()::text, 'retail',     '1120', 'Petty Cash', 'asset', 'debit', 'CA', TRUE, 1120),
-  (gen_random_uuid()::text, 'restaurant', '1120', 'Petty Cash', 'asset', 'debit', 'CA', TRUE, 1120),
-  (gen_random_uuid()::text, 'hybrid',     '1120', 'Petty Cash', 'asset', 'debit', 'CA', TRUE, 1120)
+  (gen_random_uuid()::text, 'golf_default',       '1120', 'Petty Cash', 'asset', 'debit', 'Current Assets', 1120),
+  (gen_random_uuid()::text, 'retail_default',     '1120', 'Petty Cash', 'asset', 'debit', 'Current Assets', 1120),
+  (gen_random_uuid()::text, 'restaurant_default', '1120', 'Petty Cash', 'asset', 'debit', 'Current Assets', 1120),
+  (gen_random_uuid()::text, 'hybrid_default',     '1120', 'Petty Cash', 'asset', 'debit', 'Current Assets', 1120)
 ON CONFLICT DO NOTHING;
