@@ -115,6 +115,7 @@ export const POST = withMiddleware(
       orderId,
       placeParsed.success ? placeParsed.data : { clientRequestId: crypto.randomUUID() },
       tenderParsed.data,
+      { payExact: body.payExact === true },
     );
 
     return NextResponse.json({ data: tenderResult }, { status: 201 });

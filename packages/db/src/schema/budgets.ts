@@ -9,7 +9,6 @@ import {
 } from 'drizzle-orm/pg-core';
 import { generateUlid } from '@oppsera/shared';
 import { tenants, locations } from './core';
-import { glAccounts } from './accounting';
 
 // ── budgets ──────────────────────────────────────────────────────
 export const budgets = pgTable(
@@ -49,8 +48,7 @@ export const budgetLines = pgTable(
       .notNull()
       .references(() => budgets.id, { onDelete: 'cascade' }),
     glAccountId: text('gl_account_id')
-      .notNull()
-      .references(() => glAccounts.id),
+      .notNull(), // soft ref to gl_accounts.id — no FK for microservice extraction
     month1: numeric('month_1', { precision: 12, scale: 2 }).notNull().default('0'),
     month2: numeric('month_2', { precision: 12, scale: 2 }).notNull().default('0'),
     month3: numeric('month_3', { precision: 12, scale: 2 }).notNull().default('0'),

@@ -2,6 +2,33 @@ export const MODULE_KEY = 'payments' as const;
 export const MODULE_NAME = 'Payments & Tenders';
 export const MODULE_VERSION = '1.0.0';
 
+/** SQL tables owned by this module — used by extraction tooling */
+export const MODULE_TABLES = [
+  'tenders',
+  'tender_reversals',
+  'payment_journal_entries',
+  'chargebacks',
+  'payment_settlements',
+  'payment_settlement_lines',
+  'payment_providers',
+  'payment_provider_credentials',
+  'payment_merchant_accounts',
+  'terminal_merchant_assignments',
+  'payment_intents',
+  'payment_transactions',
+  'payment_webhook_events',
+  'ach_returns',
+  'ach_micro_deposits',
+  'surcharge_settings',
+  'stored_value_instruments',
+  'stored_value_transactions',
+  'voucher_types',
+  'vouchers',
+  'voucher_ledger_entries',
+  'guest_pay_sessions',
+  'terminal_device_assignments',
+] as const;
+
 // Register event contracts (side-effect import)
 import './events/contracts';
 

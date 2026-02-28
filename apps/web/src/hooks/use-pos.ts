@@ -432,8 +432,11 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
       order = (orderRef.current?.id ? orderRef.current : null) ?? created;
     }
 
-    // If openOrder hasn't started yet but there are queued items, flush now
-    if (order && !order.id && batch.batchQueue.current.length > 0) {
+    // Flush any queued batch items — this applies whether or not the order
+    // already has a server ID.  Previously the `!order.id` guard skipped the
+    // flush when the order existed, which caused "Pay Exact" to use a stale
+    // pre-tax total when the batch response hadn't arrived yet.
+    if (batch.batchQueue.current.length > 0) {
       if (batch.batchTimerRef.current) {
         clearTimeout(batch.batchTimerRef.current);
         batch.batchTimerRef.current = null;

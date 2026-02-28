@@ -16,6 +16,8 @@ interface OrderTicketProps {
   onFireCourse: (courseNumber: number) => void;
   onLineTap?: (lineId: string) => void;
   onMoveLineToCourse?: (lineId: string, newCourseNumber: number) => void;
+  /** When false, hides per-course Send/Fire buttons (KDS routing mode) */
+  kdsSendEnabled?: boolean;
 }
 
 export function OrderTicket({
@@ -28,6 +30,7 @@ export function OrderTicket({
   onFireCourse,
   onLineTap,
   onMoveLineToCourse,
+  kdsSendEnabled = true,
 }: OrderTicketProps) {
   const [viewMode, setViewMode] = useState<'active' | 'all'>('all');
   const [coursePickerLineId, setCoursePickerLineId] = useState<string | null>(null);
@@ -160,8 +163,8 @@ export function OrderTicket({
               servedAt={courseInfo?.servedAt}
               itemCount={totalItems}
               previousCourseServed={previousCourseServed}
-              onSend={() => onSendCourse(courseNum)}
-              onFire={() => onFireCourse(courseNum)}
+              onSend={kdsSendEnabled ? () => onSendCourse(courseNum) : undefined}
+              onFire={kdsSendEnabled ? () => onFireCourse(courseNum) : undefined}
             >
               {/* Server-committed lines */}
               {courseLines.map((line) => (

@@ -57,6 +57,17 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
     locationId,
   });
 
+  // Fetch fnb_kitchen settings to determine KDS routing mode
+  const { settings: kitchenSettings } = useFnbSettings({
+    moduleKey: 'fnb_kitchen',
+    locationId,
+  });
+  const kdsRoutingMode = typeof kitchenSettings.kds_routing_mode === 'string'
+    ? kitchenSettings.kds_routing_mode
+    : 'fb_and_retail';
+  // F&B POS shows Send buttons unless mode is 'retail_only'
+  const kdsSendEnabled = kdsRoutingMode !== 'retail_only';
+
   useEffect(() => {
     const courses = orderingSettings.default_courses;
     if (Array.isArray(courses) && courses.length > 0) {
@@ -105,7 +116,7 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
             <FnbFloorView userId={userId} isActive={isActive && currentScreen === 'floor'} />
           </div>
           <div className={currentScreen === 'tab' ? 'h-full' : 'hidden'}>
-            <FnbTabView userId={userId} isActive={isActive && currentScreen === 'tab'} />
+            <FnbTabView userId={userId} isActive={isActive && currentScreen === 'tab'} kdsSendEnabled={kdsSendEnabled} />
           </div>
           {currentScreen === 'open_tickets' && <OpenTicketsView userId={userId} />}
           {currentScreen === 'closed_tickets' && <ClosedTicketsView userId={userId} />}

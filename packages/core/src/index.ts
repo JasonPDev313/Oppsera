@@ -52,6 +52,7 @@ export {
   buildEvent,
   buildEventFromContext,
   publishWithOutbox,
+  publishEventsOnly,
   getEventBus,
   setEventBus,
   getOutboxWriter,

@@ -1,7 +1,7 @@
 import { createPublicKey, type KeyObject } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { eq, and, asc } from 'drizzle-orm';
-import { db, jitterTtlMs, isBreakerOpen } from '@oppsera/db';
+import { db, jitterTtlMs, isBreakerOpen, guardedQuery } from '@oppsera/db';
 import { users, memberships, tenants } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
 import { createSupabaseAdmin } from './supabase-client';
@@ -179,24 +179,27 @@ export class SupabaseAuthAdapter implements AuthAdapter {
     // Single query: user LEFT JOIN membership LEFT JOIN tenant.
     // Combines what was 2 sequential queries into 1 — critical with max:2 pool on Vercel.
     // LEFT JOIN handles users without a membership (needs onboarding).
-    const rows = await db
-      .select({
-        userId: users.id,
-        email: users.email,
-        name: users.name,
-        tenantId: memberships.tenantId,
-        membershipStatus: memberships.status,
-        tenantStatus: tenants.status,
-      })
-      .from(users)
-      .leftJoin(
-        memberships,
-        and(eq(memberships.userId, users.id), eq(memberships.status, 'active')),
-      )
-      .leftJoin(tenants, eq(tenants.id, memberships.tenantId))
-      .where(eq(users.authProviderId, authProviderId))
-      .orderBy(asc(memberships.createdAt))
-      .limit(1);
+    // Wrapped in guardedQuery for semaphore + circuit breaker + slow query logging.
+    const rows = await guardedQuery('auth:validateToken', () =>
+      db
+        .select({
+          userId: users.id,
+          email: users.email,
+          name: users.name,
+          tenantId: memberships.tenantId,
+          membershipStatus: memberships.status,
+          tenantStatus: tenants.status,
+        })
+        .from(users)
+        .leftJoin(
+          memberships,
+          and(eq(memberships.userId, users.id), eq(memberships.status, 'active')),
+        )
+        .leftJoin(tenants, eq(tenants.id, memberships.tenantId))
+        .where(eq(users.authProviderId, authProviderId))
+        .orderBy(asc(memberships.createdAt))
+        .limit(1),
+    );
 
     const row = rows[0];
     if (!row) return null;

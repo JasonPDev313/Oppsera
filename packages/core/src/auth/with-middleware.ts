@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { AppError, NotFoundError, AuthorizationError, generateUlid } from '@oppsera/shared';
 import { eq, and } from 'drizzle-orm';
-import { db, locations, jitterTtlMs, isBreakerOpen } from '@oppsera/db';
+import { db, locations, jitterTtlMs, isBreakerOpen, guardedQuery } from '@oppsera/db';
 import { authenticate, resolveTenant } from './middleware';
 import { requestContext } from './context';
 import type { RequestContext } from './context';
@@ -135,12 +135,14 @@ async function resolveLocation(
   } else {
     try {
       const location = await withTimeout(
-        db.query.locations.findFirst({
-          where: and(
-            eq(locations.id, locationId),
-            eq(locations.tenantId, ctx.tenantId),
-          ),
-        }),
+        guardedQuery('auth:resolveLocation', () =>
+          db.query.locations.findFirst({
+            where: and(
+              eq(locations.id, locationId),
+              eq(locations.tenantId, ctx.tenantId),
+            ),
+          }),
+        ),
         LOCATION_QUERY_TIMEOUT_MS,
         'location query',
       );

@@ -2,6 +2,20 @@ export const MODULE_KEY = 'golf-reporting' as const;
 export const MODULE_NAME = 'Golf Reporting & Analytics';
 export const MODULE_VERSION = '0.1.0';
 
+/** SQL tables owned by this module — used by extraction tooling */
+export const MODULE_TABLES = [
+  'rm_golf_daily_revenue',
+  'rm_golf_channel_daily',
+  'rm_golf_utilization',
+  'rm_golf_customer_rounds',
+  'rm_golf_pace_tracking',
+  'golf_tee_times',
+  'golf_tee_time_players',
+  'golf_courses',
+  'golf_course_holes',
+  'golf_dashboards',
+] as const;
+
 // ── Business Date Utility ─────────────────────────────────────
 export { computeBusinessDate } from './business-date';
 

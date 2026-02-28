@@ -1,4 +1,4 @@
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, inArray } from 'drizzle-orm';
 import { fnbKitchenRoutingRules, fnbKitchenStations } from '@oppsera/db';
 
 /**
@@ -6,8 +6,8 @@ import { fnbKitchenRoutingRules, fnbKitchenStations } from '@oppsera/db';
  *
  * Resolution priority:
  *   1. Routing rule matching catalogItemId (ruleType='item')
- *   2. Routing rule matching subDepartmentId (ruleType='department', subDepartmentId match)
- *   3. Routing rule matching departmentId (ruleType='department', departmentId match)
+ *   2. Routing rule matching subDepartmentId (ruleType='sub_department' or 'department')
+ *   3. Routing rule matching departmentId (ruleType='department')
  *   4. Fallback: first active prep/bar station by sortOrder ASC
  *
  * Returns null if no stations exist at all.
@@ -47,7 +47,7 @@ export async function resolveStation(
           eq(fnbKitchenRoutingRules.tenantId, tenantId),
           eq(fnbKitchenRoutingRules.locationId, locationId),
           eq(fnbKitchenRoutingRules.isActive, true),
-          eq(fnbKitchenRoutingRules.ruleType, 'department'),
+          inArray(fnbKitchenRoutingRules.ruleType, ['sub_department', 'department']),
           eq(fnbKitchenRoutingRules.subDepartmentId, item.subDepartmentId),
         ),
       )

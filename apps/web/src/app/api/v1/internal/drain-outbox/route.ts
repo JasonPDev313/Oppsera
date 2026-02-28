@@ -74,6 +74,52 @@ export async function GET(request: Request) {
       console.error(`[drain-outbox] WARNING: ${stuckTxCount} connections stuck in idle-in-transaction >60s`);
     }
 
+    // 5. Kill zombie idle+ClientRead connections (Vercel freeze survivors).
+    // When Vercel freezes the event loop after sending an HTTP response, in-flight
+    // DB operations (e.g., COMMIT) complete on Postgres but the client never reads
+    // the response. The connection sits in "idle" state with wait_event=ClientRead
+    // indefinitely. Neither statement_timeout nor idle_in_transaction_session_timeout
+    // catch this — only external monitoring can detect and kill these zombies.
+    // Threshold: 60s (normal idle_timeout is 10s, so 60s is clearly a zombie).
+    const zombies = await db.execute(sql`
+      SELECT pid,
+             EXTRACT(EPOCH FROM (NOW() - state_change))::int AS idle_seconds,
+             LEFT(query, 150) AS query_prefix
+      FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND pid != pg_backend_pid()
+        AND state = 'idle'
+        AND wait_event_type = 'Client'
+        AND wait_event = 'ClientRead'
+        AND NOW() - state_change > INTERVAL '60 seconds'
+        AND query NOT ILIKE '%LISTEN%'
+        AND query NOT ILIKE '%archive_mode%'
+        AND query NOT ILIKE '%get_auth%'
+    `) as unknown as Array<{ pid: number; idle_seconds: number; query_prefix: string }>;
+    const zombieArr = Array.from(zombies as Iterable<{ pid: number; idle_seconds: number; query_prefix: string }>);
+
+    results.zombieConnectionsFound = zombieArr.length;
+    results.zombieConnectionsKilled = 0;
+
+    if (zombieArr.length > 0) {
+      for (const z of zombieArr) {
+        try {
+          await db.execute(sql`SELECT pg_terminate_backend(${z.pid})`);
+          (results.zombieConnectionsKilled as number)++;
+          console.warn(JSON.stringify({
+            level: 'warn',
+            event: 'zombie_connection_killed',
+            pid: z.pid,
+            idle_seconds: z.idle_seconds,
+            query_prefix: z.query_prefix,
+            source: 'drain-outbox-cron',
+          }));
+        } catch (killErr) {
+          console.error(`[drain-outbox] Failed to kill zombie PID ${z.pid}:`, killErr);
+        }
+      }
+    }
+
     return NextResponse.json({
       status: 'ok',
       ...results,

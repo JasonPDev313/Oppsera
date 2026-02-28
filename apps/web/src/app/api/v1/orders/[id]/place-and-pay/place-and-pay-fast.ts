@@ -47,6 +47,7 @@ export async function placeAndRecordTender(
   orderId: string,
   placeInput: PlaceOrderInput,
   tenderInput: RecordTenderInput,
+  options?: { payExact?: boolean },
 ): Promise<PlaceAndPayResult> {
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
@@ -174,8 +175,11 @@ export async function placeAndRecordTender(
     }
 
     const tenderSequence = activeTenders.length + 1;
-    const tenderAmount = Math.min(tenderInput.amountGiven, remaining);
-    const changeGiven = Math.max(0, tenderInput.amountGiven - remaining);
+    // payExact: use the server-side remaining balance as the effective amount,
+    // so stale client-side totals (pre-tax) can never cause a partial payment.
+    const effectiveAmountGiven = options?.payExact ? remaining : tenderInput.amountGiven;
+    const tenderAmount = Math.min(effectiveAmountGiven, remaining);
+    const changeGiven = Math.max(0, effectiveAmountGiven - remaining);
     const newTotalTendered = totalTendered + tenderAmount;
     const isFullyPaid = newTotalTendered >= order.total;
 
@@ -189,7 +193,7 @@ export async function placeAndRecordTender(
       amount: tenderAmount,
       tipAmount: tenderInput.tipAmount ?? 0,
       changeGiven,
-      amountGiven: tenderInput.amountGiven,
+      amountGiven: effectiveAmountGiven,
       currency: 'USD',
       status: 'captured',
       businessDate: tenderInput.businessDate,

@@ -3,6 +3,14 @@ export const MODULE_KEY = 'ar' as const;
 export const MODULE_NAME = 'Accounts Receivable';
 export const MODULE_VERSION = '0.0.0';
 
+/** SQL tables owned by this module — used by extraction tooling */
+export const MODULE_TABLES = [
+  'ar_invoices',
+  'ar_invoice_lines',
+  'ar_receipts',
+  'ar_receipt_allocations',
+] as const;
+
 // Commands
 export { createInvoice } from './commands/create-invoice';
 export { postInvoice } from './commands/post-invoice';

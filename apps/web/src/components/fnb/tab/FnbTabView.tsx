@@ -96,6 +96,8 @@ import { FnbModifierDrawer } from '@/components/fnb/menu/FnbModifierDrawer';
 interface FnbTabViewProps {
   userId: string;
   isActive?: boolean;
+  /** When false, hides Send/Fire buttons (KDS routing mode excludes F&B) */
+  kdsSendEnabled?: boolean;
 }
 
 // ── Money formatter ────────────────────────────────────────────────
@@ -217,7 +219,7 @@ function UpsellBanner({ items, onTap: _onTap }: {
   );
 }
 
-export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbTabViewProps) {
+export function FnbTabView({ userId: _userId, isActive: _isActive = true, kdsSendEnabled = true }: FnbTabViewProps) {
   const store = useFnbPosStore();
   const tabId = store.activeTabId;
   const activeSeat = store.activeSeatNumber;
@@ -599,6 +601,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
                 draftLines={draftLines}
                 onSendCourse={sendCourse}
                 onFireCourse={fireCourse}
+                kdsSendEnabled={kdsSendEnabled}
               />
 
               {/* Totals */}
@@ -634,6 +637,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
                 hasUnsentItems={hasUnsentItems}
                 guestPayEnabled
                 disabled={isActing}
+                kdsSendEnabled={kdsSendEnabled}
               />
             </div>
           )}
@@ -860,6 +864,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
             draftLines={draftLines}
             onSendCourse={sendCourse}
             onFireCourse={fireCourse}
+            kdsSendEnabled={kdsSendEnabled}
           />
 
           {/* Totals bar */}
@@ -907,6 +912,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
             hasUnsentItems={hasUnsentItems}
             guestPayEnabled
             disabled={isActing}
+            kdsSendEnabled={kdsSendEnabled}
           />
         </div>
       </div>

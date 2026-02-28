@@ -465,7 +465,9 @@ export async function buildSchemaCatalog(): Promise<SchemaCatalog> {
         _refreshInFlight = true;
         _loadSchemaCatalog()
           .then((fresh) => { _cache = fresh; })
-          .catch(() => {})
+          .catch((err) => {
+            console.error('[semantic:schema-catalog] Background refresh failed:', err instanceof Error ? err.message : String(err));
+          })
           .finally(() => { _refreshInFlight = false; });
       }
       return _cache;

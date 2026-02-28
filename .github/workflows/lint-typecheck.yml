@@ -1,4 +1,4 @@
-name: Lint & Type Check
+name: CI — Lint, Type Check & Build
 
 on:
   push:
@@ -8,10 +8,102 @@ on:
   workflow_dispatch:
 
 jobs:
+  # ── Fast pre-flight checks (no install needed) ──────────────────────────────
+  preflight:
+    name: Pre-flight (secrets, migrations, DB safety)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # These checks are pure file scanning — no pnpm install needed
+      - name: Secrets scan — staged .env files
+        run: |
+          # Fail if any .env file is tracked in git
+          ENV_FILES=$(git ls-files '*.env' '*.env.*' 2>/dev/null || true)
+          if [ -n "$ENV_FILES" ]; then
+            echo "::error::Tracked .env files found in repository:"
+            echo "$ENV_FILES"
+            exit 1
+          fi
+          echo "✓ No .env files tracked in git"
+
+      - name: Secrets scan — hardcoded tokens
+        run: |
+          # Scan for hardcoded secrets in source files (exclude node_modules, .next, tests, scripts)
+          HITS=$(grep -rn --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
+            -E '(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|xoxb-[0-9]{10,}|eyJhbGci[A-Za-z0-9+/=]{50,})' \
+            --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.turbo \
+            apps/ packages/ 2>/dev/null || true)
+          if [ -n "$HITS" ]; then
+            echo "::error::Possible hardcoded secrets found:"
+            echo "$HITS"
+            exit 1
+          fi
+          echo "✓ No hardcoded secrets detected"
+
+      - name: Migration journal integrity
+        run: |
+          JOURNAL="packages/db/migrations/meta/_journal.json"
+          MIGRATIONS_DIR="packages/db/migrations"
+
+          if [ ! -f "$JOURNAL" ]; then
+            echo "::error::Migration journal _journal.json not found"
+            exit 1
+          fi
+
+          # Count SQL files and journal entries
+          SQL_COUNT=$(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | wc -l)
+          JOURNAL_COUNT=$(node -e "const j=require('./$JOURNAL'); console.log(j.entries.length)")
+
+          if [ "$SQL_COUNT" -ne "$JOURNAL_COUNT" ]; then
+            echo "::error::Migration mismatch: $SQL_COUNT SQL files vs $JOURNAL_COUNT journal entries"
+            exit 1
+          fi
+
+          # Verify sequential idx
+          IDX_OK=$(node -e "
+            const j=require('./$JOURNAL');
+            const ok=j.entries.every((e,i)=>e.idx===i);
+            console.log(ok?'true':'false');
+          ")
+          if [ "$IDX_OK" != "true" ]; then
+            echo "::error::Migration journal has non-sequential idx values"
+            exit 1
+          fi
+
+          echo "✓ Migration journal: $JOURNAL_COUNT entries = $SQL_COUNT SQL files, idx sequential"
+
+      - name: DB safety — fire-and-forget scan
+        run: |
+          # Scan server-side code for fire-and-forget DB patterns
+          # Only scan app/api routes and packages (not tests, scripts, or adapters)
+          HITS=$(grep -rn --include='*.ts' --include='*.tsx' \
+            -E '\bvoid\s+(db\.|guardedQuery|withTenant|publishWithOutbox)' \
+            --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=__tests__ \
+            --exclude-dir=test --exclude-dir=scripts --exclude-dir=tools \
+            apps/web/src/app/api/ apps/admin/src/app/api/ \
+            packages/core/src/ packages/modules/ 2>/dev/null || true)
+          if [ -n "$HITS" ]; then
+            echo "::error::Fire-and-forget DB patterns detected (see CLAUDE.md gotcha #466):"
+            echo "$HITS"
+            exit 1
+          fi
+          echo "✓ No fire-and-forget DB patterns found in server code"
+
+  # ── Full CI pipeline ────────────────────────────────────────────────────────
   lint-typecheck:
-    name: Lint, Type Check & Build
+    name: Lint, Type Check, Test & Build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    needs: preflight
 
     steps:
       - name: Checkout

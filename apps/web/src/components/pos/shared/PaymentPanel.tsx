@@ -112,7 +112,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
     }
   }, [paymentSuccess]);
 
-  const handleSubmit = useCallback(async (overrideCents?: number) => {
+  const handleSubmit = useCallback(async (overrideCents?: number, opts?: { payExact?: boolean }) => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       toast.error('Offline — payments disabled until connection restored');
       return;
@@ -158,6 +158,9 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         businessDate: todayBusinessDate(),
         shiftId: shiftId ?? undefined,
         posMode: config.posMode,
+        // payExact tells the server to use its authoritative order.total (incl. tax)
+        // as the tender amount, making "Pay Exact" immune to stale client-side totals.
+        ...(opts?.payExact ? { payExact: true } : {}),
       };
       if (selectedType === 'check') {
         body.metadata = { checkNumber: checkNumber.trim() };
@@ -398,7 +401,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         <button
           type="button"
           disabled={isSubmitting}
-          onClick={() => { flushSync(() => setAmount((remaining / 100).toFixed(2))); handleSubmit(remaining); }}
+          onClick={() => { flushSync(() => setAmount((remaining / 100).toFixed(2))); handleSubmit(remaining, { payExact: true }); }}
           className="w-full rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-semibold text-green-500 transition-colors hover:bg-green-500/20 active:scale-[0.97] disabled:opacity-50"
         >
           {isSubmitting ? 'Processing...' : `Pay Exact — ${formatMoney(remaining)}`}

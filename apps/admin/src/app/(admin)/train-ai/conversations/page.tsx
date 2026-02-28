@@ -1,9 +1,25 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { MessageSquare, TrendingUp, AlertTriangle, Star, Users } from 'lucide-react';
+import {
+  MessageSquare,
+  TrendingUp,
+  AlertTriangle,
+  Star,
+  Users,
+  User,
+  Bot,
+  ChevronDown,
+  ChevronRight,
+  Database,
+  Code,
+  FileText,
+  BarChart3,
+  Copy,
+  Check,
+} from 'lucide-react';
 import { useConversations, useConversation } from '@/hooks/use-eval-training';
-import type { ConversationSummary, EvalTurnSummary } from '@/types/eval';
+import type { ConversationSummary, ConversationEvalTurn } from '@/types/eval';
 
 function getQualityColor(score: number | null): string {
   if (score == null) return 'text-slate-500';
@@ -28,6 +44,25 @@ function formatTimestamp(ts: string): string {
   });
 }
 
+// ── Copy Button ──────────────────────────────────────────────────
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(text).catch(() => {});
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+      title="Copy"
+    >
+      {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+    </button>
+  );
+}
+
 // ── Quality Dot ──────────────────────────────────────────────────
 
 function QualityDot({ score, size = 8 }: { score: number | null; size?: number }) {
@@ -39,48 +74,261 @@ function QualityDot({ score, size = 8 }: { score: number | null; size?: number }
   );
 }
 
-// ── Conversation Turn ────────────────────────────────────────────
+// ── Collapsible Section ──────────────────────────────────────────
 
-function ConversationTurn({ turn }: { turn: EvalTurnSummary }) {
+function CollapsibleSection({
+  title,
+  icon,
+  defaultOpen = false,
+  badge,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  defaultOpen?: boolean;
+  badge?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-slate-700/50 last:border-0">
-      <div className="shrink-0 mt-0.5">
-        <QualityDot score={turn.qualityScore != null ? parseFloat(turn.qualityScore) : null} size={10} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-mono text-slate-500">#{turn.turnNumber}</span>
-          <span className="text-sm text-white line-clamp-1">{turn.userMessage}</span>
+    <div className="border border-slate-700/50 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:text-slate-300 hover:bg-slate-800/30 transition-colors"
+      >
+        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        {icon}
+        <span className="font-medium">{title}</span>
+        {badge && (
+          <span className="ml-auto text-xs bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">
+            {badge}
+          </span>
+        )}
+      </button>
+      {open && <div className="px-3 pb-3 pt-1">{children}</div>}
+    </div>
+  );
+}
+
+// ── Conversation Turn (Full Context) ─────────────────────────────
+
+function ConversationTurnFull({ turn }: { turn: ConversationEvalTurn }) {
+  const confidence = turn.llmConfidence ? Number(turn.llmConfidence) : null;
+
+  return (
+    <div className="space-y-3">
+      {/* ── User Message ── */}
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 mt-0.5 w-7 h-7 rounded-full bg-indigo-500/20 flex items-center justify-center">
+          <User size={14} className="text-indigo-400" />
         </div>
-        <div className="flex items-center gap-3 text-xs">
-          {turn.qualityScore != null && (
-            <span className={getQualityColor(parseFloat(turn.qualityScore))}>
-              Quality: {Math.round(parseFloat(turn.qualityScore) * 100)}%
-            </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-medium text-indigo-400">User</span>
+            <span className="text-xs text-slate-600">·</span>
+            <span className="text-xs text-slate-500">Turn #{turn.turnNumber}</span>
+            <span className="text-xs text-slate-600">·</span>
+            <span className="text-xs text-slate-500">{formatTimestamp(turn.createdAt)}</span>
+          </div>
+          <p className="text-sm text-white">{turn.userMessage}</p>
+        </div>
+      </div>
+
+      {/* ── AI Response ── */}
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 mt-0.5 w-7 h-7 rounded-full bg-emerald-500/20 flex items-center justify-center">
+          <Bot size={14} className="text-emerald-400" />
+        </div>
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-medium text-emerald-400">AI Response</span>
+            {/* Status pills */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {confidence !== null && (
+                <span className={`text-xs px-1.5 py-0.5 rounded ${confidence >= 0.7 ? 'bg-green-500/10 text-green-400' : confidence >= 0.4 ? 'bg-yellow-500/10 text-yellow-400' : 'bg-red-500/10 text-red-400'}`}>
+                  {Math.round(confidence * 100)}% conf
+                </span>
+              )}
+              {turn.executionTimeMs !== null && (
+                <span className="text-xs bg-slate-700/50 text-slate-400 px-1.5 py-0.5 rounded">
+                  {turn.executionTimeMs}ms
+                </span>
+              )}
+              {turn.cacheStatus && (
+                <span className={`text-xs px-1.5 py-0.5 rounded ${turn.cacheStatus === 'HIT' ? 'bg-sky-500/10 text-sky-400' : 'bg-slate-700/50 text-slate-400'}`}>
+                  Cache {turn.cacheStatus}
+                </span>
+              )}
+              {turn.rowCount !== null && (
+                <span className="text-xs bg-slate-700/50 text-slate-400 px-1.5 py-0.5 rounded">
+                  {turn.rowCount} rows
+                </span>
+              )}
+              {turn.adminVerdict && (
+                <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                  turn.adminVerdict === 'correct' ? 'bg-green-500/10 text-green-400' :
+                  turn.adminVerdict === 'partial' ? 'bg-yellow-500/10 text-yellow-400' :
+                  turn.adminVerdict === 'incorrect' ? 'bg-red-500/10 text-red-400' :
+                  'bg-slate-700/50 text-slate-400'
+                }`}>
+                  {turn.adminVerdict}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Clarification message */}
+          {turn.wasClarification && turn.clarificationMessage && (
+            <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-3">
+              <p className="text-xs text-yellow-400 font-medium mb-1 flex items-center gap-1">
+                <AlertTriangle size={11} />
+                Clarification Requested
+              </p>
+              <p className="text-sm text-slate-300">{turn.clarificationMessage}</p>
+            </div>
           )}
-          {turn.userRating != null && (
-            <span className="text-amber-400">{turn.userRating.toFixed(1)}\u2605</span>
+
+          {/* Narrative / Analysis Response */}
+          {turn.narrative && (
+            <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
+                  <FileText size={11} />
+                  Analysis
+                </p>
+                <CopyButton text={turn.narrative} />
+              </div>
+              <div className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto prose-sm">
+                {turn.narrative}
+              </div>
+              {turn.responseSections && turn.responseSections.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-slate-700/50">
+                  {turn.responseSections.map((section) => (
+                    <span key={section} className="text-xs bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded">
+                      {section}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
-          {turn.wasClarification && (
-            <span className="text-yellow-400 flex items-center gap-1">
-              <AlertTriangle size={10} />
-              Clarification
-            </span>
-          )}
+
+          {/* Execution error */}
           {turn.executionError && (
-            <span className="text-red-400">Error</span>
+            <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-3">
+              <p className="text-xs text-red-400 font-medium mb-1">Execution Error</p>
+              <p className="text-xs text-red-300 font-mono">{turn.executionError}</p>
+            </div>
           )}
+
+          {/* Collapsible sections for technical detail */}
+          <div className="space-y-1.5">
+            {/* SQL */}
+            {turn.compiledSql && (
+              <CollapsibleSection title="Generated SQL" icon={<Code size={11} />}>
+                <div className="relative">
+                  <pre className="text-xs text-emerald-300 bg-slate-950 rounded p-2 overflow-auto max-h-40 font-mono">
+                    {turn.compiledSql}
+                  </pre>
+                  <div className="absolute top-1 right-1">
+                    <CopyButton text={turn.compiledSql} />
+                  </div>
+                </div>
+                {turn.compilationErrors && turn.compilationErrors.length > 0 && (
+                  <div className="mt-1.5">
+                    {turn.compilationErrors.map((err, i) => (
+                      <p key={i} className="text-xs text-red-400">{err}</p>
+                    ))}
+                  </div>
+                )}
+              </CollapsibleSection>
+            )}
+
+            {/* Result sample */}
+            {turn.resultSample && turn.resultSample.length > 0 && (
+              <CollapsibleSection
+                title="Data Returned"
+                icon={<Database size={11} />}
+                badge={`${turn.rowCount ?? turn.resultSample.length} rows`}
+              >
+                <div className="overflow-auto max-h-48">
+                  <table className="text-xs w-full">
+                    <thead>
+                      <tr className="text-slate-500 border-b border-slate-700/50">
+                        {Object.keys(turn.resultSample[0]!).map((col) => (
+                          <th key={col} className="text-left pr-4 pb-1 font-medium whitespace-nowrap">{col}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {turn.resultSample.slice(0, 5).map((row, i) => (
+                        <tr key={i} className="text-slate-300 border-b border-slate-800/50 last:border-0">
+                          {Object.values(row).map((val, j) => (
+                            <td key={j} className="pr-4 py-0.5 whitespace-nowrap">{String(val ?? 'null')}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CollapsibleSection>
+            )}
+
+            {/* LLM Plan */}
+            {turn.llmPlan && (
+              <CollapsibleSection title="Query Plan" icon={<BarChart3 size={11} />}>
+                <pre className="text-xs text-slate-300 bg-slate-950 rounded p-2 overflow-auto max-h-40 font-mono">
+                  {JSON.stringify(turn.llmPlan, null, 2)}
+                </pre>
+              </CollapsibleSection>
+            )}
+
+            {/* Metadata row */}
+            <div className="flex items-center gap-3 text-xs text-slate-500 pt-1 flex-wrap">
+              <span>{turn.llmProvider}/{turn.llmModel}</span>
+              <span>{turn.llmTokensInput}↑ {turn.llmTokensOutput}↓ tokens</span>
+              {turn.llmLatencyMs > 0 && <span>{turn.llmLatencyMs}ms LLM</span>}
+              {turn.narrativeLensId && <span>Lens: {turn.narrativeLensId}</span>}
+              {turn.tablesAccessed && turn.tablesAccessed.length > 0 && (
+                <span>Tables: {turn.tablesAccessed.join(', ')}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Quality flags */}
           {turn.qualityFlags && turn.qualityFlags.length > 0 && (
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap">
               {turn.qualityFlags.map((flag) => (
-                <span key={flag} className="bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded text-xs">
+                <span key={flag} className="bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded text-xs">
                   {flag}
                 </span>
               ))}
             </div>
           )}
+
+          {/* User feedback inline */}
+          {(turn.userRating !== null || turn.userFeedbackText) && (
+            <div className="flex items-center gap-2 text-xs">
+              {turn.userRating !== null && (
+                <span className="text-amber-400">{'★'.repeat(Math.round(turn.userRating))}{'☆'.repeat(5 - Math.round(turn.userRating))} {turn.userRating}/5</span>
+              )}
+              {turn.userFeedbackText && (
+                <span className="text-slate-400 italic">"{turn.userFeedbackText}"</span>
+              )}
+              {turn.userFeedbackTags && turn.userFeedbackTags.length > 0 && (
+                <div className="flex gap-1">
+                  {turn.userFeedbackTags.map((tag) => (
+                    <span key={tag} className="bg-slate-700 text-slate-400 px-1 py-0.5 rounded">{tag}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Divider between turns */}
+      <div className="border-b border-slate-700/30 ml-10" />
     </div>
   );
 }
@@ -132,12 +380,15 @@ function ConversationExpanded({ sessionId }: { sessionId: string }) {
         </div>
       )}
 
-      {/* Turn timeline */}
+      {/* Full conversation */}
       <div>
-        <p className="text-xs text-slate-400 mb-2">Conversation Timeline</p>
-        <div className="bg-slate-900/50 rounded-lg px-4">
+        <p className="text-xs text-slate-400 mb-3 flex items-center gap-1">
+          <MessageSquare size={11} />
+          Full Conversation ({data.turns.length} turns)
+        </p>
+        <div className="space-y-4">
           {data.turns.map((turn) => (
-            <ConversationTurn key={turn.id} turn={turn} />
+            <ConversationTurnFull key={turn.id} turn={turn} />
           ))}
         </div>
       </div>
@@ -161,6 +412,7 @@ function ConversationCard({ conversation }: { conversation: ConversationSummary 
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
+              {expanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
               <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded">
                 {conversation.userRole}
               </span>
@@ -213,7 +465,7 @@ function ConversationCard({ conversation }: { conversation: ConversationSummary 
             <p className="text-xs text-slate-500">{formatTimestamp(conversation.startedAt)}</p>
             {conversation.endedAt && (
               <p className="text-xs text-slate-600 mt-0.5">
-                \u2192 {formatTimestamp(conversation.endedAt)}
+                → {formatTimestamp(conversation.endedAt)}
               </p>
             )}
           </div>
@@ -284,7 +536,7 @@ export default function ConversationsPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-white">Conversation Analysis</h1>
-            <p className="text-sm text-slate-400 mt-0.5">Analyze multi-turn conversations for quality patterns</p>
+            <p className="text-sm text-slate-400 mt-0.5">Full conversation context — questions, responses, SQL, and data</p>
           </div>
         </div>
 
@@ -348,7 +600,7 @@ export default function ConversationsPage() {
         </div>
       )}
 
-      {/* List */}
+      {/* Empty */}
       {!isLoading && allConversations.length === 0 && (
         <div className="text-center py-16 text-slate-500">
           <MessageSquare size={24} className="mx-auto mb-3 text-slate-600" />

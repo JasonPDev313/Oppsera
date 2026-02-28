@@ -12,6 +12,8 @@ interface TabActionBarProps {
   hasUnsentItems: boolean;
   guestPayEnabled?: boolean;
   disabled?: boolean;
+  /** When false, hides SEND ALL and FIRE NEXT buttons (KDS routing mode) */
+  kdsSendEnabled?: boolean;
 }
 
 export function TabActionBar({
@@ -24,6 +26,7 @@ export function TabActionBar({
   hasUnsentItems,
   guestPayEnabled,
   disabled,
+  kdsSendEnabled = true,
 }: TabActionBarProps) {
   const CheckIcon = guestPayEnabled ? QrCode : FileText;
 
@@ -32,37 +35,39 @@ export function TabActionBar({
       className="shrink-0 px-2 py-2"
       style={{ backgroundColor: 'var(--fnb-bg-surface)', borderTop: 'var(--fnb-border-subtle)' }}
     >
-      {/* Row 1: Send All, Fire Next */}
-      <div className="flex gap-1.5 mb-1.5">
-        <button
-          type="button"
-          onClick={onSendAll}
-          disabled={disabled || !hasUnsentItems}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg text-xs font-bold uppercase transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{
-            backgroundColor: 'var(--fnb-action-send)',
-            color: '#fff',
-            minHeight: 'var(--fnb-touch-min)',
-          }}
-        >
-          <Send className="h-4 w-4" />
-          SEND ALL
-        </button>
-        <button
-          type="button"
-          onClick={onFireNext}
-          disabled={disabled}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg text-xs font-bold uppercase transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{
-            backgroundColor: 'var(--fnb-action-fire)',
-            color: '#fff',
-            minHeight: 'var(--fnb-touch-min)',
-          }}
-        >
-          <Flame className="h-4 w-4" />
-          FIRE NEXT
-        </button>
-      </div>
+      {/* Row 1: Send All, Fire Next (hidden when KDS routing excludes this POS mode) */}
+      {kdsSendEnabled && (
+        <div className="flex gap-1.5 mb-1.5">
+          <button
+            type="button"
+            onClick={onSendAll}
+            disabled={disabled || !hasUnsentItems}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg text-xs font-bold uppercase transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: 'var(--fnb-action-send)',
+              color: '#fff',
+              minHeight: 'var(--fnb-touch-min)',
+            }}
+          >
+            <Send className="h-4 w-4" />
+            SEND ALL
+          </button>
+          <button
+            type="button"
+            onClick={onFireNext}
+            disabled={disabled}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg text-xs font-bold uppercase transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: 'var(--fnb-action-fire)',
+              color: '#fff',
+              minHeight: 'var(--fnb-touch-min)',
+            }}
+          >
+            <Flame className="h-4 w-4" />
+            FIRE NEXT
+          </button>
+        </div>
+      )}
 
       {/* Row 2: Split, Print Check */}
       <div className="flex gap-1.5 mb-1.5">

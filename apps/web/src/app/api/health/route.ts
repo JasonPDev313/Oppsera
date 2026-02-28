@@ -55,7 +55,33 @@ export async function GET() {
       // NOTE: pg_terminate_backend removed from public endpoint — use /api/admin/health for self-healing
     }
 
-    // Tertiary check: is the outbox backing up?
+    // Tertiary check: zombie idle+ClientRead connections (Vercel freeze survivors).
+    // These are connections where Postgres completed the query but the client never
+    // read the response (event loop frozen). Neither statement_timeout nor
+    // idle_in_transaction_session_timeout catches these — only external monitoring.
+    const zombies = await db.execute(sql`
+      SELECT COUNT(*) as cnt
+      FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND pid != pg_backend_pid()
+        AND state = 'idle'
+        AND wait_event_type = 'Client'
+        AND wait_event = 'ClientRead'
+        AND NOW() - state_change > INTERVAL '60 seconds'
+        AND query NOT ILIKE '%LISTEN%'
+        AND query NOT ILIKE '%archive_mode%'
+        AND query NOT ILIKE '%get_auth%'
+    `) as unknown as Array<{ cnt: string }>;
+    const zombieCount = Number(zombies[0]?.cnt ?? 0);
+    if (zombieCount > 0) {
+      status = 'degraded';
+      warnings.push(`${zombieCount} zombie idle+ClientRead connection(s) detected >60s`);
+      console.error(`[health] WARNING: ${zombieCount} zombie idle+ClientRead connections detected`);
+      // NOTE: no pg_terminate_backend here — public endpoint, detection only.
+      // The drain-outbox cron (every 60s) handles killing.
+    }
+
+    // Quaternary check: is the outbox backing up?
     const staleOutbox = await db.execute(sql`
       SELECT COUNT(*) as cnt
       FROM event_outbox

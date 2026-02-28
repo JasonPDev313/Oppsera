@@ -9,9 +9,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
-import { tenants } from './core';
-import { locations } from './core';
-import { glAccounts } from './accounting';
+import { tenants, locations } from './core';
 
 // ── Transaction Type Registry ─────────────────────────────────────
 // System types: tenant_id = NULL, is_system = true
@@ -63,10 +61,10 @@ export const tenantTenderTypes = pgTable(
     isActive: boolean('is_active').notNull().default(true),
     requiresReference: boolean('requires_reference').notNull().default(false),
     referenceLabel: text('reference_label'),
-    defaultClearingAccountId: text('default_clearing_account_id').references(() => glAccounts.id),
-    defaultBankAccountId: text('default_bank_account_id').references(() => glAccounts.id),
-    defaultFeeAccountId: text('default_fee_account_id').references(() => glAccounts.id),
-    defaultExpenseAccountId: text('default_expense_account_id').references(() => glAccounts.id),
+    defaultClearingAccountId: text('default_clearing_account_id'), // soft ref to gl_accounts.id
+    defaultBankAccountId: text('default_bank_account_id'), // soft ref to gl_accounts.id
+    defaultFeeAccountId: text('default_fee_account_id'), // soft ref to gl_accounts.id
+    defaultExpenseAccountId: text('default_expense_account_id'), // soft ref to gl_accounts.id
     reportingBucket: text('reporting_bucket').notNull().default('include'), // ReportingBucket
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -90,8 +88,8 @@ export const glTransactionTypeMappings = pgTable(
       .references(() => tenants.id),
     transactionTypeCode: text('transaction_type_code').notNull(),
     locationId: text('location_id').references(() => locations.id),
-    creditAccountId: text('credit_account_id').references(() => glAccounts.id),
-    debitAccountId: text('debit_account_id').references(() => glAccounts.id),
+    creditAccountId: text('credit_account_id'), // soft ref to gl_accounts.id
+    debitAccountId: text('debit_account_id'), // soft ref to gl_accounts.id
     source: text('source').notNull().default('manual'), // 'manual' | 'backfilled' | 'auto'
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

@@ -9,6 +9,7 @@ dotenv.config({ path: '../../.env.local' });
 dotenv.config({ path: '../../.env' });
 
 import { drizzle } from 'drizzle-orm/postgres-js';
+import { sql } from 'drizzle-orm';
 import postgres from 'postgres';
 import { createCipheriv, randomBytes } from 'node:crypto';
 import { generateUlid } from '@oppsera/shared';
@@ -1189,7 +1190,13 @@ async function seed() {
   }> = {};
 
   // Customer IDs for random assignment
-  const customerIdPool = [custIds.johnson, custIds.smith, custIds.williams, null, null, null];
+  const customerPool: Array<{ id: string; name: string } | null> = [
+    { id: custIds.johnson, name: 'Robert Johnson' },
+    { id: custIds.smith, name: 'Sarah Smith' },
+    { id: custIds.williams, name: 'James Williams' },
+    null, null, null,
+  ];
+  const allActivityInserts: Array<Record<string, unknown>> = [];
 
   for (let daysAgo = 13; daysAgo >= 0; daysAgo--) {
     const bd = bizDate(daysAgo);
@@ -1208,7 +1215,9 @@ async function seed() {
       const isVoided = (daysAgo * 7 + orderIdx) % 13 === 0;
 
       // Assign customer to ~40% of orders
-      const custId = customerIdPool[(daysAgo + orderIdx) % customerIdPool.length] ?? null;
+      const custEntry = customerPool[(daysAgo + orderIdx) % customerPool.length] ?? null;
+      const custId = custEntry?.id ?? null;
+      const custName = custEntry?.name ?? null;
 
       // Order number
       orderNumberCounters[locId]!++;
@@ -1343,6 +1352,31 @@ async function seed() {
         });
       }
 
+      // Revenue activity row for Sales History
+      allActivityInserts.push({
+        id: generateUlid(),
+        tenantId,
+        locationId: locId,
+        businessDate: bd,
+        source: 'pos_order',
+        sourceSubType: 'pos_retail',
+        sourceId: orderId,
+        sourceLabel: `Order #${orderNum}`,
+        referenceNumber: orderNum,
+        customerName: custName,
+        customerId: custId,
+        employeeId: userId,
+        employeeName: 'Alex Admin',
+        amountDollars: (orderTotal / 100).toFixed(4),
+        subtotalDollars: (orderSubtotal / 100).toFixed(4),
+        taxDollars: (orderTaxTotal / 100).toFixed(4),
+        discountDollars: '0.0000',
+        serviceChargeDollars: '0.0000',
+        status: isVoided ? 'voided' : 'completed',
+        occurredAt: ts,
+        createdAt: ts,
+      });
+
       // Daily aggregation for read models
       const dailyKey = `${bd}|${locId}`;
       if (!dailyAgg[dailyKey]) {
@@ -1459,6 +1493,41 @@ async function seed() {
     }
   }
   console.log(`rm_item_sales: ${itemSalesRows.length} rows`);
+
+  // Revenue activity read model (powers Sales History)
+  if (allActivityInserts.length > 0) {
+    for (let i = 0; i < allActivityInserts.length; i += 50) {
+      const batch = allActivityInserts.slice(i, i + 50);
+      for (const row of batch) {
+        await db.execute(sql`
+          INSERT INTO rm_revenue_activity (
+            id, tenant_id, location_id, business_date,
+            source, source_sub_type, source_id, source_label,
+            reference_number, customer_name, customer_id,
+            employee_id, employee_name,
+            amount_dollars, subtotal_dollars, tax_dollars,
+            discount_dollars, service_charge_dollars,
+            status, occurred_at, created_at
+          ) VALUES (
+            ${row.id}, ${row.tenantId}, ${row.locationId}, ${row.businessDate},
+            ${row.source}, ${row.sourceSubType}, ${row.sourceId}, ${row.sourceLabel},
+            ${row.referenceNumber}, ${row.customerName}, ${row.customerId},
+            ${row.employeeId}, ${row.employeeName},
+            ${row.amountDollars}, ${row.subtotalDollars}, ${row.taxDollars},
+            ${row.discountDollars}, ${row.serviceChargeDollars},
+            ${row.status}, ${row.occurredAt}, ${row.createdAt}
+          )
+          ON CONFLICT (tenant_id, source, source_id)
+          DO UPDATE SET
+            amount_dollars = EXCLUDED.amount_dollars,
+            subtotal_dollars = EXCLUDED.subtotal_dollars,
+            tax_dollars = EXCLUDED.tax_dollars,
+            status = EXCLUDED.status
+        `);
+      }
+    }
+  }
+  console.log(`rm_revenue_activity: ${allActivityInserts.length} rows`);
 
   // ══════════════════════════════════════════════════════════════
   // ══ PMS — Sunset Bar & Grill Resort ══════════════════════════

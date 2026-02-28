@@ -17,10 +17,10 @@ export async function register() {
 
   // Delay first run by 10 seconds to let the server finish starting
   setTimeout(() => {
-    runSchedulerCheck();
+    void runSchedulerCheck();
 
     schedulerInterval = setInterval(() => {
-      runSchedulerCheck();
+      void runSchedulerCheck();
     }, POLL_INTERVAL_MS);
   }, 10_000);
 

@@ -8,5 +8,7 @@ export {
   isBreakerOpen,
   isPoolExhaustion,
   getPoolGuardStats,
+  recordZombieDetection,
+  recordZombieKill,
 } from './pool-guard';
 export * from './schema';

@@ -25,7 +25,7 @@ describe('Session 5 Validation', () => {
       expect(STATION_TYPES).toContain('prep');
       expect(STATION_TYPES).toContain('expo');
       expect(STATION_TYPES).toContain('bar');
-      expect(STATION_TYPES).toHaveLength(3);
+      expect(STATION_TYPES).toHaveLength(9);
     });
 
     it('defines DISPLAY_MODES', () => {

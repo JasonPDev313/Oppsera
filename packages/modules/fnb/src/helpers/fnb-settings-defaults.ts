@@ -42,6 +42,8 @@ export const FNB_ORDERING_DEFAULTS: Record<string, unknown> = {
 };
 
 export const FNB_KITCHEN_DEFAULTS: Record<string, unknown> = {
+  // KDS Routing Mode
+  kds_routing_mode: 'fb_and_retail',
   // Timer thresholds (seconds)
   kds_warning_threshold_seconds: 480,
   kds_critical_threshold_seconds: 720,

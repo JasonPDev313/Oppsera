@@ -11,7 +11,6 @@ import {
 } from 'drizzle-orm/pg-core';
 import { generateUlid } from '@oppsera/shared';
 import { tenants } from './core';
-import { glAccounts } from './accounting';
 
 // ── projects ────────────────────────────────────────────────────
 export const projects = pgTable(
@@ -70,7 +69,7 @@ export const projectTasks = pgTable(
     status: text('status').notNull().default('open'),
     budgetAmount: numeric('budget_amount', { precision: 12, scale: 2 }),
     budgetHours: numeric('budget_hours', { precision: 10, scale: 2 }),
-    glExpenseAccountId: text('gl_expense_account_id').references(() => glAccounts.id),
+    glExpenseAccountId: text('gl_expense_account_id'), // soft ref to gl_accounts.id — no FK for microservice extraction
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

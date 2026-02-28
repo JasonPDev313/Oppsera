@@ -34,6 +34,7 @@ import { usePOS } from '@/hooks/use-pos';
 import { useRegisterTabs } from '@/hooks/use-register-tabs';
 import { useCatalogForPOS } from '@/hooks/use-catalog-for-pos';
 import { useShift } from '@/hooks/use-shift';
+import { useFnbSettings } from '@/hooks/use-fnb-settings';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
 import { Cart } from '@/components/pos/Cart';
@@ -207,6 +208,13 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
 
   // Location
   const locationId = locations[0]?.id ?? '';
+
+  // KDS routing mode — Retail POS shows Send button unless mode is 'fb_only'
+  const { settings: kitchenSettings } = useFnbSettings({ moduleKey: 'fnb_kitchen', locationId });
+  const kdsRoutingMode = typeof kitchenSettings.kds_routing_mode === 'string'
+    ? kitchenSettings.kds_routing_mode
+    : 'fb_and_retail';
+  const kdsSendEnabled = kdsRoutingMode !== 'fb_only';
 
   // Hooks
   const { config, setConfig, isLoading: configLoading } = usePOSConfig(locationId, 'retail');
@@ -717,10 +725,16 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     }
   }, [toast]);
 
-  const handlePayClick = useCallback(() => {
-    // Flush any queued batch items so they aren't lost when switching to payment view.
-    // place-and-pay handles open orders atomically — no pre-emptive place call needed.
-    posRef.current.ensureOrderReady().catch(() => {});
+  const handlePayClick = useCallback(async () => {
+    // Flush any queued batch items and wait for server totals (incl. tax) before
+    // showing the payment panel.  Without the await, "Pay Exact" could use a stale
+    // pre-tax total from optimistic temp lines.
+    try {
+      await posRef.current.ensureOrderReady();
+    } catch {
+      // Order creation failure is non-fatal here — payment panel handles it via
+      // its own ensureOrderReady fallback.
+    }
     setPosView('payment');
   }, []);
 
@@ -740,7 +754,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   }, [pos.currentOrder?.id, guestPay, toast]);
 
   const handlePaymentComplete = useCallback(
-    (result: RecordTenderResult) => {
+    (_result: RecordTenderResult) => {
       // Capture order ID BEFORE clearing for receipt print
       const orderId = posRef.current.currentOrder?.id;
       if (orderId) {
@@ -1374,20 +1388,22 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
               {/* Send + QR + Pay buttons */}
               <div className="relative shrink-0 px-4 py-2">
                 <div className="flex gap-2">
-                  {/* Send button — highlighted when F&B items present */}
-                  <button
-                    type="button"
-                    onClick={handleSendOrder}
-                    disabled={!hasItems || isOrderPlaced}
-                    className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-base font-semibold transition-colors disabled:cursor-not-allowed ${
-                      hasFnbItems && hasItems && !isOrderPlaced
-                        ? 'bg-amber-500 text-white hover:bg-amber-600 disabled:bg-amber-300'
-                        : 'border border-border text-foreground hover:bg-accent disabled:opacity-40'
-                    }`}
-                  >
-                    <Send aria-hidden="true" className="h-4 w-4" />
-                    {isOrderPlaced ? 'Sent' : 'Send'}
-                  </button>
+                  {/* Send button — hidden when KDS routing mode excludes retail */}
+                  {kdsSendEnabled && (
+                    <button
+                      type="button"
+                      onClick={handleSendOrder}
+                      disabled={!hasItems || isOrderPlaced}
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-base font-semibold transition-colors disabled:cursor-not-allowed ${
+                        hasFnbItems && hasItems && !isOrderPlaced
+                          ? 'bg-amber-500 text-white hover:bg-amber-600 disabled:bg-amber-300'
+                          : 'border border-border text-foreground hover:bg-accent disabled:opacity-40'
+                      }`}
+                    >
+                      <Send aria-hidden="true" className="h-4 w-4" />
+                      {isOrderPlaced ? 'Sent' : 'Send'}
+                    </button>
+                  )}
 
                   {/* Print Check button */}
                   <button

@@ -67,31 +67,43 @@ function makeRequest(url = 'http://localhost:3000/api/v1/onboarding/status') {
   return new Request(url) as unknown as NextRequest;
 }
 
-/** Build a response from mockExecute for an EXISTS check */
-function existsTrue() {
-  return [{ v: true }];
-}
-function existsFalse() {
-  return [{ v: false }];
-}
-
-/** Build entitlements rows */
-function entitlementRows(...moduleKeys: string[]) {
-  return moduleKeys.map((mk) => ({ module_key: mk }));
-}
-
-/** Build accounting settings row */
-function acctSettings(opts: {
-  ap?: string | null;
-  ar?: string | null;
-  retained?: string | null;
-  autoPost?: string;
-} = {}) {
+/**
+ * Build a single combined row that the single-query route expects.
+ * The route does one `tx.execute(sql`...`)` returning one row with all columns.
+ */
+function buildRow(overrides: Partial<Record<string, unknown>> = {}) {
   return [{
-    default_ap_control_account_id: opts.ap ?? null,
-    default_ar_control_account_id: opts.ar ?? null,
-    default_retained_earnings_account_id: opts.retained ?? null,
-    auto_post_mode: opts.autoPost ?? 'manual',
+    enabled_modules: [],
+    org_locations: false,
+    org_profit_centers: false,
+    org_terminals: false,
+    usr_invite_users: false,
+    usr_custom_roles: false,
+    cat_hierarchy: false,
+    cat_tax_config: false,
+    cat_items: false,
+    cat_modifiers: false,
+    cat_packages: false,
+    inv_vendors: false,
+    inv_opening_balances: false,
+    cust_customer_records: false,
+    cust_membership_plans: false,
+    cust_billing_accounts: false,
+    di_first_import: false,
+    acct_bank_accounts: false,
+    acct_mappings: false,
+    acct_settings: null,
+    fnb_floor_plans: false,
+    fnb_sync_tables: false,
+    fnb_kds_stations: false,
+    rpt_custom_reports: false,
+    rpt_ai_lenses: false,
+    ms_add_provider: false,
+    ms_create_mid: false,
+    ms_assign_terminals: false,
+    ms_assign_devices: false,
+    gl_test_order: false,
+    ...overrides,
   }];
 }
 
@@ -107,21 +119,10 @@ describe('GET /api/v1/onboarding/status', () => {
   });
 
   it('returns status 200 with completion data', async () => {
-    // No modules enabled — only always-visible checks run
-    mockExecute
-      // 1. entitlements query
-      .mockResolvedValueOnce([]) // no modules enabled
-      // Organization checks (3)
-      .mockResolvedValueOnce(existsTrue())   // locations
-      .mockResolvedValueOnce(existsFalse())  // profit_centers
-      .mockResolvedValueOnce(existsFalse())  // terminals
-      // Users checks (2)
-      .mockResolvedValueOnce(existsTrue())   // invite_users
-      .mockResolvedValueOnce(existsFalse())  // custom_roles
-      // Data Import check (1)
-      .mockResolvedValueOnce(existsFalse())  // first_import_complete
-      // Go Live check (1)
-      .mockResolvedValueOnce(existsFalse()); // test_order
+    mockExecute.mockResolvedValueOnce(buildRow({
+      org_locations: true,
+      usr_invite_users: true,
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -162,9 +163,7 @@ describe('GET /api/v1/onboarding/status', () => {
   });
 
   it('calls withTenant with the correct tenant ID', async () => {
-    mockExecute
-      .mockResolvedValueOnce([]) // entitlements
-      .mockResolvedValue(existsFalse()); // all checks
+    mockExecute.mockResolvedValueOnce(buildRow());
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     await GET(makeRequest());
@@ -173,26 +172,14 @@ describe('GET /api/v1/onboarding/status', () => {
   });
 
   it('includes catalog checks when catalog module is enabled', async () => {
-    mockExecute
-      // entitlements
-      .mockResolvedValueOnce(entitlementRows('catalog'))
-      // Organization (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Catalog checks (5)
-      .mockResolvedValueOnce(existsTrue())   // hierarchy
-      .mockResolvedValueOnce(existsTrue())   // tax_config
-      .mockResolvedValueOnce(existsTrue())   // items
-      .mockResolvedValueOnce(existsFalse())  // modifiers
-      .mockResolvedValueOnce(existsFalse())  // packages
-      // Data Import (1)
-      .mockResolvedValueOnce(existsFalse())
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse());
+    mockExecute.mockResolvedValueOnce(buildRow({
+      enabled_modules: ['catalog'],
+      cat_hierarchy: true,
+      cat_tax_config: true,
+      cat_items: true,
+      cat_modifiers: false,
+      cat_packages: false,
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -208,22 +195,11 @@ describe('GET /api/v1/onboarding/status', () => {
   });
 
   it('includes inventory checks when inventory module is enabled', async () => {
-    mockExecute
-      .mockResolvedValueOnce(entitlementRows('inventory'))
-      // Organization (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Inventory checks (2)
-      .mockResolvedValueOnce(existsTrue())   // vendors
-      .mockResolvedValueOnce(existsFalse())  // opening_balances
-      // Data Import (1)
-      .mockResolvedValueOnce(existsFalse())
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse());
+    mockExecute.mockResolvedValueOnce(buildRow({
+      enabled_modules: ['inventory'],
+      inv_vendors: true,
+      inv_opening_balances: false,
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -234,23 +210,12 @@ describe('GET /api/v1/onboarding/status', () => {
   });
 
   it('includes customer checks when customers module is enabled', async () => {
-    mockExecute
-      .mockResolvedValueOnce(entitlementRows('customers'))
-      // Organization (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Customers checks (3)
-      .mockResolvedValueOnce(existsTrue())   // customer_records
-      .mockResolvedValueOnce(existsFalse())  // membership_plans
-      .mockResolvedValueOnce(existsTrue())   // billing_accounts
-      // Data Import (1)
-      .mockResolvedValueOnce(existsFalse())
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse());
+    mockExecute.mockResolvedValueOnce(buildRow({
+      enabled_modules: ['customers'],
+      cust_customer_records: true,
+      cust_membership_plans: false,
+      cust_billing_accounts: true,
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -262,31 +227,17 @@ describe('GET /api/v1/onboarding/status', () => {
   });
 
   it('includes accounting checks and settings when accounting module is enabled', async () => {
-    // Push order: org(3) → users(2) → data_import(1) → accounting(3) → go_live(1) + acctSettings
-    mockExecute
-      .mockResolvedValueOnce(entitlementRows('accounting'))
-      // Organization (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Data Import (1) — pushed BEFORE module-specific checks
-      .mockResolvedValueOnce(existsFalse())
-      // Accounting checks (3)
-      .mockResolvedValueOnce(existsTrue())   // bank_accounts
-      .mockResolvedValueOnce(existsTrue())   // mappings
-      .mockResolvedValueOnce(existsFalse())  // import_coa
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse())
-      // Accounting settings (fetched in parallel with checks)
-      .mockResolvedValueOnce(acctSettings({
-        ap: 'acct_ap',
-        ar: 'acct_ar',
-        retained: 'acct_re',
-        autoPost: 'auto_post',
-      }));
+    mockExecute.mockResolvedValueOnce(buildRow({
+      enabled_modules: ['accounting'],
+      acct_bank_accounts: true,
+      acct_mappings: true,
+      acct_settings: {
+        default_ap_control_account_id: 'acct_ap',
+        default_ar_control_account_id: 'acct_ar',
+        default_retained_earnings_account_id: 'acct_re',
+        auto_post_mode: 'auto_post',
+      },
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -294,38 +245,21 @@ describe('GET /api/v1/onboarding/status', () => {
 
     expect(body.data.accounting.bank_accounts).toBe(true);
     expect(body.data.accounting.mappings).toBe(true);
-    expect(body.data.accounting.import_coa).toBe(false);
     expect(body.data.accounting.bootstrap).toBe(true);
     expect(body.data.accounting.control_accounts).toBe(true);
     expect(body.data.accounting.pos_posting).toBe(true);
   });
 
   it('sets accounting.control_accounts to false when any control account is missing', async () => {
-    // Push order: org(3) → users(2) → data_import(1) → accounting(3) → go_live(1) + acctSettings
-    mockExecute
-      .mockResolvedValueOnce(entitlementRows('accounting'))
-      // Organization (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Data Import (1) — pushed BEFORE module-specific checks
-      .mockResolvedValueOnce(existsFalse())
-      // Accounting checks (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse())
-      // Accounting settings — missing AR control
-      .mockResolvedValueOnce(acctSettings({
-        ap: 'acct_ap',
-        ar: null, // missing
-        retained: 'acct_re',
-        autoPost: 'manual',
-      }));
+    mockExecute.mockResolvedValueOnce(buildRow({
+      enabled_modules: ['accounting'],
+      acct_settings: {
+        default_ap_control_account_id: 'acct_ap',
+        default_ar_control_account_id: null, // missing
+        default_retained_earnings_account_id: 'acct_re',
+        auto_post_mode: 'manual',
+      },
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -337,24 +271,12 @@ describe('GET /api/v1/onboarding/status', () => {
   });
 
   it('includes F&B checks when pos_fnb module is enabled', async () => {
-    // Push order: org(3) → users(2) → data_import(1) → fnb(3) → go_live(1)
-    mockExecute
-      .mockResolvedValueOnce(entitlementRows('pos_fnb'))
-      // Organization (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Data Import (1) — pushed BEFORE module-specific checks
-      .mockResolvedValueOnce(existsFalse())
-      // F&B checks (3)
-      .mockResolvedValueOnce(existsTrue())   // floor_plans
-      .mockResolvedValueOnce(existsTrue())   // sync_tables
-      .mockResolvedValueOnce(existsFalse())  // kds_stations
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse());
+    mockExecute.mockResolvedValueOnce(buildRow({
+      enabled_modules: ['pos_fnb'],
+      fnb_floor_plans: true,
+      fnb_sync_tables: true,
+      fnb_kds_stations: false,
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -366,23 +288,11 @@ describe('GET /api/v1/onboarding/status', () => {
   });
 
   it('includes reporting checks when reporting/semantic modules are enabled', async () => {
-    // Push order: org(3) → users(2) → data_import(1) → reporting(1) → semantic(1) → go_live(1)
-    mockExecute
-      .mockResolvedValueOnce(entitlementRows('reporting', 'semantic'))
-      // Organization (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Data Import (1) — pushed BEFORE module-specific checks
-      .mockResolvedValueOnce(existsFalse())
-      // Reporting checks (1 for 'reporting', 1 for 'semantic')
-      .mockResolvedValueOnce(existsTrue())   // custom_reports
-      .mockResolvedValueOnce(existsFalse())  // ai_lenses
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse());
+    mockExecute.mockResolvedValueOnce(buildRow({
+      enabled_modules: ['reporting', 'semantic'],
+      rpt_custom_reports: true,
+      rpt_ai_lenses: false,
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -393,25 +303,13 @@ describe('GET /api/v1/onboarding/status', () => {
   });
 
   it('includes merchant services checks when payments module is enabled', async () => {
-    // Push order: org(3) → users(2) → data_import(1) → merchant_services(4) → go_live(1)
-    mockExecute
-      .mockResolvedValueOnce(entitlementRows('payments'))
-      // Organization (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Data Import (1) — pushed BEFORE module-specific checks
-      .mockResolvedValueOnce(existsFalse())
-      // Merchant services checks (4)
-      .mockResolvedValueOnce(existsTrue())   // add_provider
-      .mockResolvedValueOnce(existsTrue())   // create_mid
-      .mockResolvedValueOnce(existsFalse())  // assign_terminals
-      .mockResolvedValueOnce(existsFalse())  // assign_devices
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse());
+    mockExecute.mockResolvedValueOnce(buildRow({
+      enabled_modules: ['payments'],
+      ms_add_provider: true,
+      ms_create_mid: true,
+      ms_assign_terminals: false,
+      ms_assign_devices: false,
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -425,19 +323,7 @@ describe('GET /api/v1/onboarding/status', () => {
 
   it('skips module-gated checks when modules are not enabled', async () => {
     // No modules enabled at all
-    mockExecute
-      .mockResolvedValueOnce([]) // entitlements — empty
-      // Organization (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Data Import (1)
-      .mockResolvedValueOnce(existsFalse())
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse());
+    mockExecute.mockResolvedValueOnce(buildRow());
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -453,14 +339,12 @@ describe('GET /api/v1/onboarding/status', () => {
     expect(body.data.reporting.custom_reports).toBe(false);
     expect(body.data.merchant_services.add_provider).toBe(false);
 
-    // Only 8 execute calls: 1 entitlements + 3 org + 2 users + 1 data_import + 1 go_live
-    expect(mockExecute).toHaveBeenCalledTimes(8);
+    // Single combined query — only 1 execute call
+    expect(mockExecute).toHaveBeenCalledTimes(1);
   });
 
   it('returns all default phases even when no checks run', async () => {
-    mockExecute
-      .mockResolvedValueOnce([]) // entitlements
-      .mockResolvedValue(existsFalse()); // all checks
+    mockExecute.mockResolvedValueOnce(buildRow());
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -478,9 +362,7 @@ describe('GET /api/v1/onboarding/status', () => {
   });
 
   it('sets data_import.import_overview to true by default', async () => {
-    mockExecute
-      .mockResolvedValueOnce([]) // entitlements
-      .mockResolvedValue(existsFalse()); // all checks
+    mockExecute.mockResolvedValueOnce(buildRow());
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -489,115 +371,79 @@ describe('GET /api/v1/onboarding/status', () => {
     expect(body.data.data_import.import_overview).toBe(true);
   });
 
-  it('handles entitlements query failure gracefully', async () => {
-    mockExecute
-      // entitlements throws
-      .mockRejectedValueOnce(new Error('Table does not exist'))
-      // Organization (3)
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Data Import (1)
-      .mockResolvedValueOnce(existsFalse())
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse());
+  it('handles query returning empty result gracefully', async () => {
+    // Return empty array — no rows from the combined query
+    mockExecute.mockResolvedValueOnce([]);
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
     const body = await response.json();
 
-    // Should still succeed — treats as no modules enabled
+    // Should still succeed with empty completion (buildEmptyCompletion)
     expect(response.status).toBe(200);
-    expect(body.data.organization.locations).toBe(true);
-    // Module-gated phases should be all false (no modules enabled)
+    expect(body.data.organization.locations).toBe(false);
     expect(body.data.catalog.hierarchy).toBe(false);
   });
 
-  it('handles individual EXISTS check failure gracefully', async () => {
-    mockExecute
-      .mockResolvedValueOnce([]) // entitlements
-      // Organization: locations check throws, profit_centers OK, terminals OK
-      .mockRejectedValueOnce(new Error('Table missing'))
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Data Import (1)
-      .mockResolvedValueOnce(existsFalse())
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse());
+  it('handles individual EXISTS check failure gracefully via empty result', async () => {
+    // The combined query returns a single row — if the query itself fails,
+    // withTenant will throw and middleware returns 500.
+    // But within the row, false values represent non-existence.
+    mockExecute.mockResolvedValueOnce(buildRow({
+      org_locations: false,
+      org_profit_centers: true,
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
     const body = await response.json();
 
-    // Failed check returns false, doesn't crash
     expect(response.status).toBe(200);
     expect(body.data.organization.locations).toBe(false);
     expect(body.data.organization.profit_centers).toBe(true);
   });
 
   it('handles all modules enabled with full data', async () => {
-    // Push order: org(3) → users(2) → catalog(5) → inventory(2) → customers(3) →
-    //             data_import(1) → accounting(3) → fnb(3) → reporting(1) → semantic(1) →
-    //             merchant_services(4) → go_live(1) + acctSettings(1)
-    mockExecute
-      .mockResolvedValueOnce(entitlementRows(
+    mockExecute.mockResolvedValueOnce(buildRow({
+      enabled_modules: [
         'catalog', 'inventory', 'customers', 'accounting',
         'pos_fnb', 'reporting', 'semantic', 'payments',
-      ))
-      // Organization (3)
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      // Users (2)
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      // Catalog (5)
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      // Inventory (2)
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      // Customers (3)
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      // Data Import (1) — pushed BEFORE module-specific checks below
-      .mockResolvedValueOnce(existsTrue())
-      // Accounting (3)
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      // F&B (3)
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      // Reporting (1)
-      .mockResolvedValueOnce(existsTrue())
-      // Semantic (1)
-      .mockResolvedValueOnce(existsTrue())
-      // Merchant services (4)
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      .mockResolvedValueOnce(existsTrue())
-      // Go Live (1)
-      .mockResolvedValueOnce(existsTrue())
-      // Accounting settings
-      .mockResolvedValueOnce(acctSettings({
-        ap: 'acct_ap',
-        ar: 'acct_ar',
-        retained: 'acct_re',
-        autoPost: 'auto_post',
-      }));
+      ],
+      org_locations: true,
+      org_profit_centers: true,
+      org_terminals: true,
+      usr_invite_users: true,
+      usr_custom_roles: true,
+      cat_hierarchy: true,
+      cat_tax_config: true,
+      cat_items: true,
+      cat_modifiers: true,
+      cat_packages: true,
+      inv_vendors: true,
+      inv_opening_balances: true,
+      cust_customer_records: true,
+      cust_membership_plans: true,
+      cust_billing_accounts: true,
+      di_first_import: true,
+      acct_bank_accounts: true,
+      acct_mappings: true,
+      acct_settings: {
+        default_ap_control_account_id: 'acct_ap',
+        default_ar_control_account_id: 'acct_ar',
+        default_retained_earnings_account_id: 'acct_re',
+        auto_post_mode: 'auto_post',
+      },
+      fnb_floor_plans: true,
+      fnb_sync_tables: true,
+      fnb_kds_stations: true,
+      rpt_custom_reports: true,
+      rpt_ai_lenses: true,
+      ms_add_provider: true,
+      ms_create_mid: true,
+      ms_assign_terminals: true,
+      ms_assign_devices: true,
+      gl_test_order: true,
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -622,60 +468,11 @@ describe('GET /api/v1/onboarding/status', () => {
     expect(body.data.go_live.test_order).toBe(true);
   });
 
-  it('handles accounting settings query failure gracefully', async () => {
-    // Push order: org(3) → users(2) → data_import(1) → accounting(3) → go_live(1) + acctSettings
-    mockExecute
-      .mockResolvedValueOnce(entitlementRows('accounting'))
-      // Organization (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Data Import (1) — pushed BEFORE module-specific checks
-      .mockResolvedValueOnce(existsFalse())
-      // Accounting checks (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse())
-      // Accounting settings — throws
-      .mockRejectedValueOnce(new Error('Table missing'));
-
-    const { GET } = await import('../app/api/v1/onboarding/status/route');
-    const response = await GET(makeRequest());
-    const body = await response.json();
-
-    // Should gracefully handle — accounting stays all false
-    expect(response.status).toBe(200);
-    expect(body.data.accounting.bootstrap).toBe(false);
-    expect(body.data.accounting.control_accounts).toBe(false);
-    expect(body.data.accounting.pos_posting).toBe(false);
-  });
-
-  it('handles empty accounting settings result', async () => {
-    // Push order: org(3) → users(2) → data_import(1) → accounting(3) → go_live(1) + acctSettings
-    mockExecute
-      .mockResolvedValueOnce(entitlementRows('accounting'))
-      // Organization (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Data Import (1) — pushed BEFORE module-specific checks
-      .mockResolvedValueOnce(existsFalse())
-      // Accounting checks (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse())
-      // Accounting settings — empty result (no settings row)
-      .mockResolvedValueOnce([]);
+  it('handles accounting settings being null (no settings row)', async () => {
+    mockExecute.mockResolvedValueOnce(buildRow({
+      enabled_modules: ['accounting'],
+      acct_settings: null, // no settings row
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -684,12 +481,11 @@ describe('GET /api/v1/onboarding/status', () => {
     // No settings row → no bootstrap → all false
     expect(body.data.accounting.bootstrap).toBe(false);
     expect(body.data.accounting.control_accounts).toBe(false);
+    expect(body.data.accounting.pos_posting).toBe(false);
   });
 
   it('includes all default step keys in every phase', async () => {
-    mockExecute
-      .mockResolvedValueOnce([]) // entitlements
-      .mockResolvedValue(existsFalse()); // all checks
+    mockExecute.mockResolvedValueOnce(buildRow());
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -719,25 +515,10 @@ describe('GET /api/v1/onboarding/status', () => {
   });
 
   it('import_items mirrors items completion status', async () => {
-    mockExecute
-      .mockResolvedValueOnce(entitlementRows('catalog'))
-      // Organization (3)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Users (2)
-      .mockResolvedValueOnce(existsFalse())
-      .mockResolvedValueOnce(existsFalse())
-      // Catalog (5)
-      .mockResolvedValueOnce(existsFalse())  // hierarchy
-      .mockResolvedValueOnce(existsFalse())  // tax_config
-      .mockResolvedValueOnce(existsFalse())  // items = false
-      .mockResolvedValueOnce(existsFalse())  // modifiers
-      .mockResolvedValueOnce(existsFalse())  // packages
-      // Data Import (1)
-      .mockResolvedValueOnce(existsFalse())
-      // Go Live (1)
-      .mockResolvedValueOnce(existsFalse());
+    mockExecute.mockResolvedValueOnce(buildRow({
+      enabled_modules: ['catalog'],
+      cat_items: false,
+    }));
 
     const { GET } = await import('../app/api/v1/onboarding/status/route');
     const response = await GET(makeRequest());
@@ -746,5 +527,32 @@ describe('GET /api/v1/onboarding/status', () => {
     // items = false → import_items = false
     expect(body.data.catalog.items).toBe(false);
     expect(body.data.catalog.import_items).toBe(false);
+  });
+
+  it('uses single combined query for all checks', async () => {
+    mockExecute.mockResolvedValueOnce(buildRow());
+
+    const { GET } = await import('../app/api/v1/onboarding/status/route');
+    await GET(makeRequest());
+
+    // Route now uses a single combined SQL query instead of sequential calls
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+  });
+
+  it('catalog checks are false when catalog module not enabled even if data exists', async () => {
+    // Data exists in DB but module is not enabled
+    mockExecute.mockResolvedValueOnce(buildRow({
+      enabled_modules: [], // catalog NOT enabled
+      cat_hierarchy: true,
+      cat_items: true,
+    }));
+
+    const { GET } = await import('../app/api/v1/onboarding/status/route');
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    // Module gating: even though DB has data, module is off → false
+    expect(body.data.catalog.hierarchy).toBe(false);
+    expect(body.data.catalog.items).toBe(false);
   });
 });

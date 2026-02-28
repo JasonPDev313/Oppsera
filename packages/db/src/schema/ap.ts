@@ -13,7 +13,6 @@ import {
 import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import { tenants } from './core';
-import { glAccounts } from './accounting';
 
 // ── Payment Terms ───────────────────────────────────────────────
 export const paymentTerms = pgTable(
@@ -96,8 +95,7 @@ export const apBillLines = pgTable(
       .references(() => apBills.id),
     lineType: text('line_type').notNull().default('expense'), // expense, inventory, asset, freight
     accountId: text('account_id')
-      .notNull()
-      .references(() => glAccounts.id),
+      .notNull(), // soft ref to gl_accounts.id — no FK for microservice extraction
     description: text('description'),
     quantity: numeric('quantity', { precision: 12, scale: 4 }).notNull().default('1'),
     unitCost: numeric('unit_cost', { precision: 12, scale: 4 }).notNull().default('0'),

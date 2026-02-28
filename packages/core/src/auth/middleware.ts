@@ -5,7 +5,7 @@ import {
   generateUlid,
 } from '@oppsera/shared';
 import { eq } from 'drizzle-orm';
-import { db, tenants } from '@oppsera/db';
+import { db, tenants, guardedQuery } from '@oppsera/db';
 import { getAuthAdapter } from './get-adapter';
 import { verifyImpersonationToken, getActiveImpersonationSession } from './impersonation';
 import type { ImpersonationInfo } from './impersonation';
@@ -40,11 +40,13 @@ export async function authenticate(request: Request): Promise<AuthUser> {
       throw new AuthenticationError('Impersonation session expired or invalid');
     }
 
-    const [tenant] = await db
-      .select({ id: tenants.id, status: tenants.status })
-      .from(tenants)
-      .where(eq(tenants.id, impClaims.imp.tenantId))
-      .limit(1);
+    const [tenant] = await guardedQuery('auth:impersonationTenant', () =>
+      db
+        .select({ id: tenants.id, status: tenants.status })
+        .from(tenants)
+        .where(eq(tenants.id, impClaims.imp.tenantId))
+        .limit(1),
+    );
 
     if (!tenant) {
       throw new AuthenticationError('Impersonation tenant not found');

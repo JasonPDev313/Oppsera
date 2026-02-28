@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Zap, GitBranch } from 'lucide-react';
+import { ArrowLeft, Zap, GitBranch, FileText, Copy, Check, AlertTriangle, Shield, Database } from 'lucide-react';
 import { useEvalTurn } from '@/hooks/use-eval';
 import { useExampleCrud } from '@/hooks/use-eval-training';
 import { PlanViewer } from '@/components/PlanViewer';
@@ -11,6 +11,23 @@ import { VerdictBadge } from '@/components/VerdictBadge';
 import { QualityFlagPills } from '@/components/QualityFlagPills';
 import { RatingStars } from '@/components/RatingStars';
 import type { AdminVerdict } from '@/types/eval';
+
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(text).catch(() => {});
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+      title="Copy"
+    >
+      {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+    </button>
+  );
+}
 
 const CATEGORY_OPTIONS = ['sales', 'inventory', 'customer', 'golf', 'comparison', 'trend', 'anomaly'];
 const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard'];
@@ -208,6 +225,86 @@ export default function EvalTurnDetailPage() {
             <h2 className="text-sm font-semibold text-slate-300 mb-2">Compiled SQL</h2>
             <SqlViewer sql={turn.compiledSql} errors={turn.compilationErrors} />
           </div>
+
+          {/* Narrative / AI Response */}
+          <div>
+            <h2 className="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
+              <FileText size={14} />
+              Narrative Response
+            </h2>
+            {turn.narrative ? (
+              <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700">
+                  <span className="text-xs text-slate-400 font-medium">
+                    What the user saw
+                  </span>
+                  <CopyBtn text={turn.narrative} />
+                </div>
+                <div className="p-4 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
+                  {turn.narrative}
+                </div>
+                {turn.responseSections && turn.responseSections.length > 0 && (
+                  <div className="px-4 py-2 border-t border-slate-700 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-slate-500">Sections:</span>
+                    {turn.responseSections.map((section) => (
+                      <span key={section} className="text-xs bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded">
+                        {section}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-slate-900 rounded-xl border border-slate-700 p-4">
+                <span className="text-sm text-slate-500">No narrative captured for this turn</span>
+              </div>
+            )}
+          </div>
+
+          {/* Clarification */}
+          {turn.wasClarification && (
+            <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4">
+              <h2 className="text-sm font-semibold text-yellow-400 mb-2 flex items-center gap-2">
+                <AlertTriangle size={14} />
+                Clarification Requested
+              </h2>
+              <p className="text-sm text-slate-300">
+                The AI requested clarification instead of executing a query for this turn.
+              </p>
+            </div>
+          )}
+
+          {/* Context snapshot */}
+          {turn.contextSnapshot && Object.keys(turn.contextSnapshot).length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
+                <Database size={14} />
+                Context Snapshot
+              </h2>
+              <div className="bg-slate-900 rounded-xl border border-slate-700 p-4 font-mono text-xs overflow-auto max-h-40">
+                <pre className="text-slate-300">
+                  {JSON.stringify(turn.contextSnapshot, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {/* Safety flags */}
+          {turn.safetyFlags && turn.safetyFlags.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
+                <Shield size={14} />
+                Safety Flags
+              </h2>
+              <div className="flex flex-wrap gap-1">
+                {turn.safetyFlags.map((flag) => (
+                  <span key={flag} className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded">
+                    {flag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* User feedback */}
           {(turn.userRating !== null || turn.userFeedbackText) && (

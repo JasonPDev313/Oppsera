@@ -20,6 +20,7 @@ import {
   orderCounters,
   tenders,
   rmDailySales,
+  rmRevenueActivity,
 } from './schema';
 
 // ══════════════════════════════════════════════════════════════
@@ -124,10 +125,11 @@ async function seedYear() {
     console.log(`  Locations: ${locs.map(l => `${l.name} (${l.id})`).join(', ')}`);
 
     const userRows = await db.execute(sql`
-      SELECT id, email FROM users WHERE tenant_id = ${tenantId} LIMIT 1
-    `) as Array<{ id: string; email: string }>;
+      SELECT id, email, display_name FROM users WHERE tenant_id = ${tenantId} LIMIT 1
+    `) as Array<{ id: string; email: string; display_name: string | null }>;
     if (userRows.length === 0) throw new Error('No user found. Run pnpm db:seed first.');
     const userId = userRows[0]!.id;
+    const userName = userRows[0]!.display_name ?? userRows[0]!.email;
     console.log(`  User: ${userRows[0]!.email} (${userId})`);
 
     const terminalRows = await db.execute(sql`
@@ -139,9 +141,9 @@ async function seedYear() {
     console.log(`  Terminals: ${terminalRows.length} found`);
 
     const custRows = await db.execute(sql`
-      SELECT id FROM customers WHERE tenant_id = ${tenantId} LIMIT 10
-    `) as Array<{ id: string }>;
-    const customerIdPool = [...custRows.map(c => c.id), null, null, null];
+      SELECT id, display_name FROM customers WHERE tenant_id = ${tenantId} LIMIT 10
+    `) as Array<{ id: string; display_name: string | null }>;
+    const customerPool = [...custRows.map(c => ({ id: c.id, name: c.display_name })), null, null, null];
     console.log(`  Customers: ${custRows.length} found`);
 
     // Get catalog items with their categories (raw SQL to avoid Drizzle reference issues)
@@ -332,6 +334,7 @@ async function seedYear() {
     const allLineInserts: Array<Record<string, unknown>> = [];
     const allTaxInserts: Array<Record<string, unknown>> = [];
     const allTenderInserts: Array<Record<string, unknown>> = [];
+    const allActivityInserts: Array<Record<string, unknown>> = [];
 
     // Aggregation trackers
     const dailyAgg: Record<string, {
@@ -389,8 +392,10 @@ async function seedYear() {
         const isVoided = rand() < VOID_RATE;
 
         // Customer assignment (~40%)
-        const custIdx = Math.floor(rand() * customerIdPool.length);
-        const custId = rand() < CUSTOMER_ASSIGN_RATE ? customerIdPool[custIdx] ?? null : null;
+        const custIdx = Math.floor(rand() * customerPool.length);
+        const custEntry = rand() < CUSTOMER_ASSIGN_RATE ? customerPool[custIdx] ?? null : null;
+        const custId = custEntry?.id ?? null;
+        const custName = custEntry?.name ?? null;
 
         // Order number
         orderNumberCounters[locId]!++;
@@ -528,6 +533,31 @@ async function seedYear() {
           totalRevenueCents += orderTotal;
         }
 
+        // Revenue activity row (per-order, regardless of void status)
+        allActivityInserts.push({
+          id: generateUlid(),
+          tenantId,
+          locationId: locId,
+          businessDate: bd,
+          source: 'pos_order',
+          sourceSubType: 'pos_retail',
+          sourceId: orderId,
+          sourceLabel: `Order #${orderNum}`,
+          referenceNumber: orderNum,
+          customerName: custName,
+          customerId: custId,
+          employeeId: userId,
+          employeeName: userName,
+          amountDollars: (orderTotal / 100).toFixed(4),
+          subtotalDollars: (orderSubtotal / 100).toFixed(4),
+          taxDollars: (orderTaxTotal / 100).toFixed(4),
+          discountDollars: '0.0000',
+          serviceChargeDollars: '0.0000',
+          status: isVoided ? 'voided' : 'completed',
+          occurredAt: ts,
+          createdAt: ts,
+        });
+
         totalOrderCount++;
 
         // Daily aggregation
@@ -576,6 +606,7 @@ async function seedYear() {
     console.log(`  Total tenders: ${allTenderInserts.length}`);
     console.log(`  Total revenue: $${(totalRevenueCents / 100).toLocaleString()}`);
     console.log(`  Avg order: $${(totalRevenueCents / allTenderInserts.length / 100).toFixed(2)}`);
+    console.log(`  Activity rows: ${allActivityInserts.length}`);
     console.log(`  Daily sales rows: ${Object.keys(dailyAgg).length}`);
     console.log(`  Item sales rows: ${Object.keys(itemAgg).length}`);
 
@@ -601,6 +632,38 @@ async function seedYear() {
     console.log('  Tenders...');
     for (let i = 0; i < allTenderInserts.length; i += BATCH) {
       await db.insert(tenders).values(allTenderInserts.slice(i, i + BATCH) as any);
+    }
+
+    console.log('  Revenue activity...');
+    for (let i = 0; i < allActivityInserts.length; i += BATCH) {
+      const batch = allActivityInserts.slice(i, i + BATCH);
+      for (const row of batch) {
+        await db.execute(sql`
+          INSERT INTO rm_revenue_activity (
+            id, tenant_id, location_id, business_date,
+            source, source_sub_type, source_id, source_label,
+            reference_number, customer_name, customer_id,
+            employee_id, employee_name,
+            amount_dollars, subtotal_dollars, tax_dollars,
+            discount_dollars, service_charge_dollars,
+            status, occurred_at, created_at
+          ) VALUES (
+            ${row.id}, ${row.tenantId}, ${row.locationId}, ${row.businessDate},
+            ${row.source}, ${row.sourceSubType}, ${row.sourceId}, ${row.sourceLabel},
+            ${row.referenceNumber}, ${row.customerName}, ${row.customerId},
+            ${row.employeeId}, ${row.employeeName},
+            ${row.amountDollars}, ${row.subtotalDollars}, ${row.taxDollars},
+            ${row.discountDollars}, ${row.serviceChargeDollars},
+            ${row.status}, ${row.occurredAt}, ${row.createdAt}
+          )
+          ON CONFLICT (tenant_id, source, source_id)
+          DO UPDATE SET
+            amount_dollars = EXCLUDED.amount_dollars,
+            subtotal_dollars = EXCLUDED.subtotal_dollars,
+            tax_dollars = EXCLUDED.tax_dollars,
+            status = EXCLUDED.status
+        `);
+      }
     }
 
     // ── 5. Update order counters ───────────────────────────────
@@ -743,6 +806,11 @@ async function seedYear() {
       count: sql<number>`count(*)::int`,
     }).from(rmDailySales).where(eq(rmDailySales.tenantId, tenantId));
     console.log(`  rm_daily_sales rows: ${dailyCount?.count}`);
+
+    const [activityCount] = await db.select({
+      count: sql<number>`count(*)::int`,
+    }).from(rmRevenueActivity).where(eq(rmRevenueActivity.tenantId, tenantId));
+    console.log(`  rm_revenue_activity rows: ${activityCount?.count}`);
 
     console.log('\n✅ Year seed complete! (additive only — no data was deleted)');
   } finally {

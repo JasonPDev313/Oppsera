@@ -2,6 +2,23 @@ export const MODULE_KEY = 'inventory' as const;
 export const MODULE_NAME = 'Inventory Management';
 export const MODULE_VERSION = '1.0.0';
 
+/** SQL tables owned by this module — used by extraction tooling */
+export const MODULE_TABLES = [
+  'inventory_items',
+  'inventory_movements',
+  'vendors',
+  'uoms',
+  'item_uom_conversions',
+  'item_vendors',
+  'item_identifiers',
+  'receiving_receipts',
+  'receiving_receipt_lines',
+  'receipt_charges',
+  'purchase_orders',
+  'purchase_order_lines',
+  'purchase_order_revisions',
+] as const;
+
 // Register event contracts (side-effect import)
 import './events/contracts';
 

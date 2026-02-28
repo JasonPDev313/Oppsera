@@ -67,7 +67,7 @@ export { InMemoryEventBus } from './in-memory-bus';
 export { DrizzleOutboxWriter } from './outbox-writer';
 export { OutboxWorker } from './outbox-worker';
 export { buildEvent, buildEventFromContext } from './build-event';
-export { publishWithOutbox } from './publish-with-outbox';
+export { publishWithOutbox, publishEventsOnly } from './publish-with-outbox';
 export { registerModuleEvents } from './register';
 export type {
   EventRegistration,

@@ -2,6 +2,24 @@ export const MODULE_KEY = 'catalog' as const;
 export const MODULE_NAME = 'Product Catalog';
 export const MODULE_VERSION = '1.0.0';
 
+/** SQL tables owned by this module — used by extraction tooling */
+export const MODULE_TABLES = [
+  'tax_categories',
+  'catalog_categories',
+  'catalog_items',
+  'catalog_modifier_group_categories',
+  'catalog_modifier_groups',
+  'catalog_modifiers',
+  'catalog_item_modifier_groups',
+  'catalog_location_prices',
+  'catalog_import_logs',
+  'catalog_item_change_logs',
+  'tax_rates',
+  'tax_groups',
+  'tax_group_rates',
+  'catalog_item_location_tax_groups',
+] as const;
+
 // Re-export schema for Drizzle
 export * from './schema';
 

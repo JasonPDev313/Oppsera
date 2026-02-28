@@ -20,9 +20,11 @@ interface PaymentSession {
 
 interface UsePaymentSessionOptions {
   tabId: string;
+  locationId?: string;
 }
 
-export function usePaymentSession({ tabId }: UsePaymentSessionOptions) {
+export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOptions) {
+  const locHeaders = locationId ? { 'X-Location-Id': locationId } : undefined;
   const [sessions, setSessions] = useState<PaymentSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -50,35 +52,36 @@ export function usePaymentSession({ tabId }: UsePaymentSessionOptions) {
       const res = await apiFetch<{ data: PaymentSession }>('/api/v1/fnb/payments/sessions', {
         method: 'POST',
         body: JSON.stringify(input),
+        headers: locHeaders,
       });
       await refresh();
       return res.data;
     },
-    [refresh],
+    [refresh, locHeaders],
   );
 
   const completeSession = useCallback(
     async (sessionId: string, input: Record<string, unknown>) => {
       const res = await apiFetch<{ data: PaymentSession }>(
         `/api/v1/fnb/payments/sessions/${sessionId}/complete`,
-        { method: 'POST', body: JSON.stringify(input) },
+        { method: 'POST', body: JSON.stringify(input), headers: locHeaders },
       );
       await refresh();
       return res.data;
     },
-    [refresh],
+    [refresh, locHeaders],
   );
 
   const failSession = useCallback(
     async (sessionId: string, input: Record<string, unknown>) => {
       const res = await apiFetch<{ data: PaymentSession }>(
         `/api/v1/fnb/payments/sessions/${sessionId}/fail`,
-        { method: 'POST', body: JSON.stringify(input) },
+        { method: 'POST', body: JSON.stringify(input), headers: locHeaders },
       );
       await refresh();
       return res.data;
     },
-    [refresh],
+    [refresh, locHeaders],
   );
 
   const recordTender = useCallback(
@@ -86,23 +89,24 @@ export function usePaymentSession({ tabId }: UsePaymentSessionOptions) {
       const res = await apiFetch<{ data: unknown }>('/api/v1/fnb/payments/tender', {
         method: 'POST',
         body: JSON.stringify(input),
+        headers: locHeaders,
       });
       await refresh();
       return res.data;
     },
-    [refresh],
+    [refresh, locHeaders],
   );
 
   const voidLastTender = useCallback(
     async (sessionId: string) => {
       const res = await apiFetch<{ data: unknown }>(
         `/api/v1/fnb/payments/sessions/${sessionId}/void-last-tender`,
-        { method: 'POST' },
+        { method: 'POST', headers: locHeaders },
       );
       await refresh();
       return res.data;
     },
-    [refresh],
+    [refresh, locHeaders],
   );
 
   const processCardPayment = useCallback(
@@ -119,11 +123,12 @@ export function usePaymentSession({ tabId }: UsePaymentSessionOptions) {
       const res = await apiFetch<{ data: unknown }>('/api/v1/fnb/payments/card', {
         method: 'POST',
         body: JSON.stringify(input),
+        headers: locHeaders,
       });
       await refresh();
       return res.data;
     },
-    [refresh],
+    [refresh, locHeaders],
   );
 
   return {

@@ -62,7 +62,7 @@ async function seedLenses() {
   console.log(`[semantic:golf-seed] ✓ ${count} system lenses seeded (${elapsed}ms)`);
 }
 
-seedLenses().catch((err) => {
+void seedLenses().catch((err) => {
   console.error('[semantic:golf-seed] ✗ Failed:', err);
   process.exit(1);
 }).then(() => process.exit(0));

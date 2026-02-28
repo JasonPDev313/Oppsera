@@ -2,6 +2,17 @@ export const MODULE_KEY = 'orders' as const;
 export const MODULE_NAME = 'Retail POS Orders';
 export const MODULE_VERSION = '1.0.0';
 
+/** SQL tables owned by this module — used by extraction tooling */
+export const MODULE_TABLES = [
+  'orders',
+  'order_lines',
+  'order_line_taxes',
+  'order_charges',
+  'order_discounts',
+  'order_counters',
+  'idempotency_keys',
+] as const;
+
 // Re-export event contracts (side-effect import)
 import './events/contracts';
 

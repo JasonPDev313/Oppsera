@@ -2,6 +2,13 @@ export const MODULE_KEY = 'room_layouts' as const;
 export const MODULE_NAME = 'Room Layout Builder';
 export const MODULE_VERSION = '0.1.0';
 
+/** SQL tables owned by this module — used by extraction tooling */
+export const MODULE_TABLES = [
+  'floor_plan_rooms',
+  'floor_plan_versions',
+  'floor_plan_templates_v2',
+] as const;
+
 // Register event contracts (side-effect import)
 import './events/contracts';
 

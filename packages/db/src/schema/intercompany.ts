@@ -9,7 +9,6 @@ import {
 import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import { tenants, locations } from './core';
-import { glAccounts } from './accounting';
 
 // ── Intercompany GL Account Pairs ────────────────────────────────
 // Maps paired AR/AP and elimination accounts between two legal entities
@@ -27,14 +26,10 @@ export const intercompanyGlAccountPairs = pgTable(
     entityBLocationId: text('entity_b_location_id')
       .notNull()
       .references(() => locations.id),
-    arAccountId: text('ar_account_id').references(() => glAccounts.id),
-    apAccountId: text('ap_account_id').references(() => glAccounts.id),
-    revenueEliminationAccountId: text('revenue_elimination_account_id').references(
-      () => glAccounts.id,
-    ),
-    expenseEliminationAccountId: text('expense_elimination_account_id').references(
-      () => glAccounts.id,
-    ),
+    arAccountId: text('ar_account_id'), // soft ref to gl_accounts.id
+    apAccountId: text('ap_account_id'), // soft ref to gl_accounts.id
+    revenueEliminationAccountId: text('revenue_elimination_account_id'), // soft ref to gl_accounts.id
+    expenseEliminationAccountId: text('expense_elimination_account_id'), // soft ref to gl_accounts.id
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     archivedBy: text('archived_by'),
     archivedReason: text('archived_reason'),

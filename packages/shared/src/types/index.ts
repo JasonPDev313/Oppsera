@@ -1,5 +1,29 @@
 export { EventEnvelopeSchema } from './events';
 export type { EventEnvelope } from './events';
+export {
+  OrderPlacedPayloadSchema,
+  OrderVoidedPayloadSchema,
+  OrderReturnedPayloadSchema,
+  TenderRecordedPayloadSchema,
+  TenderReversedPayloadSchema,
+  CatalogItemCreatedPayloadSchema,
+  InventoryMovementCreatedPayloadSchema,
+  InventoryReceiptPostedPayloadSchema,
+  InventoryReceiptVoidedPayloadSchema,
+  EVENT_PAYLOAD_SCHEMAS,
+} from './event-payloads';
+export type {
+  OrderPlacedPayload,
+  OrderVoidedPayload,
+  OrderReturnedPayload,
+  TenderRecordedPayload,
+  TenderReversedPayload,
+  CatalogItemCreatedPayload,
+  InventoryMovementCreatedPayload,
+  InventoryReceiptPostedPayload,
+  InventoryReceiptVoidedPayload,
+  EventPayloadMap,
+} from './event-payloads';
 export type { ApiResponse, ApiError, ApiResult } from './api';
 export type {
   FnbMetadata,

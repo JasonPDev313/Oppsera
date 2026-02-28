@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
-import { eq, and, sql } from 'drizzle-orm';
-import { db, adminImpersonationSessions, tenants } from '@oppsera/db';
+import { eq, and, sql, type SQL } from 'drizzle-orm';
+import { db, adminImpersonationSessions, tenants, guardedQuery } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
 
 // ── Types ────────────────────────────────────────────────────────
@@ -156,11 +156,13 @@ export async function createImpersonationSession(input: {
   const maxMinutes = input.maxDurationMinutes ?? 60;
 
   // Look up tenant name and status
-  const [tenant] = await db
-    .select({ id: tenants.id, name: tenants.name, status: tenants.status })
-    .from(tenants)
-    .where(eq(tenants.id, input.tenantId))
-    .limit(1);
+  const [tenant] = await guardedQuery('impersonation:lookupTenant', () =>
+    db
+      .select({ id: tenants.id, name: tenants.name, status: tenants.status })
+      .from(tenants)
+      .where(eq(tenants.id, input.tenantId))
+      .limit(1),
+  );
 
   if (!tenant) {
     throw new AppError('NOT_FOUND', 'Tenant not found', 404);
@@ -171,39 +173,43 @@ export async function createImpersonationSession(input: {
   }
 
   // End any existing active/pending sessions for this admin
-  await db
-    .update(adminImpersonationSessions)
-    .set({
-      status: 'ended',
-      endedAt: new Date(),
-      endReason: 'new_session',
-    })
-    .where(
-      and(
-        eq(adminImpersonationSessions.adminId, input.adminId),
-        sql`${adminImpersonationSessions.status} IN ('pending', 'active')`,
+  await guardedQuery('impersonation:endExisting', () =>
+    db
+      .update(adminImpersonationSessions)
+      .set({
+        status: 'ended',
+        endedAt: new Date(),
+        endReason: 'new_session',
+      })
+      .where(
+        and(
+          eq(adminImpersonationSessions.adminId, input.adminId),
+          sql`${adminImpersonationSessions.status} IN ('pending', 'active')`,
+        ),
       ),
-    );
+  );
 
   const id = generateUlid();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + maxMinutes * 60 * 1000);
 
-  await db.insert(adminImpersonationSessions).values({
-    id,
-    adminId: input.adminId,
-    adminEmail: input.adminEmail,
-    adminName: input.adminName,
-    tenantId: input.tenantId,
-    tenantName: tenant.name,
-    targetUserId: input.targetUserId ?? null,
-    reason: input.reason ?? null,
-    maxDurationMinutes: maxMinutes,
-    status: 'pending',
-    expiresAt,
-    ipAddress: input.ipAddress ?? null,
-    userAgent: input.userAgent ?? null,
-  });
+  await guardedQuery('impersonation:createSession', () =>
+    db.insert(adminImpersonationSessions).values({
+      id,
+      adminId: input.adminId,
+      adminEmail: input.adminEmail,
+      adminName: input.adminName,
+      tenantId: input.tenantId,
+      tenantName: tenant.name,
+      targetUserId: input.targetUserId ?? null,
+      reason: input.reason ?? null,
+      maxDurationMinutes: maxMinutes,
+      status: 'pending',
+      expiresAt,
+      ipAddress: input.ipAddress ?? null,
+      userAgent: input.userAgent ?? null,
+    }),
+  );
 
   return {
     id,
@@ -225,20 +231,24 @@ export async function createImpersonationSession(input: {
 }
 
 export async function activateImpersonationSession(sessionId: string): Promise<void> {
-  await db
-    .update(adminImpersonationSessions)
-    .set({ status: 'active', startedAt: new Date() })
-    .where(eq(adminImpersonationSessions.id, sessionId));
+  await guardedQuery('impersonation:activate', () =>
+    db
+      .update(adminImpersonationSessions)
+      .set({ status: 'active', startedAt: new Date() })
+      .where(eq(adminImpersonationSessions.id, sessionId)),
+  );
 }
 
 export async function getActiveImpersonationSession(
   sessionId: string,
 ): Promise<ImpersonationSession | null> {
-  const [session] = await db
-    .select()
-    .from(adminImpersonationSessions)
-    .where(eq(adminImpersonationSessions.id, sessionId))
-    .limit(1);
+  const [session] = await guardedQuery('impersonation:getActive', () =>
+    db
+      .select()
+      .from(adminImpersonationSessions)
+      .where(eq(adminImpersonationSessions.id, sessionId))
+      .limit(1),
+  );
 
   if (!session) return null;
   if (session.status !== 'active' && session.status !== 'pending') return null;
@@ -271,21 +281,25 @@ export async function endImpersonationSession(
   sessionId: string,
   reason: string,
 ): Promise<void> {
-  await db
-    .update(adminImpersonationSessions)
-    .set({
-      status: 'ended',
-      endedAt: new Date(),
-      endReason: reason,
-    })
-    .where(eq(adminImpersonationSessions.id, sessionId));
+  await guardedQuery('impersonation:end', () =>
+    db
+      .update(adminImpersonationSessions)
+      .set({
+        status: 'ended',
+        endedAt: new Date(),
+        endReason: reason,
+      })
+      .where(eq(adminImpersonationSessions.id, sessionId)),
+  );
 }
 
 export async function incrementImpersonationActionCount(sessionId: string): Promise<void> {
-  await db.execute(
-    sql`UPDATE admin_impersonation_sessions
-        SET action_count = action_count + 1
-        WHERE id = ${sessionId}`,
+  await guardedQuery('impersonation:incrementAction', () =>
+    db.execute(
+      sql`UPDATE admin_impersonation_sessions
+          SET action_count = action_count + 1
+          WHERE id = ${sessionId}`,
+    ),
   );
 }
 
@@ -295,17 +309,19 @@ export async function incrementImpersonationActionCount(sessionId: string): Prom
 export async function getActiveSessionForAdmin(
   adminId: string,
 ): Promise<ImpersonationSession | null> {
-  const [session] = await db
-    .select()
-    .from(adminImpersonationSessions)
-    .where(
-      and(
-        eq(adminImpersonationSessions.adminId, adminId),
-        sql`${adminImpersonationSessions.status} IN ('pending', 'active')`,
-        sql`${adminImpersonationSessions.expiresAt} > now()`,
-      ),
-    )
-    .limit(1);
+  const [session] = await guardedQuery('impersonation:getActiveForAdmin', () =>
+    db
+      .select()
+      .from(adminImpersonationSessions)
+      .where(
+        and(
+          eq(adminImpersonationSessions.adminId, adminId),
+          sql`${adminImpersonationSessions.status} IN ('pending', 'active')`,
+          sql`${adminImpersonationSessions.expiresAt} > now()`,
+        ),
+      )
+      .limit(1),
+  );
 
   if (!session) return null;
   return mapSession(session);
@@ -320,7 +336,7 @@ export async function listImpersonationHistory(filters: {
   limit?: number;
 }): Promise<{ items: ImpersonationSession[]; cursor: string | null; hasMore: boolean }> {
   const limit = Math.min(filters.limit ?? 25, 100);
-  const conditions = [];
+  const conditions: SQL[] = [];
 
   if (filters.adminId) {
     conditions.push(eq(adminImpersonationSessions.adminId, filters.adminId));
@@ -335,12 +351,14 @@ export async function listImpersonationHistory(filters: {
     conditions.push(sql`${adminImpersonationSessions.id} < ${filters.cursor}`);
   }
 
-  const rows = await db
-    .select()
-    .from(adminImpersonationSessions)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(sql`${adminImpersonationSessions.createdAt} DESC`)
-    .limit(limit + 1);
+  const rows = await guardedQuery('impersonation:listHistory', () =>
+    db
+      .select()
+      .from(adminImpersonationSessions)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(sql`${adminImpersonationSessions.createdAt} DESC`)
+      .limit(limit + 1),
+  );
 
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
@@ -354,11 +372,13 @@ export async function listImpersonationHistory(filters: {
 
 /** Expire all overdue active sessions. Returns the number of sessions expired. */
 export async function expireOverdueSessions(): Promise<ImpersonationSession[]> {
-  const rows = await db.execute(
-    sql`UPDATE admin_impersonation_sessions
-        SET status = 'expired', ended_at = now(), end_reason = 'expired'
-        WHERE status IN ('pending', 'active') AND expires_at < now()
-        RETURNING *`,
+  const rows = await guardedQuery('impersonation:expireOverdue', () =>
+    db.execute(
+      sql`UPDATE admin_impersonation_sessions
+          SET status = 'expired', ended_at = now(), end_reason = 'expired'
+          WHERE status IN ('pending', 'active') AND expires_at < now()
+          RETURNING *`,
+    ),
   );
 
   const results = Array.from(rows as Iterable<Record<string, unknown>>);

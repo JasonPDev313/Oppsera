@@ -54,6 +54,7 @@ function mapTabForReceipt(tab: FnbTabDetail, check: CheckSummary): FnbTabForRece
 export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   const store = useFnbPosStore();
   const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const tabId = store.activeTabId;
   const { tab, isLoading: isLoadingTab, error: tabError, notFound: tabNotFound, refresh: refreshTab } = useFnbTab({ tabId });
   const {
@@ -63,7 +64,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     failSession,
     recordTender,
     voidLastTender,
-  } = usePaymentSession({ tabId: tabId ?? '' });
+  } = usePaymentSession({ tabId: tabId ?? '', locationId });
   const { preauths, capturePreauth, voidPreauth } = usePreAuth({ tabId: tabId ?? undefined });
   const { adjustTip } = useTipActions();
   const { config: tokenizerConfig, isLoading: tokenizerLoading, error: tokenizerError } = useTokenizerConfig({
@@ -112,6 +113,10 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     if (prepareCalledRef.current === tab.id) return;
     const activeLines = tab.lines.filter((l) => l.status !== 'voided');
     if (activeLines.length === 0) return;
+    if (!locationId) {
+      setCheckError('No location selected — cannot prepare check');
+      return;
+    }
 
     prepareCalledRef.current = tab.id;
     setIsPreparing(true);
@@ -125,7 +130,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
 
     apiFetch<{ data: { orderId: string; check: CheckSummary } }>(
       `/api/v1/fnb/tabs/${tab.id}/prepare-check`,
-      { method: 'POST', signal: ac.signal },
+      { method: 'POST', signal: ac.signal, headers: locationId ? { 'X-Location-Id': locationId } : undefined },
     )
       .then((res) => {
         preparedOrderIdRef.current = res.data.orderId;

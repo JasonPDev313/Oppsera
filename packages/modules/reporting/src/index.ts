@@ -2,6 +2,22 @@ export const MODULE_KEY = 'reporting' as const;
 export const MODULE_NAME = 'Reporting & Analytics';
 export const MODULE_VERSION = '0.5.0';
 
+/** SQL tables owned by this module — used by extraction tooling */
+export const MODULE_TABLES = [
+  'rm_daily_sales',
+  'rm_item_sales',
+  'rm_inventory_on_hand',
+  'rm_customer_activity',
+  'rm_revenue_activity',
+  'reporting_field_catalog',
+  'report_definitions',
+  'dashboard_definitions',
+  'report_snapshots',
+  'rm_modifier_item_sales',
+  'rm_modifier_daypart',
+  'rm_modifier_group_attach',
+] as const;
+
 // ── Business Date Utility ─────────────────────────────────────
 export { computeBusinessDate } from './business-date';
 

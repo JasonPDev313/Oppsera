@@ -6,9 +6,18 @@ import { Grid3X3, Search, Filter } from 'lucide-react';
 import { useCapabilityMatrix } from '@/hooks/use-feature-flags';
 
 const MODULE_KEYS = ['pos', 'catalog', 'crm', 'tee_sheet', 'fnb', 'inventory', 'accounting', 'reporting', 'membership', 'pms', 'events'];
-const MODULE_SHORT: Record<string, string> = {
-  pos: 'POS', catalog: 'Cat', crm: 'CRM', tee_sheet: 'Tee', fnb: 'F&B',
-  inventory: 'Inv', accounting: 'Acct', reporting: 'Rpt', membership: 'Mem', pms: 'PMS', events: 'Evt',
+const MODULE_INFO: Record<string, { label: string; description: string }> = {
+  pos: { label: 'Retail POS', description: 'Point of sale for retail operations — orders, tenders, receipts, shifts' },
+  catalog: { label: 'Product Catalog', description: 'Items, categories, modifiers, pricing, tax rules, barcode management' },
+  crm: { label: 'Customer Management', description: 'CRM, billing accounts, memberships, loyalty, house accounts' },
+  tee_sheet: { label: 'Tee Sheet', description: 'Golf tee-time reservations, bookings, player management' },
+  fnb: { label: 'Food & Beverage POS', description: 'Restaurant POS — tabs, checks, courses, kitchen display, tips' },
+  inventory: { label: 'Inventory', description: 'Stock tracking, receiving, vendors, purchase orders, movements' },
+  accounting: { label: 'Accounting', description: 'General ledger, chart of accounts, journal entries, financial statements' },
+  reporting: { label: 'Reports & Dashboards', description: 'Sales reports, custom report builder, dashboards, CSV export' },
+  membership: { label: 'Memberships', description: 'Membership plans, billing cycles, privileges, member portal access' },
+  pms: { label: 'Property Management', description: 'Reservations, room management, folios, housekeeping, channels' },
+  events: { label: 'Events & Banquets', description: 'Event bookings, banquet management, group reservations' },
 };
 
 const MODE_STYLES: Record<string, { label: string; bg: string; text: string }> = {
@@ -99,11 +108,14 @@ export default function CapabilityMatrixPage() {
             <thead>
               <tr className="border-b border-slate-700 bg-slate-800/50">
                 <th className="text-left px-4 py-3 font-medium text-slate-400 sticky left-0 bg-slate-800/50 z-10 min-w-[180px]">Tenant</th>
-                {MODULE_KEYS.map((key) => (
-                  <th key={key} className="text-center px-2 py-3 font-medium text-slate-400 min-w-[50px]">
-                    {MODULE_SHORT[key] ?? key}
-                  </th>
-                ))}
+                {MODULE_KEYS.map((key) => {
+                  const info = MODULE_INFO[key];
+                  return (
+                    <th key={key} className="text-center px-3 py-3 font-medium text-slate-400 min-w-[90px]" title={info?.description}>
+                      <span className="text-xs leading-tight">{info?.label ?? key}</span>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/50">
@@ -125,7 +137,7 @@ export default function CapabilityMatrixPage() {
                         <Link
                           href={`/tenants/${row.tenantId}?tab=modules`}
                           className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${style.bg} ${style.text} hover:opacity-80 transition-opacity text-sm`}
-                          title={`${row.tenantName}: ${key} = ${mode}`}
+                          title={`${row.tenantName}: ${MODULE_INFO[key]?.label ?? key} = ${mode}`}
                         >
                           {style.label}
                         </Link>

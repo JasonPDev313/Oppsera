@@ -28,8 +28,13 @@ function getDb(): DrizzleDB {
     const client = postgres(connectionString, {
       max: parseInt(process.env.DB_POOL_MAX || '2', 10),
       prepare: process.env.DB_PREPARE_STATEMENTS === 'true',
-      idle_timeout: 20,
-      max_lifetime: 300,
+      // Shorter lifetimes = faster zombie cleanup when next request hits a warm instance.
+      // Even though these timers freeze with the event loop, they fire when Vercel
+      // unfreezes the instance for the next request. 10s idle means a zombie sitting
+      // idle for >10s is cleaned up as soon as the event loop resumes.
+      // Risk: more frequent connection setup (~1ms per connect via Supavisor). Negligible.
+      idle_timeout: 10,
+      max_lifetime: 60,
       connect_timeout: 10,
       onnotice: (notice) => {
         // Log Postgres notices (timeout kills, warnings, etc.)
@@ -106,7 +111,11 @@ export async function withTenant<T>(
 ): Promise<T> {
   return guardedQuery('withTenant', () =>
     db.transaction(async (tx) => {
+      // SET LOCAL: transaction-scoped, auto-clears on commit/rollback.
+      // lock_timeout: fast-fail (5s) if a SELECT blocks on a row/table lock
+      // instead of waiting indefinitely and holding a pool connection.
       await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`);
+      await tx.execute(sql`SET LOCAL lock_timeout = '5s'`);
       return callback(tx as unknown as Database);
     }),
   );
@@ -123,8 +132,8 @@ export function createAdminClient() {
     const adminConn = postgres(adminUrl, {
       max: parseInt(process.env.DB_ADMIN_POOL_MAX || '2', 10),
       prepare: process.env.DB_PREPARE_STATEMENTS === 'true',
-      idle_timeout: 20,
-      max_lifetime: 300,
+      idle_timeout: 10,
+      max_lifetime: 60,
       connect_timeout: 10,
     });
     globalForAdmin.__oppsera_admin_db = drizzle(adminConn, { schema });

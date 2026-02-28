@@ -1614,6 +1614,10 @@ export const fnbOrderingSettingsSchema = z.object({
 });
 
 export const fnbKitchenSettingsSchema = z.object({
+  // ── KDS Routing Mode ────────────────────────────────────────────
+  /** Controls which POS solutions show Send/Fire buttons for kitchen routing */
+  kds_routing_mode: z.enum(['fb_and_retail', 'fb_only', 'retail_only']).default('fb_and_retail'),
+
   // ── Timer thresholds ────────────────────────────────────────────
   kds_warning_threshold_seconds: z.number().int().min(60).max(3600).default(480),
   kds_critical_threshold_seconds: z.number().int().min(60).max(3600).default(720),

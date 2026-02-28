@@ -2,6 +2,57 @@ export const MODULE_KEY = 'customers' as const;
 export const MODULE_NAME = 'Customer Management';
 export const MODULE_VERSION = '0.0.0';
 
+/** SQL tables owned by this module — used by extraction tooling */
+export const MODULE_TABLES = [
+  'customers',
+  'customer_relationships',
+  'customer_identifiers',
+  'customer_activity_log',
+  'membership_plans',
+  'memberships',
+  'membership_billing_events',
+  'billing_accounts',
+  'billing_account_members',
+  'ar_transactions',
+  'ar_allocations',
+  'statements',
+  'late_fee_policies',
+  'customer_privileges',
+  'pricing_tiers',
+  'customer_contacts',
+  'customer_preferences',
+  'customer_documents',
+  'customer_communications',
+  'customer_service_flags',
+  'customer_consents',
+  'customer_external_ids',
+  'customer_auth_accounts',
+  'customer_wallet_accounts',
+  'customer_alerts',
+  'customer_scores',
+  'customer_metrics_daily',
+  'customer_metrics_lifetime',
+  'customer_merge_history',
+  'customer_households',
+  'customer_household_members',
+  'customer_visits',
+  'customer_incidents',
+  'customer_segments',
+  'customer_segment_memberships',
+  'customer_payment_methods',
+  'tags',
+  'customer_tags',
+  'smart_tag_rules',
+  'tag_audit_log',
+  'tag_actions',
+  'tag_action_executions',
+  'tag_evaluation_log',
+  'customer_identity_documents',
+  'customer_identity_verifications',
+  'customer_biometric_templates',
+  'customer_identity_links',
+] as const;
+
 // Commands (Session 16)
 export { createCustomer } from './commands/create-customer';
 export { updateCustomer } from './commands/update-customer';

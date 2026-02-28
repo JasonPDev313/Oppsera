@@ -1674,6 +1674,20 @@
       "when": 1709510400000,
       "tag": "0238_coa_expansion",
       "breakpoints": true
+    },
+    {
+      "idx": 239,
+      "version": "7",
+      "when": 1709596800000,
+      "tag": "0239_kds_routing_rule_type_check_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1709683200000,
+      "tag": "0240_drop_cross_module_gl_fk_constraints",
+      "breakpoints": true
     }
   ]
 }

@@ -68,7 +68,7 @@ import type {
   DebitKind,
   CreditKind,
 } from '@oppsera/shared';
-import type { SubDepartmentMapping, AccountType, TransactionTypeMapping, FnbMappingCoverageResult, GLAccount } from '@/types/accounting';
+import type { SubDepartmentMapping, AccountType, TransactionTypeMapping, FnbMappingCoverageResult } from '@/types/accounting';
 
 type TabKey = 'departments' | 'payments' | 'taxes' | 'discounts' | 'fnb' | 'unmapped';
 
@@ -91,7 +91,7 @@ interface GlobalMapProgress {
 
 export default function MappingsContent() {
   const [activeTab, setActiveTab] = useState<TabKey>('departments');
-  const { data: coverage, mutate: refetchCoverage } = useMappingCoverage();
+  const { data: coverage } = useMappingCoverage();
   const { data: unmappedEvents } = useUnmappedEvents({ status: 'unresolved' });
 
   // ── Global Map All state ────────────────────────────────────

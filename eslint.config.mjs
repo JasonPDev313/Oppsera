@@ -8,6 +8,34 @@ export default tseslint.config(
   {
     ignores: ['**/node_modules/**', '**/dist/**', '**/.next/**', '**/.turbo/**', '**/coverage/**'],
   },
+  // Type-checked rules for SERVER-SIDE TypeScript only.
+  // Catches unawaited async calls that cause DB pool exhaustion on Vercel.
+  // Scoped to: packages (backend modules/core), API routes, instrumentation.
+  // Excluded: React components (.tsx), hooks, client-side lib/components, tests.
+  // See: Production Outages 2026-02-27 and 2026-02-28 in MEMORY.md
+  {
+    files: [
+      'packages/*/src/**/*.ts',
+      'packages/modules/*/src/**/*.ts',
+      'apps/*/src/app/api/**/*.ts',
+      'apps/*/src/instrumentation.ts',
+    ],
+    ignores: [
+      '**/__tests__/**', '**/*.test.ts', '**/*.spec.ts', 'test/**',
+    ],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': ['error', {
+        checksVoidReturn: false,  // async setInterval/setTimeout callbacks are intentional
+      }],
+    },
+  },
   {
     plugins: {
       'jsx-a11y': jsxA11y,

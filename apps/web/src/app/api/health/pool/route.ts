@@ -49,9 +49,10 @@ export async function GET() {
 
     const connections = Array.from(conns as Iterable<Record<string, unknown>>);
 
-    // Summarize by state
+    // Summarize by state + lock waits
     const stateCounts: Record<string, number> = {};
     let stuckCount = 0;
+    let lockWaitCount = 0;
     for (const conn of connections) {
       const state = String(conn.state ?? 'unknown');
       stateCounts[state] = (stateCounts[state] ?? 0) + 1;
@@ -59,12 +60,16 @@ export async function GET() {
       if (dur > 60 && (state === 'idle in transaction' || state === 'idle')) {
         stuckCount++;
       }
+      if (String(conn.wait_event_type ?? '') === 'Lock') {
+        lockWaitCount++;
+      }
     }
 
     response.connections = {
       total: connections.length,
       byState: stateCounts,
       stuckOver60s: stuckCount,
+      lockWaiting: lockWaitCount,
       details: connections,
     };
     response.dbReachable = true;

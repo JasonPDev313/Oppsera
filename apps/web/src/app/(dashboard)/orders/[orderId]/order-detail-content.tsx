@@ -426,10 +426,9 @@ export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { locations, tenant } = useAuthContext();
+  const { locations } = useAuthContext();
   const locationId = locations[0]?.id ?? '';
   const locationName = locations[0]?.name ?? '';
-  const businessName = tenant?.name ?? '';
   const orderId = params.orderId as string;
 
   const { data: order, isLoading, mutate } = useOrder(orderId, locationId);

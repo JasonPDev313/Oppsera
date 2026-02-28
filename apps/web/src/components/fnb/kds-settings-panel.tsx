@@ -142,11 +142,90 @@ const SUB_TABS: { key: KdsSubTab; label: string; icon: typeof Monitor }[] = [
   { key: 'prep-times', label: 'Prep Times', icon: Clock },
 ];
 
+// ── KDS Routing Mode labels & descriptions ─────────────────────
+
+const KDS_ROUTING_MODE_OPTIONS: Array<{
+  value: 'fb_and_retail' | 'fb_only' | 'retail_only';
+  label: string;
+  description: string;
+}> = [
+  {
+    value: 'fb_and_retail',
+    label: 'F&B + Retail',
+    description: 'Send buttons appear on both F&B and Retail POS terminals.',
+  },
+  {
+    value: 'fb_only',
+    label: 'F&B Only',
+    description: 'Send buttons only appear on F&B POS terminals.',
+  },
+  {
+    value: 'retail_only',
+    label: 'Retail Only',
+    description: 'Send buttons only appear on Retail POS terminals.',
+  },
+];
+
 export function KdsSettingsPanel({ locationId }: KdsSettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<KdsSubTab>('stations');
+  const { settings: kitchenSettings, isActing: isSavingMode, updateSetting } = useFnbSettings({
+    moduleKey: 'fnb_kitchen',
+    locationId,
+  });
+
+  const kdsRoutingMode = (
+    typeof kitchenSettings.kds_routing_mode === 'string'
+      ? kitchenSettings.kds_routing_mode
+      : 'fb_and_retail'
+  ) as 'fb_and_retail' | 'fb_only' | 'retail_only';
+
+  const handleRoutingModeChange = useCallback(async (mode: 'fb_and_retail' | 'fb_only' | 'retail_only') => {
+    await updateSetting('kds_routing_mode', mode);
+  }, [updateSetting]);
 
   return (
     <div className="space-y-4">
+      {/* KDS Routing Mode — prominent top-level setting */}
+      <div className="rounded-lg border border-border bg-surface">
+        <div className="px-4 py-3 border-b border-border">
+          <h3 className="text-sm font-semibold">KDS Routing Mode</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Controls which POS solutions display Send and Fire buttons for kitchen routing.
+          </p>
+        </div>
+        <div className="p-4 flex flex-col gap-2">
+          {KDS_ROUTING_MODE_OPTIONS.map((opt) => {
+            const isSelected = kdsRoutingMode === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                disabled={isSavingMode}
+                onClick={() => handleRoutingModeChange(opt.value)}
+                className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
+                  isSelected
+                    ? 'border-indigo-500 bg-indigo-500/10'
+                    : 'border-border hover:border-muted-foreground/30 hover:bg-accent'
+                }`}
+              >
+                {/* Radio circle */}
+                <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                  isSelected ? 'border-indigo-500' : 'border-muted-foreground/40'
+                }`}>
+                  {isSelected && <span className="h-2 w-2 rounded-full bg-indigo-500" />}
+                </span>
+                <div>
+                  <span className={`text-sm font-semibold ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {opt.label}
+                  </span>
+                  <p className="text-xs text-muted-foreground mt-0.5">{opt.description}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Sub-tab navigation */}
       <div className="flex gap-1 border-b border-border overflow-x-auto">
         {SUB_TABS.map(({ key, label, icon: Icon }) => (

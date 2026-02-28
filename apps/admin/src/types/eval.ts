@@ -441,8 +441,32 @@ export interface ConversationSummary {
   endedAt: string | null;
 }
 
+/** A turn in conversation detail with the full payload (narrative, SQL, result, etc.) */
+export interface ConversationEvalTurn extends EvalTurnSummary {
+  contextSnapshot: Record<string, unknown>;
+  llmPlan: Record<string, unknown> | null;
+  llmRationale: Record<string, unknown> | null;
+  llmTokensInput: number;
+  llmTokensOutput: number;
+  compiledSql: string | null;
+  safetyFlags: string[] | null;
+  tablesAccessed: string[] | null;
+  resultSample: Record<string, unknown>[] | null;
+  resultFingerprint: Record<string, unknown> | null;
+  narrative: string | null;
+  responseSections: string[] | null;
+  clarificationMessage: string | null;
+  playbooksFired: string[] | null;
+  adminNotes: string | null;
+  adminAction: AdminAction | null;
+  userFeedbackText: string | null;
+  userFeedbackTags: string[] | null;
+  adminVerdict: AdminVerdict | null;
+  adminCorrectedNarrative: string | null;
+}
+
 export interface ConversationDetail extends ConversationSummary {
-  turns: EvalTurnSummary[];
+  turns: ConversationEvalTurn[];
   qualityTrend: { turnNumber: number; qualityScore: number | null }[];
 }
 

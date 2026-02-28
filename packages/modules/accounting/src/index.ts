@@ -3,6 +3,41 @@ export const MODULE_KEY = 'accounting' as const;
 export const MODULE_NAME = 'Accounting & GL';
 export const MODULE_VERSION = '0.0.0';
 
+/** SQL tables owned by this module — used by extraction tooling */
+export const MODULE_TABLES = [
+  'gl_accounts',
+  'gl_classifications',
+  'gl_journal_entries',
+  'gl_journal_lines',
+  'gl_journal_number_counters',
+  'gl_account_templates',
+  'gl_classification_templates',
+  'accounting_settings',
+  'gl_unmapped_events',
+  'accounting_close_periods',
+  'financial_statement_layouts',
+  'financial_statement_layout_templates',
+  'bank_reconciliations',
+  'bank_reconciliation_items',
+  'sub_department_gl_defaults',
+  'payment_type_gl_defaults',
+  'tax_group_gl_defaults',
+  'bank_accounts',
+  'recurring_journal_templates',
+  'recurring_journal_template_lines',
+  'gl_transaction_types',
+  'tenant_tender_types',
+  'discount_gl_mappings',
+  'rm_discount_analysis',
+  'breakage_income_settings',
+  'budgets',
+  'budget_lines',
+  'intercompany_accounts',
+  'project_cost_codes',
+  'project_cost_entries',
+  'project_budgets',
+] as const;
+
 // Commands
 export { postJournalEntry } from './commands/post-journal-entry';
 export { postDraftEntry } from './commands/post-draft-entry';

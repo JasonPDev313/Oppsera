@@ -3,6 +3,16 @@ export const MODULE_KEY = 'ap' as const;
 export const MODULE_NAME = 'Accounts Payable';
 export const MODULE_VERSION = '0.0.0';
 
+/** SQL tables owned by this module — used by extraction tooling */
+export const MODULE_TABLES = [
+  'payment_terms',
+  'ap_bills',
+  'ap_bill_lines',
+  'ap_payments',
+  'ap_payment_allocations',
+  'ap_bill_landed_cost_allocations',
+] as const;
+
 // Commands
 export { createBill } from './commands/create-bill';
 export { updateBill } from './commands/update-bill';
