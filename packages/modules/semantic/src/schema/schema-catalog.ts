@@ -133,7 +133,7 @@ const TABLE_DESCRIPTIONS: Record<string, string> = {
   // Reporting read models
   rm_daily_sales: 'Daily sales aggregates (CQRS read model, amounts in dollars)',
   rm_item_sales: 'Item sales aggregates (CQRS read model, amounts in dollars)',
-  rm_inventory_on_hand: 'Inventory on-hand snapshot (CQRS read model)',
+  rm_inventory_on_hand: 'DO NOT USE — may be empty. Use inventory_movements + inventory_items + catalog_items instead (SUM(quantity_delta) = on-hand)',
   rm_customer_activity: 'Customer activity aggregates (CQRS read model)',
 
   // Accounting
@@ -294,10 +294,10 @@ const COLUMN_DESCRIPTIONS: Record<string, Record<string, string>> = {
     business_date: 'aggregation date',
   },
   rm_inventory_on_hand: {
-    on_hand: 'current stock level (SNAPSHOT, not time-series)',
-    reorder_point: 'reorder threshold',
-    is_below_threshold: 'true if on_hand < reorder_point',
-    item_name: 'product name',
+    on_hand: 'DO NOT USE — may be empty. Use SUM(inventory_movements.quantity_delta) instead',
+    reorder_point: 'DO NOT USE — query inventory_items.reorder_point instead',
+    is_below_threshold: 'DO NOT USE — compare SUM(quantity_delta) to inventory_items.reorder_point instead',
+    item_name: 'DO NOT USE — query catalog_items.name instead',
   },
   rm_customer_activity: {
     total_visits: 'lifetime visit count (RUNNING TOTAL, not per-date)',

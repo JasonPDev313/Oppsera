@@ -44,7 +44,105 @@ import { AiAssistantStub } from '@/components/ai-assistant-stub';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
 
+/**
+ * Module-level color palette — every top-level nav module gets a distinctive
+ * color that works on both dark (#161b22) and light (#ffffff) backgrounds.
+ * Used for: parent icons (always colored), active states, group header dots.
+ *
+ * COLOR REUSE STRATEGY
+ * Colors are unique within each business vertical so that no two modules
+ * sharing a customer's sidebar ever collide.  Modules from *different*
+ * verticals (e.g., Golf vs Salon) may share a color since they'll never
+ * appear together.
+ *
+ * ┌─ Core (always on) ──────────────────────────────────────────────┐
+ * │  Dashboard · Customers · Reports · AI Insights · Payments       │
+ * │  Accounting · Settings                                          │
+ * ├─ Commerce ───────────────────────────────────────────────────────┤
+ * │  Retail POS · F&B POS · Inventory · Sales History               │
+ * │  Online Store · Procurement                                     │
+ * ├─ Hospitality ────────────────────────────────────────────────────┤
+ * │  Property Mgmt · Spa · Events · Reservations                    │
+ * ├─ Golf ───────────────────────────────────────────────────────────┤
+ * │  Golf                                                           │
+ * ├─ People ─────────────────────────────────────────────────────────┤
+ * │  Memberships · Marketing · HR · Scheduling                      │
+ * └──────────────────────────────────────────────────────────────────┘
+ *
+ * Worst-case overlap (luxury resort + golf + full enterprise) ≈ 23
+ * modules — the 24 colors below cover that with room to spare.
+ *
+ * If a future module isn't in this map, `getModuleColor()` picks one
+ * deterministically from MODULE_FALLBACK_PALETTE via a hash so it
+ * stays stable across renders / sessions.
+ */
+const MODULE_COLORS: Record<string, string> = {
+  // ── Core (universal, always active) ───────────────────────────
+  Dashboard:       '#3b82f6', // blue-500
+  Customers:       '#ec4899', // pink-500
+  Reports:         '#f59e0b', // amber-500
+  'AI Insights':   '#a855f7', // purple-500
+  Payments:        '#22c55e', // green-500
+  Accounting:      '#64748b', // slate-500
+  Settings:        '#94a3b8', // slate-400
 
+  // ── Commerce ──────────────────────────────────────────────────
+  'Retail POS':    '#10b981', // emerald-500
+  'F&B POS':       '#f97316', // orange-500
+  Inventory:       '#06b6d4', // cyan-500
+  'Sales History': '#8b5cf6', // violet-500
+  'Online Store':  '#6366f1', // indigo-500
+  Procurement:     '#ca8a04', // yellow-600
+
+  // ── Hospitality ───────────────────────────────────────────────
+  'Property Mgmt': '#14b8a6', // teal-500
+  Spa:             '#f43f5e', // rose-500
+  Events:          '#d946ef', // fuchsia-500
+  Reservations:    '#0ea5e9', // sky-500
+
+  // ── Golf (only active with golf vertical) ─────────────────────
+  Golf:            '#16a34a', // green-600
+
+  // ── People / CRM ──────────────────────────────────────────────
+  Memberships:     '#0891b2', // cyan-600
+  Marketing:       '#db2777', // pink-600
+  HR:              '#7c3aed', // violet-600
+  Scheduling:      '#0d9488', // teal-600
+
+  // ── Finance sub-modules (if promoted to top-level) ────────────
+  Expenses:        '#b45309', // amber-700
+  Projects:        '#4f46e5', // indigo-600
+};
+
+/** Fallback palette for modules not yet in MODULE_COLORS — provides
+ *  deterministic (hash-based) color assignment so it's stable across
+ *  renders and sessions. Every color here is distinct from the 24 above. */
+const MODULE_FALLBACK_PALETTE = [
+  '#e11d48', // rose-600
+  '#9333ea', // purple-600
+  '#2563eb', // blue-600
+  '#059669', // emerald-600
+  '#ea580c', // orange-600
+  '#4338ca', // indigo-700
+  '#be185d', // pink-700
+  '#0e7490', // cyan-700
+  '#15803d', // green-700
+  '#b91c1c', // red-700
+] as const;
+
+/** Deterministic module color — looks up the hand-picked color first,
+ *  falls back to a stable hash-based pick from the fallback palette. */
+function getModuleColor(name: string): string {
+  if (MODULE_COLORS[name]) return MODULE_COLORS[name];
+  // djb2 hash → palette index (deterministic, no randomness)
+  let hash = 5381;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) + hash + name.charCodeAt(i)) | 0;
+  }
+  return MODULE_FALLBACK_PALETTE[
+    Math.abs(hash) % MODULE_FALLBACK_PALETTE.length
+  ];
+}
 
 function useLiveClock(): { time: string; date: string } {
   const [now, setNow] = useState<Date | null>(null);
@@ -215,13 +313,10 @@ function SidebarContent({
 
   const toggleSection = useCallback((name: string) => {
     setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) {
-        next.delete(name);
-      } else {
-        next.add(name);
+      if (prev.has(name)) {
+        return new Set<string>();
       }
-      return next;
+      return new Set([name]);
     });
   }, []);
 
@@ -296,6 +391,8 @@ function SidebarContent({
                 (item.children?.some((child) => pathname.startsWith(child.href)) ?? false);
           const isExpanded = expandedSections.has(item.name);
 
+          const moduleColor = getModuleColor(item.name);
+
           if (!entitlementEnabled || !permissionGranted) {
             return null;
           }
@@ -313,14 +410,14 @@ function SidebarContent({
                     collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
                   } ${
                     isParentActive
-                      ? 'bg-indigo-600/10 text-indigo-600'
+                      ? ''
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
+                  style={isParentActive ? { backgroundColor: `${moduleColor}15`, color: moduleColor } : undefined}
                 >
                   <item.icon
-                    className={`h-5 w-5 shrink-0 ${
-                      isParentActive ? 'text-indigo-600' : 'text-muted-foreground group-hover:text-foreground'
-                    }`}
+                    className="h-5 w-5 shrink-0"
+                    style={{ color: moduleColor }}
                     aria-hidden="true"
                   />
                   {!collapsed && (
@@ -329,7 +426,8 @@ function SidebarContent({
                       <ChevronDown
                         className={`ml-auto h-4 w-4 shrink-0 transition-transform ${
                           isExpanded ? 'rotate-180' : ''
-                        } ${isParentActive ? 'text-indigo-600' : 'text-muted-foreground'}`}
+                        } ${isParentActive ? '' : 'text-muted-foreground'}`}
+                        style={isParentActive ? { color: moduleColor } : undefined}
                         aria-hidden="true"
                       />
                     </>
@@ -359,20 +457,25 @@ function SidebarContent({
                         }
                         return groups
                           .filter((g) => g.items.length > 0)
-                          .map((group) => {
+                          .map((group, groupIdx) => {
                             const isGrpExpanded = expandedGroup[item.name] === group.name;
                             return (
-                              <div key={group.name}>
+                              <div key={group.name} className={groupIdx > 0 ? 'mt-3' : ''}>
                                 <button
                                   type="button"
                                   onClick={() => toggleGroup(item.name, group.name)}
-                                  className="mt-1 flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                                  className="mt-1 flex w-full items-center justify-between rounded-md px-3 py-1.5 text-[10px] font-medium tracking-widest text-muted-foreground transition-colors hover:text-foreground"
                                 >
-                                  <span>{group.name}</span>
+                                  <span className="flex items-center gap-2">
+                                    <span className="inline-block h-1 w-1 rounded-full" style={{ backgroundColor: moduleColor }} />
+                                    {group.name}
+                                  </span>
                                   <ChevronDown
                                     className={`h-3 w-3 shrink-0 transition-transform ${isGrpExpanded ? '' : '-rotate-90'}`}
                                   />
                                 </button>
+                                {/* Gradient accent line */}
+                                <div className="mx-3 h-px" style={{ background: `linear-gradient(to right, ${moduleColor}40, transparent)` }} />
                                 {isGrpExpanded && (
                                   <div className="mt-0.5 space-y-0.5">
                                     {group.items.map((child) => {
@@ -385,9 +488,10 @@ function SidebarContent({
                                           aria-current={isChildActive ? 'page' : undefined}
                                           className={`block rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                                             isChildActive
-                                              ? 'text-indigo-600'
+                                              ? ''
                                               : 'text-muted-foreground hover:text-foreground'
                                           }`}
+                                          style={isChildActive ? { color: moduleColor } : undefined}
                                         >
                                           {child.name}
                                         </Link>
@@ -408,14 +512,22 @@ function SidebarContent({
                         );
                         const bestMatch = getBestMatchHref(filtered, pathname);
                         let lastGroup: string | undefined;
+                        let groupIdx = 0;
                         return filtered.map((child) => {
                           const isChildActive = child.href === bestMatch;
                           const showGroupHeader = child.group && child.group !== lastGroup;
+                          if (showGroupHeader) groupIdx++;
                           lastGroup = child.group;
                           return (
                             <div key={child.href}>
                               {showGroupHeader && (
-                                <p className="mt-2 mb-1 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{child.group}</p>
+                                <div className={groupIdx > 1 ? 'mt-3' : ''}>
+                                  <p className="mt-2 mb-0.5 flex items-center gap-2 px-3 text-[10px] font-medium text-muted-foreground tracking-widest">
+                                    <span className="inline-block h-1 w-1 rounded-full" style={{ backgroundColor: moduleColor }} />
+                                    {child.group}
+                                  </p>
+                                  <div className="mx-3 h-px" style={{ background: `linear-gradient(to right, ${moduleColor}40, transparent)` }} />
+                                </div>
                               )}
                               <Link
                                 href={child.href}
@@ -423,11 +535,12 @@ function SidebarContent({
                                 aria-current={isChildActive ? 'page' : undefined}
                                 className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                                   isChildActive
-                                    ? 'text-indigo-600'
+                                    ? ''
                                     : 'text-muted-foreground hover:text-foreground'
                                 }`}
+                                style={isChildActive ? { color: moduleColor } : undefined}
                               >
-                                <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-muted-foreground'}`} aria-hidden="true" />
+                                <child.icon className="h-4 w-4 shrink-0" style={{ color: isChildActive ? moduleColor : undefined }} aria-hidden="true" />
                                 {child.name}
                               </Link>
                             </div>
@@ -441,7 +554,10 @@ function SidebarContent({
                 {collapsed && (
                   <div className="absolute left-full top-0 z-50 hidden pl-3 group-hover/nav:block">
                     <div className="min-w-44 rounded-lg border border-border bg-surface py-1.5 shadow-lg">
-                      <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase">{item.name}</p>
+                      <p className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: moduleColor }} />
+                        {item.name}
+                      </p>
                       {(() => {
                         const filtered = item.children!.filter((child) =>
                           (!child.moduleKey || isModuleEnabled(child.moduleKey)) &&
@@ -456,7 +572,12 @@ function SidebarContent({
                           return (
                             <div key={child.href}>
                               {showGroupHeader && (
-                                <p className="mt-1 px-3 py-1 text-xs font-semibold text-muted-foreground uppercase border-t border-border">{child.group}</p>
+                                <div className="border-t border-border">
+                                  <p className="mt-1 flex items-center gap-2 px-3 py-1 text-[10px] font-medium tracking-widest text-muted-foreground">
+                                    <span className="inline-block h-1 w-1 rounded-full" style={{ backgroundColor: moduleColor }} />
+                                    {child.group}
+                                  </p>
+                                </div>
                               )}
                               <Link
                                 href={child.href}
@@ -464,11 +585,12 @@ function SidebarContent({
                                 aria-current={isChildActive ? 'page' : undefined}
                                 className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${
                                   isChildActive
-                                    ? 'bg-indigo-600/10 text-indigo-600'
+                                    ? ''
                                     : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                                 }`}
+                                style={isChildActive ? { backgroundColor: `${moduleColor}15`, color: moduleColor } : undefined}
                               >
-                                <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-muted-foreground'}`} aria-hidden="true" />
+                                <child.icon className="h-4 w-4 shrink-0" style={{ color: isChildActive ? moduleColor : undefined }} aria-hidden="true" />
                                 {child.name}
                               </Link>
                             </div>
@@ -493,14 +615,14 @@ function SidebarContent({
                 collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
               } ${
                 isParentActive
-                  ? 'bg-indigo-600/10 text-indigo-600'
+                  ? ''
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               }`}
+              style={isParentActive ? { backgroundColor: `${moduleColor}15`, color: moduleColor } : undefined}
             >
               <item.icon
-                className={`h-5 w-5 shrink-0 ${
-                  isParentActive ? 'text-indigo-600' : 'text-muted-foreground group-hover:text-foreground'
-                }`}
+                className="h-5 w-5 shrink-0"
+                style={{ color: moduleColor }}
                 aria-hidden="true"
               />
               {!collapsed && item.name}

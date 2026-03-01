@@ -93,14 +93,6 @@ export async function listProviders(input: ListProvidersInput): Promise<ListProv
       // This keeps the list query simple and performant.
     }
 
-    // Subquery for service count
-    const serviceCountSq = sql<number>`(
-      SELECT COUNT(*)::int
-      FROM spa_provider_service_eligibility pse
-      WHERE pse.tenant_id = ${input.tenantId}
-        AND pse.provider_id = ${spaProviders.id}
-    )`.as('service_count');
-
     const rows = await tx
       .select({
         id: spaProviders.id,
@@ -122,10 +114,18 @@ export async function listProviders(input: ListProvidersInput): Promise<ListProv
         isActive: spaProviders.isActive,
         createdAt: spaProviders.createdAt,
         updatedAt: spaProviders.updatedAt,
-        serviceCount: serviceCountSq,
+        serviceCount: sql<number>`count(${spaProviderServiceEligibility.id})::int`,
       })
       .from(spaProviders)
+      .leftJoin(
+        spaProviderServiceEligibility,
+        and(
+          eq(spaProviderServiceEligibility.providerId, spaProviders.id),
+          eq(spaProviderServiceEligibility.tenantId, input.tenantId),
+        ),
+      )
       .where(and(...conditions))
+      .groupBy(spaProviders.id)
       .orderBy(desc(spaProviders.id))
       .limit(limit + 1);
 

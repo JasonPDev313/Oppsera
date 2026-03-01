@@ -189,12 +189,9 @@ export default function SpaCalendarContent() {
     return { startDate: formatISODate(monday), endDate: formatISODate(sunday) };
   }, [viewMode, currentDate]);
 
-  const { data: calendarData, isLoading, error } = useSpaCalendar({
-    locationId,
-    startDate,
-    endDate,
-    providerIds: selectedProviderIds.length > 0 ? selectedProviderIds : undefined,
-  });
+  const { data: calendarData, isLoading, error } = useSpaCalendar(
+    locationId ? { locationId, startDate, endDate } : null,
+  );
 
   const PROVIDER_COLORS = [
     '#818cf8', '#f472b6', '#34d399', '#fbbf24', '#60a5fa',

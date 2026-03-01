@@ -1,8 +1,9 @@
 // Events
 export * from './events';
 
-// Consumers
-export * from './consumers';
+// Consumers — NOT re-exported from barrel to avoid pulling heavy deps (Drizzle, postgres.js)
+// into every API route that imports from this package. Import directly via
+// '@oppsera/module-spa/consumers' in instrumentation.ts only.
 
 // Validation schemas
 export * from './validation';

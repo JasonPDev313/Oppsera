@@ -11,14 +11,14 @@ import {
   Plus,
   ArrowRight,
 } from 'lucide-react';
-import { useSpaAppointments } from '@/hooks/use-spa';
+import { useSpaDashboard, useSpaAppointments } from '@/hooks/use-spa';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatMoney(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', {
+function formatDollars(dollars: number): string {
+  return dollars.toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD',
   });
@@ -46,6 +46,11 @@ function statusLabel(status: string): string {
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+const FALLBACK_COLORS = [
+  '#818cf8', '#f472b6', '#34d399', '#fbbf24', '#60a5fa',
+  '#a78bfa', '#fb923c', '#2dd4bf',
+];
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -117,90 +122,22 @@ export default function SpaContent() {
     return d.toISOString().slice(0, 10);
   }, []);
 
-  const { items: appointments = [], isLoading } = useSpaAppointments({
-    status: 'confirmed,checked_in,in_service',
-    startDate: todayISO,
-    endDate: todayISO,
-    limit: 10,
-  });
+  // Pre-aggregated CQRS dashboard metrics (rm_spa_* read models)
+  const { data: dashboard, isLoading: dashboardLoading } = useSpaDashboard(
+    undefined,
+    todayISO,
+  );
 
-  // Derive dashboard metrics client-side
-  const metrics = useMemo(() => {
-    const totalCount = appointments.length;
-    const checkedIn = appointments.filter(
-      (a) => a.status === 'checked_in',
-    ).length;
-    const inService = appointments.filter(
-      (a) => a.status === 'in_service',
-    ).length;
-    const revenueCents = appointments.reduce(
-      (sum, a) => sum + (a.priceCents ?? 0),
-      0,
-    );
+  // Only fetch 5 appointments for the upcoming list
+  const { items: appointments = [], isLoading: appointmentsLoading } =
+    useSpaAppointments({
+      status: 'confirmed,checked_in,in_service',
+      startDate: todayISO,
+      endDate: todayISO,
+      limit: 5,
+    });
 
-    // Provider utilization (simplified: proportion of 8-hour day)
-    const providerMap = new Map<
-      string,
-      { name: string; count: number; totalMins: number }
-    >();
-    for (const a of appointments) {
-      const pid = a.providerId ?? 'unknown';
-      const pname = a.providerName ?? 'Unassigned';
-      const dur = a.durationMinutes ?? 60;
-      const prev = providerMap.get(pid) ?? { name: pname, count: 0, totalMins: 0 };
-      prev.count += 1;
-      prev.totalMins += dur;
-      providerMap.set(pid, prev);
-    }
-    const providers = Array.from(providerMap.entries()).map(([id, p]) => ({
-      id,
-      name: p.name,
-      appointments: p.count,
-      utilization: Math.round((p.totalMins / 480) * 100),
-    }));
-
-    // Top services
-    const serviceMap = new Map<
-      string,
-      { name: string; bookings: number; revenueCents: number }
-    >();
-    for (const a of appointments) {
-      const sid = a.serviceId ?? 'unknown';
-      const sname = a.serviceName ?? 'Unknown Service';
-      const price = a.priceCents ?? 0;
-      const prev = serviceMap.get(sid) ?? { name: sname, bookings: 0, revenueCents: 0 };
-      prev.bookings += 1;
-      prev.revenueCents += price;
-      serviceMap.set(sid, prev);
-    }
-    const topServices = Array.from(serviceMap.values())
-      .sort((a, b) => b.bookings - a.bookings)
-      .slice(0, 5);
-
-    // Quick KPIs
-    const totalDuration = appointments.reduce(
-      (sum, a) => sum + (a.durationMinutes ?? 0),
-      0,
-    );
-    const avgDuration = totalCount > 0 ? Math.round(totalDuration / totalCount) : 0;
-    const overallUtilization =
-      providers.length > 0
-        ? Math.round(
-            providers.reduce((s, p) => s + p.utilization, 0) / providers.length,
-          )
-        : 0;
-
-    return {
-      totalCount,
-      checkedIn,
-      inService,
-      revenueCents,
-      providers,
-      topServices,
-      avgDuration,
-      overallUtilization,
-    };
-  }, [appointments]);
+  const isLoading = dashboardLoading || appointmentsLoading;
 
   // --- Loading skeleton ---
   if (isLoading) {
@@ -235,10 +172,11 @@ export default function SpaContent() {
     );
   }
 
-  const PROVIDER_COLORS = [
-    '#818cf8', '#f472b6', '#34d399', '#fbbf24', '#60a5fa',
-    '#a78bfa', '#fb923c', '#2dd4bf',
-  ];
+  const today = dashboard?.today;
+  const revenue = dashboard?.revenue;
+  const providers = dashboard?.providerUtilization ?? [];
+  const topServices = dashboard?.topServices ?? [];
+  const kpis = dashboard?.kpis;
 
   return (
     <div className="space-y-6">
@@ -256,25 +194,25 @@ export default function SpaContent() {
         <KpiCard
           icon={<CalendarDays className="h-5 w-5 text-blue-500" />}
           label="Today's Appointments"
-          value={String(metrics.totalCount)}
+          value={String(today?.totalAppointments ?? 0)}
           accent="bg-blue-500/10"
         />
         <KpiCard
           icon={<Users className="h-5 w-5 text-amber-500" />}
           label="Checked In"
-          value={String(metrics.checkedIn)}
+          value={String(today?.checkedIn ?? 0)}
           accent="bg-amber-500/10"
         />
         <KpiCard
           icon={<Activity className="h-5 w-5 text-purple-500" />}
           label="In Service"
-          value={String(metrics.inService)}
+          value={String(today?.inService ?? 0)}
           accent="bg-purple-500/10"
         />
         <KpiCard
           icon={<DollarSign className="h-5 w-5 text-green-500" />}
           label="Revenue Today"
-          value={formatMoney(metrics.revenueCents)}
+          value={formatDollars(revenue?.totalRevenue ?? 0)}
           accent="bg-green-500/10"
         />
       </div>
@@ -286,19 +224,19 @@ export default function SpaContent() {
           <h2 className="text-sm font-medium text-foreground mb-4">
             Provider Utilization
           </h2>
-          {metrics.providers.length === 0 ? (
+          {providers.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No provider data for today.
             </p>
           ) : (
             <div className="space-y-3">
-              {metrics.providers.map((p, idx) => (
+              {providers.map((p, idx) => (
                 <ProviderBar
-                  key={p.id}
-                  name={p.name}
-                  color={PROVIDER_COLORS[idx % PROVIDER_COLORS.length]!}
-                  utilization={p.utilization}
-                  appointments={p.appointments}
+                  key={p.providerId}
+                  name={p.providerName}
+                  color={p.providerColor ?? FALLBACK_COLORS[idx % FALLBACK_COLORS.length]!}
+                  utilization={p.utilizationPct}
+                  appointments={p.appointmentCount}
                 />
               ))}
             </div>
@@ -310,9 +248,9 @@ export default function SpaContent() {
           <h2 className="text-sm font-medium text-foreground mb-4">
             Top Services
           </h2>
-          {metrics.topServices.length === 0 ? (
+          {topServices.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No services booked today.
+              No services booked recently.
             </p>
           ) : (
             <table className="w-full text-sm">
@@ -324,14 +262,14 @@ export default function SpaContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {metrics.topServices.map((s) => (
-                  <tr key={s.name}>
-                    <td className="py-2 text-foreground">{s.name}</td>
+                {topServices.map((s) => (
+                  <tr key={s.serviceId}>
+                    <td className="py-2 text-foreground">{s.serviceName}</td>
                     <td className="py-2 text-right tabular-nums text-muted-foreground">
-                      {s.bookings}
+                      {s.bookingCount}
                     </td>
                     <td className="py-2 text-right tabular-nums text-foreground">
-                      {formatMoney(s.revenueCents)}
+                      {formatDollars(s.totalRevenue)}
                     </td>
                   </tr>
                 ))}
@@ -348,7 +286,7 @@ export default function SpaContent() {
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">Avg Duration</p>
             <p className="text-sm font-medium text-foreground tabular-nums">
-              {metrics.avgDuration} min
+              {kpis?.avgAppointmentDuration ?? 0} min
             </p>
           </div>
         </div>
@@ -357,7 +295,7 @@ export default function SpaContent() {
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">Utilization</p>
             <p className="text-sm font-medium text-foreground tabular-nums">
-              {metrics.overallUtilization}%
+              {kpis?.utilizationPct ?? 0}%
             </p>
           </div>
         </div>
@@ -365,14 +303,18 @@ export default function SpaContent() {
           <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">No-Show Rate</p>
-            <p className="text-sm font-medium text-foreground tabular-nums">0%</p>
+            <p className="text-sm font-medium text-foreground tabular-nums">
+              {kpis?.noShowRate ?? 0}%
+            </p>
           </div>
         </div>
         <div className="bg-surface border border-border rounded-lg px-4 py-3 flex items-center gap-3">
           <Activity className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">Online Bookings</p>
-            <p className="text-sm font-medium text-foreground tabular-nums">0</p>
+            <p className="text-sm font-medium text-foreground tabular-nums">
+              {kpis?.onlineBookingCount ?? 0}
+            </p>
           </div>
         </div>
       </div>
@@ -398,7 +340,7 @@ export default function SpaContent() {
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {appointments.slice(0, 5).map((appt) => {
+            {appointments.map((appt) => {
               const status = appt.status ?? 'draft';
               return (
                 <div

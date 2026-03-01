@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Plus, UserCheck, MoreVertical } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { Badge } from '@/components/ui/badge';
@@ -190,20 +190,6 @@ export default function ProvidersContent() {
     search: search || undefined,
   });
 
-  // Client-side search fallback
-  const filteredProviders = useMemo(() => {
-    if (!search) return providers;
-    const q = search.toLowerCase();
-    return providers.filter(
-      (p) =>
-        p.displayName.toLowerCase().includes(q) ||
-        p.firstName.toLowerCase().includes(q) ||
-        p.lastName.toLowerCase().includes(q) ||
-        (p.email ?? '').toLowerCase().includes(q) ||
-        p.specialties?.some((s) => s.toLowerCase().includes(q)),
-    );
-  }, [providers, search]);
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -253,7 +239,7 @@ export default function ProvidersContent() {
       {/* Content */}
       {isLoading ? (
         <ProvidersSkeleton />
-      ) : filteredProviders.length === 0 ? (
+      ) : providers.length === 0 ? (
         <EmptyState
           icon={UserCheck}
           title={search ? 'No providers found' : 'No providers yet'}
@@ -273,7 +259,7 @@ export default function ProvidersContent() {
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredProviders.map((provider, index) => (
+          {providers.map((provider, index) => (
             <ProviderCard
               key={provider.id}
               provider={provider}

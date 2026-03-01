@@ -205,18 +205,6 @@ export default function ServicesContent() {
   const totalCount = services.length;
   const isLoading = servicesLoading || categoriesLoading;
 
-  // Filter for display (search is already server-side, but do client-side fallback)
-  const filteredServices = useMemo(() => {
-    if (!search) return services;
-    const q = search.toLowerCase();
-    return services.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        (s.categoryName ?? '').toLowerCase().includes(q) ||
-        (s.description ?? '').toLowerCase().includes(q),
-    );
-  }, [services, search]);
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -287,7 +275,7 @@ export default function ServicesContent() {
       {/* Content */}
       {isLoading ? (
         <ServicesSkeleton />
-      ) : filteredServices.length === 0 ? (
+      ) : services.length === 0 ? (
         <EmptyState
           icon={Gem}
           title={search ? 'No services found' : 'No services yet'}
@@ -307,7 +295,7 @@ export default function ServicesContent() {
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredServices.map((service) => (
+          {services.map((service) => (
             <ServiceCard key={service.id} service={service} />
           ))}
         </div>

@@ -7,7 +7,7 @@ import { z } from 'zod';
 const inventoryMovementSchema = z.object({
   inventoryItemId: z.string(),
   locationId: z.string(),
-  itemName: z.string(),
+  itemName: z.string().optional(),
   delta: z.number(),
   newOnHand: z.number().optional(),
   reorderPoint: z.number().optional(),
@@ -49,22 +49,23 @@ export async function handleInventoryMovement(event: EventEnvelope): Promise<voi
     const rows = Array.from(inserted as Iterable<{ id: string }>);
     if (rows.length === 0) return;
 
-    // Step 2: Resolve reorder point — prefer event payload, fall back to inventory_items
+    // Step 2: Resolve reorder point + item name — prefer event payload, fall back to inventory_items
     let threshold = data.reorderPoint ?? null;
-    if (threshold === null) {
-      const rpResult = await (tx as any).execute(sql`
-        SELECT COALESCE(reorder_point, '0')::int AS rp
-        FROM inventory_items
-        WHERE id = ${data.inventoryItemId}
+    let itemName = data.itemName ?? null;
+    if (threshold === null || itemName === null) {
+      const fallbackResult = await (tx as any).execute(sql`
+        SELECT COALESCE(ii.reorder_point, '0')::int AS rp, ii.name AS item_name
+        FROM inventory_items ii
+        WHERE ii.id = ${data.inventoryItemId}
         LIMIT 1
       `);
-      const rpRows = Array.from(rpResult as Iterable<{ rp: number }>);
-      threshold = rpRows[0]?.rp ?? 0;
+      const fallbackRows = Array.from(fallbackResult as Iterable<{ rp: number; item_name: string | null }>);
+      if (threshold === null) threshold = fallbackRows[0]?.rp ?? 0;
+      if (itemName === null) itemName = fallbackRows[0]?.item_name ?? 'Unknown Item';
     }
 
     // Step 3: Upsert rm_inventory_on_hand
     const locationId = data.locationId || event.locationId || '';
-    const itemName = data.itemName;
 
     if (data.newOnHand !== undefined && data.newOnHand !== null) {
       // Absolute value provided — set directly

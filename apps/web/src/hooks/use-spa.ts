@@ -155,14 +155,46 @@ export interface AvailableSlot {
 }
 
 export interface SpaDashboardMetrics {
-  todayAppointments: number;
-  completedToday: number;
-  cancelledToday: number;
-  noShowToday: number;
-  revenueTodayCents: number;
-  upcomingCount: number;
-  utilizationPct: number;
-  avgServiceDurationMinutes: number;
+  today: {
+    totalAppointments: number;
+    confirmed: number;
+    checkedIn: number;
+    inService: number;
+    completed: number;
+    canceled: number;
+    noShow: number;
+  };
+  revenue: {
+    totalRevenue: number;
+    serviceRevenue: number;
+    addonRevenue: number;
+    retailRevenue: number;
+    tipTotal: number;
+  };
+  providerUtilization: Array<{
+    providerId: string;
+    providerName: string;
+    providerColor: string | null;
+    appointmentCount: number;
+    completedCount: number;
+    utilizationPct: number;
+    totalRevenue: number;
+  }>;
+  topServices: Array<{
+    serviceId: string;
+    serviceName: string;
+    bookingCount: number;
+    totalRevenue: number;
+    completedCount: number;
+  }>;
+  kpis: {
+    avgAppointmentDuration: number;
+    utilizationPct: number;
+    rebookingRate: number;
+    noShowRate: number;
+    walkInCount: number;
+    onlineBookingCount: number;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -241,7 +273,8 @@ export function useSpaSettings() {
       apiFetch<{ data: SpaSettings }>('/api/v1/spa/settings').then(
         (r) => r.data,
       ),
-    staleTime: 60_000,
+    staleTime: 120_000,
+    refetchOnWindowFocus: false,
   });
 
   return {
@@ -263,7 +296,7 @@ export function useSpaServices(filters: SpaServiceFilters = {}) {
         `/api/v1/spa/services${qs}`,
       ).then((r) => ({ items: r.data, meta: r.meta }));
     },
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 
   return {
@@ -285,7 +318,7 @@ export function useSpaService(id: string | null) {
         (r) => r.data,
       ),
     enabled: !!id,
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 
   return {
@@ -305,7 +338,8 @@ export function useSpaServiceCategories() {
       apiFetch<{ data: SpaServiceCategory[] }>(
         '/api/v1/spa/services/categories',
       ).then((r) => r.data),
-    staleTime: 60_000,
+    staleTime: 120_000,
+    refetchOnWindowFocus: false,
   });
 
   return {
@@ -327,7 +361,7 @@ export function useSpaProviders(filters: SpaProviderFilters = {}) {
         `/api/v1/spa/providers${qs}`,
       ).then((r) => ({ items: r.data, meta: r.meta }));
     },
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 
   return {
@@ -349,7 +383,7 @@ export function useSpaProvider(id: string | null) {
         (r) => r.data,
       ),
     enabled: !!id,
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 
   return {
@@ -371,7 +405,7 @@ export function useSpaResources(filters: SpaResourceFilters = {}) {
         `/api/v1/spa/resources${qs}`,
       ).then((r) => ({ items: r.data, meta: r.meta }));
     },
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 
   return {
@@ -430,21 +464,25 @@ export function useSpaAppointment(id: string | null) {
 // ── useSpaCalendar ──────────────────────────────────────────────
 
 export function useSpaCalendar(params: SpaCalendarParams | null) {
+  // Exclude providerIds from query key — provider filtering is done client-side
+  const queryParams = params
+    ? { locationId: params.locationId, startDate: params.startDate, endDate: params.endDate }
+    : null;
+
   const result = useQuery({
-    queryKey: ['spa-calendar', params],
+    queryKey: ['spa-calendar', queryParams],
     queryFn: () => {
       const qs = buildQueryString({
         locationId: params!.locationId,
         startDate: params!.startDate,
         endDate: params!.endDate,
-        providerIds: params!.providerIds?.join(','),
       });
       return apiFetch<{ data: SpaCalendarResult }>(
         `/api/v1/spa/appointments/calendar${qs}`,
       ).then((r) => r.data);
     },
-    enabled: !!params?.startDate && !!params?.endDate,
-    staleTime: 15_000,
+    enabled: !!params?.startDate && !!params?.endDate && !!params?.locationId,
+    staleTime: 60_000,
   });
 
   return {
@@ -495,7 +533,7 @@ export function useSpaDashboard(locationId?: string, date?: string) {
         `/api/v1/spa/dashboard${qs}`,
       ).then((r) => r.data);
     },
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 
   return {

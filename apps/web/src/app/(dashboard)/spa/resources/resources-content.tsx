@@ -64,14 +64,6 @@ export default function ResourcesContent() {
     search: search || undefined,
   });
 
-  // Client-side status filter (hook sends it to API, but if API doesn't support
-  // it we filter here as well)
-  const filtered = statusFilter
-    ? resources.filter((r) =>
-        statusFilter === 'active' ? r.isActive : !r.isActive,
-      )
-    : resources;
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -134,7 +126,7 @@ export default function ResourcesContent() {
             </div>
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : resources.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-16">
           <Package className="h-12 w-12 text-muted-foreground mb-4" aria-hidden="true" />
           <h3 className="text-lg font-semibold text-foreground mb-1">No resources found</h3>
@@ -173,7 +165,7 @@ export default function ResourcesContent() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((resource) => (
+              {resources.map((resource) => (
                 <tr key={resource.id} className="hover:bg-accent transition-colors">
                   <td className="px-4 py-3">
                     <div>

@@ -129,7 +129,7 @@ SELECT 'Previous Week' as period, order_count, revenue FROM prev_week
 - Always alias computed columns: \`count(*) as total\`, \`SUM(amount) / 100.0 as total_dollars\`.
 - For orders/tenders monetary values, always convert cents to dollars: \`subtotal_cents / 100.0 as subtotal\`.
 - Prefer human-readable output: include names, not just IDs. Join to get display names when possible.
-- **Inventory queries**: Always JOIN inventory_items with catalog_items to get human-readable names. On-hand quantity = \`SUM(quantity_delta)\` from \`inventory_movements\` (never a stored column). For "low stock" or "need to reorder", compare on-hand to \`reorder_point\`. If the user asks about inventory and there might be no inventory_movements data yet, fall back to querying \`catalog_items\` directly to show what items exist in the catalog.
+- **Inventory queries**: CRITICAL — NEVER query \`rm_inventory_on_hand\`. This CQRS read model may be empty or stale. Always use the operational tables: \`inventory_movements\` JOIN \`inventory_items\` JOIN \`catalog_items\`. On-hand quantity = \`SUM(quantity_delta)\` from \`inventory_movements\` grouped by \`inventory_item_id\` (never a stored column). For "low stock" or "need to reorder", compare on-hand to \`reorder_point\` on \`inventory_items\`. If the user asks about inventory and there might be no inventory_movements data yet, fall back to querying \`catalog_items\` directly to show what items exist in the catalog.
 
 ## Context
 - Current date: ${context.currentDate}

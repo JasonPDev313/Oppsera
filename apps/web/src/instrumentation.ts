@@ -76,6 +76,31 @@ export async function register() {
         bus.subscribe('order.returned.v1', reporting.handleOrderReturned);
         bus.subscribe('tender.recorded.v1', reporting.handleTenderRecorded);
         bus.subscribe('inventory.movement.created.v1', reporting.handleInventoryMovement);
+        // Wire actual inventory events to populate rm_inventory_on_hand read model.
+        // The commands emit inventory.received.v1 and inventory.adjusted.v1 — adapt their payloads
+        // to the shape handleInventoryMovement expects.
+        bus.subscribe('inventory.received.v1', (event) => {
+          const d = event.data as { inventoryItemId: string; locationId: string; quantity: number };
+          return reporting.handleInventoryMovement({
+            ...event,
+            data: {
+              inventoryItemId: d.inventoryItemId,
+              locationId: d.locationId,
+              delta: d.quantity,
+            },
+          });
+        });
+        bus.subscribe('inventory.adjusted.v1', (event) => {
+          const d = event.data as { inventoryItemId: string; locationId: string; quantityDelta: number };
+          return reporting.handleInventoryMovement({
+            ...event,
+            data: {
+              inventoryItemId: d.inventoryItemId,
+              locationId: d.locationId,
+              delta: d.quantityDelta,
+            },
+          });
+        });
         // Modifier analytics read models (rm_modifier_item_sales, rm_modifier_daypart, rm_modifier_group_attach)
         bus.subscribe('order.placed.v1', (event) =>
           reporting.handleOrderPlacedModifiers({
@@ -285,16 +310,16 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('tender.recorded.v1', pms.handleFolioSettlementTender);
     }),
 
-    // Spa CQRS reporting consumers
+    // Spa CQRS reporting consumers (imported via subpath to avoid barrel pulling heavy deps)
     importSafe('Spa reporting consumers', async () => {
-      const spa = await import('@oppsera/module-spa');
-      bus.subscribe('spa.appointment.created.v1', spa.handleSpaAppointmentCreated);
-      bus.subscribe('spa.appointment.completed.v1', spa.handleSpaAppointmentCompleted);
-      bus.subscribe('spa.appointment.canceled.v1', spa.handleSpaAppointmentCanceled);
-      bus.subscribe('spa.appointment.no_show.v1', spa.handleSpaAppointmentNoShow);
-      bus.subscribe('spa.appointment.checked_out.v1', spa.handleSpaAppointmentCheckedOut);
-      bus.subscribe('spa.package.sold.v1', spa.handleSpaPackageSold);
-      bus.subscribe('spa.package.redeemed.v1', spa.handleSpaPackageRedeemed);
+      const spaConsumers = await import('@oppsera/module-spa/consumers');
+      bus.subscribe('spa.appointment.created.v1', spaConsumers.handleSpaAppointmentCreated);
+      bus.subscribe('spa.appointment.completed.v1', spaConsumers.handleSpaAppointmentCompleted);
+      bus.subscribe('spa.appointment.canceled.v1', spaConsumers.handleSpaAppointmentCanceled);
+      bus.subscribe('spa.appointment.no_show.v1', spaConsumers.handleSpaAppointmentNoShow);
+      bus.subscribe('spa.appointment.checked_out.v1', spaConsumers.handleSpaAppointmentCheckedOut);
+      bus.subscribe('spa.package.sold.v1', spaConsumers.handleSpaPackageSold);
+      bus.subscribe('spa.package.redeemed.v1', spaConsumers.handleSpaPackageRedeemed);
     }),
 
     // PMS → Customer sync (cross-module guest-to-customer linking + Hotel Guest tag)

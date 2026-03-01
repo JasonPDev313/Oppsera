@@ -1737,6 +1737,13 @@
       "when": 1710201600000,
       "tag": "0247_distributed_locks",
       "breakpoints": true
+    },
+    {
+      "idx": 248,
+      "version": "7",
+      "when": 1710288000000,
+      "tag": "0248_spa_calendar_indexes",
+      "breakpoints": true
     }
   ]
 }

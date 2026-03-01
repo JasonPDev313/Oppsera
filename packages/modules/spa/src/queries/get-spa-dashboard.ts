@@ -190,31 +190,55 @@ export async function getSpaDashboard(input: {
       tipTotal: ops ? Number(ops.tipTotal) : 0,
     };
 
-    // Resolve provider names for utilization display
+    // Resolve provider and service names in parallel (both are independent lookups)
     const providerIds = providerMetrics.map((p) => p.providerId);
-    let providerNameMap = new Map<string, { name: string; color: string | null }>();
-    if (providerIds.length > 0) {
-      const providerRows = await tx
-        .select({
-          id: spaProviders.id,
-          displayName: spaProviders.displayName,
-          color: spaProviders.color,
-        })
-        .from(spaProviders)
-        .where(
-          and(
-            eq(spaProviders.tenantId, input.tenantId),
-            sql`${spaProviders.id} IN (${sql.join(
-              providerIds.map((id) => sql`${id}`),
-              sql`, `,
-            )})`,
-          ),
-        );
+    const svcIds = serviceMetrics.map((s) => s.serviceId);
 
-      providerNameMap = new Map(
-        providerRows.map((p) => [p.id, { name: p.displayName, color: p.color ?? null }]),
-      );
-    }
+    const [providerNameMap, serviceNameMap] = await Promise.all([
+      // Provider name lookup
+      providerIds.length > 0
+        ? tx
+            .select({
+              id: spaProviders.id,
+              displayName: spaProviders.displayName,
+              color: spaProviders.color,
+            })
+            .from(spaProviders)
+            .where(
+              and(
+                eq(spaProviders.tenantId, input.tenantId),
+                sql`${spaProviders.id} IN (${sql.join(
+                  providerIds.map((id) => sql`${id}`),
+                  sql`, `,
+                )})`,
+              ),
+            )
+            .then(
+              (rows) =>
+                new Map(rows.map((p) => [p.id, { name: p.displayName, color: p.color ?? null }])),
+            )
+        : Promise.resolve(new Map<string, { name: string; color: string | null }>()),
+
+      // Service name lookup
+      svcIds.length > 0
+        ? tx
+            .select({
+              id: spaServices.id,
+              name: spaServices.name,
+            })
+            .from(spaServices)
+            .where(
+              and(
+                eq(spaServices.tenantId, input.tenantId),
+                sql`${spaServices.id} IN (${sql.join(
+                  svcIds.map((id) => sql`${id}`),
+                  sql`, `,
+                )})`,
+              ),
+            )
+            .then((rows) => new Map(rows.map((s) => [s.id, s.name])))
+        : Promise.resolve(new Map<string, string>()),
+    ]);
 
     const providerUtilization = providerMetrics.map((p) => {
       const info = providerNameMap.get(p.providerId);
@@ -231,30 +255,6 @@ export async function getSpaDashboard(input: {
 
     // Sort by utilization descending
     providerUtilization.sort((a, b) => b.utilizationPct - a.utilizationPct);
-
-    // Service names need to be resolved — we only have IDs from the read model
-    // Use a lightweight lookup if we have service metrics
-    let serviceNameMap = new Map<string, string>();
-    if (serviceMetrics.length > 0) {
-      const svcIds = serviceMetrics.map((s) => s.serviceId);
-      const svcRows = await tx
-        .select({
-          id: spaServices.id,
-          name: spaServices.name,
-        })
-        .from(spaServices)
-        .where(
-          and(
-            eq(spaServices.tenantId, input.tenantId),
-            sql`${spaServices.id} IN (${sql.join(
-              svcIds.map((id) => sql`${id}`),
-              sql`, `,
-            )})`,
-          ),
-        );
-
-      serviceNameMap = new Map(svcRows.map((s) => [s.id, s.name]));
-    }
 
     const topServices = serviceMetrics.map((s) => ({
       serviceId: s.serviceId,
