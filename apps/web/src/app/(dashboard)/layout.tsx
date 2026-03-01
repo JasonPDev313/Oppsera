@@ -141,7 +141,7 @@ function getModuleColor(name: string): string {
   }
   return MODULE_FALLBACK_PALETTE[
     Math.abs(hash) % MODULE_FALLBACK_PALETTE.length
-  ];
+  ] ?? '#6366f1';
 }
 
 function useLiveClock(): { time: string; date: string } {
