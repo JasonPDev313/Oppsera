@@ -56,18 +56,32 @@ export async function bootstrapTenantCoa(
     .from(glClassificationTemplates)
     .where(eq(glClassificationTemplates.templateKey, 'shared'));
 
-  // 2. Insert classifications (ON CONFLICT skip — safe for retries after partial failure)
+  // 2. Bulk-insert classifications (single statement — ON CONFLICT safe for retries)
   const classificationMap = new Map<string, string>(); // name → id
-  for (const ct of classificationTemplates) {
-    const id = generateUlid();
-    const result = await tx.execute(
-      sql`INSERT INTO gl_classifications (id, tenant_id, name, account_type, sort_order, created_at, updated_at)
-          VALUES (${id}, ${tenantId}, ${ct.name}, ${ct.accountType}, ${ct.sortOrder}, NOW(), NOW())
-          ON CONFLICT (tenant_id, name) DO UPDATE SET id = gl_classifications.id
-          RETURNING id`,
+  const classificationValues = classificationTemplates.map((ct) => ({
+    id: generateUlid(),
+    name: ct.name,
+    accountType: ct.accountType,
+    sortOrder: ct.sortOrder,
+  }));
+
+  if (classificationValues.length > 0) {
+    const classRows = sql.join(
+      classificationValues.map(
+        (v) =>
+          sql`(${v.id}, ${tenantId}, ${v.name}, ${v.accountType}, ${v.sortOrder}, NOW(), NOW())`,
+      ),
+      sql`,`,
     );
-    const row = Array.from(result as Iterable<{ id: string }>)[0];
-    classificationMap.set(ct.name, row!.id);
+    const classResult = await tx.execute(
+      sql`INSERT INTO gl_classifications (id, tenant_id, name, account_type, sort_order, created_at, updated_at)
+          VALUES ${classRows}
+          ON CONFLICT (tenant_id, name) DO UPDATE SET id = gl_classifications.id
+          RETURNING id, name`,
+    );
+    for (const row of Array.from(classResult as Iterable<{ id: string; name: string }>)) {
+      classificationMap.set(row.name, row.id);
+    }
   }
 
   // 3. Load account templates for the requested business type
@@ -89,81 +103,65 @@ export async function bootstrapTenantCoa(
     ? applyStatePlaceholders(accountTemplates, stateName)
     : accountTemplates;
 
-  // 4. Insert accounts (ON CONFLICT skip — safe for retries after partial failure)
+  // 4. Bulk-insert accounts (single statement — ON CONFLICT safe for retries)
   const controlAccountIds: Record<string, string> = {};
 
-  for (const at of resolvedTemplates) {
-    const id = generateUlid();
-    const classificationId = classificationMap.get(at.classificationName) ?? null;
+  // Map from account_number to well-known control key
+  const ACCOUNT_NUMBER_KEYS: Record<string, string> = {
+    '3000': 'retained_earnings',
+    '9999': 'rounding',
+    '2160': 'tips_payable',
+    '4500': 'service_charge_revenue',
+    '49900': 'uncategorized_revenue',
+    '4510': 'surcharge_revenue',
+    '1150': 'ach_receivable',
+    '4100': 'default_discount',
+    '6153': 'price_override_expense',
+    '1160': 'credit_card_receivable',
+    '2120': 'gift_card_liability',
+    '6010': 'cc_processing_fee',
+    '6030': 'bad_debt_expense',
+    '4700': 'interest_income',
+    '6140': 'interest_expense',
+    '6040': 'delivery_commission',
+    '1120': 'petty_cash',
+    '2350': 'employee_reimbursable',
+  };
 
-    const result = await tx.execute(
-      sql`INSERT INTO gl_accounts (id, tenant_id, account_number, name, account_type, normal_balance, classification_id, is_active, is_control_account, control_account_type, allow_manual_posting, created_at, updated_at)
-          VALUES (${id}, ${tenantId}, ${at.accountNumber}, ${at.name}, ${at.accountType}, ${at.normalBalance}, ${classificationId}, true, ${at.isControlAccount ?? false}, ${at.controlAccountType ?? null}, true, NOW(), NOW())
-          ON CONFLICT (tenant_id, account_number) DO UPDATE SET id = gl_accounts.id
-          RETURNING id, control_account_type`,
+  // Pre-generate IDs and build a lookup by account number
+  const accountPrep = resolvedTemplates.map((at) => ({
+    id: generateUlid(),
+    template: at,
+    classificationId: classificationMap.get(at.classificationName) ?? null,
+  }));
+
+  if (accountPrep.length > 0) {
+    const accountRows = sql.join(
+      accountPrep.map(
+        (a) =>
+          sql`(${a.id}, ${tenantId}, ${a.template.accountNumber}, ${a.template.name}, ${a.template.accountType}, ${a.template.normalBalance}, ${a.classificationId}, true, ${a.template.isControlAccount ?? false}, ${a.template.controlAccountType ?? null}, true, NOW(), NOW())`,
+      ),
+      sql`,`,
     );
-    const row = Array.from(result as Iterable<{ id: string; control_account_type: string | null }>)[0];
-    const accountId = row!.id;
+    const acctResult = await tx.execute(
+      sql`INSERT INTO gl_accounts (id, tenant_id, account_number, name, account_type, normal_balance, classification_id, is_active, is_control_account, control_account_type, allow_manual_posting, created_at, updated_at)
+          VALUES ${accountRows}
+          ON CONFLICT (tenant_id, account_number) DO UPDATE SET id = gl_accounts.id
+          RETURNING id, account_number, control_account_type`,
+    );
 
-    if (row!.control_account_type) {
-      controlAccountIds[row!.control_account_type] = accountId;
-    }
-
-    // Track special accounts by number
-    if (at.accountNumber === '3000') {
-      controlAccountIds['retained_earnings'] = accountId;
-    }
-    if (at.accountNumber === '9999') {
-      controlAccountIds['rounding'] = accountId;
-    }
-    if (at.accountNumber === '2160') {
-      controlAccountIds['tips_payable'] = accountId;
-    }
-    if (at.accountNumber === '4500') {
-      controlAccountIds['service_charge_revenue'] = accountId;
-    }
-    if (at.accountNumber === '49900') {
-      controlAccountIds['uncategorized_revenue'] = accountId;
-    }
-    if (at.accountNumber === '4510') {
-      controlAccountIds['surcharge_revenue'] = accountId;
-    }
-    if (at.accountNumber === '1150') {
-      controlAccountIds['ach_receivable'] = accountId;
-    }
-    if (at.accountNumber === '4100') {
-      controlAccountIds['default_discount'] = accountId;
-    }
-    if (at.accountNumber === '6153') {
-      controlAccountIds['price_override_expense'] = accountId;
-    }
-    // ── COA expansion (migration 0238) ──
-    if (at.accountNumber === '1160') {
-      controlAccountIds['credit_card_receivable'] = accountId;
-    }
-    if (at.accountNumber === '2120') {
-      controlAccountIds['gift_card_liability'] = accountId;
-    }
-    if (at.accountNumber === '6010') {
-      controlAccountIds['cc_processing_fee'] = accountId;
-    }
-    if (at.accountNumber === '6030') {
-      controlAccountIds['bad_debt_expense'] = accountId;
-    }
-    if (at.accountNumber === '4700') {
-      controlAccountIds['interest_income'] = accountId;
-    }
-    if (at.accountNumber === '6140') {
-      controlAccountIds['interest_expense'] = accountId;
-    }
-    if (at.accountNumber === '6040') {
-      controlAccountIds['delivery_commission'] = accountId;
-    }
-    if (at.accountNumber === '1120') {
-      controlAccountIds['petty_cash'] = accountId;
-    }
-    if (at.accountNumber === '2350') {
-      controlAccountIds['employee_reimbursable'] = accountId;
+    for (const row of Array.from(
+      acctResult as Iterable<{ id: string; account_number: string; control_account_type: string | null }>,
+    )) {
+      // Map control_account_type (e.g., 'ap', 'ar', 'sales_tax') → accountId
+      if (row.control_account_type) {
+        controlAccountIds[row.control_account_type] = row.id;
+      }
+      // Map well-known account numbers → named keys
+      const key = ACCOUNT_NUMBER_KEYS[row.account_number];
+      if (key) {
+        controlAccountIds[key] = row.id;
+      }
     }
   }
 

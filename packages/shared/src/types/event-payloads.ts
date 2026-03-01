@@ -167,6 +167,7 @@ export const TenderRecordedPayloadSchema = z.object({
     )
     .optional(),
   priceOverrideLossCents: z.number().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export type TenderRecordedPayload = z.infer<typeof TenderRecordedPayloadSchema>;

@@ -20,10 +20,13 @@ export interface RemapResult {
 
 /**
  * Retroactively remap GL for a single tender:
- *   1. Void the original posted GL entry
+ *   1. Void the original posted GL entry (if one exists)
  *   2. Reconstruct the tender event payload via ReconciliationReadApi
  *   3. Re-run handleTenderForAccounting (which now posts with current mappings)
  *   4. Mark related gl_unmapped_events as resolved
+ *
+ * For posting_error events (no GL entry ever created), skips the void step
+ * and posts fresh.
  */
 export async function remapGlForTender(
   ctx: RequestContext,
@@ -32,7 +35,7 @@ export async function remapGlForTender(
 ): Promise<RemapResult> {
   const voidReason = reason ?? 'GL remap: retroactive mapping correction';
 
-  // 1. Find the original posted GL entry for this tender
+  // 1. Find the original posted GL entry for this tender (may not exist for posting_error)
   const [originalEntry] = await db
     .select({ id: glJournalEntries.id, status: glJournalEntries.status })
     .from(glJournalEntries)
@@ -45,23 +48,20 @@ export async function remapGlForTender(
     )
     .limit(1);
 
-  if (!originalEntry) {
-    return {
-      tenderId,
-      success: false,
-      error: 'No posted GL entry found for this tender',
-    };
-  }
+  let voidedEntryId: string | undefined;
 
-  // 2. Void the original entry
-  try {
-    await voidJournalEntry(ctx, originalEntry.id, voidReason);
-  } catch (error) {
-    return {
-      tenderId,
-      success: false,
-      error: `Failed to void GL entry: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    };
+  // 2. Void the original entry if it exists (skip for posting_error scenarios)
+  if (originalEntry) {
+    try {
+      await voidJournalEntry(ctx, originalEntry.id, voidReason);
+      voidedEntryId = originalEntry.id;
+    } catch (error) {
+      return {
+        tenderId,
+        success: false,
+        error: `Failed to void GL entry: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
   }
 
   // 3. Reconstruct tender payload via ReconciliationReadApi
@@ -72,7 +72,7 @@ export async function remapGlForTender(
     return {
       tenderId,
       success: false,
-      voidedEntryId: originalEntry.id,
+      voidedEntryId,
       error: 'Could not reconstruct tender data for GL repost',
     };
   }
@@ -148,7 +148,7 @@ export async function remapGlForTender(
   return {
     tenderId,
     success: true,
-    voidedEntryId: originalEntry.id,
+    voidedEntryId,
     newEntryId: newEntry?.id ?? undefined,
     resolvedEventCount: Number(resolvedCount),
   };

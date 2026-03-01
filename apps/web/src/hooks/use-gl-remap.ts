@@ -38,6 +38,7 @@ export interface RemapPreview {
   originalLines?: PreviewLine[];
   projectedLines?: PreviewLine[];
   hasChanges?: boolean;
+  isNewPosting?: boolean;
   error?: string;
 }
 

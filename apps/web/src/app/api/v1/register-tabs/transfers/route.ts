@@ -27,6 +27,11 @@ export const GET = withMiddleware(
         label: registerTabs.label,
         employeeId: registerTabs.employeeId,
         employeeName: registerTabs.employeeName,
+        version: registerTabs.version,
+        locationId: registerTabs.locationId,
+        folioId: registerTabs.folioId,
+        guestName: registerTabs.guestName,
+        status: registerTabs.status,
         createdAt: registerTabs.createdAt,
         // Order details
         orderNumber: orders.orderNumber,
@@ -44,6 +49,7 @@ export const GET = withMiddleware(
           eq(registerTabs.tenantId, ctx.tenantId),
           ne(registerTabs.terminalId, terminalId),
           isNotNull(registerTabs.orderId),
+          eq(registerTabs.status, 'active'),
           eq(orders.status, 'open'),
         ),
       )

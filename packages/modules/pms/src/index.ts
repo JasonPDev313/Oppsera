@@ -319,7 +319,7 @@ export {
 // Events
 export { PMS_EVENTS } from './events/types';
 export type { PmsEventType } from './events/types';
-export { handleCalendarProjection, handleOccupancyProjection } from './events/consumers';
+export { handleCalendarProjection, handleOccupancyProjection, handleRoomChargeTender, handleFolioSettlementTender } from './events/consumers';
 export type * from './events/payloads';
 
 // Errors
@@ -624,6 +624,14 @@ export type {
   UtilizationRoom,
   UtilizationRoomCell,
 } from './queries';
+
+// POS Integration Queries
+export {
+  searchCheckedInGuestsForPOS,
+  getCheckedInGuestByRoom,
+  getActiveFolioForGuest,
+  getFolioSummaryForPOS,
+} from './queries/pos-integration';
 
 // Background Jobs
 export {

@@ -5,6 +5,14 @@ import { apiFetch } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import type { Order, RegisterTab, TabNumber } from '@/types/pos';
 
+// ── Tab Sync Imports ────────────────────────────────────────────────
+import { subscribe as syncSubscribe, broadcastChange, getDeviceId } from '@/lib/tab-sync-service';
+import type { TabSyncScope } from '@/lib/tab-sync-service';
+import { startActivityHeartbeat, stopActivityHeartbeat, setActiveHeartbeatTab } from '@/lib/tab-activity';
+import { updatePresence, getPresenceForTab, onPresenceChange, clearPresence } from '@/lib/tab-presence';
+import type { PresenceInfo } from '@/lib/tab-presence';
+import { enqueueTabMutation, replayTabMutations, initOfflineTabSync } from '@/lib/pos-offline-tab-sync';
+
 // ── Types ───────────────────────────────────────────────────────────
 
 interface UseRegisterTabsOptions {
@@ -17,6 +25,8 @@ interface UseRegisterTabsOptions {
   };
   employeeId: string;
   employeeName: string;
+  /** Location ID for cross-device sync (SSE + presence) */
+  locationId?: string;
 }
 
 interface UseRegisterTabsReturn {
@@ -31,6 +41,8 @@ interface UseRegisterTabsReturn {
   clearActiveTab: () => void;
   changeServer: (tabNumber: TabNumber, employeeId: string, employeeName: string) => void;
   isLoading: boolean;
+  /** Presence info for the active tab (who else is editing it) */
+  activeTabPresence: PresenceInfo | null;
 }
 
 // ── Server API helpers ──────────────────────────────────────────────
@@ -44,6 +56,12 @@ interface ServerTab {
   label: string | null;
   employeeId: string | null;
   employeeName: string | null;
+  version: number;
+  locationId: string | null;
+  status: string;
+  deviceId: string | null;
+  folioId: string | null;
+  guestName: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -56,6 +74,12 @@ function toRegisterTab(s: ServerTab): RegisterTab {
     label: s.label,
     employeeId: s.employeeId,
     employeeName: s.employeeName,
+    version: s.version ?? 1,
+    locationId: s.locationId ?? null,
+    status: (s.status as 'active' | 'held' | 'closed') ?? 'active',
+    deviceId: s.deviceId ?? null,
+    folioId: s.folioId ?? null,
+    guestName: s.guestName ?? null,
   };
 }
 
@@ -122,6 +146,7 @@ export function useRegisterTabs({
   pos,
   employeeId,
   employeeName,
+  locationId,
 }: UseRegisterTabsOptions): UseRegisterTabsReturn {
   const { toast } = useToast();
 
@@ -130,6 +155,7 @@ export function useRegisterTabs({
   const [tabs, setTabs] = useState<RegisterTab[]>([]);
   const [activeTabNumber, setActiveTabNumber] = useState<TabNumber>(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTabPresence, setActiveTabPresence] = useState<PresenceInfo | null>(null);
 
   // In-memory order cache: orderId → Order
   const orderCache = useRef<Map<string, Order>>(new Map());
@@ -145,6 +171,69 @@ export function useRegisterTabs({
 
   // Keep activeTabRef in sync
   activeTabRef.current = activeTabNumber;
+
+  // ── Version helpers ───────────────────────────────────────────────
+
+  /** Update a tab's version in local state after a successful PATCH */
+  function bumpLocalVersion(tabId: string, newVersion: number) {
+    setTabs((prev) =>
+      prev.map((t) => (t.id === tabId ? { ...t, version: newVersion } : t)),
+    );
+  }
+
+  /** Re-fetch all tabs from server after a 409 version conflict */
+  async function refetchOnConflict() {
+    try {
+      const resp = await apiFetch<{ data: ServerTab[] }>(
+        `/api/v1/register-tabs?terminalId=${encodeURIComponent(terminalId)}`,
+      );
+      const serverTabs = resp.data.map(toRegisterTab);
+      setTabs(serverTabs);
+      saveCachedTabs(terminalId, serverTabs);
+    } catch {
+      // silent — tabs will refresh on next load or visibility resume
+    }
+  }
+
+  /** Fire-and-forget PATCH with version tracking + 409 conflict recovery */
+  function patchTab(tabId: string, body: Record<string, unknown>, tabVersion: number) {
+    if (tabId.startsWith('pending-')) return;
+
+    // If offline, queue for later replay
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const mutationType = body.orderId === null ? 'clear_order' : 'assign_order';
+      enqueueTabMutation({
+        type: mutationType as 'assign_order' | 'clear_order' | 'rename' | 'change_server' | 'close',
+        tabId,
+        payload: body,
+        expectedVersion: tabVersion,
+      }).catch(() => { /* silent */ });
+      return;
+    }
+
+    apiFetch<{ data: ServerTab }>(`/api/v1/register-tabs/${tabId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ...body, expectedVersion: tabVersion }),
+    })
+      .then((resp) => {
+        bumpLocalVersion(tabId, resp.data.version);
+        // Broadcast change to other tabs/devices
+        broadcastChange({
+          tabId,
+          action: 'tab_updated',
+          version: resp.data.version,
+          terminalId,
+          scope: 'retail',
+        });
+      })
+      .catch(async (err: unknown) => {
+        if ((err as any)?.statusCode === 409) {
+          await refetchOnConflict();
+        } else {
+          console.error('Tab sync failed:', err);
+        }
+      });
+  }
 
   // ── Derived ────────────────────────────────────────────────────────
 
@@ -174,12 +263,7 @@ export function useRegisterTabs({
           ),
         );
         // Sync to server (skip pending tabs that don't have a real server id yet)
-        if (!currentActiveTab.id.startsWith('pending-')) {
-          apiFetch(`/api/v1/register-tabs/${currentActiveTab.id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ orderId: order.id }),
-          }).catch((err) => { console.error('Tab orderId sync failed:', err); });
-        }
+        patchTab(currentActiveTab.id, { orderId: order.id }, currentActiveTab.version);
       }
     }
     // IMPORTANT: orderId clearing is handled ONLY by clearActiveTab() which is
@@ -268,12 +352,7 @@ export function useRegisterTabs({
       setTabs((prev) =>
         prev.map((t) => (t.id === tab.id ? { ...t, orderId: null } : t)),
       );
-      if (!tab.id.startsWith('pending-')) {
-        apiFetch(`/api/v1/register-tabs/${tab.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ orderId: null }),
-        }).catch((err) => { console.error('Tab order clear failed:', err); });
-      }
+      patchTab(tab.id, { orderId: null }, tab.version);
     };
 
     // ── Background refresh from server ──────────────────────────────
@@ -359,7 +438,7 @@ export function useRegisterTabs({
       } catch {
         // If server load fails and no cached data, create a local fallback tab
         if (!cancelled && !cached) {
-          setTabs([{ id: 'local-1', tabNumber: 1, orderId: null, employeeId, employeeName }]);
+          setTabs([{ id: 'local-1', tabNumber: 1, orderId: null, employeeId, employeeName, version: 1 }]);
           setActiveTabNumber(1);
           hasLoaded.current = true;
           setIsLoading(false);
@@ -433,7 +512,7 @@ export function useRegisterTabs({
 
     // Optimistic: add a placeholder tab immediately
     const placeholderId = `pending-${newTabNumber}`;
-    const optimisticTab: RegisterTab = { id: placeholderId, tabNumber: newTabNumber, orderId: null, employeeId, employeeName };
+    const optimisticTab: RegisterTab = { id: placeholderId, tabNumber: newTabNumber, orderId: null, employeeId, employeeName, version: 1 };
     setTabs((prev) => [...prev, optimisticTab]);
     setActiveTabNumber(newTabNumber);
     pos.setOrder(null);
@@ -452,6 +531,13 @@ export function useRegisterTabs({
         setTabs((prev) =>
           prev.map((t) => (t.id === placeholderId ? realTab : t)),
         );
+        broadcastChange({
+          tabId: realTab.id,
+          action: 'tab_created',
+          version: realTab.version,
+          terminalId,
+          scope: 'retail',
+        });
       })
       .catch((err) => {
         console.error('Tab creation sync failed:', err);
@@ -493,14 +579,28 @@ export function useRegisterTabs({
         return remaining;
       });
 
-      // Delete from server
+      // Soft-delete on server (passes expectedVersion for optimistic locking)
       if (!closingTab.id.startsWith('pending-')) {
         apiFetch(`/api/v1/register-tabs/${closingTab.id}`, {
           method: 'DELETE',
-        }).catch((err) => {
-          console.error('Tab close sync failed:', err);
-          toast.error('Tab close sync failed — will resolve on next load.');
-        });
+          body: JSON.stringify({ expectedVersion: closingTab.version }),
+        })
+          .then(() => {
+            broadcastChange({
+              tabId: closingTab.id,
+              action: 'tab_closed',
+              version: closingTab.version,
+              terminalId,
+              scope: 'retail',
+            });
+          })
+          .catch(async (err: unknown) => {
+            if ((err as any)?.statusCode === 409) {
+              await refetchOnConflict();
+            } else {
+              console.error('Tab close sync failed:', err);
+            }
+          });
       }
     },
     [tabs, activeTabNumber, pos],
@@ -518,14 +618,8 @@ export function useRegisterTabs({
 
       // Sync to server
       const tab = tabs.find((t) => t.tabNumber === tabNumber);
-      if (tab && !tab.id.startsWith('pending-')) {
-        apiFetch(`/api/v1/register-tabs/${tab.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ label: trimmed }),
-        }).catch((err) => {
-          console.error('Tab rename sync failed:', err);
-          toast.error('Tab rename sync failed — will resolve on next load.');
-        });
+      if (tab) {
+        patchTab(tab.id, { label: trimmed }, tab.version);
       }
     },
     [tabs],
@@ -534,20 +628,19 @@ export function useRegisterTabs({
   const clearActiveTab = useCallback(() => {
     const currentTab = tabs.find((t) => t.tabNumber === activeTabNumber);
 
-    // Clear orderId AND label — the customer name in the label came from the
-    // order's customer, so it must be wiped when the order completes/voids.
+    // Clear orderId, label, AND folio fields — the customer/guest context came
+    // from the order, so it must be wiped when the order completes/voids.
     setTabs((prev) =>
       prev.map((t) =>
-        t.tabNumber === activeTabNumber ? { ...t, orderId: null, label: null } : t,
+        t.tabNumber === activeTabNumber
+          ? { ...t, orderId: null, label: null, folioId: null, guestName: null }
+          : t,
       ),
     );
 
     // Sync to server
-    if (currentTab && !currentTab.id.startsWith('pending-')) {
-      apiFetch(`/api/v1/register-tabs/${currentTab.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ orderId: null, label: null }),
-      }).catch((err) => { console.error('Tab clear sync failed:', err); });
+    if (currentTab) {
+      patchTab(currentTab.id, { orderId: null, label: null, folioId: null, guestName: null }, currentTab.version);
     }
   }, [activeTabNumber, tabs]);
 
@@ -566,18 +659,106 @@ export function useRegisterTabs({
       );
 
       // Sync to server
-      if (!tab.id.startsWith('pending-')) {
-        apiFetch(`/api/v1/register-tabs/${tab.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            employeeId: newEmployeeId,
-            employeeName: newEmployeeName,
-          }),
-        }).catch((err) => { console.error('Tab server change sync failed:', err); });
-      }
+      patchTab(tab.id, { employeeId: newEmployeeId, employeeName: newEmployeeName }, tab.version);
     },
     [tabs],
   );
+
+  // ── Cross-device sync subscription ──────────────────────────────────
+
+  useEffect(() => {
+    if (!locationId || !hasLoaded.current) return;
+
+    const unsubscribe = syncSubscribe(locationId, 'retail' as TabSyncScope, (_event) => {
+      // Another device/tab changed something — refetch from server
+      refetchOnConflict();
+    });
+
+    return () => { unsubscribe(); };
+  }, [locationId]);
+
+  // ── Activity heartbeat ──────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!activeTab?.id || activeTab.id.startsWith('pending-') || activeTab.id.startsWith('local-')) return;
+
+    setActiveHeartbeatTab(activeTab.id);
+    startActivityHeartbeat(activeTab.id);
+
+    return () => { stopActivityHeartbeat(); };
+  }, [activeTab?.id]);
+
+  // ── Presence tracking ───────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!activeTab?.id || !locationId) return;
+
+    // Publish our presence
+    updatePresence({
+      deviceId: getDeviceId(),
+      tabId: activeTab.id,
+      employeeName: employeeName || 'Unknown',
+      terminalId,
+      locationId: locationId ?? null,
+      lastSeen: Date.now(),
+    });
+
+    // Listen for presence changes on our active tab
+    const unsubPresence = onPresenceChange(() => {
+      const otherPresence = getPresenceForTab(activeTab.id, getDeviceId());
+      setActiveTabPresence(otherPresence);
+    });
+
+    // Check once immediately
+    const otherPresence = getPresenceForTab(activeTab.id, getDeviceId());
+    setActiveTabPresence(otherPresence);
+
+    return () => {
+      unsubPresence();
+      setActiveTabPresence(null);
+    };
+  }, [activeTab?.id, locationId, employeeName, terminalId]);
+
+  // ── Offline queue replay on reconnect ──────────────────────────────
+
+  useEffect(() => {
+    initOfflineTabSync();
+
+    const handleOnline = () => {
+      replayTabMutations()
+        .then((result) => {
+          if (result.synced > 0 || result.versionConflicts > 0) {
+            refetchOnConflict();
+          }
+          if (result.versionConflicts > 0) {
+            toast.info(`${result.versionConflicts} tab(s) had conflicts — refreshed from server.`);
+          }
+        })
+        .catch((err) => { console.error('[tab-sync] Offline replay failed:', err); });
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => { window.removeEventListener('online', handleOnline); };
+  }, []);
+
+  // ── Visibility resume refresh ──────────────────────────────────────
+
+  useEffect(() => {
+    const handleVisibilityResume = () => {
+      if (hasLoaded.current) {
+        refetchOnConflict();
+      }
+    };
+
+    window.addEventListener('pos-visibility-resume', handleVisibilityResume);
+    return () => { window.removeEventListener('pos-visibility-resume', handleVisibilityResume); };
+  }, []);
+
+  // ── Cleanup presence on unmount ────────────────────────────────────
+
+  useEffect(() => {
+    return () => { clearPresence(); };
+  }, []);
 
   return {
     tabs,
@@ -590,5 +771,6 @@ export function useRegisterTabs({
     clearActiveTab,
     changeServer,
     isLoading,
+    activeTabPresence,
   };
 }

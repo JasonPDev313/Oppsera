@@ -238,6 +238,9 @@ importers:
       '@oppsera/module-payments':
         specifier: workspace:*
         version: link:../../packages/modules/payments
+      '@oppsera/module-pms':
+        specifier: workspace:*
+        version: link:../../packages/modules/pms
       '@oppsera/module-project-costing':
         specifier: workspace:*
         version: link:../../packages/modules/project-costing
@@ -250,6 +253,9 @@ importers:
       '@oppsera/module-semantic':
         specifier: workspace:*
         version: link:../../packages/modules/semantic
+      '@oppsera/module-spa':
+        specifier: workspace:*
+        version: link:../../packages/modules/spa
       '@oppsera/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -871,6 +877,34 @@ importers:
       tsx:
         specifier: ^4.0.0
         version: 4.21.0
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.19.11)(jsdom@28.1.0)(lightningcss@1.30.2)
+
+  packages/modules/spa:
+    dependencies:
+      '@oppsera/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@oppsera/db':
+        specifier: workspace:*
+        version: link:../../db
+      '@oppsera/shared':
+        specifier: workspace:*
+        version: link:../../shared
+      drizzle-orm:
+        specifier: ^0.37.0
+        version: 0.37.0(@types/react@19.2.14)(postgres@3.4.8)(react@19.2.4)
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.11
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

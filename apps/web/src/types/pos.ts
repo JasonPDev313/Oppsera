@@ -349,6 +349,12 @@ export interface RegisterTab {
   label?: string | null; // optional custom label
   employeeId?: string | null;
   employeeName?: string | null;
+  version: number; // optimistic locking
+  locationId?: string | null;
+  status?: 'active' | 'held' | 'closed';
+  deviceId?: string | null;
+  folioId?: string | null; // PMS folio linked to this tab
+  guestName?: string | null; // PMS guest name for display
 }
 
 // ── Held Orders ────────────────────────────────────────────────────

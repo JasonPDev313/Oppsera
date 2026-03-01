@@ -23,6 +23,11 @@ export const recordTenderSchema = z.object({
       providerRef: z.string().optional(),
       cardLast4: z.string().max(4).optional(),
       cardBrand: z.string().max(20).optional(),
+      // PMS room charge / folio settlement context
+      folioId: z.string().optional(),
+      guestId: z.string().optional(),
+      roomNumber: z.string().optional(),
+      reservationId: z.string().optional(),
     })
     .optional(),
 });

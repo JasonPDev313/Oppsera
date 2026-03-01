@@ -59,6 +59,10 @@ export const PERMISSION_MATRIX: PermissionDefinition[] = [
   { key: 'cash.drawer', module: 'pos', description: 'Record paid-in, paid-out, and no-sale events', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier'], requiresManagerPin: false, requiresAudit: true },
   { key: 'cash.drop', module: 'pos', description: 'Record cash drops to safe', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier'], requiresManagerPin: false, requiresAudit: true },
 
+  // ── Register Tabs ─────────────────────────────────────────────
+  { key: 'pos.register_tabs.view_all', module: 'pos', description: 'View all register tabs at a location (manager view)', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'pos.register_tabs.transfer', module: 'pos', description: 'Transfer register tabs between employees', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
+
   // ── Inventory ───────────────────────────────────────────────
   { key: 'inventory.view', module: 'inventory', description: 'View stock levels, movements, and receiving history', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'staff'], requiresManagerPin: false, requiresAudit: false },
   { key: 'inventory.manage', module: 'inventory', description: 'Receive, adjust, transfer stock; manage vendors and POs', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
@@ -167,6 +171,35 @@ export const PERMISSION_MATRIX: PermissionDefinition[] = [
   { key: 'pms.folio.post_payments', module: 'pms', description: 'Post payments to guest folio', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier'], requiresManagerPin: false, requiresAudit: true },
   { key: 'pms.rates.view', module: 'pms', description: 'View rate plans', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
   { key: 'pms.rates.manage', module: 'pms', description: 'Manage rate plans and pricing', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'pms.housekeepers.manage', module: 'pms', description: 'Manage housekeeper staff assignments', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'pms.reports.view', module: 'pms', description: 'View PMS reports', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
+
+  // ── Spa Management ────────────────────────────────────────────
+  { key: 'spa.services.view', module: 'spa', description: 'View spa services and categories', defaultRoles: ['owner', 'manager', 'supervisor', 'staff'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'spa.services.manage', module: 'spa', description: 'Create, edit, and archive spa services and categories', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.providers.view', module: 'spa', description: 'View provider profiles and schedules', defaultRoles: ['owner', 'manager', 'supervisor', 'staff'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'spa.providers.manage', module: 'spa', description: 'Create, edit, and manage provider profiles and availability', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.resources.view', module: 'spa', description: 'View spa resources (rooms, equipment)', defaultRoles: ['owner', 'manager', 'supervisor', 'staff'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'spa.resources.manage', module: 'spa', description: 'Create, edit, and manage spa resources', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.appointments.view', module: 'spa', description: 'View appointments and calendar', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'staff'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'spa.appointments.create', module: 'spa', description: 'Create new appointments', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.appointments.manage', module: 'spa', description: 'Update, reschedule, check in/out appointments', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.appointments.cancel', module: 'spa', description: 'Cancel appointments (may trigger cancellation fees)', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.packages.view', module: 'spa', description: 'View spa packages and balances', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'staff'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'spa.packages.manage', module: 'spa', description: 'Sell, redeem, and manage spa packages', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.commissions.view', module: 'spa', description: 'View commission rules and ledger', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'spa.commissions.manage', module: 'spa', description: 'Configure commission rules and approve payouts', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.intake.view', module: 'spa', description: 'View intake forms and clinical notes', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'spa.intake.manage', module: 'spa', description: 'Create and manage intake form templates', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.clinical_notes.manage', module: 'spa', description: 'Create and manage SOAP clinical notes', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.settings.view', module: 'spa', description: 'View spa settings and configuration', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'spa.settings.manage', module: 'spa', description: 'Configure spa settings, booking widget, and operations', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.reports.view', module: 'spa', description: 'View spa reports and analytics', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'spa.reports.export', module: 'spa', description: 'Export spa reports to CSV', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'spa.waitlist.view', module: 'spa', description: 'View the spa waitlist', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'staff'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'spa.waitlist.manage', module: 'spa', description: 'Add, offer, and remove waitlist entries', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.booking.manage', module: 'spa', description: 'Manage online booking widget configuration', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'spa.operations.manage', module: 'spa', description: 'Manage room turnover, daily checklists, and operations', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
 ];
 
 // ── Derived lookups ─────────────────────────────────────────

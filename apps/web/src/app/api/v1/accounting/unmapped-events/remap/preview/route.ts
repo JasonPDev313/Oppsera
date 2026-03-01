@@ -37,7 +37,7 @@ export const POST = withMiddleware(
     const previews = [];
 
     for (const tenderId of tenderIds) {
-      // Load current GL entry lines
+      // Load current GL entry lines (may not exist for posting_error scenarios)
       const [currentEntry] = await db
         .select()
         .from(glJournalEntries)
@@ -50,47 +50,54 @@ export const POST = withMiddleware(
         )
         .limit(1);
 
-      if (!currentEntry) {
-        previews.push({ tenderId, error: 'No posted GL entry found' });
-        continue;
-      }
+      let originalLines: Array<{
+        accountId: string;
+        accountNumber: string;
+        accountName: string;
+        debitAmount: string | null;
+        creditAmount: string | null;
+        memo: string | null;
+        isFallback: boolean;
+      }> = [];
 
-      const currentLines = await db
-        .select()
-        .from(glJournalLines)
-        .where(eq(glJournalLines.journalEntryId, currentEntry.id));
+      if (currentEntry) {
+        const currentLines = await db
+          .select()
+          .from(glJournalLines)
+          .where(eq(glJournalLines.journalEntryId, currentEntry.id));
 
-      // Load account names for current lines
-      const accountIds = [...new Set(currentLines.map(l => l.accountId))];
-      const accountNameRows = accountIds.length > 0
-        ? await db.execute(sql`
-            SELECT id, account_number, name
-            FROM gl_accounts
-            WHERE tenant_id = ${ctx.tenantId}
-              AND id IN ${sql`(${sql.join(accountIds.map(id => sql`${id}`), sql`, `)})`}
-          `)
-        : [];
-      const accountMap = new Map<string, { number: string; name: string }>();
-      for (const row of Array.from(accountNameRows as Iterable<Record<string, unknown>>)) {
-        accountMap.set(String(row.id), {
-          number: String(row.account_number),
-          name: String(row.name),
+        // Load account names for current lines
+        const accountIds = [...new Set(currentLines.map(l => l.accountId))];
+        const accountNameRows = accountIds.length > 0
+          ? await db.execute(sql`
+              SELECT id, account_number, name
+              FROM gl_accounts
+              WHERE tenant_id = ${ctx.tenantId}
+                AND id IN ${sql`(${sql.join(accountIds.map(id => sql`${id}`), sql`, `)})`}
+            `)
+          : [];
+        const accountMap = new Map<string, { number: string; name: string }>();
+        for (const row of Array.from(accountNameRows as Iterable<Record<string, unknown>>)) {
+          accountMap.set(String(row.id), {
+            number: String(row.account_number),
+            name: String(row.name),
+          });
+        }
+
+        originalLines = currentLines.map(l => {
+          const acct = accountMap.get(l.accountId);
+          const isFallback = (l.memo ?? '').includes('fallback');
+          return {
+            accountId: l.accountId,
+            accountNumber: acct?.number ?? '',
+            accountName: acct?.name ?? '',
+            debitAmount: l.debitAmount,
+            creditAmount: l.creditAmount,
+            memo: l.memo,
+            isFallback,
+          };
         });
       }
-
-      const originalLines = currentLines.map(l => {
-        const acct = accountMap.get(l.accountId);
-        const isFallback = (l.memo ?? '').includes('fallback');
-        return {
-          accountId: l.accountId,
-          accountNumber: acct?.number ?? '',
-          accountName: acct?.name ?? '',
-          debitAmount: l.debitAmount,
-          creditAmount: l.creditAmount,
-          memo: l.memo,
-          isFallback,
-        };
-      });
 
       // Simulate what the new posting would look like
       const tenderData = await api.getTenderForGlRepost(ctx.tenantId, tenderId);
@@ -215,13 +222,16 @@ export const POST = withMiddleware(
         }
       }
 
+      // For posting_error scenarios (no currentEntry), show as "new posting"
+      const isNewPosting = !currentEntry;
       previews.push({
         tenderId,
-        businessDate: currentEntry.businessDate,
+        businessDate: currentEntry?.businessDate ?? tenderData?.businessDate ?? '',
         originalLines,
         projectedLines,
-        hasChanges: JSON.stringify(originalLines.map(l => l.accountId).sort())
+        hasChanges: isNewPosting || JSON.stringify(originalLines.map(l => l.accountId).sort())
           !== JSON.stringify(projectedLines.map(l => l.accountId).sort()),
+        isNewPosting,
       });
     }
 

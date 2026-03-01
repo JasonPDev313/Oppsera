@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
+import { AUTO_POSTED_TYPE_CODES } from '@oppsera/shared';
 
 export interface MappingCoverageDetail {
   entityType: string;
@@ -61,11 +62,16 @@ export async function getMappingCoverage(
     );
 
     // Total from transaction type registry (system + tenant custom)
+    // Exclude auto-posted types (e.g., void) that don't require manual GL mapping
+    const autoPostedCodes = AUTO_POSTED_TYPE_CODES.length > 0
+      ? sql.join(AUTO_POSTED_TYPE_CODES.map(c => sql`${c}`), sql`, `)
+      : null;
     const paymentTotalRows = await tx.execute(sql`
       SELECT COUNT(*)::int AS cnt
       FROM gl_transaction_types
       WHERE (tenant_id IS NULL OR tenant_id = ${input.tenantId})
         AND is_active = true
+        ${autoPostedCodes ? sql`AND code NOT IN (${autoPostedCodes})` : sql``}
     `);
     const paymentTotal = Number(
       (Array.from(paymentTotalRows as Iterable<Record<string, unknown>>))[0]?.cnt ?? 0,

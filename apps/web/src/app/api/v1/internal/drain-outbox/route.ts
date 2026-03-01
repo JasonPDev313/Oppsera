@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db, sql } from '@oppsera/db';
 import { getOutboxWorker } from '@oppsera/core/events';
+import { cleanExpiredLocks } from '@oppsera/core';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -118,6 +119,16 @@ export async function GET(request: Request) {
           console.error(`[drain-outbox] Failed to kill zombie PID ${z.pid}:`, killErr);
         }
       }
+    }
+
+    // 6. Clean expired distributed locks (housekeeping)
+    try {
+      const expiredLocks = await cleanExpiredLocks();
+      results.expiredLocksRemoved = expiredLocks;
+    } catch (lockErr) {
+      // Non-fatal — log but don't fail the drain-outbox cron
+      console.warn('[drain-outbox] Failed to clean expired locks:', lockErr);
+      results.expiredLocksRemoved = -1;
     }
 
     return NextResponse.json({

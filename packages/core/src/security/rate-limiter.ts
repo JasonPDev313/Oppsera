@@ -40,6 +40,8 @@ export const RATE_LIMITS = {
   authStrict: { windowMs: 15 * 60 * 1000, maxRequests: 5 },  // 5 per 15 min (signup, magic link)
   api: { windowMs: 60 * 1000, maxRequests: 100 },            // 100 per minute
   apiWrite: { windowMs: 60 * 1000, maxRequests: 30 },        // 30 per minute (mutations)
+  publicRead: { windowMs: 60 * 1000, maxRequests: 30 },      // 30 per minute (public GET — spa, guest)
+  publicWrite: { windowMs: 60 * 1000, maxRequests: 5 },      // 5 per minute (public POST — bookings, lookups)
 } as const;
 
 // ── In-Memory Rate Limit Store ──────────────────────────────────

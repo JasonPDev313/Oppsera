@@ -45,6 +45,11 @@ import {
   Grid3X3,
   FolderKanban,
   Warehouse,
+  Flower2,
+  Clock,
+  Gem,
+  UserCheck,
+  ClipboardCheck,
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
 
@@ -192,6 +197,31 @@ export const navigation: NavItem[] = [
       { name: 'Housekeeping Staff', href: '/pms/housekeeping-staff', icon: Users, group: 'Property Setup', requiredPermission: 'pms.housekeepers.manage' },
       // Reporting
       { name: 'Reports', href: '/pms/reports', icon: BarChart3, group: 'Reporting', requiredPermission: 'pms.property.view' },
+    ],
+  },
+  {
+    name: 'Spa',
+    href: '/spa',
+    icon: Flower2,
+    moduleKey: 'spa',
+    collapsibleGroups: true,
+    requiredPermission: 'spa.appointments.view',
+    children: [
+      // Operations
+      { name: 'Dashboard', href: '/spa', icon: Flower2, group: 'Operations', requiredPermission: 'spa.appointments.view' },
+      { name: 'Calendar', href: '/spa/calendar', icon: CalendarDays, group: 'Operations', requiredPermission: 'spa.appointments.view' },
+      { name: 'Appointments', href: '/spa/appointments', icon: Clock, group: 'Operations', requiredPermission: 'spa.appointments.view' },
+      { name: 'Waitlist', href: '/spa/waitlist', icon: ClipboardList, group: 'Operations', requiredPermission: 'spa.waitlist.view' },
+      // Catalog
+      { name: 'Services', href: '/spa/services', icon: Gem, group: 'Catalog', requiredPermission: 'spa.services.view' },
+      { name: 'Providers', href: '/spa/providers', icon: UserCheck, group: 'Catalog', requiredPermission: 'spa.providers.view' },
+      { name: 'Resources', href: '/spa/resources', icon: Package, group: 'Catalog', requiredPermission: 'spa.resources.view' },
+      { name: 'Packages', href: '/spa/packages', icon: PackageCheck, group: 'Catalog', requiredPermission: 'spa.packages.view' },
+      // Reports & Config
+      { name: 'Reports', href: '/spa/reports', icon: BarChart3, group: 'Reports & Config', requiredPermission: 'spa.reports.view' },
+      { name: 'Online Booking', href: '/spa/booking', icon: Globe, group: 'Reports & Config', requiredPermission: 'spa.booking.manage' },
+      { name: 'Intake Forms', href: '/spa/intake', icon: ClipboardCheck, group: 'Reports & Config', requiredPermission: 'spa.intake.view' },
+      { name: 'Settings', href: '/spa/settings', icon: Settings, group: 'Reports & Config', requiredPermission: 'spa.settings.view' },
     ],
   },
   {

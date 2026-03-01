@@ -307,6 +307,7 @@ export async function recordTender(
       lines: enrichedLines,
       discountBreakdown: discountBreakdown.length > 0 ? discountBreakdown : undefined,
       priceOverrideLossCents: priceOverrideLossCents > 0 ? priceOverrideLossCents : undefined,
+      metadata: input.metadata ?? null,
     });
 
     return {

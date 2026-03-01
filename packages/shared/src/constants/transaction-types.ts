@@ -87,6 +87,8 @@ export const SYSTEM_TRANSACTION_TYPES: readonly SystemTransactionType[] = [
   { code: 'ach', name: 'ACH/EFT', category: 'tender', description: 'Electronic funds transfer payments', debitHint: 'asset', creditHint: null, defaultDebitKind: 'clearing', defaultCreditKind: 'none', sort: 40 },
   { code: 'voucher', name: 'Gift Card / Voucher', category: 'tender', description: 'Gift card, voucher, or stored value redemption', debitHint: 'liability', creditHint: null, defaultDebitKind: 'liability_reduction', defaultCreditKind: 'none', sort: 50 },
   { code: 'house_account', name: 'House Account / AR', category: 'tender', description: 'Charge to member or house account', debitHint: 'asset', creditHint: null, defaultDebitKind: 'ar_receivable', defaultCreditKind: 'none', sort: 60 },
+  { code: 'room_charge', name: 'Room Charge', category: 'tender', description: 'Charge to guest room folio', debitHint: 'asset', creditHint: null, defaultDebitKind: 'ar_receivable', defaultCreditKind: 'none', sort: 65 },
+  { code: 'folio_settlement', name: 'Folio Settlement', category: 'tender', description: 'Payment of guest folio balance at POS', debitHint: 'asset', creditHint: null, defaultDebitKind: 'cash_bank', defaultCreditKind: 'none', sort: 66 },
   { code: 'membership_payment', name: 'Payment by Membership ID', category: 'tender', description: 'Payment charged against membership billing', debitHint: 'asset', creditHint: null, defaultDebitKind: 'ar_receivable', defaultCreditKind: 'none', sort: 70 },
 
   // ── Revenue event types ───────────────────────────────────────
@@ -259,12 +261,19 @@ export function getSystemTransactionType(code: string): SystemTransactionType | 
 }
 
 /**
+ * Codes for transaction types that are automatically posted by GL adapters
+ * and do NOT require manual GL account mapping.
+ * Currently: void/cancel — the void adapter reverses the original GL entry.
+ */
+export const AUTO_POSTED_TYPE_CODES: readonly string[] = SYSTEM_TRANSACTION_TYPES
+  .filter(t => t.defaultDebitKind === 'none' && t.defaultCreditKind === 'none')
+  .map(t => t.code);
+
+/**
  * Returns true for transaction types that are automatically posted by GL adapters
  * and do NOT require manual GL account mapping. Example: void/cancel — the void
  * adapter automatically reverses the original GL entry.
  */
 export function isAutoPostedType(code: string): boolean {
-  const sysType = getSystemTransactionType(code);
-  if (!sysType) return false;
-  return sysType.defaultDebitKind === 'none' && sysType.defaultCreditKind === 'none';
+  return AUTO_POSTED_TYPE_CODES.includes(code);
 }

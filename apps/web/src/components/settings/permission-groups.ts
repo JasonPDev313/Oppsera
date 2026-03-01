@@ -44,6 +44,7 @@ export const PERMISSION_GROUPS: PermissionGroupEntry[] = [
       { label: 'Orders', permissions: ['orders.view', 'orders.create', 'orders.manage', 'orders.void'] },
       { label: 'Returns & Overrides', permissions: ['returns.create', 'price.override', 'discounts.apply', 'charges.manage'] },
       { label: 'Cash Drawer', permissions: ['shift.manage', 'cash.drawer', 'cash.drop'] },
+      { label: 'Register Tabs', permissions: ['pos.register_tabs.view_all', 'pos.register_tabs.transfer'] },
     ],
   },
   // ── Payments ──────────────────────────────────────────────

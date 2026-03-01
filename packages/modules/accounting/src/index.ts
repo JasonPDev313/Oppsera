@@ -170,6 +170,9 @@ export {
   handleInventoryReceiptVoidedForAccounting,
 } from './adapters/inventory-receipt-posting-adapter';
 export { handleCompForAccounting, handleLineVoidForAccounting } from './adapters/comp-void-posting-adapter';
+export { handleSpaCheckoutForAccounting } from './adapters/spa-posting-adapter';
+export { handleSpaPackagePurchaseForAccounting, handleSpaPackageRedemptionForAccounting } from './adapters/spa-package-posting-adapter';
+export { handleSpaCommissionPaidForAccounting } from './adapters/spa-commission-posting-adapter';
 
 // Queries
 export { getAccountBalances } from './queries/get-account-balances';

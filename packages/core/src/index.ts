@@ -120,6 +120,10 @@ export type {
   GatewayResult,
 } from './helpers/payments-gateway-api';
 export { getReconciliationReadApi, setReconciliationReadApi } from './helpers/reconciliation-read-api';
+export { getPmsReadApi, setPmsReadApi, hasPmsReadApi } from './helpers/pms-read-api';
+export type { PmsReadApi, PosGuestResult, PosFolioSummary } from './helpers/pms-read-api';
+export { getPmsWriteApi, setPmsWriteApi, hasPmsWriteApi } from './helpers/pms-write-api';
+export type { PmsWriteApi, FolioChargeInput, FolioPaymentInput } from './helpers/pms-write-api';
 export type {
   ReconciliationReadApi,
   OrdersSummaryData, TaxBreakdownRow, TaxRemittanceRow, CompTotalData,
@@ -169,6 +173,9 @@ export * from './drawer-sessions';
 export * from './retail-close';
 export * from './pos-ops';
 
+// ── Register Tabs ──────────────────────────────────────────────────
+export * from './register-tabs';
+
 // ── Settings ────────────────────────────────────────────────────
 export { getNavPreferences, saveNavPreferences } from './settings';
 export { getBusinessInfo, getBusinessInfoAll, updateBusinessInfo, getContentBlocks, updateContentBlock } from './settings';
@@ -206,3 +213,6 @@ export type {
 
 // ── ERP Dual-Mode Architecture ──────────────────────────────────
 export * from './erp';
+
+// ── Distributed Locks ───────────────────────────────────────────
+export * from './locks';

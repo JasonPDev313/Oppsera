@@ -128,12 +128,23 @@ export async function getRemappableTenders(
       const missingMappings: MissingMapping[] = [];
       let allMapped = true;
 
+      let hasPostingError = false;
+
       for (const mapping of uniqueMappings) {
         let nowMapped = false;
 
-        // Skip non-checkable entity types (posting errors, no line detail, etc.)
-        if (mapping.entityType === 'posting_error' || mapping.entityType === 'no_line_detail') {
-          // These can't be resolved by adding mappings
+        // posting_error = GL posting itself failed (not a mapping issue).
+        // These are retryable — the underlying cause (missing migration, DB error,
+        // settings corruption) may have been fixed since the original attempt.
+        if (mapping.entityType === 'posting_error') {
+          missingMappings.push({ ...mapping, nowMapped: true });
+          hasPostingError = true;
+          continue;
+        }
+
+        // no_line_detail = tender had no order line data for GL breakdown.
+        // Not fixable by retry — skip.
+        if (mapping.entityType === 'no_line_detail') {
           missingMappings.push({ ...mapping, nowMapped: false });
           allMapped = false;
           continue;
@@ -170,9 +181,12 @@ export async function getRemappableTenders(
       const glEntry = glEntryMap.get(glEntryKey);
       const tenderInfo = tenderAmountMap.get(tenderId);
 
-      // For POS tenders, remap requires a GL entry to void+repost.
-      // For non-POS modules (returns, fnb, chargeback, etc.), the remap
-      // can only succeed if there's an existing GL entry to void.
+      // canRemap conditions:
+      //   - All non-error mappings are now resolved (allMapped), AND
+      //   - Either a GL entry exists to void+repost, OR it's a posting_error
+      //     (no GL entry exists — post fresh instead of void+repost)
+      const canRemap = allMapped && (glEntry !== undefined || hasPostingError);
+
       results.push({
         tenderId,
         sourceModule,
@@ -180,7 +194,7 @@ export async function getRemappableTenders(
         amountCents: tenderInfo?.amountCents ?? 0,
         unmappedEventCount: eventCount,
         missingMappings,
-        canRemap: allMapped && glEntry !== undefined,
+        canRemap,
         glJournalEntryId: glEntry?.id ?? null,
       });
     }

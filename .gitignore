@@ -14,5 +14,8 @@ coverage
 
 .vercel
 
+# Deploy lock (created by scripts/deploy-oppsera.cjs)
+.deploy.lock
+
 # Backup storage
 data/backups/

@@ -16,13 +16,21 @@ export async function register() {
   const POLL_INTERVAL_MS = 60_000;
 
   // Delay first run by 10 seconds to let the server finish starting
-  setTimeout(() => {
+  const startupTimer = setTimeout(() => {
     void runSchedulerCheck();
 
     schedulerInterval = setInterval(() => {
       void runSchedulerCheck();
     }, POLL_INTERVAL_MS);
+    // Don't block Vercel function shutdown
+    if (schedulerInterval && typeof schedulerInterval === 'object' && 'unref' in schedulerInterval) {
+      schedulerInterval.unref();
+    }
   }, 10_000);
+  // Don't block Vercel function shutdown
+  if (typeof startupTimer === 'object' && 'unref' in startupTimer) {
+    startupTimer.unref();
+  }
 
   console.log('[admin] Backup scheduler polling started (every 60s)');
 }

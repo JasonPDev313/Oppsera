@@ -16,7 +16,10 @@ vi.mock('drizzle-orm', () => ({
     function sql(strings: TemplateStringsArray, ...values: unknown[]) {
       return { strings, values, __isSql: true };
     },
-    { raw: (s: string) => s },
+    {
+      raw: (s: string) => s,
+      join: (parts: unknown[], separator?: unknown) => ({ __isSqlJoin: true, parts, separator }),
+    },
   ),
 }));
 
@@ -153,9 +156,9 @@ describe('bootstrapTenantCoa', () => {
     expect(result.classificationCount).toBe(2);
     expect(result.accountCount).toBe(6);
 
-    // Should have executed: 2 classification inserts + 6 account inserts + 1 settings insert = 9
+    // Should have executed: 1 bulk classification insert + 1 bulk account insert + 1 settings insert = 3
     const insertCalls = executeCalls.filter((c: any) => c.strings?.join('').includes('INSERT'));
-    expect(insertCalls.length).toBe(9);
+    expect(insertCalls.length).toBe(3);
   });
 
   it('should return early if already bootstrapped', async () => {

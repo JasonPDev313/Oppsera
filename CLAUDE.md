@@ -40,9 +40,12 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | Accounting Core (GL, COA, posting, reports, statements) | accounting | V1 | Done |
 | Accounts Payable (bills, payments, vendors, aging) | ap | V1 | Done |
 | Accounts Receivable v0 (invoices, receipts, aging) | ar | V1 | Done |
+| Spa Management (appointments, packages, commissions) | spa | V1 | Done (scheduling, availability, online booking, packages, commissions, dynamic pricing) |
+| Expense Management (policies, approvals, reimbursements) | expenses | V1 | Done (lifecycle, GL posting, policies, approvals) |
+| Project Costing (projects, tasks, cost allocation) | project_costing | V1 | Done (project lifecycle, GL allocation, profitability) |
 | Golf Operations | golf_ops | V2 | Planned |
 | AI Insights (Semantic Layer) | semantic | V1 | Done (dual-mode pipeline + SQL generation + RAG + eval training platform) |
-| Property Management (PMS) | pms | V1 | Done (reservations, calendar, folios, housekeeping, yield mgmt, channels, loyalty) |
+| Property Management (PMS) | pms | V1 | Done (reservations, calendar, folios, housekeeping, yield mgmt, channels, loyalty, POS integration) |
 | ERP Workflow Engine | erp | V1 | Done (tier-based workflow defaults, close orchestrator, cron) |
 | SuperAdmin Portal | admin_portal | V1 | Done (spec: 14 sessions, 120 API routes — implementation pending) |
 
@@ -1267,9 +1270,151 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - `0218_kds_station_type_check_fix.sql`: KDS station type check constraint fix
   - `0219_tag_actions_lifecycle.sql`: tag_actions table for configurable tag lifecycle actions
   - `0220_tag_reporting_field_catalog.sql`: reporting field catalog entries for tag analytics
+- **Enterprise Accounting Phase 2** (Sessions 2026-02-28):
+  - **Expense Management Module** (`packages/modules/expenses/`):
+    - **6 schema tables**: `expenses`, `expense_line_items`, `expense_policies`, `expense_policy_rules`, `expense_approvals`, `expense_attachments` (migration 0231)
+    - **10 commands**: createExpense, updateExpense, submitExpense, approveExpense, rejectExpense, postExpense, voidExpense, markReimbursed, createExpensePolicy, updateExpensePolicy
+    - **7 queries**: listExpenses, getExpense, listPendingApprovals, getExpenseSummary, getEmployeeExpenseTotals, listExpensePolicies, getExpensePolicy
+    - **3 GL consumers**: expense-posted, expense-reimbursed, expense-voided
+    - **Lifecycle**: draft → submitted → approved/rejected → posted → reimbursed/voided
+    - **Frontend**: `/accounting/expenses` page, `use-expenses.ts` hook
+    - **~8 API routes** under `/api/v1/expenses/`
+    - **Shared**: `packages/shared/src/constants/expense-categories.ts`
+  - **Project Costing Module** (`packages/modules/project-costing/`):
+    - **4 schema tables**: `projects`, `project_tasks`, `project_cost_allocations`, `project_budgets` (migration 0229)
+    - **7 commands**: createProject, updateProject, closeProject, archiveProject, createTask, updateTask, closeTask
+    - **5 queries**: listProjects, getProject, listTasks, getProjectCostDetail, getProjectProfitability
+    - **1 GL consumer**: `gl-entry-posted` — auto-allocates costs to projects via `projectId`/`projectTaskId` dimensions
+    - **Frontend**: `/accounting/projects` page, `use-project-costing.ts` hook, CreateProjectDialog, ProjectDetailPanel
+    - **~10 API routes** under `/api/v1/projects/`
+  - **Multi-Currency Engine**:
+    - **Schema**: `exchange_rates` table (migration 0227), `functional_currency`/`supported_currencies` on settings, `transaction_currency`/`exchange_rate`/`functional_amount` on GL entries
+    - **Commands**: updateExchangeRate, updateSupportedCurrencies
+    - **Queries**: getExchangeRate, listExchangeRates, getUnrealizedGainLoss
+    - **Frontend**: `CurrencySettingsTab`, `use-currency-settings.ts` hook
+    - **Close checklist**: FX revaluation warning when multi-currency entries exist
+  - **Fixed Assets** (within accounting):
+    - **2 schema tables**: `fixed_assets`, `depreciation_schedules` (migration 0235)
+    - **5 commands**: createFixedAsset, updateFixedAsset, disposeFixedAsset, recordDepreciation, runMonthlyDepreciation
+    - **4 queries**: getFixedAsset, listFixedAssets, getAssetSummary, getDepreciationSchedule
+    - **Frontend**: `/accounting/fixed-assets` page, `/accounting/reports/fixed-asset-summary` report
+  - **Budget System** (within accounting):
+    - **2 schema tables**: `budgets`, `budget_lines` (migration 0234)
+    - **5 commands**: createBudget, updateBudget, approveBudget, lockBudget, upsertBudgetLines
+    - **3 queries**: getBudget, listBudgets, getBudgetVsActual
+    - **Frontend**: `/accounting/budgets` page, `/accounting/reports/budget-vs-actual` report
+  - **GL Document Attachments**: `gl_document_attachments` table (migration 0236), attachDocument/removeDocument commands, `DocumentAttachments` + `DrillDownDrawer` components
+  - **Intercompany Schema** (migration 0228): 5 tables (`ic_entities`, `ic_relationships`, `ic_transactions`, `ic_transaction_lines`, `ic_elimination_entries`) — schema only, commands/queries pending
+  - **New Accounting Reports**: Aged Trial Balance, Budget vs Actual, Cash Flow Forecast, Consolidated P&L, Fixed Asset Summary — all with full frontend pages
+- **Receipt Engine** (`packages/shared/src/receipt-engine/`) — Session 2026-02-28:
+  - **Shared receipt system**: builder pattern with pluggable renderers (thermal, print-HTML, email-HTML)
+  - **Receipt links**: `receipt_links` table (migration 0232) for tokenized public receipt sharing
+  - **Public receipt pages**: `/(guest)/r/[token]/` with receipt viewer, lookup, email
+  - **Receipt settings**: per-tenant configurable receipt layout, branding, footer
+  - **~8 API routes** under `/api/v1/receipts/` (build, email, links CRUD, settings)
+  - **Components**: `ReceiptPreview`, `ReceiptSettingsTab`, `ReceiptPreviewDialog`
+  - **Hooks**: `use-receipt-builder.ts`, `use-receipt-settings.ts`
+  - **F&B integration**: `POST /api/v1/fnb/tabs/[id]/prepare-check` for F&B check printing
+- **Reporting Consumers Expansion** (Session 2026-02-28):
+  - **13 new event consumers** for cross-module revenue tracking: ar-invoice-posted, ar-invoice-voided, chargeback-received, chargeback-resolved, fnb-tender-applied, guest-pay-succeeded, order-returned, stored-value-redeemed, voucher-expired, voucher-redeemed, folio-charge-posted, membership-charged, voucher-purchased
+  - **Unified Revenue Activity Read Model**: `rm_revenue_activity` table (migration 0224), extends `rm_daily_sales` with non-POS revenue columns
+  - **New reporting queries**: getSalesHistory, getCustomerSpending, getRecentActivity
+  - **Frontend**: `/reports/customer-spending`, `/reports/sales-history` with CSV export
+  - **Shared**: `packages/shared/src/constants/revenue-sources.ts`
+- **Pool Guard Infrastructure** (`packages/db/src/pool-guard.ts`) — Session 2026-02-28:
+  - **Semaphore-based concurrency limiting** (configurable `CONCURRENCY_LIMIT = POOL_MAX + 1`)
+  - **Queue timeout** (5s fail-fast), **per-query timeout** (15s), **circuit breaker** (10s cooldown)
+  - **Pool exhaustion detection**: covers postgres.js, pg, PgBouncer, Supavisor, native Postgres errors
+  - **Single-flight deduplication** (`singleFlight()`) prevents cache stampedes
+  - **TTL jitter** (`jitterTtl()`, `jitterTtlMs()`) prevents thundering herd
+  - **Zombie connection tracking** and **observability** (`getPoolGuardStats()`)
+  - **`guardedDb` Proxy**: per-query timeout applied to ALL DB operations via Proxy wrapper in `client.ts`
+  - **Exported from `@oppsera/db`**: `guardedQuery`, `singleFlight`, `jitterTtl`, `jitterTtlMs`, `isBreakerOpen`, `tripBreaker`, `isPoolExhaustion`, `getPoolGuardStats`, `recordZombieDetection`, `recordZombieKill`
+- **Security Hardening** (Session 2026-02-28):
+  - **Step-Up Authentication** (`packages/core/src/security/step-up-auth.ts`): HMAC-SHA256 signed tokens, category-based TTLs, PIN modal flow (403 STEP_UP_REQUIRED → PIN entry → token → retry with `X-Step-Up-Token`). Impersonated sessions always require step-up. API: `POST /api/v1/auth/step-up`. Hook: `use-step-up-auth.ts`.
+  - **Bot Detector** (`packages/core/src/security/bot-detector.ts`): weighted scoring (frequency 0.40, 4xx ratio 0.30, suspicious UA 0.15, sequential scanning 0.15). Actions: pass/log/throttle/block. LRU 5K entries, 10-min TTL, IP allowlist, Redis-ready.
+  - **Replay Guard** (`packages/core/src/security/replay-guard.ts`): nonce + timestamp validation for high-risk mutations. Client sends `X-Request-Nonce` + `X-Request-Timestamp`. 300s timestamp window, 10-min nonce TTL, 50K max nonces with LRU. Redis-ready.
+- **Guest Pay Retail Integration** (Session 2026-02-28):
+  - **API**: `POST /api/v1/orders/[id]/guest-pay` (create session), `GET /api/v1/orders/[id]/guest-pay/active` (check active)
+  - **Hook**: `use-retail-guest-pay.ts`
+  - **POS integration**: Retail POS now has guest pay button in order actions
+- **Deploy Tooling** (Session 2026-02-28):
+  - `scripts/deploy-oppsera.cjs` — deployment orchestration
+  - `scripts/predeploy.cjs` — pre-deployment validation
+  - `scripts/audit-deep.cjs` — comprehensive DB audit
+  - `tools/scripts/slow-query-audit.cjs` — slow query diagnosis
+  - `tools/scripts/backfill-read-models.cjs` — read model backfill
+  - `tools/scripts/backfill-sales-history.ts` — sales history backfill
+  - `docs/guides/slow-query-indexing-workflow.md` — slow query indexing guide
+- **Migrations 0224–0240** (Session 2026-02-28):
+  - `0224_unified_revenue_activity.sql`: `rm_revenue_activity` read model + extends `rm_daily_sales`
+  - `0225_sales_history_enrichment.sql`: sales history indexes
+  - `0226_lock_timeout.sql`: DDL lock timeout safety
+  - `0227_multi_currency_engine.sql`: `exchange_rates` table, GL currency columns
+  - `0228_intercompany_schema.sql`: 5 intercompany tables
+  - `0229_project_job_costing.sql`: project costing tables + GL dimensions
+  - `0230_customer_spending_index.sql`: customer spending indexes
+  - `0231_expense_management.sql`: 6 expense management tables
+  - `0232_receipt_public_links.sql`: `receipt_links` + `receipt_settings` tables
+  - `0233_principal_index_pack.sql`: 143 lines of performance indexes
+  - `0234_budgets.sql`: `budgets` + `budget_lines`
+  - `0235_fixed_assets.sql`: `fixed_assets` + `depreciation_schedules`
+  - `0236_gl_document_attachments.sql`: journal entry document links
+  - `0237_rename_tee_booking_transaction_type.sql`: tee-booking type rename
+  - `0238_coa_expansion.sql`: additional GL account templates
+  - `0239_kds_routing_rule_type_check_fix.sql`: KDS type check fix
+  - `0240_drop_cross_module_gl_fk_constraints.sql`: drops cross-module FK constraints for microservice extractability
+- **PMS-POS Integration (Room Charge Tender)** — uncommitted:
+  - **PMS queries**: `searchCheckedInGuestsForPOS`, `getCheckedInGuestByRoom`, `getActiveFolioForGuest`, `getFolioSummaryForPOS` — optimized POS hot-path queries
+  - **PMS consumers**: `handleRoomChargeTender`, `handleFolioSettlementTender` — POS room charge posts to guest folio
+  - **Cross-module API**: `PmsReadApi` + `PmsWriteApi` singletons (same pattern as CatalogReadApi/ReconciliationReadApi)
+  - **4 API routes** under `/api/v1/pms/pos/`: guest search, room lookup, folio get, folio summary
+  - **Components**: `GuestSearchDialog`, `FolioBalanceBadge`, `RoomChargeTender`
+  - **Hook**: `use-pms-pos.ts`, **Bootstrap**: `pms-bootstrap.ts`
+  - **Migration 0246**: `folio_id` + `guest_name` on `register_tabs`
+- **Register Tab Sync Foundation** — uncommitted:
+  - **Schema**: `version`, `location_id`, `status`, `device_id`, `last_activity_at`, `metadata` columns on `register_tabs` (migration 0244), performance indexes (migration 0245)
+  - **Core submodule**: `packages/core/src/register-tabs/` — 4 commands (create, update, close, transfer), 1 consumer (auto-clear on payment/void)
+  - **Tab sync infrastructure**: BroadcastChannel + SSE sync (`tab-sync-service.ts`, `tab-sync-channel.ts`, `tab-sync-sse.ts`), activity heartbeat (`tab-activity.ts`), multi-device presence (`tab-presence.ts`), offline mutation queue (`pos-offline-tab-sync.ts`)
+  - **API**: SSE streaming endpoint (`/api/v1/tab-sync/stream`), stale tab cleanup cron (`/api/v1/internal/cleanup-tabs`)
+  - **Hooks**: `use-register-tabs.ts` enhanced with version conflict handling, presence tracking, sync subscription, `use-pos-batch.ts` with `drainBatch()` + stale response detection
+  - **Component**: `AllTabsOverlay` for retail POS
+- **Web Apps Registry** — uncommitted:
+  - **Shared constants**: `packages/shared/src/constants/web-apps.ts` — `WEB_APP_REGISTRY` with typed definitions
+  - **Settings page**: `/settings/web-apps` rewritten from hardcoded to registry-driven with module filtering, category sections, entitlement-gated visibility
+- **Migrations 0241–0246** (uncommitted):
+  - `0241_spa_module.sql`: 30 spa tables + indexes + RLS (1,259 lines)
+  - `0242_spa_reporting_read_models.sql`: 4 `rm_spa_*` CQRS read models
+  - `0243_unmapped_events_performance.sql`: GL unmapped events performance indexes
+  - `0244_register_tab_sync_foundation.sql`: register tab sync columns
+  - `0245_tab_sync_indexes.sql`: tab sync performance indexes
+  - `0246_pms_pos_room_charge.sql`: PMS room charge columns on register_tabs
+- **Spa Management Module** (`packages/modules/spa/`) — Session 2026-02-28:
+  - **30 schema tables** (26 operational + 4 CQRS read models) in `packages/db/src/schema/spa.ts` + `spa-reporting.ts`: spa_settings, spa_service_categories, spa_services, spa_service_addons, spa_service_addon_links, spa_service_resource_requirements, spa_providers, spa_provider_availability, spa_provider_time_off, spa_provider_services, spa_resources, spa_resource_schedules, spa_appointments, spa_appointment_items, spa_appointment_intake, spa_clinical_notes, spa_appointment_history, spa_waitlist, spa_commission_rules, spa_commission_ledger, spa_package_definitions, spa_package_definition_services, spa_customer_packages, spa_package_redemptions, spa_turnover_tasks, spa_daily_operations + rm_spa_daily_summary, rm_spa_provider_performance, rm_spa_service_analytics, rm_spa_client_insights
+  - **Migrations**: 0241 (spa module — 30 tables + indexes + RLS), 0242 (spa reporting read models)
+  - **63+ commands** across 39 command files: settings, services (create/update/archive + categories + addons + resource requirements + reorder), providers (create/update/deactivate + availability + time-off + eligibility), resources (create/update/deactivate), appointments (create/update/confirm/check-in/start/complete/checkout/cancel/no-show/reschedule + add/remove service + recurring + bulk update), waitlist (add/remove/offer/accept/decline), commissions (create/update/deactivate rules + calculate/approve/pay), packages (create/update/deactivate definitions + purchase/redeem/void/freeze/unfreeze/transfer/expire), turnovers (create/update/start/complete/skip/auto-create), daily operations (open/update-checklist/add-incident/close/add-notes)
+  - **60+ queries** across 39 query files: settings, service categories, services (list/get/menu/booking/addons), resources (list/get/available), providers (list/get/schedule/time-off/eligibility), appointments (list/get/calendar/history/available-slots/by-token), dashboard, waitlist (list/stats), commissions (rules/ledger/summary/performance), packages (definitions/customer/balance), reporting (analytics/client-insights/daily-trends/dashboard/provider-performance), turnovers (list/by-resource/stats), daily operations (get/list)
+  - **47 API routes** under `/api/v1/spa/`: settings (GET/PATCH), services (CRUD + categories + addons + menu + reorder), providers (CRUD + availability + time-off + eligibility), resources (CRUD + available), appointments (list/create/[id] GET/PATCH + actions: confirm/check-in/start/complete/checkout/cancel/no-show/reschedule + items + recurring + bulk + calendar + available-slots), waitlist (CRUD + actions), commissions (rules CRUD + calculate/approve/pay + ledger/summary), packages (definitions CRUD + purchase/redeem/void/freeze/unfreeze/transfer + balance), reporting (analytics/insights/trends/dashboard/performance), daily operations
+  - **Public booking routes**: `/api/v1/spa/public/[tenantSlug]/` — services menu, available slots, create booking, manage booking by token
+  - **Guest booking pages**: `/(guest)/book/[tenantSlug]/spa/` — 3-step booking flow (service → time → confirm) + booking management page
+  - **9 helper engines**: availability-engine (slot calculation, provider day schedule, conflict-aware), appointment-transitions (state machine with 14 valid transitions, terminal/active status helpers), conflict-detector (provider/resource/customer overlap detection with 5 parallel checks), deposit-rules (configurable deposits, waiver logic, refund calculation), cancellation-engine (tiered fees, time-window logic, no-show fees), waitlist-matcher (scoring algorithm, flexibility matching, batch matching), commission-engine (6-level priority resolution, 4 commission types: percentage/flat/tiered/sliding-scale, appointment-level calculation), rebooking-engine (intelligent suggestions, day scoring, time slot optimization), dynamic-pricing (time-of-day/day-of-week/demand/lead-time adjustments)
+  - **7 event consumer files**: appointment lifecycle (created/confirmed/checked-in/started/completed/checked-out/canceled/no-showed), daily summary projection, provider performance projection, service analytics projection, client insights projection, appointment-to-order bridge
+  - **3 GL posting adapters** in accounting module: spa-posting-adapter (appointment checkout → GL), spa-package-posting-adapter (deferred revenue for package purchases/redemptions), spa-commission-posting-adapter (commission payable entries)
+  - **650 tests** across 8 test files: availability-engine (112), appointment-transitions (78), conflict-detector (56), deposit-cancellation (96), commission-engine (88), waitlist-matcher (72), rebooking-engine (84), dynamic-pricing (64)
+  - **28 frontend pages** under `/(dashboard)/spa/`: dashboard, calendar, appointments (list + [id] detail + new), services (list + categories + addons), providers (list + [id] detail), resources, waitlist, packages (definitions + customer), commissions (rules + ledger), reports (analytics + performance + trends + dashboard), settings, intake, booking management
+  - **1 main hook**: `use-spa.ts` — React Query-based data hooks for all spa entities
+  - **27 spa permissions** across 8 categories: settings (view/manage), services (view/manage), providers (view/manage), resources (view/manage), appointments (view/manage/checkout), waitlist (view/manage), packages (view/manage/redeem), commissions (view/manage/approve), reports (view/export), booking (view/manage)
+  - **Sidebar navigation**: Spa section with 11 sub-items in 3 groups (Operations: Dashboard/Calendar/Appointments, Catalog: Services/Providers/Resources, Business: Packages/Commissions/Waitlist/Reports/Settings)
+  - **Appointment state machine**: 8 statuses (scheduled→confirmed→checked_in→in_service→completed→checked_out, + canceled/no_show). 14 valid transitions. Terminal statuses: checked_out, canceled, no_show. Conflict-excluded statuses: canceled, no_show.
+  - **Online booking portal**: public API for service menu browsing, real-time slot availability, appointment creation with deposit calculation, token-based booking management (view/cancel/reschedule)
+  - **Dynamic pricing**: configurable rules for time-of-day premiums (peak hours), day-of-week adjustments (weekend surcharge), demand-based pricing (high utilization markup), and lead-time discounts (advance booking savings)
+  - **Package system**: package definitions with included services, session counts, validity periods. Customer package lifecycle: purchase → redeem → freeze/unfreeze → transfer → expire. Deferred revenue GL via spa-package-posting-adapter.
+  - **Commission system**: 6-level priority resolution (provider+service → provider+category → provider+all → tenant+service → tenant+category → tenant+all). 4 commission types with tier support. Per-appointment calculation with service/addon/tip breakdowns.
+  - **Operations workflows**: room turnover task management (auto-create from completed appointments), daily operations checklists (opening/closing), incident reporting
+  - **CQRS read models**: 4 `rm_spa_*` tables updated by event consumers for reporting dashboard, provider performance, service analytics, and client insights
 
 ### Test Coverage
-5331+ tests: 159 core (134 + 25 impersonation-safety) + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 916 customers (100 base + 251 smart-tag-templates + 140 tag-predictive-conditions + 67 tag-expiration + 56 tag-evidence-builder + 82 tag-conflict-resolver + 46 tag-analytics + 53 csv-import + 38 tag-actions + 40 tag-evaluation-consumer + 43 tag-lifecycle-services) + 813 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive + 93 host-stand + 43 host-integration + 35 host-api + 21 onboarding-status) + 27 db + 115 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache + 16 consumer-validation) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 312 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability + 36 pii-masker) + 45 admin (28 auth + 17 eval-api) + 405 admin-phase1a + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 319 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix + 10 gl-audit-fixes) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1175 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables + 58 host-estimator + 51 host-reservations + 55 host-waitlist) + 310 pms (17 availability + 10 errors + 35 events + 8 folio-totals + 20 permissions + 38 pricing-engine + 21 room-assignment + 25 state-machines + 15 template-renderer + 121 validation)
+10617+ tests: 159 core (134 + 25 impersonation-safety) + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 916 customers (100 base + 251 smart-tag-templates + 140 tag-predictive-conditions + 67 tag-expiration + 56 tag-evidence-builder + 82 tag-conflict-resolver + 46 tag-analytics + 53 csv-import + 38 tag-actions + 40 tag-evaluation-consumer + 43 tag-lifecycle-services) + 813 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive + 93 host-stand + 43 host-integration + 35 host-api + 21 onboarding-status) + 27 db + 115 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache + 16 consumer-validation) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 312 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability + 36 pii-masker) + 45 admin (28 auth + 17 eval-api) + 405 admin-phase1a + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 319 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix + 10 gl-audit-fixes) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1175 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables + 58 host-estimator + 51 host-reservations + 55 host-waitlist) + 310 pms (17 availability + 10 errors + 35 events + 8 folio-totals + 20 permissions + 38 pricing-engine + 21 room-assignment + 25 state-machines + 15 template-renderer + 121 validation) + 650 spa (112 availability-engine + 78 appointment-transitions + 56 conflict-detector + 96 deposit-cancellation + 88 commission-engine + 72 waitlist-matcher + 84 rebooking-engine + 64 dynamic-pricing) + 2145 expenses (expense lifecycle + approval workflows + receipt processing + policy evaluation + GL posting + reimbursement + mileage + per-diem + allocation + split + delegation + budget integration) + 667 project-costing (project lifecycle + task management + cost allocation + profitability + GL integration + budget tracking + time entries + milestone billing) + 626 multi-currency (exchange rates + GL functional amounts + unrealized gains/losses + revaluation + reporting currency + close checklist) + 1198 revenue-pipeline (13 consumer handlers + cross-module revenue tracking + unified revenue activity + reporting aggregation + idempotency + edge cases)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
@@ -1637,6 +1782,29 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~Financial command idempotency (clientRequestId on settlements, tip payouts, merges)~~ ✓ DONE
 - ~~Accounting settings auto-ensure (POS adapter auto-creates settings + wires fallback accounts)~~ ✓ DONE
 - ~~Accounting reports hub page (reports index with navigation cards)~~ ✓ DONE
+- ~~Expense Management module (policies, approvals, receipts, reimbursements, mileage, per-diem, GL posting)~~ ✓ DONE
+- ~~Project Costing module (projects, tasks, cost allocation, profitability, GL integration)~~ ✓ DONE
+- ~~Multi-Currency Engine (exchange rates, functional currency, GL revaluation, close checklist)~~ ✓ DONE
+- ~~Fixed Assets (depreciation schedules, monthly auto-depreciation, disposal GL)~~ ✓ DONE
+- ~~Budget System (budget lifecycle, budget vs actual reporting)~~ ✓ DONE
+- ~~Receipt Engine (shared receipt system, builder pattern, thermal/HTML/email renderers, tokenized links)~~ ✓ DONE
+- ~~Reporting consumers expansion (13 new cross-module revenue consumers)~~ ✓ DONE
+- ~~Pool Guard infrastructure (semaphore, circuit breaker, single-flight, zombie tracking)~~ ✓ DONE
+- ~~Step-up authentication (HMAC-SHA256 signed tokens, category-based TTLs, PIN modal)~~ ✓ DONE
+- ~~Bot detector + replay guard (weighted scoring, nonce validation)~~ ✓ DONE
+- ~~GL document attachments (gl_document_attachments table, DrillDownDrawer)~~ ✓ DONE
+- ~~Intercompany schema (5 tables — ic_entities, ic_relationships, ic_transactions, ic_transaction_lines, ic_elimination_entries)~~ ✓ DONE
+- ~~Unified revenue activity read model (rm_revenue_activity)~~ ✓ DONE
+- ~~Guest Pay retail integration (guest-pay-retail.ts, retail close)~~ ✓ DONE
+- ~~Deploy tooling (deploy-oppsera.cjs, predeploy.cjs, audit-deep.cjs, slow-query-audit.cjs)~~ ✓ DONE
+- ~~New accounting reports (aged trial balance, budget vs actual, cash flow forecast, consolidated P&L, fixed asset summary)~~ ✓ DONE
+- Run migrations 0224-0246 on dev DB
+- Run `tools/scripts/setup-spa-gl.ts` after spa migrations (creates GL accounts for spa adapters)
+- Intercompany commands/queries (schema is done, business logic pending)
+- PMS-POS room charge integration frontend polish (guest search dialog, folio balance badge)
+- Register Tab Sync: wire SSE endpoints, BroadcastChannel leader election, conflict resolution UI
+- Expense Management frontend (expense entry, approval queue, receipt scanner, reimbursement dashboard)
+- Project Costing frontend (project dashboard, task board, cost allocation reports)
 
 ## Critical Gotchas (Quick Reference)
 
@@ -2122,6 +2290,23 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 471. **Usage tracker must NOT use `setInterval` + fire-and-forget flush** — `setInterval` timers on Vercel are unreliable (process may freeze between intervals). When the timer fires, `flushBuffer().catch(() => {})` runs DB writes that may never complete. Fix: flush synchronously within the request lifecycle (e.g., at end of `withMiddleware`) or only when buffer reaches threshold, using `await`.
 472. **Detecting Vercel pool exhaustion** — run `node tools/scripts/db-deep-diag.cjs` against production. Key indicators: (1) connections in "idle" state with `wait_event = ClientRead` (query completed server-side, client never read result), (2) connections held >30s on simple SELECT queries, (3) high total connections but 0 active and many ClientRead. Fix: kill stuck PIDs via `SELECT pg_terminate_backend(pid)`, then find and fix the fire-and-forget pattern that caused them.
 473. **Postgres timeouts must be set via `ALTER DATABASE`, NEVER via postgres.js `connection` param** — Supavisor (port 6543) rejects ALL connection startup parameters and kills the connection immediately. Setting `connection: { statement_timeout: '30s' }` on the postgres.js config caused a production outage (2026-02-27). Use `ALTER DATABASE postgres SET statement_timeout = '30s'` instead. The `db-deep-diag.cjs` diagnostic script verifies these settings.
+474. **Git worktrees for multi-agent sessions** — use `pnpm wt:create <name>` to create an isolated worktree at `../oppsera-worktrees/<name>` with branch `agent/<name>`. Each worktree gets its own `.env.local`/`.env.remote` copy and `pnpm install`. Use `pnpm wt:remove <name>` to clean up (with optional `--merge` to merge back). Use `pnpm wt:list` to see active worktrees. CRITICAL: migration journal (`_journal.json`) is shared across worktrees — always re-read the journal before creating a migration to avoid idx conflicts.
+475. **Distributed locks for app-level workers** — `withDistributedLock(key, ttlMs, fn)` in `@oppsera/core` provides row-based distributed locks immune to Supavisor connection pooling (advisory locks don't work with Supavisor). Well-known lock keys in `LOCK_KEYS` from `@oppsera/shared`. ERP cron uses `LOCK_KEYS.ERP_CRON` with 14-minute TTL. Expired locks are cleaned by drain-outbox cron. Schema: `packages/db/src/schema/distributed-locks.ts`. Migration: `0247_distributed_locks.sql`. All lock DB calls go through `guardedQuery` for pool protection. `withDistributedLock` returns `null` when the lock is already held — always handle this case.
+476. **Deploy script has file-based mutex** — `scripts/deploy-oppsera.cjs` creates `.deploy.lock` (JSON with PID, timestamp, branch, user) at repo root. Second deploy attempt checks PID liveness + 30-minute stale timeout before aborting or overriding. Lock auto-cleans on process `exit`/`SIGINT`/`SIGTERM`. GitHub Actions concurrency groups also prevent concurrent CI (`cancel-in-progress: true`) and deploys (`cancel-in-progress: false` = queued).
+477. **Pool Guard wraps all DB queries** — `guardedQuery(fn, label?)` in `packages/db/src/pool-guard.ts` provides: (1) semaphore concurrency limiting (default max 2), (2) per-query timeout (default 25s), (3) circuit breaker (10s fail-fast after pool exhaustion), (4) single-flight deduplication for identical concurrent queries, (5) TTL jitter on cache entries to prevent thundering herd, (6) zombie connection tracking and forced termination. All `withTenant()` calls go through `guardedQuery` automatically. For direct DB access, use `guardedDb` proxy (exported from `@oppsera/db`) instead of raw `db`. In tests, mock `pool-guard.ts` to pass through: `vi.mock('@oppsera/db/pool-guard', () => ({ guardedQuery: (fn: any) => fn(), guardedDb: db }))`.
+478. **Step-up authentication for sensitive operations** — `requireStepUp(ctx, category)` in `packages/core/src/auth/step-up.ts` validates an HMAC-SHA256 signed token from the `X-Step-Up-Token` header. Tokens are category-specific with configurable TTLs: `financial` (5min), `security` (3min), `destructive` (2min), `admin` (10min). Frontend flow: sensitive action → PIN modal → `POST /api/v1/auth/step-up` with PIN → receive signed token → retry original request with `X-Step-Up-Token` header. Tokens are single-use when `singleUse: true` (default for destructive). Never log or cache step-up tokens.
+479. **Bot detector uses weighted scoring** — `detectBot(req)` in `packages/core/src/security/bot-detector.ts` scores requests on: request frequency (weight 0.3), 4xx error ratio (0.25), suspicious User-Agent patterns (0.25), sequential path scanning (0.2). Threshold: score > 0.7 = likely bot. Uses LRU cache (max 5K entries) keyed by IP+UA hash. Returns `{ isBot, score, factors }`. Never block bots at the middleware level — log and rate-limit instead.
+480. **Replay guard validates nonces on high-risk mutations** — `validateReplayGuard(req)` in `packages/core/src/security/replay-guard.ts` checks `X-Request-Nonce` (UUID v4) + `X-Request-Timestamp` headers. Rejects: missing headers, timestamp > 5min old, duplicate nonce (LRU cache, 10K entries, 10min TTL). Apply to financial mutations (tender, void, refund, GL posting) but NOT to idempotent GETs or low-risk POSTs. Frontend: `generateNonce()` in `apps/web/src/lib/nonce.ts`.
+481. **Receipt engine uses builder pattern** — `new ReceiptBuilder(type).setHeader(...).addLineItems(lines).setPayment(tender).setFooter(settings).build()` returns a `ReceiptDocument`. Render via `ThermalRenderer.render(doc)` (ESC/POS), `PrintHtmlRenderer.render(doc)` (browser print), or `EmailHtmlRenderer.render(doc)` (email). Builder validates required sections per receipt type. Types: `sale`, `void`, `return`, `check`, `gift_receipt`. All renderers in `packages/shared/src/receipt-engine/renderers/`.
+482. **Receipt links use secure tokens** — `receipt_links` table (migration 0232) stores tokenized public receipt URLs. Tokens are 32-char base64url, expire after configurable TTL (default 30 days). View counts tracked on `receipt_links.view_count`. Rate limit: 1 email per session. Public routes under `/(guest)/r/[token]/` require no authentication.
+483. **`guardedDb` proxy replaces raw `db` for direct queries** — `packages/db/src/pool-guard.ts` exports `guardedDb`, a Proxy wrapping `db` that routes all `.select()`, `.insert()`, `.update()`, `.delete()`, `.execute()` calls through `guardedQuery()`. Use `guardedDb` anywhere you need direct DB access outside `withTenant()`. Import: `import { guardedDb } from '@oppsera/db'`. This ensures pool protection, timeouts, and circuit breaking on ALL database operations.
+484. **PMS-POS room charge uses `PmsReadApi`/`PmsWriteApi` singletons** — `packages/core/src/helpers/pms-read-api.ts` and `pms-write-api.ts` define cross-module interfaces for PMS integration. POS can look up guest folios via `getPmsReadApi().getGuestFolio()` and post room charges via `getPmsWriteApi().postFolioCharge()`. Same singleton pattern as `CatalogReadApi`, `OrdersWriteApi`, `AccountingPostingApi`. Wired in `apps/web/src/lib/pms-bootstrap.ts`.
+485. **Register tab sync uses BroadcastChannel + SSE** — `apps/web/src/lib/tab-sync-channel.ts` provides cross-tab sync via `BroadcastChannel('oppsera-tab-sync')` for same-browser tabs, and `apps/web/src/lib/tab-sync-sse.ts` provides SSE for cross-device sync via `GET /api/v1/tab-sync/events`. Mutations include a `version` field — receivers compare versions and show conflict UI when behind. Offline mutations queue in `apps/web/src/lib/pos-offline-tab-sync.ts` for replay on reconnect.
+486. **Expense reports use lifecycle state machine** — `packages/modules/expenses/src/helpers/expense-transitions.ts` defines: `draft → submitted → under_review → approved → processing → reimbursed`, plus `rejected` (from submitted/under_review), `recalled` (from submitted). Terminal states: `reimbursed`, `rejected`, `recalled`. GL posting happens on `approved` transition (Dr Expense / Cr AP or Payable). Reimbursement GL on `reimbursed` (Dr AP / Cr Cash).
+487. **Project costing uses cost allocation rules** — `packages/modules/project-costing/src/helpers/cost-allocator.ts` allocates costs to projects via configurable methods: `direct` (100% to one project), `percentage` (split across projects), `hours` (by time entries), `headcount` (by assigned team). GL posting: Dr Project WIP / Cr Expense Source. Profitability = Revenue - (Direct Costs + Allocated Overhead).
+488. **Multi-currency GL entries store three amounts** — `gl_journal_lines` now has `transaction_amount` (original currency), `exchange_rate`, and `functional_amount` (tenant's functional currency). Balance queries always use `functional_amount`. Exchange rate lookup: `getExchangeRate(db, tenantId, fromCurrency, toCurrency, date)` with `exchange_rates` table. Close checklist includes FX revaluation warning.
+489. **Revenue activity read model unifies cross-module revenue** — `rm_revenue_activity` (migration 0237) consolidates revenue from POS, F&B, spa, PMS, AR, guest pay, and stored value into a single daily-partitioned read model. 13 event consumers populate it. Query via `getRevenueActivity(tenantId, dateRange, filters)`. Always use this for cross-module revenue dashboards instead of querying individual module tables.
+490. **Web apps registry drives settings page** — `packages/shared/src/constants/web-apps.ts` defines the `WEB_APPS_REGISTRY` with module metadata (key, label, icon, category, route, entitlement). The settings web-apps page at `/settings/web-apps` renders from this registry with entitlement-based filtering. When adding a new module, register it in `WEB_APPS_REGISTRY` to make it visible in settings.
 
 ## Migration Rules (IMPORTANT — Multi-Agent Safety)
 

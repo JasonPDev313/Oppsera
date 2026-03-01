@@ -54,6 +54,10 @@ export async function register() {
         const { initializeReconciliationReadApi } = await import('./lib/reconciliation-bootstrap');
         await initializeReconciliationReadApi();
       }),
+      importSafe('PmsReadApi + PmsWriteApi', async () => {
+        const { initializePmsApis } = await import('./lib/pms-bootstrap');
+        await initializePmsApis();
+      }),
       importSafe('AccountingPostingApi + core GL consumers', async () => {
         const { initializeAccountingPostingApi } = await import('./lib/accounting-bootstrap');
         await initializeAccountingPostingApi();
@@ -204,6 +208,11 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       // Comp + line void → GL
       bus.subscribe('order.line.comped.v1', accounting.handleCompForAccounting);
       bus.subscribe('order.line.voided.v1', accounting.handleLineVoidForAccounting);
+      // Spa → GL
+      bus.subscribe('spa.appointment.checked_out.v1', accounting.handleSpaCheckoutForAccounting);
+      bus.subscribe('spa.package.purchased.v1', accounting.handleSpaPackagePurchaseForAccounting);
+      bus.subscribe('spa.package.redeemed.v1', accounting.handleSpaPackageRedemptionForAccounting);
+      bus.subscribe('spa.commission.paid.v1', accounting.handleSpaCommissionPaidForAccounting);
     }),
 
     // Unified revenue ledger consumers (PMS, AR, membership, voucher → rm_revenue_activity + rm_daily_sales)
@@ -254,7 +263,7 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('channel.daily.cancelled.v1', golfReporting.handleChannelDailyCancelled);
     }),
 
-    // PMS consumers (calendar + occupancy projectors)
+    // PMS consumers (calendar + occupancy projectors + POS room charge/folio settlement)
     importSafe('PMS event consumers', async () => {
       const pms = await import('@oppsera/module-pms');
       bus.subscribe('pms.reservation.created.v1', pms.handleCalendarProjection);
@@ -270,6 +279,22 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('pms.reservation.checked_in.v1', pms.handleOccupancyProjection);
       bus.subscribe('pms.reservation.checked_out.v1', pms.handleOccupancyProjection);
       bus.subscribe('pms.reservation.no_show.v1', pms.handleOccupancyProjection);
+
+      // POS → PMS: room charge + folio settlement via tender events
+      bus.subscribe('tender.recorded.v1', pms.handleRoomChargeTender);
+      bus.subscribe('tender.recorded.v1', pms.handleFolioSettlementTender);
+    }),
+
+    // Spa CQRS reporting consumers
+    importSafe('Spa reporting consumers', async () => {
+      const spa = await import('@oppsera/module-spa');
+      bus.subscribe('spa.appointment.created.v1', spa.handleSpaAppointmentCreated);
+      bus.subscribe('spa.appointment.completed.v1', spa.handleSpaAppointmentCompleted);
+      bus.subscribe('spa.appointment.canceled.v1', spa.handleSpaAppointmentCanceled);
+      bus.subscribe('spa.appointment.no_show.v1', spa.handleSpaAppointmentNoShow);
+      bus.subscribe('spa.appointment.checked_out.v1', spa.handleSpaAppointmentCheckedOut);
+      bus.subscribe('spa.package.sold.v1', spa.handleSpaPackageSold);
+      bus.subscribe('spa.package.redeemed.v1', spa.handleSpaPackageRedeemed);
     }),
 
     // PMS → Customer sync (cross-module guest-to-customer linking + Hotel Guest tag)
@@ -300,6 +325,13 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('expense.posted.v1', expenses.handleExpensePosted);
       bus.subscribe('expense.voided.v1', expenses.handleExpenseVoided);
       bus.subscribe('expense.reimbursed.v1', expenses.handleExpenseReimbursed);
+    }),
+
+    // Register Tab auto-clear — clears tabs after payment/void
+    importSafe('Register tab auto-clear consumers', async () => {
+      const registerTabs = await import('@oppsera/core/register-tabs');
+      bus.subscribe('tender.recorded.v1', registerTabs.handleTabAutoClearOnTender);
+      bus.subscribe('order.voided.v1', registerTabs.handleTabAutoClearOnVoid);
     }),
   ]);
 }

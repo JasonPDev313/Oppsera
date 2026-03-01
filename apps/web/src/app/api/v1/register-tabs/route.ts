@@ -1,53 +1,65 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { eq, and, asc } from 'drizzle-orm';
-import { z } from 'zod';
+import { eq, and, asc, ne, gte } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { db, registerTabs } from '@oppsera/db';
-import { generateUlid, ValidationError } from '@oppsera/shared';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { ValidationError } from '@oppsera/shared';
+import {
+  createRegisterTab,
+  createRegisterTabSchema,
+} from '@oppsera/core/register-tabs';
 
-// GET /api/v1/register-tabs?terminalId=xxx — list tabs for a terminal
+// GET /api/v1/register-tabs?terminalId=xxx&locationId=xxx&since=ISO — list tabs
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
     const terminalId = url.searchParams.get('terminalId');
+    const locationId = url.searchParams.get('locationId');
+    const since = url.searchParams.get('since');
 
-    if (!terminalId) {
-      throw new ValidationError('terminalId is required', [
-        { field: 'terminalId', message: 'terminalId query parameter is required' },
+    if (!terminalId && !locationId) {
+      throw new ValidationError('terminalId or locationId is required', [
+        { field: 'terminalId', message: 'terminalId or locationId query parameter is required' },
       ]);
+    }
+
+    const conditions = [
+      eq(registerTabs.tenantId, ctx.tenantId),
+      ne(registerTabs.status, 'closed'),
+    ];
+
+    if (terminalId) {
+      conditions.push(eq(registerTabs.terminalId, terminalId));
+    }
+    if (locationId) {
+      conditions.push(eq(registerTabs.locationId, locationId));
+    }
+    if (since) {
+      const sinceDate = new Date(since);
+      if (!isNaN(sinceDate.getTime())) {
+        conditions.push(gte(registerTabs.updatedAt, sinceDate));
+      }
     }
 
     const rows = await db
       .select()
       .from(registerTabs)
-      .where(
-        and(
-          eq(registerTabs.tenantId, ctx.tenantId),
-          eq(registerTabs.terminalId, terminalId),
-        ),
-      )
+      .where(and(...conditions))
       .orderBy(asc(registerTabs.tabNumber));
 
-    return NextResponse.json({ data: rows });
+    return NextResponse.json({
+      data: rows,
+      meta: { serverTimestamp: new Date().toISOString() },
+    });
   },
   { entitlement: 'orders', permission: 'orders.create' },
 );
 
 // POST /api/v1/register-tabs — create a new tab
-const createTabSchema = z.object({
-  terminalId: z.string().min(1),
-  tabNumber: z.number().int().min(1),
-  label: z.string().max(50).optional(),
-  employeeId: z.string().optional(),
-  employeeName: z.string().max(100).optional(),
-});
-
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const body = await request.json();
-    const parsed = createTabSchema.safeParse(body);
+    const parsed = createRegisterTabSchema.safeParse(body);
 
     if (!parsed.success) {
       throw new ValidationError(
@@ -56,29 +68,9 @@ export const POST = withMiddleware(
       );
     }
 
-    const { terminalId, tabNumber, label, employeeId, employeeName } = parsed.data;
-    const resolvedEmployeeId = employeeId ?? ctx.user.id;
-    const resolvedEmployeeName = employeeName ?? ctx.user.name;
+    const result = await createRegisterTab(ctx, parsed.data);
 
-    const [row] = await db.insert(registerTabs).values({
-      id: generateUlid(),
-      tenantId: ctx.tenantId,
-      terminalId,
-      tabNumber,
-      label: label ?? null,
-      orderId: null,
-      employeeId: resolvedEmployeeId,
-      employeeName: resolvedEmployeeName,
-    }).returning();
-
-    await auditLog(ctx, 'register_tab.created', 'register_tab', row!.id, undefined, {
-      terminalId,
-      tabNumber,
-      employeeId: resolvedEmployeeId,
-      employeeName: resolvedEmployeeName,
-    });
-
-    return NextResponse.json({ data: row }, { status: 201 });
+    return NextResponse.json({ data: result }, { status: 201 });
   },
   { entitlement: 'orders', permission: 'orders.create' },
 );

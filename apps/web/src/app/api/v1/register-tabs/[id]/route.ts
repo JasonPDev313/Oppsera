@@ -1,30 +1,25 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { eq, and } from 'drizzle-orm';
-import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { db, registerTabs } from '@oppsera/db';
-import { ValidationError, NotFoundError } from '@oppsera/shared';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { ValidationError } from '@oppsera/shared';
+import {
+  updateRegisterTab,
+  closeRegisterTab,
+  updateRegisterTabSchema,
+  closeRegisterTabSchema,
+} from '@oppsera/core/register-tabs';
 
 function extractTabId(request: NextRequest): string {
   const parts = new URL(request.url).pathname.split('/');
   return parts[parts.length - 1]!;
 }
 
-// PATCH /api/v1/register-tabs/[id] — update a tab (orderId, label)
-const updateTabSchema = z.object({
-  orderId: z.string().nullable().optional(),
-  label: z.string().max(50).nullable().optional(),
-  employeeId: z.string().optional(),
-  employeeName: z.string().max(100).optional(),
-});
-
+// PATCH /api/v1/register-tabs/[id] — update a tab (orderId, label, etc.)
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const id = extractTabId(request);
+    const tabId = extractTabId(request);
     const body = await request.json();
-    const parsed = updateTabSchema.safeParse(body);
+    const parsed = updateRegisterTabSchema.safeParse({ ...body, tabId });
 
     if (!parsed.success) {
       throw new ValidationError(
@@ -33,80 +28,30 @@ export const PATCH = withMiddleware(
       );
     }
 
-    const updates: Record<string, unknown> = { updatedAt: new Date() };
-    if (parsed.data.orderId !== undefined) updates.orderId = parsed.data.orderId;
-    if (parsed.data.label !== undefined) updates.label = parsed.data.label;
-    if (parsed.data.employeeId !== undefined) updates.employeeId = parsed.data.employeeId;
-    if (parsed.data.employeeName !== undefined) updates.employeeName = parsed.data.employeeName;
+    const result = await updateRegisterTab(ctx, parsed.data);
 
-    // If server is changing, fetch old values for audit
-    let oldEmployeeId: string | null = null;
-    let oldEmployeeName: string | null = null;
-    if (parsed.data.employeeId !== undefined) {
-      const [current] = await db
-        .select({
-          employeeId: registerTabs.employeeId,
-          employeeName: registerTabs.employeeName,
-        })
-        .from(registerTabs)
-        .where(and(eq(registerTabs.id, id), eq(registerTabs.tenantId, ctx.tenantId)));
-      if (current) {
-        oldEmployeeId = current.employeeId;
-        oldEmployeeName = current.employeeName;
-      }
-    }
-
-    const [row] = await db
-      .update(registerTabs)
-      .set(updates)
-      .where(
-        and(
-          eq(registerTabs.id, id),
-          eq(registerTabs.tenantId, ctx.tenantId),
-        ),
-      )
-      .returning();
-
-    if (!row) {
-      throw new NotFoundError('Tab not found');
-    }
-
-    // Audit server change
-    if (parsed.data.employeeId !== undefined && parsed.data.employeeId !== oldEmployeeId) {
-      await auditLog(ctx, 'register_tab.server_changed', 'register_tab', id, {
-        employeeId: { old: oldEmployeeId, new: parsed.data.employeeId },
-        employeeName: { old: oldEmployeeName, new: parsed.data.employeeName ?? null },
-      }, {
-        changedBy: ctx.user.id,
-        changedByName: ctx.user.name,
-      });
-    }
-
-    return NextResponse.json({ data: row });
+    return NextResponse.json({ data: result });
   },
   { entitlement: 'orders', permission: 'orders.create', writeAccess: true },
 );
 
-// DELETE /api/v1/register-tabs/[id] — delete a tab
+// DELETE /api/v1/register-tabs/[id] — close a tab (soft-delete)
 export const DELETE = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const id = extractTabId(request);
+    const tabId = extractTabId(request);
+    const body = await request.json().catch(() => ({}));
+    const parsed = closeRegisterTabSchema.safeParse({ ...body, tabId });
 
-    const [row] = await db
-      .delete(registerTabs)
-      .where(
-        and(
-          eq(registerTabs.id, id),
-          eq(registerTabs.tenantId, ctx.tenantId),
-        ),
-      )
-      .returning();
-
-    if (!row) {
-      throw new NotFoundError('Tab not found');
+    if (!parsed.success) {
+      throw new ValidationError(
+        'Validation failed',
+        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+      );
     }
 
-    return NextResponse.json({ data: { id: row.id } });
+    const result = await closeRegisterTab(ctx, parsed.data);
+
+    return NextResponse.json({ data: { id: result.id, status: result.status } });
   },
   { entitlement: 'orders', permission: 'orders.create', writeAccess: true },
 );

@@ -86,3 +86,6 @@ export * from './expense-management';
 export * from './receipt-links';
 export * from './budgets';
 export * from './fixed-assets';
+export * from './spa';
+export * from './spa-reporting';
+export * from './distributed-locks';

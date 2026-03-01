@@ -39,6 +39,9 @@ import {
   ShoppingCart,
   Smartphone,
   Upload,
+  Scissors,
+  Calendar,
+  Gift,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -440,7 +443,81 @@ export const ONBOARDING_PHASES: OnboardingPhaseDef[] = [
     ],
   },
 
-  // ── Phase 9: Reporting & AI ──
+  // ── Phase 9: Spa Management ──
+  {
+    key: 'spa',
+    label: 'Spa Management',
+    description: 'Set up services, providers, resources, and online booking for your spa',
+    icon: Scissors,
+    moduleKey: 'spa',
+    steps: [
+      {
+        key: 'spa_settings',
+        label: 'Configure Spa Settings',
+        description: 'Set your spa operating hours, booking policies, deposit requirements, and cancellation rules.',
+        icon: Scissors,
+        href: '/spa/settings',
+      },
+      {
+        key: 'service_categories',
+        label: 'Create Service Categories',
+        description: 'Organize your spa services into categories (e.g., Massage, Facials, Body Treatments, Nail Services).',
+        icon: Tags,
+        href: '/spa/services',
+      },
+      {
+        key: 'spa_services',
+        label: 'Add Services',
+        description: 'Create your spa service menu with pricing, duration, and provider eligibility.',
+        icon: ClipboardList,
+        href: '/spa/services',
+      },
+      {
+        key: 'spa_providers',
+        label: 'Set Up Providers',
+        description: 'Add your spa therapists and estheticians, set their availability schedules and service eligibility.',
+        icon: Users,
+        href: '/spa/providers',
+      },
+      {
+        key: 'spa_resources',
+        label: 'Configure Resources',
+        description: 'Add treatment rooms, equipment, and other bookable resources that appointments require.',
+        icon: Building2,
+        href: '/spa/resources',
+      },
+      {
+        key: 'spa_booking',
+        label: 'Enable Online Booking',
+        description: 'Configure your public booking portal so guests can browse services and book appointments online.',
+        icon: Calendar,
+        href: '/spa/settings',
+      },
+      {
+        key: 'spa_packages',
+        label: 'Create Packages',
+        description: 'Build service packages with session bundles, expiration dates, and transferability options.',
+        icon: Gift,
+        href: '/spa/packages',
+      },
+      {
+        key: 'spa_commissions',
+        label: 'Set Up Commissions',
+        description: 'Configure commission rules for providers — percentage, flat, tiered, or sliding scale with 6-level priority resolution.',
+        icon: DollarSign,
+        href: '/spa/commissions',
+      },
+      {
+        key: 'spa_test_appointment',
+        label: 'Book a Test Appointment',
+        description: 'Create a test appointment to verify the full booking flow: service selection, provider assignment, and checkout.',
+        icon: CheckCircle,
+        href: '/spa/appointments/new',
+      },
+    ],
+  },
+
+  // ── Phase 10: Reporting & AI ──
   {
     key: 'reporting',
     label: 'Reporting & AI',
@@ -472,7 +549,7 @@ export const ONBOARDING_PHASES: OnboardingPhaseDef[] = [
     ],
   },
 
-  // ── Phase 10: Merchant Services ──
+  // ── Phase 11: Merchant Services ──
   {
     key: 'merchant_services',
     label: 'Merchant Services',
@@ -518,7 +595,7 @@ export const ONBOARDING_PHASES: OnboardingPhaseDef[] = [
     ],
   },
 
-  // ── Phase 11: Go Live Checklist ──
+  // ── Phase 12: Go Live Checklist ──
   {
     key: 'go_live',
     label: 'Go Live Checklist',

@@ -112,6 +112,66 @@ function isSensitiveFile(filepath) {
   return NEVER_STAGE_PATTERNS.some((p) => lower.includes(p));
 }
 
+// ── Deploy Lock ─────────────────────────────────────────────────────────────
+// Prevents concurrent deploys from the same machine.
+const LOCK_FILE = path.join(process.cwd(), '.deploy.lock');
+const LOCK_STALE_MS = 30 * 60 * 1000; // 30 minutes = stale
+
+function acquireDeployLock() {
+  if (fs.existsSync(LOCK_FILE)) {
+    let lock;
+    try {
+      lock = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf-8'));
+    } catch {
+      warn('Corrupt deploy lock file — removing.');
+      fs.unlinkSync(LOCK_FILE);
+      lock = null;
+    }
+
+    if (lock) {
+      const age = Date.now() - new Date(lock.startedAt).getTime();
+      let processAlive = false;
+      try {
+        process.kill(lock.pid, 0); // signal 0 = check existence
+        processAlive = true;
+      } catch { /* process dead */ }
+
+      if (processAlive && age < LOCK_STALE_MS) {
+        fail(`Deploy already in progress (PID ${lock.pid}, started ${lock.startedAt})`);
+        fail('If this is stale, delete .deploy.lock manually.');
+        process.exit(1);
+      }
+
+      warn(`Removing stale deploy lock (PID ${lock.pid}, age ${Math.round(age / 1000)}s)`);
+    }
+  }
+
+  const lockData = {
+    pid: process.pid,
+    startedAt: new Date().toISOString(),
+    branch: runCapture('git rev-parse --abbrev-ref HEAD'),
+    user: runCapture('git config user.name') || process.env.USERNAME || 'unknown',
+  };
+
+  fs.writeFileSync(LOCK_FILE, JSON.stringify(lockData, null, 2));
+}
+
+function releaseDeployLock() {
+  try {
+    if (fs.existsSync(LOCK_FILE)) {
+      const current = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf-8'));
+      if (current.pid === process.pid) {
+        fs.unlinkSync(LOCK_FILE);
+      }
+    }
+  } catch { /* best effort */ }
+}
+
+// Register cleanup handlers for all exit paths
+process.on('exit', releaseDeployLock);
+process.on('SIGINT', () => { releaseDeployLock(); process.exit(130); });
+process.on('SIGTERM', () => { releaseDeployLock(); process.exit(143); });
+
 // ── Migration journal validation ────────────────────────────────────────────
 function validateMigrationJournal() {
   const journalPath = path.join(process.cwd(), 'packages/db/migrations/meta/_journal.json');
@@ -231,6 +291,12 @@ async function main() {
   if (!validateMigrationJournal()) {
     fail('Migration journal is inconsistent — fix before deploying.');
     process.exit(1);
+  }
+
+  // Deploy lock — prevent concurrent deploys
+  if (!dryRun) {
+    acquireDeployLock();
+    success('Deploy lock acquired');
   }
 
   // ── Step: Lint ────────────────────────────────────────────────────────────

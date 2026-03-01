@@ -57,6 +57,7 @@ import {
   TRANSACTION_TYPE_CATEGORY_LABELS,
   TRANSACTION_TYPE_CATEGORY_ORDER,
   getSystemTransactionType,
+  isAutoPostedType,
   DEBIT_KIND_ACCOUNT_FILTER,
   CREDIT_KIND_ACCOUNT_FILTER,
   getMappedStatusRule,
@@ -174,7 +175,7 @@ export default function MappingsContent() {
       let failed = 0;
 
       for (const t of allTransactionTypes) {
-        if (t.isMapped) continue;
+        if (t.isMapped || isAutoPostedType(t.code)) continue;
         const rule = getMappedStatusRule(t.category);
         let debitId: string | null = t.debitAccountId;
         let creditId: string | null = t.creditAccountId;
@@ -1186,7 +1187,7 @@ function PaymentTypeMappingsTab() {
       }
       group.types.push(t);
       group.totalCount++;
-      if (t.isMapped) group.mappedCount++;
+      if (t.isMapped || isAutoPostedType(t.code)) group.mappedCount++;
     }
     return TRANSACTION_TYPE_CATEGORY_ORDER
       .filter((cat) => map.has(cat))
@@ -1198,7 +1199,7 @@ function PaymentTypeMappingsTab() {
     if (!allAccounts || allAccounts.length === 0) return 0;
     let count = 0;
     for (const t of allTypes) {
-      if (t.isMapped) continue;
+      if (t.isMapped || isAutoPostedType(t.code)) continue;
       const rule = getMappedStatusRule(t.category);
       // For debit-driven types, look for asset accounts
       if (rule === 'debit' || rule === 'both') {
@@ -1261,7 +1262,7 @@ function PaymentTypeMappingsTab() {
     let failed = 0;
 
     for (const t of allTypes) {
-      if (t.isMapped) continue;
+      if (t.isMapped || isAutoPostedType(t.code)) continue;
       const rule = getMappedStatusRule(t.category);
       let debitId: string | null = t.debitAccountId;
       let creditId: string | null = t.creditAccountId;
@@ -1485,15 +1486,16 @@ function TransactionTypeRow({
 }) {
   const debitDisabled = isDebitDisabled(t.code);
   const creditDisabled = isCreditDisabled(t.code);
+  const autoPosted = isAutoPostedType(t.code);
   const hasMappingRow = t.creditAccountId != null || t.debitAccountId != null;
   const sourceBadge = t.mappingSource ? SOURCE_BADGE[t.mappingSource] : null;
 
-  const isPartial = !t.isMapped && (t.creditAccountId != null || t.debitAccountId != null);
+  const isPartial = !t.isMapped && !autoPosted && (t.creditAccountId != null || t.debitAccountId != null);
 
   return (
     <tr
       className={`border-b border-border last:border-0 ${
-        !t.isMapped ? 'bg-amber-500/5' : ''
+        !t.isMapped && !autoPosted ? 'bg-amber-500/5' : ''
       }`}
     >
       {/* Type info */}
@@ -1566,6 +1568,10 @@ function TransactionTypeRow({
       <td className="px-4 py-3 text-center">
         {t.isMapped ? (
           <CheckCircle aria-hidden="true" className="inline h-5 w-5 text-green-500" />
+        ) : autoPosted ? (
+          <span className="inline-flex rounded-full bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 text-xs font-medium text-blue-500">
+            Auto
+          </span>
         ) : isPartial ? (
           <span className="inline-flex rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-xs font-medium text-amber-500">
             Partial
@@ -2472,7 +2478,7 @@ function UnmappedEventsTab() {
   const [view, setView] = useState<'smart' | 'events'>('smart');
   const [statusFilter, setStatusFilter] = useState<'unresolved' | 'resolved' | undefined>('unresolved');
   const [deselected, setDeselected] = useState<Set<string>>(new Set());
-  const { data: events, isLoading: eventsLoading, mutate } = useUnmappedEvents({ status: statusFilter });
+  const { data: events, isLoading: eventsLoading, isLoadingMore, hasMore, loadMore, mutate } = useUnmappedEvents({ status: statusFilter });
   const { resolveEvent } = useUnmappedEventMutations();
   const { data: smartData, isLoading: smartLoading, error: smartError, refetch: refetchSmart } = useSmartResolutionSuggestions();
   const applyMutation = useApplySmartResolutions();
@@ -2787,25 +2793,25 @@ function UnmappedEventsTab() {
             </div>
           ))}
 
-          {/* Posting errors that need manual investigation */}
+          {/* Posting errors — retryable via remap */}
           {smartData && smartData.skippedErrors > 0 && (
-            <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
               <div className="flex items-center gap-3">
-                <Info aria-hidden="true" className="h-5 w-5 text-red-400 shrink-0" />
+                <Info aria-hidden="true" className="h-5 w-5 text-amber-400 shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">
-                    {smartData.skippedErrors} posting error{smartData.skippedErrors !== 1 ? 's' : ''} need manual review
+                    {smartData.skippedErrors} posting error{smartData.skippedErrors !== 1 ? 's' : ''} can be retried
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    These are GL posting failures (missing data, validation errors) that can&apos;t be auto-resolved with mapping changes.
+                    These are GL posting failures from previous attempts. Use the &quot;Preview &amp; Remap GL Entries&quot; button above to retry posting.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setView('events')}
-                  className="rounded-lg border border-red-500/30 px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-red-500/10 shrink-0"
+                  className="rounded-lg border border-amber-500/30 px-3 py-1.5 text-sm font-medium text-amber-400 hover:bg-amber-500/10 shrink-0"
                 >
-                  Investigate
+                  View Details
                 </button>
               </div>
             </div>
@@ -2869,6 +2875,19 @@ function UnmappedEventsTab() {
                   )}
                 </div>
               ))}
+
+              {hasMore && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={loadMore}
+                    disabled={isLoadingMore}
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
+                  >
+                    {isLoadingMore ? 'Loading...' : 'Load More'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>

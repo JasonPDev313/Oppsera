@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { db } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
+import { withDistributedLock } from '@oppsera/core';
+import { LOCK_KEYS } from '@oppsera/shared';
 
 /**
  * POST /api/v1/erp/cron — Vercel Cron trigger for auto-close and day-end close.
@@ -29,140 +31,156 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date();
-  const results: Array<{
-    tenantId: string;
-    trigger: 'auto_close' | 'day_end_close';
-    businessDate: string;
-    status: string;
-    error?: string;
-  }> = [];
 
-  try {
-    // Query all tenants that have either auto-close or day-end close enabled,
-    // joined with their primary location's timezone.
-    const rows = await db.execute(sql`
-      SELECT
-        s.tenant_id,
-        s.auto_close_enabled,
-        s.auto_close_time,
-        s.auto_close_skip_holidays,
-        s.day_end_close_enabled,
-        s.day_end_close_time,
-        COALESCE(
-          (SELECT l.timezone FROM locations l WHERE l.tenant_id = s.tenant_id LIMIT 1),
-          'America/New_York'
-        ) AS timezone
-      FROM accounting_settings s
-      JOIN tenants t ON t.id = s.tenant_id AND t.status = 'active'
-      WHERE s.auto_close_enabled = true OR s.day_end_close_enabled = true
-    `);
+  // Acquire distributed lock — prevents concurrent ERP cron runs across Vercel instances.
+  // TTL = 14 minutes (just under the 15-minute cron interval so stale locks auto-expire).
+  const lockResult = await withDistributedLock(
+    LOCK_KEYS.ERP_CRON,
+    14 * 60 * 1000,
+    async () => {
+      const results: Array<{
+        tenantId: string;
+        trigger: 'auto_close' | 'day_end_close';
+        businessDate: string;
+        status: string;
+        error?: string;
+      }> = [];
 
-    const tenants = Array.from(rows as Iterable<Record<string, unknown>>);
+      // Query all tenants that have either auto-close or day-end close enabled,
+      // joined with their primary location's timezone.
+      const rows = await db.execute(sql`
+        SELECT
+          s.tenant_id,
+          s.auto_close_enabled,
+          s.auto_close_time,
+          s.auto_close_skip_holidays,
+          s.day_end_close_enabled,
+          s.day_end_close_time,
+          COALESCE(
+            (SELECT l.timezone FROM locations l WHERE l.tenant_id = s.tenant_id LIMIT 1),
+            'America/New_York'
+          ) AS timezone
+        FROM accounting_settings s
+        JOIN tenants t ON t.id = s.tenant_id AND t.status = 'active'
+        WHERE s.auto_close_enabled = true OR s.day_end_close_enabled = true
+      `);
 
-    for (const tenant of tenants) {
-      const tenantId = String(tenant.tenant_id);
-      const timezone = String(tenant.timezone);
+      const tenants = Array.from(rows as Iterable<Record<string, unknown>>);
 
-      // Get the current time in the tenant's timezone
-      const tenantNow = getTenantLocalTime(now, timezone);
-      const tenantHHMM = `${String(tenantNow.hours).padStart(2, '0')}:${String(tenantNow.minutes).padStart(2, '0')}`;
+      for (const tenant of tenants) {
+        const tenantId = String(tenant.tenant_id);
+        const timezone = String(tenant.timezone);
 
-      // Check auto-close (runs the full close orchestrator — posts drafts, checks all steps)
-      if (tenant.auto_close_enabled) {
-        const autoCloseTime = String(tenant.auto_close_time ?? '02:00');
-        if (isWithinWindow(tenantHHMM, autoCloseTime, 15)) {
-          // Business date for auto-close is "yesterday" if close time is after midnight
-          const businessDate = computeBusinessDateForClose(tenantNow, autoCloseTime);
+        // Get the current time in the tenant's timezone
+        const tenantNow = getTenantLocalTime(now, timezone);
+        const tenantHHMM = `${String(tenantNow.hours).padStart(2, '0')}:${String(tenantNow.minutes).padStart(2, '0')}`;
 
-          // Check idempotency — don't re-run if already ran for this business date
-          const existingRun = await db.execute(sql`
-            SELECT id FROM erp_close_orchestrator_runs
-            WHERE tenant_id = ${tenantId}
-              AND business_date = ${businessDate}
-              AND triggered_by = 'auto'
-              AND location_id IS NULL
-            LIMIT 1
-          `);
-          const existing = Array.from(existingRun as Iterable<Record<string, unknown>>);
+        // Check auto-close (runs the full close orchestrator — posts drafts, checks all steps)
+        if (tenant.auto_close_enabled) {
+          const autoCloseTime = String(tenant.auto_close_time ?? '02:00');
+          if (isWithinWindow(tenantHHMM, autoCloseTime, 15)) {
+            // Business date for auto-close is "yesterday" if close time is after midnight
+            const businessDate = computeBusinessDateForClose(tenantNow, autoCloseTime);
 
-          if (existing.length === 0) {
-            try {
-              const ctx = buildSystemContext(tenantId);
-              const { runCloseOrchestrator } = await import('@oppsera/module-accounting');
-              const result = await runCloseOrchestrator(ctx, { businessDate });
-              results.push({
-                tenantId,
-                trigger: 'auto_close',
-                businessDate,
-                status: result.status,
-              });
-            } catch (err) {
-              results.push({
-                tenantId,
-                trigger: 'auto_close',
-                businessDate,
-                status: 'error',
-                error: err instanceof Error ? err.message : 'Unknown error',
-              });
+            // Check idempotency — don't re-run if already ran for this business date
+            const existingRun = await db.execute(sql`
+              SELECT id FROM erp_close_orchestrator_runs
+              WHERE tenant_id = ${tenantId}
+                AND business_date = ${businessDate}
+                AND triggered_by = 'auto'
+                AND location_id IS NULL
+              LIMIT 1
+            `);
+            const existing = Array.from(existingRun as Iterable<Record<string, unknown>>);
+
+            if (existing.length === 0) {
+              try {
+                const ctx = buildSystemContext(tenantId);
+                const { runCloseOrchestrator } = await import('@oppsera/module-accounting');
+                const result = await runCloseOrchestrator(ctx, { businessDate });
+                results.push({
+                  tenantId,
+                  trigger: 'auto_close',
+                  businessDate,
+                  status: result.status,
+                });
+              } catch (err) {
+                results.push({
+                  tenantId,
+                  trigger: 'auto_close',
+                  businessDate,
+                  status: 'error',
+                  error: err instanceof Error ? err.message : 'Unknown error',
+                });
+              }
+            }
+          }
+        }
+
+        // Check day-end close (same orchestrator, different trigger time + triggeredBy label)
+        if (tenant.day_end_close_enabled) {
+          const dayEndCloseTime = String(tenant.day_end_close_time ?? '23:00');
+          if (isWithinWindow(tenantHHMM, dayEndCloseTime, 15)) {
+            // Day-end close uses "today" as the business date (closing out the current day)
+            const businessDate = formatDate(tenantNow.year, tenantNow.month, tenantNow.day);
+
+            const existingRun = await db.execute(sql`
+              SELECT id FROM erp_close_orchestrator_runs
+              WHERE tenant_id = ${tenantId}
+                AND business_date = ${businessDate}
+                AND triggered_by = 'day_end'
+                AND location_id IS NULL
+              LIMIT 1
+            `);
+            const existing = Array.from(existingRun as Iterable<Record<string, unknown>>);
+
+            if (existing.length === 0) {
+              try {
+                const ctx = buildSystemContext(tenantId, 'day_end');
+                const { runCloseOrchestrator: runClose } = await import('@oppsera/module-accounting');
+                const result = await runClose(ctx, { businessDate });
+                results.push({
+                  tenantId,
+                  trigger: 'day_end_close',
+                  businessDate,
+                  status: result.status,
+                });
+              } catch (err) {
+                results.push({
+                  tenantId,
+                  trigger: 'day_end_close',
+                  businessDate,
+                  status: 'error',
+                  error: err instanceof Error ? err.message : 'Unknown error',
+                });
+              }
             }
           }
         }
       }
 
-      // Check day-end close (same orchestrator, different trigger time + triggeredBy label)
-      if (tenant.day_end_close_enabled) {
-        const dayEndCloseTime = String(tenant.day_end_close_time ?? '23:00');
-        if (isWithinWindow(tenantHHMM, dayEndCloseTime, 15)) {
-          // Day-end close uses "today" as the business date (closing out the current day)
-          const businessDate = formatDate(tenantNow.year, tenantNow.month, tenantNow.day);
+      return results;
+    },
+    { trigger: 'vercel-cron' },
+  );
 
-          const existingRun = await db.execute(sql`
-            SELECT id FROM erp_close_orchestrator_runs
-            WHERE tenant_id = ${tenantId}
-              AND business_date = ${businessDate}
-              AND triggered_by = 'day_end'
-              AND location_id IS NULL
-            LIMIT 1
-          `);
-          const existing = Array.from(existingRun as Iterable<Record<string, unknown>>);
-
-          if (existing.length === 0) {
-            try {
-              const ctx = buildSystemContext(tenantId, 'day_end');
-              const { runCloseOrchestrator: runClose } = await import('@oppsera/module-accounting');
-              const result = await runClose(ctx, { businessDate });
-              results.push({
-                tenantId,
-                trigger: 'day_end_close',
-                businessDate,
-                status: result.status,
-              });
-            } catch (err) {
-              results.push({
-                tenantId,
-                trigger: 'day_end_close',
-                businessDate,
-                status: 'error',
-                error: err instanceof Error ? err.message : 'Unknown error',
-              });
-            }
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[erp/cron] Fatal error:', err);
-    return NextResponse.json(
-      { error: 'Internal error', detail: err instanceof Error ? err.message : 'Unknown' },
-      { status: 500 },
-    );
+  // lockResult === null means lock was already held by another instance
+  if (lockResult === null) {
+    return NextResponse.json({
+      data: {
+        checkedAt: now.toISOString(),
+        triggered: 0,
+        results: [],
+        skipped: 'Lock held by another instance',
+      },
+    });
   }
 
   return NextResponse.json({
     data: {
       checkedAt: now.toISOString(),
-      triggered: results.length,
-      results,
+      triggered: lockResult.length,
+      results: lockResult,
     },
   });
 }
@@ -258,8 +276,10 @@ function buildSystemContext(tenantId: string, triggeredBy: string = 'auto'): Req
     user: {
       id: triggeredBy, // 'auto' or 'day_end' — stored as triggeredBy in the run record
       email: 'system@oppsera.com',
-      role: 'system' as any,
+      name: 'System',
       tenantId,
+      tenantStatus: 'active' as const,
+      membershipStatus: 'none' as const,
     },
     permissions: ['*'],
   } as unknown as RequestContext;

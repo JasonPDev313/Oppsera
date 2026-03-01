@@ -176,6 +176,9 @@ export function usePOSApi(deps: POSApiDeps) {
       );
 
       // Fire-and-forget server sync — don't block the UI
+      // Capture the order ID so we can discard late responses if the user
+      // switched tabs before the PATCH completed (fixes tab↔customer desync).
+      const patchedOrderId = order.id;
       apiFetch<{ data: Order }>(`/api/v1/orders/${order.id}`, {
         method: 'PATCH',
         headers: d.current.locationHeaders,
@@ -184,12 +187,19 @@ export function usePOSApi(deps: POSApiDeps) {
           clientRequestId: crypto.randomUUID(),
         }),
       })
-        .then((res) => d.current.setCurrentOrder(res.data))
+        .then((res) => {
+          // Only apply server response if user is still viewing this order
+          if (d.current.orderRef.current?.id === patchedOrderId) {
+            d.current.setCurrentOrder(res.data);
+          }
+        })
         .catch((err) => {
-          // Revert optimistic update on failure
-          d.current.setCurrentOrder((prev) =>
-            prev ? { ...prev, customerId: null, customerName: null } : prev,
-          );
+          // Only revert optimistic update if user is still viewing this order
+          if (d.current.orderRef.current?.id === patchedOrderId) {
+            d.current.setCurrentOrder((prev) =>
+              prev ? { ...prev, customerId: null, customerName: null } : prev,
+            );
+          }
           d.current.handleMutationError(err).catch(() => {});
         });
     },
@@ -209,6 +219,9 @@ export function usePOSApi(deps: POSApiDeps) {
     );
 
     // Fire-and-forget server sync — don't block the UI
+    // Capture the order ID so we can discard late responses if the user
+    // switched tabs before the PATCH completed (fixes tab↔customer desync).
+    const patchedOrderId = order.id;
     apiFetch<{ data: Order }>(`/api/v1/orders/${order.id}`, {
       method: 'PATCH',
       headers: d.current.locationHeaders,
@@ -217,12 +230,19 @@ export function usePOSApi(deps: POSApiDeps) {
         clientRequestId: crypto.randomUUID(),
       }),
     })
-      .then((res) => d.current.setCurrentOrder(res.data))
+      .then((res) => {
+        // Only apply server response if user is still viewing this order
+        if (d.current.orderRef.current?.id === patchedOrderId) {
+          d.current.setCurrentOrder(res.data);
+        }
+      })
       .catch((err) => {
-        // Revert optimistic update on failure
-        d.current.setCurrentOrder((prev) =>
-          prev ? { ...prev, customerId: prevCustomerId, customerName: prevCustomerName } : prev,
-        );
+        // Only revert optimistic update if user is still viewing this order
+        if (d.current.orderRef.current?.id === patchedOrderId) {
+          d.current.setCurrentOrder((prev) =>
+            prev ? { ...prev, customerId: prevCustomerId, customerName: prevCustomerName } : prev,
+          );
+        }
         d.current.handleMutationError(err).catch(() => {});
       });
   }, []);

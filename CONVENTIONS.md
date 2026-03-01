@@ -10425,3 +10425,372 @@ ALTER DATABASE postgres SET lock_timeout = '5s';
 (port 6543) rejects all connection startup parameters and kills the connection. Always use
 `ALTER DATABASE` for server-level timeouts.
 
+---
+
+## §206 Pool Guard Infrastructure
+
+All database queries MUST go through pool protection. The pool guard (`packages/db/src/pool-guard.ts`) provides 6 layers of protection:
+
+### Architecture
+
+```
+guardedQuery(fn, label?)
+  ├── Semaphore (max concurrent = DB_POOL_MAX, default 2)
+  ├── Per-query timeout (default 25s, configurable)
+  ├── Circuit breaker (10s fail-fast after pool exhaustion)
+  ├── Single-flight deduplication (identical concurrent queries share result)
+  ├── TTL jitter (±20% on cache entries to prevent thundering herd)
+  └── Zombie connection tracking + forced termination
+```
+
+### Usage Patterns
+
+```typescript
+// PREFERRED: withTenant() automatically uses guardedQuery
+const result = await withTenant(tenantId, async (tx) => {
+  return tx.select().from(table).where(eq(table.id, id));
+});
+
+// DIRECT: use guardedDb proxy for queries outside withTenant
+import { guardedDb } from '@oppsera/db';
+const rows = await guardedDb.select().from(table).where(eq(table.tenantId, tenantId));
+
+// RAW: for edge cases needing explicit labeling
+import { guardedQuery } from '@oppsera/db/pool-guard';
+const result = await guardedQuery(() => db.execute(sql`SELECT 1`), 'health-check');
+```
+
+### Test Mocking
+
+```typescript
+// Always mock pool-guard in unit tests to avoid semaphore/timeout interference
+vi.mock('@oppsera/db/pool-guard', () => ({
+  guardedQuery: (fn: any) => fn(),
+  guardedDb: db,
+}));
+```
+
+### Rules
+
+1. **Never use raw `db.select()`/`db.execute()` in production code** — use `guardedDb` or `withTenant()`
+2. **Semantic registry is a known exception** — uses raw `db.select()` but is protected by SWR caching (assessed as safe)
+3. **Single-flight dedup is opt-in** — only applies when `label` parameter matches. Use for expensive read queries that may fire concurrently (e.g., settings lookups)
+4. **Circuit breaker auto-resets** — after 10s of fast-fail, the guard retries one query. If it succeeds, the circuit closes
+
+---
+
+## §207 Step-Up Authentication
+
+Sensitive operations require a secondary authentication challenge beyond the session JWT.
+
+### Token Flow
+
+```
+1. Client calls sensitive endpoint → 403 STEP_UP_REQUIRED (with category)
+2. Client shows PIN modal → user enters PIN
+3. Client calls POST /api/v1/auth/step-up { pin, category }
+4. Server validates PIN, returns HMAC-SHA256 signed token (base64url)
+5. Client retries original request with X-Step-Up-Token header
+6. Server validates token: signature, category match, expiry, single-use
+```
+
+### Categories & TTLs
+
+| Category | TTL | Use Case |
+|---|---|---|
+| `financial` | 5 min | Void >$100, refund, GL posting |
+| `security` | 3 min | Role changes, permission grants |
+| `destructive` | 2 min | Delete operations, data purge |
+| `admin` | 10 min | Admin portal sensitive ops |
+
+### Implementation
+
+```typescript
+// In API route — require step-up before processing
+import { requireStepUp } from '@oppsera/core/auth/step-up';
+
+export async function POST(req: Request) {
+  return withMiddleware(async (ctx) => {
+    await requireStepUp(ctx, 'financial'); // throws 403 if missing/invalid
+    // ... proceed with sensitive operation
+  }, { entitlement: 'accounting', permission: 'accounting.void' });
+}
+```
+
+### Rules
+
+1. **Never log or cache step-up tokens** — they are bearer credentials
+2. **Tokens are category-specific** — a `financial` token cannot authorize a `destructive` operation
+3. **`singleUse: true` is default for `destructive` category** — token is consumed on first use
+4. **PIN validation uses existing auth** — same PIN/password as the user's account, NOT a separate PIN
+
+---
+
+## §208 Bot Detection & Replay Guards
+
+Two complementary security layers for API protection.
+
+### Bot Detector
+
+Scores incoming requests based on 4 weighted factors:
+
+```
+Score = frequency(0.3) + errorRatio(0.25) + userAgent(0.25) + pathScanning(0.2)
+```
+
+- **Threshold**: score > 0.7 = likely bot
+- **Action**: Rate-limit aggressively (not block) + log for review
+- **Cache**: LRU, max 5K entries, keyed by IP+UA hash
+- **Never** block at middleware level — false positives can lock out legitimate users
+
+### Replay Guard
+
+Prevents request replay attacks on financial mutations:
+
+```
+Headers required:
+  X-Request-Nonce: <UUID v4>
+  X-Request-Timestamp: <ISO 8601>
+
+Validation:
+  1. Both headers present
+  2. Timestamp within 5 minutes of server time
+  3. Nonce not seen before (LRU cache, 10K entries, 10min TTL)
+```
+
+Apply to: `tender`, `void`, `refund`, `GL posting`, `settlement`, `tip payout`
+Do NOT apply to: GETs, idempotent POSTs (already protected by `clientRequestId`), low-risk mutations
+
+---
+
+## §209 Receipt Engine Architecture
+
+Shared receipt system at `packages/shared/src/receipt-engine/` — no DB dependency, pure rendering.
+
+### Builder Pattern
+
+```typescript
+import { ReceiptBuilder } from '@oppsera/shared/receipt-engine';
+
+const doc = new ReceiptBuilder('sale')
+  .setHeader({ storeName, address, phone, receiptNumber, date })
+  .addLineItems(lines)       // { name, qty, unitPrice, total, modifiers? }
+  .setSubtotals({ subtotal, tax, discount, serviceCharge })
+  .setPayment({ method, amount, change, tipAmount })
+  .setFooter({ message, returnPolicy, barcode })
+  .build();                   // validates required sections per type
+```
+
+### Renderers
+
+| Renderer | Output | Use Case |
+|---|---|---|
+| `ThermalRenderer` | ESC/POS byte stream | Receipt printers |
+| `PrintHtmlRenderer` | HTML string | Browser `window.print()` |
+| `EmailHtmlRenderer` | HTML string | Email receipts |
+
+### Receipt Links (Public Sharing)
+
+```
+receipt_links table:
+  token (32-char base64url, unique)
+  receipt_data (JSONB — full ReceiptDocument snapshot)
+  expires_at (default 30 days)
+  view_count (incremented on each view)
+  email_sent_at (rate limit: 1 per session)
+
+Public route: /(guest)/r/[token]/ — no authentication required
+```
+
+### Rules
+
+1. **Receipts are immutable snapshots** — rendered from data frozen at transaction time, never re-generated
+2. **Receipt engine lives in `@oppsera/shared`** — no DB access, no module imports. Any module can generate receipts
+3. **F&B checks use `POST /api/v1/fnb/tabs/[id]/prepare-check`** — converts tab data to ReceiptBuilder format before rendering
+
+---
+
+## §210 Multi-Currency Engine
+
+Multi-currency support in the accounting module.
+
+### Schema
+
+```
+accounting_settings:
+  functional_currency (TEXT, default 'USD')
+  supported_currencies (TEXT[], default ['USD'])
+
+exchange_rates:
+  tenant_id, from_currency, to_currency, rate_date, rate (NUMERIC(18,8))
+  UNIQUE(tenant_id, from_currency, to_currency, rate_date)
+
+gl_journal_lines (extended):
+  transaction_currency (TEXT)
+  exchange_rate (NUMERIC(18,8))
+  functional_amount (NUMERIC(12,2))  -- always in functional currency
+```
+
+### Rules
+
+1. **Balance queries ALWAYS use `functional_amount`** — never `debit_amount`/`credit_amount` for multi-currency tenants
+2. **Exchange rates are immutable per date** — insert a new rate for a new date, never update existing
+3. **Posting engine validates currency** — rejects entries where `transaction_currency` is not in `supported_currencies`
+4. **Close checklist warns on FX** — when multi-currency entries exist, the checklist reminds to run unrealized gain/loss calculation
+5. **Unrealized gain/loss**: `getUnrealizedGainLoss(tenantId, asOfDate)` computes open foreign-currency balances × (current rate - original rate)
+
+---
+
+## §211 Expense Management Lifecycle
+
+### State Machine
+
+```
+draft → submitted → under_review → approved → processing → reimbursed
+                  ↘ rejected (from submitted or under_review)
+  draft ← recalled (from submitted, only by submitter)
+```
+
+### GL Posting
+
+| Transition | Debit | Credit |
+|---|---|---|
+| `approved` | Expense Account | Accounts Payable |
+| `reimbursed` (direct) | Accounts Payable | Cash/Bank |
+| `reimbursed` (payroll) | Accounts Payable | Payroll Clearing |
+
+### Policy Evaluation
+
+Expense policies (`expense_policies` table) define per-category rules:
+- `max_amount`: per-line maximum
+- `requires_receipt`: boolean (receipts required above threshold)
+- `auto_approve_below`: auto-approve expenses below this amount
+- `approval_chain`: ordered list of approver roles/users
+
+`evaluatePolicy(expense, policy)` returns `{ compliant, violations[] }`. Non-compliant expenses can still be submitted but are flagged for manual review.
+
+### Rules
+
+1. **Mileage and per-diem are computed, not entered** — use `calculateMileage(miles, rate)` and `getPerDiemRate(location, date)`
+2. **Receipt images are stored as URLs** — the expense module stores references, not blobs
+3. **Split expenses** — a single expense can be split across multiple GL accounts/projects via `expense_allocations`
+4. **Delegation** — managers can submit expenses on behalf of direct reports via `delegatedBy` field
+
+---
+
+## §212 Project Costing
+
+### Cost Allocation Methods
+
+| Method | Description |
+|---|---|
+| `direct` | 100% of cost assigned to one project |
+| `percentage` | Split across projects by configured percentages |
+| `hours` | Proportional to time entries |
+| `headcount` | By number of team members assigned |
+
+### GL Flow
+
+```
+Cost incurred:    Dr Project WIP (asset) / Cr Source (expense or AP)
+Revenue earned:   Dr AR / Cr Project Revenue
+Project close:    Dr COGS / Cr Project WIP (transfers WIP to expense)
+```
+
+### Profitability
+
+```
+Gross Profit = Revenue - Direct Costs
+Net Profit = Revenue - (Direct Costs + Allocated Overhead)
+Margin % = Net Profit / Revenue × 100
+```
+
+### Rules
+
+1. **WIP is an asset account** — project costs accumulate in Work In Progress until the project is closed or revenue is recognized
+2. **Milestone billing** creates AR invoices linked to the project via `projectId` on `ar_invoices`
+3. **Budget tracking** — project budgets are separate from department budgets. Use `getProjectBudgetStatus()` for real-time tracking
+
+---
+
+## §213 Register Tab Sync
+
+Cross-device POS tab synchronization for multi-terminal environments.
+
+### Architecture
+
+```
+Same browser (instant):  BroadcastChannel('oppsera-tab-sync')
+Cross-device (SSE):      GET /api/v1/tab-sync/events (per-location stream)
+Offline:                 Mutation queue in pos-offline-tab-sync.ts
+```
+
+### Version Conflict Handling
+
+Each register tab mutation includes a `version` number. When a tab receives a sync message:
+
+1. Compare incoming `version` with local `version`
+2. If incoming > local: apply update silently (fast-forward)
+3. If incoming = local: duplicate, ignore
+4. If incoming < local: conflict — show resolution UI
+
+### Presence
+
+`tab-presence.ts` tracks which terminals are active on each location:
+- Heartbeat every 30s via `POST /api/v1/tab-sync/heartbeat`
+- Stale detection: no heartbeat for 90s = offline
+- Presence list available via `GET /api/v1/tab-sync/presence`
+
+### Rules
+
+1. **BroadcastChannel is same-origin only** — different browsers/devices MUST use SSE
+2. **SSE connections are per-location** — one stream per location, not per-terminal. Server fans out to all connected terminals
+3. **Offline mutations queue locally** — replayed in order on reconnect. If conflict, newer version wins (last-write-wins)
+4. **Leader election** — one tab per browser is the "leader" that maintains the SSE connection. Other tabs use BroadcastChannel relay
+
+---
+
+## §214 PMS-POS Room Charge Integration
+
+Guests can charge POS purchases to their hotel folio.
+
+### Flow
+
+```
+1. Server selects "Room Charge" tender type
+2. Guest search dialog opens → search by name/room/folio
+3. Guest selected → folio balance displayed via FolioBalanceBadge
+4. Tender recorded with tenderType='room_charge' + guestId + folioId
+5. PMS folio charge posted via PmsWriteApi.postFolioCharge()
+6. GL: Dr Guest Folio Receivable / Cr Revenue (per department)
+```
+
+### Cross-Module APIs
+
+```typescript
+// Read: look up guest/folio info from POS
+const api = getPmsReadApi();
+const guest = await api.searchGuests(tenantId, searchTerm);
+const folio = await api.getGuestFolio(tenantId, guestId);
+const balance = await api.getFolioBalance(tenantId, folioId);
+
+// Write: post charge to folio
+const writeApi = getPmsWriteApi();
+await writeApi.postFolioCharge(tenantId, folioId, {
+  amount, description, sourceModule: 'pos', sourceReferenceId: tenderId
+});
+```
+
+### Components
+
+- `GuestSearchDialog` — search by name/room/confirmation code
+- `FolioBalanceBadge` — shows current folio balance inline
+- `RoomChargeTender` — room charge tender panel in POS
+
+### Rules
+
+1. **Room charge is a tender type, not a payment method** — it creates an AR-like receivable on the folio, settled at checkout
+2. **Folio charge posting is idempotent** — uses `sourceReferenceId: tenderId` to prevent double-posting
+3. **Guest must have active reservation** — `PmsReadApi.getGuestFolio()` returns null for checked-out guests
+4. **Credit limit check** — some properties set per-folio charge limits. Check before posting
+

@@ -52,12 +52,14 @@ export async function getDiscountGlMappings(tenantId: string): Promise<DiscountG
  */
 export async function getDiscountMappingCoverage(tenantId: string): Promise<DiscountMappingCoverage[]> {
   return withTenant(tenantId, async (tx) => {
-    // Count total mappable sub-departments (from catalog hierarchy)
+    // Count total mappable sub-departments (from catalog hierarchy).
+    // For 3-level hierarchies: sub-departments (parent_id IS NOT NULL).
+    // For 2-level hierarchies: departments (parent_id IS NULL).
+    // COALESCE(parent_id, id) collapses to the mappable entity in both cases.
     const totalRows = await tx.execute(sql`
       SELECT COUNT(DISTINCT COALESCE(parent_id, id))::int AS total
       FROM catalog_categories
       WHERE tenant_id = ${tenantId}
-        AND depth <= 1
     `);
     const totalSubDepts = (Array.from(totalRows as Iterable<Record<string, unknown>>)[0]?.total as number) ?? 0;
 

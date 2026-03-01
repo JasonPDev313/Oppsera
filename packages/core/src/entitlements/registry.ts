@@ -238,6 +238,16 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     supportsViewMode: true,
     category: 'integrations',
   },
+  {
+    key: 'spa',
+    name: 'Spa Management',
+    phase: 'v1',
+    description: 'Appointments, services, providers, packages, commissions, online booking, intake forms',
+    dependencies: ['catalog', 'customers', 'payments'],
+    riskLevel: 'medium',
+    supportsViewMode: true,
+    category: 'operations',
+  },
 ] as const;
 
 export type ModuleKey = (typeof MODULE_REGISTRY)[number]['key'];

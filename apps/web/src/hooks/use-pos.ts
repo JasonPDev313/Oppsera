@@ -215,22 +215,12 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     // Already placed (may have resolved after waiting for openOrder)
     if (order.status === 'placed') return order;
 
-    // Flush any pending batch timer so queued items are sent before placing
-    if (batch.batchTimerRef.current) {
-      clearTimeout(batch.batchTimerRef.current);
-      batch.batchTimerRef.current = null;
-      if (batch.batchQueue.current.length > 0) {
-        void batch.flushBatch();
-      }
-    }
-
-    // Wait for any in-flight addItem calls to settle before placing.
-    if (pendingAddItems.current.length > 0) {
-      await Promise.allSettled(pendingAddItems.current);
-      order = orderRef.current!;
-      if (!order || !order.id) throw new Error('Order is still being created');
-      if (order.status === 'placed') return order;
-    }
+    // Drain ALL pending batch items before placing — ensures every queued
+    // item is on the server with correct totals.
+    await batch.drainBatch();
+    order = orderRef.current!;
+    if (!order || !order.id) throw new Error('Order is still being created');
+    if (order.status === 'placed') return order;
 
     // Capture as const for the closure
     const orderToPlace = order;
@@ -286,6 +276,8 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
       amountGiven: number;
       tipAmount?: number;
       shiftId?: string;
+      tenderType?: string;
+      metadata?: Record<string, unknown>;
     }): Promise<RecordTenderResult> => {
       const order = orderRef.current;
       if (!order) throw new Error('No active order');
@@ -300,7 +292,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
             body: JSON.stringify({
               clientRequestId: crypto.randomUUID(),
               orderId: order.id,
-              tenderType: 'cash',
+              tenderType: input.tenderType ?? 'cash',
               amountGiven: input.amountGiven,
               tipAmount: input.tipAmount ?? 0,
               terminalId: config.terminalId,
@@ -309,6 +301,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
               shiftId: input.shiftId ?? undefined,
               posMode: config.posMode,
               version: order.version,
+              metadata: input.metadata ?? undefined,
             }),
           }
         );
@@ -404,6 +397,10 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
   );
 
   const clearOrder = useCallback((): void => {
+    // Increment generation so any in-flight batch responses from the prior
+    // order are silently discarded instead of resurrecting the paid order.
+    batch.orderGeneration.current++;
+
     // Cancel any pending batch timer so queued items from the prior order
     // don't flush into the next order
     if (batch.batchTimerRef.current) {
@@ -432,30 +429,18 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
       order = (orderRef.current?.id ? orderRef.current : null) ?? created;
     }
 
-    // Flush any queued batch items — this applies whether or not the order
-    // already has a server ID.  Previously the `!order.id` guard skipped the
-    // flush when the order existed, which caused "Pay Exact" to use a stale
-    // pre-tax total when the batch response hadn't arrived yet.
-    if (batch.batchQueue.current.length > 0) {
-      if (batch.batchTimerRef.current) {
-        clearTimeout(batch.batchTimerRef.current);
-        batch.batchTimerRef.current = null;
-      }
-      await batch.flushBatch();
-      order = orderRef.current;
-    }
-
-    // Wait for any in-flight addItem/batch promises
-    if (pendingAddItems.current.length > 0) {
-      await Promise.allSettled(pendingAddItems.current);
-      order = orderRef.current;
-    }
+    // Drain ALL pending batch items — waits for any in-flight flush to complete,
+    // flushes remaining queued items, and awaits all tracked API promises.
+    // This fixes the race where ensureOrderReady returned before late-queued
+    // items had flushed (isFlushing guard caused flushBatch to return immediately).
+    await batch.drainBatch();
+    order = orderRef.current;
 
     if (!order || !order.id) {
       throw new Error('Order creation failed');
     }
     return order;
-  }, [batch.flushBatch]);
+  }, [batch.drainBatch]);
 
   return {
     // State

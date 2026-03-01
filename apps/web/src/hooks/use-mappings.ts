@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
@@ -297,21 +298,56 @@ export interface UnmappedEventFilters {
   endDate?: string;
 }
 
+const UNMAPPED_PAGE_SIZE = 50;
+
 export function useUnmappedEvents(filters: UnmappedEventFilters = {}) {
+  const [allItems, setAllItems] = useState<UnmappedEvent[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const result = useQuery({
     queryKey: ['unmapped-events', filters],
     queryFn: () => {
-      const qs = buildQueryString(filters);
-      return apiFetch<{ data: UnmappedEvent[] }>(
+      const qs = buildQueryString({ ...filters, limit: String(UNMAPPED_PAGE_SIZE) });
+      return apiFetch<{ data: UnmappedEvent[]; meta: { cursor: string | null; hasMore: boolean } }>(
         `/api/v1/accounting/unmapped-events${qs}`,
-      ).then((r) => r.data);
+      );
     },
     staleTime: 30_000,
   });
 
+  // Reset accumulated items when first page changes
+  useEffect(() => {
+    if (result.data) {
+      setAllItems(result.data.data);
+      setCursor(result.data.meta.cursor);
+      setHasMore(result.data.meta.hasMore);
+    }
+  }, [result.data]);
+
+  const loadMore = useCallback(async () => {
+    if (!cursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const qs = buildQueryString({ ...filters, limit: String(UNMAPPED_PAGE_SIZE), cursor });
+      const res = await apiFetch<{ data: UnmappedEvent[]; meta: { cursor: string | null; hasMore: boolean } }>(
+        `/api/v1/accounting/unmapped-events${qs}`,
+      );
+      setAllItems((prev) => [...prev, ...res.data]);
+      setCursor(res.meta.cursor);
+      setHasMore(res.meta.hasMore);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [cursor, isLoadingMore, filters]);
+
   return {
-    data: result.data ?? [],
+    data: allItems,
     isLoading: result.isLoading,
+    isLoadingMore,
+    hasMore,
+    loadMore,
     error: result.error,
     mutate: result.refetch,
   };

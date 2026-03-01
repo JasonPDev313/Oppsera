@@ -81,32 +81,34 @@ function LiveClockDisplay() {
 }
 
 function SidebarActions({
-  collapsed,
+  visuallyCollapsed,
+  isPinned,
   onToggleCollapse,
 }: {
-  collapsed?: boolean;
+  visuallyCollapsed?: boolean;
+  isPinned: boolean;
   onToggleCollapse: () => void;
 }) {
   const { theme, toggleTheme } = useTheme();
   return (
-    <div className={`border-t border-border ${collapsed ? 'space-y-1 px-2 py-3' : 'space-y-1 px-3 py-3'}`}>
+    <div className={`border-t border-border ${visuallyCollapsed ? 'space-y-1 px-2 py-3' : 'space-y-1 px-3 py-3'}`}>
       <button
         type="button"
         onClick={toggleTheme}
         className={`flex w-full items-center rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
-          collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2'
+          visuallyCollapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2'
         }`}
-        title={collapsed ? (theme === 'dark' ? 'Light mode' : 'Dark mode') : undefined}
+        title={visuallyCollapsed ? (theme === 'dark' ? 'Light mode' : 'Dark mode') : undefined}
       >
         {theme === 'dark' ? (
           <>
             <Sun className="h-5 w-5 shrink-0" aria-hidden="true" />
-            {!collapsed && 'Light Mode'}
+            {!visuallyCollapsed && 'Light Mode'}
           </>
         ) : (
           <>
             <Moon className="h-5 w-5 shrink-0" aria-hidden="true" />
-            {!collapsed && 'Dark Mode'}
+            {!visuallyCollapsed && 'Dark Mode'}
           </>
         )}
       </button>
@@ -114,16 +116,19 @@ function SidebarActions({
         type="button"
         onClick={onToggleCollapse}
         className={`flex w-full items-center rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
-          collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2'
+          visuallyCollapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2'
         }`}
-        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        title={visuallyCollapsed ? 'Expand sidebar' : (isPinned ? 'Collapse sidebar' : 'Expand sidebar')}
       >
-        {collapsed ? (
-          <PanelLeftOpen className="h-5 w-5 shrink-0" aria-hidden="true" />
-        ) : (
+        {isPinned ? (
           <>
             <PanelLeftClose className="h-5 w-5 shrink-0" aria-hidden="true" />
-            Collapse
+            {!visuallyCollapsed && 'Collapse'}
+          </>
+        ) : (
+          <>
+            <PanelLeftOpen className="h-5 w-5 shrink-0" aria-hidden="true" />
+            {!visuallyCollapsed && 'Expand'}
           </>
         )}
       </button>
@@ -157,6 +162,7 @@ function SidebarContent({
   can,
   navItems,
   collapsed,
+  isPinned,
   onToggleCollapse,
 }: {
   pathname: string;
@@ -168,6 +174,7 @@ function SidebarContent({
   can: (permission: string) => boolean;
   navItems: NavItem[];
   collapsed?: boolean;
+  isPinned?: boolean;
   onToggleCollapse?: () => void;
 }) {
   // Track which sections are expanded — initialized from current URL
@@ -502,9 +509,9 @@ function SidebarContent({
         })}
       </nav>
 
-      {/* Sidebar actions: theme + collapse (desktop only) */}
+      {/* Sidebar actions: theme + expand/collapse (desktop only) */}
       {onToggleCollapse && (
-        <SidebarActions collapsed={collapsed} onToggleCollapse={onToggleCollapse} />
+        <SidebarActions visuallyCollapsed={collapsed} isPinned={!!isPinned} onToggleCollapse={onToggleCollapse} />
       )}
 
       {/* Sidebar footer */}
@@ -537,7 +544,9 @@ function SidebarContent({
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+  const [hovered, setHovered] = useState(false);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -565,11 +574,12 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, locations, router, queryClient]);
 
-  // Load collapsed state from localStorage
+  // Load collapsed/pinned state from localStorage (default: collapsed)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(SIDEBAR_KEY);
-      if (stored === 'true') setCollapsed(true);
+      // Only expand if explicitly set to 'false' (pinned open)
+      if (stored === 'false') setCollapsed(false);
     }
   }, []);
 
@@ -577,9 +587,40 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     setCollapsed((prev) => {
       const next = !prev;
       localStorage.setItem(SIDEBAR_KEY, String(next));
+      // When pinning open (next=false), clear hover state since it's no longer relevant.
+      // When collapsing (next=true), clear hover so sidebar collapses immediately.
+      setHovered(false);
       return next;
     });
   }, []);
+
+  // Hover handlers for auto-expand/collapse — only active when collapsed (not pinned open)
+  const handleMouseEnter = useCallback(() => {
+    if (!collapsed) return; // pinned open — hover is irrelevant
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setHovered(true);
+  }, [collapsed]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (!collapsed) return; // pinned open — don't auto-collapse
+    // Small delay to prevent flickering when mouse briefly crosses sidebar edge
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHovered(false);
+    }, 200);
+  }, [collapsed]);
+
+  // Cleanup hover timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+  }, []);
+
+  // Sidebar is visually expanded when pinned open OR hovered
+  const visuallyCollapsed = collapsed && !hovered;
 
   // Fullscreen toggle
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -691,15 +732,18 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* Desktop sidebar — z-40 keeps it above POS overlay backdrops (z-30)
           so the user can always click sidebar links, even when a payment
-          picker or other POS overlay is open. */}
+          picker or other POS overlay is open.
+          Hover-to-expand: collapsed by default, expands on hover, collapses on mouse leave. */}
       <div
         className={`relative z-40 hidden md:flex md:shrink-0 transition-all duration-200 ease-in-out ${
-          collapsed ? 'md:w-16' : 'md:w-64'
+          visuallyCollapsed ? 'md:w-16' : 'md:w-64'
         }`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         <div
           className={`flex flex-col border-r border-border bg-surface transition-all duration-200 ease-in-out ${
-            collapsed ? 'w-16' : 'w-64'
+            visuallyCollapsed ? 'w-16' : 'w-64'
           }`}
         >
           <SidebarContent
@@ -711,7 +755,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             isModuleEnabled={checkModule}
             can={checkPermission}
             navItems={filteredNav}
-            collapsed={collapsed}
+            collapsed={visuallyCollapsed}
+            isPinned={!collapsed}
             onToggleCollapse={toggleCollapse}
           />
         </div>

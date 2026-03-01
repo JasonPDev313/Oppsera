@@ -349,6 +349,8 @@ function checkApiAuthCoverage() {
     'reports/backfill',
     // Impersonation lifecycle (checked internally)
     'impersonation/expire',
+    // SPA public booking widget (tenant-slug-based, rate-limited)
+    'spa/public',
   ];
 
   let unprotectedWeb = 0;
@@ -648,6 +650,10 @@ function checkSetInterval() {
       // Skip hooks (frontend — setInterval is fine in React hooks with cleanup)
       if (rel.includes('hooks/') || rel.endsWith('.tsx')) continue;
 
+      // Skip client-side browser lib files — setInterval is safe in browsers
+      const clientSideLibFiles = ['tab-activity', 'tab-presence', 'tab-sync-service', 'tab-sync-channel', 'tab-sync-sse'];
+      if (rel.includes('/lib/') && clientSideLibFiles.some((f) => rel.includes(f))) continue;
+
       const content = readFileSafe(file);
       if (!content) continue;
 
@@ -657,13 +663,21 @@ function checkSetInterval() {
         if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
 
         if (/\bsetInterval\s*\(/.test(trimmed)) {
-          violations++;
+          // Check if the timer is properly hardened with .unref() nearby (within 20 lines)
+          const nearbyLines = lines.slice(i, Math.min(i + 20, lines.length)).join('\n');
+          const hasUnref = /\.unref\(\)/.test(nearbyLines);
+
           // Module-level singletons (caches, rate limiters, workflow engines) use
           // setInterval for periodic cleanup. These are LOW risk — they run on the
           // long-lived module scope, not per-request. Only flag HIGH for API routes.
           const isInfra = rel.includes('instrumentation') || rel.includes('workflow-engine') ||
                           rel.includes('tracker') || rel.includes('rate-limiter') ||
                           rel.includes('metrics') || rel.includes('registry');
+
+          // If hardened with .unref(), skip entirely — it's properly handled
+          if (isInfra && hasUnref) continue;
+
+          violations++;
           const severity = rel.includes('/api/') ? 'HIGH' : isInfra ? 'LOW' : 'MEDIUM';
           addFinding(severity, 'setInterval',
             `setInterval usage: ${rel}:${i + 1}`,
@@ -896,13 +910,17 @@ function checkDarkModeViolations() {
         // Skip comments and string-only lines
         if (line.trim().startsWith('//') || line.trim().startsWith('*')) continue;
 
-        // bg-white (except toggle knobs, opacity variants, indicator dots)
+        // Skip print: prefixed classes — these are for print media and don't affect dark mode
+        const hasPrintPrefix = /\bprint:/.test(line);
+
+        // bg-white (except toggle knobs, opacity variants, indicator dots, print styles)
         if (/\bbg-white\b/.test(line)
           && !line.includes('toggle') && !line.includes('knob') && !line.includes('switch')
           && !line.includes('rounded-full') // toggle knob dots (gotcha #39)
           && !/after:bg-white/.test(line)    // CSS pseudo-element toggle pattern
           && !/bg-white\/\d/.test(line)       // opacity variants (bg-white/10, bg-white/20)
           && !line.includes('peer-checked')  // peer-checked toggle patterns
+          && !(hasPrintPrefix && /print:bg-white/.test(line))  // print media styles
         ) {
           violations.bgWhite++;
         }
@@ -915,18 +933,24 @@ function checkDarkModeViolations() {
           violations.darkPrefix++;
         }
 
-        // bg-{color}-50 or bg-{color}-100
-        if (/\bbg-(?:red|green|blue|yellow|amber|indigo|purple|pink|orange|emerald|teal|sky|violet|rose|slate|zinc|neutral|stone)-(?:50|100)\b/.test(line)) {
+        // bg-{color}-50 or bg-{color}-100 (exclude print: prefixed)
+        if (/\bbg-(?:red|green|blue|yellow|amber|indigo|purple|pink|orange|emerald|teal|sky|violet|rose|slate|zinc|neutral|stone)-(?:50|100)\b/.test(line)
+          && !/print:bg-/.test(line)
+        ) {
           violations.bgColor50++;
         }
 
-        // text-gray-900/800/700
-        if (/\btext-gray-(?:900|800|700)\b/.test(line)) {
+        // text-gray-900/800/700 (exclude print: prefixed)
+        if (/\btext-gray-(?:900|800|700)\b/.test(line)
+          && !/print:text-gray-/.test(line)
+        ) {
           violations.textGray900++;
         }
 
-        // border-gray-200/300
-        if (/\bborder-gray-(?:200|300)\b/.test(line)) {
+        // border-gray-200/300 (exclude print: prefixed)
+        if (/\bborder-gray-(?:200|300)\b/.test(line)
+          && !/print:border-gray-/.test(line)
+        ) {
           violations.borderGray200++;
         }
       }
