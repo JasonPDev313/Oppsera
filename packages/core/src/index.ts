@@ -120,10 +120,6 @@ export type {
   GatewayResult,
 } from './helpers/payments-gateway-api';
 export { getReconciliationReadApi, setReconciliationReadApi } from './helpers/reconciliation-read-api';
-export { getPmsReadApi, setPmsReadApi, hasPmsReadApi } from './helpers/pms-read-api';
-export type { PmsReadApi, PosGuestResult, PosFolioSummary } from './helpers/pms-read-api';
-export { getPmsWriteApi, setPmsWriteApi, hasPmsWriteApi } from './helpers/pms-write-api';
-export type { PmsWriteApi, FolioChargeInput, FolioPaymentInput } from './helpers/pms-write-api';
 export type {
   ReconciliationReadApi,
   OrdersSummaryData, TaxBreakdownRow, TaxRemittanceRow, CompTotalData,
@@ -133,6 +129,12 @@ export type {
   TerminalCloseStatus, LocationCloseStatusData,
   InventoryMovementsSummaryData,
 } from './helpers/reconciliation-read-api';
+
+// ── PMS Integration ────────────────────────────────────────────────
+export { getPmsReadApi, setPmsReadApi, hasPmsReadApi } from './helpers/pms-read-api';
+export type { PmsReadApi, PosGuestResult, PosFolioSummary } from './helpers/pms-read-api';
+export { getPmsWriteApi, setPmsWriteApi, hasPmsWriteApi } from './helpers/pms-write-api';
+export type { PmsWriteApi, FolioChargeInput, FolioPaymentInput } from './helpers/pms-write-api';
 
 // ── Observability ───────────────────────────────────────────────────
 export {

@@ -36,7 +36,7 @@ export const POST = withMiddleware(
     const result = await openDailyOperations(ctx, body);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'spa', permission: 'spa.manage' },
+  { entitlement: 'spa', permission: 'spa.manage', writeAccess: true },
 );
 
 export const PATCH = withMiddleware(
@@ -71,5 +71,5 @@ export const PATCH = withMiddleware(
     }
     return NextResponse.json({ data: { success: true } });
   },
-  { entitlement: 'spa', permission: 'spa.manage' },
+  { entitlement: 'spa', permission: 'spa.manage', writeAccess: true },
 );

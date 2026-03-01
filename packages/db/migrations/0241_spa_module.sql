@@ -534,10 +534,7 @@ DROP POLICY IF EXISTS "tenant_select_spa_appointment_history" ON spa_appointment
 CREATE POLICY "tenant_select_spa_appointment_history" ON spa_appointment_history FOR SELECT USING (tenant_id = (select current_setting('app.current_tenant_id', true)));
 DROP POLICY IF EXISTS "tenant_insert_spa_appointment_history" ON spa_appointment_history;
 CREATE POLICY "tenant_insert_spa_appointment_history" ON spa_appointment_history FOR INSERT WITH CHECK (tenant_id = (select current_setting('app.current_tenant_id', true)));
-DROP POLICY IF EXISTS "tenant_update_spa_appointment_history" ON spa_appointment_history;
-CREATE POLICY "tenant_update_spa_appointment_history" ON spa_appointment_history FOR UPDATE USING (tenant_id = (select current_setting('app.current_tenant_id', true)));
-DROP POLICY IF EXISTS "tenant_delete_spa_appointment_history" ON spa_appointment_history;
-CREATE POLICY "tenant_delete_spa_appointment_history" ON spa_appointment_history FOR DELETE USING (tenant_id = (select current_setting('app.current_tenant_id', true)));
+-- Append-only audit trail: SELECT + INSERT only (no UPDATE or DELETE)
 
 
 -- ============================================================================
@@ -757,7 +754,7 @@ CREATE POLICY "tenant_delete_spa_commission_rules" ON spa_commission_rules FOR D
 
 
 -- ============================================================================
--- 21. spa_commission_ledger (append-only)
+-- 21. spa_commission_ledger (lifecycle: calculated → approved → paid)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS spa_commission_ledger (
   id TEXT PRIMARY KEY,
@@ -795,8 +792,7 @@ DROP POLICY IF EXISTS "tenant_insert_spa_commission_ledger" ON spa_commission_le
 CREATE POLICY "tenant_insert_spa_commission_ledger" ON spa_commission_ledger FOR INSERT WITH CHECK (tenant_id = (select current_setting('app.current_tenant_id', true)));
 DROP POLICY IF EXISTS "tenant_update_spa_commission_ledger" ON spa_commission_ledger;
 CREATE POLICY "tenant_update_spa_commission_ledger" ON spa_commission_ledger FOR UPDATE USING (tenant_id = (select current_setting('app.current_tenant_id', true)));
-DROP POLICY IF EXISTS "tenant_delete_spa_commission_ledger" ON spa_commission_ledger;
-CREATE POLICY "tenant_delete_spa_commission_ledger" ON spa_commission_ledger FOR DELETE USING (tenant_id = (select current_setting('app.current_tenant_id', true)));
+-- No DELETE policy: commissions are never hard-deleted
 
 
 -- ============================================================================

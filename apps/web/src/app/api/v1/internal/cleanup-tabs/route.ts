@@ -22,6 +22,9 @@ export async function POST(request: Request) {
   try {
     const { db } = await import('@oppsera/db');
 
+    // Intentionally cross-tenant: cron cleans stale tabs for ALL tenants.
+    // RLS is enabled but not forced; db.execute runs as service role.
+
     // 1. Mark stale tabs as closed (lastActivityAt > 24h)
     const staleThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
 

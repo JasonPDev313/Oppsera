@@ -45,5 +45,5 @@ export const POST = withMiddleware(
         );
     }
   },
-  { entitlement: 'spa', permission: 'spa.manage' },
+  { entitlement: 'spa', permission: 'spa.manage', writeAccess: true },
 );

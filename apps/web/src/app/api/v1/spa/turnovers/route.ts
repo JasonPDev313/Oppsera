@@ -27,5 +27,5 @@ export const POST = withMiddleware(
     const result = await createTurnoverTask(ctx, body);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'spa', permission: 'spa.manage' },
+  { entitlement: 'spa', permission: 'spa.manage', writeAccess: true },
 );

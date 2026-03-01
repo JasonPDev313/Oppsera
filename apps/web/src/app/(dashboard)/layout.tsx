@@ -72,7 +72,7 @@ function LiveClockDisplay() {
         <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <span className="text-sm font-medium text-muted-foreground">{clock.date}</span>
       </div>
-      <div className="flex items-center gap-1.5">
+      <div className="hidden items-center gap-1.5 sm:flex">
         <Clock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <span className="text-sm font-medium tabular-nums text-muted-foreground">{clock.time}</span>
       </div>
@@ -704,20 +704,23 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* Mobile sidebar — always full width, never collapsed */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-surface shadow-xl transition-transform duration-200 ease-in-out md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 transform overflow-visible bg-surface shadow-xl transition-transform duration-200 ease-in-out md:hidden ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="absolute right-0 top-0 -mr-12 pt-4">
-          <button
-            type="button"
-            className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:ring-2 focus:ring-white focus:outline-none"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Close navigation"
-          >
-            <X className="h-6 w-6 text-white" aria-hidden="true" />
-          </button>
-        </div>
+        {/* Close button — only rendered when open to prevent ghost overlay on hamburger */}
+        {sidebarOpen && (
+          <div className="absolute right-0 top-0 -mr-12 pt-4">
+            <button
+              type="button"
+              className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:ring-2 focus:ring-white focus:outline-none"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Close navigation"
+            >
+              <X className="h-6 w-6 text-white" aria-hidden="true" />
+            </button>
+          </div>
+        )}
         <SidebarContent
           pathname={pathname}
           onLinkClick={(e) => guardedClick(e, () => setSidebarOpen(false))}
@@ -770,33 +773,37 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <div className="relative z-0 flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface px-4 md:px-6">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
-              className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground md:hidden"
+              className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground md:hidden"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open navigation"
             >
               <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
-            <span className="text-sm font-semibold text-foreground md:hidden">{tenantName}</span>
+            <span className="truncate text-sm font-semibold text-foreground md:hidden">{tenantName}</span>
             <span className="hidden text-sm font-semibold text-foreground md:block">
               {tenantName}
             </span>
           </div>
-          <div className="flex items-center gap-4">
-            <AiAssistantStub />
-            <CommandPalette />
+          <div className="flex shrink-0 items-center gap-2 md:gap-4">
+            <div className="hidden sm:block">
+              <AiAssistantStub />
+            </div>
+            <div className="hidden sm:block">
+              <CommandPalette />
+            </div>
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="hidden rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground sm:block"
               aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             >
               {isFullscreen ? <Minimize2 className="h-5 w-5" aria-hidden="true" /> : <Maximize2 className="h-5 w-5" aria-hidden="true" />}
             </button>
             <LiveClockDisplay />
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 transition-colors hover:bg-indigo-700">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 transition-colors hover:bg-indigo-700">
               <span className="text-sm font-medium text-white">{getInitials(userName)}</span>
             </div>
           </div>

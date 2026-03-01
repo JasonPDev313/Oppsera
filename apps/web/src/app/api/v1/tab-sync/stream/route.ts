@@ -80,6 +80,11 @@ export async function GET(request: NextRequest) {
         }
       };
 
+      // Hoist imports outside polling loop — V8 caches modules, but
+      // calling `await import()` every 2s still adds unnecessary overhead.
+      const { withTenant, registerTabs } = await import('@oppsera/db');
+      const { gt, and, eq } = await import('drizzle-orm');
+
       // Initial heartbeat
       send('heartbeat', { ts: Date.now() });
 
@@ -99,9 +104,6 @@ export async function GET(request: NextRequest) {
 
         // Poll for changes
         try {
-          const { withTenant } = await import('@oppsera/db');
-          const { registerTabs } = await import('@oppsera/db');
-          const { gt, and, eq } = await import('drizzle-orm');
 
           const tabs = await withTenant(tenantId, async (tx) => {
             return tx
