@@ -69,12 +69,16 @@ function isError(statusCode: number): boolean {
 /**
  * Record a usage event. Synchronous — sub-microsecond.
  * Called fire-and-forget from withMiddleware.
+ *
+ * IMPORTANT: This function is PURE IN-MEMORY. No DB access, no timers.
+ * Flushing to DB happens via `forceFlush()` called from the drain-outbox
+ * cron (every minute). The setInterval timer was removed because it caused
+ * zombie DB connections on Vercel — timer callbacks fire after the HTTP
+ * response, Vercel freezes the event loop, and in-flight DB queries become
+ * stuck connections that exhaust the pool (2026-03-01 outage).
  */
 export function recordUsage(event: UsageEvent): void {
   if (!event.tenantId || !event.moduleKey) return;
-
-  // Lazy-start flush timer on first usage event
-  if (!_flushTimer) startFlushTimer();
 
   const hourBucket = getHourBucket(event.timestamp);
   const key = `${event.tenantId}|${event.moduleKey}|${hourBucket}`;
@@ -465,18 +469,31 @@ function generateId(): string {
 }
 
 // ── Timer Setup ──────────────────────────────────────────────
+// DEPRECATED: The setInterval timer was the root cause of the 2026-03-01
+// production outage. Timer callbacks fire DB queries after Vercel sends
+// the HTTP response. When Vercel freezes the event loop, those DB queries
+// become zombie connections stuck in idle/ClientRead until statement_timeout
+// (30s). With max:2 pool, 2-3 zombies = total pool exhaustion.
+//
+// Flushing now happens via `forceFlush()` called from the drain-outbox cron
+// (every minute), which is request-scoped — DB operations complete BEFORE
+// the response is sent. This is safe on Vercel.
+//
+// startFlushTimer/stopFlushTimer are retained for backward compat but
+// should NOT be called on Vercel serverless.
 
 let _flushTimer: ReturnType<typeof setInterval> | null = null;
-/** Guard against concurrent flush from timer overlap (Vercel freeze/unfreeze) */
+/** Guard against concurrent flush */
 let _flushing = false;
 
+/**
+ * @deprecated Do NOT use on Vercel serverless. Use forceFlush() from a
+ * request-scoped context (e.g., drain-outbox cron) instead.
+ */
 export function startFlushTimer(): void {
   if (_flushTimer) return;
+  console.warn('[UsageTracker] startFlushTimer() called — this is deprecated on Vercel serverless');
   _flushTimer = setInterval(async () => {
-    // Prevent concurrent flush — Vercel can freeze/unfreeze the event loop,
-    // causing a previous flush to still be running when the timer fires.
-    // Without this guard, two concurrent db.transaction() calls can exhaust
-    // the pool (max: 2) and cause cascading failures (§205).
     if (_flushing) return;
     _flushing = true;
     try {
@@ -487,7 +504,6 @@ export function startFlushTimer(): void {
       _flushing = false;
     }
   }, FLUSH_INTERVAL_MS);
-  // Don't prevent Vercel shutdown
   if (_flushTimer && typeof _flushTimer === 'object' && 'unref' in _flushTimer) {
     _flushTimer.unref();
   }
@@ -500,13 +516,17 @@ export function stopFlushTimer(): void {
   }
 }
 
-/** Force flush (for testing or graceful shutdown) */
+/**
+ * Flush the in-memory usage buffer to the database.
+ * Called from drain-outbox cron (every minute) in a request-scoped context.
+ * Safe on Vercel because the DB transaction completes before the HTTP response.
+ */
 export async function forceFlush(): Promise<void> {
-  await flushBuffer();
+  if (_flushing) return; // Prevent concurrent flush
+  _flushing = true;
+  try {
+    await flushBuffer();
+  } finally {
+    _flushing = false;
+  }
 }
-
-// Auto-start on first import — but only if not in a build/compilation step
-// and only after a short delay to let the DB connection pool initialize.
-// The caller (withMiddleware) is responsible for calling startFlushTimer()
-// explicitly if needed via instrumentation.ts.
-// startFlushTimer(); — disabled: auto-start causes DB errors if migration 0203 hasn't been run

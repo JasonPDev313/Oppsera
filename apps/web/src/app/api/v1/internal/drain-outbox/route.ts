@@ -131,6 +131,20 @@ export async function GET(request: Request) {
       results.expiredLocksRemoved = -1;
     }
 
+    // 7. Flush usage tracking buffer to DB (request-scoped, not background timer).
+    // The usage tracker accumulates events in-memory. Flushing here is safe because
+    // the DB transaction completes BEFORE the response is sent (no fire-and-forget).
+    // The setInterval timer was removed to prevent Vercel zombie connections (2026-03-01).
+    try {
+      const { forceFlush } = await import('@oppsera/core/usage/tracker');
+      await forceFlush();
+      results.usageBufferFlushed = true;
+    } catch (flushErr) {
+      // Non-fatal — usage data will accumulate and flush next cron cycle
+      console.warn('[drain-outbox] Usage buffer flush failed:', flushErr);
+      results.usageBufferFlushed = false;
+    }
+
     return NextResponse.json({
       status: 'ok',
       ...results,
