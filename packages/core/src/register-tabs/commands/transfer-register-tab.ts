@@ -54,11 +54,14 @@ export async function transferRegisterTab(
 
     const orderId = sourceTab.orderId;
 
-    // 2. Clear orderId from source tab (atomically within this transaction)
+    // 2. Clear orderId + associated fields from source tab (atomically within this transaction)
     const [updatedSource] = await tx
       .update(registerTabs)
       .set({
         orderId: null,
+        label: null,
+        folioId: null,
+        guestName: null,
         updatedAt: new Date(),
         version: sql`${registerTabs.version} + 1`,
       })

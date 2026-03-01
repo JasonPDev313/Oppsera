@@ -642,6 +642,11 @@ const MODULES = [
   { key: 'accounting', name: 'Accounting & GL', phase: 'v1', description: 'General ledger, chart of accounts, journal entries, financial statements' },
   { key: 'ap', name: 'Accounts Payable', phase: 'v1', description: 'Vendor bills, payments, aging, payment terms' },
   { key: 'ar', name: 'Accounts Receivable', phase: 'v1', description: 'Customer invoices, receipts, aging, statements' },
+  { key: 'expense_management', name: 'Expense Management', phase: 'v1', description: 'Employee expenses, approval workflow, reimbursement tracking' },
+  { key: 'project_costing', name: 'Project Costing', phase: 'v1', description: 'Job costing, project budgets, cost tracking, profitability' },
+  { key: 'club_membership', name: 'Club Membership & Billing', phase: 'v1', description: 'Membership accounts, dues, minimums, initiation financing, member portal' },
+  { key: 'spa', name: 'Spa Management', phase: 'v1', description: 'Appointments, services, providers, packages, commissions, online booking' },
+  { key: 'legacy_import', name: 'Legacy Transaction Import', phase: 'v1', description: 'Import historical transactions from legacy POS/ERP systems' },
   { key: 'api_access', name: 'API Access', phase: 'v3', description: 'Public API with OAuth2 client credentials' },
 ];
 

@@ -46,6 +46,9 @@ export async function closeRegisterTab(
       .set({
         status: 'closed',
         orderId: null,
+        label: null,
+        folioId: null,
+        guestName: null,
         updatedAt: new Date(),
         version: sql`${registerTabs.version} + 1`,
       })
