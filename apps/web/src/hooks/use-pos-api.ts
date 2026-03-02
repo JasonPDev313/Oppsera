@@ -18,6 +18,22 @@ export interface POSApiDeps {
   toast: { info: (msg: string) => void };
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────
+
+/** Merge a fresh server order with any optimistic temp lines from prev state.
+ *  Prevents temp lines (and their contribution to derived subtotal/total) from
+ *  being silently dropped when an unrelated mutation refreshes the order. */
+function mergeWithTempLines(
+  setter: React.Dispatch<React.SetStateAction<Order | null>>,
+  refreshed: Order,
+): void {
+  setter((prev) => {
+    const tempLines = (prev?.lines ?? []).filter((l) => l.id.startsWith('temp-'));
+    if (tempLines.length === 0) return refreshed;
+    return { ...refreshed, lines: [...(refreshed.lines ?? []), ...tempLines] };
+  });
+}
+
 // ── Hook ─────────────────────────────────────────────────────────────
 
 export function usePOSApi(deps: POSApiDeps) {
@@ -31,6 +47,16 @@ export function usePOSApi(deps: POSApiDeps) {
     async (lineId: string): Promise<void> => {
       const order = d.current.orderRef.current;
       if (!order) return;
+
+      // Temp lines (not yet on server) — remove optimistically, no API call needed
+      if (lineId.startsWith('temp-')) {
+        d.current.setCurrentOrder((prev) => {
+          if (!prev) return prev;
+          return { ...prev, lines: (prev.lines ?? []).filter((l) => l.id !== lineId) };
+        });
+        return;
+      }
+
       d.current.setIsLoading(true);
       try {
         await apiFetch(`/api/v1/orders/${order.id}/lines/${lineId}`, {
@@ -39,7 +65,7 @@ export function usePOSApi(deps: POSApiDeps) {
           body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
         });
         const refreshed = await d.current.fetchOrder(order.id);
-        d.current.setCurrentOrder(refreshed);
+        mergeWithTempLines(d.current.setCurrentOrder, refreshed);
       } catch (err) {
         await d.current.handleMutationError(err);
       } finally {
@@ -99,7 +125,7 @@ export function usePOSApi(deps: POSApiDeps) {
           }),
         });
         const refreshed = await d.current.fetchOrder(order.id);
-        d.current.setCurrentOrder(refreshed);
+        mergeWithTempLines(d.current.setCurrentOrder, refreshed);
       } catch (err) {
         await d.current.handleMutationError(err);
       } finally {
@@ -121,7 +147,7 @@ export function usePOSApi(deps: POSApiDeps) {
           body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
         });
         const refreshed = await d.current.fetchOrder(order.id);
-        d.current.setCurrentOrder(refreshed);
+        mergeWithTempLines(d.current.setCurrentOrder, refreshed);
       } catch (err) {
         await d.current.handleMutationError(err);
       } finally {
@@ -150,7 +176,7 @@ export function usePOSApi(deps: POSApiDeps) {
           }),
         });
         const refreshed = await d.current.fetchOrder(order.id);
-        d.current.setCurrentOrder(refreshed);
+        mergeWithTempLines(d.current.setCurrentOrder, refreshed);
       } catch (err) {
         await d.current.handleMutationError(err);
       } finally {
@@ -268,7 +294,7 @@ export function usePOSApi(deps: POSApiDeps) {
           },
         );
         const refreshed = await d.current.fetchOrder(order.id);
-        d.current.setCurrentOrder(refreshed);
+        mergeWithTempLines(d.current.setCurrentOrder, refreshed);
         d.current.toast.info(taxExempt ? 'Tax exempt applied' : 'Tax exempt removed');
       } catch (err) {
         await d.current.handleMutationError(err);

@@ -1962,11 +1962,12 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                     Print
                   </button>
 
-                  {/* Pay button — disabled while batch items are still in-flight */}
+                  {/* Pay button — always clickable when items exist. ensureOrderReady
+                      drains pending batches when tapped, so there's no artificial delay. */}
                   <button
                     type="button"
                     onClick={handlePayClick}
-                    disabled={!hasItems || pos.pendingItemCount > 0}
+                    disabled={!hasItems}
                     className="flex flex-[1.5] items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
                   >
                     Pay

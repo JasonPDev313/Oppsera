@@ -40,6 +40,25 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [heldOrderCount, setHeldOrderCount] = useState(0);
 
+  // Derive subtotal/taxTotal/total from actual lines — prevents display drift
+  // during optimistic update races. The server always recalculates from scratch;
+  // this mirrors that logic on the client so the UI never shows stale running totals.
+  const derivedOrder = useMemo((): Order | null => {
+    if (!currentOrder) return null;
+    const lines = currentOrder.lines ?? [];
+    const charges = currentOrder.charges ?? [];
+    const discounts = currentOrder.discounts ?? [];
+
+    const subtotal = lines.reduce((sum, l) => sum + l.lineSubtotal, 0);
+    const taxTotal = lines.reduce((sum, l) => sum + l.lineTax, 0);
+    const lineTotalsSum = lines.reduce((sum, l) => sum + l.lineTotal, 0);
+    const serviceChargeTotal = charges.reduce((sum, c) => sum + c.amount, 0);
+    const discountTotal = discounts.reduce((sum, d) => sum + d.amount, 0);
+    const total = Math.max(0, lineTotalsSum + serviceChargeTotal - discountTotal);
+
+    return { ...currentOrder, subtotal, taxTotal, serviceChargeTotal, discountTotal, total };
+  }, [currentOrder]);
+
   // Keep a ref to the current order so callbacks always see the latest
   const orderRef = useRef<Order | null>(null);
   orderRef.current = currentOrder;
@@ -68,7 +87,12 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     if (!order) return;
     try {
       const refreshed = await fetchOrder(order.id);
-      setCurrentOrder(refreshed);
+      // Preserve optimistic temp lines across refresh
+      setCurrentOrder((prev) => {
+        const tempLines = (prev?.lines ?? []).filter((l) => l.id.startsWith('temp-'));
+        if (tempLines.length === 0) return refreshed;
+        return { ...refreshed, lines: [...(refreshed.lines ?? []), ...tempLines] };
+      });
     } catch (err) {
       const e = err instanceof Error ? err : new Error('Failed to refresh order');
       toast.error(e.message);
@@ -141,17 +165,12 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
         }),
       });
       const order = res.data;
-      // Preserve any optimistic lines that were added before the order was created
+      // Preserve any optimistic lines that were added before the order was created.
+      // Subtotal/total are derived from lines by usePOS — no manual adjustment needed.
       setCurrentOrder((prev) => {
         const optimisticLines = (prev?.lines ?? []).filter(l => l.id.startsWith('temp-'));
         if (optimisticLines.length === 0) return order;
-        const optimisticSubtotal = optimisticLines.reduce((sum, l) => sum + l.lineSubtotal, 0);
-        return {
-          ...order,
-          lines: [...(order.lines ?? []), ...optimisticLines],
-          subtotal: order.subtotal + optimisticSubtotal,
-          total: order.total + optimisticSubtotal,
-        };
+        return { ...order, lines: [...(order.lines ?? []), ...optimisticLines] };
       });
       return order;
     } catch (err) {
@@ -310,9 +329,13 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
           setCurrentOrder(null);
           toast.success(`Payment complete! Change: $${(result.changeGiven / 100).toFixed(2)}`);
         } else {
-          // Refresh order for updated version
+          // Refresh order for updated version — preserve any temp lines
           const refreshed = await fetchOrder(order.id);
-          setCurrentOrder(refreshed);
+          setCurrentOrder((prev) => {
+            const tempLines = (prev?.lines ?? []).filter((l) => l.id.startsWith('temp-'));
+            if (tempLines.length === 0) return refreshed;
+            return { ...refreshed, lines: [...(refreshed.lines ?? []), ...tempLines] };
+          });
         }
         return result;
       } catch (err) {
@@ -444,8 +467,8 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
   }, [batch.drainBatch]);
 
   return {
-    // State
-    currentOrder,
+    // State — derivedOrder has subtotal/total computed from actual lines (race-safe)
+    currentOrder: derivedOrder,
     isLoading,
     isCreatingOrder,
     heldOrderCount,

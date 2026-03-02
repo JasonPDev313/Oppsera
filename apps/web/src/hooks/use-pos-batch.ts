@@ -60,16 +60,8 @@ function rollBackTempLines(
 ): void {
   setCurrentOrder((prev) => {
     if (!prev) return prev;
-    const rolledBack = (prev.lines ?? []).filter((l) => !tempIds.includes(l.id));
-    const removedSubtotal = (prev.lines ?? [])
-      .filter((l) => tempIds.includes(l.id))
-      .reduce((sum, l) => sum + l.lineSubtotal, 0);
-    return {
-      ...prev,
-      lines: rolledBack,
-      subtotal: prev.subtotal - removedSubtotal,
-      total: prev.total - removedSubtotal,
-    };
+    // Just remove the temp lines — subtotal/total are derived from lines by usePOS
+    return { ...prev, lines: (prev.lines ?? []).filter((l) => !tempIds.includes(l.id)) };
   });
 }
 
@@ -199,15 +191,18 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
             const newLineIds = new Set(newLines.map((nl) => nl.id));
             const merged = [...withoutTemps.filter((l) => !newLineIds.has(l.id)), ...newLines];
 
-            if (typeof updatedOrder.version === 'number' && prev.version > updatedOrder.version) {
-              return { ...prev, lines: merged };
-            }
+            // Always use the highest-version order as the base, but with merged lines.
+            // Subtotal/total are derived from lines by usePOS so stale totals are harmless,
+            // but using the fresher base keeps version/status/charges/discounts up to date.
+            const base = (typeof updatedOrder.version === 'number' && prev.version > updatedOrder.version)
+              ? prev
+              : updatedOrder;
 
             return {
-              ...updatedOrder,
+              ...base,
               lines: merged,
-              charges: prev.charges ?? [],
-              discounts: prev.discounts ?? [],
+              charges: base === updatedOrder ? (prev.charges ?? []) : (base.charges ?? []),
+              discounts: base === updatedOrder ? (prev.discounts ?? []) : (base.discounts ?? []),
             };
           });
 
@@ -286,14 +281,11 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
           sortOrder: 0,
           taxCalculationMode: 'inclusive',
         };
+        // Append temp line — subtotal/total are derived from lines by usePOS,
+        // so we only need to maintain the lines array correctly.
         d.current.setCurrentOrder((prev) => {
           if (prev) {
-            return {
-              ...prev,
-              lines: [...(prev.lines ?? []), tempLine],
-              subtotal: prev.subtotal + lineSubtotal,
-              total: prev.total + lineSubtotal,
-            };
+            return { ...prev, lines: [...(prev.lines ?? []), tempLine] };
           }
           // No order yet — create a placeholder for instant display
           const now = new Date().toISOString();
@@ -305,11 +297,11 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
             status: 'open',
             source: 'pos',
             version: 0,
-            subtotal: lineSubtotal,
+            subtotal: 0,
             taxTotal: 0,
             serviceChargeTotal: 0,
             discountTotal: 0,
-            total: lineSubtotal,
+            total: 0,
             customerId: null,
             businessDate: todayBusinessDate(),
             terminalId: d.current.terminalId,
