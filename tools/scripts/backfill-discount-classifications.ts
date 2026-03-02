@@ -201,11 +201,12 @@ async function main() {
     // ── 2c: Seed discount_gl_mappings ────────────────────────────
 
     // Find all mappable sub-departments (same logic as getMappingCoverage)
+    // Categories with parent_id = departments, categories without = top-level departments
+    // COALESCE(parent_id, id) gives the "mappable entity" at department/sub-department level
     const subDeptRows = await db.execute(sql`
       SELECT DISTINCT COALESCE(parent_id, id) AS sub_department_id
       FROM catalog_categories
       WHERE tenant_id = ${tenantId}
-        AND depth <= 1
     `);
     const subDepts = Array.from(subDeptRows as Iterable<Record<string, unknown>>)
       .map(r => String(r.sub_department_id));

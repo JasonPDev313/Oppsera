@@ -7,6 +7,7 @@
  *   pnpm tsx tools/scripts/seed-portal-auth.ts --remote      # Vercel/production DB
  */
 import dotenv from 'dotenv';
+import * as readline from 'node:readline';
 
 const isRemote = process.argv.includes('--remote');
 if (isRemote) {
@@ -21,6 +22,21 @@ async function main() {
   const connectionString = process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error('DATABASE_URL_ADMIN or DATABASE_URL is required');
+  }
+
+  if (isRemote) {
+    const masked = connectionString.replace(/:[^:@]+@/, ':***@');
+    console.warn(`\n  Production target: ${masked}`);
+    console.warn('  This will create portal auth accounts (password: member123) for ALL customers.\n');
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await new Promise<string>((resolve) => {
+      rl.question('  Type "yes" to continue: ', resolve);
+    });
+    rl.close();
+    if (answer.trim().toLowerCase() !== 'yes') {
+      console.error('  Aborted.\n');
+      process.exit(1);
+    }
   }
 
   const target = isRemote ? 'REMOTE' : 'LOCAL';

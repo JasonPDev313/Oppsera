@@ -3,6 +3,7 @@
  * Usage: pnpm tsx tools/scripts/add-portal-member.ts --remote
  */
 import dotenv from 'dotenv';
+import * as readline from 'node:readline';
 
 const isRemote = process.argv.includes('--remote');
 if (isRemote) {
@@ -18,10 +19,24 @@ async function main() {
   const connectionString = process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL;
   if (!connectionString) throw new Error('DATABASE_URL required');
 
+  if (isRemote) {
+    const masked = connectionString.replace(/:[^:@]+@/, ':***@');
+    console.warn(`\n  Production target: ${masked}\n`);
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await new Promise<string>((resolve) => {
+      rl.question('  Type "yes" to continue: ', resolve);
+    });
+    rl.close();
+    if (answer.trim().toLowerCase() !== 'yes') {
+      console.error('  Aborted.\n');
+      process.exit(1);
+    }
+  }
+
   const client = postgres(connectionString, { max: 1, prepare: false });
 
-  const email = 'jp@jasonpearsall.com';
-  const password = 'Honka9285$$';
+  const email = process.env.PORTAL_MEMBER_EMAIL || 'jp@jasonpearsall.com';
+  const password = process.env.PORTAL_MEMBER_PASSWORD || 'changeme123';
   const hash = await bcrypt.hash(password, 12);
 
   // Resolve tenant

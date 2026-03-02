@@ -1,0 +1,1502 @@
+# What's Built — OppsEra
+
+> This file is extracted from CLAUDE.md. It documents everything built in the codebase.
+> Referenced by the slim CLAUDE.md for agents needing full build history.
+
+## Current State
+
+Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16) complete. See CONVENTIONS.md for detailed code patterns.
+
+### What's Built
+- **Platform Core**: auth, RBAC, entitlements, events/outbox, audit, withMiddleware
+- **Catalog Module**: 13 tables, 18 commands, 9 queries, 19 API routes, tax calculation engine, internal read API (`getItemForPOS`)
+  - Items: SKU + barcode (UPC) fields with unique constraints, JSONB metadata for type-specific config
+  - Categories: 3-level hierarchy (Department → SubDepartment → Category), depth validated
+  - Modifier groups: junction table with `isDefault` flag (canonical source of truth)
+  - **Archive semantics** (Session 25): `archivedAt`/`archivedBy`/`archivedReason` replace boolean `isActive`. Migration 0060 adds columns, 0061 drops `is_active`. Commands: `archiveItem`, `unarchiveItem`. Queries filter `archivedAt IS NULL` for active items.
+  - **Item Change Log** (Session 25): Append-only `catalog_item_change_logs` table (migration 0063). Field-level diffs via `computeItemDiff()`, auto-logged on create/update/archive/restore via `logItemChange(tx, params)`. Service: `packages/modules/catalog/src/services/item-change-log.ts`. Query: `getItemChangeLog` with cursor pagination, date/action/user filters, user name + category/taxCategory display name resolution. API: `GET /api/v1/catalog/items/[id]/change-log`. Frontend: `ItemChangeLogModal` (portal-based, collapsible entries, field-level old→new display). RLS: SELECT + INSERT only (append-only enforcement).
+- **Orders Module**: 6 tables + existing `order_line_taxes`, 8 commands, 3 queries, 10 API routes
+  - Enterprise: idempotency keys, optimistic locking, receipt snapshots, order number counters
+  - Type-aware: F&B (fractional qty, modifiers), Retail (qty=1, option sets), Service, Package (component snapshots)
+  - Financial: service charges, discounts, price overrides with audit trail, tax integration
+- **Payments Module**: 3 tables, 2 commands (recordTender + reverseTender V2 stub), 3 queries, 5 API routes
+  - Cash V1: exact/overpay/split, change calculation, denomination tracking
+  - GL journal entries: proportional allocation (partial tenders) + remainder method (final tender), double-entry balanced
+  - Tender reversals via `order.voided.v1` event consumer (auto-reverse all tenders + GL)
+  - Append-only tenders with derived reversal status (no UPDATE on financial fields)
+  - Idempotency with required `clientRequestId`, optimistic locking on order version
+- **Catalog Frontend**: 6 pages, 12 UI components, data hooks, sidebar navigation (page header renamed "Inventory Items")
+- **Tenant Onboarding**: business type selection, 5-step wizard, atomic provisioning, auth flow guards
+- **POS Frontend**: Dual-mode (Retail + F&B), 17 components, 5 catalog-nav components, 7 hooks, fullscreen layout with barcode scanner, dual-mount instant switching
+  - Both POS modes mount in `pos/layout.tsx` and toggle via CSS — no route transition delay
+  - Content extracted to `retail-pos-content.tsx` / `fnb-pos-content.tsx` with `isActive` prop
+  - Retail POS: 60/40 split, search bar, 4-layer hierarchy, barcode scanning, hold/recall
+  - F&B POS: large touch targets, "Ticket" label, "Send & Pay", repeat last item
+  - Shared: ItemButton, Cart (type-aware), CartTotals, TenderDialog, ModifierDialog, OptionPickerDialog, PackageConfirmDialog, PriceOverrideDialog, ServiceChargeDialog, DiscountDialog
+  - Catalog nav: DepartmentTabs, SubDepartmentTabs, CategoryRail, CatalogBreadcrumb, QuickMenuTab
+  - Order history: list with filters + detail with receipt viewer + tenders section
+- **Inventory Module**: 2 core tables + 7 receiving/vendor tables + 3 PO tables, 18 commands, 11 queries, 18 API routes
+  - Append-only movements ledger: on-hand = SUM(quantity_delta), never a mutable column
+  - Type-aware: F&B fractional qty, Retail integer, Package component-level deduction
+  - 4 base commands: receiveInventory, adjustInventory, transferInventory, recordShrink
+  - 3 event consumers: order.placed (type-aware deduct), order.voided (reversal), catalog.item.created (auto-create)
+  - Stock alerts: low_stock and negative events emitted when thresholds crossed
+  - Transfer: paired movements (transfer_out + transfer_in) with shared batchId, always validates non-negative at source
+  - UOM support: `uoms` table + `itemUomConversions` for pack-to-base conversion (e.g., 1 CS = 24 EA)
+  - Cost tracking: unitCost, extendedCost on movements; costingMethod, standardCost, currentCost on items
+  - Idempotency: UNIQUE index on (tenantId, referenceType, referenceId, inventoryItemId, movementType) + ON CONFLICT DO NOTHING
+  - Frontend: stock UI unified into catalog item detail page via `StockSection` component; standalone Stock Levels pages deleted
+  - `StockSection`: location selector, stats cards (On Hand, Reorder Point, Par Level, Costing Method), stock details grid, Receive/Adjust/Shrink action buttons, movement history table with pagination
+  - Extracted dialog components: `receive-dialog.tsx`, `adjust-dialog.tsx`, `shrink-dialog.tsx` (portal-based, reusable)
+  - `useInventoryForCatalogItem` hook: resolves catalogItemId + locationId → inventory data (returns null when no record)
+  - `getInventoryItemByCatalogItem` query: backend resolver for catalog→inventory lookup
+  - API: `GET /api/v1/inventory/by-catalog-item?catalogItemId=xxx&locationId=yyy`
+  - Catalog Items list page (`/catalog`) shows On Hand + Reorder Pt columns (enriched from inventory API)
+  - **Receiving Subsystem** (Sessions 23-24):
+    - 7 new tables: `vendors`, `uoms`, `itemUomConversions`, `itemVendors`, `itemIdentifiers`, `receivingReceipts`, `receivingReceiptLines`
+    - Added `currentCost` NUMERIC(12,4) column to `inventoryItems` for live weighted avg / last cost
+    - 4 pure services: shipping allocation (by_cost/by_qty/by_weight/none with remainder distribution), UOM conversion, costing (weighted avg + last cost), receipt calculator
+    - 8 receiving commands: createDraftReceipt, updateDraftReceipt, addReceiptLine, updateReceiptLine, removeReceiptLine, postReceipt, voidReceipt, createVendor, updateVendor
+    - 4 queries: getReceipt (with cost preview), listReceipts (cursor pagination, status/vendor/location filters), searchItemsForReceiving (barcode→SKU→name fallback), getReorderSuggestions (below-reorder-point items)
+    - 11 API routes under `/api/v1/inventory/receiving/` + `/api/v1/inventory/vendors/`
+    - Receipt lifecycle: DRAFT → POSTED → VOIDED (status-based, no hard deletes)
+    - postReceipt: single transaction — recomputes all lines, creates inventory movements, updates `currentCost` per costingMethod, emits `inventory.receipt.posted.v1`
+    - voidReceipt: inserts offsetting movements (type=void_reversal, qty=-baseQty), reverses weighted avg cost
+    - Shipping allocation: precise remainder distribution ensures sum exactly equals shippingCost
+    - Receipt number format: `RCV-YYYYMMDD-XXXXXX` (6 chars from ULID)
+    - Validation schemas: `packages/modules/inventory/src/validation/receiving.ts`
+    - Schema: `packages/db/src/schema/receiving.ts`, Migration: `0056_receiving.sql`
+    - 49 tests across 4 test files (shipping allocation, costing, UOM conversion, receiving UI)
+  - **Receiving Frontend** (Session 25):
+    - Receipt list page: `/inventory/receiving` with status/vendor/date filters, cursor pagination
+    - Receipt detail/edit page: `/inventory/receiving/[id]` with editable grid, live totals bar
+    - `ReceivingGrid` component: inline-editable cells for qty, unitCost, UOM selection
+    - `EditableCell` component: click-to-edit with blur/Enter commit, Escape cancel
+    - `ReceiptHeader` component: vendor selector, receipt date, invoice number, shipping cost, freight mode
+    - `use-receiving-editor` hook: manages draft receipt state, auto-save with debounce, line CRUD
+    - `receiving-calc.ts`: pure calculation library (line totals, shipping allocation, receipt summary) — no side effects, easily testable
+    - `ReceiptTotalsBar` component: sticky footer with subtotal, shipping, tax, grand total
+    - `ItemSearchInput` component: barcode→SKU→name fallback search for adding receipt lines
+    - Freight modes: ALLOCATE (distributes shipping across lines) vs EXPENSE (books shipping as separate expense)
+  - **Vendor Management** (Session 24):
+    - Additive migration 0058: `nameNormalized`, `website`, `defaultPaymentTerms` on vendors; `isActive`, `lastCost`, `lastReceivedAt`, `minOrderQty`, `packSize`, `notes` on itemVendors
+    - Rule VM-1: Soft-delete only — vendors deactivated via `isActive=false`, never hard-deleted
+    - Rule VM-2: Duplicate name prevention via `LOWER(TRIM(name))` → `name_normalized` with UNIQUE constraint `(tenant_id, name_normalized)`
+    - Rule VM-3: Vendor catalog items (`item_vendors`) are soft-deletable via `isActive`
+    - Rule VM-4: When receipt posted, auto-update `item_vendors.last_cost` + `last_received_at`; auto-create row if vendor+item pair doesn't exist
+    - 5 vendor management commands: deactivateVendor, reactivateVendor, addVendorCatalogItem, updateVendorCatalogItem, deactivateVendorCatalogItem
+    - 3 queries: getVendor (with aggregate stats: activeItems, totalReceipts, totalSpend, lastReceiptDate), listVendors (with itemCount/lastReceiptDate enrichment, searchVendors lightweight lookup), getVendorCatalog (paginated + getItemVendors reverse lookup)
+    - Integration hooks: `getVendorItemDefaults()` (auto-fill receipt lines), `updateVendorItemCostAfterReceipt()` (inside postReceipt transaction)
+    - Name normalization service: `normalizeVendorName()` — `name.trim().toLowerCase()`
+    - 6 Zod schemas: vendorSchema, updateVendorManagementSchema, addVendorCatalogItemSchema, updateVendorCatalogItemSchema, vendorListFilterSchema
+    - Preferred vendor enforcement: only one preferred per item, within transaction (toggle clears others first)
+    - Vendor API routes: `/api/v1/inventory/vendors/` (GET list, POST create), `/api/v1/inventory/vendors/[id]` (GET detail, PATCH update)
+  - **Purchase Orders Schema** (Session 24 — Phase 1 only):
+    - 3 new tables in `packages/db/src/schema/purchasing.ts`: `purchaseOrders`, `purchaseOrderLines`, `purchaseOrderRevisions`
+    - PO lifecycle: DRAFT → SUBMITTED → SENT → PARTIALLY_RECEIVED → CLOSED → CANCELED
+    - Optimistic locking via `version` column (Rule PO-1)
+    - Revision snapshots: JSONB snapshot stored on edit of submitted/sent POs (Rule PO-3)
+    - PO lines track `qtyReceived` running total, updated when receipt posted
+    - Added `purchaseOrderId` FK to `receivingReceipts` (plain text column, FK via migration to avoid circular import)
+    - Migration: `0057_purchase_orders.sql` with RLS (12 policies)
+- **Shared**: item-type utilities (incl. green_fee/rental → retail mapping), money helpers, ULID, date utils, slug generation, catalog metadata types
+- **Reporting Module** (Session 17 schema + Session 18 consumers + Session 19 queries/routes):
+  - **4 read model tables**: `rm_daily_sales`, `rm_item_sales`, `rm_inventory_on_hand`, `rm_customer_activity`
+  - CQRS read models with `rm_` prefix — pre-aggregated projections updated by event consumers
+  - Unique composite indexes for upsert-by-natural-key pattern (e.g., tenant+location+date)
+  - `NUMERIC(19,4)` for monetary aggregates (not cents — these are reporting summaries)
+  - `processed_events` enhanced with `tenant_id` column for consumer idempotency
+  - RLS: FORCE ROW LEVEL SECURITY + 4 policies per table (16 total)
+  - **4 event consumers**: `handleOrderPlaced` (order.placed.v1), `handleOrderVoided` (order.voided.v1), `handleTenderRecorded` (tender.recorded.v1), `handleInventoryMovement` (inventory.movement.created.v1)
+  - All consumers use atomic idempotency: INSERT into `processed_events` + upsert read model in same transaction
+  - Business date utility: `computeBusinessDate(occurredAt, timezone, dayCloseTime?)` — IANA timezone + day-close-time offset
+  - **4 query services**: `getDailySales` (single/multi-location aggregation), `getItemSales` (top-N with sort), `getInventorySummary` (below-threshold filter), `getDashboardMetrics` (today's KPIs)
+  - **CSV export**: `toCsv(columns, rows)` — RFC 4180 escaping, UTF-8 BOM for Excel
+  - **6 API routes**: `/api/v1/reports/{daily-sales, item-sales, inventory-summary, dashboard}` + 2 CSV export endpoints
+  - Permissions: `reports.view` for data queries, `reports.export` for CSV downloads
+  - Schema: `packages/db/src/schema/reporting.ts`, Migration: `0049_reporting_read_models.sql`
+  - Consumers: `packages/modules/reporting/src/consumers/`
+  - Queries: `packages/modules/reporting/src/queries/`
+  - Routes: `apps/web/src/app/api/v1/reports/`
+- **Customer Management Module** (Session 16 + 16.5):
+  - **36 tables** (15 Session 16 + 21 Session 16.5): customers (31 cols), customer_relationships, customer_identifiers, customer_activity_log, membership_plans, memberships, membership_billing_events, billing_accounts, billing_account_members, ar_transactions, ar_allocations, statements, late_fee_policies, customer_privileges, pricing_tiers, customer_contacts, customer_preferences, customer_documents, customer_communications, customer_service_flags, customer_consents, customer_external_ids, customer_auth_accounts, customer_wallet_accounts, customer_alerts, customer_scores, customer_metrics_daily, customer_metrics_lifetime, customer_merge_history, customer_households, customer_household_members, customer_visits, customer_incidents, customer_segments, customer_segment_memberships, customer_payment_methods
+  - **38 commands**: 16 Session 16 (CRUD customers, memberships, billing/AR) + 22 Session 16.5 (contacts, preferences, documents, communications, service flags, consents, external IDs, wallets, alerts, households, visits, incidents, segments)
+  - **23 queries**: 12 Session 16 (list/get customers, plans, memberships, billing, AR ledger, aging, statements, privileges, search) + 11 Session 16.5 (profile360, financial, preferences, activity, notes, documents, communications, compliance, segments, integrations, analytics)
+  - **~38 API routes**: base CRUD, search, merge, profile sub-resources, billing, memberships, households, segments
+  - **5 frontend pages**: customer list, customer detail, billing list, billing detail, memberships
+  - **18 hooks**: 8 Session 16 (customers, plans, memberships, billing, AR, aging) + 11 Session 16.5 (profile, financial, preferences, activity, notes, documents, communications, compliance, segments, integrations, analytics)
+  - **Customer Profile Drawer**: 15 components (11 tabs), portal-based slide-in panel (560px), React Context provider
+  - Customer identity: person/organization types, merge capability, identifier cards/barcodes/wristbands, activity log (CRM timeline)
+  - Membership system: plans with privileges (jsonb), status lifecycle (pending→active→paused→canceled→expired), billing account linkage
+  - Billing/AR: credit limits, spending limits, sub-account authorization, FIFO payment allocation, aging buckets, collection status lifecycle
+  - Universal Profile: contacts, preferences (by category), documents, communications, service flags, consents, wallets/loyalty, alerts, households, visits, incidents, segments, scores
+  - Event consumers: order.placed (AR charge + visit/spend stats), order.voided (AR reversal), tender.recorded (AR payment + FIFO allocation)
+  - GL integration: AR charge/payment/writeoff/late_fee journal entries
+  - Sidebar navigation: Customers section with All Customers, Memberships, Billing sub-items
+- **Reporting Module** (Sessions 17-21):
+  - **Backend**: 4 read model tables (`rm_daily_sales`, `rm_item_sales`, `rm_inventory_on_hand`, `rm_customer_activity`), 4 event consumers (with Zod schema validation via `safeParse()` — rejects malformed payloads with error logging instead of crashing), business date utility, 4 query services, CSV export utility (RFC 4180 + UTF-8 BOM), 6 API routes (4 JSON + 2 CSV export)
+  - **Frontend**: Reports page (`/reports`) with 3-tab layout (Sales, Items, Inventory), 4 KPI metric cards with 60s auto-refresh, Recharts line/bar charts, DataTable integration, CSV export buttons, DateRangePicker with quick-select, location selector
+  - **Components**: 5 report components (DateRangePicker, MetricCards, SalesTab, ItemsTab, InventoryTab), 4 data hooks (useReportsDashboard, useDailySales, useItemSales, useInventorySummary), formatReportMoney + buildExportUrl helpers
+  - **Custom Report Builder** (Session 21 — Semantic Layer):
+    - 3 new tables: `reporting_field_catalog` (system), `report_definitions`, `dashboard_definitions`
+    - Field catalog: 31 fields across 4 datasets (daily_sales, item_sales, inventory, customers)
+    - Query compiler: `compileReport()` — validates fields against catalog, builds parameterized SQL, enforces guardrails (tenant isolation, date range required for time-series, max 365d range, max 10K rows, max 20 cols/15 filters)
+    - 4 commands: `saveReport`, `deleteReport` (soft), `saveDashboard`, `deleteDashboard` (soft)
+    - 5 new queries: `getFieldCatalog`, `getReport`, `listReports`, `runReport`, `getDashboard`, `listDashboards`
+  - **Custom Report Builder Frontend** (Session 22):
+    - Report builder UI: field picker (dimensions/measures), filter builder (typed operators), chart preview (line/bar/table/metric via Recharts), client-side validation mirroring server guardrails
+    - Saved reports list with CRUD, cursor pagination, CSV export, permission-gated actions
+    - Dashboard builder with @dnd-kit drag-and-drop, 12-column CSS Grid, preset tile sizes (S/M/L), auto-refresh
+    - Dashboard viewer (read-only), saved dashboards list
+    - 7 Next.js pages: `/reports/custom`, `/reports/custom/new`, `/reports/custom/[id]`, `/dashboards`, `/dashboards/new`, `/dashboards/[id]`, `/dashboards/[id]/edit`
+    - 3 hooks: `useFieldCatalog`, `useCustomReports` (CRUD + run + export), `useDashboards` (CRUD)
+    - Backend tile cache: in-memory TTL Map, tenant-isolated cache keys
+    - V2-ready `report_snapshots` table (migration 0051, schema only)
+    - Sidebar: Reports now expandable with Overview, Custom Reports, Dashboards sub-items
+    - 13 API routes: field catalog, custom report CRUD+run+export, dashboard CRUD
+  - Permissions: `reports.view`, `reports.export`, `reports.custom.view`, `reports.custom.manage`
+- **Golf Reporting Module** (Session 24):
+  - Separate module: `packages/modules/golf-reporting/`
+  - **Schema**: `packages/db/src/schema/golf-reporting.ts` — golf-specific read model tables + lifecycle tables
+  - **Migrations**: `0052_golf_reporting_read_models.sql`, `0053_golf_lifecycle_tables.sql`, `0054_golf_field_catalog.sql`
+  - **11 event consumers**: tee-time lifecycle events, channel daily aggregation, folio events, pace tracking
+  - **5 query services**: golf dashboard metrics, revenue analytics, utilization rates, daypart analysis, customer golf analytics
+  - **3 KPI modules**: channel performance, pace of play, tee-sheet utilization
+  - **Seeds**: default golf dashboards for common reporting views
+  - **Frontend**: 5 golf report components (channels, customers, metric-cards, pace-ops, revenue, utilization tabs)
+  - **Hooks**: `useGolfReports`, `useReportFilters`, `useNavigationGuard`
+  - **Types**: `apps/web/src/types/golf-reports.ts`
+  - **API routes**: full golf reports suite under `/api/v1/reports/golf/`
+  - **4 test files** covering consumers and query services
+- **Room Layouts Module** (Sessions 1-14):
+  - **Backend**: `packages/modules/room-layouts/` — 3 DB tables (`floor_plan_rooms`, `floor_plan_versions`, `floor_plan_templates_v2`) with RLS (12 policies), 11 commands (createRoom, updateRoom, archiveRoom, unarchiveRoom, saveDraft, publishVersion, revertToVersion, duplicateRoom, createTemplate, updateTemplate, deleteTemplate) + applyTemplate, 7 queries (listRooms, getRoom, getRoomForEditor, getVersionHistory, getVersion, listTemplates, getTemplate), slug generation with conflict handling, 8 event types emitted (no consumers — standalone module)
+  - **Schema**: `packages/db/src/schema/room-layouts.ts`, Migration: `0070_room_layouts.sql`
+  - **Shared types**: `packages/shared/src/types/room-layouts.ts` — CanvasObject, CanvasSnapshot, LayerInfo, ObjectType (14 types), TableProperties, StationProperties, ServiceZoneProperties, TextLabelProperties, etc.
+  - **Frontend Editor** (Konva.js + react-konva): Full drag-and-drop floor plan editor with 3-layer canvas architecture (grid, objects, UI), Zustand + immer state management, 14 object types (table, chair, wall, door, window, stage, bar, buffet, dance_floor, divider, text_label, decoration, service_zone, station), snap-to-grid, multi-select with Shift+click and marquee selection, Transformer for resize/rotate, context menu, z-index manipulation, copy/paste/duplicate (Ctrl+C/V/D), undo/redo with 50-entry history cap
+  - **Canvas Objects**: TableNode (shape-aware: round/square/rectangle/oval with seat count + table number), WallNode, DoorNode, TextNode, ServiceZoneNode (dashed border with label), StationNode (color-coded circle markers: POS/Wait/Bus/Host/Bar), GenericNode (fallback)
+  - **Panels**: PalettePanel (drag-to-add with 5 groups: Tables, Seating, Walls & Doors, Zones & Service, Stations), InspectorPanel (dynamic property editing per object type), LayersPanel (CRUD, visibility/lock toggles, drag reorder), AlignTools (6 align + 2 distribute options for multi-select)
+  - **Templates**: SaveAsTemplateDialog (name, description, category, widthFt, heightFt), TemplateGallery (portal dialog with search + category filter, SVG thumbnails), ApplyTemplateDialog (two-step: select → confirm), template CRUD API, createRoomFromTemplateApi (two-step: create room → apply template)
+  - **Version History**: VersionHistory sidebar (list versions with numbers, publish notes, restore), PublishDialog (publish with optional note — always saves draft before publishing regardless of isDirty)
+  - **Room Modes**: ModeManagerDialog (CRUD modes, set default, copy from existing), mode selector in toolbar
+  - **Export**: PNG export (Konva `stage.toDataURL()` with 2x pixel ratio), JSON snapshot export
+  - **Validation**: Room validation (name 1-100, dimensions 5-500ft, grid 0.25-10ft, scale 5-100px/ft), object validation (valid types, bounds check, seat requirements), publish validation (min 1 object, table numbers, capacity > 0, overlap detection)
+  - **Error Boundary**: CanvasErrorBoundary wraps Konva Stage — on crash shows "Canvas Error" with "Reload Editor" button, preserves snapshot in Zustand
+  - **Floor Plan Viewer**: Read-only Konva component with auto-fit scaling for embedding in other views
+  - **Code-split**: `page.tsx` = thin `next/dynamic` wrapper, heavy content in `editor-content.tsx` / `room-layouts-content.tsx`
+  - **Dark mode**: All room layout components use `bg-surface` for theme-aware backgrounds, opacity-based hover states (`hover:bg-gray-200/50`), no `dark:` prefixed classes (relies on inverted gray scale from globals.css). Includes: all dialogs (create/edit/duplicate/publish/mode-manager/save-template/apply-template/template-gallery), search box, actions dropdown, context menu, inspector panel inputs, color picker, layers panel, version history sidebar, revert confirmation, status bar, align tools
+  - **Integration**: `room_layouts` in MODULE_REGISTRY, entitlement-gated sidebar under Settings, permission seeds (Owner/Manager: view+manage, Supervisor: view+manage, Cashier/Server/Staff: view), onboarding provisioning for restaurant/golf/hybrid business types
+  - **Hooks**: `useRoomLayouts`, `useRoom`, `useRoomEditor`, `useRoomTemplates`, `useRoomLayoutAutosave` (3s debounce)
+  - **API routes**: 17 routes under `/api/v1/room-layouts/` (rooms CRUD, draft, publish, revert, duplicate, editor, versions, templates CRUD, apply template)
+  - **199 tests** across 11 test files (store: 65, validation: 61, canvas utils: 41, templates: 10, helpers: 11, export: 11)
+- **Speed Improvements** (Session 24):
+  - **POS catalog optimization**: new `getCatalogForPOS` single-query loader in `packages/modules/catalog/src/queries/get-catalog-for-pos.ts` — replaces multiple API calls with one optimized query
+  - **New API route**: `POST /api/v1/catalog/pos` — POS-optimized catalog endpoint
+  - **POS hooks refactored**: `useCatalogForPOS` (+170 lines) and `useRegisterTabs` (+191 lines) rewritten for performance
+  - **Customer search indexes**: migration `0055_customer_search_indexes.sql` — new DB indexes for customer search performance
+  - **Customer search query**: `packages/modules/customers/src/queries/search-customers.ts` — optimized query execution
+  - **Order fetch optimization**: `packages/modules/orders/src/queries/get-order.ts` — streamlined order loading
+  - **Middleware performance**: `packages/core/src/auth/with-middleware.ts` — perf tweaks to auth middleware chain
+  - **Layout slimmed**: dashboard layout reduced by 32 lines, settings page simplified by 80 lines
+  - **Receiving search indexes**: migration `0062_receiving_search_indexes.sql` — trigram GIN indexes on `catalog_items(name, sku)`, `item_identifiers(value)`, `vendors(name)` for fast ILIKE search
+  - **RLS policy fix**: migration `0059_fix_rls_role_policies.sql` — corrected role restriction on RLS policies
+- **Speed Improvements** (Session 25):
+  - **Code-split all heavy pages**: every page >100 lines under `(dashboard)/` uses thin `page.tsx` wrapper with `next/dynamic` + `ssr: false` — route transitions commit instantly with loading skeleton, heavy JS loads async. 16 pages split: catalog, orders, settings, taxes, memberships, vendors, reports, golf-reports, customer-detail, item-detail, billing-detail, order-detail, item-edit, vendor-detail, receipt-detail, plus both POS shells
+  - **Loading skeletons**: custom per-page skeletons for catalog, orders, settings, dashboard; reusable `PageSkeleton` component (`apps/web/src/components/ui/page-skeleton.tsx`) for detail pages
+  - **POS instant mode switching**: both Retail and F&B POS mount in the shared layout (`pos/layout.tsx`) and toggle via CSS (`invisible pointer-events-none`). No route transition — switching is immediate. Lazy-mount on first visit, keep mounted forever. `isActive` prop gates barcode listener + closes portal dialogs on deactivation
+  - **Combined catalog+inventory API**: `listItems` accepts `includeInventory` flag to batch-fetch inventory data (on-hand, reorder point) in same query — eliminates separate `/api/v1/inventory` call on catalog page. API: `GET /api/v1/catalog/items?includeInventory=true`
+  - **Category fetch deduplication**: module-level `_catCache` with in-flight promise dedup + 30s TTL — 3 identical category API calls (departments, sub-departments, categories) share 1 request
+  - **Covering indexes**: migration `0065_list_page_indexes.sql` — `idx_tenders_tenant_status_order` for order list tender aggregation; `idx_inventory_movements_onhand` with `INCLUDE (quantity_delta)` for index-only on-hand SUM scans
+  - **Dashboard stale-while-revalidate**: uses `/api/v1/reports/dashboard` (pre-aggregated CQRS read models) for KPIs instead of fetching 100 raw orders. SessionStorage cache with business-date invalidation. Cached data renders instantly, background refresh keeps it fresh
+  - **Dashboard data reduction**: orders `limit=100` → `limit=5`, inventory `limit=50` → `limit=5` (only 5 of each displayed)
+  - **Sidebar z-index fix**: desktop sidebar `relative z-40` keeps it above POS overlay backdrops (z-30); main content `relative z-0` creates stacking context isolation so POS overlays stay scoped
+  - **Portal dialog cleanup on POS switch**: `useEffect` closes all portaled dialog states when `isActive` becomes false, preventing leaked dialogs across POS modes
+
+- **Speed & Stability Improvements** (Session 26):
+  - **Dashboard instant navigation**: replaced raw `useEffect` + `apiFetch` with React Query (`@tanstack/react-query`) in dashboard — auto AbortSignal cancellation on unmount prevents slow API calls from blocking browser connection pool during navigation. `QueryProvider` wraps dashboard layout; `staleTime: 60_000` for cache
+  - **Dashboard code-split**: extracted 478-line `page.tsx` to `dashboard-content.tsx` + thin `next/dynamic` wrapper, matching the code-split pattern used by all other heavy pages
+  - **`apiFetch` AbortError handling**: added `DOMException`/`AbortError` guard before network error logging — navigating away no longer spams console with "Failed to fetch" errors
+  - **POS customer persistence fix**: removed race-condition auto-clear `else if` branch from sync-back effect in `use-register-tabs.ts` — orderId clearing now happens ONLY via explicit `clearActiveTab()` after payment/void/hold. Added `isSwitching` guards on both cached and server loading paths to prevent orderId wipe during rehydration
+  - **`clearActiveTab` clears label too**: after payment/void/hold, both `orderId` AND `label` (customer name) are reset — prevents stale customer names lingering on tabs
+  - **POS tender placeOrder 409 recovery**: `placeOrder()` now recovers from "already placed" 409 by fetching the placed order instead of clearing POS state — prevents race between preemptive placeOrder and user clicking Pay
+  - **TenderDialog graceful placeOrder failure**: `handleSubmit` catches placeOrder errors and re-fetches order status — if order IS placed on server, continues to tender instead of showing confusing "Payment conflict" toast
+  - **Query performance indexes**: migrations `0066_query_performance_indexes.sql` + `0067_query_audit_indexes.sql`
+  - **Tax calc improvements**: zero-price early return, `TaxMode` type alias, JSDoc updates; `@oppsera/module-catalog/src/tax-calc.ts` replaced with re-export from `@oppsera/core`
+  - **New tax test scenarios**: 9+ test cases in `test/business-logic/unit/calculations/tax.test.ts` covering inclusive/exclusive, compound, rounding, cart totals
+
+- **Accounting Core Module** (Sessions 28-29, 32, 34):
+  - **14 schema tables**: gl_accounts, gl_classifications, gl_journal_entries, gl_journal_lines, gl_journal_number_counters, gl_account_templates, gl_classification_templates, accounting_settings, gl_unmapped_events, accounting_close_periods, financial_statement_layouts, financial_statement_layout_templates, bank_reconciliations, bank_reconciliation_items
+  - **4 mapping tables**: sub_department_gl_defaults, payment_type_gl_defaults, tax_group_gl_defaults, bank_accounts
+  - **2 recurring tables**: recurring_journal_templates, recurring_journal_template_lines
+  - **Migrations**: 0071-0075 (GL core, mappings, bank accounts, close periods), 0077 (financial statements), 0084 (order_lines GL columns: sub_department_id, tax_group_id), 0099-0107 (legacy GL gate, tips/svc charge settings, GL dimensions, COA templates, line-item returns, F&B GL mappings, voucher GL audit, membership GL, chargebacks), 0119-0122 (multi-currency + recurring journals, reconciliation waterfall, bank reconciliation)
+  - **22 commands**: postJournalEntry, postDraftEntry, voidJournalEntry, updateAccountingSettings, lockAccountingPeriod, createGlAccount, updateGlAccount, createGlClassification, updateGlClassification, saveSubDepartmentDefaults, savePaymentTypeDefaults, saveTaxGroupDefaults, saveBankAccount, bootstrapTenantAccounting, updateClosePeriod, closeAccountingPeriod, saveStatementLayout, generateRetainedEarnings, startBankReconciliation, clearReconciliationItems, addBankAdjustment, completeBankReconciliation
+  - **26 queries**: getAccountBalances, getJournalEntry, listJournalEntries, listGlAccounts, getTrialBalance, getGlDetailReport, getGlSummary, listUnmappedEvents, reconcileSubledger, listBankAccounts, getMappingCoverage, getCloseChecklist, listClosePeriods, getProfitAndLoss, getBalanceSheet, getSalesTaxLiability, getCashFlowSimplified, getPeriodComparison, getFinancialHealthSummary, listStatementLayouts, getSubDepartmentMappings, getItemsBySubDepartment, getReconciliationWaterfall, listBankReconciliations, getBankReconciliation, getAuditCoverage
+  - **15 adapters**: pos-posting-adapter, void-posting-adapter, return-posting-adapter, fnb-posting-adapter, voucher-posting-adapter, membership-posting-adapter, chargeback-posting-adapter, folio-posting-adapter, legacy-bridge-adapter, tender-reversal-posting-adapter, drawer-event-posting-adapter, customer-financial-posting-adapter, inventory-receipt-posting-adapter, comp-void-posting-adapter, drawer-close-posting-adapter, stored-value-posting-adapter
+  - **~43 API routes** under `/api/v1/accounting/`
+  - **288 tests** across 22 test files (incl. gl-audit-fixes)
+  - Posting engine: double-entry validation, period locking, control account restrictions, idempotent posting via sourceReferenceId
+  - COA bootstrap: template-based (golf/retail/restaurant/hybrid defaults), creates classifications → accounts → settings atomically
+  - Financial statements: P&L (date range, comparative, location-filterable), Balance Sheet (as-of with retained earnings), Cash Flow (simplified), Period Comparison, Financial Health Summary
+  - Sales tax liability report from GL
+  - Close workflow: period status tracking, live checklist (drafts, unmapped, trial balance, AP/AR reconciliation, legacy GL warning, tips/svc charge config, sub-dept mapping completeness, GL posting coverage gap detection comparing tender count vs GL entry count)
+  - POS adapter: tender → GL posting with subdepartment-resolved revenue, package component splitting, never blocks tenders, logs unmapped events, `ensureAccountingSettings` auto-provisioning (creates settings + wires known accounts by number + guarantees GL Suspense 99999)
+  - **Helpers**: bootstrapTenantCoa, resolveMapping, generateJournalNumber, validateJournal (with rounding account type validation — warns if revenue/asset type), resolveNormalBalance, getAccountingSettings, catalogGlResolution (resolveRevenueAccountForSubDepartment, expandPackageForGL), **ensureAccountingSettings** (auto-creates settings + wires fallback accounts including Suspense 99999)
+  - **GL Query Guard**: All balance queries (getAccountBalances, getTrialBalance, getBalanceSheet) include `(jl.id IS NULL OR je.id IS NOT NULL)` guard to exclude orphaned journal lines from non-posted entries in LEFT JOIN chains. Trial balance also reports `nonPostedEntryCount`.
+  - **Catalog→GL pipeline**: `order_lines.sub_department_id` + `tax_group_id` populated at addLineItem time, `tender.recorded.v1` event enriched with `lines[]` (subDepartmentId, taxGroupId, taxAmountCents, packageComponents), POS adapter splits package revenue across component subdepartments via `allocatedRevenueCents`
+  - **Accounting Alignment Remediation** (Sessions 37-48):
+    - **Session 37**: Legacy GL gate (`enableLegacyGlPosting` setting), proportional allocation for split tenders, remainder method for final tender
+    - **Session 38**: Complete GL categories — discounts, tips (→ Tips Payable), service charges (→ Service Charge Revenue), processing fees (→ fee expense), returns foundation. New settings: `defaultTipsPayableAccountId`, `defaultServiceChargeRevenueAccountId`
+    - **Session 39**: Void GL reversal (`void-posting-adapter.ts`), legacy void gating behind `enableLegacyGlPosting`
+    - **Session 40**: GL journal line dimensions — `profitCenterId`, `subDepartmentId`, `terminalId`, `channel` on `gl_journal_lines`
+    - **Session 41**: Close checklist enhancements (legacy GL warning, tips/svc charge config, sub-dept mapping completeness, POS legacy reconciliation)
+    - **Session 42**: COA templates updated (Tips Payable 2160, Service Charge Revenue 4500), `bootstrapTenantCoa` wires new accounts, backfill script for existing tenants
+    - **Session 43**: Line-item refunds (`createReturn` command, `return-posting-adapter.ts`, `recordRefund` command, inventory reversal)
+    - **Session 44**: F&B GL wiring (`fnb-posting-adapter.ts` consumes `fnb.gl.posting_created.v1`, `fnb_gl_account_mappings` table, category→account resolution)
+    - **Session 45**: Voucher deferred revenue (purchase: Dr Cash Cr Liability, redeem: Dr Liability Cr Revenue, expire: Dr Liability Cr Breakage Income)
+    - **Session 46**: Membership GL (Dr AR Cr Deferred Revenue), `billingAccountId` on orders, AR bridge consumer
+    - **Session 47**: Chargeback support (`chargebacks` table, `recordChargeback`/`resolveChargeback` commands, GL posting: received/won/lost lifecycle)
+    - **Session 48**: Posting matrix validation tests (26 tests validating debits=credits across all adapters), integration test scaffolding
+    - **9 new migrations**: 0099-0107 (legacy GL gate, tips/svc charge settings, GL dimensions, COA templates, line-item returns, F&B GL mappings, voucher GL audit, membership GL, chargebacks)
+    - **7 new commands**: purchaseVoucher, redeemVoucher, expireVouchers, recordChargeback, resolveChargeback, createReturn, recordRefund
+    - **7 new adapters**: void, return, fnb, voucher (3 handlers), membership, chargeback (2 handlers)
+    - All adapters follow never-throw pattern — GL failures never block business operations
+- **Member Portal App** (`apps/member-portal/`) — Session 2026-02-22:
+  - **Standalone Next.js 15 app** for member self-service (billing, contracts, spending, statements)
+  - **Multi-tenant discovery**: `[tenantSlug]/` dynamic routes, `find-club/` page for tenant lookup
+  - **Portal auth**: `POST /api/auth/login` (email + tenant slug → portal token), `withPortalAuth()` middleware, JWT signing via `createPortalToken()`
+  - **Portal pages**: `(portal)/` group — dashboard, account, spending analysis, statements
+  - **Portal API routes**: account summary, autopay config, billing statements, spending analysis, initiation/contracts
+  - **Hooks**: `usePortalAuth()`, `usePortalData()`
+  - **Components**: `PortalHeader`, `PortalNav`
+- **Customer Sub-Resource API Expansion** (Session 2026-02-22):
+  - **50+ new API routes** under `/customers/[id]/`: activity-feed, addresses CRUD, aging, applicable-discount-rules, audit, contacts-360, emails CRUD, emergency-contacts, files, financial account detail + adjust + autopay + credit-limit + hold, header, ledger, member-number, messages, notes, overview, phones CRUD, privileges-extended, relationships-extended + CRUD, stored-value + redeem + reload + void + transfer, discount-rules CRUD + toggle
+  - **Member portal API** (6 routes): `/member-portal/account`, `/member-portal/autopay`, `/member-portal/initiation`, `/member-portal/minimums`, `/member-portal/statements`, `/member-portal/summary`
+  - **Membership management API** (20+ routes): accounts CRUD, authorized-users, autopay, billing-items, classes, collections, freeze/holds, initiation contracts + bill + cancel + extra-principal + payoff
+- **Guest Pay (QR Code Pay at Table)** (Session 2026-02-23):
+  - **Schema**: `guest_pay_sessions` table (token, status lifecycle, tip settings) — migration 0137
+  - **Guest-facing page**: `/(guest)/pay/[token]/` — standalone payment page with member auth, tip selection, round-up donations
+  - **Commands**: `createGuestPaySession`, `selectGuestPayTip`, `simulateGuestPayment` (V1), `chargeGuestMemberAccount`, `expireGuestPaySessions`, `invalidateGuestPaySession`, `updateGuestPayTipSettings`
+  - **Queries**: `getGuestPaySession`, `getGuestPaySessionByToken`, `getActiveGuestPayForTab`, `listGuestPaySessionsForTab`, `getGuestPayTipSettings`
+  - **Session lifecycle**: active → paid | expired | invalidated | superseded
+  - **Tokens**: 256-bit base64url (unguessable), tip settings snapshot as JSONB
+- **COA Governance** (Session 2026-02-23):
+  - **Account merge**: `mergeGlAccounts` command + `MergeAccountDialog` UI — merges balances, reassigns journal lines, audit trail
+  - **Account renumbering**: `renumberGlAccount` — change account number while preserving history
+  - **CSV COA import**: `importCoaFromCsv` — CSV → validation → account creation → GL mapping auto-wire
+  - **COA health dashboard**: `getCoaHealth` query + API route — hierarchy validation, orphan detection, classification consistency
+  - **Account change log**: `account-change-log.ts` service — append-only audit trail per account
+  - **1,500+ new accounting tests**: account merge (143), bootstrap templates (226), COA validation (367), CSV import (299), hierarchy (135), posting matrix (191), state placeholder (201)
+- **F&B Payment Tier 3** (Session 2026-02-23):
+  - **Gift card balance lookup** API + UI
+  - **House account member lookup + charge** — member search, billing account selection, charge authorization
+  - **Loyalty program redemption** routes (stubs)
+  - **NFC payment initiation** stubs
+  - **Fractional split tender** support
+  - **Enhanced FnbPaymentView**: 332 → 619 lines with payment adjustments panel, gift cards, house accounts
+  - **Migration 0136**: F&B payment tier 3 provisioning — gift cards, house accounts, QR code payments
+- **GL Remap Workflow** (Session 2026-02-23):
+  - **Preview**: `POST /api/v1/accounting/unmapped-events/remap/preview` — find tenders that can be auto-remapped based on new mapping rules
+  - **Execute**: `POST /api/v1/accounting/unmapped-events/remap` — batch remap GL entries
+  - **Commands**: `remapGlForTender` (185 lines), `tryAutoRemap` helper (46 lines)
+  - **Query**: `getRemappableTenders` (180 lines)
+  - **Auto-remap setting**: `accounting_settings.enable_auto_remap` boolean (migration 0143)
+  - **Frontend**: `RemapPreviewDialog` (352 lines), `useGlRemap` hook (128 lines)
+  - **ReconciliationReadApi expanded**: 20 → 61 methods with `getTendersForRemapping`, `getPaymentsForRemapping`, `getTransactionsWithGlStatus`
+- **Admin Impersonation** (Session 2026-02-23):
+  - **Schema**: `admin_impersonation_sessions` table (migration 0141) — tracks session, expiry, action count, audit trail
+  - **API routes**: `POST /api/v1/auth/impersonate` (start), `POST /api/v1/auth/impersonate/end` (end)
+  - **Frontend**: `/impersonate` page with Suspense boundary, `ImpersonationBanner` component
+  - **Auth middleware**: detects impersonation token in refresh, tracks action count in audit log
+  - **Tenant role CRUD**: admin API for tenant-scoped role management (create/read/update/delete), `TenantRolesTab` component (465 lines)
+- **RBAC & Permission Seed Fixes** (Session 2026-02-23):
+  - Admin role gets `*` wildcard permissions (like Owner, but can be location-scoped)
+  - All 6 system roles get `pos_fnb.floor_plan.view` by default
+  - Cashier gets `pos_fnb.tabs.manage`, `pos_fnb.kds.view`, `pos_fnb.payments.create`
+  - Admin + Manager roles get `pos_fnb.*`, `accounting.*`, `ap.*`, `ar.*`
+  - Dead letter routes now read from persistent `event_dead_letters` table (was in-memory, lost on Vercel cold starts)
+  - Migration 0134 made fully idempotent (`DROP POLICY IF EXISTS`, `IF NOT EXISTS` for indexes)
+- **Property Management System (PMS)** (`packages/modules/pms/`) — Session 2026-02-24:
+  - **50+ schema tables** in `packages/db/src/schema/pms.ts`: properties, room types, rooms, rate plans, rate plan prices, guests, reservations, room blocks, folios, folio entries, room status log, audit log, idempotency keys, outbox, rate restrictions, payment methods, payment transactions, deposit policies, cancellation policies, message templates, message log, housekeepers, housekeeping assignments, work orders, work order comments, rate packages, groups, group room blocks, corporate accounts, corporate rate overrides, pricing rules, pricing log, channels, channel sync log, booking engine config, room assignment preferences, guest portal sessions, loyalty programs, loyalty members, loyalty transactions
+  - **CQRS read models**: `rm_pms_calendar_segments`, `rm_pms_daily_occupancy`, `rm_pms_revenue_by_room_type`, `rm_pms_housekeeping_productivity`
+  - **55+ commands**: property/room/rate CRUD, reservation lifecycle (create, update, cancel, no-show, check-in/check-out, move room, resize), folio posting/close, rate restrictions, payment methods, deposits (authorize/capture), card charges, refunds, deposit/cancellation policies, messaging (templates, send, log), housekeeping (assign, start/complete/skip cleaning, work orders), rate packages, groups (create, blocks, pickup, release), corporate accounts + rate overrides, pricing rules + engine, channels (create, update, sync), booking engine config, room assignment preferences + auto-assignment, guest portal sessions, loyalty programs + enrollment + earn/redeem/adjust points
+  - **60+ queries**: list/get for all entities, calendar week/day/month views, occupancy forecast, revenue by room type, pickup report, manager flash report, no-show report, housekeeping productivity, pricing preview/log, channel sync log, booking engine config, room suggestions, guest portal folio, loyalty transactions
+  - **State machines**: `RESERVATION_TRANSITIONS` (confirmed→checked_in→checked_out, confirmed→cancelled, confirmed→no_show), `ROOM_STATUS_TRANSITIONS` (clean→occupied→dirty→cleaning→inspected→clean). Assert functions throw `InvalidStatusTransitionError`.
+  - **Event consumers**: `handleCalendarProjection`, `handleOccupancyProjection` for CQRS read model updates
+  - **Background jobs**: `runNightlyChargePosting`, `runNoShowMarking`, `runHousekeepingAutoDirty`
+  - **Helpers**: `bootstrapPropertiesFromLocations`, `computeDynamicRate` (pricing engine), `scoreRoom`/`rankRooms` (room assignment), `renderTemplate` (message templates), SMS/Stripe gateway stubs
+  - **30+ PMS permissions** across 10 categories (properties, rooms, reservations, rates, guests, folios, housekeeping, reports, settings, channels, loyalty)
+  - **Own idempotency + outbox tables**: `pms_idempotency_keys`, `pms_outbox` — module-specific for microservice extractability
+  - **Migrations**: 0148-0168 (rate restrictions, deposits/payments, communications, reporting, housekeeping/maintenance, rate packages, groups/corporate, pricing rules, channels/booking, auto-assignment, guest portal, loyalty)
+  - **Frontend**: `use-pms.ts` hook, PMS calendar page (code-split), sub-pages for corporate, groups, loyalty, maintenance, reports, revenue management
+- **Semantic Layer Upgrades** (Session 2026-02-24):
+  - **Dual-mode pipeline**: Mode A (metrics via registry compiler) + Mode B (SQL via LLM generation). Mode routing is automatic based on intent and schema availability
+  - **SQL generation pipeline**: `generateSql()` → `validateGeneratedSql()` → `executeSqlQuery()` → auto-retry via `retrySqlGeneration()`. Full schema catalog built from live DB introspection via `buildSchemaCatalog()`
+  - **SQL validation (defense-in-depth)**: SELECT/WITH only, no DDL/DML/TX/utility commands, no dangerous functions, no comments/semicolons, tenant_id=$1 required, LIMIT required (except aggregates), table whitelist
+  - **RAG few-shot retrieval**: `retrieveFewShotExamples()` injects similar past queries into SQL generator system prompt. Best-effort, never blocks
+  - **Conversation pruning**: `pruneForSqlGenerator()` with token-aware history trimming
+  - **LLM response cache**: Separate from query cache. Keyed on `(tenantId, promptHash, message+dataSummary, history)`. Prevents redundant LLM calls for identical questions with same data
+  - **Intelligence enrichments**: `generateFollowUps()` (suggested questions), `inferChartConfig()` (auto chart type), `scoreDataQuality()` (confidence scoring)
+  - **Eval training platform expanded**: batch review, conversation analysis, cost analytics, experiments, regression testing, safety engine, example effectiveness tracking, bulk import/export
+  - **New admin pages**: 8 new sub-pages under `/train-ai/` (batch-review, comparative, conversations, cost, experiments, playground, regression, safety)
+- **Insights Sub-Pages** (Session 2026-02-24):
+  - **Authoring**: `/insights/authoring` — semantic authoring panel for creating custom metrics/reports
+  - **Embeds**: `/insights/embeds` — embeddable widget management
+  - **Reports**: `/insights/reports` — NL report builder panel
+  - **Tools**: `/insights/tools` — analysis tools
+  - **Watchlist**: `/insights/watchlist` — metric watchlist panel
+  - **Components**: `SemanticAuthoringPanel`, `EmbeddableWidget`, `NLReportBuilderPanel`, `WatchlistPanel`, `AnnotationOverlay`, `BranchTree`, `CorrelationChart`, `DataLineagePanel`, `DataQualityBadge`, `DigestViewer`, `DrillDownTable`, `FollowUpChips`, `ForecastChart`, `InlineChart`, `NotificationBell`, `PosInsightCard`, `RootCausePanel`, `ScheduledReportsPanel`, `VoiceInput`, `WhatIfPanel`
+  - **Hooks**: `use-agentic`, `use-ai-alerts`, `use-ai-digests`, `use-ai-feed`, `use-ai-findings`, `use-ai-goals`, `use-ai-preferences`, `use-ai-shared`, `use-ai-simulations`, `use-annotations`, `use-branches`, `use-correlations`, `use-data-quality`, `use-digests`, `use-embed-widgets`, `use-forecast`, `use-nl-report`, `use-pinned-metrics`, `use-root-cause`, `use-scheduled-reports`, `use-whatif`
+- **Catalog Import System** (Session 2026-02-24):
+  - **Inventory import**: `importInventory` command, `InventoryImportWizard` component, `use-inventory-import.ts` hook, `inventory-import-analyzer.ts`, `inventory-import-parser.ts`, `inventory-import-validator.ts` services, `validation-import.ts` schemas
+  - **Customer import**: `bulkImportCustomers` command, `use-customer-import.ts` hook, CSV import test suite
+  - **Staff import**: `use-staff-import.ts` hook, migration 0162
+  - **Unified import framework**: `apps/web/src/lib/import-registry.ts`, `apps/web/src/components/import/` shared components, `/settings/data-imports` page, `use-import-wizard.ts`, `use-import-jobs.ts`, `use-import-progress.ts`, `use-import-completion.ts`
+- **Customer Tag Management — Intelligent Tag System** (Sessions 2026-02-24 to 2026-02-27, 10 sessions):
+  - **11 commands**: `createTag`, `updateTag`, `archiveTag`, `unarchiveTag`, `applyTagToCustomer`, `removeTagFromCustomer`, `createSmartTagRule`, `updateSmartTagRule`, `toggleSmartTagRule`, `evaluateSmartTags`, `evaluateSmartTagsForCustomer`
+  - **9 queries**: `listTags`, `getTag`, `getTaggedCustomers`, `getCustomerTags`, `listSmartTagRules`, `getSmartTagRule`, `getSmartTagEvaluationHistory`, `getTagAuditLog`, `getTagAnalytics`
+  - **4 analytics queries**: `getTagDistribution`, `getTagTrends`, `getSmartTagPerformance`, `getTagCorrelations`
+  - **Schema**: `packages/db/src/schema/tags.ts`, migration 0163 — `tags`, `customer_tags`, `smart_tag_rules`, `tag_audit_log`
+  - **Condition system**: 47 metrics across 8 categories, 12 operators, multi-group AND/OR logic
+  - **Smart tag templates**: 12 pre-built RFM/predictive templates (champions, loyal, at-risk, high-churn, needs-attention, high-clv, declining-spend, growing-spend, new-customer, lapsed, hibernating, visit-due)
+  - **Services**: `smart-tag-evaluator.ts` (condition evaluation), `smart-tag-templates.ts` (template registry + matching), `tag-expiration-service.ts` (batch expiry processing), `tag-evidence-builder.ts` (JSONB evidence payloads), `tag-conflict-resolver.ts` (priority-based conflict resolution with mutual exclusion groups), `tag-action-executor.ts` (trigger-based actions on tag apply/remove), `predictive-metrics.ts` (custom metric computation for predictive rules), `rfm-scoring-engine.ts` (RFM scoring with configurable buckets)
+  - **Tag actions**: `manage-tag-actions.ts` (createTagAction, updateTagAction, deleteTagAction, reorderTagActions), `tag-action-executor.ts` (executeTagActions runs inside tag evaluation transactions), `get-tag-action-executions.ts`, `list-tag-actions.ts`. Action types: webhook, email, notification, segment_add, segment_remove, workflow_trigger. Trigger events: on_apply, on_remove, on_expire, on_score_change.
+  - **Event consumers**: `tag-evaluation-consumer.ts` — fire-and-forget wrappers for `order.placed.v1`, `tender.recorded.v1`, `customer.visit.v1`, `customer.profile.updated.v1`. Each consumer evaluates all active smart tag rules for the customer. Includes scheduled rule processing via `processScheduledRules()` with cooldown tracking.
+  - **API routes**: `/api/v1/customers/tags/`, `/api/v1/customers/[id]/tags/`, `/api/v1/customers/smart-tag-rules/`, `/api/v1/customers/smart-tag-rules/cron/`, `/api/v1/customers/tags/analytics/`, `/api/v1/customers/tags/[id]/actions/`
+  - **Frontend**: `/settings/tag-management` (tag CRUD, rule editor, template suggestion engine, analytics dashboard), customer profile tag chips, tag action editor
+  - **Hooks**: `useTagManagement`, `useSmartTagRules`, `useTagAnalytics`, `useTagSuggestions`
+  - **Cross-system**: POS VIP badge, reporting segmentation, marketing targeting, semantic AI dimensions
+  - **Schema updates**: migration 0219 adds `tag_actions`, `tag_action_executions`, `tag_evaluation_log` tables + `last_evaluated_at`, `cooldown_until` on `customer_tags` + `evaluation_cooldown_minutes` on `smart_tag_rules`
+  - **916 tests** across 28+ test files (251 smart-tag-templates + 140 predictive-conditions + 67 expiration + 56 evidence-builder + 82 conflict-resolver + 46 analytics + 53 csv-import + 100 base CRM + 38 tag-actions + 40 tag-evaluation-consumer + 43 tag-lifecycle-services)
+- **Build & Deployment Fixes** (Session 2026-02-22–23):
+  - **Vercel build blockers resolved** across all 3 apps (web, admin, member-portal)
+  - 30+ ESLint `consistent-type-imports` fixes, unused variable removal
+  - Admin app: `workspace:*` for `@oppsera/core`, added to `transpilePackages`
+  - Webpack watchOptions fix for Windows EPERM (all 3 apps)
+  - Member portal: dotenv loading from monorepo root
+  - `useSearchParams` wrapped in Suspense boundary for Next.js 15 static generation
+  - Removed `eslint-disable` for non-loaded `react-hooks/exhaustive-deps` rule
+- **Migrations 0134–0143** (Session 2026-02-22–23):
+  - `0134_rls_and_index_hardening.sql`: idempotent RLS policy + index fixes
+  - `0135_uncategorized_revenue_fallback.sql`: fallback GL accounts (account 49900)
+  - `0136_fnb_payment_tier3.sql`: gift cards, house accounts, QR code payments
+  - `0137_guest_pay_sessions.sql`: guest pay sessions table
+  - `0138_coa_governance.sql`: account renumbering, merge, hierarchy validation
+  - `0139_guest_pay_member_charge.sql`: house account billing for members
+  - `0140_fnb_subdepartment_revenue.sql`: GL tracking by subdepartment
+  - `0141_admin_impersonation.sql`: admin impersonation sessions
+  - `0142_gl_remap_index.sql`: source reference index for remap lookups
+  - `0143_auto_remap_setting.sql`: `enable_auto_remap` on accounting_settings
+  - **Dashboard & Reporting Fixes** (Session 2026-02-23):
+  - **Dashboard fallback chain**: `getDashboardMetrics` now has 3-tier fallback: (1) CQRS read models (`rm_daily_sales`), (2) operational tables filtered by today's business date, (3) all-time orders with no date filter. Labels update dynamically ("Total Sales Today" vs "Total Sales") based on which data source was used
+  - **Reporting consumers cents→dollars fix**: `handleOrderPlaced`, `handleOrderVoided`, `handleTenderRecorded` consumers were storing raw cent values from event payloads into NUMERIC(19,4) read model columns that expect dollar amounts — values were 100x too large. Fixed with `/ 100` conversion at consumer boundary
+  - **Backfill route**: `POST /api/v1/reports/backfill` rebuilds `rm_daily_sales` and `rm_item_sales` from operational tables for orders created outside the event system (e.g., seed data)
+  - **Reporting query fallbacks**: `getDailySales` and `getInventorySummary` now fall back to operational tables (orders, tenders, inventory_items + inventory_movements) when CQRS read models are empty. Multi-location aggregation recomputes `avgOrderValue = SUM(netSales) / SUM(orderCount)` correctly
+  - **Recent Orders unfiltered**: dashboard Recent Orders section no longer filters by today's date — shows 5 most recent orders regardless of date
+  - **Setup Status Banner**: `SetupStatusBanner` component on dashboard reads localStorage/sessionStorage for onboarding progress — shows green "all set up" banner with go-live date, or red "complete your setup" banner with progress bar and percentage. Zero API calls (reads cached state only)
+- **Accounting UI Improvements** (Session 2026-02-23):
+  - **AccountPicker enhanced**: dual suggestion engines (hint-based + dynamic semantic matching), 20+ role-specific suggestion paths, semantic grouping maps departments to GL accounts (e.g., "Sandwiches" → "Food Sales"), portal-based dropdown with scroll/resize repositioning, fuzzy matching with token overlap scoring and penalty for generic accounts
+  - **Mapping content 5-tab layout**: Sub-Departments, Payment Types, Tax Groups, F&B Categories, Unmapped Events. Auto-mapping engine with intelligent account suggestions
+  - **Dark mode bootstrap wizard**: select dropdowns properly styled for dark mode
+  - **F&B dashboard query fixes**: `getFnbDashboard` query fixes for manager content
+- **Transaction Type Registry** (Session 2026-02-23 — uncommitted):
+  - **2 new schema tables**: `gl_transaction_types` (system-wide transaction type registry, 45 pre-seeded types across 12 categories), `tenant_tender_types` (custom payment methods per tenant with GL account mappings, posting mode, reporting bucket)
+  - **Migration 0144**: `0144_transaction_type_registry.sql` — creates both tables with RLS, seeds 45 system transaction types (cash, card, gift cards, tips, deposits, refunds, settlement, AR/AP, inventory, memberships, events), extends `payment_type_gl_defaults` with posting_mode/expense_account_id/description
+  - **Schema**: `packages/db/src/schema/transaction-types.ts` — Drizzle ORM definitions for `glTransactionTypes` and `tenantTenderTypes`
+  - **Shared constants**: `packages/shared/src/constants/transaction-types.ts` — 45 system transaction types with codes, descriptions, debit/credit account hints, sort order. Types: `TransactionTypeCategory`, `TenderPostingMode`, `TenderCategory`, `ReportingBucket`
+  - **3 commands**: `createTenantTenderType` (validates code uniqueness against system types, creates in both tables), `updateTenantTenderType` (syncs name/active to gl_transaction_types), `deactivateTenderType` (soft-delete both records)
+  - **1 query**: `getTransactionTypeMappings` — joins transaction types with GL mappings, includes tender type details (category, posting mode, reporting bucket)
+  - **API routes**: `GET /api/v1/accounting/mappings/transaction-types`, `POST /api/v1/accounting/tender-types`, `PATCH/DELETE /api/v1/accounting/tender-types/[id]`
+  - **Frontend**: `CreateTenderTypeDialog` (portal-based, conditional GL pickers by posting mode: clearing/direct_bank/non_cash)
+  - **`savePaymentTypeDefaults` enhanced**: validates GL account references, auto-remaps eligible tenders (best-effort), returns default + remap count
+- **Onboarding System** (Session 2026-02-23 — uncommitted):
+  - **Settings page**: `/settings/onboarding` with code-split pattern (thin `page.tsx` + `onboarding-content.tsx`)
+  - **10 onboarding phases**: Organization & Locations (4 steps), Users & Roles (3), Catalog & Products (5), Inventory & Vendors (5), Customer Data (3), Accounting (5), POS Configuration (4), F&B Setup (6), Reporting & AI (3), Go Live Checklist (4)
+  - **Phase definitions**: `apps/web/src/components/onboarding/phase-definitions.ts` — each phase has key, label, description, Lucide icon, optional `moduleKey` for entitlement gating, array of steps
+  - **Auto-detection**: `useOnboardingStatus` hook makes parallel HEAD/GET requests (5s timeout each) to check if data exists for each step (profit centers, terminals, users, catalog, inventory, customers, room layouts, F&B tables, KDS stations, custom reports, AI lenses)
+  - **localStorage + sessionStorage persistence**: skipped phases, manually completed steps, completion timestamp in localStorage; API completion cache in sessionStorage with stale-while-revalidate pattern
+  - **Accounting bootstrap inline**: Accounting phase step opens existing `BootstrapWizard` component directly inline (not navigating away)
+  - **Go Live Checklist auto-completion**: `all_phases_complete` checks every non-skipped, visible, enabled-module phase; `verify_gl` passes if accounting disabled OR all accounting steps complete; `final_review` auto-completes when all other go_live steps pass
+  - **"Mark as Live" button**: sets `oppsera_onboarding_completed_at` in localStorage, triggers celebration banner
+  - **Components**: `OnboardingPhase` (collapsible with progress bar, skip/unskip toggle), `OnboardingStep` (icon + label + description, expandable incomplete steps, "Open [step name]" button with href, "Mark as done" toggle, undo for manual completions)
+  - **Sidebar nav**: added "Setup Guide" link under Settings in `navigation.ts`
+- **F&B POS Enhancements** (Session 2026-02-23 — uncommitted):
+  - **Floor view dual modes**: Layout (spatial canvas with zoom 0.5x–3x, wheel/pinch zoom, auto-fit viewport) and Grid (table list) modes. "My Section" filter for server-specific table visibility
+  - **Floor hook snapshot cache**: `useFnbFloor` uses module-level cache (30-min TTL) surviving React Query GC for instant cold starts. Polling interval: 20 minutes. POS visibility resume listener
+  - **Menu panel refactored**: 6 extracted sub-components (MenuModeTabs, DepartmentBar, SubDepartmentBar, CategorySidebar, MenuSearchBar, MenuBreadcrumb). 3 menu modes: All Items, Hot Sellers, Tools. F&B-specific item filtering (food/beverage only). Non-blocking allergen loading
+  - **Menu hook deduplication**: `useFnbMenu` uses module-level cache with in-flight promise dedup (`_menuFetchPromise`), 5-min TTL with background refresh, auto-select first department on cached data
+  - **Tab hook AbortController**: `useFnbTab` uses abort-based request cancellation on unmount, stale data clearing on tab switch, `pollEnabled` flag to pause when screen hidden
+- **Accounting Module Updates** (Session 2026-02-23):
+  - **28 tables total** (was 26): + `gl_transaction_types`, `tenant_tender_types`
+  - **`getMappingCoverage` enhanced**: payment type total now counts active GL transaction types (system + tenant-scoped) instead of hardcoded list. Returns `{ departments, paymentTypes, taxGroups, overallPercentage, unmappedEventCount }`
+  - **Accounting module exports expanded**: `createTenantTenderType`, `updateTenantTenderType`, `deactivateTenderType`, `getTransactionTypeMappings`, `remapGlForTender`, `batchRemapGlForTenders`
+- **Accounting Close Hardening** (ACCT-CLOSE sessions 01-08):
+    - **ACCT-CLOSE-01**: Drawer session opening balance enforcement — validates `openingBalanceCents >= 0` in `openDrawerSession`, terminal availability check (prevents double-open on same terminal)
+    - **ACCT-CLOSE-02**: Breakage income configurability — `breakage_income_settings` table (threshold days, recognition method, account ID), configurable per tenant
+    - **ACCT-CLOSE-03**: Reconciliation summary dashboard — chain-of-custody waterfall (`getReconciliationWaterfall`) tracing orders → tenders → settlements → deposits with variance at each stage. Two-tab layout: "Chain of Custody" + "Subledger Reconciliation"
+    - **ACCT-CLOSE-04**: Audit log consistency pass — `getAuditCoverage()` diagnostic, mandatory audit for all money-moving commands, `auditLogSystem()` for event consumers
+    - **ACCT-CLOSE-05**: Permissions matrix — fine-grained accounting permissions (`accounting.bank_reconciliation.manage`, `accounting.recurring.manage`, etc.), seed updates for all 6 system roles
+    - **ACCT-CLOSE-06**: Multi-currency schema prep (`transaction_currency`, `exchange_rate` on GL entries), recurring journal templates (`recurring_journal_templates` + `_lines` tables), `createRecurringTemplate`/`generateFromTemplate` commands
+    - **ACCT-CLOSE-07**: Bank reconciliation — `bank_reconciliations` + `bank_reconciliation_items` tables, start/clear/adjust/complete workflow, auto-populate unreconciled GL lines, difference-to-zero validation, full frontend workspace with checkbox-based clearing
+    - **ACCT-CLOSE-08**: Documentation — V1 conventions for till sharing (strict mode), offline behavior (read-only), kitchen waste tracking (boolean only), multi-currency roadmap, stored value UX spec (`docs/specs/STORED-VALUE-UX.md`)
+    - **4 new migrations**: 0119-0122
+    - **Bank Reconciliation frontend**: Banking section "Bank Rec" tab, `ReconciliationWorkspace` component with outstanding/cleared item lists, difference indicator, summary cards, `StartReconciliationDialog`, `AddAdjustmentDialog`
+  - **GL Account Mapping Frontend**: `/accounting/mappings` page with 5-tab layout (Sub-Departments, Payment Types, Tax Groups, F&B Categories, Unmapped Events)
+    - Mapping coverage card: progress bars with mapped/total counts per category + overall percentage
+    - Sub-department mappings: enriched query joining catalog_categories + GL defaults + GL accounts, supports both 2-level (departments) and 3-level (sub-departments) catalog hierarchies
+    - Flat mode (2-level): departments rendered as a simple table with AccountPicker dropdowns
+    - Grouped mode (3-level): collapsible department sections with sub-department rows
+    - Item drill-down: expandable rows showing catalog items under each mappable category
+    - AccountPicker: intelligent suggestion engine with 20+ role-specific paths (revenue, cogs, inventory, returns, discount, cash, clearing, fee, tax, expense), semantic grouping (maps departments to GL accounts via shared naming heuristics), portal-based dropdown with scroll/resize repositioning, fuzzy matching with token overlap scoring
+    - AccountPicker filtering: revenue→`['revenue']`, cogs→`['expense']`, inventory→`['asset']`, clearing→`['asset', 'liability']`, tax→`['liability']`
+    - Payment type mappings: joined with `gl_transaction_types` registry (system + tenant custom), GL account columns (cash, clearing, fee, expense), posting mode (clearing/direct_bank/non_cash)
+    - Auto-mapping engine: intelligent account suggestions using semantic grouping and naming heuristics, remap preview dialog for retroactively correcting GL entries
+    - Unmapped row highlighting with amber background
+    - API routes: `GET /api/v1/accounting/mappings/coverage` (totals from catalog hierarchy + transaction types), `GET /api/v1/accounting/mappings/sub-departments` (enriched with dept names + item counts + GL display strings), `GET /api/v1/accounting/mappings/sub-departments/[id]/items` (drill-down with cursor pagination), `GET /api/v1/accounting/mappings/transaction-types` (transaction type registry with GL mappings)
+    - Hooks: `useMappingCoverage`, `useSubDepartmentMappings`, `useSubDepartmentItems`, `usePaymentTypeMappings`, `useTransactionTypeMappings`, `useTaxGroupMappings`, `useUnmappedEvents`, `useMappingMutations`
+- **Accounts Payable Module** (Sessions 30-31):
+  - **5 schema tables**: ap_bills, ap_bill_lines, ap_payments, ap_payment_allocations, ap_payment_terms + vendor extensions
+  - **Migrations**: 0073 (AP schema), 0074 (AP payments + payment terms)
+  - **17 commands**: createBill, updateBill, postBill, voidBill, createPaymentTerms, updatePaymentTerms, updateVendorAccounting, createBillFromReceipt, createPayment, postPayment, voidPayment, allocatePayment, createVendorCredit, applyVendorCredit, allocateLandedCost
+  - **11 queries**: listBills, getBill, listPaymentTerms, getVendorAccounting, getApAging, getVendorLedger, getOpenBills, getPaymentHistory, getExpenseByVendor, getCashRequirements, get1099Report, getAssetPurchases
+  - **~20 API routes** under `/api/v1/ap/`
+  - **~60 tests** across test files
+  - Bill lifecycle: draft → posted → partial → paid → voided
+  - Payment lifecycle: draft → posted → voided with FIFO allocation
+  - GL integration via AccountingPostingApi
+  - Vendor accounting config (default expense/AP accounts, payment terms, 1099 eligibility)
+  - AP aging report (current, 1-30, 31-60, 61-90, 90+ buckets)
+  - Landed cost allocation across bill lines
+- **Accounts Receivable Module** (Session 33):
+  - **4 schema tables**: ar_invoices, ar_invoice_lines, ar_receipts, ar_receipt_allocations
+  - **Migration**: 0076 (AR schema with RLS)
+  - **7 commands**: createInvoice, postInvoice, voidInvoice, createReceipt, postReceipt, voidReceipt, bridgeArTransaction
+  - **8 queries**: listInvoices, getInvoice, listReceipts, getOpenInvoices, getArAging, getCustomerLedger, getReconciliationAr
+  - **~10 API routes** under `/api/v1/ar/`
+  - **23 tests**
+  - Invoice lifecycle: draft → posted → partial → paid → voided
+  - Receipt allocation to invoices, GL integration
+  - AR aging report, customer ledger with running balance
+  - Bridge command for migrating existing operational ar_transactions
+- **F&B POS Module** (`packages/modules/fnb/`) — Sessions 1-16:
+  - **103 commands**, **63 queries**, **3 consumers**, **10 helpers**, **56 test files** (1,011 tests)
+  - **Schema**: 50+ domain tables + 7 CQRS read model tables (`rm_fnb_*`) in `packages/db/src/schema/fnb.ts`
+  - **Session 1 — Table Management**: syncTablesFromFloorPlan, createTable, updateTable, seatTable, clearTable, combineTable, uncombineTable; table status tracking with history
+  - **Session 2 — Server Sections & Shifts**: createSection, assignServer, cutServer, pickupSection; shift extensions, server checkout
+  - **Session 3 — Tabs, Checks & Seat Lifecycle**: openTab, updateTab, closeTab, voidTab, transferTab, reopenTab; seat management, check presentation, discountCheck, refundCheck
+  - **Session 4 — Course Pacing & Kitchen Tickets**: createKitchenTicket, updateTicketStatus, voidTicket, createDeltaChit; hold/fire course pacing, routing rules, station assignment
+  - **Session 5 — KDS Stations & Expo**: createStation, updateStation, bumpItem, recallItem; expo view with station readiness indicators, ticket queue management
+  - **Session 6 — Modifiers, 86 Board & Menu Availability**: compItem, eightySixItem, restoreItem; allergen configuration, availability windows, menu period management, prep note presets
+  - **Session 7 — Split Checks & Payment Flows**: splitTender, startPaymentSession, completePaymentSession; split by seat/item/amount/even, merged tabs, payment session lifecycle
+  - **Session 8 — Pre-Auth Bar Tabs**: createPreauth, capturePreauth, voidPreauth; card-on-file management, pre-auth lifecycle (created→captured→voided)
+  - **Session 9 — Tips & Gratuity**: adjustTip, finalizeTips; auto-gratuity rules (party size threshold), tip pools with distribution methods (equal/points/hours), server tip reporting
+  - **Session 10 — Close Batch & Cash Control**: startCloseBatch, lockBatch, postBatch, reconcileBatch; Z-report generation, deposit slip, cash counting, over/short tracking, server checkout
+  - **Session 11 — GL Posting & Accounting Wiring**: GL mapping configuration, journal line builder (`buildBatchJournalLines`), posting reconciliation, revenue/tax/tender/tip account mapping per sub-department
+  - **Session 12 — F&B Settings Module**: 46 Zod schemas for all F&B settings (general, kitchen, floor plan, payment, tip, KDS, printing, close batch, allergen, display); defaults factory, validation helpers
+  - **Session 13 — Real-Time Sync & Offline**: Channel topology (WebSocket pub/sub channels for tables, tabs, KDS, expo, dashboard), offline queue with replay/conflict resolution, soft-lock protocol for concurrent editing
+  - **Session 14 — Receipts & Printer Routing**: Chit layout engine (guest check, kitchen chit, bar chit, receipt, credit slip), printer routing rules (station→printer mapping), print job lifecycle, reprint support
+  - **Session 15 — F&B Reporting Read Models**: 7 `rm_fnb_*` tables (server performance, table turns, kitchen performance, daypart sales, menu mix, discount/comp analysis, hourly sales), 5 event consumers (tab closed, discount/comp, ticket/item bumped/voided), 8 query services, reporting utilities (computeDaypart, computeTurnTimeMinutes, incrementalAvg, computeTipPercentage)
+  - **Session 16 — UX Screen Map & Interaction Flows**: 10 screen definitions (floor plan, tab view, KDS station, expo, payment, server/host/manager dashboards, close batch, settings), 24-component reuse map (shared vs fnb-only), 28 F&B permissions across 10 categories, 6 system roles with default permissions, 6 interaction flows (dine-in lifecycle, bar tab pre-auth, transfer tab, void after send, close batch GL, 86 mid-service), 3 wireframe descriptions, responsive breakpoints, navigation structure
+- **F&B POS Frontend** (Sessions 17-28, 12 phases):
+  - **Phase 1 — Design System**: CSS design tokens (`fnb-design-tokens.css`), F&B types (`types/fnb.ts`), Zustand store (`fnb-pos-store.ts`)
+  - **Phase 2 — Floor Plan**: ~14 API routes (tables CRUD, seat, clear, combine, sync, floor-plan, sections, host-stand), `useFnbFloor`/`useFnbRooms`/`useTableActions` hooks, FloorCanvas, FnbTableNode, RoomTabs, BottomDock, ContextSidebar, SeatGuestsModal, TableActionMenu, FnbFloorView
+  - **Phase 3 — Tab/Check**: ~9 API routes (tabs CRUD, close, void, transfer, reopen, fire/send course, check summary), `useFnbTab` hook, TabHeader, SeatRail, OrderTicket, CourseSection, FnbOrderLine, CourseSelector, TabActionBar, FnbTabView
+  - **Phase 4 — Menu**: ~7 API routes (86, restore, menu periods, allergens, prep-notes), `useFnbMenu` hook, FnbMenuPanel, FnbModifierDrawer, FnbItemTile, QuickItemsRow
+  - **Phase 5 — KDS/Expo**: ~15 API routes (kitchen tickets, stations, bump/recall/callback, expo), `useFnbKitchen` hook, TicketCard, TicketItemRow, BumpButton, TimerBar, DeltaBadge, AllDaySummary, StationHeader, ExpoTicketCard, standalone `/kds` + `/expo` pages
+  - **Phase 6 — Split Checks**: ~6 API routes (split, rejoin, comp, discount, void, refund), SplitCheckPage, SplitModeSelector, CheckPanel, DragItem, EqualSplitSelector, CustomAmountPanel, FnbSplitView
+  - **Phase 7 — Payment/Tips**: ~17 API routes (payment sessions, tender, gratuity rules, preauth, tips, tip pools), `useFnbPayments` hook, PaymentScreen, TenderGrid, CashKeypad, TipPrompt, ReceiptOptions, PreAuthCapture, FnbPaymentView
+  - **Phase 8 — Manager/Host/Close**: ~17 API routes (sections cut/pickup/rotation, check present, close-batch lifecycle, reports, dashboard), `useFnbManager`/`useFnbCloseBatch` hooks, ManagerPinModal, TransferModal, CompVoidModal, EightySixBoard, AlertFeed, HostContent, ManagerContent, CloseBatchContent, CashCountForm, ZReportView, standalone `/host` + `/fnb-manager` + `/close-batch` pages
+  - **Phase 9 — Real-Time**: ~5 API routes (locks CRUD, clean), `useFnbRealtime`/`useFnbLocks` hooks, ConnectionBanner, ConflictModal, LockBanner, polling transport (5s floor, 10s KDS)
+  - **Phase 10 — Architecture**: ~18 API routes (GL mappings/config/post/reverse/retry/unposted/reconciliation, print jobs/routing-rules, reports), `useFnbSettings`/`useFnbReports` hooks, sidebar nav (entitlement-gated)
+  - **Phase 11 — Responsive**: KDS large display (1280px+: 240px cards, 32px timer, 80px bump), handheld (<640px: horizontal rails, hidden sidebars, 2-col grids, wrapped flex)
+  - **Phase 12 — Integration Tests**: 16 integration tests (4 flows), 45 API contract tests, 38 store tests = 99 total F&B frontend tests
+- **UXOPS Operations** (Sessions UXOPS-01 through UXOPS-14):
+  - **Migrations 0108–0118**: 11 migrations for drawer sessions, retail close batches, comp events, returns contra-accounts, payment settlements, tip payouts, tax jurisdiction enrichment, COGS posting mode, F&B batch category version, event dead letters, deposit slips
+  - **6 Drizzle schema files**: `drawer-sessions.ts`, `retail-close.ts`, `comp-events.ts`, `payment-settlements.ts`, `tip-payouts.ts`, `deposit-slips.ts` in `packages/db/src/schema/`
+  - **3 core submodules**: `drawer-sessions/` (open/close/events, 9 files), `pos-ops/` (comp/void line, 6 files), `retail-close/` (start/lock/reconcile/post close + Z-report, 10 files) in `packages/core/src/`
+  - **Dead letter queue**: `packages/core/src/events/dead-letter-service.ts` — persist failed events to DB, admin retry/resolve/discard
+  - **6 GL posting adapters**: `void-posting-adapter.ts`, `return-posting-adapter.ts`, `fnb-posting-adapter.ts`, `voucher-posting-adapter.ts`, `membership-posting-adapter.ts`, `chargeback-posting-adapter.ts` in `packages/modules/accounting/src/adapters/`
+  - **10 accounting commands**: settlement lifecycle (create, import CSV, match, post, void), tip payouts (create, void), COGS (calculate, post), deposit slips (create, mark deposited, reconcile)
+  - **16 accounting queries**: settlements (list, get, unmatched), tips (balances, history), tax remittance, COGS (list, comparison), operations (summary, daily reconciliation, cash dashboard, tender audit trail), F&B mapping coverage, location close status, deposit slips
+  - **Payments additions**: voucher commands (purchase, redeem, expire), chargeback commands (record, resolve)
+  - **Orders addition**: `createReturn` command for line-item returns with negative qty tracking
+  - **42 API routes**: settlements (8), deposits (4), operations (4), COGS (2), close status (1), drawer sessions (4), retail close (5), pos-ops (3), returns (2), tax remittance (3), tip payouts (3), plus reconciliation (3)
+  - **10 frontend pages**: settlements, deposits, tip payouts, COGS, tax remittance, operations dashboard, close dashboard, tender audit detail, return entry, POS close
+  - **9 frontend hooks**: `use-settlements`, `use-tip-payouts`, `use-retail-close`, `use-deposits`, `use-operations`, `use-tax-remittance`, `use-periodic-cogs`, `use-close-status`, `use-dead-letters`
+  - **10 components**: ImportSettlementDialog, SettlementDetailPanel, TipPayoutDialog, CloseShiftDialog, CompDialog, DrawerEventDialog, OpenShiftDialog, VoidLineDialog, ManagerPinModal (shared), CommandPalette
+  - **Shift management promoted**: `use-shift.ts` rewritten from localStorage-only to server-persisted drawer sessions with localStorage fallback
+  - **Admin dead letter UI**: `/events` page in admin app with dead letter list, detail, retry/resolve/discard
+  - **Sidebar navigation**: extracted to `apps/web/src/lib/navigation.ts`, Operations link added, CommandPalette (Ctrl+K)
+  - **Close checklist extended**: 8 new items (#11-#18): drawer sessions, retail/F&B close batches, tip balances, deposit slips, dead letter events, card settlements, COGS posting
+  - **309 accounting tests**: 31 UXOPS posting matrix tests validating GL balance for retail close, comp, void-line, return, settlement, tip payout, periodic COGS, deposit slip + end-to-end lifecycle flows + idempotency
+- **Payment Gateway Integration** (CardPointe) — Sessions 2026-02-23–24:
+  - **21 migrations** (0172–0192): payment gateway foundation, ACH, surcharge, terminal devices, modifier groups, ERP config, guest pay enhancements, member portal passwords
+  - **7 core gateway tables**: `paymentProviders`, `paymentProviderCredentials`, `paymentMerchantAccounts`, `terminalMerchantAssignments`, `paymentIntents`, `paymentTransactions`, `paymentWebhookEvents`
+  - **Provider Registry pattern**: `providerRegistry.register('cardpointe', factory)` — pluggable provider architecture for CardPointe, Square, Worldpay, etc.
+  - **PaymentsFacade**: singleton entry point with 8 methods (authorize, capture, sale, void, refund, tokenize, createProfile, inquire). All POS/online/recurring callers go through this facade.
+  - **Payment intent lifecycle**: `created → authorized → captured → voided → refunded → declined → error → resolved`
+  - **Per-operation idempotency**: each void/refund/capture gets its own `clientRequestId` (not just per-intent). Migration 0176 adds partial unique index excluding NULL keys.
+  - **AES-256-GCM encrypted credentials**: `paymentProviderCredentials.credentialsEncrypted` stores encrypted JSON
+  - **Terminal-level MID assignment**: different terminals can route to different merchant accounts at the same location
+  - **ACH payment support**: `ach_returns` table (append-only), `ach_micro_deposits` table, NACHA return codes R01-R83 with retry classification
+  - **Surcharge compliance**: `surcharge_settings` table with rate caps, state prohibition lists, debit/prepaid exemptions. 3 partial unique indexes for NULL-scoped tenant/location/terminal settings. Pure `calculateSurcharge()` function.
+  - **Response interpreter**: 3-tier decline categorization (processor:code → PPS fallback → respstat-based). Separate user-safe vs operator messages. AVS/CVV independent interpretation.
+  - **Gateway response codes**: `packages/shared/src/constants/gateway-response-codes.ts` — 50+ PPS codes, `DeclineCategory`, `SuggestedAction` types
+  - **Terminal device management**: `terminal_device_assignments` table mapping physical CardPointe terminals (HSN) to POS terminals
+  - **Wallet payments**: `wallet_type` column on `tenders` (apple_pay, google_pay)
+  - **GL wiring**: surcharge revenue (4510), ACH receivable (1150/1160) COA templates. `default_surcharge_revenue_account_id` on accounting settings.
+  - **Tokenization**: CardPointe Hosted iFrame tokenizer (`cardpointe-iframe-tokenizer.tsx`), `useTokenizerConfig` hook, `GET /api/v1/payments/tokenizer-config`
+  - **30+ API routes**: tokenizer config, settlements, transactions, failed payments, terminal ops (auth-card, read-card, display, cancel), bank accounts, ACH, wallet, Apple Pay validation
+  - **Frontend**: merchant services settings page, transaction list/detail pages, ACH status page, failed payments page, Apple Pay / Google Pay button components
+- **ERP Dual-Mode Infrastructure** (Session 2026-02-23–24):
+  - **Schema**: 3 new tables (`erpWorkflowConfigs`, `erpWorkflowConfigChangeLog`, `erpCloseOrchestratorRuns`), extended `tenants` with `business_tier` (SMB/MID_MARKET/ENTERPRISE), `business_vertical`
+  - **Tier-based workflow defaults**: `TIER_WORKFLOW_DEFAULTS` in `packages/shared/src/constants/erp-default-profiles.ts` — SMB (automatic/invisible), MID_MARKET (visible/automatic), ENTERPRISE (manual/approvals)
+  - **Workflow engine**: `packages/core/src/erp/workflow-engine.ts` — cascading fallback (DB config → tier defaults → ultimate fallback), in-memory 60s TTL cache
+  - **25+ workflow keys** across accounting, payments, inventory, AP, AR modules
+  - **Close orchestrator**: `erpCloseOrchestratorRuns` tracks day-end close with step-by-step results
+  - **Cron route**: `POST /api/v1/erp/cron` — Vercel Cron trigger for auto-close with timezone handling and idempotency
+  - **9 API routes**: config CRUD per module/workflow, tier evaluation, close-orchestrator, verticals, cron
+  - **Frontend**: ERP config settings page with workflow toggles per module
+  - **Day-end close settings**: `auto_close_enabled`, `auto_close_time`, `auto_close_skip_holidays`, `day_end_close_enabled`, `day_end_close_time` on `accounting_settings`
+- **Modifier Group Enhancements** (Session 2026-02-24):
+  - **Schema** (migration 0183): `catalog_modifier_group_categories` table (hierarchical), extended `catalog_modifier_groups` (category_id, instruction_mode, default_behavior, channel_visibility, sort_order), extended `catalog_modifiers` (extra_price_delta, kitchen_label, allow_none/extra/on_side, is_default_option, cost), per-assignment overrides on `catalog_item_modifier_groups` (override_required, override_min/max, override_instruction_mode, prompt_order)
+  - **Bulk assignment**: `bulkAssignModifierGroups` command with replace/merge modes + per-assignment overrides
+  - **Channel visibility**: modifiers filterable by channel (pos, online, qr, kiosk)
+  - **Modifier reporting**: 3 new `rm_` read model tables (`rmModifierItemSales`, `rmModifierDaypart`, `rmModifierGroupAttach`), 2 event consumers, 8 queries (performance, upsell impact, daypart heatmap, waste signals, complexity, group health, location heatmap, group-item heatmap)
+  - **Frontend**: modifiers management page, modifier reports page with analytics
+  - **API routes**: modifier groups CRUD, bulk assign, modifier group categories CRUD, item modifier assignments, modifier reports
+- **Role Access Scoping** (Session 2026-02-24):
+  - **3 junction tables**: `role_location_access`, `role_profit_center_access`, `role_terminal_access` (migration 0175)
+  - **Convention**: Empty table = unrestricted (role sees everything). Adding rows restricts to only those entities.
+  - All use CASCADE on DELETE for cleanup
+- **SuperAdmin Portal** (Sessions 1-14, Phases 1-3):
+  - **~120 API routes** across 14 modules: tenant management, admin RBAC, impersonation, module provisioning, DLQ management, user management, health dashboard, financial support, audit log, global search, timeline, onboarding engine, notifications/alerts, dashboard home
+  - **~90 frontend components** with dark mode, keyboard shortcuts, loading skeletons, error boundaries
+  - **16+ new DB tables**: tenant extensions, onboarding checklists, support notes, impersonation sessions, feature flags, health/system snapshots, admin searches, timeline events, onboarding templates, alert rules, notification preferences, notifications
+  - **6 admin roles**: Super Admin, Platform Engineer, Implementation Specialist, Support Agent, Finance Support, Viewer — with granular permission middleware (`withAdminPermission`)
+  - **Impersonation safety**: restricted actions (no void >$500, no accounting changes, no deletes, no permission changes), max duration, action counting, audit trail, undismissible banner in tenant app. Guard functions: `assertImpersonationCanVoid`, `assertImpersonationCanRefund`, `assertImpersonationCanModifyAccounting`, `assertImpersonationCanDelete`, `assertImpersonationCanModifyPermissions`, `assertNotImpersonating`. 25 tests in `impersonation-safety.test.ts`.
+  - **Health scoring**: score 0-100 with grade (A-F), deductions for DLQ depth, error rate, unmapped GL, inactive tenants. Snapshots every 15 minutes.
+  - **Alert engine**: 7 seeded rule types, cooldown mechanism, Slack webhook integration, in-app notifications with 30s polling
+  - **Timeline**: unified chronological feed with fire-and-forget writes, retroactive hydration from 5 data sources, 25+ event types
+  - **Onboarding engine**: auto-detection of setup progress (parallel HEAD/GET checks), template-based step initialization, dependency chains, stalled detection (>3 days), auto-complete to active when all steps done
+  - **4 scheduled jobs**: impersonation expiry, health snapshot capture, health snapshot cleanup, alert check runner
+- **Semantic Intelligence Expansion** (Session 2026-02-24):
+  - **Tier 2 services**: anomaly detection (z-score on `rm_daily_sales`), root cause analyzer (dimension decomposition), correlation engine (Pearson + p-value), predictive forecaster (linear regression, SMA, exponential smoothing), what-if simulator, background analyst
+  - **Tier 3 (agentic)**: agentic orchestrator (multi-step Think/Act/Observe loop with 5-step max, SELECT-only guardrails), NL report builder, data quality scorer
+  - **Additional services**: shared insights (snapshot + token URLs), role-based feed, voice input (transcript normalization), multi-language (detection + prompt wrapping), scheduled delivery (recurring AI reports)
+- **POS UX Improvements** (Session 2026-02-24):
+  - **Visibility resume hook** (`usePOSVisibilityRefresh`): proactive JWT refresh + health ping + custom event dispatch after 30s idle. Other hooks listen for `pos-visibility-resume` to refresh stale data.
+  - **Connection indicator**: 3-state (online/slow/offline), pings `/api/health` every 30s with HEAD
+  - **Customer cache**: module-level singleton (500 entries, 5-min TTL), pre-warmed on mount, client-side search with server fallback, AbortController cancellation
+  - **Display size selector**: 3 sizes (1x/1.15x/1.3x) via CSS custom property `--pos-font-scale`, localStorage persisted
+  - **POS error boundary**: mode-aware (Retail/F&B), preserves Zustand state on crash
+  - **POS close page**: `/pos/close` with denomination counting and status stepper
+  - **POS header redesign**: CSS custom property-based theming, employee name, connection indicator, font size selector, dark mode toggle
+- **Member Portal Payment Methods** (Session 2026-02-24):
+  - **Bank accounts**: tokenize, add, verify (micro-deposit), CRUD API routes
+  - **Payment methods**: CardPointe iFrame tokenizer integration, CRUD with default selection
+  - **One-time payments**: make-payment page with amount entry and payment method selection
+  - **Password auth**: `password_hash` on `customer_auth_accounts` for email+password login (migration 0191)
+- **Guest Pay Enhancements** (Session 2026-02-24):
+  - **Lookup codes**: 6-char alphanumeric codes for manual entry (migration 0190), partial unique index on active sessions
+  - **Receipt email tracking**: `receipt_emailed_at` column, one email per session rate limit (migration 0192)
+  - **Card charge**: `POST /api/v1/guest-pay/[token]/card-charge` for credit card payment via gateway
+  - **Email receipt**: `POST /api/v1/guest-pay/[token]/email-receipt`
+- **CI/Build Improvements** (Session 2026-02-24):
+  - **Business logic test workflow**: `.github/workflows/business-logic-tests.yml` — separate CI for domain tests
+  - **Test mock alignment**: multiple fix commits for mock chain order, schema test skipping without DB, pipeline fallback mocks
+  - **Destructured array defaults**: `const [a = 0] = str.split(':').map(Number)` pattern enforced
+  - **Vercel Hobby cron limitation**: daily-only cron on Hobby plan (15-min requires Pro)
+- **Migrations 0172–0192** (Session 2026-02-23–24):
+  - `0172_payment_gateway_foundation.sql`: 7 gateway tables + payment_intent_id on tenders
+  - `0173_fnb_my_section_tables.sql`: F&B server section assignment tables
+  - `0174_payment_profile_extensions.sql`: customer payment profile columns
+  - `0175_role_access_scoping.sql`: role-location/profit-center/terminal access junction tables
+  - `0176_payment_idempotency_hardening.sql`: per-operation client_request_id on payment_intents
+  - `0177_terminal_device_management.sql`: terminal device assignments table
+  - `0178_ach_payment_support.sql`: ACH columns, ach_returns, ach_micro_deposits tables
+  - `0179_payment_wallet_type.sql`: wallet_type on tenders
+  - `0180_payment_response_enrichment.sql`: decline categorization columns on payment_transactions
+  - `0181_surcharge_settings.sql`: surcharge settings table with 3-level scoping
+  - `0182_payment_surcharge_columns.sql`: surcharge_amount_cents on intents/transactions/tenders
+  - `0183_modifier_groups_enhancement.sql`: modifier group categories, extended modifiers/assignments
+  - `0184_payment_gateway_gl_wiring.sql`: surcharge revenue + ACH receivable GL accounts
+  - `0185_ach_receivable_gl_template_fix.sql`: fix column names in GL template INSERT
+  - `0186_modifier_reporting.sql`: 3 modifier analytics read model tables
+  - `0187_erp_dual_mode_infrastructure.sql`: ERP workflow tables + tenant tier columns
+  - `0188_merchant_account_settings.sql`: HSN + ACH/funding MID columns on merchant accounts
+  - `0189_day_end_close_settings.sql`: auto-close and day-end-close on accounting settings
+  - `0190_guest_pay_lookup_code.sql`: lookup_code on guest_pay_sessions
+  - `0191_member_portal_passwords.sql`: password_hash on customer_auth_accounts
+  - `0192_guest_pay_receipt_emailed.sql`: receipt_emailed_at on guest_pay_sessions
+  - `0193_tenant_business_info.sql`: tenant_business_info + tenant_content_blocks tables with RLS
+- **Migrations 0197–0206** (Session 2026-02-25–26):
+  - `0197_semantic_narrative_config.sql`: semantic_narrative_config table for editable OPPS ERA LENS templates
+  - `0198_impersonation_phase1a.sql`: admin_impersonation_sessions refinements, impersonation_policies, impersonation_activity_log tables
+  - `0199_superadmin_phase1b.sql`: feature_flags, feature_flag_overrides, admin_module_assignments tables
+  - `0200_pms_guest_customer_index.sql`: index on pms_guests(tenant_id, customer_id) for cross-module lookups
+  - `0201_performance_indexes.sql`: covering indexes for order placement, tender recording, catalog POS queries
+  - `0202_housekeeper_management.sql`: pms_housekeepers_staff table, front desk assignment columns, housekeeper display fields
+  - `0203_usage_tracking.sql`: usage_events + usage_action_items tables for platform analytics
+  - `0204_gl_transaction_type_mappings.sql`: indexes on gl_transaction_types for mapping coverage queries
+  - `0205_auth_hot_path_indexes.sql`: covering indexes for auth, permissions, entitlements, locations
+  - `0206_host_module_v2.sql`: fnb_reservations, fnb_waitlist_entries, fnb_table_turn_log, fnb_guest_notifications tables with RLS
+- **Migrations 0207–0215** (Session 2026-02-26):
+  - `0207_fk_index_audit.sql`: 20+ indexes on foreign keys in GL/PMS tables (classification_id, parent_account_id, location_id, profit_center_id, sub_department_id on gl_journal_lines)
+  - `0208_backup_inline_storage.sql`: `compressed_data BYTEA` on `platform_backups` for serverless-compatible DB-backed backup storage
+  - `0209_kds_comprehensive_settings.sql`: 4 new tables (fnb_kds_bump_bar_profiles, fnb_kds_alert_profiles, fnb_kds_performance_targets, fnb_kds_item_prep_times) + 13 new columns on fnb_kitchen_stations + 22 new columns on fnb_station_display_configs + enhanced routing rules + enhanced ticket items/tickets
+  - `0210_semantic_authoring.sql`: `tenant_id` on semantic_metrics + semantic_dimensions with dual-scoped unique indexes (system vs tenant-custom), mirrors semantic_lenses pattern
+  - `0211_coa_template_transaction_accounts.sql`: seeds 7 missing GL accounts (2320 Customer Deposits Payable, 2500 Payroll Clearing, 4110 Returns & Allowances, 4510 Surcharge Revenue, 6150 Comp Expense, 6160 Cash Over/Short, 6170 Chargeback Expense) to all 4 business type templates
+  - `0212_discount_gl_classification.sql`: `discount_classification` on order_discounts + gl_journal_lines, `price_override_discount_cents` on order_lines, new `discount_gl_mappings` table, new `rm_discount_analysis` read model, GL defaults on accounting_settings, seeds 11 GL transaction types + 11 GL account templates
+  - `0213_tenant_settings_upsert_index.sql`: `uq_tenant_settings_scoped` unique index for ON CONFLICT upserts on tenant_settings
+  - `0214_gl_dimension_compound_indexes.sql`: replaces single-column GL dimension indexes with tenant-prefixed compound indexes + partial WHERE clauses for multi-tenant performance
+  - `0215_expanded_discount_gl_templates.sql`: seeds 9 new contra-revenue accounts (4106–4114) + 4 new expense accounts (6155–6158) across all 4 business types
+- **Migrations 0218–0220** (Session 2026-02-27):
+  - `0218_kds_station_type_check_fix.sql`: fixes CHECK constraint on `fnb_kitchen_stations.station_type` to include all 9 station types from KDS constants
+  - `0219_tag_actions_lifecycle.sql`: `tag_actions` (trigger-based automation), `tag_action_executions` (execution log), `tag_evaluation_log` (evaluation history), `last_evaluated_at`/`cooldown_until` on `customer_tags`, `evaluation_cooldown_minutes` on `smart_tag_rules`
+  - `0220_tag_reporting_field_catalog.sql`: seeds tag-related fields into `reporting_field_catalog` for custom report builder
+- **Tenant Business Info & Content Blocks** (Session 2026-02-24):
+  - **2 new tables**: `tenant_business_info` (one row per tenant — identity, operations, online presence, advanced metadata), `tenant_content_blocks` (keyed content blocks: about, services_events, promotions, team)
+  - **Schema**: `packages/db/src/schema/business-info.ts`, Migration: `0193_tenant_business_info.sql`
+  - **Shared schemas**: `packages/shared/src/schemas/business-info.ts` — Zod schemas for business hours (day/period structure), social links (13 platforms), photo gallery, industry types, access types, F&B levels, rental types
+  - **Commands**: `updateBusinessInfo(ctx, input)` (upsert), `updateContentBlock(ctx, blockKey, content)` (upsert) — in `packages/core/src/settings/business-info.ts`
+  - **Queries**: `getBusinessInfo(tenantId)`, `getContentBlocks(tenantId)`
+  - **API routes**: `GET/PATCH /api/v1/settings/business-info`, `GET/PATCH /api/v1/settings/content-blocks`
+  - **Frontend**: `/settings/general` page (code-split) with 6-tab layout: Business Info, Users, Roles, Modules, Dashboard, Audit Log. Business Info tab has 5 collapsible sections (Business Info, Operations, Online Presence, Content Blocks, Advanced) with profile completeness progress bar
+  - **Settings redirect**: `/settings` now redirects to `/settings/general` via `router.replace()`
+  - **Roles tab**: RBAC management with 75+ permissions grouped by category, role details sidebar, access scope (location/profit-center/terminal scoping)
+  - **Modules tab**: Module enable/disable with grid/list view modes, status badges, plan tier display
+  - **Dashboard tab**: Widget toggle configuration, customizable dashboard notes (localStorage)
+  - **Audit Log tab**: Full audit log viewer with actor display, filterable
+  - **Sub-components**: `BusinessHoursEditor`, `RichTextEditor` (contentEditable with toolbar), `SocialLinksEditor`, `TagInput`
+  - **Hook**: `useBusinessInfo()` — loads both data sources, provides `saveInfo()` and `saveBlock()` mutations
+  - **Tax ID masking**: stored encrypted, returned with bullet characters + last 4
+- **Merchant Services Settings UI** (Session 2026-02-24):
+  - **5-tab layout** under `/settings/merchant-services`: ProvidersTab, MerchantAccountsTab, DevicesTab, TerminalsTab, WalletsTab
+  - **ProvidersTab**: payment provider CRUD with credential management, test connection, activate/deactivate
+  - **MerchantAccountsTab**: merchant account CRUD with MerchantAccountSetupPanel — full credential management (CardPointe API, ACH, Funding), account settings (HSN, MIDs), terminal processing options, sandbox test data display, credential verification report
+  - **DevicesTab**: physical terminal device management (HSN mapping to CardPointe terminals)
+  - **TerminalsTab**: POS terminal-to-MID assignment with cascading location/profit-center/terminal selectors (uses `useProfitCenterSettings` for single-fetch filtering)
+  - **WalletsTab**: Apple Pay / Google Pay configuration with auto-fill gateway MID from default merchant account
+  - **Shared**: `DialogOverlay` component in `_shared.tsx`
+  - **Hooks** (`use-payment-processors.ts`): React Query-based — `usePaymentProviders`, `useProviderCredentials`, `useMerchantAccounts`, `useTerminalAssignments`, `useDeviceAssignments`, `useSurchargeSettings`, `useMerchantAccountSetup`, `useVerifyCredentials`, plus mutation hooks with automatic query invalidation
+  - **Backend queries** (`get-provider-config.ts`): `listPaymentProviders` (with subquery for credential status + MID count), `listProviderCredentials`, `listMerchantAccounts` (full setup details), `listTerminalAssignments` (enriched JOINs)
+- **Year Seed Script** (`packages/db/src/seed-year.ts`):
+  - Generates 366 days of realistic transactions (~$800K–$1.2M revenue) with seasonal variation, tournament spikes, void rates (8%), cash/card mix (33%/67%)
+  - Deterministic PRNG (`mulberry32(20260224)`) — same data every run
+  - Additive-only (never deletes/truncates), requires `pnpm db:seed` first
+  - Populates `rm_daily_sales` and `rm_item_sales` read models via ON CONFLICT upsert
+  - Usage: `pnpm tsx packages/db/src/seed-year.ts` (local) or `--remote` flag for production
+- **Portal Auth Scripts** (Session 2026-02-24):
+  - `tools/scripts/seed-portal-auth.ts`: bulk-creates portal auth for all customers (password: `member123`)
+  - `tools/scripts/add-portal-member.ts`: one-off script for specific member with custom password
+  - Both support `--remote` flag for production DB
+- **KDS Comprehensive Settings** (Session 2026-02-26):
+  - **4 new tables**: `fnb_kds_bump_bar_profiles` (button mappings, 49 actions, 10/20-button layouts), `fnb_kds_alert_profiles` (audio/visual alerts per station), `fnb_kds_performance_targets` (speed-of-service goals per station/order type), `fnb_kds_item_prep_times` (per-item per-station prep estimates)
+  - **Station enhancements**: 5 screen communication modes (independent, multi_clear, prep_expo, assembly_line, mirror), order type/channel filtering, pause receiving, expo supervision
+  - **Display config**: 4 view modes (ticket/grid/split/all_day), 4 font sizes, 4 ticket sizes, modifier display mode (vertical/horizontal/inline), 10 alert tone profiles with Web Audio API frequencies
+  - **Routing rules**: condition-based routing (order type, channel, time windows, category), 9 station types, 9 priority levels (Oracle MICROS style)
+  - **Constants**: `packages/shared/src/constants/kds-settings.ts` — 49 bump bar actions, view modes, alert tones, station types, priority levels
+  - **Migration 0209**: 321 lines with full RLS on all 4 new tables
+- **GL Code Summary Report** (Session 2026-02-26):
+  - **Report page**: `/accounting/reports/gl-code-summary` — follows Modern ERP Report UX Standard (§175)
+  - **Features**: 4 KPI summary cards, 7 collapsible section groups (revenue/discount/tender/tax/tip/expense/other) with colored dots, search filter, expand/collapse controls, print + CSV export
+  - **Reference implementation** for all future ERP report pages
+- **Discount GL Classification System** (Session 2026-02-26):
+  - **24 classifications**: 15 contra-revenue (manual discount, promo code, employee, loyalty, member, price match, volume, senior/military, group/event, seasonal, vendor-funded, rain check, early payment, bundle, trade) + 9 expense (manager comp, promo comp, quality recovery, price override, other comp, spoilage/waste, charity, training/staff meals, insurance recovery)
+  - **Constants**: `packages/shared/src/constants/discount-classifications.ts` — classification definitions, GL treatment helpers (`isContraRevenue`, `isExpenseClassification`, `getDiscountGlTreatment`, `getDefaultAccountCode`)
+  - **Schema**: `discount_gl_mappings` table for per-sub-department GL posting by classification, `rm_discount_analysis` read model, `discount_classification` on order_discounts + gl_journal_lines
+  - **Backfill script**: `tools/scripts/backfill-discount-classifications.ts` — classifies existing discounts/comps, creates GL accounts, wires defaults
+  - **Migration 0212**: discount GL classification + seeds 11 GL account templates; **Migration 0215**: expands to full 24-classification taxonomy
+- **PII Masking Service** (Session 2026-02-26):
+  - **Two-layer PII detection** for semantic pipeline: (1) column-name heuristics (exact + 40+ substring patterns), (2) value-pattern regex (email, phone, credit card, SSN, IP address)
+  - **Service**: `packages/modules/semantic/src/pii/pii-masker.ts` — masks data before sending to LLM, frontend receives unmasked data within app boundary
+  - **313 tests** in `pii-masker.test.ts`
+- **Semantic Authoring** (Session 2026-02-26):
+  - **Tenant-scoped custom metrics and dimensions**: `tenant_id` added to `semantic_metrics` + `semantic_dimensions` with dual-scoped unique indexes (system vs tenant-custom)
+  - **Pattern**: identical to `semantic_lenses` — system entities have `tenant_id IS NULL`, custom per-tenant entities have `tenant_id IS NOT NULL`
+  - **Seed data**: `packages/modules/semantic/src/registry/seed-data.ts` — registry seed with metrics, dimensions, relations
+  - **Migration 0210**
+- **Admin Backup System** (Session 2026-02-26):
+  - **Dual-mode backup**: local filesystem (`/tmp/backups/`) for dev/Docker, database (`platform_backups.compressed_data` BYTEA) for Vercel serverless
+  - **Services**: `packages/core/src/admin/backup-service.ts` (backup orchestration), table-discovery (DB introspection), storage drivers
+  - **Gzip compression** for storage efficiency, automatic table discovery, tenant isolation
+  - **Migration 0208**: `compressed_data BYTEA` on `platform_backups`
+- **F&B Course Routing** (Session 2026-02-26):
+  - **Event consumer**: `handle-course-sent.ts` — creates kitchen tickets when courses are sent/fired
+  - **Station resolver**: `resolve-station.ts` — deterministic KDS station resolution per item via routing rules (sub-department → rule → station), respects order type/channel filters
+  - **Idempotent**: client request ID `kds-course-{tabId}-{courseNumber}-{stationId}`, fire-and-forget pattern
+- **Inline Modifier Panel** (Session 2026-02-26):
+  - **Component**: `apps/web/src/components/fnb/menu/inline-modifier-panel.tsx` — multi-group modifier selection with tab navigation
+  - **Smart instruction suppression**: auto-hides non/extra/on-side buttons for exclusive-choice groups (temperature, doneness, sizes)
+  - **Auto-select defaults**: respects `defaultBehavior === 'auto_select_defaults'`
+  - **FnB design token styling** with count badges, required field validation, two-step flow (Next → Add)
+- **Service Charge Exemption** (Session 2026-02-26):
+  - **Command**: `setServiceChargeExempt` in orders module — toggles service charge exemption on orders
+  - **Emits**: `order.service_charge_exempt_changed.v1` event with audit logging
+- **Server Lock Banner** (Session 2026-02-26):
+  - **Component**: `ServerLockBanner` — compact POS indicator when locked to a specific server/user
+  - **PIN-based unlock flow** via `ServerPinModal` component, FnB design token styling
+- **Embeddable Widget Viewer** (Session 2026-02-26):
+  - **Component**: `EmbeddableWidget` — widget management for external iframe embedding (metric card/chart/KPI grid types)
+  - **Embed code generation**: `<iframe src="/embed/{token}" ...>` with copy-to-clipboard, view tracking, light/dark/auto themes
+  - **7 default metrics** (Net Sales, Gross Sales, Order Count, Avg Order Value, Voids, Discounts, Tax)
+- **Shared Format Utilities** (Session 2026-02-26):
+  - **`getInitials(name)`**: "John Smith" → "JS"
+  - **`formatPhone(phone)`**: "5551234567" → "(555) 123-4567"
+  - **Location**: `packages/shared/src/utils/format.ts`, exported via `@oppsera/shared`
+- **Dark Mode Overhaul** (Session 2026-02-26):
+  - **494 files modified** (6,849 insertions, 4,678 deletions) — comprehensive dark mode conversion across all dashboard, portal, settings, admin, POS, vendor, and report components
+  - **Enforced pattern**: opacity-based colors (no `dark:` prefixes), `bg-surface` (no `bg-white`), `text-foreground` (no `text-gray-900`)
+- **Admin DB Helper** (Session 2026-02-26):
+  - **`withAdminDb(callback)`**: RLS bypass utility for admin cross-tenant queries
+  - **Cascade approach**: tries `SET LOCAL role = 'postgres'` → `supabase_admin` → `row_security = 'off'`
+  - **Location**: `apps/admin/src/lib/admin-db.ts`
+- **Onboarding Status Test Suite** (Session 2026-02-26):
+  - **750 lines** testing onboarding auto-detection, progress tracking, localStorage/sessionStorage persistence, parallel API calls, phase dependencies, Go Live checklist logic
+- **Transaction Type Mapping Fix Script** (Session 2026-02-26):
+  - **`tools/scripts/fix-transaction-type-mappings.ts`**: creates 20+ required GL accounts (cash, AR, inventory, AP, tax, tips, gift card, deferred revenue), maps all 41 system transaction types with GL posting rules
+  - Supports `--remote` flag, idempotent via `ON CONFLICT DO NOTHING`
+- **Vercel Build Fixes** (Session 2026-02-26):
+  - Fixed unused var `rlsBypassed` in backup-service.ts, `let` → `const` for `sizeMap` in table-discovery.ts, PMS test var usage
+  - Added missing env vars to `turbo.json` build.env: `DATABASE_URL_ADMIN`, `ANTHROPIC_API_KEY`, `PAYMENT_ENCRYPTION_KEY`
+- **Bug Fixes** (Session 2026-02-24):
+  - Modifiers page: fixed category filter to use `g.categoryId` instead of `g.category_id` (Drizzle column name)
+  - Inventory ItemEditDrawer: fixed item type display using `getItemTypeGroup()`
+  - Inventory ActivitySection: fixed movements display with `Number()` conversion on numeric fields + date formatting
+  - F&B module index: fixed duplicate `ReceiptData` export (renamed to `FnbReceiptData`)
+  - Catalog import-inventory: added `createdItemIds` to validation failure path for `publishWithOutbox` inference
+  - PMS occupancy projector: type-annotated empty events array for Vercel build
+- **API Consolidation & Settings Improvements** (Session 2026-02-25):
+  - **Profit centers settings data**: new `getSettingsData(tenantId)` query — single API call replaces 3 sequential calls for locations + profit centers + terminals. API: `GET /api/v1/profit-centers/settings-data`
+  - **Terminal selection all data**: new `getTerminalSelectionAll(tenantId, roleId?)` query — single API call with role-based access filtering (uses `role_location_access`, `role_profit_center_access`, `role_terminal_access` tables). API: `GET /api/v1/terminal-session/all?roleId=xxx`
+  - **`useProfitCenterSettings` hook**: single-fetch + client-side filtering via `filterProfitCenters()`, `filterTerminalsByLocation()`, `filterTerminalsByPC()`, `useVenuesBySite()`
+  - **`useTerminalSelection` rewritten**: single API call, derived lists via `useMemo`, auto-selects single options via `useEffect` chains
+  - **Settings page redirect**: `/settings` → `/settings/general` via `router.replace()`
+  - **Settings General 6-tab layout**: Business Info (with profile completeness), Users, Roles (75+ permissions, access scope), Modules (grid/list view), Dashboard (widget toggles), Audit Log
+  - **Merchant services React Query hooks**: `usePaymentProviders`, `useMerchantAccounts`, `useTerminalAssignments`, `useDeviceAssignments`, `useSurchargeSettings`, `useMerchantAccountSetup`, `useVerifyCredentials` + mutation hooks with auto-invalidation
+  - **MerchantAccountSetupPanel**: comprehensive merchant account configuration (credentials, ACH, processing options, sandbox test data, credential verification)
+  - **TerminalsTab**: cascading location/profit-center/terminal selectors using `useProfitCenterSettings` for single-fetch filtering
+  - **Payment provider config queries**: `listPaymentProviders` (subquery for credential status + MID count), `listMerchantAccounts` (full setup details), `listTerminalAssignments` (enriched JOINs) in `get-provider-config.ts`
+  - **Impersonation safety guards**: 6 assertion functions (`assertImpersonationCanVoid`, `assertImpersonationCanRefund`, `assertImpersonationCanModifyAccounting`, `assertImpersonationCanDelete`, `assertImpersonationCanModifyPermissions`, `assertNotImpersonating`) with 25 tests
+  - **Test fixes**: updated mock patterns in onboard, account-crud, close-checklist, bulk-import tests for hoisted mock compatibility
+- **Performance & Resilience Improvements** (Session 2026-02-25):
+  - **Auth user cache**: in-memory 60s TTL cache (max 200 entries) in `SupabaseAuthAdapter.validateToken()` — eliminates 3 sequential DB queries per request on hot POS paths
+  - **Location validation cache**: in-memory 60s TTL cache (max 500 entries) in `resolveLocation()` within `with-middleware.ts` — caches `isActive` status per `tenantId:locationId`
+  - **`publishWithOutbox` combined `set_config`**: tenant + location config calls merged into single SQL statement, saving 1 DB round-trip per write transaction
+  - **Place-and-pay single-transaction fast path**: new `placeAndRecordTender()` in `apps/web/src/app/api/v1/orders/[id]/place-and-pay/place-and-pay-fast.ts` — combines `placeOrder` + `recordTender` into one transaction, eliminating ~8 redundant DB round-trips
+  - **Parallel data fetching in commands**: `placeOrder` fetches lines/charges/discounts concurrently via `Promise.all`; `recordTender` fetches tenders/reversals concurrently
+  - **Fire-and-forget audit logs**: POS commands (`placeOrder`, `recordTender`) use `auditLog(...).catch(() => {})` instead of `await auditLog(...)` — audit writes never block POS response
+  - **Terminal session 3-key lifecycle**: `oppsera:terminal-session` (localStorage), `oppsera:terminal-session-confirmed` (sessionStorage), `oppsera:terminal-session-skipped` (sessionStorage) — prevents stale sessions persisting across logins and "skip once, bypass forever" bug
+  - **Bootstrap partial-run recovery**: `bootstrapTenantCoa` checks for both settings AND accounts; deletes orphaned settings row if accounts are missing; `BootstrapWizard` verifies `accountCount > 0` with blocking `refetchQueries`
+  - **Accounting settings 404**: `GET /api/v1/accounting/settings` returns 404 when unconfigured (not `{ data: null }`)
+  - **PMS query enrichment**: `getHousekeepingProductivity` JOINs housekeeper names; `getRevenueByRoomType` fetches room inventory for occupancy denominator
+  - **API field name mapping**: PMS `manager-flash` route maps backend field names to frontend contract (decouples DB schema from API)
+  - **Dark mode opacity-based colors**: POSSearchBar, ACH status, admin events pages all converted from explicit light/dark pairs to opacity-based universal colors
+  - **Statement hook param alignment**: `useProfitAndLoss`, `useCashFlow`, `useSalesTaxLiability` hooks now use `from`/`to` params matching backend API expectations
+- **Admin Portal Enhancements** (Session 2026-02-25):
+  - **Global user search page**: `/users/global` with cross-tenant search, status/lock filters, slide-over detail panel, action buttons (Lock/Unlock, Force PW Reset, Reset MFA, Revoke Sessions) with confirmation dialogs
+  - **Tenant API keys tab**: `ApiKeysTab` component with status badges, masked key prefixes, per-key revoke with `AND revoked_at IS NULL` guard
+  - **Dead letter batch operations**: checkbox selection, "Select All" scoped to failed items, batch retry/discard with loading state
+  - **Dead letter detail rewrite**: collapsible sections (Error/Stack Trace/Payload/Retry History), copy payload button, retry history with admin names and color-coded status dots
+  - **Fine-grained admin permissions**: `tenants.detail.view`, `tenants.detail.manage`, `events.dlq.view` replace broad `tenants.view`/`tenants.edit`
+  - **Admin hooks**: `useAdminUserSearch`, `useAdminUserDetail`, `useAdminUserActions`, `useApiKeys` in `use-admin-users.ts`
+- **F&B Host Stand Compact Redesign** (Session 2026-02-25):
+  - **StatsBar**: grouped flex layout (Guest Metrics + Table Metrics) with vertical dividers, smaller text (`text-sm` values, `text-[9px]` labels)
+  - **WaitlistPanel**: rank numbers on cards, metadata as rounded chips, wait-time color coding, role-stratified action buttons (primary/secondary/icon-only)
+  - **ReservationTimeline**: Tailwind-ified from inline styles, compact card layout, metadata chips, green primary "Check In" button
+  - **CoverBalance/RotationQueue**: minor refinements, "Advance" button with SkipForward icon, blue accent for "next" server
+  - **Host layout**: 42/58 split (was 50/50), reduced padding, `overflow-hidden` root
+- **Host Module V2** (Sessions HOST-01 through HOST-08):
+  - **Schema**: 4 tables (fnb_reservations enhanced, fnb_waitlist_entries enhanced, fnb_table_turn_log, fnb_guest_notifications) in packages/db/src/schema/fnb.ts
+  - **Validation**: validation-host.ts with reservation state machine, Zod schemas
+  - **15 commands**: createReservation, updateReservation, confirmReservation, checkInReservation, seatReservation, completeReservation, cancelReservation, markNoShow, addToWaitlist, updateWaitlistEntry, notifyWaitlistParty, seatFromWaitlist, removeFromWaitlist, recordTableTurn, sendGuestNotification
+  - **12 queries**: listReservations, getReservation, getUpcomingReservations, listWaitlist, getWaitlistEntry, getWaitlistStats, getHostDashboardMetrics, getTableTurnStats, getPreShiftReport, getHostAnalytics, estimateWaitTime, suggestTables
+  - **Services**: wait-time-estimator.ts (weighted algorithm), table-assigner.ts (4-factor scoring), notification-service.ts (Twilio + Console providers), notification-templates.ts, host-settings.ts
+  - **~29 API routes** under /api/v1/fnb/host/
+  - **3 public routes** under /api/v1/fnb/host/guest/ (waitlist status, join, update)
+  - **Events**: 9 event types (reservation CRUD, waitlist lifecycle, table turns)
+  - **2 consumers**: tab.closed → table status, table.turn_completed → turn log
+  - **Frontend**: HostStandLayout (380px/1fr grid), HostTopBar (live clock, meal period pills, stats), HostLeftPanel (waitlist/reservation/pre-shift tabs), WaitlistCardList/Card, ReservationCardList/Card, PreShiftPanel, HostFloorMap (Konva viewer + status overlay), HostGridView, TablePopover, AddWalkInModal, NewReservationModal, DragSeatingController, TableContextMenu, RoomTabBar, FloorMapLegend, SeatConfirmDialog, HostAnalyticsDashboard (5 KPIs + 5 charts), PreShiftReportFull, NotificationCenter, NotificationComposer, GuestWaitlistPage, GuestWaitlistJoinPage, QrCodeDisplay, HostSettingsPanel
+  - **Hooks**: useHostReservations, useHostWaitlist, useHostDashboard, useHostPreShift, useTableStatus (5s poll), useWaitTimeEstimate, useTableSuggestions, useReservationActions, useWaitlistActions, useNotificationActions, useHostAnalytics, usePreShiftReportFull
+  - **Permissions**: fnb.host.view, fnb.host.manage, fnb.host.notifications, fnb.host.analytics
+  - **Settings**: 25+ configurable options (reservations, waitlist, notifications, estimation, guest self-service, display) via host-settings.ts Zod schema with deep merge
+  - **136 tests** across host-stand.test.ts (93 tests: API contracts, KPI computations, chart data, pre-shift reports, date range, moving average) and host-integration.test.ts (43 tests: reservation lifecycle, waitlist lifecycle, no-show handling, cancellation, estimation, edge cases, settings schema, notifications, table transitions, position queue)
+- **AI Tools Hub Page** (Session 2026-02-25):
+  - `/insights/ai-tools` — unified 7-tab hub lazy-loading content from sibling insight sub-pages via `next/dynamic` with `embedded` prop
+- **Production Resilience & Performance** (Sessions 2026-02-25–26):
+  - **Multi-session auth fix**: `signOut()` was calling `admin.signOut(userId, 'global')` which revoked ALL user sessions across all devices. Fixed to use JWT with `'local'` scope — only current session revoked. Added cross-tab refresh token coordination (Supabase rotates tokens, racing tabs share winner's tokens via localStorage).
+  - **Circuit breaker on `apiFetch`**: after 15 failures in 30s, short-circuits for 5s with `SERVICE_UNAVAILABLE` instead of hammering backend with retry storms. Sliding window replaces fixed-count threshold.
+  - **DB pool tuning**: default `max: 3→2` per Vercel instance (halves total connections), added `connect_timeout: 10s` to prevent 30s hangs on pool exhaustion, `idle_timeout: 20s`, `max_lifetime: 300s`.
+  - **Auth adapter combined query**: membership + tenant lookup merged into single JOIN query (saves 1 DB round-trip per validateToken). Auth user cache: 200→2000 entries, TTL 60s→120s.
+  - **Cache scaling**: permission cache 1K→5K entries, location cache 500→2K entries, entitlement cache 500→2K entries, semantic query cache 200→500 entries. All caches use proper LRU eviction with batch cleanup.
+  - **Unbounded Map fixes (memory leak prevention)**: ERP workflow cache (1K max + LRU + 30s cleanup timer), semantic rate limiter (2K max + LRU + 60s cleanup), auth rate limiter (O(1) Map-order eviction).
+  - **Event bus resilience**: 30s handler timeout + concurrency limit (10) to prevent DB pool exhaustion. `Promise.allSettled` for deferred consumers (one failure won't crash all).
+  - **POS payment race condition fixes**: eliminated triple race in cash payment flow — PaymentPanel was firing place-and-pay with `amountGiven=0` on mount creating ghost 0-cent tenders. `recordTenderSchema.amountGiven` min changed from 0 to 1. Removed preemptive placeOrder from handlePayClick and PaymentPanel mount — place-and-pay handles open orders atomically. Moved event enrichment queries out of FOR UPDATE transaction.
+  - **Cold start parallelization**: `instrumentation.ts` uses `Promise.all` for 10 critical-path module imports (was sequential await). Non-critical consumers (golf, PMS, F&B reporting, advanced GL) deferred to background.
+  - **Lightweight health endpoint**: `GET /api/health/light` returns immediately without DB check (for load balancers/uptime monitors).
+  - **Frontend permission caching**: `usePermissions` (30s module-level cache), `useEntitlements` (60s cache). Uses `usePermissionsContext()` from `PermissionsProvider` instead of independent calls.
+  - **Settings page lazy-loading**: RolesTab, ModulesTab, DashboardSettingsTab, AuditLogTab, UserManagementTab all lazy-loaded via `next/dynamic`. `/settings` redirect changed from client-side to server-side `redirect()`.
+  - **Covering indexes** (migration 0205): `idx_memberships_user_status_created INCLUDE(tenant_id)`, `idx_entitlements_tenant_module INCLUDE(access_mode, expires_at)`, `idx_role_permissions_role_permission INCLUDE(permission)`, `idx_locations_tenant_active INCLUDE(is_active)`, `idx_erp_workflow_configs_tenant`.
+  - **Vercel Pro cron**: upgraded from daily to every 15 minutes.
+  - **CI timeout**: increased from 10 to 20 minutes for full pipeline.
+- **Usage Analytics & Action Items Engine** (Session 2026-02-25):
+  - **Schema**: 3 new tables (`rm_usage_events`, `rm_usage_daily`, `rm_usage_module_daily`) in `packages/db/src/schema/usage-tracking.ts`. Migration 0203.
+  - **Usage tracker**: `packages/core/src/usage/tracker.ts` — batched event recording with `db.transaction()` (fixed connection poisoning from manual BEGIN/COMMIT), table-existence check (skips flush if migration 0203 not run), buffer discard when tables missing.
+  - **Workflow registry**: `packages/core/src/usage/workflow-registry.ts` — tracks module usage patterns across tenants.
+  - **Action items engine**: `packages/core/src/usage/action-item-engine.ts` — generates prioritized action items from usage data (module adoption, stale configs, error trends).
+  - **4 platform queries**: `getPlatformDashboard`, `getModuleAnalytics`, `getTenantUsage`, `getActionItems` in `packages/core/src/usage/queries/`.
+  - **Admin analytics dashboard**: `/analytics` page with module usage tracking, action items, export. Sub-pages: `/analytics/actions`, `/analytics/modules/[moduleKey]`.
+  - **6 admin API routes**: dashboard, modules list, module detail, tenant usage, action items (list + generate), export.
+  - **Hook**: `useAnalytics()` in `apps/admin/src/hooks/use-analytics.ts`.
+  - **Middleware integration**: `withMiddleware` records usage events per API call (fire-and-forget).
+- **API Route Consolidation** (Session 2026-02-25):
+  - **43 sibling action routes consolidated into 14 dynamic `[action]` handlers** — reduces API route file count by 29 (43 deleted, 14 created) for faster cold-start parse time. All URLs preserved, no frontend changes needed.
+  - **Modules consolidated**: Accounting (GL accounts, journals, bank-rec, deposits, settlements: 15→5), F&B (close-batch, tabs, kitchen tickets, tables, payment sessions, preauth: 18→6), Customers (financial accounts, stored value: 7→2), PMS (reservation lifecycle with per-action permission checks: 5→1).
+  - **Pattern**: `[id]/[action]/route.ts` dispatches based on `action` URL param via switch statement. Each action branch has its own permission check.
+- **PMS Housekeeping Staff Management** (Session 2026-02-25):
+  - **3 API routes**: `POST /api/v1/pms/housekeepers/create-with-user` (create user + housekeeper in one call), `POST /api/v1/pms/housekeepers/from-user` (link existing user), `GET /api/v1/pms/housekeepers/available-users` (users not yet linked).
+  - **Frontend**: housekeeping staff content page (`/pms/housekeeping-staff`), `CreateHousekeeperUserDialog`, `LinkUserDialog`.
+  - **Migration 0202**: `housekeeper_management.sql` — adds user_id FK, availability/phone/skills columns to housekeepers.
+  - **PMS front desk**: `GET /api/v1/pms/front-desk` route with React Query hooks (`useProperties`, `useFrontDesk`, `usePmsMutations`), error state display.
+- **SuperAdmin Phase 1B** (Session 2026-02-25):
+  - **Migration 0199**: `superadmin_phase1b.sql` — feature flags tables (`feature_flag_definitions`, `tenant_feature_flags`), admin search/timeline extensions.
+  - **Feature flags schema**: `packages/db/src/schema/feature-flags.ts` — `featureFlagDefinitions` (system-wide flag registry) + `tenantFeatureFlags` (per-tenant overrides with value JSONB).
+  - **Feature flags admin UI**: `FeatureFlagsPanel` component, `useFeatureFlags()` hook, API routes (`GET/POST /api/v1/feature-flags/definitions`, `GET/PATCH /api/v1/tenants/[id]/feature-flags/[flagKey]`).
+  - **Module matrix**: `GET /api/v1/modules/matrix` — cross-tenant module adoption grid, `/modules` admin page.
+  - **Admin user management API**: `GET/PATCH /api/v1/admin/users/[id]`, `POST /api/v1/admin/users/[id]/actions` (lock/unlock/reset), `GET /api/v1/admin/users` (search).
+  - **Dead letter batch operations**: `POST /api/v1/events/batch` (retry/discard selected), `GET /api/v1/events/[id]/retry-history`.
+  - **Admin phase 1A test suite**: 405 tests in `apps/admin/src/__tests__/phase1a.test.ts`.
+- **Editable OPPS ERA LENS Narrative** (Session 2026-02-25):
+  - **Schema**: `semantic_narrative_config` table (migration 0197) — stores customizable narrative prompt template with `{{PLACEHOLDER}}` tokens.
+  - **Admin UI**: `/train-ai/narrative` page — view/edit THE OPPS ERA LENS system prompt, preview rendered template, reset to default.
+  - **Backend**: `packages/modules/semantic/src/config/narrative-config.ts` — DB-backed template with 5-min in-memory cache. `getNarrativeTemplate()` / `updateNarrativeTemplate()`.
+  - **API**: `GET/PUT /api/v1/eval/narrative` — read and update narrative template.
+- **User Password Management** (Session 2026-02-25):
+  - `updateUser()` now accepts optional `password` field — updates Supabase Auth + app DB atomically.
+  - API: `PATCH /api/v1/users/[id]` accepts `password` (min 8, max 128 chars).
+  - Frontend: collapsible "Set new password" section in Edit User modal (Settings → General → Users) with confirm + validation.
+  - Admin: `EditTenantDialog` component for tenant detail editing.
+- **Impersonation Phase 1A** (Session 2026-02-25):
+  - **Migration 0198**: `impersonation_phase1a.sql` — impersonation session tracking tables.
+  - **Safety module**: `packages/core/src/auth/impersonation-safety.ts` — 6 assertion guards wired to sensitive API routes (void, return, refund, role assign/revoke, user invite/update, accounting settings).
+  - **Admin UI**: `ImpersonateDialog`, `ImpersonationHistoryTab` components. Impersonation history with action counts, session expiry tracking.
+  - **API routes**: `POST /api/v1/impersonation/active`, `POST /api/v1/impersonation/expire`, `GET /api/v1/impersonation/history`.
+- **Performance Indexes** (Migration 0201):
+  - 140 lines of covering indexes for auth, permissions, orders, tenders, inventory movements, and reporting read models.
+- **Accessibility Infrastructure** (Session 2026-02-26):
+  - **3 A11y utility hooks**: `useDialogA11y(ref, isOpen)` (dialog roles, aria attributes, body hiding), `useFocusTrap(ref, isActive)` (Tab wrapping, nested trap stack, restore focus), `announce(message, priority)` (aria-live region for screen readers).
+  - **ESLint jsx-a11y plugin**: 15 error rules (WCAG 2.1 AA) + 13 warning rules added to `eslint.config.mjs`.
+  - **Files**: `apps/web/src/lib/dialog-a11y.ts`, `focus-trap.ts`, `live-region.ts`.
+- **Settings Role Management Enhancements** (Session 2026-02-26):
+  - **`permission-groups.ts`**: 75+ permissions organized by module/category with hierarchical sub-groups. Helpers: `getAllGroupPerms()`, `getPermLabel()`, `getPermMeta()`.
+  - **`RoleComparisonView`**: side-by-side role permission matrix with "Differences Only" toggle.
+  - **`RoleEditorPanel`**: portal-based role editor with permission picker, coverage bar, search, select all/clear per group. System role protection.
+- **PMS Calendar Enhancements** (Session 2026-02-26):
+  - **`CondensedView`**: month-level occupancy heatmap — room-type rows, date columns, occupancy % color gradient.
+  - **`DateJumpPicker`**: quick-jump date navigation with preset ranges.
+  - **`useCalendarScroll`**: edge-triggered auto-scroll navigation (mouse within 60px of edge triggers smooth scroll).
+  - **PMS utilization grid**: `/pms/utilization` page with `getUtilizationGrid` and `getUtilizationGridByRoom` queries.
+- **UI Component Improvements** (Session 2026-02-26):
+  - **Select component**: replaced browser-native `<select>` with custom portal-based dropdown supporting search, multi-select tags, `useId()` for accessible `aria-controls`, `role="combobox"` + `aria-haspopup="listbox"`, `aria-expanded`, dark mode opacity-based colors.
+  - **Form fields, data tables, search inputs, toast, action menu, confirm dialog**: dark mode opacity-based color updates.
+  - **All dialogs and modals**: consistent dark mode styling using `bg-surface` and opacity-based colors.
+  - **Dashboard layout a11y**: `aria-hidden="true"` on decorative icons, `aria-label="Main navigation"` on nav, `aria-expanded`/`aria-controls` on collapsible sections.
+  - **Global CSS a11y**: `.skip-link` class for keyboard users, `:focus-visible` ring with semantic tokens, `@media (prefers-reduced-motion: reduce)` to disable animations.
+- **Batch Line Item API** (Session 2026-02-26):
+  - **`POST /api/v1/orders/[id]/lines/batch`**: accepts `{ items: [...] }` array, adds multiple line items in a single transaction. Used by POS rapid-tap optimization.
+  - **`addLineItemsBatch` command**: `packages/modules/orders/src/commands/add-line-items-batch.ts` — validates all items, resolves catalog data, adds to order atomically.
+  - **POS `addItem()` is now synchronous** — returns `void`, optimistic temp lines appear instantly, items batch into a queue (50ms debounce, max 20 items) and flush via the batch API.
+  - **Batch flush on placeOrder**: pending batch is explicitly flushed before placing to prevent queued items from being lost.
+  - **Rollback**: batch failures roll back ALL temp lines from that batch atomically (tracked by batch ID, not prefix).
+- **Public Guest Waitlist** (Session 2026-02-26):
+  - **Guest join page**: `/(guest)/waitlist/join/` — unauthenticated form (name, phone, party size 1-8, seating preference).
+  - **Guest status page**: `/(guest)/waitlist/[token]/` — real-time position tracking via 8-char base64url token.
+  - **API**: `POST /api/v1/guest/waitlist/join` — rate-limited to 10 requests per 15 minutes per IP.
+  - **No authentication required** — guest provides name + phone only. Rate limiting is the only guard.
+- **Member Portal Dark Mode** (Session 2026-02-26):
+  - Member portal is now **dark-mode only** — light theme removed entirely.
+  - Uses GitHub-inspired dark palette with Tailwind v4 `@theme` block mapping CSS custom properties to Tailwind utilities.
+  - Semantic tokens: `--color-surface`, `--color-primary`, `--color-border` etc. enable `bg-surface`, `text-primary` utilities.
+- **Host Module V2 Services** (Session 2026-02-26):
+  - **Wait-time estimator** (`packages/modules/fnb/src/services/wait-time-estimator.ts`): pure algorithm — pre-fetch data, then call `computeWaitTime()`. Uses 28-day rolling window of turn times, party-size bucketing (small ≤2, medium ≤4, large ≤6, xlarge >6), confidence levels (high ≥50pts, medium ≥20, low ≥10, default <10). Rounds to nearest 5 min, clamped 5-120.
+  - **Table assigner** (`packages/modules/fnb/src/services/table-assigner.ts`): pure scoring algorithm — `scoreTable()` with weighted factors: capacity fit (40%), seating preference (25%), server balance (20%), VIP history (15%). Combination penalty 0.85x. Returns top 3 suggestions.
+  - **Notification service** (`packages/modules/fnb/src/services/notification-service.ts`): SMS provider abstraction with `SmsProvider` interface. `ConsoleSmsProvider` for dev (logs to console), `TwilioSmsProvider` for production (HTTP POST with Basic auth). Singleton via `getSmsProvider()` auto-detects from env vars.
+  - **Notification templates** (`packages/modules/fnb/src/services/notification-templates.ts`): 5 template types (`table_ready`, `reservation_confirmation`, `reservation_reminder`, `reservation_cancelled`, `waitlist_joined`) with `{variableName}` placeholder interpolation.
+  - **Host settings** (`packages/modules/fnb/src/services/host-settings.ts`): 25+ configurable options across 5 sections (reservations, waitlist, notifications, estimation, guest self-service). JSONB blob with Zod schema + deep merge.
+
+- **Semantic Pipeline Hardening** (Session 2026-02-27):
+  - **SSE streaming pipeline**: `runPipelineStreaming()` emits progressive SSE events (status, intent_resolved, data_ready, narrative_chunk, enrichments, complete, error). API route: `POST /api/v1/semantic/ask/stream`. Frontend: `useSemanticChat` auto-detects streaming support with `isStreaming` state.
+  - **Deterministic fast path**: `tryFastPath()` bypasses LLM intent resolution for common unambiguous queries via regex patterns. Saves ~500ms + ~$0.003/call. Returns null (falls through to LLM) when uncertain.
+  - **Anthropic prompt caching (SEM-02)**: `systemPromptParts` with `cacheControl: true` splits SQL generator prompt into stable (DB schema) and dynamic (context, RAG) parts. ~90% input token cost reduction on cache hits. `anthropic-beta: prompt-caching-2024-07-31` header.
+  - **Zod schema validation for LLM output (SEM-01)**: `IntentResponseSchema.safeParse()` replaces manual `typeof` checks. Automatic defaults (mode → 'metrics'), confidence clamping (0-1), clear error messages.
+  - **Plausibility checker (SEM-09)**: `checkPlausibility()` grades query results A-F with warnings (negative revenue, impossible counts, unreasonable averages). Informational only — never blocks response.
+  - **RAG diversity & deduplication**: diversity threshold (0.85) prevents near-duplicate few-shot examples. RAG snippet fetched once in intent resolution, passed to SQL generator via `ragExamplesSnippet`.
+  - **LLM streaming adapter**: `LLMAdapter.completeStreaming()` optional method. Anthropic adapter parses SSE `content_block_delta` events. Returns full `LLMResponse` for caching/eval.
+- **GL Audit & Posting Hardening** (Session 2026-02-27):
+  - **Non-posted entry exclusion**: All GL balance queries (account balances, trial balance, balance sheet, P&L) now include `(jl.id IS NULL OR je.id IS NOT NULL)` guard to exclude draft/error entries from balance calculations.
+  - **`ensureAccountingSettings` auto-provisioning**: POS adapter auto-creates accounting_settings + wires well-known fallback accounts + guarantees GL Suspense account (99999). Zero silent GL skips.
+  - **GL posting gap detection**: Close checklist item #21 compares tender count vs GL journal entry count per period. Surfaces missing postings before period close.
+  - **Rounding account type validation**: `validateJournal` warns when rounding account is revenue/asset type (inflates income or creates phantom balances).
+  - **Incomplete mapping fallback**: Payment type mappings with NULL account fields use secondary fallback to `defaultUndepositedFundsAccountId`. Logged as `payment_type_incomplete:xxx`.
+  - **Self-canceling entry prevention**: Debit/credit to same account in memo-only tracking pairs (price overrides) now validated `accountA !== accountB`.
+  - **Zero-dollar order logging**: Orders with `orderTotal <= 0` log unmapped event with `entityType: 'zero_dollar_order'` instead of silent return.
+  - **CRITICAL logging for posting failures**: When < 2 GL lines generated (all fallbacks failed), logs at `console.error` with `[pos-gl] CRITICAL` prefix + unmapped event with `entityType: 'gl_posting_gap'`.
+- **Event Consumer Validation** (Session 2026-02-27):
+  - **Zod schema validation**: All reporting consumers (`handleOrderPlaced`, `handleOrderVoided`, `handleTenderRecorded`, `handleInventoryMovement`) now validate event payloads with Zod `safeParse()` before processing. Invalid payloads are logged and skipped (no throw → no infinite retry).
+  - **Consumer validation test suite**: `packages/modules/reporting/src/__tests__/consumer-validation.test.ts` — tests for malformed payloads, missing fields, type mismatches.
+- **Financial Command Idempotency** (Session 2026-02-27):
+  - **`clientRequestId` added to**: `createSettlement`, `postSettlement`, `voidSettlement`, `createTipPayout`, `voidTipPayout`, `mergeGlAccounts` — all now support idempotency via `checkIdempotency`/`saveIdempotencyKey` inside `publishWithOutbox` transaction.
+- **Tag Actions & Lifecycle** (Session 2026-02-27):
+  - **Migration 0219**: `tag_actions_lifecycle.sql` — `tag_actions` table for configurable actions triggered on tag apply/remove.
+  - **Tag action executor**: `executeTagActions(tx, tenantId, customerId, tagId, trigger)` runs inside smart tag evaluation transaction.
+  - **Tag analytics**: `packages/modules/customers/src/queries/tag-analytics.ts` — tag usage metrics, effectiveness, overlap analysis.
+  - **Tag suggestion engine**: `apps/web/src/lib/tag-suggestion-engine.ts` — client-side tag suggestions based on customer behavior patterns.
+  - **Predictive metrics service**: `packages/modules/customers/src/services/predictive-metrics.ts` — RFM scoring, churn prediction inputs.
+  - **RFM scoring engine**: `packages/modules/customers/src/services/rfm-scoring-engine.ts` — Recency/Frequency/Monetary scoring for customer segmentation.
+  - **Tag conflict resolver**: `packages/modules/customers/src/services/tag-conflict-resolver.ts` — handles conflicting tag rules.
+  - **Tag evidence builder**: `packages/modules/customers/src/services/tag-evidence-builder.ts` — builds audit evidence for tag decisions.
+  - **Tag expiration service**: `packages/modules/customers/src/services/tag-expiration-service.ts` — automatic tag expiration based on rules.
+- **Accounting Reports Hub** (Session 2026-02-27):
+  - **Reports hub page**: `/accounting/reports/page.tsx` + `reports-hub-content.tsx` — central landing page for all accounting reports.
+  - **7 report sub-pages**: AP Aging, AR Aging, Audit Trail, Bank Reconciliation, Financial Dashboard, Inventory Valuation, Journal Entries, Period Close — each with code-split pattern.
+  - **Smart resolution suggestions**: `packages/modules/accounting/src/queries/get-smart-resolution-suggestions.ts` — AI-powered unmapped event resolution.
+  - **GL posting gaps query**: `packages/modules/accounting/src/queries/get-gl-posting-gaps.ts` — identifies tenders missing GL entries.
+- **Migrations 0218–0220** (Session 2026-02-27):
+  - `0218_kds_station_type_check_fix.sql`: KDS station type check constraint fix
+  - `0219_tag_actions_lifecycle.sql`: tag_actions table for configurable tag lifecycle actions
+  - `0220_tag_reporting_field_catalog.sql`: reporting field catalog entries for tag analytics
+- **Enterprise Accounting Phase 2** (Sessions 2026-02-28):
+  - **Expense Management Module** (`packages/modules/expenses/`):
+    - **6 schema tables**: `expenses`, `expense_line_items`, `expense_policies`, `expense_policy_rules`, `expense_approvals`, `expense_attachments` (migration 0231)
+    - **10 commands**: createExpense, updateExpense, submitExpense, approveExpense, rejectExpense, postExpense, voidExpense, markReimbursed, createExpensePolicy, updateExpensePolicy
+    - **7 queries**: listExpenses, getExpense, listPendingApprovals, getExpenseSummary, getEmployeeExpenseTotals, listExpensePolicies, getExpensePolicy
+    - **3 GL consumers**: expense-posted, expense-reimbursed, expense-voided
+    - **Lifecycle**: draft → submitted → approved/rejected → posted → reimbursed/voided
+    - **Frontend**: `/accounting/expenses` page, `use-expenses.ts` hook
+    - **~8 API routes** under `/api/v1/expenses/`
+    - **Shared**: `packages/shared/src/constants/expense-categories.ts`
+  - **Project Costing Module** (`packages/modules/project-costing/`):
+    - **4 schema tables**: `projects`, `project_tasks`, `project_cost_allocations`, `project_budgets` (migration 0229)
+    - **7 commands**: createProject, updateProject, closeProject, archiveProject, createTask, updateTask, closeTask
+    - **5 queries**: listProjects, getProject, listTasks, getProjectCostDetail, getProjectProfitability
+    - **1 GL consumer**: `gl-entry-posted` — auto-allocates costs to projects via `projectId`/`projectTaskId` dimensions
+    - **Frontend**: `/accounting/projects` page, `use-project-costing.ts` hook, CreateProjectDialog, ProjectDetailPanel
+    - **~10 API routes** under `/api/v1/projects/`
+  - **Multi-Currency Engine**:
+    - **Schema**: `exchange_rates` table (migration 0227), `functional_currency`/`supported_currencies` on settings, `transaction_currency`/`exchange_rate`/`functional_amount` on GL entries
+    - **Commands**: updateExchangeRate, updateSupportedCurrencies
+    - **Queries**: getExchangeRate, listExchangeRates, getUnrealizedGainLoss
+    - **Frontend**: `CurrencySettingsTab`, `use-currency-settings.ts` hook
+    - **Close checklist**: FX revaluation warning when multi-currency entries exist
+  - **Fixed Assets** (within accounting):
+    - **2 schema tables**: `fixed_assets`, `depreciation_schedules` (migration 0235)
+    - **5 commands**: createFixedAsset, updateFixedAsset, disposeFixedAsset, recordDepreciation, runMonthlyDepreciation
+    - **4 queries**: getFixedAsset, listFixedAssets, getAssetSummary, getDepreciationSchedule
+    - **Frontend**: `/accounting/fixed-assets` page, `/accounting/reports/fixed-asset-summary` report
+  - **Budget System** (within accounting):
+    - **2 schema tables**: `budgets`, `budget_lines` (migration 0234)
+    - **5 commands**: createBudget, updateBudget, approveBudget, lockBudget, upsertBudgetLines
+    - **3 queries**: getBudget, listBudgets, getBudgetVsActual
+    - **Frontend**: `/accounting/budgets` page, `/accounting/reports/budget-vs-actual` report
+  - **GL Document Attachments**: `gl_document_attachments` table (migration 0236), attachDocument/removeDocument commands, `DocumentAttachments` + `DrillDownDrawer` components
+  - **Intercompany Schema** (migration 0228): 5 tables (`ic_entities`, `ic_relationships`, `ic_transactions`, `ic_transaction_lines`, `ic_elimination_entries`) — schema only, commands/queries pending
+  - **New Accounting Reports**: Aged Trial Balance, Budget vs Actual, Cash Flow Forecast, Consolidated P&L, Fixed Asset Summary — all with full frontend pages
+- **Receipt Engine** (`packages/shared/src/receipt-engine/`) — Session 2026-02-28:
+  - **Shared receipt system**: builder pattern with pluggable renderers (thermal, print-HTML, email-HTML)
+  - **Receipt links**: `receipt_links` table (migration 0232) for tokenized public receipt sharing
+  - **Public receipt pages**: `/(guest)/r/[token]/` with receipt viewer, lookup, email
+  - **Receipt settings**: per-tenant configurable receipt layout, branding, footer
+  - **~8 API routes** under `/api/v1/receipts/` (build, email, links CRUD, settings)
+  - **Components**: `ReceiptPreview`, `ReceiptSettingsTab`, `ReceiptPreviewDialog`
+  - **Hooks**: `use-receipt-builder.ts`, `use-receipt-settings.ts`
+  - **F&B integration**: `POST /api/v1/fnb/tabs/[id]/prepare-check` for F&B check printing
+- **Reporting Consumers Expansion** (Session 2026-02-28):
+  - **13 new event consumers** for cross-module revenue tracking: ar-invoice-posted, ar-invoice-voided, chargeback-received, chargeback-resolved, fnb-tender-applied, guest-pay-succeeded, order-returned, stored-value-redeemed, voucher-expired, voucher-redeemed, folio-charge-posted, membership-charged, voucher-purchased
+  - **Unified Revenue Activity Read Model**: `rm_revenue_activity` table (migration 0224), extends `rm_daily_sales` with non-POS revenue columns
+  - **New reporting queries**: getSalesHistory, getCustomerSpending, getRecentActivity
+  - **Frontend**: `/reports/customer-spending`, `/reports/sales-history` with CSV export
+  - **Shared**: `packages/shared/src/constants/revenue-sources.ts`
+- **Pool Guard Infrastructure** (`packages/db/src/pool-guard.ts`) — Session 2026-02-28:
+  - **Semaphore-based concurrency limiting** (configurable `CONCURRENCY_LIMIT = POOL_MAX + 1`)
+  - **Queue timeout** (5s fail-fast), **per-query timeout** (15s), **circuit breaker** (10s cooldown)
+  - **Pool exhaustion detection**: covers postgres.js, pg, PgBouncer, Supavisor, native Postgres errors
+  - **Single-flight deduplication** (`singleFlight()`) prevents cache stampedes
+  - **TTL jitter** (`jitterTtl()`, `jitterTtlMs()`) prevents thundering herd
+  - **Zombie connection tracking** and **observability** (`getPoolGuardStats()`)
+  - **`guardedDb` Proxy**: per-query timeout applied to ALL DB operations via Proxy wrapper in `client.ts`
+  - **Exported from `@oppsera/db`**: `guardedQuery`, `singleFlight`, `jitterTtl`, `jitterTtlMs`, `isBreakerOpen`, `tripBreaker`, `isPoolExhaustion`, `getPoolGuardStats`, `recordZombieDetection`, `recordZombieKill`
+- **Security Hardening** (Session 2026-02-28):
+  - **Step-Up Authentication** (`packages/core/src/security/step-up-auth.ts`): HMAC-SHA256 signed tokens, category-based TTLs, PIN modal flow (403 STEP_UP_REQUIRED → PIN entry → token → retry with `X-Step-Up-Token`). Impersonated sessions always require step-up. API: `POST /api/v1/auth/step-up`. Hook: `use-step-up-auth.ts`.
+  - **Bot Detector** (`packages/core/src/security/bot-detector.ts`): weighted scoring (frequency 0.40, 4xx ratio 0.30, suspicious UA 0.15, sequential scanning 0.15). Actions: pass/log/throttle/block. LRU 5K entries, 10-min TTL, IP allowlist, Redis-ready.
+  - **Replay Guard** (`packages/core/src/security/replay-guard.ts`): nonce + timestamp validation for high-risk mutations. Client sends `X-Request-Nonce` + `X-Request-Timestamp`. 300s timestamp window, 10-min nonce TTL, 50K max nonces with LRU. Redis-ready.
+- **Guest Pay Retail Integration** (Session 2026-02-28):
+  - **API**: `POST /api/v1/orders/[id]/guest-pay` (create session), `GET /api/v1/orders/[id]/guest-pay/active` (check active)
+  - **Hook**: `use-retail-guest-pay.ts`
+  - **POS integration**: Retail POS now has guest pay button in order actions
+- **Deploy Tooling** (Session 2026-02-28):
+  - `scripts/deploy-oppsera.cjs` — deployment orchestration
+  - `scripts/predeploy.cjs` — pre-deployment validation
+  - `scripts/audit-deep.cjs` — comprehensive DB audit
+  - `tools/scripts/slow-query-audit.cjs` — slow query diagnosis
+  - `tools/scripts/backfill-read-models.cjs` — read model backfill
+  - `tools/scripts/backfill-sales-history.ts` — sales history backfill
+  - `docs/guides/slow-query-indexing-workflow.md` — slow query indexing guide
+- **Migrations 0224–0240** (Session 2026-02-28):
+  - `0224_unified_revenue_activity.sql`: `rm_revenue_activity` read model + extends `rm_daily_sales`
+  - `0225_sales_history_enrichment.sql`: sales history indexes
+  - `0226_lock_timeout.sql`: DDL lock timeout safety
+  - `0227_multi_currency_engine.sql`: `exchange_rates` table, GL currency columns
+  - `0228_intercompany_schema.sql`: 5 intercompany tables
+  - `0229_project_job_costing.sql`: project costing tables + GL dimensions
+  - `0230_customer_spending_index.sql`: customer spending indexes
+  - `0231_expense_management.sql`: 6 expense management tables
+  - `0232_receipt_public_links.sql`: `receipt_links` + `receipt_settings` tables
+  - `0233_principal_index_pack.sql`: 143 lines of performance indexes
+  - `0234_budgets.sql`: `budgets` + `budget_lines`
+  - `0235_fixed_assets.sql`: `fixed_assets` + `depreciation_schedules`
+  - `0236_gl_document_attachments.sql`: journal entry document links
+  - `0237_rename_tee_booking_transaction_type.sql`: tee-booking type rename
+  - `0238_coa_expansion.sql`: additional GL account templates
+  - `0239_kds_routing_rule_type_check_fix.sql`: KDS type check fix
+  - `0240_drop_cross_module_gl_fk_constraints.sql`: drops cross-module FK constraints for microservice extractability
+- **PMS-POS Integration (Room Charge Tender)** — uncommitted:
+  - **PMS queries**: `searchCheckedInGuestsForPOS`, `getCheckedInGuestByRoom`, `getActiveFolioForGuest`, `getFolioSummaryForPOS` — optimized POS hot-path queries
+  - **PMS consumers**: `handleRoomChargeTender`, `handleFolioSettlementTender` — POS room charge posts to guest folio
+  - **Cross-module API**: `PmsReadApi` + `PmsWriteApi` singletons (same pattern as CatalogReadApi/ReconciliationReadApi)
+  - **4 API routes** under `/api/v1/pms/pos/`: guest search, room lookup, folio get, folio summary
+  - **Components**: `GuestSearchDialog`, `FolioBalanceBadge`, `RoomChargeTender`
+  - **Hook**: `use-pms-pos.ts`, **Bootstrap**: `pms-bootstrap.ts`
+  - **Migration 0246**: `folio_id` + `guest_name` on `register_tabs`
+- **Register Tab Sync Foundation** — uncommitted:
+  - **Schema**: `version`, `location_id`, `status`, `device_id`, `last_activity_at`, `metadata` columns on `register_tabs` (migration 0244), performance indexes (migration 0245)
+  - **Core submodule**: `packages/core/src/register-tabs/` — 4 commands (create, update, close, transfer), 1 consumer (auto-clear on payment/void)
+  - **Tab sync infrastructure**: BroadcastChannel + SSE sync (`tab-sync-service.ts`, `tab-sync-channel.ts`, `tab-sync-sse.ts`), activity heartbeat (`tab-activity.ts`), multi-device presence (`tab-presence.ts`), offline mutation queue (`pos-offline-tab-sync.ts`)
+  - **API**: SSE streaming endpoint (`/api/v1/tab-sync/stream`), stale tab cleanup cron (`/api/v1/internal/cleanup-tabs`)
+  - **Hooks**: `use-register-tabs.ts` enhanced with version conflict handling, presence tracking, sync subscription, `use-pos-batch.ts` with `drainBatch()` + stale response detection
+  - **Component**: `AllTabsOverlay` for retail POS
+- **Web Apps Registry** — uncommitted:
+  - **Shared constants**: `packages/shared/src/constants/web-apps.ts` — `WEB_APP_REGISTRY` with typed definitions
+  - **Settings page**: `/settings/web-apps` rewritten from hardcoded to registry-driven with module filtering, category sections, entitlement-gated visibility
+- **Migrations 0241–0246** (uncommitted):
+  - `0241_spa_module.sql`: 30 spa tables + indexes + RLS (1,259 lines)
+  - `0242_spa_reporting_read_models.sql`: 4 `rm_spa_*` CQRS read models
+  - `0243_unmapped_events_performance.sql`: GL unmapped events performance indexes
+  - `0244_register_tab_sync_foundation.sql`: register tab sync columns
+  - `0245_tab_sync_indexes.sql`: tab sync performance indexes
+  - `0246_pms_pos_room_charge.sql`: PMS room charge columns on register_tabs
+- **Spa Management Module** (`packages/modules/spa/`) — Session 2026-02-28:
+  - **30 schema tables** (26 operational + 4 CQRS read models) in `packages/db/src/schema/spa.ts` + `spa-reporting.ts`: spa_settings, spa_service_categories, spa_services, spa_service_addons, spa_service_addon_links, spa_service_resource_requirements, spa_providers, spa_provider_availability, spa_provider_time_off, spa_provider_services, spa_resources, spa_resource_schedules, spa_appointments, spa_appointment_items, spa_appointment_intake, spa_clinical_notes, spa_appointment_history, spa_waitlist, spa_commission_rules, spa_commission_ledger, spa_package_definitions, spa_package_definition_services, spa_customer_packages, spa_package_redemptions, spa_turnover_tasks, spa_daily_operations + rm_spa_daily_summary, rm_spa_provider_performance, rm_spa_service_analytics, rm_spa_client_insights
+  - **Migrations**: 0241 (spa module — 30 tables + indexes + RLS), 0242 (spa reporting read models)
+  - **63+ commands** across 39 command files: settings, services (create/update/archive + categories + addons + resource requirements + reorder), providers (create/update/deactivate + availability + time-off + eligibility), resources (create/update/deactivate), appointments (create/update/confirm/check-in/start/complete/checkout/cancel/no-show/reschedule + add/remove service + recurring + bulk update), waitlist (add/remove/offer/accept/decline), commissions (create/update/deactivate rules + calculate/approve/pay), packages (create/update/deactivate definitions + purchase/redeem/void/freeze/unfreeze/transfer/expire), turnovers (create/update/start/complete/skip/auto-create), daily operations (open/update-checklist/add-incident/close/add-notes)
+  - **60+ queries** across 39 query files: settings, service categories, services (list/get/menu/booking/addons), resources (list/get/available), providers (list/get/schedule/time-off/eligibility), appointments (list/get/calendar/history/available-slots/by-token), dashboard, waitlist (list/stats), commissions (rules/ledger/summary/performance), packages (definitions/customer/balance), reporting (analytics/client-insights/daily-trends/dashboard/provider-performance), turnovers (list/by-resource/stats), daily operations (get/list)
+  - **47 API routes** under `/api/v1/spa/`: settings (GET/PATCH), services (CRUD + categories + addons + menu + reorder), providers (CRUD + availability + time-off + eligibility), resources (CRUD + available), appointments (list/create/[id] GET/PATCH + actions: confirm/check-in/start/complete/checkout/cancel/no-show/reschedule + items + recurring + bulk + calendar + available-slots), waitlist (CRUD + actions), commissions (rules CRUD + calculate/approve/pay + ledger/summary), packages (definitions CRUD + purchase/redeem/void/freeze/unfreeze/transfer + balance), reporting (analytics/insights/trends/dashboard/performance), daily operations
+  - **Public booking routes**: `/api/v1/spa/public/[tenantSlug]/` — services menu, available slots, create booking, manage booking by token
+  - **Guest booking pages**: `/(guest)/book/[tenantSlug]/spa/` — 3-step booking flow (service → time → confirm) + booking management page
+  - **9 helper engines**: availability-engine (slot calculation, provider day schedule, conflict-aware), appointment-transitions (state machine with 14 valid transitions, terminal/active status helpers), conflict-detector (provider/resource/customer overlap detection with 5 parallel checks), deposit-rules (configurable deposits, waiver logic, refund calculation), cancellation-engine (tiered fees, time-window logic, no-show fees), waitlist-matcher (scoring algorithm, flexibility matching, batch matching), commission-engine (6-level priority resolution, 4 commission types: percentage/flat/tiered/sliding-scale, appointment-level calculation), rebooking-engine (intelligent suggestions, day scoring, time slot optimization), dynamic-pricing (time-of-day/day-of-week/demand/lead-time adjustments)
+  - **7 event consumer files**: appointment lifecycle (created/confirmed/checked-in/started/completed/checked-out/canceled/no-showed), daily summary projection, provider performance projection, service analytics projection, client insights projection, appointment-to-order bridge
+  - **3 GL posting adapters** in accounting module: spa-posting-adapter (appointment checkout → GL), spa-package-posting-adapter (deferred revenue for package purchases/redemptions), spa-commission-posting-adapter (commission payable entries)
+  - **650 tests** across 8 test files: availability-engine (112), appointment-transitions (78), conflict-detector (56), deposit-cancellation (96), commission-engine (88), waitlist-matcher (72), rebooking-engine (84), dynamic-pricing (64)
+  - **28 frontend pages** under `/(dashboard)/spa/`: dashboard, calendar, appointments (list + [id] detail + new), services (list + categories + addons), providers (list + [id] detail), resources, waitlist, packages (definitions + customer), commissions (rules + ledger), reports (analytics + performance + trends + dashboard), settings, intake, booking management
+  - **1 main hook**: `use-spa.ts` — React Query-based data hooks for all spa entities
+  - **27 spa permissions** across 8 categories: settings (view/manage), services (view/manage), providers (view/manage), resources (view/manage), appointments (view/manage/checkout), waitlist (view/manage), packages (view/manage/redeem), commissions (view/manage/approve), reports (view/export), booking (view/manage)
+  - **Sidebar navigation**: Spa section with 11 sub-items in 3 groups (Operations: Dashboard/Calendar/Appointments, Catalog: Services/Providers/Resources, Business: Packages/Commissions/Waitlist/Reports/Settings)
+  - **Appointment state machine**: 8 statuses (scheduled→confirmed→checked_in→in_service→completed→checked_out, + canceled/no_show). 14 valid transitions. Terminal statuses: checked_out, canceled, no_show. Conflict-excluded statuses: canceled, no_show.
+  - **Online booking portal**: public API for service menu browsing, real-time slot availability, appointment creation with deposit calculation, token-based booking management (view/cancel/reschedule)
+  - **Dynamic pricing**: configurable rules for time-of-day premiums (peak hours), day-of-week adjustments (weekend surcharge), demand-based pricing (high utilization markup), and lead-time discounts (advance booking savings)
+  - **Package system**: package definitions with included services, session counts, validity periods. Customer package lifecycle: purchase → redeem → freeze/unfreeze → transfer → expire. Deferred revenue GL via spa-package-posting-adapter.
+  - **Commission system**: 6-level priority resolution (provider+service → provider+category → provider+all → tenant+service → tenant+category → tenant+all). 4 commission types with tier support. Per-appointment calculation with service/addon/tip breakdowns.
+  - **Operations workflows**: room turnover task management (auto-create from completed appointments), daily operations checklists (opening/closing), incident reporting
+  - **CQRS read models**: 4 `rm_spa_*` tables updated by event consumers for reporting dashboard, provider performance, service analytics, and client insights
+
+### Test Coverage
+10617+ tests: 159 core (134 + 25 impersonation-safety) + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 916 customers (100 base + 251 smart-tag-templates + 140 tag-predictive-conditions + 67 tag-expiration + 56 tag-evidence-builder + 82 tag-conflict-resolver + 46 tag-analytics + 53 csv-import + 38 tag-actions + 40 tag-evaluation-consumer + 43 tag-lifecycle-services) + 813 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive + 93 host-stand + 43 host-integration + 35 host-api + 21 onboarding-status) + 27 db + 115 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache + 16 consumer-validation) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 312 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability + 36 pii-masker) + 45 admin (28 auth + 17 eval-api) + 405 admin-phase1a + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 319 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix + 10 gl-audit-fixes) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1175 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables + 58 host-estimator + 51 host-reservations + 55 host-waitlist) + 310 pms (17 availability + 10 errors + 35 events + 8 folio-totals + 20 permissions + 38 pricing-engine + 21 room-assignment + 25 state-machines + 15 template-renderer + 121 validation) + 650 spa (112 availability-engine + 78 appointment-transitions + 56 conflict-detector + 96 deposit-cancellation + 88 commission-engine + 72 waitlist-matcher + 84 rebooking-engine + 64 dynamic-pricing) + 2145 expenses (expense lifecycle + approval workflows + receipt processing + policy evaluation + GL posting + reimbursement + mileage + per-diem + allocation + split + delegation + budget integration) + 667 project-costing (project lifecycle + task management + cost allocation + profitability + GL integration + budget tracking + time entries + milestone billing) + 626 multi-currency (exchange rates + GL functional amounts + unrealized gains/losses + revaluation + reporting currency + close checklist) + 1198 revenue-pipeline (13 consumer handlers + cross-module revenue tracking + unified revenue activity + reporting aggregation + idempotency + edge cases)
+
+### What's Built (Infrastructure)
+- **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
+- **Admin API**: `/api/health` (public, minimal), `/api/admin/health` (full diagnostics), `/api/admin/metrics/system`, `/api/admin/metrics/tenants`, `/api/admin/migration-readiness`
+- **Container Migration Plan**: Docker multi-stage builds, docker-compose, Terraform (AWS ECS Fargate + RDS + ElastiCache), CI/CD (GitHub Actions), deployment config abstraction, feature flags, full Vercel/Supabase limits audit with 2026 pricing, cost projections, migration trigger framework (16/21 pre-migration checklist items complete)
+- **Security Hardening**: Security headers (CSP, HSTS, X-Frame-Options, etc.) on both web and admin apps, in-memory sliding window rate limiter on all auth endpoints, auth event audit logging (login/signup/logout), env-var-driven DB pool + prepared statement config, debug/link-account endpoints disabled (410 Gone), semantic pipeline errors sanitized (generic message to clients). Full audit at `infra/SECURITY_AUDIT.md`
+- **CI/CD**: GitHub Actions workflow (`.github/workflows/lint-typecheck.yml`) — lint, type-check, test, build on push/PR to main. Vitest coverage reporting via `@vitest/coverage-v8` (v8 provider, lcov + json-summary reporters) across all 16 packages. Run `pnpm test:coverage` for coverage reports.
+- **Legacy Migration Pipeline**: 14 files in `tools/migration/` (~4,030 lines) — config, ID mapping, transformers, validators, pipeline, cutover/rollback, monitoring
+- **Load Testing**: k6 scenarios for auth, catalog, orders, inventory, customers (in `load-tests/`)
+- **Business Logic Tests**: 30 test files in `test/` covering all domain invariants
+
+- **Semantic Layer (AI Insights)** (Sessions 0–10):
+  - **Schema**: `packages/db/src/schema/semantic.ts` (6 tables: metrics, dimensions, metric-dimensions, table-sources, lenses) + `evaluation.ts` (4 tables: eval-sessions, eval-turns, eval-examples, eval-quality-daily) + `platform.ts` (platform-admins). Migrations 0070–0073.
+  - **Registry**: In-memory with stale-while-revalidate (5min TTL + 10min SWR window). 16 core metrics, 8 core dimensions, 8 golf metrics, 6 golf dimensions, 60+ metric-dimension relations, 4 system lenses. `syncRegistryToDb()` + `invalidateRegistryCache()`.
+  - **Query Compiler**: `compilePlan()` — validates metrics/dimensions against registry, builds parameterized SQL with GROUP BY, WHERE, ORDER BY, LIMIT. Enforces tenant isolation, date range, max rows (10K), max cols (20), max filters (15).
+  - **LLM Pipeline (Dual-Mode)**: `runPipeline()` orchestrates two modes: **Mode A (metrics)**: intent → compile via registry → execute → narrate. **Mode B (SQL)**: intent → generate SQL via LLM → validate → execute → auto-retry on failure → narrate. Mode routing is automatic based on intent confidence and schema catalog availability. Both modes share eval capture, caching (query cache + LLM response cache), and observability. Post-pipeline enrichments: `generateFollowUps()`, `inferChartConfig()`, `scoreDataQuality()`.
+  - **SQL Generation Pipeline (Mode B)**: `generateSql()` builds a system prompt with full DB schema (via `buildSchemaCatalog()`), money/date/status conventions, common query patterns, and RAG few-shot examples. `validateGeneratedSql()` enforces SELECT-only, tenant isolation, LIMIT, table whitelist, and blocks dangerous functions. `retrySqlGeneration()` sends errors back to LLM for one auto-correction attempt. `pruneForSqlGenerator()` trims conversation history to fit token budgets.
+  - **Intelligence Enrichments**: `generateFollowUps()` suggests contextual follow-up questions based on query results and plan. `inferChartConfig()` auto-detects optimal chart type (line/bar/pie/table) from data shape. `scoreDataQuality()` computes confidence score from row count, execution time, date range coverage, and schema tables used. `checkPlausibility()` (SEM-09) validates query results against statistical expectations and grades A-F with warning codes.
+  - **Deterministic Fast Path (SEM-03)**: `tryFastPath()` in `fast-path.ts` matches common queries via 15+ regex patterns (sales today/yesterday/this week/month, order count, AOV, top items, category breakdown, void rate, customer/user count) and returns pre-built `ResolvedIntent` without calling the LLM. Saves ~500ms+ latency and ~$0.003 per call. Only matches single-turn, short (<100 chars), unambiguous queries. Returns null on no match (falls through to LLM).
+  - **SSE Streaming Pipeline**: `runPipelineStreaming()` emits progressive SSE events: `status` (stage progress), `intent_resolved` (plan + confidence), `data_ready` (query results), `narrative_chunk` (incremental text deltas), `enrichments` (follow-ups, chart config, data quality), `complete` (full PipelineOutput), `error`. Frontend `useSemanticChat` has `sendMessageStreaming()` using `ReadableStream` reader for progressive narrative display.
+  - **Anthropic Prompt Caching (SEM-02)**: `systemPromptParts` on `LLMCompletionOptions` splits system prompt into stable/dynamic blocks. Mark the last stable block with `cacheControl: true` for ~90% input token cost reduction on cache hits. Anthropic adapter sends `anthropic-beta: prompt-caching-2024-07-31` header and maps parts to `content[].cache_control` blocks.
+  - **Zod LLM Output Validation (SEM-01)**: `IntentResponseSchema` in `intent-resolver.ts` validates LLM JSON output with automatic defaults (confidence clamped 0-1, empty arrays for missing fields, boolean coercion). Replaces manual typeof checks. Uses `safeParse()` — on failure, logs raw response and falls back to clarification mode.
+  - **RAG Diversity & Deduplication**: `diversityThreshold` (default 0.85) in `few-shot-retriever.ts` prevents near-duplicate examples via Jaccard token overlap. `compositeScoring` combines similarity + quality + recency scores. `ragExamplesSnippet` fetched once in intent resolver and passed downstream to SQL generator (avoids double DB query). Batch usage count increment via fire-and-forget `incrementUsageCounts()`.
+  - **Narrative Engine — THE OPPS ERA LENS**: Universal SMB optimization framework powering all AI responses. System prompt in `narrative.ts` with `buildNarrativeSystemPrompt()`. Features:
+    - **DATA-FIRST DECISION RULE**: Priority chain: REAL DATA → ASSUMPTIONS → BEST PRACTICE. Never refuses a question.
+    - **Adaptive depth**: DEFAULT MODE (concise, <400 words) for most responses; DEEP MODE for strategic/financial decisions; QUICK WINS MODE for urgent help.
+    - **Industry translation**: `getIndustryHint(lensSlug)` auto-translates to user's industry (golf → tee sheet utilization, retail → shelf space, hospitality → covers).
+    - **Structured response**: Answer → Options (3, with Effort/Impact) → Recommendation (with confidence %) → Quick Wins → ROI Snapshot → What to Track → Next Steps. Sections are optional — skip what doesn't apply.
+    - **ADVISOR MODE**: When data is missing (0-row results or compilation errors), pipeline still calls LLM with business context. `buildEmptyResultNarrative()` is static fallback only if LLM fails.
+    - **Markdown parser**: `parseMarkdownNarrative()` splits LLM markdown into typed `NarrativeSection[]` via `HEADING_TO_SECTION` lookup (20+ heading variants). Footer `*THE OPPS ERA LENS. [metrics]. [period].*` → `data_sources` section.
+    - **Section types**: `answer`, `options`, `recommendation`, `quick_wins`, `roi_snapshot`, `what_to_track`, `conversation_driver`, `assumptions`, `data_sources` + legacy types for backward compat.
+    - **Metric context**: `buildMetricContext(metricDefs)` injects metric definitions (displayName, description, higherIsBetter, format) into the prompt so the LLM understands what each metric means.
+  - **Intent Resolver Improvements**: Biased toward attempting queries instead of clarifying. Rule 3: only clarify when genuinely cannot map ANY part to available metrics. Rule 4: default to last 7 days when no date range specified. Rule 8: general business questions still build a plan with most relevant metrics (confidence <0.6).
+  - **Evaluation Layer**: `semanticEvalSessions` (conversation tracking) + `semanticEvalTurns` (57 columns: input, LLM plan, compilation, execution, user feedback, admin review, quality scoring) + `semanticEvalExamples` (golden few-shot training data) + `semanticEvalQualityDaily` (pre-aggregated read model). Quality score formula: 40% admin + 30% user + 30% heuristics. Capture service (fire-and-forget). Feedback commands (user rating 1-5 + tags, admin verdict + corrected plan). `promoteToExample()` for few-shot curation. 8 golf training examples.
+  - **Custom Lenses**: `createCustomLens`, `updateCustomLens`, `deactivateCustomLens`, `reactivateCustomLens`, `getCustomLens`, `listCustomLenses`. Slug validation. Partial unique indexes (system vs tenant). API routes: GET/POST `/api/v1/semantic/lenses`, GET/PATCH/DELETE `/api/v1/semantic/lenses/[slug]`.
+  - **Cache Layer**: Query result LRU cache (`getFromQueryCache`/`setInQueryCache`/`invalidateQueryCache`). Sliding window rate limiter (30 req/min per tenant). Admin cache invalidation API.
+  - **Observability**: Per-tenant + global metrics (p50/p95 latency, cache hit rate, token usage, error rate). `GET /api/v1/semantic/admin/metrics`.
+  - **Chat UI**: `useSemanticChat` hook (multi-turn, 10-message context window, session management, `initFromSession()` for recall, `sendMessageStreaming()` for SSE streaming with progressive narrative display), `ChatMessageBubble` (markdown + table + debug panel), `ChatInput` (auto-resize), `FeedbackWidget` (thumbs + 5-star + tags + text), `RatingStars` component. `InsightsContent` page at `/insights` with suggested questions + inline chat history sidebar. Sub-pages: `/insights/history` (session list with Open/Export buttons), `/insights/lenses` (system + custom lens management). Sidebar nav "AI Insights" with Sparkles icon + Chat, Lenses, History children.
+  - **Chat History Sidebar**: Inline flexbox panel (320px, right of chat) on desktop `lg:` 1024px+, slide-in overlay with backdrop on mobile. `ChatHistorySidebar` component (`components/insights/ChatHistorySidebar.tsx`) with session list, active highlighting, "New Chat", "Load more", "View all history" link. `useSessionHistory` hook (`hooks/use-session-history.ts`) shared between sidebar and standalone history page — cursor-paginated session list with `refresh()`. `exportSessionAsTxt()` utility (`lib/export-chat.ts`) for .txt download. Desktop toggle persisted in `localStorage('insights_history_open')`. Sidebar refreshes via `refreshKey` prop with 1s delay after `sendMessage` (eval capture is async).
+  - **Sync Scripts**: `src/sync/sync-registry.ts` + `src/sync/golf-seed.ts`. Run with `pnpm --filter @oppsera/module-semantic semantic:sync`.
+  - **API Routes**: `/ask` (conversational, rate-limited), `/query` (raw data), `/metrics`, `/dimensions`, `/lenses`, `/lenses/[slug]`, `/sessions` (session list, cursor-paginated), `/sessions/[sessionId]` (session detail + turns for chat reconstruction), `/eval/feed` (query history), `/eval/turns/[id]/feedback`, `/admin/invalidate`, `/admin/metrics`.
+  - **Tests**: 276 semantic module tests (registry, compiler, 30 pipeline incl. OPPS ERA LENS section parsing, lenses, cache, observability, eval) + 178 web route tests.
+- **Admin App** (`apps/admin/`):
+  - Separate Next.js app on port 3001 for platform operators (NOT tenant-scoped)
+  - **Auth**: Email/password → JWT (HS256, 8h TTL) + HttpOnly cookie. `platformAdmins` table with bcrypt password hashing. Legacy 3 roles: viewer, admin, super_admin. `withAdminAuth(handler, minRole)` middleware. New granular RBAC via `platform_admin_roles` + `platform_admin_role_permissions`.
+  - **Train AI Section** (expanded from Eval): `/train-ai/examples` (golden examples with bulk import/export + effectiveness tracking), `/train-ai/turns/[turnId]` (turn detail with plan viewer, SQL viewer, result sample, admin review), `/train-ai/batch-review` (bulk review workflows), `/train-ai/comparative` (A/B comparison), `/train-ai/conversations` (conversation analysis), `/train-ai/cost` (token/cost analytics), `/train-ai/experiments` (A/B experiments), `/train-ai/playground` (interactive testing), `/train-ai/regression` (regression testing), `/train-ai/safety` (safety evaluation)
+  - **Eval Training Hook**: `useEvalTraining()` centralizes all AI training operations — examples CRUD + bulk import/export + effectiveness, batch review, experiments, regression, cost analytics, safety, conversations
+  - **Components**: AdminSidebar (with Train AI section), EvalTurnCard, QualityFlagPills, QualityKpiCard, VerdictBadge, RatingStars, PlanViewer, SqlViewer, TenantSelector
+  - **API Routes**: 20+ eval endpoints (examples CRUD + bulk-import + export + effectiveness, turns + promote-correction, batch-review, conversations, cost, experiments, playground, regression, safety) + ~6 admin staff/customer endpoints + ~12 tenant endpoints + module template endpoints
+  - **Tests**: 45 tests (28 auth + 17 eval API)
+  - **Entitlement**: `semantic` module added to core entitlements registry. Script: `tools/scripts/add-semantic-entitlement.ts` for existing tenants.
+  - **Utility**: `scripts/switch-env.sh` (toggle local/remote Supabase)
+  - **Admin RBAC** (migration 0097):
+    - 4 platform tables: `platform_admin_roles`, `platform_admin_role_permissions`, `platform_admin_role_assignments`, `platform_admin_audit_log`
+    - Extended `platform_admins`: `phone`, `status`, invite flow fields, `passwordResetRequired`
+    - `withAdminPermission(handler, { module, action })` middleware for granular access control
+    - `auditAdminAction()` helper for admin operation logging with before/after snapshots
+    - Seed script: `tools/scripts/seed-admin-roles.ts`
+  - **User Management** (`/users`):
+    - Staff tab: invite, suspend, reactivate, password reset, role assignment
+    - Customers tab: cross-tenant customer search (name/email/phone/identifier)
+    - Hooks: `useStaff`, `useCustomersAdmin`
+    - Libs: `staff-commands.ts`, `staff-queries.ts`, `customer-queries.ts`, `admin-audit.ts`, `admin-permissions.ts`
+  - **Tenant Management** (admin):
+    - **Pages**: `/tenants` (list with search, status filter, cursor pagination), `/tenants/[id]` (detail with 3 tabs: Overview, Organization, Entitlements)
+    - **Organization Builder**: 4-column hierarchical UI: Sites → Venues → Profit Centers → Terminals. Full CRUD with modal forms, cascading selection resets.
+    - **Entitlement Toggle**: Three-mode (off/view/full) per module with dependency validation, risk level indicators, reason required for high-risk changes
+    - **Components**: CreateTenantModal, TenantStatusBadge, OrgHierarchyBuilder, HierarchyPanel, LocationFormModal, ProfitCenterFormModal, TerminalFormModal, EntitlementToggleList
+    - **API Routes**: ~12 endpoints under `/api/v1/tenants/` (list, create, detail, update, locations CRUD, profit-centers CRUD, terminals CRUD, entitlements)
+    - **Hooks**: `useTenantList`, `useTenantDetail`, `useOrgHierarchy`, `useTenantEntitlements` in `use-tenant-management.ts`
+    - **Module Templates**: `GET/POST /api/v1/module-templates` — preset module configs by business type
+    - **Admin Context**: `buildAdminCtx(session, tenantId)` creates synthetic `RequestContext` with `user.id = 'admin:{adminId}'`, `isPlatformAdmin: true` for calling core commands
+
+- **Profit Centers Submodule** (`packages/core/src/profit-centers/`):
+  - **7 commands**: `createProfitCenter`, `updateProfitCenter`, `deactivateProfitCenter`, `ensureDefaultProfitCenter`, `createTerminal`, `updateTerminal`, `deactivateTerminal`
+  - **9 queries**: `listProfitCenters`, `getProfitCenter`, `listTerminals`, `getTerminal`, `listTerminalsByLocation`, `getLocationsForSelection`, `getProfitCentersForSelection`, `getTerminalsForSelection`, `getSettingsData`, `getTerminalSelectionAll`
+  - **Types**: `ProfitCenter` (with terminalCount), `Terminal`, `TerminalSession`
+  - **Validation**: Zod schemas for all inputs, `allowSiteLevel` flag for site-level guardrail
+  - **~16 API routes**: CRUD for profit centers + terminals, terminal-session selection endpoints, ensure-default, by-location, settings-data (consolidated), terminal-session/all (consolidated with role filtering)
+  - **Hooks**: `useProfitCenters`, `useProfitCenterMutations`, `useProfitCenterSettings` (consolidated settings fetch + client-side filtering), `useTerminals`, `useTerminalsByLocation`, `useTerminalMutations`
+
+- **Terminal Infrastructure Schema** (`packages/db/src/schema/terminals.ts`):
+  - **9+ tables**: `terminalLocations` (profit centers), `terminals`, `terminalCardReaders`, `terminalCardReaderSettings`, `dayEndClosings`, `dayEndClosingPaymentTypes`, `dayEndClosingCashCounts`, `terminalLocationTipSuggestions`, `terminalLocationFloorPlans`, `drawerEvents`, `registerNotes`, `printers`, `printJobs`
+  - Profit center fields: `locationId`, `code`, `description`, `icon`, `sortOrder`, `tipsApplicable`, receipt config
+  - Terminal fields: `terminalNumber`, `deviceIdentifier`, `ipAddress`, `isActive`, settings (pin lock, auto-logout, signature tip, etc.)
+
+- **Location Hierarchy** (migration 0095):
+  - Adds `parentLocationId` (self-FK) and `locationType` ('site' | 'venue') to `locations` table
+  - Check constraints: sites have no parent, venues must have a parent
+  - Index on `(tenant_id, parent_location_id)` for efficient venue lookups
+  - Hierarchy: Tenant → Site → Venue → Profit Center → Terminal
+
+- **Terminal Session Flow**:
+  - **TerminalSelectionScreen**: Full-screen modal with 4-level cascading selects (Site → Venue → Profit Center → Terminal), auto-selects when only one option exists
+  - **TerminalSessionProvider**: React Context + localStorage persistence (`oppsera:terminal-session`), provides `session`, `setSession()`, `clearSession()`
+  - **`useTerminalSelection` hook**: Single API call (`GET /api/v1/terminal-session/all?roleId=xxx`) fetches all locations + profit centers + terminals, then filters client-side via `useMemo`. Supports optional `roleId` for role-based access scoping. Auto-selects single sites/venues/PCs/terminals via `useEffect` chains. Returns `buildSession()` factory for constructing `TerminalSession` object.
+
+- **Profit Centers Settings UI** (3-panel layout):
+  - **LocationsPane**: Read-only site/venue tree with expand/collapse chevrons, icons (Building2/MapPin), auto-expand single site
+  - **ProfitCenterPane**: CRUD list with selection highlight, MoreVertical menu (Edit/Deactivate), code badge, terminal count pill
+  - **TerminalPane**: CRUD list with terminal number badge, device identifier, menu actions
+  - **Orchestrator** (`profit-centers-content.tsx`): Single API call via `useProfitCenterSettings()` fetches all data; client-side filtering via helper functions (`filterProfitCenters`, `filterTerminalsByLocation`, `filterTerminalsByPC`). Simple/Advanced mode toggle (localStorage), 2-col/3-col grid, selection cascade, site-level warning banner, ensure-default for Simple mode terminal add
+  - **ProfitCenterFormModal**: `prefilledLocationId` + `requireSiteLevelConfirm` props for guardrail checkbox
+  - **Site-level guardrail**: Backend rejects profit centers at sites with child venues unless `allowSiteLevel: true`; frontend shows yellow warning banner + confirmation checkbox
+
+- **OrdersWriteApi** (`packages/core/src/helpers/orders-write-api.ts`):
+  - Cross-module abstraction for creating/modifying orders without direct module imports
+  - Singleton pattern: `setOrdersWriteApi()` / `getOrdersWriteApi()`, wired in `apps/web/src/lib/orders-bootstrap.ts`
+  - Used by PMS integration to create orders from reservations
+
+- **Entitlement Access Modes** (migration 0098):
+  - Evolved from binary (on/off) to three-mode: `off` | `view` | `full`
+  - `MODULE_REGISTRY` enhanced with `dependencies[]`, `riskLevel`, `supportsViewMode`, `category` per module
+  - **Dependency validation**: `validateModeChange()` + `computeDependencyChain()` — pure functions, no DB
+  - **`requireEntitlementWrite(moduleKey)`** — middleware that blocks `view` mode (throws `ModuleViewOnlyError`, 403)
+  - **`withMiddleware` `writeAccess` option** — routes can specify `{ entitlement: 'catalog', writeAccess: true }` to block view-only tenants
+  - **Entitlement change log**: append-only `entitlement_change_log` table tracking all mode changes with reason
+  - **Module templates**: `module_templates` table for preset module configurations by business type
+
+- **Admin Portal RBAC** (migration 0097):
+  - **4 new platform tables**: `platform_admin_roles`, `platform_admin_role_permissions`, `platform_admin_role_assignments`, `platform_admin_audit_log`
+  - Extended `platform_admins`: `phone`, `status` (active/invited/suspended/deleted), invite flow fields (`inviteTokenHash`, `inviteExpiresAt`), `passwordResetRequired`
+  - Granular permission model: `module.submodule.action` with `scope` (global/tenant/self)
+  - Admin audit log with before/after snapshots
+  - `withAdminPermission(handler, { module, action })` middleware
+  - `auditAdminAction()` helper for logging admin operations
+  - Seed script: `tools/scripts/seed-admin-roles.ts` for default roles
+
+- **Admin User Management**:
+  - **Staff management**: `/users` page with invite, suspend, reactivate, password reset, role assignment
+  - **Customer admin**: cross-tenant customer search (name/email/phone/identifier)
+  - **API routes**: `GET/POST /api/v1/admin/staff`, `PATCH /api/v1/admin/staff/[id]`, `GET /api/v1/admin/customers`
+  - **Hooks**: `useStaff`, `useCustomersAdmin`
+  - **Libs**: `staff-commands.ts`, `staff-queries.ts`, `customer-queries.ts`, `admin-audit.ts`, `admin-permissions.ts`
+
+- **F&B POS Improvements**:
+  - Floor + Tab views now CSS-mounted (stay mounted, toggle via `hidden` class) — prevents data loss on screen switch
+  - New `TableGridView` component for grid-based table layout (alternative to canvas)
+  - Auto-fit floor canvas: computes bounding box and calculates `viewScale` to fit all tables
+  - `fnb-pos-store`: added `selectedMenuCategory` for persistent category selection
+  - Enhanced `useFnbTab` hook with targeted `tabId` operations
+  - Enhanced `useFnbMenu` hook with persistent search and category state
+
+- **Order Metadata Support**:
+  - Orders now support `metadata: Record<string, unknown>` (JSONB) for cross-module context
+  - Added to `openOrderSchema` and `updateOrderSchema` validation
+  - Used by PMS `check-in-to-pos` route to attach reservation context
+
+- **Terminal Session Integration**:
+  - POS layout now uses `TerminalSessionProvider` for terminal ID (replaces URL param / localStorage)
+  - Dashboard layout gates children with `TerminalSessionGate` — shows selection screen if no session
+  - Users can skip terminal selection for non-POS workflows
+
+- **Seed Data Updates**:
+  - Location hierarchy: 1 site + 2 venues (was flat locations)
+  - Profit centers: 2 (one per venue) with code/description
+  - Terminals: 2 (one per profit center) with terminal numbers
+
+- **Migrations 0093–0098**:
+  - `0093_profit_center_extensions.sql`: adds location_id, code, description, is_active, icon, sort_order to terminal_locations + location_id, terminal_number, device_identifier, ip_address, is_active to terminals. Backfills existing rows.
+  - `0094_optimize_rls_current_setting.sql`: wraps all RLS `current_setting()` calls in subqueries `(select current_setting(...))` for InitPlan evaluation (once per query instead of per-row). Idempotent PL/pgSQL.
+  - `0095_location_hierarchy.sql`: adds parent_location_id + location_type to locations with check constraints and index.
+  - `0096_unindexed_foreign_keys.sql`: adds missing indexes on catalog_items.tax_category_id, ap_bills.payment_terms_id, customer_auth_accounts.customer_id.
+  - `0097_admin_user_management.sql`: extends platform_admins, adds platform_admin_roles + permissions + assignments + audit_log tables.
+  - `0098_entitlement_access_modes.sql`: adds access_mode to entitlements, creates entitlement_change_log and module_templates tables.
+- **Migrations 0099–0107** (Accounting Alignment Sessions 37–48):
+  - `0099_legacy_gl_gate.sql`: `enable_legacy_gl_posting` on accounting_settings
+  - `0100_accounting_tips_service_charge.sql`: tips payable + service charge GL account defaults
+  - `0101_gl_line_dimensions.sql`: profitCenterId, subDepartmentId, terminalId, channel on gl_journal_lines
+  - `0102_coa_template_accounts.sql`: Tips Payable (2160) + Service Charge Revenue (4500) templates
+  - `0103_line_item_returns.sql`: return_type, return_order_id on orders; original_line_id on order_lines
+  - `0104_fnb_gl_account_mappings.sql`: fnb_gl_account_mappings table for F&B GL resolution
+  - `0105_voucher_gl_audit.sql`: gl_journal_entry_id on voucher tables
+  - `0106_membership_gl_ar_billing.sql`: revenue/deferred GL on membership_plans; billing_account_id on orders
+  - `0107_chargebacks.sql`: chargebacks table (received → under_review → won/lost)
+- **Migrations 0108–0118** (UXOPS-01 through UXOPS-11):
+  - `0108_drawer_sessions.sql`: drawer_sessions + drawer_session_events tables
+  - `0109_retail_close_batches.sql`: retail_close_batches + tender/tax breakdown tables
+  - `0110_comp_events.sql`: comp_events + comp GL defaults
+  - `0111_returns_contra_accounts.sql`: is_contra_account on gl_accounts + returns account default
+  - `0112_payment_settlements.sql`: payment_settlements + payment_settlement_lines
+  - `0113_tip_payouts.sql`: tip_payouts + tip_payout_details
+  - `0114_tax_jurisdiction_enrichment.sql`: jurisdiction columns on tax_rates
+  - `0115_cogs_posting_mode.sql`: COGS tri-state on settings + periodic_cogs_calculations table
+  - `0116_fnb_batch_category_version.sql`: category_version on fnb_close_batch_summaries
+  - `0117_event_dead_letters.sql`: event_dead_letters table
+  - `0118_deposit_slips.sql`: deposit_slips table
+
+### What's Next
+- ~~F&B POS frontend wiring~~ ✓ DONE (Sessions 17-28: 12 phases — design tokens, floor plan, tab/check, menu, KDS/expo, split checks, payment/tips, manager/host/close-batch, real-time, architecture, responsive, integration tests)
+- F&B POS migration (run fnb schema migration 0082 on dev DB, then sync tables from room layouts)
+- Accounting frontend (COA management, journal browser, ~~mapping UI~~, ~~payment type mapping UI~~, report viewers, statement viewers)
+- AP frontend (bill entry, payment batch, aging dashboard, vendor ledger)
+- AR frontend (invoice entry, receipt entry, aging dashboard, customer ledger)
+- AP approval workflow (Draft → Pending Approval → Approved → Posted)
+- Bank reconciliation module (match bank feeds to GL entries)
+- Vendor Management remaining API routes (search, deactivate/reactivate, catalog CRUD endpoints)
+- Purchase Orders module Phases 2-6 (commands, queries, API routes, frontend) — schema done
+- Receiving module frontend polish (barcode scan on receipt lines, cost preview panel, void receipt UI)
+- Settings → Dashboard tab (widget toggles, notes editor)
+- Install `@sentry/nextjs` and uncomment Sentry init in `instrumentation.ts`
+- Ship logs to external aggregator (Axiom/Datadog/Grafana Cloud)
+- Remaining security items: CORS for production, email verification, account lockout, container image scanning (see `infra/SECURITY_AUDIT.md` checklist)
+- Run `pnpm --filter @oppsera/module-semantic semantic:sync` after migrations 0070-0073
+- For existing tenants: run `tools/scripts/add-semantic-entitlement.ts` to grant semantic access
+- ~~Package "Price as sum of components" toggle~~ ✓ DONE (Session 27)
+- ~~Debug/link-account endpoints secured~~ ✓ DONE (Session 35)
+- ~~Semantic error message sanitization~~ ✓ DONE (Session 35)
+- ~~Admin app security headers~~ ✓ DONE (Session 35)
+- ~~Payments module unit tests (0 → 101)~~ ✓ DONE (Session 35)
+- ~~AR tests expanded (23 → 129)~~ ✓ DONE (Session 35)
+- ~~CI workflow (lint + type-check + test + build)~~ ✓ DONE (Session 35)
+- ~~AR InvoiceStatusError → 409~~ ✓ DONE (Session 35)
+- ~~AR customer validation in createInvoice~~ ✓ DONE (Session 35)
+- ~~buildQueryString() helper extracted~~ ✓ DONE (Session 35)
+- ~~accounts-content.tsx split into sub-components~~ ✓ DONE (Session 35)
+- ~~Test coverage reporting configured~~ ✓ DONE (Session 35)
+- ~~POS/Accounting/AP/AR API route contract tests (74 tests)~~ ✓ DONE (Session 35)
+- ~~Profit Centers submodule (core commands/queries + API routes + hooks)~~ ✓ DONE
+- ~~Terminal infrastructure schema (9+ tables in terminals.ts)~~ ✓ DONE
+- ~~Location hierarchy (parent_location_id + location_type on locations)~~ ✓ DONE
+- ~~Terminal session flow (selection screen + session provider + localStorage)~~ ✓ DONE
+- ~~Profit Centers 3-panel Settings UI (Simple/Advanced mode + guardrails)~~ ✓ DONE
+- ~~Admin tenant management (CRUD + hierarchy builder + entitlements)~~ ✓ DONE
+- ~~RLS optimization (subquery-wrapped current_setting for InitPlan caching)~~ ✓ DONE
+- ~~OrdersWriteApi cross-module abstraction~~ ✓ DONE
+- ~~Entitlement access modes (off/view/full) + dependency validation~~ ✓ DONE
+- ~~Admin portal RBAC (roles, permissions, audit log)~~ ✓ DONE
+- ~~Admin user management (staff + customer pages)~~ ✓ DONE
+- ~~F&B POS CSS-mount for floor/tab views~~ ✓ DONE
+- ~~Order metadata support (JSONB)~~ ✓ DONE
+- ~~Seed: site→venue hierarchy + profit centers + terminals~~ ✓ DONE
+- ~~Accounting alignment: dual GL posting fix~~ ✓ DONE (Session 37)
+- ~~Accounting alignment: complete GL categories~~ ✓ DONE (Session 38)
+- ~~Accounting alignment: void GL reversal~~ ✓ DONE (Session 39)
+- ~~Accounting alignment: GL dimensions~~ ✓ DONE (Session 40)
+- ~~Accounting alignment: close checklist enhancements~~ ✓ DONE (Session 41)
+- ~~Accounting alignment: COA templates + backfill~~ ✓ DONE (Session 42)
+- ~~Accounting alignment: line-item refunds~~ ✓ DONE (Session 43)
+- ~~Accounting alignment: F&B GL wiring~~ ✓ DONE (Session 44)
+- ~~Accounting alignment: voucher deferred revenue~~ ✓ DONE (Session 45)
+- ~~Accounting alignment: memberships GL + AR~~ ✓ DONE (Session 46)
+- ~~Accounting alignment: chargeback support~~ ✓ DONE (Session 47)
+- ~~Accounting alignment: posting matrix + integration tests~~ ✓ DONE (Session 48)
+- ~~UXOPS-01: Drawer sessions (server-persisted shifts)~~ ✓ DONE
+- ~~UXOPS-02: Retail close + Z-report~~ ✓ DONE
+- ~~UXOPS-03: Manager PIN + Comp/Void-Line GL~~ ✓ DONE
+- ~~UXOPS-04: Partial refunds + returns contra-accounts~~ ✓ DONE
+- ~~UXOPS-05: Card settlement + clearing accounts~~ ✓ DONE
+- ~~UXOPS-06: Tip payout workflow~~ ✓ DONE
+- ~~UXOPS-07: Tax jurisdiction enrichment + remittance report~~ ✓ DONE
+- ~~UXOPS-08: COGS posting mode (disabled/perpetual/periodic)~~ ✓ DONE
+- ~~UXOPS-09: F&B batch category keys + coverage~~ ✓ DONE
+- ~~UXOPS-10: Dead letter queue + admin UI~~ ✓ DONE
+- ~~UXOPS-11: Hybrid close + deposit aggregation~~ ✓ DONE
+- ~~UXOPS-12: Close checklist extensions + settings~~ ✓ DONE
+- ~~UXOPS-13: Operations dashboard + tender audit trail~~ ✓ DONE
+- ~~UXOPS-14: Integration tests + posting matrix extension~~ ✓ DONE
+- ~~ACCT-CLOSE-01: Cash Drawer Hardening~~ ✓ DONE
+- ~~ACCT-CLOSE-02: Breakage Income Configurability~~ ✓ DONE
+- ~~ACCT-CLOSE-03: Reconciliation Summary Dashboard~~ ✓ DONE
+- ~~ACCT-CLOSE-04: Audit Log Consistency Pass~~ ✓ DONE
+- ~~ACCT-CLOSE-05: Permissions Matrix~~ ✓ DONE
+- ~~ACCT-CLOSE-06: Multi-Currency + Recurring Journal Entries~~ ✓ DONE
+- ~~ACCT-CLOSE-07: Bank Reconciliation~~ ✓ DONE
+- ~~ACCT-CLOSE-08: Documentation + Provisioning~~ ✓ DONE
+- ~~Reporting consumers cents→dollars conversion~~ ✓ DONE
+- ~~Dashboard 3-tier fallback (read models → today orders → all-time)~~ ✓ DONE
+- ~~Reports backfill route for seed data~~ ✓ DONE
+- ~~AccountPicker intelligent suggestions (semantic grouping + 20 role paths)~~ ✓ DONE
+- ~~Mapping content 5-tab layout with auto-mapping engine~~ ✓ DONE
+- ~~Dark mode accounting bootstrap wizard~~ ✓ DONE
+- ~~Transaction type registry (45 system types + tenant custom)~~ ✓ DONE
+- ~~Onboarding system (10 phases, auto-detection, Go Live checklist)~~ ✓ DONE
+- ~~F&B floor dual view modes (layout + grid)~~ ✓ DONE
+- ~~F&B menu panel refactor (6 sub-components, deduplication)~~ ✓ DONE
+- ~~Dashboard setup status banner~~ ✓ DONE
+- ~~Member portal app (standalone Next.js)~~ ✓ DONE
+- ~~Customer sub-resource API expansion (50+ routes)~~ ✓ DONE
+- ~~Guest Pay (QR code pay at table)~~ ✓ DONE
+- ~~COA governance (merge, renumber, CSV import, health dashboard)~~ ✓ DONE
+- ~~F&B payment tier 3 (gift cards, house accounts, NFC stubs)~~ ✓ DONE
+- ~~GL remap workflow (preview, batch remap, auto-remap setting)~~ ✓ DONE
+- ~~Admin impersonation + tenant role CRUD~~ ✓ DONE
+- ~~RBAC permission seed fixes (wildcard admin, F&B defaults)~~ ✓ DONE
+- ~~Dead letter routes switched to DB persistence~~ ✓ DONE
+- ~~Vercel build blockers resolved (all 3 apps)~~ ✓ DONE
+- ~~1,500+ new accounting tests~~ ✓ DONE
+- ~~PMS module (reservations, calendar, folios, housekeeping, yield mgmt, channels, loyalty)~~ ✓ DONE
+- ~~Semantic dual-mode pipeline (metrics + SQL generation)~~ ✓ DONE
+- ~~Admin train-ai platform (batch review, experiments, regression, safety, cost analytics)~~ ✓ DONE
+- ~~Insights sub-pages (authoring, embeds, reports, tools, watchlist)~~ ✓ DONE
+- ~~Catalog/customer/staff import system~~ ✓ DONE
+- ~~Customer tag management (smart tags, rules, audit)~~ ✓ DONE
+- ~~PMS calendar frontend~~ ✓ DONE
+- ~~Payment gateway integration (CardPointe foundation + ACH + surcharges)~~ ✓ DONE
+- ~~ERP dual-mode infrastructure (workflow engine + tier defaults + close orchestrator)~~ ✓ DONE
+- ~~Modifier group enhancements (categories, channel visibility, per-assignment overrides)~~ ✓ DONE
+- ~~Modifier reporting read models (3 rm_ tables + 8 analytics queries)~~ ✓ DONE
+- ~~Role access scoping (location/profit-center/terminal level)~~ ✓ DONE
+- ~~SuperAdmin portal (14 sessions, 120 API routes, 90+ components)~~ ✓ DONE (spec complete)
+- ~~Semantic intelligence expansion (anomaly detection, root cause, correlation, forecasting, agentic orchestrator)~~ ✓ DONE
+- ~~POS UX (visibility resume, connection indicator, customer cache, display size, error boundary)~~ ✓ DONE
+- ~~Member portal payment methods (bank accounts, card tokenization, one-time payments)~~ ✓ DONE
+- ~~Guest pay enhancements (lookup codes, email receipts, card charges)~~ ✓ DONE
+- ~~Tenant business info + content blocks (Settings → General)~~ ✓ DONE
+- ~~Merchant services settings UI (5-tab layout: providers, accounts, devices, terminals, wallets)~~ ✓ DONE
+- ~~Year seed script (366 days of realistic transactions)~~ ✓ DONE
+- ~~Portal auth scripts (seed-portal-auth, add-portal-member)~~ ✓ DONE
+- ~~Bug fixes: modifiers category filter, inventory display, F&B export, catalog import, PMS projector~~ ✓ DONE
+- ~~Production resilience (circuit breaker, DB pool tuning, auth caching, event bus resilience)~~ ✓ DONE
+- ~~Usage analytics & action items engine~~ ✓ DONE
+- ~~API route consolidation (43→14 dynamic [action] handlers)~~ ✓ DONE
+- ~~PMS housekeeping staff management~~ ✓ DONE
+- ~~SuperAdmin Phase 1B (feature flags, module matrix, admin users)~~ ✓ DONE
+- ~~Editable OPPS ERA LENS narrative template~~ ✓ DONE
+- ~~User password management (change password API + frontend)~~ ✓ DONE
+- ~~Impersonation Phase 1A (dual-table schema + guards)~~ ✓ DONE
+- ~~Performance indexes (auth hot path, GL transaction type mappings)~~ ✓ DONE
+- ~~Accessibility infrastructure (dialog-a11y, focus-trap, live-region, ESLint jsx-a11y)~~ ✓ DONE
+- ~~Settings role management enhancements (permission-groups config, role-comparison, role-editor)~~ ✓ DONE
+- ~~PMS calendar enhancements (condensed view, date jump, scroll hook)~~ ✓ DONE
+- ~~Host Module V2 (15 commands, 12 queries, 5 services, 29 frontend components, 136 tests)~~ ✓ DONE
+- ~~PMS utilization grid (room-type + date-range occupancy)~~ ✓ DONE
+- Run migrations 0134-0215 on dev DB
+- Run `tools/scripts/seed-admin-roles.ts` after migration 0097
+- Run `tools/scripts/backfill-accounting-accounts.ts` after migration 0100 (creates Tips Payable + Service Charge Revenue for existing tenants)
+- Toggle `enableLegacyGlPosting = false` per tenant after validating GL reconciliation
+- PMS frontend: reservation detail, guest profile, housekeeping dashboard, rate management
+- PMS testing: unit tests for commands/queries, integration tests for lifecycle flows
+- Admin invite flow (email sending integration)
+- Admin customer detail page (cross-tenant profile viewer)
+- Module template management UI (create/apply presets)
+- Entitlement bulk mode change (batch enable/disable with dependency resolution)
+- Semantic SQL mode testing: regression suite for common SQL patterns
+- Payment gateway: additional providers (Square, Worldpay), Apple Pay merchant validation, recurring billing
+- ~~ERP cron: upgrade to Vercel Pro for 15-minute cron intervals (required for auto-close windows)~~ ✓ DONE (Vercel Pro configured)
+- SuperAdmin portal: implement all 14 session specs (build frontend + backend per session notes)
+- Modifier reporting: frontend analytics dashboards (daypart heatmaps, upsell impact, waste signals)
+- PMS utilization frontend polish (grid interactions, date range picker)
+- Accessibility audit pass (remaining components)
+- Run F&B schema migration 0206 (host_module_v2) on dev DB
+- ~~KDS comprehensive settings (bump bar profiles, alert profiles, performance targets, routing engine)~~ ✓ DONE
+- ~~GL code summary report (Modern ERP UX Standard reference implementation)~~ ✓ DONE
+- ~~Discount GL classification system (24 classifications, contra-revenue vs expense)~~ ✓ DONE
+- ~~PII masking for semantic pipeline~~ ✓ DONE
+- ~~Semantic authoring (tenant-scoped custom metrics/dimensions)~~ ✓ DONE
+- ~~Admin backup system (dual-mode: filesystem + DB for serverless)~~ ✓ DONE
+- ~~F&B course routing (station resolver + kitchen ticket creation)~~ ✓ DONE
+- ~~Inline modifier panel for F&B POS~~ ✓ DONE
+- ~~Dark mode overhaul (494 files, opacity-based colors)~~ ✓ DONE
+- Run migrations 0207-0220 on dev DB
+- Run `tools/scripts/backfill-discount-classifications.ts` after migration 0212 (creates GL accounts for discount tracking)
+- Run `tools/scripts/fix-transaction-type-mappings.ts` after migration 0211 (creates required GL accounts for transaction types)
+- ~~GL audit hardening (query guard, posting gap detection, self-canceling prevention)~~ ✓ DONE
+- ~~Event consumer Zod validation (reporting consumers use safeParse)~~ ✓ DONE
+- ~~Semantic SSE streaming pipeline (progressive narrative delivery)~~ ✓ DONE
+- ~~Semantic deterministic fast path (regex-based LLM bypass for common queries)~~ ✓ DONE
+- ~~Semantic Anthropic prompt caching (SEM-02: systemPromptParts with cacheControl)~~ ✓ DONE
+- ~~Semantic plausibility checker (SEM-09: post-query result grading A-F)~~ ✓ DONE
+- ~~Semantic Zod LLM output validation (SEM-01: IntentResponseSchema)~~ ✓ DONE
+- ~~Tag actions lifecycle (trigger-based actions on tag apply/remove/expire)~~ ✓ DONE
+- ~~Tag evaluation event consumers (fire-and-forget on order/tender/visit events)~~ ✓ DONE
+- ~~Tag predictive services (RFM scoring, predictive metrics computation)~~ ✓ DONE
+- ~~Financial command idempotency (clientRequestId on settlements, tip payouts, merges)~~ ✓ DONE
+- ~~Accounting settings auto-ensure (POS adapter auto-creates settings + wires fallback accounts)~~ ✓ DONE
+- ~~Accounting reports hub page (reports index with navigation cards)~~ ✓ DONE
+- ~~Expense Management module (policies, approvals, receipts, reimbursements, mileage, per-diem, GL posting)~~ ✓ DONE
+- ~~Project Costing module (projects, tasks, cost allocation, profitability, GL integration)~~ ✓ DONE
+- ~~Multi-Currency Engine (exchange rates, functional currency, GL revaluation, close checklist)~~ ✓ DONE
+- ~~Fixed Assets (depreciation schedules, monthly auto-depreciation, disposal GL)~~ ✓ DONE
+- ~~Budget System (budget lifecycle, budget vs actual reporting)~~ ✓ DONE
+- ~~Receipt Engine (shared receipt system, builder pattern, thermal/HTML/email renderers, tokenized links)~~ ✓ DONE
+- ~~Reporting consumers expansion (13 new cross-module revenue consumers)~~ ✓ DONE
+- ~~Pool Guard infrastructure (semaphore, circuit breaker, single-flight, zombie tracking)~~ ✓ DONE
+- ~~Step-up authentication (HMAC-SHA256 signed tokens, category-based TTLs, PIN modal)~~ ✓ DONE
+- ~~Bot detector + replay guard (weighted scoring, nonce validation)~~ ✓ DONE
+- ~~GL document attachments (gl_document_attachments table, DrillDownDrawer)~~ ✓ DONE
+- ~~Intercompany schema (5 tables — ic_entities, ic_relationships, ic_transactions, ic_transaction_lines, ic_elimination_entries)~~ ✓ DONE
+- ~~Unified revenue activity read model (rm_revenue_activity)~~ ✓ DONE
+- ~~Guest Pay retail integration (guest-pay-retail.ts, retail close)~~ ✓ DONE
+- ~~Deploy tooling (deploy-oppsera.cjs, predeploy.cjs, audit-deep.cjs, slow-query-audit.cjs)~~ ✓ DONE
+- ~~New accounting reports (aged trial balance, budget vs actual, cash flow forecast, consolidated P&L, fixed asset summary)~~ ✓ DONE
+- Run migrations 0224-0246 on dev DB
+- Run `tools/scripts/setup-spa-gl.ts` after spa migrations (creates GL accounts for spa adapters)
+- Intercompany commands/queries (schema is done, business logic pending)
+- PMS-POS room charge integration frontend polish (guest search dialog, folio balance badge)
+- Register Tab Sync: wire SSE endpoints, BroadcastChannel leader election, conflict resolution UI
+- Expense Management frontend (expense entry, approval queue, receipt scanner, reimbursement dashboard)
+- Project Costing frontend (project dashboard, task board, cost allocation reports)
+
