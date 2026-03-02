@@ -96,7 +96,7 @@ const ServiceChargeDialog = dynamic(() => import('@/components/pos/ServiceCharge
 const PriceOverrideDialog = dynamic(() => import('@/components/pos/PriceOverrideDialog').then(m => ({ default: m.PriceOverrideDialog })), { ssr: false });
 const VoidLineDialog = dynamic(() => import('@/components/pos/VoidLineDialog').then(m => ({ default: m.VoidLineDialog })), { ssr: false });
 const CompDialog = dynamic(() => import('@/components/pos/CompDialog').then(m => ({ default: m.CompDialog })), { ssr: false });
-import type { CatalogItemForPOS, AddLineItemInput, HeldOrder, RecordTenderResult, OrderLine } from '@/types/pos';
+import type { CatalogItemForPOS, AddLineItemInput, HeldOrder, RecordTenderResult, OrderLine, Order } from '@/types/pos';
 import type { FnbMetadata, RetailMetadata } from '@oppsera/shared';
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -493,7 +493,7 @@ const TransactionNotesPortal = memo(function TransactionNotesPortal({
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      const res = await apiFetch<{ data: import('@/types/pos').Order }>(
+      const res = await apiFetch<{ data: Order }>(
         `/api/v1/orders/${orderId}`,
         { method: 'PATCH', body: JSON.stringify({ notes: notes.trim() || null }) },
       );

@@ -9,6 +9,7 @@ import { withAdminAuth } from '@/lib/with-admin-auth';
 import { getBackupSettingsFromDb } from '@/lib/backup/retention-service';
 import { loadBackupPayload } from '@/lib/backup/backup-service';
 import { validateBackup, validateTenantRestore, executeRestore, executeTenantRestore } from '@/lib/backup/restore-service';
+import type { TenantRestoreValidation } from '@/lib/backup/types';
 
 // ── POST /api/v1/admin/backups/restore — Request a restore ───────
 
@@ -72,7 +73,7 @@ export const POST = withAdminAuth(async (req: NextRequest, session) => {
   }
 
   // For tenant-scoped restores, include tenant-specific info in response
-  const tenantValidation = tenantId ? validation as import('@/lib/backup/types').TenantRestoreValidation : null;
+  const tenantValidation = tenantId ? validation as TenantRestoreValidation : null;
   const tenantInfo = tenantValidation
     ? { tenantTables: tenantValidation.tenantTables, tenantRowCount: tenantValidation.tenantRowCount }
     : undefined;

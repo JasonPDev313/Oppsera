@@ -21,7 +21,7 @@ const mockTx = {
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
   publishWithOutbox: vi.fn(async (_ctx: any, fn: any) => {
-    const { result, events } = await fn(mockTx);
+    const { result } = await fn(mockTx);
     return result;
   }),
 }));
@@ -46,9 +46,11 @@ vi.mock('@oppsera/db', () => ({
   fnbTabTransfers: { tenantId: 'tenant_id', tabId: 'tab_id', transferType: 'transfer_type', fromServerUserId: 'from_server_user_id', toServerUserId: 'to_server_user_id', reason: 'reason', transferredBy: 'transferred_by' },
   fnbManagerOverrides: { id: 'id', tenantId: 'tenant_id', locationId: 'location_id', initiatorUserId: 'initiator_user_id', approverUserId: 'approver_user_id', actionType: 'action_type', tabIds: 'tab_ids', reasonCode: 'reason_code', reasonText: 'reason_text', metadata: 'metadata', resultSummary: 'result_summary', idempotencyKey: 'idempotency_key', createdAt: 'created_at' },
   fnbManageTabsSettings: { id: 'id', tenantId: 'tenant_id', locationId: 'location_id', showManageTabsButton: 'show_manage_tabs_button', requirePinForTransfer: 'require_pin_for_transfer', requirePinForVoid: 'require_pin_for_void', allowBulkAllServers: 'allow_bulk_all_servers', readOnlyForNonManagers: 'read_only_for_non_managers', maxBulkSelection: 'max_bulk_selection' },
-  fnbSoftLocks: { tenantId: 'tenant_id', locationId: 'location_id' },
-  memberships: { userId: 'user_id', role: 'role', tenantId: 'tenant_id', status: 'status' },
-  users: { id: 'id', displayName: 'display_name', email: 'email', pin: 'pin' },
+  fnbSoftLocks: { tenantId: 'tenant_id' },
+  memberships: { userId: 'user_id', tenantId: 'tenant_id', status: 'status' },
+  users: { id: 'id', displayName: 'display_name', email: 'email', overridePin: 'override_pin' },
+  roleAssignments: { tenantId: 'tenant_id', userId: 'user_id', roleId: 'role_id', locationId: 'location_id' },
+  roles: { id: 'id', name: 'name' },
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -70,7 +72,7 @@ vi.mock('drizzle-orm', () => ({
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { AppError } from '@oppsera/shared';
+
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -103,21 +105,21 @@ function makeTab(overrides: Record<string, any> = {}): any {
 describe('Manage Tabs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset mock chain — each chained call returns mockTx
-    mockTx.select.mockReturnThis();
-    mockTx.from.mockReturnThis();
-    mockTx.where.mockReturnThis();
-    mockTx.limit.mockReturnThis();
-    mockTx.orderBy.mockReturnThis();
-    mockTx.innerJoin.mockReturnThis();
-    mockTx.leftJoin.mockReturnThis();
-    mockTx.update.mockReturnThis();
-    mockTx.set.mockReturnThis();
-    mockTx.insert.mockReturnThis();
-    mockTx.values.mockReturnThis();
-    mockTx.returning.mockResolvedValue([]);
-    mockTx.delete.mockReturnThis();
-    mockTx.execute.mockResolvedValue([]);
+    // mockReset clears once-queues that clearAllMocks misses (gotcha #29)
+    mockTx.select.mockReset().mockReturnThis();
+    mockTx.from.mockReset().mockReturnThis();
+    mockTx.where.mockReset().mockReturnThis();
+    mockTx.limit.mockReset().mockReturnThis();
+    mockTx.orderBy.mockReset().mockReturnThis();
+    mockTx.innerJoin.mockReset().mockReturnThis();
+    mockTx.leftJoin.mockReset().mockReturnThis();
+    mockTx.update.mockReset().mockReturnThis();
+    mockTx.set.mockReset().mockReturnThis();
+    mockTx.insert.mockReset().mockReturnThis();
+    mockTx.values.mockReset().mockReturnThis();
+    mockTx.returning.mockReset().mockResolvedValue([]);
+    mockTx.delete.mockReset().mockReturnThis();
+    mockTx.execute.mockReset().mockResolvedValue([]);
   });
 
   // ────────────────────────────────────────────────────────────
@@ -136,11 +138,7 @@ describe('Manage Tabs', () => {
       const tabs = VOIDABLE.map((status, i) => makeTab({ id: `tab-${i}`, status }));
       // select tabs
       mockTx.where.mockResolvedValueOnce(tabs);
-      // update tab (5x)
-      for (let i = 0; i < 5; i++) {
-        mockTx.returning.mockResolvedValueOnce([{ id: `tab-${i}` }]);
-      }
-      // insert override
+      // insert override (source doesn't call .returning() on tab updates)
       mockTx.returning.mockResolvedValueOnce([{ id: 'override-1' }]);
 
       const result = await bulkVoidTabs(makeCtx(), {
@@ -174,7 +172,7 @@ describe('Manage Tabs', () => {
 
       expect(result.succeeded).toHaveLength(0);
       expect(result.failed).toHaveLength(1);
-      expect(result.failed[0].error).toContain("Cannot void tab in status 'closed'");
+      expect(result.failed[0]!.error).toContain("Cannot void tab in status 'closed'");
     });
 
     it('handles tab not found', async () => {
@@ -193,7 +191,7 @@ describe('Manage Tabs', () => {
 
       expect(result.succeeded).toHaveLength(0);
       expect(result.failed).toHaveLength(1);
-      expect(result.failed[0].error).toBe('Tab not found');
+      expect(result.failed[0]!.error).toBe('Tab not found');
     });
 
     it('handles mixed valid and invalid tabs', async () => {
@@ -217,7 +215,7 @@ describe('Manage Tabs', () => {
 
       expect(result.succeeded).toHaveLength(2);
       expect(result.failed).toHaveLength(1);
-      expect(result.failed[0].tabId).toBe('tab-2');
+      expect(result.failed[0]!.tabId).toBe('tab-2');
     });
 
     it('returns cached result on duplicate idempotency key', async () => {
@@ -324,7 +322,6 @@ describe('Manage Tabs', () => {
         clientRequestId: 'req-void-bar',
       });
 
-      expect(result => result.succeeded).toBeDefined();
       // update called once for the tab, NOT for table status
       const updateCalls = mockTx.update.mock.calls.length;
       // Should update fnbTabs only (1 call), not fnbTableLiveStatus
@@ -346,7 +343,7 @@ describe('Manage Tabs', () => {
         clientRequestId: 'req-void-voided',
       });
 
-      expect(result.failed[0].error).toContain("Cannot void tab in status 'voided'");
+      expect(result.failed[0]!.error).toContain("Cannot void tab in status 'voided'");
     });
   });
 
@@ -395,7 +392,7 @@ describe('Manage Tabs', () => {
       });
 
       expect(result.failed).toHaveLength(1);
-      expect(result.failed[0].error).toContain('already assigned to target server');
+      expect(result.failed[0]!.error).toContain('already assigned to target server');
     });
 
     it('rejects tabs with invalid status', async () => {
@@ -414,7 +411,7 @@ describe('Manage Tabs', () => {
       });
 
       expect(result.failed).toHaveLength(1);
-      expect(result.failed[0].error).toContain("Cannot transfer tab in status 'closed'");
+      expect(result.failed[0]!.error).toContain("Cannot transfer tab in status 'closed'");
     });
 
     it('handles tab not found', async () => {
@@ -431,7 +428,7 @@ describe('Manage Tabs', () => {
         clientRequestId: 'req-transfer-missing',
       });
 
-      expect(result.failed[0].error).toBe('Tab not found');
+      expect(result.failed[0]!.error).toBe('Tab not found');
     });
 
     it('records transfer in fnbTabTransfers', async () => {
@@ -668,7 +665,7 @@ describe('Manage Tabs', () => {
         clientRequestId: 'req-close-missing',
       });
 
-      expect(result.failed[0].error).toBe('Tab not found');
+      expect(result.failed[0]!.error).toBe('Tab not found');
     });
 
     it('returns cached result on duplicate idempotency key', async () => {
@@ -718,8 +715,7 @@ describe('Manage Tabs', () => {
 
     it('runs releaseLocks sub-operation', async () => {
       const emergencyCleanup = await importEmergencyCleanup();
-      // no paying tabs
-      mockTx.where.mockResolvedValueOnce([]);
+      // closePaidTabs=false so no paying tabs select — don't mock where
       // delete locks returns 3 released
       mockTx.returning.mockResolvedValueOnce([{ id: 'lock-1' }, { id: 'lock-2' }, { id: 'lock-3' }]);
       // insert override
@@ -767,13 +763,15 @@ describe('Manage Tabs', () => {
 
     it('runs all sub-operations when enabled', async () => {
       const emergencyCleanup = await importEmergencyCleanup();
-      // paying tabs
-      mockTx.where.mockResolvedValueOnce([makeTab({ id: 'paid-1', status: 'paying' })]);
-      // lock deletes
+      // paying tabs select (terminal)
+      mockTx.where
+        .mockResolvedValueOnce([makeTab({ id: 'paid-1', status: 'paying', tableId: null })])
+        .mockReturnValueOnce(mockTx)    // tab update .where() — intermediate
+        .mockReturnValueOnce(mockTx)    // delete locks .where() — intermediate
+        .mockResolvedValueOnce([]);     // stale tabs select (terminal)
+      // lock deletes returning
       mockTx.returning.mockResolvedValueOnce([{ id: 'lock-1' }]);
-      // stale tabs
-      mockTx.where.mockResolvedValueOnce([]);
-      // insert override
+      // insert override returning
       mockTx.returning.mockResolvedValueOnce([{ id: 'override-1' }]);
 
       const result = await emergencyCleanup(makeCtx(), {
@@ -864,7 +862,7 @@ describe('Manage Tabs', () => {
     it('verifies PIN with stored pin', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'mgr-1', role: 'manager', displayName: 'Jane', email: 'jane@test.com', pin: '9876' },
+        { userId: 'mgr-1', roleName: 'manager', displayName: 'Jane', email: 'jane@test.com', overridePin: '9876' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '9876', actionType: 'bulk_void' });
@@ -878,7 +876,7 @@ describe('Manage Tabs', () => {
     it('falls back to last 4 of userId when no stored pin', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'user-id-abcd1234', role: 'manager', displayName: 'Bob', email: null, pin: null },
+        { userId: 'user-id-abcd1234', roleName: 'manager', displayName: 'Bob', email: null, overridePin: null },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1234', actionType: 'bulk_void' });
@@ -890,7 +888,7 @@ describe('Manage Tabs', () => {
     it('throws INVALID_PIN when no match', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'user-id-abcd1234', role: 'manager', displayName: 'Bob', email: null, pin: '5555' },
+        { userId: 'user-id-abcd1234', roleName: 'manager', displayName: 'Bob', email: null, overridePin: '5555' },
       ]);
 
       await expect(
@@ -900,10 +898,9 @@ describe('Manage Tabs', () => {
 
     it('only checks manager roles (owner, manager, supervisor)', async () => {
       const verifyManagerPin = await importVerifyPin();
-      mockTx.where.mockResolvedValueOnce([
-        { userId: 'cashier-abcd1234', role: 'cashier', displayName: 'Cashier', email: null, pin: '1234' },
-        { userId: 'server-abcd5678', role: 'server', displayName: 'Server', email: null, pin: '5678' },
-      ]);
+      // The source now filters by role name in the WHERE clause via inArray(roles.name, MANAGER_ROLES),
+      // so non-manager rows won't be returned. Return empty to simulate no managers found.
+      mockTx.where.mockResolvedValueOnce([]);
 
       await expect(
         verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1234', actionType: 'bulk_void' }),
@@ -913,7 +910,7 @@ describe('Manage Tabs', () => {
     it('verifies owner role', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'owner-abcd1111', role: 'owner', displayName: 'Owner', email: 'owner@test.com', pin: '1111' },
+        { userId: 'owner-abcd1111', roleName: 'owner', displayName: 'Owner', email: 'owner@test.com', overridePin: '1111' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1111', actionType: 'emergency_cleanup' });
@@ -925,7 +922,7 @@ describe('Manage Tabs', () => {
     it('verifies supervisor role', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'super-abcd2222', role: 'supervisor', displayName: null, email: 'sup@test.com', pin: '2222' },
+        { userId: 'super-abcd2222', roleName: 'supervisor', displayName: null, email: 'sup@test.com', overridePin: '2222' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '2222', actionType: 'bulk_transfer' });
@@ -937,7 +934,7 @@ describe('Manage Tabs', () => {
     it('uses "Manager" as fallback userName', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'mgr-abcd3333', role: 'manager', displayName: null, email: null, pin: '3333' },
+        { userId: 'mgr-abcd3333', roleName: 'manager', displayName: null, email: null, overridePin: '3333' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '3333', actionType: 'bulk_close' });
@@ -947,12 +944,12 @@ describe('Manage Tabs', () => {
 
     it('stored pin takes priority over userId fallback', async () => {
       const verifyManagerPin = await importVerifyPin();
-      // userId ends in '1234' but stored pin is '9999'
+      // userId ends in '1234' but stored overridePin is '9999'
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'user-id-xxxx1234', role: 'manager', displayName: 'Mgr', email: null, pin: '9999' },
+        { userId: 'user-id-xxxx1234', roleName: 'manager', displayName: 'Mgr', email: null, overridePin: '9999' },
       ]);
 
-      // PIN '1234' should NOT match because stored pin '9999' takes priority
+      // PIN '1234' should NOT match because stored overridePin '9999' takes priority
       await expect(
         verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1234', actionType: 'bulk_void' }),
       ).rejects.toThrow();
@@ -1130,6 +1127,10 @@ describe('Manage Tabs', () => {
       const result = await listTabsForManage({
         tenantId: 'tenant-1',
         locationId: 'loc-1',
+        sortBy: 'oldest',
+        viewMode: 'all',
+        includeAmounts: false,
+        limit: 100,
       });
 
       expect(result.items).toHaveLength(0);
@@ -1166,6 +1167,9 @@ describe('Manage Tabs', () => {
       const result = await listTabsForManage({
         tenantId: 'tenant-1',
         locationId: 'loc-1',
+        sortBy: 'oldest',
+        viewMode: 'all',
+        includeAmounts: false,
         limit: 100,
       });
 
@@ -1286,7 +1290,7 @@ describe('Manage Tabs', () => {
       });
 
       expect(result.failed).toHaveLength(1);
-      expect(result.failed[0].error).toContain('paying');
+      expect(result.failed[0]!.error).toContain('paying');
     });
   });
 });

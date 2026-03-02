@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
-import { withTenant, spaBookingWidgetConfig, eq, and } from '@oppsera/db';
+import { withTenant, spaBookingWidgetConfig } from '@oppsera/db';
+import { eq, and } from 'drizzle-orm';
 import {
   updateBookingWidgetConfig,
   updateBookingWidgetConfigSchema,

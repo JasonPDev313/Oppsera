@@ -14,8 +14,8 @@ describe('FNB_SETTINGS_DEFAULTS', () => {
     }
   });
 
-  it('fnb_general has 8 settings', () => {
-    expect(Object.keys(FNB_SETTINGS_DEFAULTS.fnb_general)).toHaveLength(8);
+  it('fnb_general has 9 settings', () => {
+    expect(Object.keys(FNB_SETTINGS_DEFAULTS.fnb_general)).toHaveLength(9);
   });
 
   it('fnb_floor has 5 settings', () => {
@@ -55,7 +55,7 @@ describe('FNB_SETTINGS_DEFAULTS', () => {
     for (const key of FNB_SETTINGS_MODULE_KEYS) {
       total += Object.keys(FNB_SETTINGS_DEFAULTS[key]).length;
     }
-    expect(total).toBe(113);
+    expect(total).toBe(114);
   });
 });
 
@@ -79,7 +79,8 @@ describe('getSettingKeys', () => {
     const keys = getSettingKeys('fnb_general');
     expect(keys).toContain('business_day_cutoff_time');
     expect(keys).toContain('currency_code');
-    expect(keys).toHaveLength(8);
+    expect(keys).toContain('require_manager_override_for_tab_delete');
+    expect(keys).toHaveLength(9);
   });
 
   it('returns all keys for fnb_payment', () => {

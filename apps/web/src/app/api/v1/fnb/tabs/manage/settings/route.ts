@@ -29,10 +29,7 @@ export const PATCH = withMiddleware(
       );
     }
 
-    const result = await updateManageTabsSettings(ctx, {
-      ...parsed.data,
-      locationId: ctx.locationId ?? null,
-    });
+    const result = await updateManageTabsSettings(ctx, ctx.locationId ?? null, parsed.data);
     return NextResponse.json({ data: result });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage', writeAccess: true },

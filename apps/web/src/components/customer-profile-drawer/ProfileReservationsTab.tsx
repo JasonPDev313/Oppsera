@@ -72,13 +72,6 @@ const MODULE_ICONS: Record<string, typeof Calendar> = {
   golf: Flag,
 };
 
-const MODULE_LABELS: Record<string, string> = {
-  spa: 'Spa',
-  pms: 'Hotel',
-  dining: 'Dining',
-  golf: 'Golf',
-};
-
 // ── Compact cards ───────────────────────────────────────────────
 
 function CompactReservationCard({ item }: { item: CustomerReservationEntry }) {

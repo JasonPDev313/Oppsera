@@ -1,5 +1,3 @@
-import { gunzip } from 'zlib';
-import { promisify } from 'util';
 import { createHash } from 'node:crypto';
 import { Readable } from 'stream';
 import { createGunzip } from 'zlib';
@@ -7,8 +5,6 @@ import { db } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 import { getBackupStorage } from './storage';
 import type { BackupManifest } from './types';
-
-const gunzipAsync = promisify(gunzip);
 
 /**
  * StreamingBackupReader — memory-efficient backup loader.
@@ -211,7 +207,7 @@ export class StreamingBackupReader {
    * Call this after all tables have been processed.
    */
   release(): void {
-    (this as { json: string }).json = '';
+    (this as unknown as { json: string }).json = '';
   }
 }
 

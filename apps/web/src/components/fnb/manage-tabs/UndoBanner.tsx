@@ -14,7 +14,7 @@ interface UndoBannerProps {
 export function UndoBanner({ message, durationMs = 10000, onUndo, onDismiss }: UndoBannerProps) {
   const [remaining, setRemaining] = useState(durationMs);
   const [undoing, setUndoing] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   useEffect(() => {
     timerRef.current = setInterval(() => {

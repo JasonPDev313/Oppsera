@@ -19,7 +19,7 @@ export const POST = withMiddleware(
       );
     }
 
-    const result = await verifyManagerPin(ctx, parsed.data);
+    const result = await verifyManagerPin(ctx.tenantId, parsed.data);
     return NextResponse.json({ data: result });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.view' },

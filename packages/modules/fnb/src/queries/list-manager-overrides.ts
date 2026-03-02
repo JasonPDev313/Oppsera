@@ -38,12 +38,12 @@ export async function listManagerOverrides(
       conditions.push(sql`mo.action_type = ${input.actionType}`);
     }
 
-    if (input.startDate) {
-      conditions.push(sql`mo.created_at >= ${input.startDate}`);
+    if (input.dateFrom) {
+      conditions.push(sql`mo.created_at >= ${input.dateFrom}`);
     }
 
-    if (input.endDate) {
-      conditions.push(sql`mo.created_at <= ${input.endDate}`);
+    if (input.dateTo) {
+      conditions.push(sql`mo.created_at <= ${input.dateTo}`);
     }
 
     if (input.cursor) {

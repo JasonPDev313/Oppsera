@@ -721,7 +721,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         setCollapsed(prev);
       }
     }
-  }, [isPosRoute]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isPosRoute]);
 
   const toggleCollapse = useCallback(() => {
     setCollapsed((prev) => {

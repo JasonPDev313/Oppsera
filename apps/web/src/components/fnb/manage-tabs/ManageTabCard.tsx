@@ -89,7 +89,7 @@ export function ManageTabCard({ tab, selected, onToggle, isStale }: ManageTabCar
             >
               #{tab.tabNumber}
             </span>
-            {isStale && <AlertTriangle size={12} style={{ color: '#d97706' }} title="Tab modified elsewhere" />}
+            {isStale && <AlertTriangle size={12} style={{ color: '#d97706' }} aria-label="Tab modified elsewhere" />}
             <span
               className="text-xs px-2 py-0.5 rounded-full font-medium uppercase tracking-wide"
               style={{

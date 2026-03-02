@@ -12,8 +12,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, buildGoogleCalendarUrl, buildOutlookCalendarUrl } from '@oppsera/shared';
 import { checkRateLimit, getRateLimitKey, rateLimitHeaders, RATE_LIMITS } from '@oppsera/core/security';
 import { sendSpaConfirmationEmail } from '@oppsera/core/email/spa-email-service';
-import { withTenant } from '@oppsera/db';
-import { spaAppointments } from '@oppsera/db/schema';
+import { withTenant, spaAppointments } from '@oppsera/db';
 import { eq } from 'drizzle-orm';
 
 // ── Management Token ──────────────────────────────────────────────

@@ -283,22 +283,23 @@ describe('CRITICAL-4: handleInventoryMovement — Zod validation', () => {
     consoleError.mockRestore();
   });
 
-  it('rejects payload where itemName is missing', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('accepts payload where itemName is missing (optional field)', async () => {
+    // itemName is z.string().optional() — missing is valid, consumer falls back to DB lookup
+    mockExecute.mockResolvedValueOnce([{ id: 'PE_001' }]);
+    mockExecute.mockResolvedValueOnce([{ rp: 10, item_name: 'Fallback Widget' }]);
+    mockExecute.mockResolvedValueOnce([]);
 
     await handleInventoryMovement(
       makeEvent({
         data: {
           inventoryItemId: 'inv-1',
           locationId: 'loc-1',
-          // itemName: missing → z.string() fails
           delta: -3,
         },
       }),
     );
 
-    expect(mockWithTenant).not.toHaveBeenCalled();
-    consoleError.mockRestore();
+    expect(mockWithTenant).toHaveBeenCalled();
   });
 
   it('accepts valid payload with optional newOnHand', async () => {

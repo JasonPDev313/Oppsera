@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import {
-  Globe,
   CalendarCheck,
   DollarSign,
   XCircle,
@@ -10,8 +9,6 @@ import {
   Copy,
   Check,
   ExternalLink,
-  Settings2,
-  Eye,
   ChevronDown,
   ChevronUp,
   Loader2,
@@ -28,14 +25,6 @@ import type { BookingWidgetConfig } from '@/hooks/use-spa';
 
 function formatMoney(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
 }
 
 function formatDateTime(iso: string): string {

@@ -12,7 +12,6 @@ import {
   Flag,
   Clock,
   Users,
-  MapPin,
   AlertTriangle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';

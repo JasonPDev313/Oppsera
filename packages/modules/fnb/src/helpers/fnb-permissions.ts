@@ -55,6 +55,11 @@ export const FNB_PERMISSIONS: FnbPermission[] = [
   { key: 'pos_fnb.tabs.manage', description: 'Bulk manage tabs (void, transfer, close)', category: 'tabs' },
   { key: 'pos_fnb.tabs.manage_bulk_all_servers', description: 'Manage tabs across all servers', category: 'tabs' },
 
+  // KDS
+  { key: 'pos_fnb.kds.view', description: 'View KDS station and ticket queue', category: 'kds' },
+  { key: 'pos_fnb.kds.bump', description: 'Bump tickets on KDS stations', category: 'kds' },
+  { key: 'pos_fnb.kds.manage', description: 'Manage KDS station settings and routing', category: 'kds' },
+
   // GL Posting
   { key: 'pos_fnb.gl.post', description: 'Post batches to general ledger', category: 'gl' },
   { key: 'pos_fnb.gl.reverse', description: 'Reverse GL postings', category: 'gl' },

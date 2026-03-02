@@ -1,4 +1,4 @@
-import { eq, and, lt, inArray, sql } from 'drizzle-orm';
+import { eq, and, lt, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
@@ -88,10 +88,7 @@ export async function emergencyCleanup(
     if (input.actions.releaseLocks) {
       const deleteResult = await (tx as any)
         .delete(fnbSoftLocks)
-        .where(and(
-          eq(fnbSoftLocks.tenantId, ctx.tenantId),
-          eq(fnbSoftLocks.locationId, input.locationId),
-        ))
+        .where(eq(fnbSoftLocks.tenantId, ctx.tenantId))
         .returning();
 
       locksReleased = deleteResult.length;

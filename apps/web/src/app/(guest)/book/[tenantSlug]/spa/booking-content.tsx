@@ -346,6 +346,19 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
 
   const baseUrl = `/api/v1/spa/public/${tenantSlug}`;
 
+  // ── Embed PostMessage ────────────────────────────────
+  const notifyParent = useCallback(
+    (type: string, payload?: Record<string, unknown>) => {
+      if (!isEmbed) return;
+      try {
+        window.parent.postMessage({ source: 'oppsera-booking', type, ...payload }, '*');
+      } catch {
+        // ignore — parent may be same-origin or blocked
+      }
+    },
+    [isEmbed],
+  );
+
   // ── Notify parent on embed ready ────────────────────────
   useEffect(() => {
     notifyParent('ready');
@@ -578,19 +591,6 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
     }
   }, [selectedService, selectedSlot, selectedAddons, selectedProvider, customerInfo, baseUrl, notifyParent, tokenizeResult]);
 
-  // ── Embed PostMessage ────────────────────────────────
-  const notifyParent = useCallback(
-    (type: string, payload?: Record<string, unknown>) => {
-      if (!isEmbed) return;
-      try {
-        window.parent.postMessage({ source: 'oppsera-booking', type, ...payload }, '*');
-      } catch {
-        // ignore — parent may be same-origin or blocked
-      }
-    },
-    [isEmbed],
-  );
-
   // ── Reset Wizard ──────────────────────────────────────
   const handleReset = useCallback(() => {
     setStep(1);
@@ -662,10 +662,10 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
   // ── Render ────────────────────────────────────────────
 
   // ── Branding CSS custom properties ──────────────────────
-  const brandingStyle: React.CSSProperties = {};
-  if (config?.branding?.primaryColor) brandingStyle['--booking-primary' as string] = config.branding.primaryColor;
-  if (config?.branding?.backgroundColor) brandingStyle['--booking-bg' as string] = config.branding.backgroundColor;
-  if (config?.branding?.textColor) brandingStyle['--booking-text' as string] = config.branding.textColor;
+  const brandingStyle: React.CSSProperties & Record<string, string> = {};
+  if (config?.branding?.primaryColor) brandingStyle['--booking-primary'] = config.branding.primaryColor;
+  if (config?.branding?.backgroundColor) brandingStyle['--booking-bg'] = config.branding.backgroundColor;
+  if (config?.branding?.textColor) brandingStyle['--booking-text'] = config.branding.textColor;
   if (config?.branding?.fontFamily) brandingStyle.fontFamily = config.branding.fontFamily;
   if (config?.branding?.backgroundColor) brandingStyle.backgroundColor = config.branding.backgroundColor;
   if (config?.branding?.textColor) brandingStyle.color = config.branding.textColor;

@@ -81,6 +81,12 @@ export async function getBookingWidgetConfig(tenantId: string) {
       allowAddonSelection: spaBookingWidgetConfig.allowAddonSelection,
       customCss: spaBookingWidgetConfig.customCss,
       redirectUrl: spaBookingWidgetConfig.redirectUrl,
+      businessIdentity: spaBookingWidgetConfig.businessIdentity,
+      contactLocation: spaBookingWidgetConfig.contactLocation,
+      branding: spaBookingWidgetConfig.branding,
+      operational: spaBookingWidgetConfig.operational,
+      legal: spaBookingWidgetConfig.legal,
+      seo: spaBookingWidgetConfig.seo,
     })
     .from(spaBookingWidgetConfig)
     .where(

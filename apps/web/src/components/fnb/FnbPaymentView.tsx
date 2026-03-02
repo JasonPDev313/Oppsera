@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbTab } from '@/hooks/use-fnb-tab';
 import { usePaymentSession, usePreAuth, useTipActions } from '@/hooks/use-fnb-payments';

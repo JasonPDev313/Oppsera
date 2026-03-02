@@ -77,7 +77,7 @@ export function useSalesHistory(filters: SalesHistoryFilters) {
       setCursor(data.meta.cursor);
       setHasMore(data.meta.hasMore);
     }
-  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data]);
 
   const loadMore = useCallback(async () => {
     if (!cursor || isLoadingMore) return;

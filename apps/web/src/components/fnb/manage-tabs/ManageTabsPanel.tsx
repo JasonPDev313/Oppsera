@@ -6,7 +6,7 @@ import {
   X, Search, Trash2, ArrowRightLeft, CheckSquare, AlertTriangle,
   Filter, SortAsc, ChevronDown, ChevronRight, SquareCheck, Square, MinusSquare,
 } from 'lucide-react';
-import { useManageTabs } from '@/hooks/use-manage-tabs';
+import { useManageTabs, type ManageTabsSortBy } from '@/hooks/use-manage-tabs';
 import { ManageTabCard } from './ManageTabCard';
 import { BulkActionConfirmDialog } from './BulkActionConfirmDialog';
 import { TransferTargetPicker } from './TransferTargetPicker';
@@ -51,7 +51,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
   const [showTransfer, setShowTransfer] = useState(false);
   const [showEmergency, setShowEmergency] = useState(false);
   const [transferTargetId, setTransferTargetId] = useState<string | null>(null);
-  const [transferTargetName, setTransferTargetName] = useState<string | null>(null);
+  const [_transferTargetName, setTransferTargetName] = useState<string | null>(null);
 
   // Undo
   const [undoBanner, setUndoBanner] = useState<{ message: string; tabIds: string[] } | null>(null);
@@ -65,7 +65,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
         (t) =>
           String(t.tabNumber).includes(q) ||
           t.guestName?.toLowerCase().includes(q) ||
-          t.tableName?.toLowerCase().includes(q) ||
+          t.tableLabel?.toLowerCase().includes(q) ||
           t.serverName?.toLowerCase().includes(q),
       );
     }
@@ -92,7 +92,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
   function toggleGroup(key: string) {
     setCollapsedGroups((prev) => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) { next.delete(key); } else { next.add(key); }
       return next;
     });
   }
@@ -100,7 +100,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
   function toggleStatus(s: string) {
     setStatusFilters((prev) => {
       const next = new Set(prev);
-      next.has(s) ? next.delete(s) : next.add(s);
+      if (next.has(s)) { next.delete(s); } else { next.add(s); }
       return next;
     });
   }
@@ -109,16 +109,16 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
   function handleSortChange(val: string) {
     setSortBy(val);
     setShowSort(false);
-    mgr.setFilters({ ...mgr.filters, sortBy: val });
+    mgr.setFilters({ ...mgr.filters, sortBy: val as ManageTabsSortBy });
   }
 
   // Bulk action execution
   async function handleBulkExecute(reasonCode: string, reasonText?: string) {
-    const ids = Array.from(mgr.selectedIds);
+    const clientRequestId = `bulk-${bulkAction}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     if (bulkAction === 'void') {
-      return mgr.bulkVoid(ids, reasonCode as any, reasonText);
+      return mgr.bulkVoid({ reasonCode, reasonText, approverUserId: '', clientRequestId });
     } else if (bulkAction === 'close') {
-      return mgr.bulkClose(ids, reasonCode as any, reasonText);
+      return mgr.bulkClose({ reasonCode, reasonText, approverUserId: '', clientRequestId });
     }
     return { succeeded: [], failed: [] };
   }
@@ -133,8 +133,8 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
 
   async function handleTransferExecute(reasonCode: string, reasonText?: string) {
     if (!transferTargetId) return { succeeded: [], failed: [] };
-    const ids = Array.from(mgr.selectedIds);
-    return mgr.bulkTransfer(ids, transferTargetId, reasonCode as any, reasonText);
+    const clientRequestId = `bulk-transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    return mgr.bulkTransfer({ toServerUserId: transferTargetId, reasonCode, reasonText, clientRequestId });
   }
 
   const selCount = mgr.selectionSummary.count;
@@ -278,7 +278,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
               <button
                 onClick={() => {
                   if (selCount === filteredTabs.length) mgr.clearSelection();
-                  else mgr.selectAll(filteredTabs.map((t) => t.id));
+                  else mgr.selectByIds(filteredTabs.map((t) => t.id));
                 }}
                 className="p-0.5"
                 style={{ color: 'var(--fnb-text-secondary)' }}
@@ -306,7 +306,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
               {selCount > 0 && (
                 <>
                   <button
-                    onClick={() => mgr.invertSelection(filteredTabs.map((t) => t.id))}
+                    onClick={() => mgr.selectByIds(filteredTabs.filter((t) => !mgr.selectedIds.has(t.id)).map((t) => t.id))}
                     className="text-[10px] px-2 py-0.5 rounded"
                     style={{ color: 'var(--fnb-text-secondary)', border: '1px solid var(--fnb-border-subtle)' }}
                   >
@@ -486,7 +486,10 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
               ? mgr.settings?.requirePinForVoid !== false
               : false
           }
-          onVerifyPin={mgr.verifyPin}
+          onVerifyPin={async (pin: string) => {
+            const result = await mgr.verifyPin(pin, bulkAction ?? 'void');
+            return result.verified;
+          }}
           onExecute={handleBulkExecute}
         />
       )}
@@ -505,7 +508,10 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
           selectedCount={selCount}
           totalBalance={selBalance}
           requirePin={mgr.settings?.requirePinForTransfer === true}
-          onVerifyPin={mgr.verifyPin}
+          onVerifyPin={async (pin: string) => {
+            const result = await mgr.verifyPin(pin, 'transfer');
+            return result.verified;
+          }}
           onExecute={handleTransferExecute}
         />
       )}
@@ -532,7 +538,14 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
           setShowEmergency(false);
           mgr.refreshTabs();
         }}
-        onExecute={mgr.runEmergencyCleanup}
+        onExecute={async (input) => {
+          const result = await mgr.runEmergencyCleanup(input);
+          return {
+            closedPaidTabs: Array(result.paidTabsClosed).fill(''),
+            releasedLocks: result.locksReleased,
+            voidedStaleTabs: Array(result.staleTabsVoided).fill(''),
+          };
+        }}
         approverUserId=""
       />
 
