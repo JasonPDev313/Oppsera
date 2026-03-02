@@ -408,6 +408,71 @@ export type SubmitIntakeResponseInput = z.infer<typeof submitIntakeResponseSchem
 
 // ── Booking Widget Schemas ──────────────────────────────────────────
 
+// Per-webapp customization JSONB sub-schemas
+const businessIdentitySchema = z.object({
+  businessName: z.string().max(200).optional(),
+  tagline: z.string().max(300).optional(),
+  description: z.string().max(2000).optional(),
+  email: z.string().email().max(254).optional(),
+  phone: z.string().max(30).optional(),
+  website: z.string().url().max(2083).optional(),
+}).optional();
+
+const contactLocationSchema = z.object({
+  addressLine1: z.string().max(200).optional(),
+  addressLine2: z.string().max(200).optional(),
+  city: z.string().max(100).optional(),
+  state: z.string().max(100).optional(),
+  postalCode: z.string().max(20).optional(),
+  country: z.string().max(100).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  directionsUrl: z.string().url().max(2083).optional(),
+  parkingInfo: z.string().max(500).optional(),
+  accessibilityInfo: z.string().max(500).optional(),
+}).optional();
+
+const brandingSchema = z.object({
+  faviconUrl: z.string().url().max(2083).optional(),
+  bannerImageUrl: z.string().url().max(2083).optional(),
+  primaryColor: z.string().max(20).optional(),
+  secondaryColor: z.string().max(20).optional(),
+  backgroundColor: z.string().max(20).optional(),
+  textColor: z.string().max(20).optional(),
+  fontFamily: z.string().max(100).optional(),
+  buttonStyle: z.enum(['rounded', 'square', 'pill']).optional(),
+  headerLayout: z.enum(['centered', 'left-aligned']).optional(),
+}).optional();
+
+const operationalSchema = z.object({
+  timezoneDisplay: z.string().max(50).optional(),
+  hoursOfOperation: z.array(z.object({
+    day: z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']),
+    periods: z.array(z.object({
+      open: z.string().max(10),
+      close: z.string().max(10),
+    })),
+  })).optional(),
+  holidayNotice: z.string().max(500).optional(),
+  specialInstructions: z.string().max(1000).optional(),
+  healthSafetyNotice: z.string().max(1000).optional(),
+}).optional();
+
+const legalSchema = z.object({
+  privacyPolicyUrl: z.string().url().max(2083).optional(),
+  termsOfServiceUrl: z.string().url().max(2083).optional(),
+  cancellationPolicyText: z.string().max(2000).optional(),
+  consentCheckboxText: z.string().max(500).optional(),
+  accessibilityStatementUrl: z.string().url().max(2083).optional(),
+}).optional();
+
+const seoSchema = z.object({
+  metaTitle: z.string().max(200).optional(),
+  metaDescription: z.string().max(500).optional(),
+  ogImage: z.string().url().max(2083).optional(),
+  canonicalUrl: z.string().url().max(2083).optional(),
+}).optional();
+
 export const updateBookingWidgetConfigSchema = z.object({
   locationId: z.string().optional(),
   theme: z.record(z.unknown()).optional(),
@@ -427,6 +492,14 @@ export const updateBookingWidgetConfigSchema = z.object({
   allowAddonSelection: z.boolean().optional(),
   customCss: z.string().max(10000).optional(),
   redirectUrl: z.string().url().optional(),
+  // Per-webapp customization JSONB fields
+  businessIdentity: businessIdentitySchema,
+  contactLocation: contactLocationSchema,
+  branding: brandingSchema,
+  operational: operationalSchema,
+  legal: legalSchema,
+  seo: seoSchema,
+  clientRequestId: z.string().optional(),
 });
 export type UpdateBookingWidgetConfigInput = z.infer<typeof updateBookingWidgetConfigSchema>;
 

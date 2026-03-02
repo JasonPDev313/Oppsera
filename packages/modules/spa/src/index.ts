@@ -48,6 +48,7 @@ export { createPackageDefinition, updatePackageDefinition, deactivatePackageDefi
 export { purchasePackage, redeemPackageSession, voidPackageRedemption, freezePackage, unfreezePackage, transferPackage, expirePackages } from './commands/manage-packages';
 export { createTurnoverTask, updateTurnoverTask, startTurnoverTask, completeTurnoverTask, skipTurnoverTask, autoCreateTurnoverTasks } from './commands/manage-turnovers';
 export { openDailyOperations, updateChecklistItem, addIncident, closeDailyOperations, addDailyNotes } from './commands/manage-daily-operations';
+export { updateBookingWidgetConfig } from './commands/update-booking-widget-config';
 
 // Queries
 export {
@@ -92,6 +93,7 @@ export {
   getTurnoverStats,
   getDailyOperations,
   listDailyOperations,
+  getOnlineBookingStats,
 } from './queries';
 export { getAvailableSlots as getAvailableSlotsQuery } from './queries';
 
@@ -195,6 +197,9 @@ export type {
   TurnoverTaskRow,
   TurnoverStatsResult,
   DailyOperationsRow,
+  OnlineBookingStatsInput,
+  OnlineBookingStats,
+  RecentOnlineBooking,
 } from './queries';
 
 // Helpers — Availability Engine

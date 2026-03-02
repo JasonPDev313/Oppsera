@@ -229,3 +229,11 @@ export type { TurnoverTaskRow, TurnoverStatsResult } from './list-turnover-tasks
 // Daily Operations (operations)
 export { getDailyOperations, listDailyOperations } from './get-daily-operations';
 export type { DailyOperationsRow } from './get-daily-operations';
+
+// Online Booking Stats
+export { getOnlineBookingStats } from './get-online-booking-stats';
+export type {
+  OnlineBookingStatsInput,
+  OnlineBookingStats,
+  RecentOnlineBooking,
+} from './get-online-booking-stats';
