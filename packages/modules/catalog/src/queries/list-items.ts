@@ -9,6 +9,8 @@ export interface ListItemsInput {
   limit?: number;
   categoryId?: string;
   itemType?: string;
+  /** Multi-type filter — e.g., ['food', 'beverage'] */
+  itemTypes?: string[];
   search?: string;
   includeArchived?: boolean;
   /** Include on-hand, reorderPoint, etc. from inventory in same transaction */
@@ -50,7 +52,9 @@ export async function listItems(input: ListItemsInput): Promise<ListItemsResult>
       conditions.push(eq(catalogItems.categoryId, input.categoryId));
     }
 
-    if (input.itemType) {
+    if (input.itemTypes?.length) {
+      conditions.push(inArray(catalogItems.itemType, input.itemTypes));
+    } else if (input.itemType) {
       conditions.push(eq(catalogItems.itemType, input.itemType));
     }
 

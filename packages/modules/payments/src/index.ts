@@ -65,6 +65,7 @@ export type { PollAchFundingInput, PollAchFundingResult } from './jobs/poll-ach-
 // Queries
 export { getTendersByOrder, listTenders, getPaymentJournalEntries } from './queries';
 export { listPaymentMethods } from './queries';
+export { getGiftCardBalance } from './queries';
 export { getTokenizerConfig } from './queries/get-tokenizer-config';
 /** @deprecated Use TokenizerClientConfig from @oppsera/shared instead. */
 export type { TokenizerConfig } from './queries/get-tokenizer-config';
@@ -72,6 +73,7 @@ export type { TenderSummary, TenderWithReversals } from './queries/get-tenders-b
 export type { ListTendersInput, ListTendersResult } from './queries/list-tenders';
 export type { GetJournalInput, GetJournalResult } from './queries/get-payment-journal-entries';
 export type { StoredPaymentMethod } from './queries/list-payment-methods';
+export type { GiftCardBalanceResult } from './queries/get-gift-card-balance';
 export {
   getSettlementReportSummary,
   getSettlementReportByLocation,

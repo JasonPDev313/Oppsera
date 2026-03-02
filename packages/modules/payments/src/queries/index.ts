@@ -6,3 +6,5 @@ export { getPaymentJournalEntries } from './get-payment-journal-entries';
 export type { GetJournalInput, GetJournalResult } from './get-payment-journal-entries';
 export { listPaymentMethods } from './list-payment-methods';
 export type { StoredPaymentMethod } from './list-payment-methods';
+export { getGiftCardBalance } from './get-gift-card-balance';
+export type { GiftCardBalanceResult } from './get-gift-card-balance';
