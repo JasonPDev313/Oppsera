@@ -86,20 +86,26 @@ function serverToShift(s: ServerDrawerSession): Shift {
 
 // ── Hook ───────────────────────────────────────────────────────────
 
-export function useShift(locationId: string, terminalId: string) {
+export function useShift(locationId: string, terminalId: string, isActive = true) {
   useAuthContext();
   const { toast } = useToast();
 
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const mountedRef = useRef(true);
+  const hasFetchedRef = useRef(false);
 
-  // Load shift: try server first, fall back to localStorage
+  // Load shift: try server first, fall back to localStorage.
+  // Deferred until isActive=true to avoid pool exhaustion on POS mount.
   useEffect(() => {
     mountedRef.current = true;
-    if (!terminalId) {
-      setCurrentShift(null);
-      setIsLoading(false);
+    if (!terminalId || !isActive) {
+      // Show cached shift from localStorage while inactive
+      if (!hasFetchedRef.current && terminalId) {
+        const stored = loadShiftFromStorage(locationId, terminalId);
+        if (stored && stored.status === 'open') setCurrentShift(stored);
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -120,6 +126,7 @@ export function useShift(locationId: string, terminalId: string) {
           setCurrentShift(null);
           saveShiftToStorage(locationId, terminalId, null);
         }
+        hasFetchedRef.current = true;
       } catch {
         // Offline — fall back to localStorage
         if (cancelled) return;
@@ -142,7 +149,7 @@ export function useShift(locationId: string, terminalId: string) {
       cancelled = true;
       mountedRef.current = false;
     };
-  }, [locationId, terminalId]);
+  }, [locationId, terminalId, isActive]);
 
   const isOpen = currentShift !== null && currentShift.status === 'open';
 

@@ -27,6 +27,8 @@ interface UseRegisterTabsOptions {
   employeeName: string;
   /** Location ID for cross-device sync (SSE + presence) */
   locationId?: string;
+  /** Gate data fetching — skip server calls when POS shell is hidden */
+  isActive?: boolean;
 }
 
 interface UseRegisterTabsReturn {
@@ -147,6 +149,7 @@ export function useRegisterTabs({
   employeeId,
   employeeName,
   locationId,
+  isActive = true,
 }: UseRegisterTabsOptions): UseRegisterTabsReturn {
   const { toast } = useToast();
 
@@ -286,6 +289,10 @@ export function useRegisterTabs({
   }, [tabs, terminalId]);
 
   // ── Load tabs from server on mount ─────────────────────────────────
+  // Gated by isActive: show cached tabs immediately but defer server fetch
+  // and order pre-fetches until the retail POS shell is actually visible.
+
+  const hasFetchedTabs = useRef(false);
 
   useEffect(() => {
     if (!terminalId) {
@@ -300,11 +307,9 @@ export function useRegisterTabs({
       // Ignore
     }
 
-    let cancelled = false;
-
-    // ── Show cached tabs instantly (stale-while-revalidate) ─────────
+    // ── Show cached tabs instantly (always, even when inactive) ─────
     const cached = loadCachedTabs(terminalId);
-    if (cached && cached.length > 0) {
+    if (cached && cached.length > 0 && !hasLoaded.current) {
       setTabs(cached);
       const savedActive = loadActiveTab(terminalId);
       const activeNumber =
@@ -315,37 +320,32 @@ export function useRegisterTabs({
       hasLoaded.current = true;
       setIsLoading(false);
 
-      // Block sync-back during rehydration so it doesn't auto-clear orderId
-      isSwitching.current = true;
-
-      // If active tab has no order, clear POS state; otherwise leave it for fetch below
+      // If active tab has no order, clear POS state
       const activeHasOrder = cached.find((t) => t.tabNumber === activeNumber)?.orderId;
       if (!activeHasOrder) {
         pos.setOrder(null);
       }
-
-      // Pre-fetch ALL cached tabs' orders in parallel so tab switching is instant
-      const tabsWithOrders = cached.filter((t) => t.orderId);
-      if (tabsWithOrders.length > 0) {
-        for (const tab of tabsWithOrders) {
-          pos.fetchOrder(tab.orderId!).then((order) => {
-            if (cancelled) return;
-            if (order.status === 'open') {
-              orderCache.current.set(tab.orderId!, order);
-              // Display immediately if this is the active tab
-              if (activeTabRef.current === tab.tabNumber) {
-                pos.setOrder(order);
-              }
-            }
-          }).catch((err) => { console.error('Tab order pre-fetch failed:', err); });
-        }
-      }
-
-      // Unblock sync-back after all fetches have been dispatched
-      requestAnimationFrame(() => {
-        isSwitching.current = false;
-      });
     }
+
+    // Defer all server calls until active
+    if (!isActive) {
+      if (!cached && !hasLoaded.current) {
+        // No cache and inactive — show a local fallback so the shell isn't stuck loading
+        setTabs([{ id: 'local-1', tabNumber: 1, orderId: null, employeeId, employeeName, version: 1 }]);
+        setActiveTabNumber(1);
+        hasLoaded.current = true;
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // If we already fetched from server this mount, skip (cache was shown above)
+    if (hasFetchedTabs.current) return;
+
+    let cancelled = false;
+
+    // Block sync-back during rehydration so it doesn't auto-clear orderId
+    isSwitching.current = true;
 
     // ── Helper to clear a tab's invalid order ───────────────────────
     const clearTabOrder = (tab: RegisterTab) => {
@@ -354,6 +354,33 @@ export function useRegisterTabs({
       );
       patchTab(tab.id, { orderId: null }, tab.version);
     };
+
+    // ── Throttled order pre-fetch (max 2 concurrent) ────────────────
+    async function prefetchOrders(tabsWithOrders: RegisterTab[]) {
+      const CONCURRENCY = 2;
+      for (let i = 0; i < tabsWithOrders.length; i += CONCURRENCY) {
+        if (cancelled) return;
+        const batch = tabsWithOrders.slice(i, i + CONCURRENCY);
+        await Promise.allSettled(
+          batch.map(async (tab) => {
+            try {
+              const order = await pos.fetchOrder(tab.orderId!);
+              if (cancelled) return;
+              if (order.status === 'open') {
+                orderCache.current.set(tab.orderId!, order);
+                if (activeTabRef.current === tab.tabNumber) {
+                  pos.setOrder(order);
+                }
+              } else {
+                clearTabOrder(tab);
+              }
+            } catch {
+              if (!cancelled) clearTabOrder(tab);
+            }
+          }),
+        );
+      }
+    }
 
     // ── Background refresh from server ──────────────────────────────
     async function loadTabs() {
@@ -381,7 +408,6 @@ export function useRegisterTabs({
 
         // Update cache for next visit
         saveCachedTabs(terminalId, serverTabs);
-
         setTabs(serverTabs);
 
         // Restore active tab from localStorage, or use first tab
@@ -395,10 +421,8 @@ export function useRegisterTabs({
 
         // Show tabs immediately — don't block on order fetching
         hasLoaded.current = true;
+        hasFetchedTabs.current = true;
         setIsLoading(false);
-
-        // Block sync-back during rehydration so it doesn't auto-clear orderId
-        isSwitching.current = true;
 
         // If active tab has no order, clear POS state; otherwise leave for fetch
         const activeServerTab = serverTabs.find((t) => t.tabNumber === activeNumber);
@@ -406,29 +430,10 @@ export function useRegisterTabs({
           pos.setOrder(null);
         }
 
-        // Fetch ALL tab orders in parallel — don't block other tabs behind active tab.
-        // Display the active tab's order as soon as it resolves.
+        // Pre-fetch tab orders with throttled concurrency (max 2 at a time)
         const tabsWithOrders = serverTabs.filter((t) => t.orderId !== null);
-
         if (tabsWithOrders.length > 0) {
-          const fetches = tabsWithOrders.map(async (tab) => {
-            try {
-              const order = await pos.fetchOrder(tab.orderId!);
-              if (cancelled) return;
-              if (order.status === 'open') {
-                orderCache.current.set(tab.orderId!, order);
-                // If this is the active tab, display immediately
-                if (activeTabRef.current === tab.tabNumber) {
-                  pos.setOrder(order);
-                }
-              } else {
-                clearTabOrder(tab);
-              }
-            } catch {
-              if (!cancelled) clearTabOrder(tab);
-            }
-          });
-          await Promise.allSettled(fetches);
+          await prefetchOrders(tabsWithOrders);
         }
 
         // Unblock sync-back after all fetches have settled
@@ -443,6 +448,7 @@ export function useRegisterTabs({
           hasLoaded.current = true;
           setIsLoading(false);
         }
+        isSwitching.current = false;
       }
     }
 
@@ -451,7 +457,7 @@ export function useRegisterTabs({
     return () => {
       cancelled = true;
     };
-  }, [terminalId]);
+  }, [terminalId, isActive]);
 
   // ── Actions ────────────────────────────────────────────────────────
 

@@ -11,7 +11,8 @@ import {
   Plus,
   ArrowRight,
 } from 'lucide-react';
-import { useSpaDashboard, useSpaAppointments } from '@/hooks/use-spa';
+import { useSpaDashboard } from '@/hooks/use-spa';
+import { useAuthContext } from '@/components/auth-provider';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -117,27 +118,22 @@ function ProviderBar({ name, color, utilization, appointments }: ProviderBarProp
 // ---------------------------------------------------------------------------
 
 export default function SpaContent() {
+  const { locations } = useAuthContext();
+  const locationId = locations[0]?.id ?? '';
+
   const todayISO = useMemo(() => {
     const d = new Date();
     return d.toISOString().slice(0, 10);
   }, []);
 
   // Pre-aggregated CQRS dashboard metrics (rm_spa_* read models)
-  const { data: dashboard, isLoading: dashboardLoading } = useSpaDashboard(
-    undefined,
+  // Includes upcoming appointments — no separate API call needed
+  const { data: dashboard, isLoading } = useSpaDashboard(
+    locationId || undefined,
     todayISO,
   );
 
-  // Only fetch 5 appointments for the upcoming list
-  const { items: appointments = [], isLoading: appointmentsLoading } =
-    useSpaAppointments({
-      status: 'confirmed,checked_in,in_service',
-      startDate: todayISO,
-      endDate: todayISO,
-      limit: 5,
-    });
-
-  const isLoading = dashboardLoading || appointmentsLoading;
+  const appointments = dashboard?.upcomingAppointments ?? [];
 
   // --- Loading skeleton ---
   if (isLoading) {
@@ -349,12 +345,12 @@ export default function SpaContent() {
                 >
                   {/* Time */}
                   <span className="text-sm font-medium text-foreground tabular-nums w-20 flex-shrink-0">
-                    {appt.startTime ? formatTime(appt.startTime) : '--:--'}
+                    {appt.startAt ? formatTime(String(appt.startAt)) : '--:--'}
                   </span>
 
                   {/* Customer */}
                   <span className="text-sm text-foreground truncate flex-1 min-w-0">
-                    {appt.customerName ?? 'Walk-in'}
+                    {appt.guestName ?? 'Walk-in'}
                   </span>
 
                   {/* Service */}

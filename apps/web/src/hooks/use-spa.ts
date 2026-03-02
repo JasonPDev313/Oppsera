@@ -142,8 +142,8 @@ export interface CalendarProviderColumn {
 }
 
 export interface SpaCalendarResult {
-  date: string;
   providers: CalendarProviderColumn[];
+  unassigned: CalendarAppointment[];
 }
 
 export interface AvailableSlot {
@@ -152,6 +152,18 @@ export interface AvailableSlot {
   providerId: string;
   providerName: string;
   resourceId: string | null;
+}
+
+export interface SpaDashboardUpcomingAppointment {
+  id: string;
+  appointmentNumber: string;
+  guestName: string | null;
+  providerId: string | null;
+  providerName: string | null;
+  serviceName: string | null;
+  startAt: string;
+  endAt: string;
+  status: string;
 }
 
 export interface SpaDashboardMetrics {
@@ -195,6 +207,7 @@ export interface SpaDashboardMetrics {
     walkInCount: number;
     onlineBookingCount: number;
   };
+  upcomingAppointments: SpaDashboardUpcomingAppointment[];
 }
 
 // ═══════════════════════════════════════════════════════════════════

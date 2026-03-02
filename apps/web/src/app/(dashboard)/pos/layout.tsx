@@ -146,25 +146,39 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
   // Barcode scanner listener
   useBarcodeScannerListener();
 
-  // Pre-warm caches so F&B data is instant when switching modes
+  // Pre-warm F&B caches so data is instant when switching modes.
+  // Deferred by 2s and serialized to avoid thundering-herd on the DB pool.
   useEffect(() => {
-    warmCustomerCache();
-    warmMenuCache();
-    warmFnbSettings('fnb_ordering');
-    warmFnbSettings('fnb_general');
-    // Warm floor plan: fetch room list, then warm first room + all open tabs
-    apiFetch<{ data: Array<{ id: string }> }>('/api/v1/room-layouts?isActive=true')
-      .then(async (json) => {
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+      try { await warmCustomerCache(); } catch { /* non-critical */ }
+      if (cancelled) return;
+      try { await warmMenuCache(); } catch { /* non-critical */ }
+      if (cancelled) return;
+      try { await warmFnbSettings('fnb_ordering'); } catch { /* non-critical */ }
+      if (cancelled) return;
+      try { await warmFnbSettings('fnb_general'); } catch { /* non-critical */ }
+      if (cancelled) return;
+      // Warm floor plan: fetch room list, then warm first room + all open tabs
+      try {
+        const json = await apiFetch<{ data: Array<{ id: string }> }>('/api/v1/room-layouts?isActive=true');
         const firstRoom = json.data?.[0];
-        if (!firstRoom) return;
-        const floorPlan = await warmFloorPlanCache(firstRoom.id);
-        // Extract open tab IDs from floor plan tables and pre-warm them
-        const tabIds = (floorPlan?.tables ?? [])
-          .map((t) => t.currentTabId)
-          .filter((id): id is string => !!id);
-        if (tabIds.length > 0) warmOpenTabs(tabIds);
-      })
-      .catch(() => {}); // non-critical
+        if (firstRoom && !cancelled) {
+          const floorPlan = await warmFloorPlanCache(firstRoom.id);
+          const tabIds = (floorPlan?.tables ?? [])
+            .map((t) => t.currentTabId)
+            .filter((id): id is string => !!id);
+          if (tabIds.length > 0 && !cancelled) await warmOpenTabs(tabIds);
+        }
+      } catch { /* non-critical */ }
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, []);
 
   // Proactive warm-up when returning from idle (token refresh + function warm + data refresh)

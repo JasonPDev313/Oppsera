@@ -95,11 +95,11 @@ export const navigation: NavItem[] = [
     requiredPermission: 'pos_fnb.floor_plan.view',
     children: [
       { name: 'Floor Plan', href: '/pos/fnb', icon: LayoutGrid, requiredPermission: 'pos_fnb.floor_plan.view' },
-      { name: 'F&B Inventory', href: '/fnb-inventory', icon: Package, requiredPermission: 'pos_fnb.inventory.view' },
       { name: 'Host Stand', href: '/host', icon: Users, requiredPermission: 'pos_fnb.floor_plan.view' },
       { name: 'Manager', href: '/fnb-manager', icon: Settings, requiredPermission: 'pos_fnb.reports.view' },
       { name: 'Close Batch', href: '/close-batch', icon: Lock, requiredPermission: 'pos_fnb.close_batch.manage' },
       { name: 'F&B Config', href: '/settings/fnb', icon: Sliders, group: 'F&B Settings', requiredPermission: 'pos_fnb.settings.manage' },
+      { name: 'F&B Inventory', href: '/fnb-inventory', icon: Package, group: 'F&B Settings', requiredPermission: 'pos_fnb.inventory.view' },
     ],
   },
   {

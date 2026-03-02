@@ -227,37 +227,46 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
   }, [locationId]);
 
   // ── Load catalog via lean POS endpoint + sessionStorage cache ──
+  // When inactive: show cached items instantly but skip the background
+  // refresh to avoid pool pressure. Refresh fires once isActive flips.
+
+  const hasFetchedCatalog = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadCatalog() {
-      // 1. Try sessionStorage cache first — instant load
-      const cached = loadCachedCatalog(locationId);
-      if (cached) {
-        const { posItems, categories, catMap } = processCatalogData(
-          cached.items,
-          cached.categories,
-        );
-        categoryMapRef.current = catMap;
-        setAllCategories(categories);
-        setAllItems(posItems);
-        setIsLoading(false);
+    // 1. Always hydrate from cache (even when inactive)
+    const cached = loadCachedCatalog(locationId);
+    if (cached && !hasFetchedCatalog.current) {
+      const { posItems, categories, catMap } = processCatalogData(
+        cached.items,
+        cached.categories,
+      );
+      categoryMapRef.current = catMap;
+      setAllCategories(categories);
+      setAllItems(posItems);
+      setIsLoading(false);
+    }
 
+    // 2. Defer server fetch until active
+    if (!isActive) return;
+
+    async function loadCatalog() {
+      if (cached) {
         // Background refresh — don't show loading spinner
         if (!cancelled) await fetchCatalog(false);
-        return;
+      } else {
+        // No cache — fetch and show loading
+        if (!cancelled) await fetchCatalog(true);
       }
-
-      // 2. No cache — fetch and show loading
-      if (!cancelled) await fetchCatalog(true);
+      hasFetchedCatalog.current = true;
     }
 
     loadCatalog();
     return () => {
       cancelled = true;
     };
-  }, [locationId, fetchCatalog]);
+  }, [locationId, fetchCatalog, isActive]);
 
   // ── Periodic refresh to keep catalog current during long shifts ──
   // Only the active POS mode refreshes — the inactive one is CSS-hidden

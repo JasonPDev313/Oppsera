@@ -101,7 +101,17 @@ export async function listAppointments(
     }
 
     if (input.status) {
-      conditions.push(eq(spaAppointments.status, input.status));
+      const statuses = input.status.split(',').map((s) => s.trim()).filter(Boolean);
+      if (statuses.length === 1) {
+        conditions.push(eq(spaAppointments.status, statuses[0]!));
+      } else if (statuses.length > 1) {
+        conditions.push(
+          sql`${spaAppointments.status} IN (${sql.join(
+            statuses.map((s) => sql`${s}`),
+            sql`, `,
+          )})` as ReturnType<typeof eq>,
+        );
+      }
     }
 
     if (input.startDate) {

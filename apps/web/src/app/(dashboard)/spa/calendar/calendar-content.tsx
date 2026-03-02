@@ -198,17 +198,47 @@ export default function SpaCalendarContent() {
     '#a78bfa', '#fb923c', '#2dd4bf',
   ];
 
-  // Map hook data to local CalendarProviderColumn shape
+  // Map hook data to local CalendarProviderColumn shape.
+  // Backend returns startAt/endAt/guestName/services[] — map to startTime/endTime/customerName/serviceName.
   const providers: CalendarProviderColumn[] = useMemo(() => {
     return (calendarData?.providers ?? []).map((p, idx) => ({
       id: p.providerId,
       name: p.providerName,
       color: PROVIDER_COLORS[idx % PROVIDER_COLORS.length]!,
-      appointments: (p.appointments ?? []) as unknown as CalendarAppointment[],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend fields differ from frontend type
+      appointments: (p.appointments ?? []).map((a: any) => ({
+        id: a.id as string,
+        customerName: (a.guestName as string) ?? 'Walk-in',
+        serviceName: Array.isArray(a.services) && a.services.length > 0
+          ? (a.services[0] as Record<string, unknown>).serviceName as string
+          : '',
+        startTime: a.startAt as string,
+        endTime: a.endAt as string,
+        status: a.status as AppointmentStatus,
+        providerId: (a.providerId as string) ?? null,
+        orderId: (a.orderId as string) ?? null,
+      })),
     }));
   }, [calendarData]);
 
-  const unassigned: CalendarAppointment[] = [];
+  // Map unassigned appointments from the API response
+  const unassigned: CalendarAppointment[] = useMemo(() => {
+    const raw = calendarData?.unassigned;
+    if (!Array.isArray(raw)) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend fields differ from frontend type
+    return raw.map((a: any) => ({
+      id: a.id as string,
+      customerName: (a.guestName as string) ?? 'Walk-in',
+      serviceName: Array.isArray(a.services) && a.services.length > 0
+        ? (a.services[0] as Record<string, unknown>).serviceName as string
+        : '',
+      startTime: a.startAt as string,
+      endTime: a.endAt as string,
+      status: a.status as AppointmentStatus,
+      providerId: (a.providerId as string) ?? null,
+      orderId: (a.orderId as string) ?? null,
+    }));
+  }, [calendarData]);
 
   // Filter providers based on selection
   const visibleProviders = useMemo(() => {

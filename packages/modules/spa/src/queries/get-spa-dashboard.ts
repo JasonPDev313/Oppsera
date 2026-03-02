@@ -2,12 +2,25 @@ import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 import {
   withTenant,
   spaAppointments,
+  spaAppointmentItems,
   spaProviders,
   spaServices,
   rmSpaDailyOperations,
   rmSpaProviderMetrics,
   rmSpaServiceMetrics,
 } from '@oppsera/db';
+
+export interface UpcomingAppointmentRow {
+  id: string;
+  appointmentNumber: string;
+  guestName: string | null;
+  providerId: string | null;
+  providerName: string | null;
+  serviceName: string | null;
+  startAt: Date;
+  endAt: Date;
+  status: string;
+}
 
 export interface SpaDashboardMetrics {
   /** Today's appointment counts by status */
@@ -55,6 +68,8 @@ export interface SpaDashboardMetrics {
     walkInCount: number;
     onlineBookingCount: number;
   };
+  /** Upcoming active appointments for today (confirmed/checked_in/in_service) */
+  upcomingAppointments: UpcomingAppointmentRow[];
 }
 
 /**
@@ -77,7 +92,7 @@ export async function getSpaDashboard(input: {
 
     // Fetch read model data, today's appointments, provider metrics,
     // and service metrics in parallel
-    const [dailyOps, todayAppointments, providerMetrics, serviceMetrics] = await Promise.all([
+    const [dailyOps, todayAppointments, providerMetrics, serviceMetrics, upcomingRows] = await Promise.all([
       // 1. Read model daily operations
       tx
         .select({
@@ -160,6 +175,32 @@ export async function getSpaDashboard(input: {
         .groupBy(rmSpaServiceMetrics.serviceId)
         .orderBy(desc(sql`sum(${rmSpaServiceMetrics.bookingCount})`))
         .limit(10),
+
+      // 5. Upcoming active appointments for the "upcoming" card (lightweight)
+      tx
+        .select({
+          id: spaAppointments.id,
+          appointmentNumber: spaAppointments.appointmentNumber,
+          guestName: spaAppointments.guestName,
+          providerId: spaAppointments.providerId,
+          providerName: spaProviders.displayName,
+          startAt: spaAppointments.startAt,
+          endAt: spaAppointments.endAt,
+          status: spaAppointments.status,
+        })
+        .from(spaAppointments)
+        .leftJoin(spaProviders, eq(spaAppointments.providerId, spaProviders.id))
+        .where(
+          and(
+            eq(spaAppointments.tenantId, input.tenantId),
+            eq(spaAppointments.locationId, input.locationId),
+            gte(spaAppointments.startAt, dayStart),
+            lte(spaAppointments.startAt, dayEnd),
+            sql`${spaAppointments.status} IN ('confirmed', 'checked_in', 'in_service')` as ReturnType<typeof eq>,
+          ),
+        )
+        .orderBy(spaAppointments.startAt)
+        .limit(5),
     ]);
 
     // Build today's counts from operational data
@@ -190,11 +231,12 @@ export async function getSpaDashboard(input: {
       tipTotal: ops ? Number(ops.tipTotal) : 0,
     };
 
-    // Resolve provider and service names in parallel (both are independent lookups)
+    // Resolve provider names, service names, and upcoming appointment service names in parallel
     const providerIds = providerMetrics.map((p) => p.providerId);
     const svcIds = serviceMetrics.map((s) => s.serviceId);
+    const upcomingApptIds = upcomingRows.map((r) => r.id);
 
-    const [providerNameMap, serviceNameMap] = await Promise.all([
+    const [providerNameMap, serviceNameMap, upcomingServiceMap] = await Promise.all([
       // Provider name lookup
       providerIds.length > 0
         ? tx
@@ -238,6 +280,31 @@ export async function getSpaDashboard(input: {
             )
             .then((rows) => new Map(rows.map((s) => [s.id, s.name])))
         : Promise.resolve(new Map<string, string>()),
+
+      // First service name per upcoming appointment (for display)
+      upcomingApptIds.length > 0
+        ? tx
+            .select({
+              appointmentId: spaAppointmentItems.appointmentId,
+              serviceName: spaServices.name,
+            })
+            .from(spaAppointmentItems)
+            .innerJoin(spaServices, eq(spaAppointmentItems.serviceId, spaServices.id))
+            .where(
+              and(
+                eq(spaAppointmentItems.tenantId, input.tenantId),
+                sql`${spaAppointmentItems.appointmentId} IN (${sql.join(
+                  upcomingApptIds.map((id) => sql`${id}`),
+                  sql`, `,
+                )})`,
+                eq(spaAppointmentItems.sortOrder, 0),
+              ),
+            )
+            .then(
+              (rows) =>
+                new Map(rows.map((r) => [r.appointmentId, r.serviceName])),
+            )
+        : Promise.resolve(new Map<string, string>()),
     ]);
 
     const providerUtilization = providerMetrics.map((p) => {
@@ -279,12 +346,26 @@ export async function getSpaDashboard(input: {
       onlineBookingCount: ops?.onlineBookingCount ?? 0,
     };
 
+    // Build upcoming appointments list with service names
+    const upcomingAppointments: UpcomingAppointmentRow[] = upcomingRows.map((r) => ({
+      id: r.id,
+      appointmentNumber: r.appointmentNumber,
+      guestName: r.guestName ?? null,
+      providerId: r.providerId ?? null,
+      providerName: r.providerName ?? null,
+      serviceName: upcomingServiceMap.get(r.id) ?? null,
+      startAt: r.startAt,
+      endAt: r.endAt,
+      status: r.status,
+    }));
+
     return {
       today,
       revenue,
       providerUtilization,
       topServices,
       kpis,
+      upcomingAppointments,
     };
   });
 }

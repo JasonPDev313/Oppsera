@@ -1,12 +1,13 @@
 /**
  * seed-spa.ts — Spa module seed data
  *
- * Generates ~1 year of realistic spa data:
+ * Generates realistic spa data using RELATIVE dates:
+ *   - 365 days of history + 92 days forward (~3 months)
  *   - 5 service categories, 15 services, 15+ add-ons
  *   - 6 providers with availability and eligibility
  *   - 8 resources (rooms, stations, etc.)
  *   - 10 new customers (+ existing seed customers)
- *   - ~1,800 appointments with full lifecycle
+ *   - ~2,200 appointments with full lifecycle
  *   - Commission rules and ledger entries
  *   - Package definitions and customer purchases
  *   - 4 CQRS read model tables populated
@@ -166,16 +167,17 @@ interface ProviderDef {
   specialties: string[];
   eligibleCategories: string[];
   commissionRate: number;
+  color: string;
   availabilityPattern: 'weekday_am' | 'weekday_pm' | 'full_week';
 }
 
 const PROVIDERS: ProviderDef[] = [
-  { displayName: 'Elena Vasquez', bio: 'Licensed massage therapist with 12 years of experience specializing in deep tissue and hot stone techniques.', specialties: ['Deep Tissue', 'Hot Stone', 'Sports Massage'], eligibleCategories: ['Massage Therapy', 'Body Treatments'], commissionRate: 0.35, availabilityPattern: 'weekday_am' },
-  { displayName: 'Marcus Chen', bio: 'Certified wellness practitioner with expertise in Eastern and Western massage modalities.', specialties: ['Swedish Massage', 'Aromatherapy', 'Reflexology'], eligibleCategories: ['Massage Therapy', 'Wellness'], commissionRate: 0.30, availabilityPattern: 'full_week' },
-  { displayName: 'Sophia Laurent', bio: 'Esthetician and body treatment specialist with advanced certifications in anti-aging skincare.', specialties: ['Anti-Aging', 'Chemical Peels', 'Body Wraps'], eligibleCategories: ['Facials', 'Body Treatments'], commissionRate: 0.32, availabilityPattern: 'weekday_pm' },
-  { displayName: 'Aisha Patel', bio: 'Nail technician and esthetician providing meticulous nail art and facial treatments.', specialties: ['Gel Nails', 'Nail Art', 'Facials'], eligibleCategories: ['Nail Services', 'Facials'], commissionRate: 0.28, availabilityPattern: 'full_week' },
-  { displayName: 'James O\'Brien', bio: 'Sports massage specialist and wellness coach with a focus on injury recovery.', specialties: ['Sports Massage', 'Meditation', 'Stretching'], eligibleCategories: ['Massage Therapy', 'Wellness'], commissionRate: 0.30, availabilityPattern: 'weekday_am' },
-  { displayName: 'Lily Zhang', bio: 'Skincare expert and nail artist with a passion for holistic beauty treatments.', specialties: ['Hydrafacial', 'Gel Polish', 'Skin Analysis'], eligibleCategories: ['Facials', 'Nail Services'], commissionRate: 0.28, availabilityPattern: 'weekday_pm' },
+  { displayName: 'Elena Vasquez', bio: 'Licensed massage therapist with 12 years of experience specializing in deep tissue and hot stone techniques.', specialties: ['Deep Tissue', 'Hot Stone', 'Sports Massage'], eligibleCategories: ['Massage Therapy', 'Body Treatments'], commissionRate: 0.35, color: '#6366f1', availabilityPattern: 'weekday_am' },
+  { displayName: 'Marcus Chen', bio: 'Certified wellness practitioner with expertise in Eastern and Western massage modalities.', specialties: ['Swedish Massage', 'Aromatherapy', 'Reflexology'], eligibleCategories: ['Massage Therapy', 'Wellness'], commissionRate: 0.30, color: '#22c55e', availabilityPattern: 'full_week' },
+  { displayName: 'Sophia Laurent', bio: 'Esthetician and body treatment specialist with advanced certifications in anti-aging skincare.', specialties: ['Anti-Aging', 'Chemical Peels', 'Body Wraps'], eligibleCategories: ['Facials', 'Body Treatments'], commissionRate: 0.32, color: '#f59e0b', availabilityPattern: 'weekday_pm' },
+  { displayName: 'Aisha Patel', bio: 'Nail technician and esthetician providing meticulous nail art and facial treatments.', specialties: ['Gel Nails', 'Nail Art', 'Facials'], eligibleCategories: ['Nail Services', 'Facials'], commissionRate: 0.28, color: '#ec4899', availabilityPattern: 'full_week' },
+  { displayName: 'James O\'Brien', bio: 'Sports massage specialist and wellness coach with a focus on injury recovery.', specialties: ['Sports Massage', 'Meditation', 'Stretching'], eligibleCategories: ['Massage Therapy', 'Wellness'], commissionRate: 0.30, color: '#14b8a6', availabilityPattern: 'weekday_am' },
+  { displayName: 'Lily Zhang', bio: 'Skincare expert and nail artist with a passion for holistic beauty treatments.', specialties: ['Hydrafacial', 'Gel Polish', 'Skin Analysis'], eligibleCategories: ['Facials', 'Nail Services'], commissionRate: 0.28, color: '#a855f7', availabilityPattern: 'weekday_pm' },
 ];
 
 interface ResourceDef {
@@ -342,8 +344,8 @@ async function seedSpa() {
     console.log('\n-- Inserting spa settings...');
     const settingsId = generateUlid();
     await db.execute(sql`
-      INSERT INTO spa_settings (id, tenant_id, location_id, timezone, day_close_time, default_buffer_minutes, allow_online_booking, max_advance_booking_days, min_advance_booking_hours, cancellation_window_hours)
-      VALUES (${settingsId}, ${tenantId}, ${locationId}, 'America/New_York', '00:00', 15, true, 90, 4, 24)
+      INSERT INTO spa_settings (id, tenant_id, location_id, timezone, day_close_time, default_buffer_minutes, online_booking_enabled)
+      VALUES (${settingsId}, ${tenantId}, ${locationId}, 'America/New_York', '00:00', 15, true)
       ON CONFLICT DO NOTHING
     `);
 
@@ -372,8 +374,8 @@ async function seedSpa() {
       servicesByCat[svc.category]!.push(id);
 
       await db.execute(sql`
-        INSERT INTO spa_services (id, tenant_id, category_id, name, display_name, description, category, duration_minutes, buffer_minutes, price, member_price, peak_price, max_capacity, is_active, allow_online_booking)
-        VALUES (${id}, ${tenantId}, ${catId}, ${svc.name}, ${svc.displayName}, ${svc.description}, ${svc.category}, ${svc.durationMinutes}, ${svc.bufferMinutes}, ${svc.price}, ${svc.memberPrice}, ${svc.peakPrice}, 1, true, true)
+        INSERT INTO spa_services (id, tenant_id, category_id, name, display_name, description, category, duration_minutes, buffer_minutes, price, member_price, peak_price, max_capacity, is_active)
+        VALUES (${id}, ${tenantId}, ${catId}, ${svc.name}, ${svc.displayName}, ${svc.description}, ${svc.category}, ${svc.durationMinutes}, ${svc.bufferMinutes}, ${svc.price}, ${svc.memberPrice}, ${svc.peakPrice}, 1, true)
       `);
     }
     console.log(`  ${SERVICES.length} services created`);
@@ -477,8 +479,8 @@ async function seedSpa() {
       providerIds.push({ id, def: pDef });
 
       await db.execute(sql`
-        INSERT INTO spa_providers (id, tenant_id, user_id, display_name, bio, specialties, employment_type, commission_rate, is_active)
-        VALUES (${id}, ${tenantId}, ${userId}, ${pDef.displayName}, ${pDef.bio}, ${JSON.stringify(pDef.specialties)}, 'employee', ${pDef.commissionRate.toFixed(2)}, true)
+        INSERT INTO spa_providers (id, tenant_id, user_id, display_name, bio, specialties, employment_type, color, is_active)
+        VALUES (${id}, ${tenantId}, ${userId}, ${pDef.displayName}, ${pDef.bio}, ${JSON.stringify(pDef.specialties)}, 'employee', ${pDef.color}, true)
       `);
 
       // Determine eligible services
@@ -490,6 +492,13 @@ async function seedSpa() {
       providerServiceMap[id] = eligibleSvcIds;
     }
     console.log(`  ${PROVIDERS.length} providers created`);
+
+    // ── Date anchors for relative seed ──────────────────────────
+    // Relative: 365 days ago from today so seed always includes recent history
+    const TOTAL_SEED_DAYS = 365 + 92; // 365 past + 92 future (~3 months)
+    const yearStart = new Date();
+    yearStart.setHours(0, 0, 0, 0);
+    yearStart.setDate(yearStart.getDate() - 365);
 
     // ── 11. Provider Availability ────────────────────────────────
     console.log('-- Setting provider availability...');
@@ -506,8 +515,8 @@ async function seedSpa() {
         const et = dow === 6 ? '14:00' : endTime;
         const id = generateUlid();
         await db.execute(sql`
-          INSERT INTO spa_provider_availability (id, tenant_id, provider_id, day_of_week, start_time, end_time, location_id)
-          VALUES (${id}, ${tenantId}, ${prov.id}, ${dow}, ${st}::time, ${et}::time, ${locationId})
+          INSERT INTO spa_provider_availability (id, tenant_id, provider_id, day_of_week, start_time, end_time, location_id, effective_from)
+          VALUES (${id}, ${tenantId}, ${prov.id}, ${dow}, ${st}::time, ${et}::time, ${locationId}, ${bizDate(yearStart)})
         `);
         availCount++;
       }
@@ -517,12 +526,11 @@ async function seedSpa() {
     // ── 12. Provider Time Off ────────────────────────────────────
     console.log('-- Adding provider time off...');
     let timeOffCount = 0;
-    const yearStart = new Date('2025-03-01');
     for (const prov of providerIds) {
       // 2-3 time-off entries per provider, scattered through the year
       const numTimeOff = randInt(2, 3);
       for (let j = 0; j < numTimeOff; j++) {
-        const dayOffset = randInt(30, 330);
+        const dayOffset = randInt(30, TOTAL_SEED_DAYS - 30);
         const startDate = addDays(yearStart, dayOffset);
         const duration = randInt(1, 5);
         const endDate = addDays(startDate, duration);
@@ -545,34 +553,16 @@ async function seedSpa() {
         const id = generateUlid();
         const proficiency = pick(['standard', 'advanced', 'master']);
         await db.execute(sql`
-          INSERT INTO spa_provider_services (id, tenant_id, provider_id, service_id, proficiency_level)
+          INSERT INTO spa_provider_service_eligibility (id, tenant_id, provider_id, service_id, proficiency_level)
           VALUES (${id}, ${tenantId}, ${prov.id}, ${svcId}, ${proficiency})
+          ON CONFLICT DO NOTHING
         `);
         eligCount++;
       }
     }
     console.log(`  ${eligCount} eligibility records created`);
 
-    // ── 14. Resource Schedules ───────────────────────────────────
-    console.log('-- Creating resource schedules...');
-    let schedCount = 0;
-    for (const resType of Object.keys(resourceIds)) {
-      for (const resId of resourceIds[resType]!) {
-        for (let dow = 0; dow <= 6; dow++) {
-          const id = generateUlid();
-          const st = dow === 0 ? '10:00' : '08:00';
-          const et = dow === 0 ? '16:00' : (dow === 6 ? '17:00' : '20:00');
-          await db.execute(sql`
-            INSERT INTO spa_resource_schedules (id, tenant_id, resource_id, day_of_week, start_time, end_time, is_active)
-            VALUES (${id}, ${tenantId}, ${resId}, ${dow}, ${st}::time, ${et}::time, true)
-          `);
-          schedCount++;
-        }
-      }
-    }
-    console.log(`  ${schedCount} resource schedules created`);
-
-    // ── 15. Commission Rules ─────────────────────────────────────
+    // ── 14. Commission Rules ─────────────────────────────────────
     console.log('-- Creating commission rules...');
     let commRuleCount = 0;
     for (const prov of providerIds) {
@@ -580,7 +570,7 @@ async function seedSpa() {
       // Provider-level default commission
       await db.execute(sql`
         INSERT INTO spa_commission_rules (id, tenant_id, name, provider_id, commission_type, rate, applies_to, effective_from, priority, is_active)
-        VALUES (${id}, ${tenantId}, ${prov.def.displayName + ' - Default'}, ${prov.id}, 'percentage', ${prov.def.commissionRate.toFixed(4)}, 'all', '2025-03-01', 10, true)
+        VALUES (${id}, ${tenantId}, ${prov.def.displayName + ' - Default'}, ${prov.id}, 'percentage', ${prov.def.commissionRate.toFixed(4)}, 'all', ${bizDate(yearStart)}, 10, true)
       `);
       commRuleCount++;
     }
@@ -621,7 +611,7 @@ async function seedSpa() {
         const status = expDate < new Date() ? 'expired' : (sessionsUsed >= pkgDef.def.totalSessions ? 'exhausted' : 'active');
 
         await db.execute(sql`
-          INSERT INTO spa_customer_packages (id, tenant_id, customer_id, package_def_id, purchase_date, expiration_date, sessions_total, sessions_used, status)
+          INSERT INTO spa_package_balances (id, tenant_id, customer_id, package_def_id, purchase_date, expiration_date, sessions_total, sessions_used, status)
           VALUES (${id}, ${tenantId}, ${cust.id}, ${pkgDef.id}, ${bizDate(purchaseDate)}, ${bizDate(expDate)}, ${pkgDef.def.totalSessions}, ${sessionsUsed}, ${status})
         `);
         pkgBalances.push({ id, custId: cust.id, pkgDefId: pkgDef.id, sessionsTotal: pkgDef.def.totalSessions, sessionsUsed });
@@ -633,7 +623,7 @@ async function seedSpa() {
     // ══ APPOINTMENT GENERATION ═══════════════════════════════════
     // ══════════════════════════════════════════════════════════════
 
-    console.log('\n-- Generating appointments (~1,800)...');
+    console.log(`\n-- Generating appointments (~${Math.round(TOTAL_SEED_DAYS * 4.8)})...`);
 
     const allServiceEntries = Object.values(serviceIds);
     const serviceWeights: number[] = allServiceEntries.map(s => {
@@ -671,8 +661,8 @@ async function seedSpa() {
     let appointmentCounter = 0;
     const now = new Date();
 
-    // Generate for 366 days starting 2025-03-01
-    for (let dayOffset = 0; dayOffset < 366; dayOffset++) {
+    // Generate for TOTAL_SEED_DAYS starting from yearStart
+    for (let dayOffset = 0; dayOffset < TOTAL_SEED_DAYS; dayOffset++) {
       const currentDate = addDays(yearStart, dayOffset);
       const dayOfWeek = currentDate.getDay(); // 0=Sun
       const month = currentDate.getMonth();
@@ -957,6 +947,7 @@ async function seedSpa() {
       await db.execute(sql`
         INSERT INTO spa_daily_operations (id, tenant_id, location_id, business_date, notes)
         VALUES (${opsId}, ${tenantId}, ${locationId}, ${bizDate(opsDate)}, ${d === 0 ? 'Opening day — grand opening' : null})
+        ON CONFLICT DO NOTHING
       `);
       opsCount++;
     }

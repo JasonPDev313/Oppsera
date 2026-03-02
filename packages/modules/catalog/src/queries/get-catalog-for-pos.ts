@@ -1,4 +1,4 @@
-import { eq, and, asc, isNull } from 'drizzle-orm';
+import { eq, and, asc, isNull, inArray } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import {
   catalogItems,
@@ -153,7 +153,8 @@ export async function getCatalogForPOS(
           ),
         )
         .orderBy(asc(catalogModifiers.sortOrder)),
-      // Item-to-modifier-group assignments with override columns
+      // Item-to-modifier-group assignments with override columns.
+      // Junction table has no tenantId — scope via item FK subquery.
       tx
         .select({
           catalogItemId: catalogItemModifierGroups.catalogItemId,
@@ -165,7 +166,13 @@ export async function getCatalogForPOS(
           overrideInstructionMode: catalogItemModifierGroups.overrideInstructionMode,
           promptOrder: catalogItemModifierGroups.promptOrder,
         })
-        .from(catalogItemModifierGroups),
+        .from(catalogItemModifierGroups)
+        .where(
+          inArray(
+            catalogItemModifierGroups.catalogItemId,
+            tx.select({ id: catalogItems.id }).from(catalogItems).where(eq(catalogItems.tenantId, tenantId)),
+          ),
+        ),
       // Modifier group categories
       tx
         .select({

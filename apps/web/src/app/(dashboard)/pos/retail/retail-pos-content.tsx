@@ -608,8 +608,9 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     pos,
     employeeId: user?.id ?? '',
     employeeName: user?.name ?? '',
+    isActive,
   });
-  const shift = useShift(locationId, config?.terminalId ?? '');
+  const shift = useShift(locationId, config?.terminalId ?? '', isActive);
   const profileDrawer = useProfileDrawer();
   const itemEditDrawer = useItemEditDrawer();
   const guestPay = useRetailGuestPay({

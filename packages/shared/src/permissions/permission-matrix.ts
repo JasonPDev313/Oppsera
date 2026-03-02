@@ -130,6 +130,12 @@ export const PERMISSION_MATRIX: PermissionDefinition[] = [
   { key: 'pos_fnb.kds.recall', module: 'pos_fnb', description: 'Recall bumped items on KDS', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
   { key: 'pos_fnb.kds.manage', module: 'pos_fnb', description: 'Manage KDS stations and routing rules', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
   { key: 'pos_fnb.kds.settings.manage', module: 'pos_fnb', description: 'Configure KDS settings, bump bars, alerts, and targets', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  // ── KDS standalone module permissions (for sidebar nav when kds entitlement is enabled) ──
+  { key: 'kds.view', module: 'kds', description: 'View kitchen display system', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'server', 'staff'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'kds.bump', module: 'kds', description: 'Bump items and tickets on KDS', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'server', 'staff'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'kds.recall', module: 'kds', description: 'Recall bumped items on KDS', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'kds.manage', module: 'kds', description: 'Manage KDS stations and routing rules', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'kds.settings.manage', module: 'kds', description: 'Configure KDS settings, bump bars, alerts, and targets', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
   { key: 'pos_fnb.payments.create', module: 'pos_fnb', description: 'Process F&B payments', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'server'], requiresManagerPin: false, requiresAudit: true },
   { key: 'pos_fnb.payments.split', module: 'pos_fnb', description: 'Split checks', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'server'], requiresManagerPin: false, requiresAudit: false },
   { key: 'pos_fnb.payments.refund', module: 'pos_fnb', description: 'Process F&B refunds', defaultRoles: ['owner', 'manager'], requiresManagerPin: true, requiresAudit: true },

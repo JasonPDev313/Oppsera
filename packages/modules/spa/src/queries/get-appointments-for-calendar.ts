@@ -54,6 +54,9 @@ export async function getAppointmentsForCalendar(input: {
   return withTenant(input.tenantId, async (tx) => {
     const startTs = new Date(input.startDate);
     const endTs = new Date(input.endDate);
+    // endDate string parses to midnight UTC — push to end of day so day view
+    // (where startDate === endDate) actually returns appointments.
+    endTs.setHours(23, 59, 59, 999);
 
     const conditions: ReturnType<typeof eq>[] = [
       eq(spaAppointments.tenantId, input.tenantId),
@@ -98,27 +101,56 @@ export async function getAppointmentsForCalendar(input: {
       return { providers: [], unassigned: [] };
     }
 
-    // Batch-fetch appointment items for service names
+    // Collect unique provider IDs and appointment IDs from results
     const appointmentIds = rows.map((r) => r.id);
-    const itemRows = await tx
-      .select({
-        appointmentId: spaAppointmentItems.appointmentId,
-        serviceId: spaAppointmentItems.serviceId,
-        serviceName: spaServices.name,
-        serviceDurationMinutes: spaServices.durationMinutes,
-      })
-      .from(spaAppointmentItems)
-      .innerJoin(spaServices, eq(spaAppointmentItems.serviceId, spaServices.id))
-      .where(
-        and(
-          eq(spaAppointmentItems.tenantId, input.tenantId),
-          sql`${spaAppointmentItems.appointmentId} IN (${sql.join(
-            appointmentIds.map((id) => sql`${id}`),
-            sql`, `,
-          )})`,
-        ),
-      )
-      .orderBy(spaAppointmentItems.sortOrder);
+    const providerIdSet = new Set<string>();
+    for (const r of rows) {
+      if (r.providerId) providerIdSet.add(r.providerId);
+    }
+
+    // Fetch appointment items AND provider names in parallel (both depend only on rows)
+    const [itemRows, providerRows] = await Promise.all([
+      // Batch-fetch appointment items for service names
+      tx
+        .select({
+          appointmentId: spaAppointmentItems.appointmentId,
+          serviceId: spaAppointmentItems.serviceId,
+          serviceName: spaServices.name,
+          serviceDurationMinutes: spaServices.durationMinutes,
+        })
+        .from(spaAppointmentItems)
+        .innerJoin(spaServices, eq(spaAppointmentItems.serviceId, spaServices.id))
+        .where(
+          and(
+            eq(spaAppointmentItems.tenantId, input.tenantId),
+            sql`${spaAppointmentItems.appointmentId} IN (${sql.join(
+              appointmentIds.map((id) => sql`${id}`),
+              sql`, `,
+            )})`,
+          ),
+        )
+        .orderBy(spaAppointmentItems.sortOrder),
+
+      // Fetch provider display data
+      providerIdSet.size > 0
+        ? tx
+            .select({
+              id: spaProviders.id,
+              displayName: spaProviders.displayName,
+              color: spaProviders.color,
+            })
+            .from(spaProviders)
+            .where(
+              and(
+                eq(spaProviders.tenantId, input.tenantId),
+                sql`${spaProviders.id} IN (${sql.join(
+                  Array.from(providerIdSet).map((id) => sql`${id}`),
+                  sql`, `,
+                )})`,
+              ),
+            )
+        : Promise.resolve([]),
+    ]);
 
     // Group items by appointment
     const itemsByAppointment = new Map<string, CalendarAppointmentItem[]>();
@@ -130,6 +162,12 @@ export async function getAppointmentsForCalendar(input: {
         durationMinutes: item.serviceDurationMinutes,
       });
       itemsByAppointment.set(item.appointmentId, list);
+    }
+
+    // Build provider lookup
+    const providerMap = new Map<string, { name: string; color: string | null }>();
+    for (const p of providerRows) {
+      providerMap.set(p.id, { name: p.displayName, color: p.color ?? null });
     }
 
     // Build calendar appointments
@@ -146,40 +184,6 @@ export async function getAppointmentsForCalendar(input: {
       orderId: r.orderId ?? null,
       services: itemsByAppointment.get(r.id) ?? [],
     }));
-
-    // Collect unique provider IDs from appointments
-    const providerIdSet = new Set<string>();
-    for (const appt of calendarAppointments) {
-      if (appt.providerId) {
-        providerIdSet.add(appt.providerId);
-      }
-    }
-
-    // Fetch provider display data
-    const providerMap = new Map<string, { name: string; color: string | null }>();
-    if (providerIdSet.size > 0) {
-      const providerIds = Array.from(providerIdSet);
-      const providerRows = await tx
-        .select({
-          id: spaProviders.id,
-          displayName: spaProviders.displayName,
-          color: spaProviders.color,
-        })
-        .from(spaProviders)
-        .where(
-          and(
-            eq(spaProviders.tenantId, input.tenantId),
-            sql`${spaProviders.id} IN (${sql.join(
-              providerIds.map((id) => sql`${id}`),
-              sql`, `,
-            )})`,
-          ),
-        );
-
-      for (const p of providerRows) {
-        providerMap.set(p.id, { name: p.displayName, color: p.color ?? null });
-      }
-    }
 
     // Group appointments by provider
     const appointmentsByProvider = new Map<string, CalendarAppointment[]>();
