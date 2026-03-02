@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import * as readline from 'node:readline';
 
 // --remote flag loads .env.remote first so seed targets production Supabase
 const isRemote = process.argv.includes('--remote');
@@ -100,6 +101,32 @@ async function seedYear() {
   console.log(`\n══ Year Seed: 366 days of transactions ══`);
   console.log(`Target: ${target} (${masked})`);
   console.log(`Mode: ADDITIVE ONLY — no deletes, truncates, or drops\n`);
+
+  // ── PRODUCTION SAFETY GUARD ──────────────────────────────────
+  // Year seed is additive-only but creates duplicate data if run
+  // twice. Warn on production to prevent accidental duplicates.
+  if (isRemote) {
+    console.warn('='.repeat(60));
+    console.warn('  WARNING — PRODUCTION DATABASE');
+    console.warn('='.repeat(60));
+    console.warn(`  Target: ${masked}`);
+    console.warn('');
+    console.warn('  This will INSERT ~11,000 orders + tenders into production.');
+    console.warn('  Running twice creates DUPLICATE data (additive-only).');
+    console.warn('='.repeat(60) + '\n');
+
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await new Promise<string>((resolve) => {
+      rl.question('  Type "seed-production" to continue: ', resolve);
+    });
+    rl.close();
+
+    if (answer.trim() !== 'seed-production') {
+      console.error('\n  Aborted. No changes made.\n');
+      process.exit(1);
+    }
+    console.log('\n  Confirmed. Proceeding...\n');
+  }
 
   const client = postgres(connectionString, { max: 1, prepare: false });
   const db = drizzle(client);

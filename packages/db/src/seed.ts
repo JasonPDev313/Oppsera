@@ -1,7 +1,9 @@
 import dotenv from 'dotenv';
+import * as readline from 'node:readline';
 
 // --remote flag loads .env.remote first so seed targets production Supabase
 const isRemote = process.argv.includes('--remote');
+const forceConfirmed = process.argv.includes('--yes-i-want-to-wipe-production');
 if (isRemote) {
   dotenv.config({ path: '../../.env.remote', override: true });
 }
@@ -78,6 +80,44 @@ async function seed() {
   const target = isRemote ? 'REMOTE' : 'LOCAL';
   const masked = connectionString.replace(/:[^:@]+@/, ':***@');
   console.log(`Seeding database (${target}): ${masked}\n`);
+
+  // ── PRODUCTION SAFETY GUARD ──────────────────────────────────
+  // This script TRUNCATES ALL DATA via CASCADE. On production,
+  // this permanently destroys orders, reservations, customers,
+  // payments, GL entries — EVERYTHING.
+  if (isRemote) {
+    if (!forceConfirmed) {
+      console.error('\n' + '='.repeat(68));
+      console.error('  ⚠️  DESTRUCTIVE OPERATION — PRODUCTION DATABASE');
+      console.error('='.repeat(68));
+      console.error(`  Target: ${masked}`);
+      console.error('');
+      console.error('  This will PERMANENTLY DELETE ALL DATA:');
+      console.error('    - All tenants, users, and memberships');
+      console.error('    - All orders, tenders, and payments');
+      console.error('    - All reservations and rates');
+      console.error('    - All customers and billing accounts');
+      console.error('    - All GL journal entries');
+      console.error('    - All inventory movements');
+      console.error('    - EVERYTHING in the database');
+      console.error('');
+      console.error('  To proceed, you must type the database host to confirm.');
+      console.error('='.repeat(68) + '\n');
+
+      const host = connectionString.match(/@([^:/]+)/)?.[1] ?? 'unknown';
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      const answer = await new Promise<string>((resolve) => {
+        rl.question(`  Type "${host}" to confirm wipe: `, resolve);
+      });
+      rl.close();
+
+      if (answer.trim() !== host) {
+        console.error('\n  Aborted. No changes made.\n');
+        process.exit(1);
+      }
+      console.log('\n  Confirmed. Proceeding with production seed...\n');
+    }
+  }
 
   const client = postgres(connectionString, { max: 1, prepare: false });
   const db = drizzle(client);
@@ -236,6 +276,9 @@ async function seed() {
         'spa.operations.manage',
         'pos.register_tabs.view_all',
         'pos.register_tabs.transfer',
+        'kds.view',
+        'kds.manage',
+        'kds.settings.manage',
       ],
     },
     {
@@ -252,8 +295,9 @@ async function seed() {
         'pos_fnb.floor_plan.view',
         'pos_fnb.tabs.view',
         'pos_fnb.tabs.manage',
-        'pos_fnb.kds.view',
+        'kds.view',
         'pos_fnb.payments.manage',
+        'pos_fnb.inventory.view',
         'pos_fnb.host.view',
         'spa.appointments.view',
         'spa.appointments.create',
@@ -284,10 +328,14 @@ async function seed() {
         'pos_fnb.floor_plan.view',
         'pos_fnb.tabs.view',
         'pos_fnb.tabs.manage',
-        'pos_fnb.kds.view',
+        'kds.view',
+        'kds.manage',
+        'kds.settings.manage',
         'pos_fnb.payments.manage',
         'pos_fnb.tips.manage',
         'pos_fnb.menu.manage',
+        'pos_fnb.inventory.view',
+        'pos_fnb.inventory.manage',
         'pos_fnb.host.view',
         'pos_fnb.host.manage',
         'pos_fnb.host.notifications',
@@ -330,8 +378,9 @@ async function seed() {
         'pos_fnb.floor_plan.view',
         'pos_fnb.tabs.view',
         'pos_fnb.tabs.manage',
-        'pos_fnb.kds.view',
+        'kds.view',
         'pos_fnb.payments.manage',
+        'pos_fnb.inventory.view',
         'pos_fnb.host.view',
         'spa.appointments.view',
         'spa.appointments.create',
@@ -347,6 +396,7 @@ async function seed() {
         'orders.view',
         'customers.view',
         'pos_fnb.floor_plan.view',
+        'pos_fnb.inventory.view',
         'pos_fnb.host.view',
         'spa.services.view',
         'spa.appointments.view',
@@ -378,7 +428,7 @@ async function seed() {
         'reports.view',
         'pos_fnb.floor_plan.view',
         'pos_fnb.tabs.view',
-        'pos_fnb.kds.view',
+        'kds.view',
         'accounting.view',
         'room_layouts.view',
         'pms.property.view',

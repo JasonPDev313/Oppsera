@@ -72,9 +72,13 @@ export const platformRestoreOperations = pgTable(
       .references(() => platformAdmins.id),
     rejectionReason: text('rejection_reason'),
     confirmationPhrase: text('confirmation_phrase'),
+    scopeTenantId: text('scope_tenant_id'),
+    // When set, restore only affects rows belonging to this tenant_id. NULL = full database restore.
     tablesRestored: integer('tables_restored'),
     rowsRestored: integer('rows_restored'),
     errorMessage: text('error_message'),
+    metadata: jsonb('metadata'),
+    // Restore progress tracking: { phase, currentTable, tableIndex, totalTables, rowsInserted, updatedAt }
     approvedAt: timestamp('approved_at', { withTimezone: true }),
     startedAt: timestamp('started_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),

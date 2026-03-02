@@ -1744,6 +1744,41 @@
       "when": 1710288000000,
       "tag": "0248_spa_calendar_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 249,
+      "version": "7",
+      "when": 1710374400000,
+      "tag": "0249_spa_booking_email_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1710460800000,
+      "tag": "0250_webapp_customization_jsonb",
+      "breakpoints": true
+    },
+    {
+      "idx": 251,
+      "version": "7",
+      "when": 1710547200000,
+      "tag": "0251_tenant_scoped_restore",
+      "breakpoints": true
+    },
+    {
+      "idx": 252,
+      "version": "7",
+      "when": 1710633600000,
+      "tag": "0252_restore_progress_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 253,
+      "version": "7",
+      "when": 1710720000000,
+      "tag": "0253_manage_tabs",
+      "breakpoints": true
     }
   ]
 }

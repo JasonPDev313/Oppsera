@@ -2424,3 +2424,54 @@ export const fnbGuestNotifications = pgTable(
     index('idx_fnb_notifications_ref').on(table.tenantId, table.referenceType, table.referenceId),
   ],
 );
+
+// ═══════════════════════════════════════════════════════════════════
+// MANAGE TABS — Bulk tab management & manager override audit
+// ═══════════════════════════════════════════════════════════════════
+
+export const fnbManagerOverrides = pgTable(
+  'fnb_manager_overrides',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull().references(() => locations.id),
+    initiatorUserId: text('initiator_user_id').notNull(),
+    approverUserId: text('approver_user_id').notNull(),
+    actionType: text('action_type').notNull(),
+    tabIds: text('tab_ids').array().notNull(),
+    reasonCode: text('reason_code'),
+    reasonText: text('reason_text'),
+    metadata: jsonb('metadata').default({}),
+    resultSummary: jsonb('result_summary').default({}),
+    deviceId: text('device_id'),
+    idempotencyKey: text('idempotency_key'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_manager_overrides_tenant_created').on(table.tenantId, table.createdAt),
+    uniqueIndex('uq_fnb_manager_overrides_idempotency')
+      .on(table.tenantId, table.idempotencyKey)
+      .where(sql`idempotency_key IS NOT NULL`),
+    index('idx_fnb_manager_overrides_tenant_action').on(table.tenantId, table.actionType),
+  ],
+);
+
+export const fnbManageTabsSettings = pgTable(
+  'fnb_manage_tabs_settings',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').references(() => locations.id),
+    showManageTabsButton: boolean('show_manage_tabs_button').default(true),
+    requirePinForTransfer: boolean('require_pin_for_transfer').default(false),
+    requirePinForVoid: boolean('require_pin_for_void').default(true),
+    allowBulkAllServers: boolean('allow_bulk_all_servers').default(false),
+    readOnlyForNonManagers: boolean('read_only_for_non_managers').default(false),
+    maxBulkSelection: integer('max_bulk_selection').default(50),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_fnb_manage_tabs_settings_tenant_location').on(table.tenantId, table.locationId),
+  ],
+);

@@ -385,6 +385,8 @@ export const spaAppointments = pgTable(
     orderId: text('order_id').references(() => orders.id),
     pmsFolioId: text('pms_folio_id'),
     recurrenceRule: jsonb('recurrence_rule').$type<Record<string, unknown>>(),
+    confirmationEmailSentAt: timestamp('confirmation_email_sent_at', { withTimezone: true }),
+    reminderEmailSentAt: timestamp('reminder_email_sent_at', { withTimezone: true }),
     version: integer('version').notNull().default(1),
     createdBy: text('created_by'),
     updatedBy: text('updated_by'),
@@ -894,6 +896,31 @@ export const spaBookingWidgetConfig = pgTable(
     allowAddonSelection: boolean('allow_addon_selection').notNull().default(true),
     customCss: text('custom_css'),
     redirectUrl: text('redirect_url'),
+    // Per-webapp customization JSONB columns (override tenant-level business info)
+    businessIdentity: jsonb('business_identity')
+      .notNull()
+      .default({})
+      .$type<Record<string, unknown>>(),
+    contactLocation: jsonb('contact_location')
+      .notNull()
+      .default({})
+      .$type<Record<string, unknown>>(),
+    branding: jsonb('branding')
+      .notNull()
+      .default({})
+      .$type<Record<string, unknown>>(),
+    operational: jsonb('operational')
+      .notNull()
+      .default({})
+      .$type<Record<string, unknown>>(),
+    legal: jsonb('legal')
+      .notNull()
+      .default({})
+      .$type<Record<string, unknown>>(),
+    seo: jsonb('seo')
+      .notNull()
+      .default({})
+      .$type<Record<string, unknown>>(),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
