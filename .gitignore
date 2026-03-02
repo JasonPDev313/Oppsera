@@ -19,3 +19,4 @@ coverage
 
 # Backup storage
 data/backups/
+backups/

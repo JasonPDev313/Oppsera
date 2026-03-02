@@ -9,6 +9,10 @@
     {
       "path": "/api/v1/internal/drain-outbox",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/v1/spa/internal/send-reminders",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
