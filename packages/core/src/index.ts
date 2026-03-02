@@ -186,6 +186,8 @@ export { getReceiptSettings, saveReceiptSettings } from './settings';
 // ── Email ───────────────────────────────────────────────────────
 export { sendEmail } from './email/send-email';
 export { memberVerificationEmail } from './email/templates';
+export { orderQuoteEmail } from './email/templates/order-quote-email';
+export type { OrderQuoteEmailData } from './email/templates/order-quote-email';
 
 // ── Security ─────────────────────────────────────────────────────
 export { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from './security';
