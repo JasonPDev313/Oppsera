@@ -10,6 +10,7 @@ const EXCLUDED_TABLES = new Set([
   'platform_backups',
   'platform_restore_operations',
   'platform_backup_settings',
+  'distributed_locks',
 ]);
 
 /**

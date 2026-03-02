@@ -64,7 +64,7 @@ export function CreateTenantModal({ onClose, onCreate }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="input-field"
-              placeholder="Acme Golf Club"
+              placeholder="Acme Hospitality Group"
             />
           </Field>
 
@@ -74,7 +74,7 @@ export function CreateTenantModal({ onClose, onCreate }: Props) {
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               className="input-field"
-              placeholder="acme-golf-club"
+              placeholder="acme-hospitality"
             />
           </Field>
 

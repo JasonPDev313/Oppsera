@@ -14,11 +14,12 @@ interface Props {
 
 const INDUSTRY_OPTIONS = [
   { value: '', label: 'None' },
-  { value: 'golf', label: 'Golf' },
   { value: 'retail', label: 'Retail' },
   { value: 'restaurant', label: 'Restaurant' },
   { value: 'hybrid', label: 'Hybrid' },
   { value: 'hospitality', label: 'Hospitality' },
+  { value: 'spa', label: 'Spa / Wellness' },
+  { value: 'enterprise', label: 'Enterprise' },
 ];
 
 export function EditTenantDialog({ tenant, onClose, onSave }: Props) {

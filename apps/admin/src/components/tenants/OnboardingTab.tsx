@@ -61,10 +61,10 @@ export function OnboardingTab({ tenantId, industry }: Props) {
               className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white"
             >
               <option value="general">General</option>
-              <option value="golf">Golf</option>
               <option value="restaurant">Restaurant</option>
               <option value="hotel">Hotel</option>
               <option value="retail">Retail</option>
+              <option value="spa">Spa / Wellness</option>
               <option value="marina">Marina</option>
             </select>
           </div>

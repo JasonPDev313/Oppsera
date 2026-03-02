@@ -1,4 +1,4 @@
-import { gzip } from 'zlib';
+import { gzip, gunzip } from 'zlib';
 import { promisify } from 'util';
 import { createHash } from 'node:crypto';
 import { db } from '@oppsera/db';
@@ -64,34 +64,45 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
     const manifestTables: TableManifestEntry[] = [];
     let totalRows = 0;
 
+    let rlsBypassed = false;
+    let rlsBypassMethod: string | null = null;
+
     await db.transaction(async (tx) => {
-      // Extend statement timeout — backup may take minutes for large DBs
-      await tx.execute(sql`SET LOCAL statement_timeout = '600s'`);
-      await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '660s'`);
+      // Extend statement timeout — keep conservative for Vercel pool health.
+      // 120s is generous for most DBs; very large DBs should use manual backup.
+      await tx.execute(sql`SET LOCAL statement_timeout = '120s'`);
+      await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '180s'`);
 
       // Bypass RLS for this transaction.
       // Try multiple approaches since Supavisor may restrict SET ROLE.
-      let _rlsBypassed = false;
       try {
         await tx.execute(sql`SET LOCAL role = 'postgres'`);
-        _rlsBypassed = true;
+        rlsBypassed = true;
+        rlsBypassMethod = 'postgres';
       } catch {
         // SET ROLE to postgres failed — try supabase_admin (Supabase-specific)
         try {
           await tx.execute(sql`SET LOCAL role = 'supabase_admin'`);
-          _rlsBypassed = true;
+          rlsBypassed = true;
+          rlsBypassMethod = 'supabase_admin';
         } catch {
           // Neither role works. Try disabling RLS directly (requires superuser).
           try {
             await tx.execute(sql`SET LOCAL row_security = 'off'`);
-            _rlsBypassed = true;
+            rlsBypassed = true;
+            rlsBypassMethod = 'row_security_off';
           } catch {
-            console.warn(
-              '[backup] Could not bypass RLS — backup may have incomplete data. ' +
-              'Tables with FORCE ROW LEVEL SECURITY will return 0 rows.',
+            console.error(
+              '[backup] CRITICAL: Could not bypass RLS via any method. ' +
+              'Backup WILL have incomplete data — RLS-protected tables return 0 rows. ' +
+              'This backup should NOT be relied on for disaster recovery.',
             );
           }
         }
+      }
+
+      if (rlsBypassed) {
+        console.log(`[backup] RLS bypassed via ${rlsBypassMethod}`);
       }
 
       for (const tableName of orderedNames) {
@@ -150,6 +161,8 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
           tableManifest: manifestTables.map((t) => ({ name: t.name, rowCount: t.rowCount })),
           schemaVersion,
           pgVersion,
+          rlsBypassed,
+          rlsBypassMethod,
         },
         updatedAt: new Date(),
       })
@@ -219,36 +232,49 @@ async function getTableColumnsInTx(tx: Parameters<Parameters<typeof db.transacti
 
 /**
  * Load a backup payload from storage (decompress + parse).
+ * Only loads completed backups — rejects in-progress or failed ones.
  */
 export async function loadBackupPayload(backupId: string): Promise<BackupPayload> {
-  const { gunzip } = await import('zlib');
-  const { promisify: promisifyGunzip } = await import('util');
-  const gunzipAsync = promisifyGunzip(gunzip);
+  const gunzipAsync = promisify(gunzip);
 
-  // Get backup record
+  // Get backup record — only allow completed backups
   const result = await db.execute(
-    sql`SELECT storage_driver, storage_path, checksum FROM platform_backups WHERE id = ${backupId}`,
+    sql`SELECT storage_driver, storage_path, checksum, status
+        FROM platform_backups WHERE id = ${backupId}`,
   );
   const rows = Array.from(result as Iterable<{
     storage_driver: string;
     storage_path: string;
-    checksum: string;
+    checksum: string | null;
+    status: string;
   }>);
 
   if (rows.length === 0) throw new Error(`Backup not found: ${backupId}`);
   const record = rows[0]!;
 
+  if (record.status !== 'completed') {
+    throw new Error(`Backup ${backupId} is not completed (status: ${record.status}). Only completed backups can be loaded.`);
+  }
+
   // Read from storage
   const storage = getBackupStorage(record.storage_driver);
   const compressed = await storage.read(record.storage_path);
 
-  // Verify checksum
-  const actualChecksum = createHash('sha256').update(compressed).digest('hex');
-  if (actualChecksum !== record.checksum) {
-    throw new Error(`Checksum mismatch. Expected: ${record.checksum}, Got: ${actualChecksum}. Backup may be corrupted.`);
+  // Verify checksum (skip if backup has no checksum — older backups)
+  if (record.checksum) {
+    const actualChecksum = createHash('sha256').update(compressed).digest('hex');
+    if (actualChecksum !== record.checksum) {
+      throw new Error(`Checksum mismatch. Expected: ${record.checksum}, Got: ${actualChecksum}. Backup may be corrupted.`);
+    }
   }
 
   // Decompress + parse
   const decompressed = await gunzipAsync(compressed);
-  return JSON.parse(decompressed.toString('utf-8')) as BackupPayload;
+  try {
+    return JSON.parse(decompressed.toString('utf-8')) as BackupPayload;
+  } catch (parseErr) {
+    throw new Error(
+      `Failed to parse backup payload for ${backupId}: ${parseErr instanceof Error ? parseErr.message : 'Invalid JSON'}`,
+    );
+  }
 }
