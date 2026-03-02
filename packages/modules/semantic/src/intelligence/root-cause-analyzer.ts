@@ -71,20 +71,57 @@ export interface RootCauseResult {
 const DEFAULT_MAX_CONTRIBUTORS = 10;
 
 /**
- * Maps metric slugs to their column name in `rm_daily_sales`.
- * All of these store dollar amounts as NUMERIC(19,4).
+ * Maps metric slugs to their table and column name in reporting read models.
+ * Supports rm_daily_sales, rm_item_sales, and rm_spa_daily_operations.
+ * All monetary columns store dollar amounts as NUMERIC(19,4).
  */
-const METRIC_COLUMN_MAP: Record<string, string> = {
-  net_sales: 'net_sales',
-  gross_sales: 'gross_sales',
-  order_count: 'order_count',
-  avg_order_value: 'avg_order_value',
-  discount_total: 'discount_total',
-  tax_total: 'tax_total',
-  void_count: 'void_count',
-  void_total: 'void_total',
-  tender_cash: 'tender_cash',
-  tender_card: 'tender_card',
+const METRIC_COLUMN_MAP: Record<string, { table: string; column: string }> = {
+  // ── rm_daily_sales ─────────────────────────────────────────────
+  net_sales: { table: 'rm_daily_sales', column: 'net_sales' },
+  gross_sales: { table: 'rm_daily_sales', column: 'gross_sales' },
+  order_count: { table: 'rm_daily_sales', column: 'order_count' },
+  avg_order_value: { table: 'rm_daily_sales', column: 'avg_order_value' },
+  discount_total: { table: 'rm_daily_sales', column: 'discount_total' },
+  tax_total: { table: 'rm_daily_sales', column: 'tax_total' },
+  void_count: { table: 'rm_daily_sales', column: 'void_count' },
+  void_total: { table: 'rm_daily_sales', column: 'void_total' },
+  tender_cash: { table: 'rm_daily_sales', column: 'tender_cash' },
+  tender_card: { table: 'rm_daily_sales', column: 'tender_card' },
+  tender_gift_card: { table: 'rm_daily_sales', column: 'tender_gift_card' },
+  tender_house_account: { table: 'rm_daily_sales', column: 'tender_house_account' },
+  tender_ach: { table: 'rm_daily_sales', column: 'tender_ach' },
+  tender_other: { table: 'rm_daily_sales', column: 'tender_other' },
+  tip_total: { table: 'rm_daily_sales', column: 'tip_total' },
+  service_charge_total: { table: 'rm_daily_sales', column: 'service_charge_total' },
+  surcharge_total: { table: 'rm_daily_sales', column: 'surcharge_total' },
+  return_total: { table: 'rm_daily_sales', column: 'return_total' },
+  pms_revenue: { table: 'rm_daily_sales', column: 'pms_revenue' },
+  ar_revenue: { table: 'rm_daily_sales', column: 'ar_revenue' },
+  membership_revenue: { table: 'rm_daily_sales', column: 'membership_revenue' },
+  voucher_revenue: { table: 'rm_daily_sales', column: 'voucher_revenue' },
+  total_business_revenue: { table: 'rm_daily_sales', column: 'total_business_revenue' },
+
+  // ── rm_item_sales ──────────────────────────────────────────────
+  item_quantity_sold: { table: 'rm_item_sales', column: 'quantity_sold' },
+  item_gross_revenue: { table: 'rm_item_sales', column: 'gross_revenue' },
+  item_quantity_voided: { table: 'rm_item_sales', column: 'quantity_voided' },
+  item_void_revenue: { table: 'rm_item_sales', column: 'void_revenue' },
+
+  // ── rm_spa_daily_operations ────────────────────────────────────
+  spa_appointment_count: { table: 'rm_spa_daily_operations', column: 'appointment_count' },
+  spa_completed_count: { table: 'rm_spa_daily_operations', column: 'completed_count' },
+  spa_canceled_count: { table: 'rm_spa_daily_operations', column: 'canceled_count' },
+  spa_no_show_count: { table: 'rm_spa_daily_operations', column: 'no_show_count' },
+  spa_walk_in_count: { table: 'rm_spa_daily_operations', column: 'walk_in_count' },
+  spa_online_booking_count: { table: 'rm_spa_daily_operations', column: 'online_booking_count' },
+  spa_total_revenue: { table: 'rm_spa_daily_operations', column: 'total_revenue' },
+  spa_service_revenue: { table: 'rm_spa_daily_operations', column: 'service_revenue' },
+  spa_addon_revenue: { table: 'rm_spa_daily_operations', column: 'addon_revenue' },
+  spa_retail_revenue: { table: 'rm_spa_daily_operations', column: 'retail_revenue' },
+  spa_tip_total: { table: 'rm_spa_daily_operations', column: 'tip_total' },
+  spa_avg_appointment_duration: { table: 'rm_spa_daily_operations', column: 'avg_appointment_duration' },
+  spa_utilization_pct: { table: 'rm_spa_daily_operations', column: 'utilization_pct' },
+  spa_rebooking_rate: { table: 'rm_spa_daily_operations', column: 'rebooking_rate' },
 };
 
 /** Day-of-week labels indexed by PostgreSQL EXTRACT(DOW) (0=Sunday). */
@@ -100,7 +137,7 @@ const DOW_LABELS: Record<number, string> = {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function resolveColumn(metricSlug: string): string | null {
+function resolveColumn(metricSlug: string): { table: string; column: string } | null {
   return METRIC_COLUMN_MAP[metricSlug] ?? null;
 }
 
@@ -152,11 +189,12 @@ interface DimensionBreakdown {
 }
 
 /**
- * Decomposes the metric change by location_id. Each row in rm_daily_sales
- * already has a location_id, so we can directly group by it.
+ * Decomposes the metric change by location_id. Each row in the target
+ * read model table already has a location_id, so we can directly group by it.
  */
 async function decomposeByLocation(
   tenantId: string,
+  table: string,
   column: string,
   currentRange: RootCauseDateRange,
   comparisonRange: RootCauseDateRange,
@@ -179,7 +217,7 @@ async function decomposeByLocation(
         THEN CAST(${sql.raw(column)} AS DOUBLE PRECISION)
         ELSE 0
       END), 0) AS previous_value
-    FROM rm_daily_sales
+    FROM ${sql.raw(table)}
     WHERE tenant_id = ${tenantId}
       AND business_date >= ${comparisonRange.start}
       AND business_date <= ${currentRange.end}
@@ -196,10 +234,11 @@ async function decomposeByLocation(
 
 /**
  * Decomposes the metric change by day-of-week. Uses EXTRACT(DOW)
- * from the business_date column in rm_daily_sales.
+ * from the business_date column in the target read model table.
  */
 async function decomposeByDayOfWeek(
   tenantId: string,
+  table: string,
   column: string,
   currentRange: RootCauseDateRange,
   comparisonRange: RootCauseDateRange,
@@ -222,7 +261,7 @@ async function decomposeByDayOfWeek(
         THEN CAST(${sql.raw(column)} AS DOUBLE PRECISION)
         ELSE 0
       END), 0) AS previous_value
-    FROM rm_daily_sales
+    FROM ${sql.raw(table)}
     WHERE tenant_id = ${tenantId}
       AND business_date >= ${comparisonRange.start}
       AND business_date <= ${currentRange.end}
@@ -301,6 +340,7 @@ async function decomposeByItemCategory(
 
 async function fetchPeriodTotals(
   tenantId: string,
+  table: string,
   column: string,
   currentRange: RootCauseDateRange,
   comparisonRange: RootCauseDateRange,
@@ -322,7 +362,7 @@ async function fetchPeriodTotals(
         THEN CAST(${sql.raw(column)} AS DOUBLE PRECISION)
         ELSE 0
       END), 0) AS previous_total
-    FROM rm_daily_sales
+    FROM ${sql.raw(table)}
     WHERE tenant_id = ${tenantId}
       AND business_date >= ${comparisonRange.start}
       AND business_date <= ${currentRange.end}
@@ -446,9 +486,9 @@ export async function analyzeRootCause(
     comparisonRange: customComparisonRange,
   } = options;
 
-  // Resolve the metric column
-  const column = resolveColumn(metricSlug);
-  if (!column) {
+  // Resolve the metric column and table
+  const resolved = resolveColumn(metricSlug);
+  if (!resolved) {
     return {
       metric: metricSlug,
       totalChange: 0,
@@ -460,12 +500,15 @@ export async function analyzeRootCause(
     };
   }
 
+  const { table, column } = resolved;
+
   // Determine comparison range
   const comparisonRange = customComparisonRange ?? computeComparisonRange(dateRange);
 
   // Step 1: Fetch aggregate totals for both periods
   const { currentTotal, previousTotal } = await fetchPeriodTotals(
     tenantId,
+    table,
     column,
     dateRange,
     comparisonRange,
@@ -495,8 +538,8 @@ export async function analyzeRootCause(
     // Skip location decomposition if already filtered to a single location
     locationId
       ? Promise.resolve([])
-      : decomposeByLocation(tenantId, column, dateRange, comparisonRange, locationId),
-    decomposeByDayOfWeek(tenantId, column, dateRange, comparisonRange, locationId),
+      : decomposeByLocation(tenantId, table, column, dateRange, comparisonRange, locationId),
+    decomposeByDayOfWeek(tenantId, table, column, dateRange, comparisonRange, locationId),
     decomposeByItemCategory(tenantId, metricSlug, dateRange, comparisonRange, locationId),
   ]);
 

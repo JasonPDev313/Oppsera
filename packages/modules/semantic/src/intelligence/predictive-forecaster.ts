@@ -1,9 +1,10 @@
 // ── Predictive Forecaster ─────────────────────────────────────────
 // Simple trend extrapolation with confidence intervals. Supports
 // three methods: linear regression (OLS), simple moving average,
-// and exponential smoothing. Forecasts are computed from rm_daily_sales
-// historical data using PostgreSQL aggregate functions where possible
-// and lightweight in-process math otherwise.
+// and exponential smoothing. Forecasts are computed from CQRS read
+// model tables (rm_daily_sales, rm_item_sales, rm_spa_daily_operations)
+// using PostgreSQL aggregate functions where possible and lightweight
+// in-process math otherwise.
 
 import { db } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
@@ -84,25 +85,61 @@ const DEFAULT_MA_WINDOW = 7;
 const FLAT_THRESHOLD = 0.001;
 
 /**
- * Maps metric slugs to their column name in `rm_daily_sales`.
+ * Maps metric slugs to their source table and column name.
  * All monetary columns store dollars as NUMERIC(19,4).
  */
-const METRIC_COLUMN_MAP: Record<string, string> = {
-  net_sales: 'net_sales',
-  gross_sales: 'gross_sales',
-  order_count: 'order_count',
-  avg_order_value: 'avg_order_value',
-  discount_total: 'discount_total',
-  tax_total: 'tax_total',
-  void_count: 'void_count',
-  void_total: 'void_total',
-  tender_cash: 'tender_cash',
-  tender_card: 'tender_card',
+const METRIC_COLUMN_MAP: Record<string, { table: string; column: string }> = {
+  // ── rm_daily_sales ──────────────────────────────────────────────
+  net_sales: { table: 'rm_daily_sales', column: 'net_sales' },
+  gross_sales: { table: 'rm_daily_sales', column: 'gross_sales' },
+  order_count: { table: 'rm_daily_sales', column: 'order_count' },
+  avg_order_value: { table: 'rm_daily_sales', column: 'avg_order_value' },
+  discount_total: { table: 'rm_daily_sales', column: 'discount_total' },
+  tax_total: { table: 'rm_daily_sales', column: 'tax_total' },
+  void_count: { table: 'rm_daily_sales', column: 'void_count' },
+  void_total: { table: 'rm_daily_sales', column: 'void_total' },
+  tender_cash: { table: 'rm_daily_sales', column: 'tender_cash' },
+  tender_card: { table: 'rm_daily_sales', column: 'tender_card' },
+  tender_gift_card: { table: 'rm_daily_sales', column: 'tender_gift_card' },
+  tender_house_account: { table: 'rm_daily_sales', column: 'tender_house_account' },
+  tender_ach: { table: 'rm_daily_sales', column: 'tender_ach' },
+  tender_other: { table: 'rm_daily_sales', column: 'tender_other' },
+  tip_total: { table: 'rm_daily_sales', column: 'tip_total' },
+  service_charge_total: { table: 'rm_daily_sales', column: 'service_charge_total' },
+  surcharge_total: { table: 'rm_daily_sales', column: 'surcharge_total' },
+  return_total: { table: 'rm_daily_sales', column: 'return_total' },
+  pms_revenue: { table: 'rm_daily_sales', column: 'pms_revenue' },
+  ar_revenue: { table: 'rm_daily_sales', column: 'ar_revenue' },
+  membership_revenue: { table: 'rm_daily_sales', column: 'membership_revenue' },
+  voucher_revenue: { table: 'rm_daily_sales', column: 'voucher_revenue' },
+  total_business_revenue: { table: 'rm_daily_sales', column: 'total_business_revenue' },
+
+  // ── rm_item_sales ───────────────────────────────────────────────
+  item_quantity_sold: { table: 'rm_item_sales', column: 'quantity_sold' },
+  item_gross_revenue: { table: 'rm_item_sales', column: 'gross_revenue' },
+  item_quantity_voided: { table: 'rm_item_sales', column: 'quantity_voided' },
+  item_void_revenue: { table: 'rm_item_sales', column: 'void_revenue' },
+
+  // ── rm_spa_daily_operations ─────────────────────────────────────
+  spa_appointment_count: { table: 'rm_spa_daily_operations', column: 'appointment_count' },
+  spa_completed_count: { table: 'rm_spa_daily_operations', column: 'completed_count' },
+  spa_canceled_count: { table: 'rm_spa_daily_operations', column: 'canceled_count' },
+  spa_no_show_count: { table: 'rm_spa_daily_operations', column: 'no_show_count' },
+  spa_walk_in_count: { table: 'rm_spa_daily_operations', column: 'walk_in_count' },
+  spa_online_booking_count: { table: 'rm_spa_daily_operations', column: 'online_booking_count' },
+  spa_total_revenue: { table: 'rm_spa_daily_operations', column: 'total_revenue' },
+  spa_service_revenue: { table: 'rm_spa_daily_operations', column: 'service_revenue' },
+  spa_addon_revenue: { table: 'rm_spa_daily_operations', column: 'addon_revenue' },
+  spa_retail_revenue: { table: 'rm_spa_daily_operations', column: 'retail_revenue' },
+  spa_tip_total: { table: 'rm_spa_daily_operations', column: 'tip_total' },
+  spa_avg_appointment_duration: { table: 'rm_spa_daily_operations', column: 'avg_appointment_duration' },
+  spa_utilization_pct: { table: 'rm_spa_daily_operations', column: 'utilization_pct' },
+  spa_rebooking_rate: { table: 'rm_spa_daily_operations', column: 'rebooking_rate' },
 };
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function resolveColumn(metricSlug: string): string | null {
+function resolveColumn(metricSlug: string): { table: string; column: string } | null {
   return METRIC_COLUMN_MAP[metricSlug] ?? null;
 }
 
@@ -135,6 +172,7 @@ function classifyTrend(slope: number, mean: number): TrendDirection {
  */
 async function fetchHistoricalData(
   tenantId: string,
+  table: string,
   column: string,
   historyDays: number,
   locationId?: string,
@@ -147,7 +185,7 @@ async function fetchHistoricalData(
     SELECT
       business_date,
       COALESCE(SUM(CAST(${sql.raw(column)} AS DOUBLE PRECISION)), 0) AS value
-    FROM rm_daily_sales
+    FROM ${sql.raw(table)}
     WHERE tenant_id = ${tenantId}
       AND business_date >= CURRENT_DATE - ${historyDays}::int
       AND business_date <= CURRENT_DATE
@@ -169,6 +207,7 @@ async function fetchHistoricalData(
  */
 async function fetchLinearRegressionParams(
   tenantId: string,
+  table: string,
   column: string,
   historyDays: number,
   locationId?: string,
@@ -190,7 +229,7 @@ async function fetchLinearRegressionParams(
         business_date,
         EXTRACT(EPOCH FROM (business_date - (CURRENT_DATE - ${historyDays}::int))) / 86400.0 AS x,
         COALESCE(SUM(CAST(${sql.raw(column)} AS DOUBLE PRECISION)), 0) AS y
-      FROM rm_daily_sales
+      FROM ${sql.raw(table)}
       WHERE tenant_id = ${tenantId}
         AND business_date >= CURRENT_DATE - ${historyDays}::int
         AND business_date <= CURRENT_DATE
@@ -235,13 +274,14 @@ async function fetchLinearRegressionParams(
  */
 async function forecastLinear(
   tenantId: string,
+  table: string,
   column: string,
   historicalData: DataPoint[],
   historyDays: number,
   forecastDays: number,
   locationId?: string,
 ): Promise<{ forecastData: ForecastPoint[]; trend: TrendDirection; trendStrength: number; methodology: string }> {
-  const params = await fetchLinearRegressionParams(tenantId, column, historyDays, locationId);
+  const params = await fetchLinearRegressionParams(tenantId, table, column, historyDays, locationId);
 
   if (!params) {
     return {
@@ -483,7 +523,8 @@ function forecastExponentialSmoothing(
 
 /**
  * Generates a time-series forecast for a metric based on historical
- * data from `rm_daily_sales`.
+ * data from CQRS read model tables (`rm_daily_sales`, `rm_item_sales`,
+ * `rm_spa_daily_operations`).
  *
  * Supports three methods:
  * - **linear**: Ordinary Least Squares regression. Best for metrics with
@@ -498,7 +539,7 @@ function forecastExponentialSmoothing(
  * horizon extends. Confidence scores decrease proportionally.
  *
  * @param tenantId - Tenant ID (required for multi-tenant isolation).
- * @param metricSlug - The metric slug to forecast (e.g., 'net_sales').
+ * @param metricSlug - The metric slug to forecast (e.g., 'net_sales', 'spa_total_revenue').
  * @param options - Optional configuration (history, horizon, method, location).
  * @returns Forecast result with historical data, predictions, and trend classification.
  */
@@ -517,8 +558,8 @@ export async function generateForecast(
   } = options;
 
   // Validate the metric
-  const column = resolveColumn(metricSlug);
-  if (!column) {
+  const resolved = resolveColumn(metricSlug);
+  if (!resolved) {
     return {
       metric: metricSlug,
       historicalData: [],
@@ -529,8 +570,10 @@ export async function generateForecast(
     };
   }
 
+  const { table, column } = resolved;
+
   // Fetch historical data
-  const historicalData = await fetchHistoricalData(tenantId, column, historyDays, locationId);
+  const historicalData = await fetchHistoricalData(tenantId, table, column, historyDays, locationId);
 
   if (historicalData.length < 3) {
     return {
@@ -548,7 +591,7 @@ export async function generateForecast(
 
   switch (method) {
     case 'linear':
-      result = await forecastLinear(tenantId, column, historicalData, historyDays, forecastDays, locationId);
+      result = await forecastLinear(tenantId, table, column, historicalData, historyDays, forecastDays, locationId);
       break;
     case 'moving_average':
       result = forecastMovingAverage(historicalData, forecastDays, maWindow);
@@ -557,7 +600,7 @@ export async function generateForecast(
       result = forecastExponentialSmoothing(historicalData, forecastDays, alpha);
       break;
     default:
-      result = await forecastLinear(tenantId, column, historicalData, historyDays, forecastDays, locationId);
+      result = await forecastLinear(tenantId, table, column, historicalData, historyDays, forecastDays, locationId);
   }
 
   return {

@@ -83,6 +83,12 @@ Respond with a single JSON object — no markdown fences, no prose before/after:
 - Inventory: on-hand = SUM(quantity_delta) from inventory_movements. Never a stored column.
 - **Reservations**: 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED', 'NO_SHOW', 'HOLD'. Active/upcoming reservations = status IN ('CONFIRMED', 'HOLD'). In-house guests = status = 'CHECKED_IN'. Past stays = status = 'CHECKED_OUT'.
 - **Rooms**: 'clean', 'occupied', 'dirty', 'cleaning', 'inspected'. Available rooms = status = 'clean' AND is_out_of_order = false.
+- **GL journal entries**: status IN ('posted') for balance queries. Draft/voided entries must be excluded. ALWAYS include the GL query guard (see Common Patterns below).
+- **AP bills**: status lifecycle 'draft' → 'posted' → 'partial' → 'paid' → 'voided'. Outstanding = \`status IN ('posted', 'partial') AND balance_due > 0\`. AP \`bill_date\` and \`due_date\` are TEXT — use \`::date\` cast for date arithmetic (e.g., \`due_date::date - CURRENT_DATE\` for days overdue).
+- **AP payments**: status lifecycle 'draft' → 'posted' → 'voided'. Active = status = 'posted'.
+- **AR invoices**: status lifecycle 'draft' → 'posted' → 'partial' → 'paid' → 'voided'. Outstanding = \`status IN ('posted', 'partial') AND balance_due > 0\`. AR \`invoice_date\` and \`due_date\` are DATE type — no cast needed.
+- **AR receipts**: status lifecycle 'draft' → 'posted' → 'voided'. Active = status = 'posted'.
+- **GL accounts**: \`normal_balance\` column is 'debit' or 'credit'. Assets/Expenses = debit-normal. Liabilities/Equity/Revenue = credit-normal. Balance = CASE normal_balance WHEN 'debit' THEN SUM(debit_amount) - SUM(credit_amount) ELSE SUM(credit_amount) - SUM(debit_amount) END.
 
 ## Common Patterns
 - **Count of records**: \`SELECT count(*) as total FROM table WHERE tenant_id = $1\` — NO LIMIT on count queries!
@@ -100,6 +106,128 @@ Respond with a single JSON object — no markdown fences, no prose before/after:
 - **In-house guests today**: \`SELECT r.id, r.primary_guest_json->>'firstName' as first_name, r.primary_guest_json->>'lastName' as last_name, rm.room_number, r.check_in_date, r.check_out_date FROM pms_reservations r LEFT JOIN pms_rooms rm ON r.room_id = rm.id AND rm.tenant_id = $1 WHERE r.tenant_id = $1 AND r.status = 'CHECKED_IN' ORDER BY rm.room_number LIMIT 100\`
 - **Occupancy for a date range**: \`SELECT business_date, rooms_occupied, rooms_available, occupancy_pct, adr_cents / 100.0 as adr, revpar_cents / 100.0 as revpar FROM rm_pms_daily_occupancy WHERE tenant_id = $1 AND business_date BETWEEN '2026-02-25' AND '2026-03-03' ORDER BY business_date LIMIT 100\`
 - **Reservation count for a date**: \`SELECT count(*) as reservation_count FROM pms_reservations WHERE tenant_id = $1 AND check_in_date = '2026-03-03' AND status IN ('CONFIRMED', 'HOLD', 'CHECKED_IN')\`
+- **GL Account Balances (CRITICAL — GL Query Guard)**: When LEFT JOINing \`gl_accounts → gl_journal_lines → gl_journal_entries\` with \`je.status = 'posted'\` in the ON clause, you MUST include \`(jl.id IS NULL OR je.id IS NOT NULL)\` in WHERE. Without this guard, draft/voided entries corrupt balance SUMs because LEFT JOIN produces NULL je rows but non-NULL jl rows.
+\`\`\`
+SELECT ga.account_number, ga.name,
+  CASE ga.normal_balance
+    WHEN 'debit' THEN COALESCE(SUM(jl.debit_amount), 0) - COALESCE(SUM(jl.credit_amount), 0)
+    ELSE COALESCE(SUM(jl.credit_amount), 0) - COALESCE(SUM(jl.debit_amount), 0)
+  END as balance
+FROM gl_accounts ga
+LEFT JOIN gl_journal_lines jl ON jl.account_id = ga.id AND jl.tenant_id = $1
+LEFT JOIN gl_journal_entries je ON jl.journal_entry_id = je.id AND je.tenant_id = $1 AND je.status = 'posted'
+WHERE ga.tenant_id = $1 AND ga.is_active = true
+  AND (jl.id IS NULL OR je.id IS NOT NULL)
+GROUP BY ga.id, ga.account_number, ga.name, ga.normal_balance
+ORDER BY ga.account_number
+\`\`\`
+- **Trial Balance**: Same GL query guard pattern. Aggregates debits and credits by account, ensures debits = credits for posted entries.
+\`\`\`
+SELECT ga.account_number, ga.name, ga.account_type, ga.normal_balance,
+  COALESCE(SUM(jl.debit_amount), 0) as total_debits,
+  COALESCE(SUM(jl.credit_amount), 0) as total_credits,
+  CASE ga.normal_balance
+    WHEN 'debit' THEN COALESCE(SUM(jl.debit_amount), 0) - COALESCE(SUM(jl.credit_amount), 0)
+    ELSE COALESCE(SUM(jl.credit_amount), 0) - COALESCE(SUM(jl.debit_amount), 0)
+  END as balance
+FROM gl_accounts ga
+LEFT JOIN gl_journal_lines jl ON jl.account_id = ga.id AND jl.tenant_id = $1
+LEFT JOIN gl_journal_entries je ON jl.journal_entry_id = je.id AND je.tenant_id = $1 AND je.status = 'posted'
+WHERE ga.tenant_id = $1 AND ga.is_active = true
+  AND (jl.id IS NULL OR je.id IS NOT NULL)
+GROUP BY ga.id, ga.account_number, ga.name, ga.account_type, ga.normal_balance
+HAVING COALESCE(SUM(jl.debit_amount), 0) != 0 OR COALESCE(SUM(jl.credit_amount), 0) != 0
+ORDER BY ga.account_number
+\`\`\`
+- **P&L (Income Statement)**: Filter revenue/expense accounts by date range.
+\`\`\`
+SELECT ga.account_type,
+  ga.account_number, ga.name,
+  CASE ga.normal_balance
+    WHEN 'credit' THEN COALESCE(SUM(jl.credit_amount), 0) - COALESCE(SUM(jl.debit_amount), 0)
+    ELSE COALESCE(SUM(jl.debit_amount), 0) - COALESCE(SUM(jl.credit_amount), 0)
+  END as amount
+FROM gl_accounts ga
+JOIN gl_journal_lines jl ON jl.account_id = ga.id AND jl.tenant_id = $1
+JOIN gl_journal_entries je ON jl.journal_entry_id = je.id AND je.tenant_id = $1
+  AND je.status = 'posted'
+  AND je.entry_date >= '{start_date}' AND je.entry_date <= '{end_date}'
+WHERE ga.tenant_id = $1 AND ga.account_type IN ('revenue', 'expense')
+GROUP BY ga.id, ga.account_number, ga.name, ga.account_type, ga.normal_balance
+ORDER BY ga.account_type DESC, ga.account_number
+\`\`\`
+- **Balance Sheet**: Cumulative balances as-of a date for asset, liability, equity accounts.
+\`\`\`
+SELECT ga.account_type,
+  ga.account_number, ga.name,
+  CASE ga.normal_balance
+    WHEN 'debit' THEN COALESCE(SUM(jl.debit_amount), 0) - COALESCE(SUM(jl.credit_amount), 0)
+    ELSE COALESCE(SUM(jl.credit_amount), 0) - COALESCE(SUM(jl.debit_amount), 0)
+  END as balance
+FROM gl_accounts ga
+JOIN gl_journal_lines jl ON jl.account_id = ga.id AND jl.tenant_id = $1
+JOIN gl_journal_entries je ON jl.journal_entry_id = je.id AND je.tenant_id = $1
+  AND je.status = 'posted'
+  AND je.entry_date <= '{as_of_date}'
+WHERE ga.tenant_id = $1 AND ga.account_type IN ('asset', 'liability', 'equity')
+GROUP BY ga.id, ga.account_number, ga.name, ga.account_type, ga.normal_balance
+ORDER BY ga.account_type, ga.account_number
+\`\`\`
+- **AP Aging**: Bucket overdue AP bills by age. Note: \`due_date\` is TEXT so cast with \`::date\`.
+\`\`\`
+SELECT
+  CASE
+    WHEN due_date::date >= CURRENT_DATE THEN 'Current'
+    WHEN CURRENT_DATE - due_date::date BETWEEN 1 AND 30 THEN '1-30 Days'
+    WHEN CURRENT_DATE - due_date::date BETWEEN 31 AND 60 THEN '31-60 Days'
+    WHEN CURRENT_DATE - due_date::date BETWEEN 61 AND 90 THEN '61-90 Days'
+    ELSE '90+ Days'
+  END as aging_bucket,
+  count(*) as bill_count,
+  SUM(balance_due) as total_balance
+FROM ap_bills
+WHERE tenant_id = $1 AND status IN ('posted', 'partial') AND balance_due > 0
+GROUP BY aging_bucket
+ORDER BY CASE aging_bucket WHEN 'Current' THEN 0 WHEN '1-30 Days' THEN 1 WHEN '31-60 Days' THEN 2 WHEN '61-90 Days' THEN 3 ELSE 4 END
+\`\`\`
+- **AR Aging**: Same bucket pattern for AR invoices. \`due_date\` is DATE (no cast needed).
+\`\`\`
+SELECT
+  CASE
+    WHEN due_date >= CURRENT_DATE THEN 'Current'
+    WHEN CURRENT_DATE - due_date BETWEEN 1 AND 30 THEN '1-30 Days'
+    WHEN CURRENT_DATE - due_date BETWEEN 31 AND 60 THEN '31-60 Days'
+    WHEN CURRENT_DATE - due_date BETWEEN 61 AND 90 THEN '61-90 Days'
+    ELSE '90+ Days'
+  END as aging_bucket,
+  count(*) as invoice_count,
+  SUM(balance_due) as total_balance
+FROM ar_invoices
+WHERE tenant_id = $1 AND status IN ('posted', 'partial') AND balance_due > 0
+GROUP BY aging_bucket
+ORDER BY CASE aging_bucket WHEN 'Current' THEN 0 WHEN '1-30 Days' THEN 1 WHEN '31-60 Days' THEN 2 WHEN '61-90 Days' THEN 3 ELSE 4 END
+\`\`\`
+- **Cash Position**: Filter GL accounts for cash/bank accounts.
+\`\`\`
+SELECT ga.account_number, ga.name,
+  COALESCE(SUM(jl.debit_amount), 0) - COALESCE(SUM(jl.credit_amount), 0) as balance
+FROM gl_accounts ga
+JOIN gl_journal_lines jl ON jl.account_id = ga.id AND jl.tenant_id = $1
+JOIN gl_journal_entries je ON jl.journal_entry_id = je.id AND je.tenant_id = $1 AND je.status = 'posted'
+WHERE ga.tenant_id = $1 AND ga.account_type = 'asset'
+  AND (ga.account_number LIKE '1___' OR LOWER(ga.name) LIKE '%cash%' OR LOWER(ga.name) LIKE '%bank%' OR LOWER(ga.name) LIKE '%checking%' OR LOWER(ga.name) LIKE '%savings%')
+GROUP BY ga.id, ga.account_number, ga.name
+ORDER BY ga.account_number
+\`\`\`
+- **GL Journal Entry Detail**: Transaction history for a specific account.
+\`\`\`
+SELECT je.entry_date, je.journal_number, je.description, je.source_module,
+  jl.debit_amount, jl.credit_amount
+FROM gl_journal_lines jl
+JOIN gl_journal_entries je ON jl.journal_entry_id = je.id AND je.tenant_id = $1
+WHERE jl.tenant_id = $1 AND jl.account_id = '{account_id}' AND je.status = 'posted'
+ORDER BY je.entry_date DESC, je.created_at DESC LIMIT 100
+\`\`\`
 
 ## Week-over-Week and Period Comparisons
 When the user asks to compare periods (e.g., "last week vs week before", "this month vs last month"):

@@ -1,8 +1,9 @@
 // ── Correlation Engine ─────────────────────────────────────────────
 // Statistical correlation discovery across metrics. Given a target
 // metric, computes Pearson correlation coefficients against all other
-// available metrics using rm_daily_sales data. Uses PostgreSQL's
-// built-in corr() aggregate for efficient server-side computation.
+// available metrics from the same table. Uses PostgreSQL's built-in
+// corr() aggregate for efficient server-side computation.
+// Supports rm_daily_sales, rm_item_sales, and rm_spa_daily_operations.
 
 import { db } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
@@ -65,20 +66,59 @@ const DEFAULT_MIN_SAMPLE_SIZE = 14;
 const DEFAULT_MIN_ABS_R = 0.1;
 
 /**
- * Metrics available for correlation analysis in rm_daily_sales.
- * Each key is the metric slug; value is { column, displayName }.
+ * Metrics available for correlation analysis across multiple read model tables.
+ * Each key is the metric slug; value is { table, column, displayName }.
+ *
+ * IMPORTANT: PostgreSQL corr() requires data from the same row, so only
+ * metrics from the SAME table can be correlated against each other.
  */
-const AVAILABLE_METRICS: Record<string, { column: string; displayName: string }> = {
-  net_sales: { column: 'net_sales', displayName: 'Net Sales' },
-  gross_sales: { column: 'gross_sales', displayName: 'Gross Sales' },
-  order_count: { column: 'order_count', displayName: 'Order Count' },
-  avg_order_value: { column: 'avg_order_value', displayName: 'Avg Order Value' },
-  discount_total: { column: 'discount_total', displayName: 'Discounts' },
-  tax_total: { column: 'tax_total', displayName: 'Tax Total' },
-  void_count: { column: 'void_count', displayName: 'Void Count' },
-  void_total: { column: 'void_total', displayName: 'Void Total' },
-  tender_cash: { column: 'tender_cash', displayName: 'Cash Tenders' },
-  tender_card: { column: 'tender_card', displayName: 'Card Tenders' },
+const AVAILABLE_METRICS: Record<string, { table: string; column: string; displayName: string }> = {
+  // ── rm_daily_sales ──────────────────────────────────────────────
+  net_sales: { table: 'rm_daily_sales', column: 'net_sales', displayName: 'Net Sales' },
+  gross_sales: { table: 'rm_daily_sales', column: 'gross_sales', displayName: 'Gross Sales' },
+  order_count: { table: 'rm_daily_sales', column: 'order_count', displayName: 'Order Count' },
+  avg_order_value: { table: 'rm_daily_sales', column: 'avg_order_value', displayName: 'Avg Order Value' },
+  discount_total: { table: 'rm_daily_sales', column: 'discount_total', displayName: 'Discounts' },
+  tax_total: { table: 'rm_daily_sales', column: 'tax_total', displayName: 'Tax Total' },
+  void_count: { table: 'rm_daily_sales', column: 'void_count', displayName: 'Void Count' },
+  void_total: { table: 'rm_daily_sales', column: 'void_total', displayName: 'Void Total' },
+  tender_cash: { table: 'rm_daily_sales', column: 'tender_cash', displayName: 'Cash Tenders' },
+  tender_card: { table: 'rm_daily_sales', column: 'tender_card', displayName: 'Card Tenders' },
+  tender_gift_card: { table: 'rm_daily_sales', column: 'tender_gift_card', displayName: 'Gift Card Tenders' },
+  tender_house_account: { table: 'rm_daily_sales', column: 'tender_house_account', displayName: 'House Account Tenders' },
+  tender_ach: { table: 'rm_daily_sales', column: 'tender_ach', displayName: 'ACH Tenders' },
+  tender_other: { table: 'rm_daily_sales', column: 'tender_other', displayName: 'Other Tenders' },
+  tip_total: { table: 'rm_daily_sales', column: 'tip_total', displayName: 'Tip Total' },
+  service_charge_total: { table: 'rm_daily_sales', column: 'service_charge_total', displayName: 'Service Charge Total' },
+  surcharge_total: { table: 'rm_daily_sales', column: 'surcharge_total', displayName: 'Surcharge Total' },
+  return_total: { table: 'rm_daily_sales', column: 'return_total', displayName: 'Return Total' },
+  pms_revenue: { table: 'rm_daily_sales', column: 'pms_revenue', displayName: 'PMS Revenue' },
+  ar_revenue: { table: 'rm_daily_sales', column: 'ar_revenue', displayName: 'AR Revenue' },
+  membership_revenue: { table: 'rm_daily_sales', column: 'membership_revenue', displayName: 'Membership Revenue' },
+  voucher_revenue: { table: 'rm_daily_sales', column: 'voucher_revenue', displayName: 'Voucher Revenue' },
+  total_business_revenue: { table: 'rm_daily_sales', column: 'total_business_revenue', displayName: 'Total Business Revenue' },
+
+  // ── rm_item_sales ───────────────────────────────────────────────
+  item_quantity_sold: { table: 'rm_item_sales', column: 'quantity_sold', displayName: 'Items Quantity Sold' },
+  item_gross_revenue: { table: 'rm_item_sales', column: 'gross_revenue', displayName: 'Item Gross Revenue' },
+  item_quantity_voided: { table: 'rm_item_sales', column: 'quantity_voided', displayName: 'Items Quantity Voided' },
+  item_void_revenue: { table: 'rm_item_sales', column: 'void_revenue', displayName: 'Item Void Revenue' },
+
+  // ── rm_spa_daily_operations ─────────────────────────────────────
+  spa_appointment_count: { table: 'rm_spa_daily_operations', column: 'appointment_count', displayName: 'Spa Appointment Count' },
+  spa_completed_count: { table: 'rm_spa_daily_operations', column: 'completed_count', displayName: 'Spa Completed Count' },
+  spa_canceled_count: { table: 'rm_spa_daily_operations', column: 'canceled_count', displayName: 'Spa Canceled Count' },
+  spa_no_show_count: { table: 'rm_spa_daily_operations', column: 'no_show_count', displayName: 'Spa No-Show Count' },
+  spa_walk_in_count: { table: 'rm_spa_daily_operations', column: 'walk_in_count', displayName: 'Spa Walk-In Count' },
+  spa_online_booking_count: { table: 'rm_spa_daily_operations', column: 'online_booking_count', displayName: 'Spa Online Booking Count' },
+  spa_total_revenue: { table: 'rm_spa_daily_operations', column: 'total_revenue', displayName: 'Spa Total Revenue' },
+  spa_service_revenue: { table: 'rm_spa_daily_operations', column: 'service_revenue', displayName: 'Spa Service Revenue' },
+  spa_addon_revenue: { table: 'rm_spa_daily_operations', column: 'addon_revenue', displayName: 'Spa Add-On Revenue' },
+  spa_retail_revenue: { table: 'rm_spa_daily_operations', column: 'retail_revenue', displayName: 'Spa Retail Revenue' },
+  spa_tip_total: { table: 'rm_spa_daily_operations', column: 'tip_total', displayName: 'Spa Tip Total' },
+  spa_avg_appointment_duration: { table: 'rm_spa_daily_operations', column: 'avg_appointment_duration', displayName: 'Spa Avg Appointment Duration' },
+  spa_utilization_pct: { table: 'rm_spa_daily_operations', column: 'utilization_pct', displayName: 'Spa Utilization Percent' },
+  spa_rebooking_rate: { table: 'rm_spa_daily_operations', column: 'rebooking_rate', displayName: 'Spa Rebooking Rate' },
 };
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -168,8 +208,12 @@ function round4(n: number): number {
 /**
  * Uses PostgreSQL's built-in `corr()` aggregate function to compute
  * pairwise Pearson correlations between the target metric and all
- * candidate metrics in a single query. Data is pre-aggregated by
- * business_date (summing across locations when no location filter is set).
+ * candidate metrics from the SAME table in a single query. Data is
+ * pre-aggregated by business_date (summing across locations when no
+ * location filter is set).
+ *
+ * CRITICAL: Only metrics from the same table as the target can be
+ * correlated — PostgreSQL corr() requires data from the same row.
  */
 async function computeCorrelationsViaSql(
   tenantId: string,
@@ -182,9 +226,13 @@ async function computeCorrelationsViaSql(
   if (!targetMeta) return [];
 
   const targetColumn = targetMeta.column;
+  const targetTable = targetMeta.table;
 
-  // Build the candidate metric columns (everything except the target)
-  const candidateSlugs = Object.keys(AVAILABLE_METRICS).filter((s) => s !== targetSlug);
+  // Build the candidate metric columns — MUST be from the same table as
+  // the target because corr() requires data from the same row.
+  const candidateSlugs = Object.keys(AVAILABLE_METRICS).filter(
+    (s) => s !== targetSlug && AVAILABLE_METRICS[s]!.table === targetTable,
+  );
   if (candidateSlugs.length === 0) return [];
 
   // Build corr() expressions for each candidate
@@ -214,7 +262,7 @@ async function computeCorrelationsViaSql(
         business_date,
         SUM(CAST(${sql.raw(targetColumn)} AS DOUBLE PRECISION)) AS target_val,
         ${sql.join(aggExpressions, sql.raw(','))}
-      FROM rm_daily_sales
+      FROM ${sql.raw(targetTable)}
       WHERE tenant_id = ${tenantId}
         AND business_date >= ${periodStart}
         AND business_date <= ${periodEnd}
@@ -244,7 +292,11 @@ async function computeCorrelationsViaSql(
 
 /**
  * Discovers statistical correlations between a target metric and all
- * other available metrics in `rm_daily_sales`.
+ * other available metrics from the same read model table.
+ *
+ * Supports metrics from rm_daily_sales, rm_item_sales, and
+ * rm_spa_daily_operations. Only metrics from the same table as the
+ * target are considered — PostgreSQL corr() requires same-row data.
  *
  * The engine aggregates daily values across locations (unless a location
  * filter is set), then uses PostgreSQL's `corr()` aggregate to compute

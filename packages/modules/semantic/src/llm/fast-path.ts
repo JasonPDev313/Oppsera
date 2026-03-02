@@ -252,6 +252,95 @@ const PATTERNS: FastPathPattern[] = [
       return buildFastIntent('sql', [], [], undefined, 'Count of staff/users');
     },
   },
+
+  // ── ACCOUNTING FAST-PATH PATTERNS ────────────────────────────────
+
+  // ── "trial balance" ──
+  {
+    pattern: /^(?:show\s+(?:me\s+)?(?:the\s+)?)?trial\s+balance\??$/i,
+    build: (_m, _ctx, _cat) => {
+      return buildFastIntent('sql', [], [], undefined, 'Trial balance report');
+    },
+  },
+
+  // ── "ap aging" / "accounts payable aging" / "payables aging" ──
+  {
+    pattern: /^(?:show\s+(?:me\s+)?(?:the\s+)?)?(?:ap|accounts?\s+payable|payables?)\s+aging\s*(?:report)?\??$/i,
+    build: (_m, _ctx, _cat) => {
+      return buildFastIntent('sql', [], [], undefined, 'AP aging report');
+    },
+  },
+
+  // ── "ar aging" / "accounts receivable aging" / "receivables aging" ──
+  {
+    pattern: /^(?:show\s+(?:me\s+)?(?:the\s+)?)?(?:ar|accounts?\s+receivable|receivables?)\s+aging\s*(?:report)?\??$/i,
+    build: (_m, _ctx, _cat) => {
+      return buildFastIntent('sql', [], [], undefined, 'AR aging report');
+    },
+  },
+
+  // ── "how much do we owe" / "total payables" / "total ap" ──
+  {
+    pattern: /^(?:how\s+much\s+do\s+(?:we|i)\s+owe|total\s+(?:ap|payables?|accounts?\s+payable))\s*(?:vendors?)?\??$/i,
+    build: (_m, _ctx, _cat) => {
+      return buildFastIntent('sql', [], [], undefined, 'AP outstanding balance');
+    },
+  },
+
+  // ── "how much are we owed" / "total receivables" / "total ar" ──
+  {
+    pattern: /^(?:how\s+much\s+(?:are\s+we|am\s+i)\s+owed|total\s+(?:ar|receivables?|accounts?\s+receivable))\??$/i,
+    build: (_m, _ctx, _cat) => {
+      return buildFastIntent('sql', [], [], undefined, 'AR outstanding balance');
+    },
+  },
+
+  // ── "cash position" / "cash balance" / "cash on hand" ──
+  {
+    pattern: /^(?:(?:show\s+(?:me\s+)?(?:the\s+)?)?(?:cash\s+(?:position|balance|on\s+hand)|bank\s+balance(?:s)?)|(?:what(?:'s| is)\s+(?:our|my|the)\s+cash\s+(?:position|balance)))\??$/i,
+    build: (_m, _ctx, _cat) => {
+      return buildFastIntent('sql', [], [], undefined, 'Cash & bank balances');
+    },
+  },
+
+  // ── "p&l" / "profit and loss" / "income statement" ──
+  {
+    pattern: /^(?:show\s+(?:me\s+)?(?:the\s+)?)?(?:p\s*&\s*l|p\s*and\s*l|profit\s+(?:and|&)\s+loss|income\s+statement)\s*(?:this\s+month|last\s+month)?\??$/i,
+    build: (_m, ctx, _cat) => {
+      const hasMonth = /this\s+month/i.test(_m[0]);
+      const hasLastMonth = /last\s+month/i.test(_m[0]);
+      const dateRange = hasLastMonth ? lastMonthRange(ctx) : hasMonth ? thisMonthRange(ctx) : thisMonthRange(ctx);
+      const label = hasLastMonth ? 'P&L for last month' : 'P&L for this month';
+      return buildFastIntent('sql', [], [], dateRange, label);
+    },
+  },
+
+  // ── "balance sheet" ──
+  {
+    pattern: /^(?:show\s+(?:me\s+)?(?:the\s+)?)?balance\s+sheet\??$/i,
+    build: (_m, _ctx, _cat) => {
+      return buildFastIntent('sql', [], [], undefined, 'Balance sheet report');
+    },
+  },
+
+  // ── "unmapped events" / "unmapped gl" / "unmapped gl events" ──
+  {
+    pattern: /^(?:(?:show\s+(?:me\s+)?)?(?:how\s+many\s+)?unmapped\s+(?:gl\s+)?events?|unmapped\s+gl)\??$/i,
+    build: (_m, _ctx, cat) => {
+      if (!hasMetric(cat, 'unmapped_event_count')) return null;
+      return buildFastIntent('metrics', ['unmapped_event_count'], [], undefined, 'Unmapped GL events count');
+    },
+  },
+
+  // ── "overdue bills" / "overdue invoices" / "past due" ──
+  {
+    pattern: /^(?:show\s+(?:me\s+)?(?:the\s+)?)?(?:overdue|past\s+due)\s+(?:bills?|invoices?|payables?|receivables?)\??$/i,
+    build: (_m, _ctx, _cat) => {
+      const isBills = /bills?|payables?/i.test(_m[0]);
+      const label = isBills ? 'Overdue AP bills' : 'Overdue AR invoices';
+      return buildFastIntent('sql', [], [], undefined, label);
+    },
+  },
 ];
 
 // ── Public API ───────────────────────────────────────────────────

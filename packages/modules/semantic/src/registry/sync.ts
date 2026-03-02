@@ -13,11 +13,19 @@ import {
   GOLF_DIMENSIONS,
   PMS_METRICS,
   PMS_DIMENSIONS,
+  SPA_METRICS,
+  SPA_DIMENSIONS,
+  ACCT_METRICS,
+  ACCT_DIMENSIONS,
   CORE_METRIC_DIMENSIONS,
   GOLF_METRIC_DIMENSIONS,
   PMS_METRIC_DIMENSIONS,
+  SPA_METRIC_DIMENSIONS,
+  ACCT_METRIC_DIMENSIONS,
   SYSTEM_LENSES,
   PMS_SYSTEM_LENSES,
+  SPA_SYSTEM_LENSES,
+  ACCT_SYSTEM_LENSES,
 } from './seed-data';
 import { GOLF_EXAMPLES, toEvalExampleInserts } from './golf-examples';
 import { invalidateRegistryCache } from './registry';
@@ -211,10 +219,10 @@ export async function syncRegistryToDb(): Promise<{
   const pg = postgres(url, { max: 1, prepare: false });
 
   try {
-    const allMetrics = [...CORE_METRICS, ...GOLF_METRICS, ...PMS_METRICS];
-    const allDimensions = [...CORE_DIMENSIONS, ...GOLF_DIMENSIONS, ...PMS_DIMENSIONS];
-    const allRelations = [...CORE_METRIC_DIMENSIONS, ...GOLF_METRIC_DIMENSIONS, ...PMS_METRIC_DIMENSIONS];
-    const allLenses = [...SYSTEM_LENSES, ...PMS_SYSTEM_LENSES];
+    const allMetrics = [...CORE_METRICS, ...GOLF_METRICS, ...PMS_METRICS, ...SPA_METRICS, ...ACCT_METRICS];
+    const allDimensions = [...CORE_DIMENSIONS, ...GOLF_DIMENSIONS, ...PMS_DIMENSIONS, ...SPA_DIMENSIONS, ...ACCT_DIMENSIONS];
+    const allRelations = [...CORE_METRIC_DIMENSIONS, ...GOLF_METRIC_DIMENSIONS, ...PMS_METRIC_DIMENSIONS, ...SPA_METRIC_DIMENSIONS, ...ACCT_METRIC_DIMENSIONS];
+    const allLenses = [...SYSTEM_LENSES, ...PMS_SYSTEM_LENSES, ...SPA_SYSTEM_LENSES, ...ACCT_SYSTEM_LENSES];
     const allExamples = toEvalExampleInserts(GOLF_EXAMPLES);
 
     await upsertDimensions(pg, allDimensions);

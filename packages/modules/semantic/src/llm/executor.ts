@@ -218,7 +218,9 @@ export async function executeCompiledQuery(
   compiled: CompiledQuery,
   opts: ExecuteOptions,
 ): Promise<QueryResult> {
-  const { tenantId, timeoutMs = DEFAULT_EXECUTION_TIMEOUT_MS } = opts;
+  const { tenantId, timeoutMs: rawTimeoutMs = DEFAULT_EXECUTION_TIMEOUT_MS } = opts;
+  // Validate timeoutMs to prevent SQL injection via string interpolation in SET LOCAL
+  const timeoutMs = Math.max(1, Math.min(Math.floor(Number(rawTimeoutMs)), 300_000));
 
   const startMs = Date.now();
   const pg = getExecPg();
@@ -266,7 +268,17 @@ export async function executeCompiledQuery(
   // MUST await — fire-and-forget DB queries on Vercel create zombie connections (§205).
   if (rows.length === 0 && compiled.primaryTable.startsWith('rm_')) {
     try {
-      await ensureReadModelsPopulated(pg, tenantId, compiled.primaryTable);
+      const didBackfill = await ensureReadModelsPopulated(pg, tenantId, compiled.primaryTable);
+      if (didBackfill) {
+        // Re-execute the query to pick up freshly backfilled data
+        const retryResult = await pg.begin(async (tx) => {
+          await tx.unsafe(`SELECT set_config('app.current_tenant_id', $1, true)`, [tenantId]);
+          await tx.unsafe(`SET LOCAL statement_timeout = '${timeoutMs}ms'`);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return tx.unsafe(compiled.sql, compiled.params as any[]);
+        });
+        rows = Array.from(retryResult as Iterable<Record<string, unknown>>);
+      }
     } catch {
       // Non-fatal — 0 rows is still a valid response; backfill can happen on next request
     }
