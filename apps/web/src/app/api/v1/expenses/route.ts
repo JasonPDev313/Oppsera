@@ -29,7 +29,7 @@ export const GET = withMiddleware(
       meta: { cursor: result.cursor, hasMore: result.hasMore },
     });
   },
-  { entitlement: 'expense_management', permission: 'expenses.view' },
+  { entitlement: 'accounting', permission: 'expenses.view' },
 );
 
 export const POST = withMiddleware(
@@ -45,5 +45,5 @@ export const POST = withMiddleware(
     const result = await createExpense(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'expense_management', permission: 'expenses.create', writeAccess: true },
+  { entitlement: 'accounting', permission: 'expenses.create', writeAccess: true },
 );

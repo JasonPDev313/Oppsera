@@ -38,7 +38,7 @@ import type { Database } from '@oppsera/db';
 import { TIER_WORKFLOW_DEFAULTS, getAllWorkflowKeys } from '@oppsera/shared';
 
 const onboardSchema = z.object({
-  businessType: z.enum(['restaurant', 'retail', 'golf', 'hybrid', 'hotel', 'enterprise']),
+  businessType: z.enum(['restaurant', 'retail', 'hybrid', 'hotel', 'spa', 'golf', 'enterprise']),
   companyName: z.string().min(1).max(100),
   locationName: z.string().min(1).max(100),
   timezone: z.string().min(1),

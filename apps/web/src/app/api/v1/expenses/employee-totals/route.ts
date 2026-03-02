@@ -15,5 +15,5 @@ export const GET = withMiddleware(
     });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'expense_management', permission: 'expenses.view' },
+  { entitlement: 'accounting', permission: 'expenses.view' },
 );

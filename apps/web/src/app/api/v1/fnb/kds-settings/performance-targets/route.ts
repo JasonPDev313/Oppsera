@@ -19,7 +19,7 @@ export const GET = withMiddleware(
     });
     return NextResponse.json({ data: targets });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.view' },
+  { entitlement: 'kds', permission: 'kds.view' },
 );
 
 // POST /api/v1/fnb/kds-settings/performance-targets — upsert performance target
@@ -45,5 +45,5 @@ export const POST = withMiddleware(
     const target = await upsertPerformanceTarget(ctx, parsed.data);
     return NextResponse.json({ data: target }, { status: 200 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage', writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.settings.manage', writeAccess: true },
 );

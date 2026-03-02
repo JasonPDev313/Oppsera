@@ -21,5 +21,5 @@ export const POST = withMiddleware(
     const result = await bulkUpsertItemPrepTimes(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage', writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.settings.manage', writeAccess: true },
 );

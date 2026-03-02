@@ -16,7 +16,7 @@ export const GET = withMiddleware(
     });
     return NextResponse.json({ data: stations });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.view' },
+  { entitlement: 'kds', permission: 'kds.view' },
 );
 
 // POST /api/v1/fnb/stations — create station
@@ -34,5 +34,5 @@ export const POST = withMiddleware(
     const station = await createStation(ctx, parsed.data);
     return NextResponse.json({ data: station }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage', writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.manage', writeAccess: true },
 );

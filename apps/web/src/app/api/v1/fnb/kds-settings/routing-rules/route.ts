@@ -20,7 +20,7 @@ export const GET = withMiddleware(
     });
     return NextResponse.json({ data: rules });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.view' },
+  { entitlement: 'kds', permission: 'kds.view' },
 );
 
 // POST /api/v1/fnb/kds-settings/routing-rules — create enhanced routing rule
@@ -37,5 +37,5 @@ export const POST = withMiddleware(
     const rule = await createRoutingRule(ctx, parsed.data);
     return NextResponse.json({ data: rule }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.manage', writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.manage', writeAccess: true },
 );

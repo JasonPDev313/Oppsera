@@ -25,7 +25,7 @@ export const PATCH = withMiddleware(
     const rule = await updateRoutingRule(ctx, ruleId, parsed.data);
     return NextResponse.json({ data: rule });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage', writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.settings.manage', writeAccess: true },
 );
 
 // DELETE /api/v1/fnb/kds-settings/routing-rules/[id] — deactivate routing rule
@@ -40,5 +40,5 @@ export const DELETE = withMiddleware(
     });
     return NextResponse.json({ data: rule });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage', writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.settings.manage', writeAccess: true },
 );

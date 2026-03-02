@@ -12,5 +12,5 @@ export const GET = withMiddleware(
     const result = await getProjectProfitability(ctx.tenantId, projectId);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'project_costing', permission: 'project_costing.view' },
+  { entitlement: 'accounting', permission: 'project_costing.view' },
 );

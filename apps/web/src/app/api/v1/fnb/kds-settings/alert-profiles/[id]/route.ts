@@ -26,7 +26,7 @@ export const GET = withMiddleware(
     }
     return NextResponse.json({ data: profile });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.view' },
+  { entitlement: 'kds', permission: 'kds.view' },
 );
 
 // PATCH /api/v1/fnb/kds-settings/alert-profiles/[id] — update alert profile
@@ -47,5 +47,5 @@ export const PATCH = withMiddleware(
     const profile = await updateAlertProfile(ctx, { ...parsed.data, profileId });
     return NextResponse.json({ data: profile });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage', writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.settings.manage', writeAccess: true },
 );

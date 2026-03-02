@@ -12,5 +12,5 @@ export const POST = withMiddleware(
     const result = await closeTask(ctx, taskId);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'project_costing', permission: 'project_costing.manage', writeAccess: true },
+  { entitlement: 'accounting', permission: 'project_costing.manage', writeAccess: true },
 );

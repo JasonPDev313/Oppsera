@@ -22,7 +22,7 @@ export const GET = withMiddleware(
     }
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'project_costing', permission: 'project_costing.view' },
+  { entitlement: 'accounting', permission: 'project_costing.view' },
 );
 
 export const PATCH = withMiddleware(
@@ -41,5 +41,5 @@ export const PATCH = withMiddleware(
     const result = await updateProject(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'project_costing', permission: 'project_costing.manage', writeAccess: true },
+  { entitlement: 'accounting', permission: 'project_costing.manage', writeAccess: true },
 );

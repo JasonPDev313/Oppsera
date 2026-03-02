@@ -18,5 +18,5 @@ export const GET = withMiddleware(
     });
     return NextResponse.json({ data: view });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.view' },
+  { entitlement: 'kds', permission: 'kds.view' },
 );

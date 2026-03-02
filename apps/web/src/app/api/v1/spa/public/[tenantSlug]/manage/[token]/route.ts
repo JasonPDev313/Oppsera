@@ -4,6 +4,7 @@ import { resolveTenantBySlug, getBookingWidgetConfig } from '../../../resolve-te
 import {
   getAppointmentByToken,
   cancelAppointment,
+  updateAppointment,
   isWithinCancellationWindow,
   calculateCancellationFee,
   isTerminalStatus,
@@ -12,6 +13,7 @@ import type { AppointmentStatus } from '@oppsera/module-spa';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid } from '@oppsera/shared';
 import { checkRateLimit, getRateLimitKey, rateLimitHeaders, RATE_LIMITS } from '@oppsera/core/security';
+import { sendSpaCancellationEmail } from '@oppsera/core/email/spa-email-service';
 
 /**
  * GET /api/v1/spa/public/[tenantSlug]/manage/[token]
@@ -262,11 +264,82 @@ export async function POST(
       );
     }
 
-    if (action !== 'cancel') {
+    if (action !== 'cancel' && action !== 'update_notes') {
       return NextResponse.json(
-        { error: { code: 'VALIDATION_ERROR', message: `Unsupported action: ${action}. Supported: cancel` } },
+        { error: { code: 'VALIDATION_ERROR', message: `Unsupported action: ${action}. Supported: cancel, update_notes` } },
         { status: 400 },
       );
+    }
+
+    // ── Update Notes Action ─────────────────────────────────────
+    if (action === 'update_notes') {
+      const { notes } = body as { notes?: string };
+
+      if (notes === undefined || typeof notes !== 'string') {
+        return NextResponse.json(
+          { error: { code: 'VALIDATION_ERROR', message: 'notes is required (string)' } },
+          { status: 400 },
+        );
+      }
+
+      const trimmedNotes = notes.trim();
+      if (trimmedNotes.length > 500) {
+        return NextResponse.json(
+          { error: { code: 'VALIDATION_ERROR', message: 'notes must be 500 characters or fewer' } },
+          { status: 400 },
+        );
+      }
+
+      // Fetch the appointment by token
+      const appointment = await getAppointmentByToken({
+        tenantId: tenant.tenantId,
+        token,
+      });
+
+      if (!appointment) {
+        return NextResponse.json(
+          { error: { code: 'NOT_FOUND', message: 'Appointment not found' } },
+          { status: 404 },
+        );
+      }
+
+      // Only allow notes update on scheduled or confirmed appointments
+      if (isTerminalStatus(appointment.status as AppointmentStatus)) {
+        return NextResponse.json(
+          { error: { code: 'ALREADY_TERMINAL', message: `Appointment is already ${appointment.status}` } },
+          { status: 409 },
+        );
+      }
+
+      // Build synthetic RequestContext
+      const clientRequestId = `online-notes-${generateUlid()}`;
+      const ctx: RequestContext = {
+        user: {
+          id: 'system:online-booking',
+          email: 'booking@system.oppsera.com',
+          name: 'Online Booking System',
+          tenantId: tenant.tenantId,
+          tenantStatus: 'active',
+          membershipStatus: 'none',
+        },
+        tenantId: tenant.tenantId,
+        locationId: tenant.locationId ?? undefined,
+        requestId: clientRequestId,
+        isPlatformAdmin: false,
+      };
+
+      await updateAppointment(ctx, {
+        id: appointment.id,
+        expectedVersion: appointment.version,
+        notes: trimmedNotes,
+      });
+
+      return NextResponse.json({
+        data: {
+          appointmentNumber: appointment.appointmentNumber,
+          notes: trimmedNotes,
+        },
+      });
     }
 
     // ── Cancel Action ───────────────────────────────────────────
@@ -382,6 +455,30 @@ export async function POST(
       chargeCancellationFee: cancellationFeeInfo ? cancellationFeeInfo.feeCents > 0 : false,
       waiveFee: false,
     });
+
+    // ── Send cancellation email (non-fatal) ──────────────────────
+    if (appointment.guestEmail) {
+      try {
+        const baseUrl = new URL(request.url).origin;
+        const bookAgainUrl = `${baseUrl}/book/${tenantSlug}/spa`;
+        const serviceName = appointment.items[0]?.serviceName ?? 'Appointment';
+
+        await sendSpaCancellationEmail(appointment.guestEmail, {
+          spaName: tenant.tenantName,
+          logoUrl: widgetConfig?.logoUrl ?? null,
+          guestName: appointment.guestName ?? 'Guest',
+          appointmentNumber: appointment.appointmentNumber,
+          serviceName,
+          providerName: appointment.providerName ?? null,
+          startAt: appointment.startAt,
+          cancellationFeeCents: cancellationFeeInfo?.feeCents ?? null,
+          depositRefundCents: cancellationFeeInfo?.depositRefundCents ?? null,
+          bookAgainUrl,
+        });
+      } catch (emailErr) {
+        console.error('[spa-email] Failed to send cancellation email:', emailErr);
+      }
+    }
 
     return NextResponse.json({
       data: {

@@ -18,5 +18,5 @@ export const GET = withMiddleware(
       meta: { cursor: result.cursor, hasMore: result.hasMore },
     });
   },
-  { entitlement: 'expense_management', permission: 'expenses.approve' },
+  { entitlement: 'accounting', permission: 'expenses.approve' },
 );

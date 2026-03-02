@@ -44,5 +44,5 @@ export const POST = withMiddleware(
         throw new AppError('NOT_FOUND', `Unknown action: ${action}`, 404);
     }
   },
-  { entitlement: 'project_costing', permission: 'project_costing.manage', writeAccess: true },
+  { entitlement: 'accounting', permission: 'project_costing.manage', writeAccess: true },
 );

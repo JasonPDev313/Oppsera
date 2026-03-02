@@ -24,5 +24,5 @@ export const PATCH = withMiddleware(
     const result = await updateTask(ctx, taskId, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'project_costing', permission: 'project_costing.manage', writeAccess: true },
+  { entitlement: 'accounting', permission: 'project_costing.manage', writeAccess: true },
 );

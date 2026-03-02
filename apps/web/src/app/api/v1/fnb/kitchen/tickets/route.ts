@@ -21,7 +21,7 @@ export const GET = withMiddleware(
     });
     return NextResponse.json({ data: result.items, meta: { cursor: result.cursor, hasMore: result.hasMore } });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.view' },
+  { entitlement: 'kds', permission: 'kds.view' },
 );
 
 // POST /api/v1/fnb/kitchen/tickets — create kitchen ticket
@@ -39,5 +39,5 @@ export const POST = withMiddleware(
     const ticket = await createKitchenTicket(ctx, parsed.data);
     return NextResponse.json({ data: ticket }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.manage' , writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.manage', writeAccess: true },
 );

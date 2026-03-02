@@ -28,7 +28,7 @@ export const GET = withMiddleware(
       meta: { cursor: result.cursor, hasMore: result.hasMore },
     });
   },
-  { entitlement: 'project_costing', permission: 'project_costing.view' },
+  { entitlement: 'accounting', permission: 'project_costing.view' },
 );
 
 export const POST = withMiddleware(
@@ -47,5 +47,5 @@ export const POST = withMiddleware(
     const result = await createTask(ctx, projectId, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'project_costing', permission: 'project_costing.manage', writeAccess: true },
+  { entitlement: 'accounting', permission: 'project_costing.manage', writeAccess: true },
 );

@@ -30,6 +30,12 @@ import { checkRateLimit, getRateLimitKey, rateLimitHeaders, RATE_LIMITS } from '
  *     allowAddonSelection: boolean;
  *     customCss: string | null;
  *     redirectUrl: string | null;
+ *     businessIdentity: Record<string, unknown>;
+ *     contactLocation: Record<string, unknown>;
+ *     branding: Record<string, unknown>;
+ *     operational: Record<string, unknown>;
+ *     legal: Record<string, unknown>;
+ *     seo: Record<string, unknown>;
  *   }
  * }
  */
@@ -67,10 +73,16 @@ export async function GET(
 
     const config = await getBookingWidgetConfig(tenant.tenantId);
 
+    // Use business identity name override if set, fallback to tenant name
+    const businessIdentity = (config?.businessIdentity ?? {}) as Record<string, unknown>;
+    const displayName = (typeof businessIdentity.businessName === 'string' && businessIdentity.businessName)
+      ? businessIdentity.businessName
+      : tenant.tenantName;
+
     // Return defaults if no config row exists
     return NextResponse.json({
       data: {
-        tenantName: tenant.tenantName,
+        tenantName: displayName,
         theme: config?.theme ?? null,
         logoUrl: config?.logoUrl ?? null,
         welcomeMessage: config?.welcomeMessage ?? null,
@@ -88,6 +100,12 @@ export async function GET(
         allowAddonSelection: config?.allowAddonSelection ?? true,
         customCss: config?.customCss ?? null,
         redirectUrl: config?.redirectUrl ?? null,
+        businessIdentity: businessIdentity,
+        contactLocation: (config?.contactLocation ?? {}) as Record<string, unknown>,
+        branding: (config?.branding ?? {}) as Record<string, unknown>,
+        operational: (config?.operational ?? {}) as Record<string, unknown>,
+        legal: (config?.legal ?? {}) as Record<string, unknown>,
+        seo: (config?.seo ?? {}) as Record<string, unknown>,
       },
     });
   } catch (err) {

@@ -16,7 +16,7 @@ export const GET = withMiddleware(
     const result = await getExpensePolicy(ctx.tenantId, id);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'expense_management', permission: 'expenses.view' },
+  { entitlement: 'accounting', permission: 'expenses.view' },
 );
 
 export const PATCH = withMiddleware(
@@ -35,5 +35,5 @@ export const PATCH = withMiddleware(
     const result = await updateExpensePolicy(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'expense_management', permission: 'expenses.manage', writeAccess: true },
+  { entitlement: 'accounting', permission: 'expenses.manage', writeAccess: true },
 );

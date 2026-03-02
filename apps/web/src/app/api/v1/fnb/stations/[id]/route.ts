@@ -16,7 +16,7 @@ export const GET = withMiddleware(
     });
     return NextResponse.json({ data: detail });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.view' },
+  { entitlement: 'kds', permission: 'kds.view' },
 );
 
 // PATCH /api/v1/fnb/stations/[id] — update station
@@ -36,5 +36,5 @@ export const PATCH = withMiddleware(
     const station = await updateStation(ctx, stationId, parsed.data);
     return NextResponse.json({ data: station });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage' , writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.manage', writeAccess: true },
 );

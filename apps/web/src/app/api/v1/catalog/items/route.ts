@@ -13,6 +13,7 @@ export const GET = withMiddleware(
     const limit = limitParam ? Math.min(parseInt(limitParam, 10), 5000) : 50;
     const categoryId = url.searchParams.get('categoryId') ?? undefined;
     const itemType = url.searchParams.get('itemType') ?? undefined;
+    const itemTypes = url.searchParams.get('itemTypes')?.split(',').filter(Boolean) ?? undefined;
     const search = url.searchParams.get('search') ?? undefined;
     const includeArchived = url.searchParams.get('includeArchived') === 'true';
 
@@ -24,6 +25,7 @@ export const GET = withMiddleware(
       limit,
       categoryId,
       itemType,
+      itemTypes: itemTypes?.length ? itemTypes : undefined,
       search,
       includeArchived,
       includeInventory,

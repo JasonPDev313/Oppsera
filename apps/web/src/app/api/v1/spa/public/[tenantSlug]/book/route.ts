@@ -7,15 +7,33 @@ import {
   getServiceForBooking,
   calculateDeposit,
 } from '@oppsera/module-spa';
+import { paymentsFacade } from '@oppsera/module-payments';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { generateUlid } from '@oppsera/shared';
+import { generateUlid, buildGoogleCalendarUrl, buildOutlookCalendarUrl } from '@oppsera/shared';
 import { checkRateLimit, getRateLimitKey, rateLimitHeaders, RATE_LIMITS } from '@oppsera/core/security';
+import { sendSpaConfirmationEmail } from '@oppsera/core/email/spa-email-service';
+import { withTenant } from '@oppsera/db';
+import { spaAppointments } from '@oppsera/db/schema';
+import { eq } from 'drizzle-orm';
 
 // ── Management Token ──────────────────────────────────────────────
 // 8-char base64url token for guest appointment management (same pattern as guest waitlist)
 
 function generateManagementToken(): string {
   return randomBytes(6).toString('base64url').slice(0, 8);
+}
+
+/** Helper to update appointment fields safely within RLS context */
+async function updateAppointment(
+  tenantId: string,
+  appointmentId: string,
+  fields: Partial<typeof spaAppointments.$inferInsert>,
+): Promise<void> {
+  await withTenant(tenantId, async (tx) => {
+    await tx.update(spaAppointments)
+      .set(fields)
+      .where(eq(spaAppointments.id, appointmentId));
+  });
 }
 
 /**
@@ -34,6 +52,9 @@ function generateManagementToken(): string {
  *   guestEmail: string;
  *   guestPhone?: string;
  *   notes?: string;
+ *   paymentMethodToken?: string;  // CardPointe tokenized card
+ *   expiry?: string;              // MMYY format
+ *   cvv?: string;                 // 3-4 digits
  * }
  *
  * Response shape (201):
@@ -49,6 +70,7 @@ function generateManagementToken(): string {
  *       required: boolean;
  *       amountCents: number;
  *       depositType: string;
+ *       status: 'authorized' | 'required' | 'none';
  *     } | null;
  *   }
  * }
@@ -110,6 +132,9 @@ export async function POST(
       guestEmail,
       guestPhone,
       notes,
+      paymentMethodToken,
+      expiry,
+      cvv,
     } = body as {
       serviceId?: string;
       providerId?: string;
@@ -118,6 +143,9 @@ export async function POST(
       guestEmail?: string;
       guestPhone?: string;
       notes?: string;
+      paymentMethodToken?: string;
+      expiry?: string;
+      cvv?: string;
     };
 
     // Validate required fields
@@ -244,6 +272,7 @@ export async function POST(
       required: boolean;
       amountCents: number;
       depositType: string;
+      status: 'authorized' | 'required' | 'none';
     } | null = null;
 
     const widgetConfig = await getBookingWidgetConfig(tenant.tenantId);
@@ -259,13 +288,138 @@ export async function POST(
         },
       });
 
-      if (depositResult.required) {
+      if (depositResult.required && depositResult.amountCents > 0) {
         depositInfo = {
           required: true,
           amountCents: depositResult.amountCents,
           depositType: depositResult.depositType,
+          status: 'required',
         };
+
+        // ── Attempt deposit authorization if card token provided ──
+        if (paymentMethodToken && typeof paymentMethodToken === 'string') {
+          try {
+            const paymentResult = await paymentsFacade.authorize(ctx, {
+              clientRequestId: `spa-deposit-${result.id}`,
+              amountCents: depositResult.amountCents,
+              token: paymentMethodToken,
+              expiry: typeof expiry === 'string' ? expiry : undefined,
+              cvv: typeof cvv === 'string' ? cvv : undefined,
+              locationId: tenant.locationId ?? undefined,
+              ecomind: 'E',
+              metadata: {
+                appointmentId: result.id,
+                appointmentNumber: result.appointmentNumber,
+                source: 'online-booking',
+              },
+            });
+
+            if (paymentResult.status === 'authorized') {
+              depositInfo.status = 'authorized';
+              try {
+                await updateAppointment(tenant.tenantId, result.id, {
+                  depositAmountCents: depositResult.amountCents,
+                  depositStatus: 'authorized',
+                  depositPaymentId: paymentResult.id ?? null,
+                });
+              } catch (dbErr) {
+                console.error('[spa-deposit] Failed to update deposit status after authorization:', dbErr);
+              }
+            } else {
+              // Card declined — booking still succeeds, staff will collect deposit manually
+              console.warn('[spa-deposit] Authorization declined for appointment', result.appointmentNumber, paymentResult.errorMessage);
+              try {
+                await updateAppointment(tenant.tenantId, result.id, {
+                  depositAmountCents: depositResult.amountCents,
+                  depositStatus: 'required',
+                });
+              } catch (dbErr) {
+                console.error('[spa-deposit] Failed to update deposit status after decline:', dbErr);
+              }
+            }
+          } catch (payErr) {
+            // Gateway error — booking still succeeds, staff will collect deposit manually
+            console.error('[spa-deposit] Authorization error for appointment', result.appointmentNumber, payErr);
+            try {
+              await updateAppointment(tenant.tenantId, result.id, {
+                depositAmountCents: depositResult.amountCents,
+                depositStatus: 'required',
+              });
+            } catch (dbErr) {
+              console.error('[spa-deposit] Failed to update deposit status after error:', dbErr);
+            }
+          }
+        } else {
+          // No card token — deposit tracked but not collected online
+          try {
+            await updateAppointment(tenant.tenantId, result.id, {
+              depositAmountCents: depositResult.amountCents,
+              depositStatus: 'required',
+            });
+          } catch (dbErr) {
+            console.error('[spa-deposit] Failed to update deposit amount:', dbErr);
+          }
+        }
       }
+    }
+
+    // ── Send confirmation email (non-fatal) ─────────────────────
+    try {
+      const baseUrl = new URL(request.url).origin;
+      const manageUrl = `${baseUrl}/book/${tenantSlug}/spa/manage/${result.appointmentNumber}`;
+      const serviceName = service.displayName ?? service.name;
+
+      const calendarEvent = {
+        title: `${serviceName} at ${tenant.tenantName}`,
+        startAt: startDate,
+        endAt: endDate,
+        description: `Appointment #${result.appointmentNumber}\nManage: ${manageUrl}`,
+        location: tenant.tenantName,
+      };
+
+      // Resolve provider name if specified
+      let providerName: string | null = null;
+      if (providerId) {
+        const match = service.eligibleProviders.find((p) => p.providerId === providerId);
+        if (match && 'providerName' in match) {
+          providerName = (match as { providerName?: string }).providerName ?? null;
+        }
+      }
+
+      const sent = await sendSpaConfirmationEmail(guestEmail.trim().toLowerCase(), {
+        spaName: tenant.tenantName,
+        logoUrl: widgetConfig?.logoUrl ?? null,
+        guestName: guestName.trim(),
+        appointmentNumber: result.appointmentNumber,
+        serviceName,
+        providerName,
+        startAt: startDate,
+        endAt: endDate,
+        durationMinutes: service.durationMinutes,
+        priceCents,
+        depositAmountCents: depositInfo?.amountCents ?? null,
+        cancellationWindowHours: widgetConfig?.cancellationWindowHours ?? null,
+        cancellationFeeType: widgetConfig?.cancellationFeeType ?? null,
+        cancellationFeeValue: widgetConfig?.cancellationFeeValue
+          ? Math.round(parseFloat(widgetConfig.cancellationFeeValue) * 100)
+          : null,
+        manageUrl,
+        googleCalendarUrl: buildGoogleCalendarUrl(calendarEvent),
+        outlookCalendarUrl: buildOutlookCalendarUrl(calendarEvent),
+        welcomeMessage: widgetConfig?.welcomeMessage ?? null,
+      });
+
+      if (sent) {
+        try {
+          await updateAppointment(tenant.tenantId, result.id, {
+            confirmationEmailSentAt: new Date(),
+          });
+        } catch (dbErr) {
+          console.error('[spa-email] Failed to update confirmation_email_sent_at:', dbErr);
+        }
+      }
+    } catch (emailErr) {
+      console.error('[spa-email] Failed to send confirmation email:', emailErr);
     }
 
     return NextResponse.json(
@@ -282,7 +436,14 @@ export async function POST(
             durationMinutes: service.durationMinutes,
             priceCents,
           },
-          deposit: depositInfo,
+          deposit: depositInfo
+            ? {
+                required: depositInfo.required,
+                amountCents: depositInfo.amountCents,
+                depositType: depositInfo.depositType,
+                status: depositInfo.status,
+              }
+            : null,
         },
       },
       { status: 201 },

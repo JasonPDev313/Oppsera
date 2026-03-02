@@ -43,5 +43,5 @@ export const GET = withMiddleware(
       },
     });
   },
-  { entitlement: 'project_costing', permission: 'project_costing.view' },
+  { entitlement: 'accounting', permission: 'project_costing.view' },
 );
