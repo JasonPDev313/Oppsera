@@ -52,12 +52,32 @@ function mapTabForReceipt(tab: FnbTabDetail, check: CheckSummary): FnbTabForRece
   };
 }
 
+/** Build an optimistic CheckSummary from tab line data (instant, no server round-trip) */
+function computeOptimisticCheck(tab: FnbTabDetail): CheckSummary {
+  const activeLines = tab.lines.filter((l) => l.status !== 'voided');
+  const subtotalCents = activeLines.reduce((sum, l) => sum + l.extendedPriceCents, 0);
+  const taxCents = tab.taxTotalCents ?? 0;
+  const totalCents = subtotalCents + taxCents;
+  return {
+    orderId: '',
+    subtotalCents,
+    taxTotalCents: taxCents,
+    serviceChargeTotalCents: 0,
+    discountTotalCents: 0,
+    totalCents,
+    paidCents: 0,
+    remainingCents: totalCents,
+    tenderCount: 0,
+    status: 'open',
+  };
+}
+
 export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   const store = useFnbPosStore();
   const { locations } = useAuthContext();
   const locationId = locations?.[0]?.id;
   const tabId = store.activeTabId;
-  const { tab, isLoading: isLoadingTab, error: tabError, notFound: tabNotFound, refresh: refreshTab } = useFnbTab({ tabId });
+  const { tab, error: tabError, notFound: tabNotFound, refresh: refreshTab } = useFnbTab({ tabId });
   const {
     sessions,
     startSession,
@@ -73,14 +93,20 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   });
 
   const [check, setCheck] = useState<CheckSummary | null>(null);
-  const [isLoadingCheck, setIsLoadingCheck] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
-  const [isPreparing, setIsPreparing] = useState(false);
+
+  // Optimistic check: show tab-derived totals instantly, replace with server data when ready
+  const displayCheck: CheckSummary | null = check ?? (
+    tab && tab.lines.some((l) => l.status !== 'voided')
+      ? computeOptimisticCheck(tab)
+      : null
+  );
   const isActingRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
   // Tracks orderId returned by prepare-check before the tab hook refreshes
   const preparedOrderIdRef = useRef<string | null>(null);
   const prepareCalledRef = useRef<string | null>(null); // tracks tabId to prevent double-call
+  const preparePromiseRef = useRef<Promise<{ orderId: string; check: CheckSummary } | null> | null>(null);
 
   // ── Auto-navigate back when tab was closed/voided by another terminal ──
   useEffect(() => {
@@ -109,7 +135,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   const prepareAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (!tab || tab.primaryOrderId || isPreparing) return;
+    if (!tab || tab.primaryOrderId) return;
     // Only call once per tabId — NOT reset on error (Retry button resets manually)
     if (prepareCalledRef.current === tab.id) return;
     const activeLines = tab.lines.filter((l) => l.status !== 'voided');
@@ -120,8 +146,6 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     }
 
     prepareCalledRef.current = tab.id;
-    setIsPreparing(true);
-    setIsLoadingCheck(true);
     setCheckError(null);
 
     // Cancel any prior in-flight request
@@ -129,7 +153,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     const ac = new AbortController();
     prepareAbortRef.current = ac;
 
-    apiFetch<{ data: { orderId: string; check: CheckSummary } }>(
+    const promise = apiFetch<{ data: { orderId: string; check: CheckSummary } }>(
       `/api/v1/fnb/tabs/${tab.id}/prepare-check`,
       { method: 'POST', signal: ac.signal, headers: locationId ? { 'X-Location-Id': locationId } : undefined },
     )
@@ -139,30 +163,28 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
         setCheckError(null);
         // Refresh tab to pick up the server-set primaryOrderId
         refreshTab();
+        return res.data;
       })
       .catch((e) => {
         // Ignore aborted requests (user navigated away)
-        if (e instanceof DOMException && e.name === 'AbortError') return;
+        if (e instanceof DOMException && e.name === 'AbortError') return null;
         const msg = e instanceof Error ? e.message : 'Failed to prepare check';
         console.error('[FnbPayment] prepare-check failed:', msg, e);
         setCheckError(msg);
         // Do NOT reset prepareCalledRef here — that causes an infinite retry loop.
         // The Retry button resets it manually.
-      })
-      .finally(() => {
-        setIsPreparing(false);
-        setIsLoadingCheck(false);
+        return null;
       });
+    preparePromiseRef.current = promise;
 
     return () => { ac.abort(); };
-  }, [tab, isPreparing, refreshTab]);
+  }, [tab, refreshTab]);
 
   // Initial check fetch (only when primaryOrderId already exists)
   useEffect(() => {
     if (!tab?.primaryOrderId) return;
-    setIsLoadingCheck(true);
     setCheckError(null);
-    refreshCheck().finally(() => setIsLoadingCheck(false));
+    refreshCheck();
   }, [tab?.primaryOrderId, refreshCheck]);
 
   // ── Reuse existing session if one is active (Phase 0D) ────────
@@ -192,7 +214,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
       if (!tab) return { isFullyPaid: false, remainingCents: 0 };
 
       // Phase 0D: prevent double-click race
-      if (isActingRef.current) return { isFullyPaid: false, remainingCents: check?.remainingCents ?? 0 };
+      if (isActingRef.current) return { isFullyPaid: false, remainingCents: displayCheck?.remainingCents ?? 0 };
       isActingRef.current = true;
 
       // Phase 7B: offline guard
@@ -202,6 +224,14 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
       }
 
       try {
+        // Wait for prepare-check if order hasn't been created yet
+        if (!tab.primaryOrderId && !preparedOrderIdRef.current && preparePromiseRef.current) {
+          await preparePromiseRef.current;
+        }
+        if (!tab.primaryOrderId && !preparedOrderIdRef.current) {
+          throw new Error('Order could not be prepared — please go back and try again');
+        }
+
         // Ensure payment session exists (reuse active or create new)
         let sessionId = sessionIdRef.current;
         if (!sessionId) {
@@ -209,7 +239,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
           const session = await startSession({
             tabId: tab.id,
             orderId: effectiveOrderId,
-            totalAmountCents: check?.totalCents ?? 0,
+            totalAmountCents: displayCheck?.totalCents ?? 0,
             clientRequestId: crypto.randomUUID(),
           });
           sessionId = session.id;
@@ -263,26 +293,26 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
         isActingRef.current = false;
       }
     },
-    [tab, check, sessions, startSession, recordTender, adjustTip, completeSession],
+    [tab, check, displayCheck, sessions, startSession, recordTender, adjustTip, completeSession],
   );
 
   // ── Void last tender handler (Phase 1C) ───────────────────────
   const handleVoidLastTender = useCallback(async (): Promise<TenderResult> => {
     const sessionId = sessionIdRef.current;
-    if (!sessionId || !tab) return { isFullyPaid: false, remainingCents: check?.remainingCents ?? 0 };
+    if (!sessionId || !tab) return { isFullyPaid: false, remainingCents: displayCheck?.remainingCents ?? 0 };
 
-    if (isActingRef.current) return { isFullyPaid: false, remainingCents: check?.remainingCents ?? 0 };
+    if (isActingRef.current) return { isFullyPaid: false, remainingCents: displayCheck?.remainingCents ?? 0 };
     isActingRef.current = true;
 
     try {
       const result = await voidLastTender(sessionId);
       const voidResult = result as Record<string, unknown>;
-      const remaining = (voidResult?.remainingAmountCents as number) ?? check?.remainingCents ?? 0;
+      const remaining = (voidResult?.remainingAmountCents as number) ?? displayCheck?.remainingCents ?? 0;
       return { isFullyPaid: false, remainingCents: remaining };
     } finally {
       isActingRef.current = false;
     }
-  }, [tab, check, voidLastTender]);
+  }, [tab, displayCheck, voidLastTender]);
 
   const handleCapturePreAuth = useCallback(
     async (preauthId: string, captureAmountCents: number, tipCents: number) => {
@@ -304,9 +334,9 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
 
   const handleReceipt = useCallback(
     (action: ReceiptAction, email?: string) => {
-      if (action === 'print' && tab && check) {
+      if (action === 'print' && tab && displayCheck) {
         const locationName = locations[0]?.name ?? 'Restaurant';
-        const mapped = mapTabForReceipt(tab, check);
+        const mapped = mapTabForReceipt(tab, displayCheck);
         const input = fnbTabToInput(mapped, locationName);
         const doc = buildReceiptDocument(input);
         // Fire-and-forget — never block POS on print
@@ -320,7 +350,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
         }).catch(() => {});
       }
     },
-    [tab, check, locations],
+    [tab, displayCheck, locations],
   );
 
   const handleClose = useCallback(() => {
@@ -371,15 +401,15 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     );
   }
 
-  // ── Loading state: tab or check still fetching ────────────────
-  if (!tab || isLoadingTab || isLoadingCheck || isPreparing) {
+  // ── Loading state: only when tab data is completely unavailable ──
+  if (!tab) {
     return (
       <div
         className="flex h-full flex-col items-center justify-center gap-3"
         style={{ backgroundColor: 'var(--fnb-bg-primary)' }}
       >
         <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>
-          {isPreparing ? 'Preparing check...' : 'Loading payment...'}
+          Loading payment...
         </p>
         <button
           type="button"
@@ -395,7 +425,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   }
 
   // ── Error state: check failed to load ─────────────────────────
-  if (!check) {
+  if (!displayCheck) {
     const hasNoItems = tab && tab.lines.filter((l) => l.status !== 'voided').length === 0;
 
     // If tab has items but check isn't ready yet and no error occurred,
@@ -454,9 +484,9 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
             <button
               type="button"
               onClick={() => {
-                setIsLoadingCheck(true);
                 setCheckError(null);
                 prepareCalledRef.current = null;
+                preparePromiseRef.current = null;
                 refreshTab();
               }}
               className="rounded-lg px-4 py-2 text-sm font-bold transition-colors hover:opacity-80"
@@ -529,7 +559,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
       <div className="flex-1 overflow-hidden">
         <PaymentScreen
           tab={tab}
-          check={check}
+          check={displayCheck!}
           preauths={activePreauths}
           onTender={handleTender}
           onVoidLastTender={handleVoidLastTender}

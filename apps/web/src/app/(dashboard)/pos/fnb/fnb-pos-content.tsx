@@ -111,11 +111,20 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
       {!isOnline && <OfflineBanner queueCount={0} />}
 
       <div className="flex-1 min-h-0 flex flex-col">
-        <div className="flex-1 min-h-0">
-          <div className={currentScreen === 'floor' ? 'h-full' : 'hidden'}>
+        {/* Floor + Tab stay mounted and use visibility (not display:none) so
+            the browser keeps their layout pre-computed — switching back is instant
+            instead of triggering a full reflow of the 3-column grid. */}
+        <div className="flex-1 min-h-0 relative">
+          <div
+            className="absolute inset-0"
+            style={currentScreen === 'floor' ? undefined : { visibility: 'hidden', pointerEvents: 'none' }}
+          >
             <FnbFloorView userId={userId} isActive={isActive && currentScreen === 'floor'} />
           </div>
-          <div className={currentScreen === 'tab' ? 'h-full' : 'hidden'}>
+          <div
+            className="absolute inset-0"
+            style={currentScreen === 'tab' ? undefined : { visibility: 'hidden', pointerEvents: 'none' }}
+          >
             <FnbTabView userId={userId} isActive={isActive && currentScreen === 'tab'} kdsSendEnabled={kdsSendEnabled} />
           </div>
           {currentScreen === 'open_tickets' && <OpenTicketsView userId={userId} />}
