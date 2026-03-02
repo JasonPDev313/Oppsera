@@ -492,6 +492,7 @@ async function seed() {
     'orders',
     'pos_retail',
     'pos_fnb',
+    'kds',
     'payments',
     'inventory',
     'customers',

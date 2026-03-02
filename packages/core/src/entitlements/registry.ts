@@ -111,7 +111,7 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
   {
     key: 'kds',
     name: 'Kitchen Display',
-    phase: 'v2',
+    phase: 'v1',
     description: 'Kitchen display system, expo screen, KDS configuration',
     dependencies: ['pos_fnb'],
     riskLevel: 'low',

@@ -15,7 +15,7 @@ const ExpoContent = dynamic(() => import('./expo-content'), {
 
 export default function ExpoPage() {
   return (
-    <PermissionGate permission="pos_fnb.kds.view">
+    <PermissionGate permission="kds.view">
       <ExpoContent />
     </PermissionGate>
   );

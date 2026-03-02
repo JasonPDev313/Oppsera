@@ -15,7 +15,7 @@ const KdsStationSelector = dynamic(() => import('./kds-selector-content'), {
 
 export default function KdsPage() {
   return (
-    <PermissionGate permission="pos_fnb.kds.view">
+    <PermissionGate permission="kds.view">
       <KdsStationSelector />
     </PermissionGate>
   );
