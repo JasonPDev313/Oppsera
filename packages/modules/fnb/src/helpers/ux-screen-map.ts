@@ -249,8 +249,8 @@ export interface ScreenPermission {
 export const FNB_SCREEN_PERMISSIONS: ScreenPermission[] = [
   { screenId: 'floor_plan', allowedRoles: ['owner', 'manager', 'supervisor', 'server', 'host', 'cashier'], requiredPermission: 'pos_fnb.floor_plan.view' },
   { screenId: 'tab_view', allowedRoles: ['owner', 'manager', 'supervisor', 'server', 'cashier'], requiredPermission: 'pos_fnb.tabs.view' },
-  { screenId: 'kds_station', allowedRoles: ['owner', 'manager', 'supervisor', 'kitchen'], requiredPermission: 'pos_fnb.kds.view' },
-  { screenId: 'expo_view', allowedRoles: ['owner', 'manager', 'supervisor', 'kitchen'], requiredPermission: 'pos_fnb.kds.view' },
+  { screenId: 'kds_station', allowedRoles: ['owner', 'manager', 'supervisor', 'kitchen'], requiredPermission: 'kds.view' },
+  { screenId: 'expo_view', allowedRoles: ['owner', 'manager', 'supervisor', 'kitchen'], requiredPermission: 'kds.view' },
   { screenId: 'payment', allowedRoles: ['owner', 'manager', 'supervisor', 'server', 'cashier'], requiredPermission: 'pos_fnb.payments.create' },
   { screenId: 'server_dashboard', allowedRoles: ['owner', 'manager', 'supervisor', 'server'], requiredPermission: 'pos_fnb.tabs.view' },
   { screenId: 'host_stand', allowedRoles: ['owner', 'manager', 'supervisor', 'host'], requiredPermission: 'pos_fnb.floor_plan.view' },
@@ -301,10 +301,10 @@ export const FNB_NAV_ITEMS: NavItem[] = [
     label: 'Kitchen Display',
     icon: 'ChefHat',
     path: '/pos/fnb/kds',
-    requiredPermission: 'pos_fnb.kds.view',
+    requiredPermission: 'kds.view',
     badge: 'count',
     children: [
-      { id: 'kds_expo', label: 'Expo', icon: 'Eye', path: '/pos/fnb/expo', requiredPermission: 'pos_fnb.kds.view' },
+      { id: 'kds_expo', label: 'Expo', icon: 'Eye', path: '/pos/fnb/expo', requiredPermission: 'kds.view' },
     ],
   },
   {

@@ -298,7 +298,7 @@ export const TAB_TYPES = ['dine_in', 'bar', 'takeout', 'quick_service'] as const
 
 export const TAB_STATUSES = [
   'open', 'ordering', 'sent_to_kitchen', 'in_progress',
-  'check_requested', 'split', 'paying', 'closed', 'voided', 'transferred',
+  'check_requested', 'split', 'paying', 'closed', 'voided', 'transferred', 'abandoned',
 ] as const;
 
 export const SERVICE_TYPES = ['dine_in', 'takeout', 'to_go'] as const;
@@ -1584,6 +1584,7 @@ export const fnbGeneralSettingsSchema = z.object({
   require_customer_for_tab: z.boolean().default(false),
   auto_print_check_on_close: z.boolean().default(true),
   currency_code: z.string().length(3).default('USD'),
+  require_manager_override_for_tab_delete: z.boolean().default(false),
 });
 
 export const fnbFloorSettingsSchema = z.object({
@@ -2609,3 +2610,114 @@ export const getTableAvailabilitySchema = z.object({
   seatingPreference: z.enum(SEATING_PREFERENCES).optional(),
 });
 export type GetTableAvailabilityInput = z.input<typeof getTableAvailabilitySchema>;
+
+// ═══════════════════════════════════════════════════════════════════
+// MANAGE TABS — Bulk tab management schemas
+// ═══════════════════════════════════════════════════════════════════
+
+const MANAGE_TABS_REASON_CODES = ['server_leaving', 'end_of_shift', 'stale_tab', 'error_correction', 'other'] as const;
+const MANAGE_TABS_SORT_OPTIONS = ['oldest', 'newest', 'highest_balance', 'recently_updated'] as const;
+const MANAGE_TABS_GROUP_OPTIONS = ['server', 'table', 'status', 'age'] as const;
+const MANAGE_TABS_VIEW_MODES = ['all', 'open_only', 'needs_attention'] as const;
+
+export const manageTabsQuerySchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().optional(),
+  businessDate: z.string().optional(),
+  serverUserId: z.string().optional(),
+  statuses: z.array(z.enum(TAB_STATUSES)).optional(),
+  search: z.string().max(100).optional(),
+  groupBy: z.enum(MANAGE_TABS_GROUP_OPTIONS).optional(),
+  viewMode: z.enum(MANAGE_TABS_VIEW_MODES).default('all'),
+  sortBy: z.enum(MANAGE_TABS_SORT_OPTIONS).default('oldest'),
+  includeAmounts: z.boolean().default(false),
+  cursor: z.string().optional(),
+  limit: z.number().int().min(1).max(200).default(100),
+});
+export type ManageTabsQuery = z.infer<typeof manageTabsQuerySchema>;
+export type ManageTabsQueryInput = z.input<typeof manageTabsQuerySchema>;
+
+const expectedVersionsMixin = {
+  expectedVersions: z.record(z.string(), z.number()).optional(),
+};
+
+export const bulkVoidTabsSchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().min(1),
+  tabIds: z.array(z.string()).min(1).max(50),
+  reasonCode: z.enum(MANAGE_TABS_REASON_CODES),
+  reasonText: z.string().max(500).optional(),
+  approverUserId: z.string().min(1),
+  ...expectedVersionsMixin,
+  ...idempotencyMixin,
+});
+export type BulkVoidTabsInput = z.input<typeof bulkVoidTabsSchema>;
+
+export const bulkTransferTabsSchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().min(1),
+  tabIds: z.array(z.string()).min(1).max(50),
+  toServerUserId: z.string().min(1),
+  reasonCode: z.enum(MANAGE_TABS_REASON_CODES),
+  reasonText: z.string().max(500).optional(),
+  approverUserId: z.string().optional(),
+  ...expectedVersionsMixin,
+  ...idempotencyMixin,
+});
+export type BulkTransferTabsInput = z.input<typeof bulkTransferTabsSchema>;
+
+export const bulkCloseTabsSchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().min(1),
+  tabIds: z.array(z.string()).min(1).max(50),
+  reasonCode: z.enum(MANAGE_TABS_REASON_CODES),
+  reasonText: z.string().max(500).optional(),
+  approverUserId: z.string().min(1),
+  ...expectedVersionsMixin,
+  ...idempotencyMixin,
+});
+export type BulkCloseTabsInput = z.input<typeof bulkCloseTabsSchema>;
+
+export const emergencyCleanupSchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().min(1),
+  actions: z.object({
+    closePaidTabs: z.boolean().default(false),
+    releaseLocks: z.boolean().default(false),
+    voidStaleTabs: z.boolean().default(false),
+    markAbandoned: z.boolean().default(false),
+    staleThresholdMinutes: z.number().int().min(30).max(1440).default(240),
+    abandonedThresholdMinutes: z.number().int().min(60).max(2880).default(480),
+  }),
+  approverUserId: z.string().min(1),
+  ...idempotencyMixin,
+});
+export type EmergencyCleanupInput = z.input<typeof emergencyCleanupSchema>;
+
+export const verifyManagerPinSchema = z.object({
+  tenantId: z.string().min(1),
+  pin: z.string().min(4).max(6),
+  actionType: z.enum(['bulk_void', 'bulk_transfer', 'bulk_close', 'emergency_cleanup', 'force_unlock']),
+});
+export type VerifyManagerPinInput = z.input<typeof verifyManagerPinSchema>;
+
+export const manageTabsSettingsSchema = z.object({
+  showManageTabsButton: z.boolean().optional(),
+  requirePinForTransfer: z.boolean().optional(),
+  requirePinForVoid: z.boolean().optional(),
+  allowBulkAllServers: z.boolean().optional(),
+  readOnlyForNonManagers: z.boolean().optional(),
+  maxBulkSelection: z.number().int().min(1).max(200).optional(),
+});
+export type ManageTabsSettingsInput = z.input<typeof manageTabsSettingsSchema>;
+
+export const listManagerOverridesSchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().optional(),
+  actionType: z.string().optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  cursor: z.string().optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+export type ListManagerOverridesInput = z.input<typeof listManagerOverridesSchema>;

@@ -23,11 +23,6 @@ export const FNB_PERMISSIONS: FnbPermission[] = [
   { key: 'pos_fnb.tabs.transfer', description: 'Transfer tabs between servers', category: 'tabs' },
   { key: 'pos_fnb.tabs.void', description: 'Void tabs (requires reason)', category: 'tabs' },
 
-  // KDS
-  { key: 'pos_fnb.kds.view', description: 'View kitchen display stations', category: 'kds' },
-  { key: 'pos_fnb.kds.bump', description: 'Bump items and tickets', category: 'kds' },
-  { key: 'pos_fnb.kds.recall', description: 'Recall bumped items', category: 'kds' },
-
   // Payments
   { key: 'pos_fnb.payments.create', description: 'Process payments and tenders', category: 'payments' },
   { key: 'pos_fnb.payments.split', description: 'Split checks', category: 'payments' },
@@ -56,6 +51,10 @@ export const FNB_PERMISSIONS: FnbPermission[] = [
   // Settings
   { key: 'pos_fnb.settings.manage', description: 'Configure F&B POS settings', category: 'settings' },
 
+  // Manage Tabs (bulk operations)
+  { key: 'pos_fnb.tabs.manage', description: 'Bulk manage tabs (void, transfer, close)', category: 'tabs' },
+  { key: 'pos_fnb.tabs.manage_bulk_all_servers', description: 'Manage tabs across all servers', category: 'tabs' },
+
   // GL Posting
   { key: 'pos_fnb.gl.post', description: 'Post batches to general ledger', category: 'gl' },
   { key: 'pos_fnb.gl.reverse', description: 'Reverse GL postings', category: 'gl' },
@@ -72,7 +71,6 @@ export const FNB_ROLE_DEFAULTS: Record<SystemRole, string[]> = {
   manager: [
     'pos_fnb.floor_plan.view', 'pos_fnb.floor_plan.manage',
     'pos_fnb.tabs.view', 'pos_fnb.tabs.create', 'pos_fnb.tabs.transfer', 'pos_fnb.tabs.void',
-    'pos_fnb.kds.view', 'pos_fnb.kds.bump', 'pos_fnb.kds.recall',
     'pos_fnb.payments.create', 'pos_fnb.payments.split', 'pos_fnb.payments.refund', 'pos_fnb.payments.void',
     'pos_fnb.tips.adjust', 'pos_fnb.tips.finalize', 'pos_fnb.tips.pool_manage',
     'pos_fnb.menu.manage', 'pos_fnb.menu.comp', 'pos_fnb.menu.discount', 'pos_fnb.menu.price_override',
@@ -80,12 +78,13 @@ export const FNB_ROLE_DEFAULTS: Record<SystemRole, string[]> = {
     'pos_fnb.reports.view', 'pos_fnb.reports.export',
     'pos_fnb.settings.manage',
     'pos_fnb.gl.post', 'pos_fnb.gl.reverse', 'pos_fnb.gl.mappings',
+    'pos_fnb.tabs.manage', 'pos_fnb.tabs.manage_bulk_all_servers',
   ],
 
   supervisor: [
     'pos_fnb.floor_plan.view', 'pos_fnb.floor_plan.manage',
     'pos_fnb.tabs.view', 'pos_fnb.tabs.create', 'pos_fnb.tabs.transfer', 'pos_fnb.tabs.void',
-    'pos_fnb.kds.view', 'pos_fnb.kds.bump', 'pos_fnb.kds.recall',
+    'pos_fnb.tabs.manage',
     'pos_fnb.payments.create', 'pos_fnb.payments.split', 'pos_fnb.payments.refund',
     'pos_fnb.tips.adjust',
     'pos_fnb.menu.manage', 'pos_fnb.menu.comp', 'pos_fnb.menu.discount',
@@ -109,7 +108,6 @@ export const FNB_ROLE_DEFAULTS: Record<SystemRole, string[]> = {
 
   staff: [
     'pos_fnb.floor_plan.view',
-    'pos_fnb.kds.view', 'pos_fnb.kds.bump',
   ],
 };
 

@@ -83,10 +83,11 @@ describe('FNB_ROLE_DEFAULTS', () => {
     expect(FNB_ROLE_DEFAULTS.cashier).not.toContain('pos_fnb.close_batch.manage');
   });
 
-  it('staff has minimal permissions (kds only)', () => {
+  it('staff has minimal permissions (floor plan view only)', () => {
     expect(FNB_ROLE_DEFAULTS.staff).toContain('pos_fnb.floor_plan.view');
-    expect(FNB_ROLE_DEFAULTS.staff).toContain('pos_fnb.kds.view');
-    expect(FNB_ROLE_DEFAULTS.staff).toContain('pos_fnb.kds.bump');
+    // Staff does not get KDS permissions by default
+    expect(FNB_ROLE_DEFAULTS.staff).not.toContain('pos_fnb.kds.view');
+    expect(FNB_ROLE_DEFAULTS.staff).not.toContain('pos_fnb.kds.bump');
     expect(FNB_ROLE_DEFAULTS.staff).not.toContain('pos_fnb.tabs.create');
   });
 

@@ -18,6 +18,7 @@ export const FNB_GENERAL_DEFAULTS: Record<string, unknown> = {
   require_customer_for_tab: false,
   auto_print_check_on_close: true,
   currency_code: 'USD',
+  require_manager_override_for_tab_delete: false,
 };
 
 export const FNB_FLOOR_DEFAULTS: Record<string, unknown> = {

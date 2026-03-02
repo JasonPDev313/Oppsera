@@ -65,6 +65,8 @@ export const MODULE_TABLES = [
   'fnb_kds_alert_profiles',
   'fnb_kds_performance_targets',
   'fnb_kds_item_prep_times',
+  'fnb_manager_overrides',
+  'fnb_manage_tabs_settings',
 ] as const;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1036,6 +1038,12 @@ export type { HostTableTurnStats, TurnTimeBucket } from './queries/host-get-tabl
 export { hostGetPreShiftReport } from './queries/host-get-pre-shift-report';
 export type { PreShiftReport } from './queries/host-get-pre-shift-report';
 
+// V2 Customer Queries
+export { listReservationsByCustomer } from './queries/list-reservations-by-customer';
+export type { CustomerReservationItem, CustomerReservationListResult } from './queries/list-reservations-by-customer';
+export { listWaitlistByCustomer } from './queries/list-waitlist-by-customer';
+export type { CustomerWaitlistItem, CustomerWaitlistListResult } from './queries/list-waitlist-by-customer';
+
 // V2 Analytics
 export { getHostAnalytics } from './queries/get-host-analytics';
 export type { HostAnalyticsResult, HostAnalyticsInput } from './queries/get-host-analytics';
@@ -1196,3 +1204,40 @@ export {
 
 // Re-export reconciliation methods (used by ReconciliationReadApi)
 export { getFnbCloseStatus } from './reconciliation';
+
+// ═══════════════════════════════════════════════════════════════════
+// Manage Tabs
+// ═══════════════════════════════════════════════════════════════════
+
+// Commands
+export { bulkVoidTabs } from './commands/bulk-void-tabs';
+export type { BulkVoidResult } from './commands/bulk-void-tabs';
+export { bulkTransferTabs } from './commands/bulk-transfer-tabs';
+export type { BulkTransferResult } from './commands/bulk-transfer-tabs';
+export { bulkCloseTabs } from './commands/bulk-close-tabs';
+export type { BulkCloseResult } from './commands/bulk-close-tabs';
+export { emergencyCleanup } from './commands/emergency-cleanup';
+export type { EmergencyCleanupResult } from './commands/emergency-cleanup';
+export { verifyManagerPin } from './commands/verify-manager-pin';
+export type { VerifyPinResult } from './commands/verify-manager-pin';
+export { updateManageTabsSettings } from './commands/update-manage-tabs-settings';
+
+// Queries
+export { listTabsForManage } from './queries/list-tabs-for-manage';
+export type { ManageTabListItem, ManageTabListResult } from './queries/list-tabs-for-manage';
+export { getManageTabsSettings } from './queries/get-manage-tabs-settings';
+export type { ManageTabsSettings } from './queries/get-manage-tabs-settings';
+export { listManagerOverrides } from './queries/list-manager-overrides';
+export type { ManagerOverrideItem, ManagerOverrideListResult } from './queries/list-manager-overrides';
+
+// Manage Tabs Validation Schemas
+export {
+  manageTabsQuerySchema, bulkVoidTabsSchema, bulkTransferTabsSchema,
+  bulkCloseTabsSchema, emergencyCleanupSchema, verifyManagerPinSchema,
+  manageTabsSettingsSchema, listManagerOverridesSchema,
+} from './validation';
+export type {
+  ManageTabsQuery, BulkVoidTabsInput, BulkTransferTabsInput,
+  BulkCloseTabsInput, EmergencyCleanupInput, VerifyManagerPinInput,
+  ManageTabsSettingsInput, ListManagerOverridesInput,
+} from './validation';

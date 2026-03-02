@@ -94,6 +94,12 @@ export const FNB_EVENTS = {
   GUEST_PAY_PAYMENT_SUCCEEDED: 'fnb.guestpay.payment_succeeded.v1',
   GUEST_PAY_SESSION_INVALIDATED: 'fnb.guestpay.session_invalidated.v1',
   GUEST_PAY_SESSION_SUPERSEDED: 'fnb.guestpay.session_superseded.v1',
+
+  // Manage Tabs (bulk operations)
+  TABS_BULK_VOIDED: 'fnb.tabs.bulk_voided.v1',
+  TABS_BULK_TRANSFERRED: 'fnb.tabs.bulk_transferred.v1',
+  TABS_BULK_CLOSED: 'fnb.tabs.bulk_closed.v1',
+  TABS_EMERGENCY_CLEANUP: 'fnb.tabs.emergency_cleanup.v1',
 } as const;
 
 // ── Session 1 Payloads ─────────────────────────────────────────
@@ -773,4 +779,59 @@ export interface GuestPaySessionSupersededPayload {
   newSessionId: string;
   tabId: string;
   locationId: string;
+}
+
+// ── Manage Tabs (Bulk Operations) ─────────────────────────────────
+
+export interface TabsBulkVoidedPayload {
+  overrideId: string;
+  locationId: string;
+  tabIds: string[];
+  initiatorUserId: string;
+  approverUserId: string;
+  reasonCode: string;
+  reasonText: string | null;
+  resultSummary: { succeeded: number; failed: number; errors: { tabId: string; error: string }[] };
+}
+
+export interface TabsBulkTransferredPayload {
+  overrideId: string;
+  locationId: string;
+  tabIds: string[];
+  toServerUserId: string;
+  initiatorUserId: string;
+  approverUserId: string | null;
+  reasonCode: string;
+  reasonText: string | null;
+  resultSummary: { succeeded: number; failed: number; errors: { tabId: string; error: string }[] };
+}
+
+export interface TabsBulkClosedPayload {
+  overrideId: string;
+  locationId: string;
+  tabIds: string[];
+  initiatorUserId: string;
+  approverUserId: string;
+  reasonCode: string;
+  reasonText: string | null;
+  resultSummary: { succeeded: number; failed: number; errors: { tabId: string; error: string }[] };
+}
+
+export interface TabsEmergencyCleanupPayload {
+  overrideId: string;
+  locationId: string;
+  initiatorUserId: string;
+  approverUserId: string;
+  actions: {
+    closePaidTabs: boolean;
+    releaseLocks: boolean;
+    voidStaleTabs: boolean;
+    staleThresholdMinutes: number;
+  };
+  resultSummary: {
+    paidTabsClosed: number;
+    locksReleased: number;
+    staleTabsVoided: number;
+    errors: { tabId: string; error: string }[];
+  };
 }
