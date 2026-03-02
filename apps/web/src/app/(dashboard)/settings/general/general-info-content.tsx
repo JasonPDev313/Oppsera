@@ -61,10 +61,6 @@ import {
 // ── Constants ────────────────────────────────────────────────────
 
 const VERTICAL_SUGGESTIONS: Record<string, { services: string[]; products: string[] }> = {
-  golf_club: {
-    services: ['Tee Times', 'Lessons', 'Club Fitting', 'Tournaments', 'Practice Range', 'Club Rental'],
-    products: ['Pro Shop', 'Apparel', 'Equipment', 'Gift Cards'],
-  },
   restaurant: {
     services: ['Dine-in', 'Takeout', 'Delivery', 'Catering', 'Private Events', 'Happy Hour'],
     products: ['Gift Cards', 'Merchandise', 'Meal Kits'],

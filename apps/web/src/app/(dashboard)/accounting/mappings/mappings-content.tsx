@@ -2148,7 +2148,7 @@ function getFnbCategorySuggestion(
 function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSubDepartments: () => void }) {
   const { locations } = useAuthContext();
   const [locationId, setLocationId] = useState(locations[0]?.id ?? '');
-  const { data: coverage, isLoading, refetch } = useFnbMappingCoverage(locationId || undefined);
+  const { data: coverage, isLoading, error, refetch } = useFnbMappingCoverage(locationId || undefined);
   const { saveFnbMapping } = useSaveFnbMapping();
   const { data: glAccounts } = useGLAccounts({ isActive: true });
   const { toast } = useToast();
@@ -2318,6 +2318,27 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
           ))}
+        </div>
+      )}
+
+      {!isLoading && error && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4">
+          <div className="flex items-start gap-2">
+            <AlertTriangle aria-hidden="true" className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
+            <div>
+              <p className="text-sm font-medium text-red-500">Failed to load F&B mapping coverage</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {error instanceof Error ? error.message : 'An unexpected error occurred. The fnb_gl_account_mappings table may not exist — ensure migration 0104 has been run.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => refetch()}
+                className="mt-2 rounded-md bg-red-500/10 px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-500/20 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

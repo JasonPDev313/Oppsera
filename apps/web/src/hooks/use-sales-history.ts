@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
@@ -68,6 +68,16 @@ export function useSalesHistory(filters: SalesHistoryFilters) {
     },
     staleTime: 30_000,
   });
+
+  // Sync React Query cached data into local state on remount
+  // (queryFn only runs when cache is stale, but useState resets on remount)
+  useEffect(() => {
+    if (data && allItems.length === 0) {
+      setAllItems(data.data);
+      setCursor(data.meta.cursor);
+      setHasMore(data.meta.hasMore);
+    }
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMore = useCallback(async () => {
     if (!cursor || isLoadingMore) return;

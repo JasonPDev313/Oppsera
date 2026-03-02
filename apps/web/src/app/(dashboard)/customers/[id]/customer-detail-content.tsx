@@ -23,6 +23,8 @@ import {
   BookOpen,
   ClipboardList,
   Wallet,
+  Calendar,
+  ShoppingBag,
 } from 'lucide-react';
 import { getInitials, formatPhone } from '@oppsera/shared';
 import { Badge } from '@/components/ui/badge';
@@ -75,6 +77,14 @@ const MembershipTab = dynamic(
   () => import('@/components/customer-360/MembershipTab'),
   { loading: () => <TabSkeleton /> },
 );
+const ReservationsTab = dynamic(
+  () => import('@/components/customer-360/ReservationsTab'),
+  { loading: () => <TabSkeleton /> },
+);
+const OrdersTab = dynamic(
+  () => import('@/components/customer-360/OrdersTab'),
+  { loading: () => <TabSkeleton /> },
+);
 
 function TabSkeleton() {
   return (
@@ -93,6 +103,8 @@ const TABS = [
   { key: 'financial', label: 'Financial', icon: DollarSign },
   { key: 'stored_value', label: 'Stored Value', icon: Wallet },
   { key: 'membership', label: 'Membership', icon: Crown },
+  { key: 'reservations', label: 'Reservations', icon: Calendar },
+  { key: 'orders', label: 'Orders', icon: ShoppingBag },
   { key: 'activity', label: 'Activity', icon: ClipboardList },
   { key: 'communication', label: 'Communication', icon: MessageSquare },
   { key: 'relationships', label: 'Relationships', icon: Users },
@@ -356,6 +368,10 @@ export default function CustomerDetailContent() {
         return <PrivilegesTab customerId={customerId} />;
       case 'settings':
         return <SettingsTab customerId={customerId} />;
+      case 'reservations':
+        return <ReservationsTab customerId={customerId} />;
+      case 'orders':
+        return <OrdersTab customerId={customerId} />;
       default:
         return null;
     }

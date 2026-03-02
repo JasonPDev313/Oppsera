@@ -833,3 +833,209 @@ export function useUpdateSpaSettings() {
     },
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Online Booking Hooks
+// ═══════════════════════════════════════════════════════════════════
+
+export interface BusinessIdentity {
+  businessName?: string;
+  tagline?: string;
+  description?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+}
+
+export interface ContactLocation {
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  directionsUrl?: string;
+  parkingInfo?: string;
+  accessibilityInfo?: string;
+}
+
+export interface WidgetBranding {
+  faviconUrl?: string;
+  bannerImageUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  fontFamily?: string;
+  buttonStyle?: 'rounded' | 'square' | 'pill';
+  headerLayout?: 'centered' | 'left-aligned';
+}
+
+export interface WidgetOperational {
+  timezoneDisplay?: string;
+  hoursOfOperation?: Array<{
+    day: string;
+    periods: Array<{ open: string; close: string }>;
+  }>;
+  holidayNotice?: string;
+  specialInstructions?: string;
+  healthSafetyNotice?: string;
+}
+
+export interface WidgetLegal {
+  privacyPolicyUrl?: string;
+  termsOfServiceUrl?: string;
+  cancellationPolicyText?: string;
+  consentCheckboxText?: string;
+  accessibilityStatementUrl?: string;
+}
+
+export interface WidgetSeo {
+  metaTitle?: string;
+  metaDescription?: string;
+  ogImage?: string;
+  canonicalUrl?: string;
+}
+
+export interface BookingWidgetConfig {
+  id: string;
+  tenantId: string;
+  locationId: string | null;
+  theme: string | null;
+  logoUrl: string | null;
+  welcomeMessage: string | null;
+  bookingLeadTimeHours: number;
+  maxAdvanceBookingDays: number;
+  requireDeposit: boolean;
+  depositType: string | null;
+  depositValue: number | null;
+  cancellationWindowHours: number;
+  cancellationFeeType: string | null;
+  cancellationFeeValue: number | null;
+  showPrices: boolean;
+  showProviderPhotos: boolean;
+  allowProviderSelection: boolean;
+  allowAddonSelection: boolean;
+  customCss: string | null;
+  redirectUrl: string | null;
+  businessIdentity: BusinessIdentity;
+  contactLocation: ContactLocation;
+  branding: WidgetBranding;
+  operational: WidgetOperational;
+  legal: WidgetLegal;
+  seo: WidgetSeo;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OnlineBookingStats {
+  totalOnlineBookings: number;
+  bookingsThisPeriod: number;
+  onlineRevenueCents: number;
+  cancellationRate: number;
+  avgLeadTimeDays: number;
+  topServices: Array<{
+    serviceId: string;
+    serviceName: string;
+    bookingCount: number;
+  }>;
+  recentBookings: Array<{
+    appointmentId: string;
+    guestName: string | null;
+    guestEmail: string | null;
+    serviceName: string;
+    providerName: string | null;
+    startAt: string;
+    status: string;
+    depositAmountCents: number;
+    createdAt: string;
+  }>;
+}
+
+// ── useSpaBookingConfig ─────────────────────────────────────────
+
+export function useSpaBookingConfig() {
+  const result = useQuery({
+    queryKey: ['spa-booking-config'],
+    queryFn: () =>
+      apiFetch<{ data: BookingWidgetConfig | null }>('/api/v1/spa/booking/config').then(
+        (r) => r.data,
+      ),
+    staleTime: 120_000,
+    refetchOnWindowFocus: false,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+// ── useSpaBookingStats ──────────────────────────────────────────
+
+export function useSpaBookingStats(from?: string, to?: string) {
+  const qs = buildQueryString({ from, to });
+
+  const result = useQuery({
+    queryKey: ['spa-booking-stats', from, to],
+    queryFn: () =>
+      apiFetch<{ data: OnlineBookingStats }>(`/api/v1/spa/booking/stats${qs}`).then(
+        (r) => r.data,
+      ),
+    staleTime: 60_000,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+// ── useUpdateBookingConfig ──────────────────────────────────────
+
+export function useUpdateBookingConfig() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: {
+      locationId?: string;
+      theme?: string;
+      logoUrl?: string;
+      welcomeMessage?: string;
+      bookingLeadTimeHours?: number;
+      maxAdvanceBookingDays?: number;
+      requireDeposit?: boolean;
+      depositType?: string;
+      depositValue?: number;
+      cancellationWindowHours?: number;
+      cancellationFeeType?: string;
+      cancellationFeeValue?: number;
+      showPrices?: boolean;
+      showProviderPhotos?: boolean;
+      allowProviderSelection?: boolean;
+      allowAddonSelection?: boolean;
+      customCss?: string;
+      redirectUrl?: string;
+      businessIdentity?: BusinessIdentity;
+      contactLocation?: ContactLocation;
+      branding?: WidgetBranding;
+      operational?: WidgetOperational;
+      legal?: WidgetLegal;
+      seo?: WidgetSeo;
+    }) =>
+      apiFetch<{ data: BookingWidgetConfig }>('/api/v1/spa/booking/config', {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['spa-booking-config'] });
+      queryClient.invalidateQueries({ queryKey: ['spa-booking-stats'] });
+    },
+  });
+}

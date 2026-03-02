@@ -1,6 +1,6 @@
 'use client';
 
-import { CreditCard, Star, Trash2, MoreVertical } from 'lucide-react';
+import { CreditCard, Star, Trash2, MoreVertical, ShieldCheck } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import type { StoredPaymentMethod } from '@/hooks/use-payment-methods';
 
@@ -98,6 +98,12 @@ export function PaymentMethodCard({
                 Expired
               </span>
             )}
+            {method.providerProfileId && (
+              <span className="inline-flex items-center gap-0.5 rounded bg-green-500/20 px-1.5 py-0.5 text-xs font-medium text-green-500">
+                <ShieldCheck className="h-3 w-3" />
+                Tokenized
+              </span>
+            )}
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
             {method.nickname && (
@@ -108,6 +114,14 @@ export function PaymentMethodCard({
             )}
             {method.expiryMonth != null && (
               <span>Exp {formatExpiry(method.expiryMonth, method.expiryYear)}</span>
+            )}
+            {method.createdAt && (
+              <>
+                {(method.nickname || method.expiryMonth != null) && (
+                  <span className="text-muted-foreground/30">&middot;</span>
+                )}
+                <span>Added {new Date(method.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              </>
             )}
           </div>
         </div>

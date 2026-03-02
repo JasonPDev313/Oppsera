@@ -13,28 +13,48 @@ interface BootstrapWizardProps {
 
 const TEMPLATES = [
   {
-    key: 'golf',
-    label: 'Golf Course',
-    description: 'Green fees, cart rentals, pro shop, F&B, course maintenance',
-    icon: '⛳',
-  },
-  {
-    key: 'retail',
+    id: 'retail',
+    templateKey: 'retail',
     label: 'Retail',
     description: 'Merchandise sales, inventory, COGS, POS operations',
     icon: '🏪',
   },
   {
-    key: 'restaurant',
+    id: 'restaurant',
+    templateKey: 'restaurant',
     label: 'Restaurant',
     description: 'Food & beverage revenue, kitchen costs, bar operations',
     icon: '🍽️',
   },
   {
-    key: 'hybrid',
+    id: 'hybrid',
+    templateKey: 'hybrid',
     label: 'Hybrid / Multi-Venue',
-    description: 'Combined operations with all revenue streams',
+    description: 'Combined retail, F&B, and service operations with all revenue streams',
     icon: '🏢',
+  },
+  {
+    id: 'hotel',
+    templateKey: 'hybrid',
+    label: 'Hotel / Resort',
+    description: 'Room revenue, F&B, spa services, and property management',
+    icon: '🏨',
+    subtext: 'Includes PMS integration',
+  },
+  {
+    id: 'spa',
+    templateKey: 'hybrid',
+    label: 'Spa / Wellness',
+    description: 'Service revenue, provider commissions, packages, and retail',
+    icon: '💆',
+    subtext: 'Includes Spa Management integration',
+  },
+  {
+    id: 'enterprise',
+    templateKey: 'hybrid',
+    label: 'Enterprise',
+    description: 'Full-featured accounts for multi-location, multi-vertical operations',
+    icon: '🏗️',
   },
 ];
 
@@ -63,6 +83,8 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
 
   const handleBootstrap = useCallback(async () => {
     if (!selectedTemplate) return;
+    const template = TEMPLATES.find((t) => t.id === selectedTemplate);
+    if (!template) return;
     setIsBootstrapping(true);
     setErrorDetail(null);
     try {
@@ -71,7 +93,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
         {
           method: 'POST',
           body: JSON.stringify({
-            templateKey: selectedTemplate,
+            templateKey: template.templateKey,
             stateName: selectedState || undefined,
           }),
         },
@@ -105,8 +127,25 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Bootstrap failed';
       const isMigration = message.includes('migration') || message.includes('schema') || message.includes('column') || message.includes('relation');
-      toast.error(isMigration ? 'Database migrations need to be run first' : message);
-      setErrorDetail(message);
+      const isNetwork = message.includes('fetch') || message.includes('network') || message.includes('Failed to fetch');
+      const isTimeout = message.includes('timeout') || message.includes('timed out');
+      const isPermission = message.includes('permission') || message.includes('RLS') || message.includes('denied');
+
+      let friendlyMessage: string;
+      if (isMigration) {
+        friendlyMessage = 'Database schema is out of date. Database migrations need to be applied before accounting can be set up. Contact your administrator.';
+      } else if (isNetwork) {
+        friendlyMessage = 'Could not reach the server. Check your internet connection and try again.';
+      } else if (isTimeout) {
+        friendlyMessage = 'The request timed out. The server may be busy — please wait a moment and retry.';
+      } else if (isPermission) {
+        friendlyMessage = 'You do not have permission to set up accounting. Contact your administrator to grant the accounting.manage permission.';
+      } else {
+        friendlyMessage = message;
+      }
+
+      toast.error(friendlyMessage);
+      setErrorDetail(friendlyMessage);
     } finally {
       setIsBootstrapping(false);
     }
@@ -161,14 +200,14 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
           <p className="text-sm text-muted-foreground">
             Select the template that best matches your business. Accounts can be customized after setup.
           </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {TEMPLATES.map((t) => (
               <button
-                key={t.key}
+                key={t.id}
                 type="button"
-                onClick={() => setSelectedTemplate(t.key)}
+                onClick={() => setSelectedTemplate(t.id)}
                 className={`rounded-lg border-2 p-4 text-left transition-colors ${
-                  selectedTemplate === t.key
+                  selectedTemplate === t.id
                     ? 'border-indigo-600 bg-indigo-500/10'
                     : 'border-border hover:border-input'
                 }`}
@@ -176,6 +215,9 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
                 <span className="text-2xl">{t.icon}</span>
                 <h3 className="mt-2 text-sm font-semibold text-foreground">{t.label}</h3>
                 <p className="mt-1 text-xs text-muted-foreground">{t.description}</p>
+                {t.subtext && (
+                  <p className="mt-1 text-xs font-medium text-indigo-400">{t.subtext}</p>
+                )}
               </button>
             ))}
           </div>
@@ -243,7 +285,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-foreground">Review Template</h2>
           <p className="text-sm text-muted-foreground">
-            The <strong>{TEMPLATES.find((t) => t.key === selectedTemplate)?.label}</strong> template
+            The <strong>{TEMPLATES.find((t) => t.id === selectedTemplate)?.label}</strong> template
             will create a standard chart of accounts including:
           </p>
           <div className="rounded-lg border border-border bg-muted p-4 space-y-2 text-sm text-muted-foreground">
@@ -288,9 +330,18 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             This will also set up control accounts for AP, AR, and sales tax.
           </p>
           {errorDetail && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-500">
-              <p className="font-medium">Setup failed</p>
-              <p className="mt-1 text-xs break-all">{errorDetail}</p>
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 shrink-0 rounded-full bg-red-500/20 p-1">
+                  <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-red-500">Setup failed</p>
+                  <p className="mt-1 text-sm text-red-400 wrap-break-word">{errorDetail}</p>
+                </div>
+              </div>
             </div>
           )}
           <div className="flex justify-between pt-4">

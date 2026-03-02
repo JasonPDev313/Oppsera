@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -63,13 +63,11 @@ const SIDEBAR_KEY = 'sidebar_collapsed';
  * │  Online Store · Procurement                                     │
  * ├─ Hospitality ────────────────────────────────────────────────────┤
  * │  Property Mgmt · Spa · Events · Reservations                    │
- * ├─ Golf ───────────────────────────────────────────────────────────┤
- * │  Golf                                                           │
  * ├─ People ─────────────────────────────────────────────────────────┤
  * │  Memberships · Marketing · HR · Scheduling                      │
  * └──────────────────────────────────────────────────────────────────┘
  *
- * Worst-case overlap (luxury resort + golf + full enterprise) ≈ 23
+ * Worst-case overlap (luxury resort + full enterprise) ≈ 23
  * modules — the 24 colors below cover that with room to spare.
  *
  * If a future module isn't in this map, `getModuleColor()` picks one
@@ -99,9 +97,6 @@ const MODULE_COLORS: Record<string, string> = {
   Spa:             '#f43f5e', // rose-500
   Events:          '#d946ef', // fuchsia-500
   Reservations:    '#0ea5e9', // sky-500
-
-  // ── Golf (only active with golf vertical) ─────────────────────
-  Golf:            '#16a34a', // green-600
 
   // ── People / CRM ──────────────────────────────────────────────
   Memberships:     '#0891b2', // cyan-600
@@ -705,6 +700,29 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Auto-collapse sidebar on POS routes, restore on exit
+  const prePosCollapsedRef = useRef<boolean | null>(null);
+  const isPosRoute = pathname.startsWith('/pos');
+  useEffect(() => {
+    if (isPosRoute) {
+      // Entering POS — save current state and force collapse
+      if (prePosCollapsedRef.current === null) {
+        prePosCollapsedRef.current = collapsed;
+      }
+      if (!collapsed) {
+        setCollapsed(true);
+        // Don't persist to localStorage — this is a temporary override
+      }
+    } else if (prePosCollapsedRef.current !== null) {
+      // Leaving POS — restore the pre-POS state
+      const prev = prePosCollapsedRef.current;
+      prePosCollapsedRef.current = null;
+      if (prev !== collapsed) {
+        setCollapsed(prev);
+      }
+    }
+  }, [isPosRoute]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const toggleCollapse = useCallback(() => {
     setCollapsed((prev) => {
       const next = !prev;
@@ -978,20 +996,68 @@ function TerminalSessionGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// ── Error Boundary ──────────────────────────────────────────────
+// Class component required — React hooks cannot be error boundaries.
+
+class DashboardErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('[dashboard] Uncaught error in provider chain:', error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-surface p-8">
+          <div className="max-w-md text-center">
+            <h1 className="text-xl font-semibold text-foreground">Something went wrong</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {this.state.error?.message ?? 'An unexpected error occurred.'}
+            </p>
+            <button
+              className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700"
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <QueryProvider>
-      <EntitlementsProvider>
-        <PermissionsProvider>
-          <NavigationGuardProvider>
-            <TerminalSessionProvider>
-              <TerminalSessionGate>
-                <DashboardLayoutInner>{children}</DashboardLayoutInner>
-              </TerminalSessionGate>
-            </TerminalSessionProvider>
-          </NavigationGuardProvider>
-        </PermissionsProvider>
-      </EntitlementsProvider>
-    </QueryProvider>
+    <DashboardErrorBoundary>
+      <QueryProvider>
+        <EntitlementsProvider>
+          <PermissionsProvider>
+            <NavigationGuardProvider>
+              <TerminalSessionProvider>
+                <TerminalSessionGate>
+                  <DashboardLayoutInner>{children}</DashboardLayoutInner>
+                </TerminalSessionGate>
+              </TerminalSessionProvider>
+            </NavigationGuardProvider>
+          </PermissionsProvider>
+        </EntitlementsProvider>
+      </QueryProvider>
+    </DashboardErrorBoundary>
   );
 }

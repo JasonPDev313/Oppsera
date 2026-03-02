@@ -85,7 +85,6 @@ export const accountingSections: AccountingSection[] = [
     id: 'expenses',
     label: 'Expenses',
     href: '/accounting/expenses',
-    moduleKey: 'expense_management',
     tabs: [
       { id: 'all-expenses', label: 'All Expenses', icon: ClipboardList, requiredPermission: 'expenses.view' },
       { id: 'approvals', label: 'Approvals', icon: ShieldCheck, requiredPermission: 'expenses.approve' },

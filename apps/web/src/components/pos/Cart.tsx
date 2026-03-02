@@ -182,72 +182,115 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
   );
 }
 
-function RetailLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty'>) {
-  return (
-    <div className="group flex items-start justify-between gap-2 border-b border-border px-3 py-0.5">
-      <div className="flex-1 min-w-0">
-        <span
-          className="font-medium text-foreground truncate block"
-          style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
-        >
-          {line.catalogItemName}
-        </span>
+function RetailLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
+  const qty = Number(line.qty);
 
-        {/* Price override */}
-        {line.originalUnitPrice != null && (
-          <div className="mt-0.5 flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground line-through">
-              {formatMoney(line.originalUnitPrice)}
+  const handleIncrement = useCallback(() => {
+    onUpdateQty?.(line.id, qty + 1);
+  }, [line.id, qty, onUpdateQty]);
+
+  const handleDecrement = useCallback(() => {
+    if (qty > 1) onUpdateQty?.(line.id, qty - 1);
+  }, [line.id, qty, onUpdateQty]);
+
+  return (
+    <div className="group flex flex-col border-b border-border px-3 py-0.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span
+              className="font-medium text-foreground truncate"
+              style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+            >
+              {line.catalogItemName}
             </span>
-            <span className="text-xs font-medium text-foreground">
-              {formatMoney(line.unitPrice)}
-            </span>
-            {line.priceOverrideReason && (
-              <Badge variant="warning" className="text-[10px]">
-                {line.priceOverrideReason}
-              </Badge>
+            {qty > 1 && (
+              <span className="text-xs text-muted-foreground">(x{qty})</span>
             )}
           </div>
-        )}
 
-        {/* Selected options (e.g., Size: L, Color: Navy) */}
-        {line.selectedOptions && Object.keys(line.selectedOptions).length > 0 && (
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {Object.entries(line.selectedOptions)
-              .map(([key, val]) => `${key}: ${val}`)
-              .join(' \u00B7 ')}
-          </p>
-        )}
-
-        {/* Notes */}
-        {line.notes && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{line.notes}</p>
-        )}
-      </div>
-
-      <div className="flex items-start gap-1 shrink-0">
-        <div className="text-right">
-          <div
-            className="text-sm font-semibold text-foreground"
-            style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
-          >
-            {formatMoney(line.lineTotal)}
-          </div>
-          {line.lineTax > 0 && (
-            <div className="text-[10px] text-muted-foreground">
-              tax {formatMoney(line.lineTax)}
+          {/* Price override */}
+          {line.originalUnitPrice != null && (
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground line-through">
+                {formatMoney(line.originalUnitPrice)}
+              </span>
+              <span className="text-xs font-medium text-foreground">
+                {formatMoney(line.unitPrice)}
+              </span>
+              {line.priceOverrideReason && (
+                <Badge variant="warning" className="text-[10px]">
+                  {line.priceOverrideReason}
+                </Badge>
+              )}
             </div>
           )}
+
+          {/* Selected options (e.g., Size: L, Color: Navy) */}
+          {line.selectedOptions && Object.keys(line.selectedOptions).length > 0 && (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {Object.entries(line.selectedOptions)
+                .map(([key, val]) => `${key}: ${val}`)
+                .join(' \u00B7 ')}
+            </p>
+          )}
+
+          {/* Notes */}
+          {line.notes && (
+            <p className="mt-0.5 text-xs text-muted-foreground">{line.notes}</p>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={() => onRemove(line.id)}
-          className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
-          aria-label={`Remove ${line.catalogItemName}`}
-        >
-          <X className="h-4 w-4" />
-        </button>
+
+        <div className="flex items-start gap-1 shrink-0">
+          <div className="text-right">
+            <div
+              className="text-sm font-semibold text-foreground"
+              style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+            >
+              {formatMoney(line.lineTotal)}
+            </div>
+            {line.lineTax > 0 && (
+              <div className="text-[10px] text-muted-foreground">
+                tax {formatMoney(line.lineTax)}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => onRemove(line.id)}
+            className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+            aria-label={`Remove ${line.catalogItemName}`}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
+
+      {/* Qty +/- controls (integer only) */}
+      {onUpdateQty && (
+        <div className="flex items-center gap-2 mt-1">
+          <button
+            type="button"
+            onClick={handleDecrement}
+            disabled={qty <= 1}
+            className="flex h-6 w-6 items-center justify-center rounded border border-input text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-30"
+            aria-label="Decrease quantity"
+          >
+            <Minus className="h-3 w-3" />
+          </button>
+          <span className="min-w-8 text-center text-sm font-medium text-foreground">
+            {qty}
+          </span>
+          <button
+            type="button"
+            onClick={handleIncrement}
+            className="flex h-6 w-6 items-center justify-center rounded border border-input text-muted-foreground transition-colors hover:bg-accent"
+            aria-label="Increase quantity"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -410,13 +453,13 @@ const CartLineItem = memo(function CartLineItem({ line, onRemoveItem, onUpdateQt
         />
       );
     case 'retail':
-      return <RetailLineItem line={line} onRemove={onRemoveItem} />;
+      return <RetailLineItem line={line} onRemove={onRemoveItem} onUpdateQty={onUpdateQty} />;
     case 'service':
       return <ServiceLineItem line={line} onRemove={onRemoveItem} />;
     case 'package':
       return <PackageLineItem line={line} onRemove={onRemoveItem} />;
     default:
-      return <RetailLineItem line={line} onRemove={onRemoveItem} />;
+      return <RetailLineItem line={line} onRemove={onRemoveItem} onUpdateQty={onUpdateQty} />;
   }
 });
 

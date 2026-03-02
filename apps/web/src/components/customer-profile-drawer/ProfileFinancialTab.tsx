@@ -4,13 +4,18 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   DollarSign,
   CreditCard,
+  Landmark,
   Wallet,
   FileText,
   Star,
+  ShieldCheck,
+  ShieldAlert,
+  Clock,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { usePaymentMethods } from '@/hooks/use-payment-methods';
 import type { CustomerFinancial } from '@/types/customers';
 
 interface ProfileFinancialTabProps {
@@ -89,6 +94,10 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
     loyaltyTier,
     loyaltyPointsBalance = 0,
   } = data;
+
+  const { data: paymentMethods } = usePaymentMethods(customerId);
+  const storedCards = paymentMethods?.filter((m) => m.paymentType !== 'bank_account') ?? [];
+  const storedBanks = paymentMethods?.filter((m) => m.paymentType === 'bank_account') ?? [];
 
   return (
     <div className="space-y-6 p-6">
@@ -256,6 +265,111 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
                 )}
               </div>
             ))}
+          </div>
+        )}
+      </section>
+
+      {/* Stored Payment Methods */}
+      <section>
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Payment Methods
+        </h3>
+        {storedCards.length === 0 && storedBanks.length === 0 ? (
+          <div className="flex items-center gap-3 rounded-lg border border-dashed border-border px-4 py-3">
+            <CreditCard className="h-5 w-5 text-muted-foreground/30" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">No payment methods on file</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {storedCards.map((card) => (
+              <div
+                key={card.id}
+                className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+                  card.isDefault
+                    ? 'border-indigo-500/30 bg-indigo-500/5'
+                    : 'border-border'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-blue-500" aria-hidden="true" />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium text-foreground">
+                        {card.brand ?? 'Card'}
+                      </span>
+                      <span className="text-sm text-muted-foreground">····{card.last4 ?? '????'}</span>
+                    </div>
+                    {card.expiryMonth != null && (
+                      <p className="text-xs text-muted-foreground">
+                        Exp {String(card.expiryMonth).padStart(2, '0')}/{String(card.expiryYear ?? '').slice(-2)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {card.providerProfileId && (
+                    <ShieldCheck className="h-3.5 w-3.5 text-green-500" aria-hidden="true" />
+                  )}
+                  {card.isDefault && (
+                    <span className="inline-flex items-center gap-0.5 rounded bg-indigo-500/20 px-1.5 py-0.5 text-xs font-medium text-indigo-500">
+                      <Star className="h-3 w-3" />
+                      Default
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+            {storedBanks.map((bank) => {
+              const verStatus = bank.verificationStatus ?? 'not_applicable';
+              const VerIcon = verStatus === 'verified' ? ShieldCheck
+                : verStatus === 'pending_micro' ? Clock
+                : verStatus === 'failed' ? ShieldAlert
+                : null;
+              const verColor = verStatus === 'verified' ? 'text-green-500'
+                : verStatus === 'pending_micro' ? 'text-yellow-500'
+                : verStatus === 'failed' ? 'text-red-500'
+                : '';
+              return (
+                <div
+                  key={bank.id}
+                  className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+                    bank.isDefault
+                      ? 'border-indigo-500/30 bg-indigo-500/5'
+                      : verStatus === 'failed'
+                        ? 'border-red-500/30 bg-red-500/5'
+                        : 'border-border'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Landmark className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-medium text-foreground">
+                          {bank.bankName ?? (bank.bankAccountType === 'checking' ? 'Checking' : bank.bankAccountType === 'savings' ? 'Savings' : 'Bank Account')}
+                        </span>
+                        <span className="text-sm text-muted-foreground">····{bank.last4 ?? '????'}</span>
+                      </div>
+                      {bank.bankRoutingLast4 && (
+                        <p className="text-xs text-muted-foreground">
+                          Routing ····{bank.bankRoutingLast4}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {VerIcon && (
+                      <VerIcon className={`h-3.5 w-3.5 ${verColor}`} aria-hidden="true" />
+                    )}
+                    {bank.isDefault && (
+                      <span className="inline-flex items-center gap-0.5 rounded bg-indigo-500/20 px-1.5 py-0.5 text-xs font-medium text-indigo-500">
+                        <Star className="h-3 w-3" />
+                        Default
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

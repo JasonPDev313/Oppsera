@@ -50,6 +50,7 @@ import {
   Gem,
   UserCheck,
   ClipboardCheck,
+  Monitor,
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
 
@@ -94,12 +95,23 @@ export const navigation: NavItem[] = [
     requiredPermission: 'pos_fnb.floor_plan.view',
     children: [
       { name: 'Floor Plan', href: '/pos/fnb', icon: LayoutGrid, requiredPermission: 'pos_fnb.floor_plan.view' },
-      { name: 'KDS', href: '/kds', icon: ClipboardList, requiredPermission: 'pos_fnb.kds.view' },
-      { name: 'Expo', href: '/expo', icon: PackageCheck, requiredPermission: 'pos_fnb.kds.view' },
+      { name: 'F&B Inventory', href: '/fnb-inventory', icon: Package, requiredPermission: 'pos_fnb.inventory.view' },
       { name: 'Host Stand', href: '/host', icon: Users, requiredPermission: 'pos_fnb.floor_plan.view' },
       { name: 'Manager', href: '/fnb-manager', icon: Settings, requiredPermission: 'pos_fnb.reports.view' },
       { name: 'Close Batch', href: '/close-batch', icon: Lock, requiredPermission: 'pos_fnb.close_batch.manage' },
       { name: 'F&B Config', href: '/settings/fnb', icon: Sliders, group: 'F&B Settings', requiredPermission: 'pos_fnb.settings.manage' },
+    ],
+  },
+  {
+    name: 'Kitchen Display',
+    href: '/kds',
+    icon: Monitor,
+    moduleKey: 'kds',
+    requiredPermission: 'kds.view',
+    children: [
+      { name: 'KDS Stations', href: '/kds', icon: Monitor, requiredPermission: 'kds.view' },
+      { name: 'Expo', href: '/expo', icon: PackageCheck, requiredPermission: 'kds.view' },
+      { name: 'KDS Settings', href: '/kds/settings', icon: Settings, requiredPermission: 'kds.settings.manage' },
     ],
   },
   {
@@ -237,7 +249,7 @@ export const navigation: NavItem[] = [
       { name: 'Payables', href: '/accounting/payables', icon: Receipt, moduleKey: 'ap', requiredPermission: 'ap.view' },
       { name: 'Receivables', href: '/accounting/receivables', icon: Wallet, moduleKey: 'ar', requiredPermission: 'ar.view' },
       { name: 'Projects', href: '/accounting/projects', icon: FolderKanban, moduleKey: 'project_costing', requiredPermission: 'project_costing.view' },
-      { name: 'Expenses', href: '/accounting/expenses', icon: ClipboardList, moduleKey: 'expense_management', requiredPermission: 'expenses.view' },
+      { name: 'Expenses', href: '/accounting/expenses', icon: ClipboardList, moduleKey: 'expenses', requiredPermission: 'expenses.view' },
       { name: 'Banking', href: '/accounting/banking', icon: Building2, requiredPermission: 'accounting.banking.view' },
       { name: 'Revenue & Cost', href: '/accounting/revenue', icon: DollarSign, requiredPermission: 'accounting.revenue.view' },
       { name: 'Tax', href: '/accounting/tax', icon: FileBarChart, requiredPermission: 'accounting.tax.view' },

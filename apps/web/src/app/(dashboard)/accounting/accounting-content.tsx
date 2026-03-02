@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   FileSpreadsheet,
@@ -13,6 +13,8 @@ import {
   DollarSign,
   Wallet,
   ShieldCheck,
+  CheckCircle,
+  Landmark,
 } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { AccountingEmptyState } from '@/components/accounting/accounting-empty-state';
@@ -77,6 +79,18 @@ export default function AccountingDashboardContent() {
   const queryClient = useQueryClient();
   const { isBootstrapped, isLoading: bootstrapLoading } = useAccountingBootstrapStatus();
   const [showBootstrap, setShowBootstrap] = useState(false);
+  const [bootstrapJustCompleted, setBootstrapJustCompleted] = useState(false);
+
+  const handleBootstrapComplete = useCallback(async () => {
+    // Await refetches so cache is fully populated before hiding the wizard
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ['accounting-settings'] }),
+      queryClient.refetchQueries({ queryKey: ['gl-accounts'] }),
+      queryClient.refetchQueries({ queryKey: ['accounting-health-summary'] }),
+    ]);
+    setBootstrapJustCompleted(true);
+    setShowBootstrap(false);
+  }, [queryClient]);
 
   const { data: health, isLoading } = useQuery({
     queryKey: ['accounting-health-summary'],
@@ -91,21 +105,42 @@ export default function AccountingDashboardContent() {
   const dateRange = getDefaultDateRange();
   const { data: auditCoverage } = useAuditCoverage(dateRange);
 
-  // Show bootstrap wizard if not bootstrapped
-  if (!bootstrapLoading && !isBootstrapped) {
+  // Loading skeleton while bootstrap status is being determined
+  if (bootstrapLoading) {
+    return (
+      <AccountingPageShell title="Accounting Dashboard" subtitle="Financial overview and quick actions">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-lg border border-border bg-surface p-5">
+                <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                <div className="mt-3 h-7 w-32 animate-pulse rounded bg-muted" />
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
+              ))}
+            </div>
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </AccountingPageShell>
+    );
+  }
+
+  // Show bootstrap wizard if not bootstrapped (and bootstrap didn't just finish)
+  if (!isBootstrapped && !bootstrapJustCompleted) {
     return (
       <AccountingPageShell title="Accounting Dashboard" subtitle="Financial overview and quick actions">
         {showBootstrap ? (
-          <BootstrapWizard
-            onComplete={() => {
-              // Force one final refetch to guarantee bootstrap status is fresh
-              // before hiding the wizard. This prevents the loop where stale
-              // query data causes isBootstrapped to still be false.
-              queryClient.refetchQueries({ queryKey: ['accounting-settings'] });
-              queryClient.refetchQueries({ queryKey: ['gl-accounts'] });
-              setShowBootstrap(false);
-            }}
-          />
+          <BootstrapWizard onComplete={handleBootstrapComplete} />
         ) : (
           <AccountingEmptyState
             title="Accounting not configured"
@@ -117,8 +152,47 @@ export default function AccountingDashboardContent() {
     );
   }
 
+  // Show inline bootstrap wizard when re-running from configured state
+  if (showBootstrap) {
+    return (
+      <AccountingPageShell title="Accounting Dashboard" subtitle="Financial overview and quick actions">
+        <BootstrapWizard onComplete={handleBootstrapComplete} />
+      </AccountingPageShell>
+    );
+  }
+
   return (
     <AccountingPageShell title="Accounting Dashboard" subtitle="Financial overview and quick actions">
+      {/* Bootstrap Status */}
+      <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm">
+        <CheckCircle className="h-5 w-5 shrink-0 text-green-500" />
+        <span className="flex-1 text-green-500">
+          <strong>Chart of Accounts configured</strong>
+        </span>
+        <button
+          type="button"
+          onClick={() => setShowBootstrap(true)}
+          className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <Landmark className="h-3.5 w-3.5" />
+          Re-run Setup
+        </button>
+      </div>
+
+      {/* GL Mapping Prompt — shown after bootstrap or when mappings are incomplete */}
+      {(bootstrapJustCompleted || (health?.mappingCoverage && health.mappingCoverage.overallPercentage < 100)) && (
+        <Link
+          href="/accounting/mappings"
+          className="flex items-center gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-400 transition-colors hover:bg-indigo-500/20"
+        >
+          <FileSpreadsheet className="h-5 w-5 shrink-0 text-indigo-400" />
+          <span className="flex-1">
+            <strong>Next step:</strong> Configure GL code mappings to connect your sales, payments, and tax data to the general ledger.
+          </span>
+          <span className="shrink-0 text-xs font-medium text-indigo-400">Configure Mappings &rarr;</span>
+        </Link>
+      )}
+
       {/* GL Readiness — auto-detects and backfills unposted tenders */}
       <GLReadinessBanner />
 

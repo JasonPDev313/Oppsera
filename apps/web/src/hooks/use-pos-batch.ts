@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import type { Order, OrderLine, AddLineItemInput } from '@/types/pos';
 
@@ -41,6 +41,10 @@ export interface POSBatchResult {
   batchTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
   /** Increment to ignore batch responses from a prior order after clearOrder. */
   orderGeneration: React.MutableRefObject<number>;
+  /** Number of items added but not yet confirmed by the server. Drives Pay button guard. */
+  pendingItemCount: number;
+  /** Reset pending count to 0 (called by clearOrder). */
+  resetPendingCount: () => void;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -81,6 +85,11 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
   const isFlushing = useRef(false);
   const flushingPromise = useRef<Promise<void> | null>(null);
   const orderGeneration = useRef(0);
+
+  // Reactive count of items that have been added but not yet confirmed by the server.
+  // Drives the Pay button disabled state — prevents payment while items are in-flight.
+  const [pendingItemCount, setPendingItemCount] = useState(0);
+  const resetPendingCount = useCallback(() => setPendingItemCount(0), []);
 
   // Clean up batch timer on unmount
   useEffect(() => {
@@ -125,6 +134,7 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
             order = await d.current.openOrderPromise.current;
           } catch {
             rollBackTempLines(d.current.setCurrentOrder, items.map((i) => i.tempId));
+            setPendingItemCount((c) => Math.max(0, c - items.length));
             d.current.toast.error('Failed to create order. Tap an item to retry.');
             return;
           }
@@ -132,6 +142,7 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
 
         if (!order || !order.id) {
           rollBackTempLines(d.current.setCurrentOrder, items.map((i) => i.tempId));
+          setPendingItemCount((c) => Math.max(0, c - items.length));
           d.current.toast.error('Failed to create order. Tap an item to retry.');
           return;
         }
@@ -199,11 +210,21 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
               discounts: prev.discounts ?? [],
             };
           });
+
+          // Items confirmed by server — decrement pending count
+          if (orderGeneration.current === gen) {
+            setPendingItemCount((c) => Math.max(0, c - items.length));
+          }
         } catch (err) {
           // If order was cleared, just silently drop — don't roll back or show error
           if (orderGeneration.current !== gen) return;
 
           rollBackTempLines(d.current.setCurrentOrder, tempIds);
+
+          // Items failed — decrement pending count so Pay can re-enable
+          if (orderGeneration.current === gen) {
+            setPendingItemCount((c) => Math.max(0, c - items.length));
+          }
 
           if (err instanceof ApiError && err.statusCode === 404) {
             d.current.onItemNotFoundRef.current?.();
@@ -318,6 +339,7 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
 
       // ── Push to batch queue (no API call yet) ─────────────────────
       batchQueue.current.push({ input, tempId, reqId: crypto.randomUUID() });
+      setPendingItemCount((c) => c + 1);
 
       // If a flush is already in-flight, don't start another
       if (isFlushing.current) return;
@@ -377,5 +399,5 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
     }
   }, [flushBatch]);
 
-  return { addItem, flushBatch, drainBatch, batchQueue, batchTimerRef, orderGeneration };
+  return { addItem, flushBatch, drainBatch, batchQueue, batchTimerRef, orderGeneration, pendingItemCount, resetPendingCount };
 }

@@ -41,6 +41,7 @@ interface WhatIfPanelProps {
   onSimulate: (input: SimulationInput) => void;
   result?: SimulationResult;
   isLoading?: boolean;
+  error?: string;
   className?: string;
 }
 
@@ -55,11 +56,12 @@ const ADJUSTMENT_TYPES: { value: ScenarioInput['adjustmentType']; label: string 
 ];
 
 const METRIC_OPTIONS = [
-  { value: 'total_sales', label: 'Total Sales' },
-  { value: 'gross_profit', label: 'Gross Profit' },
+  { value: 'net_sales', label: 'Net Sales' },
+  { value: 'gross_sales', label: 'Gross Sales' },
   { value: 'order_count', label: 'Order Count' },
   { value: 'avg_order_value', label: 'Avg Order Value' },
-  { value: 'labor_cost', label: 'Labor Cost' },
+  { value: 'discount_total', label: 'Discount Total' },
+  { value: 'tax_total', label: 'Tax Total' },
 ];
 
 const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
@@ -100,6 +102,7 @@ export function WhatIfPanel({
   onSimulate,
   result,
   isLoading,
+  error,
   className,
 }: WhatIfPanelProps) {
   const [baseMetric, setBaseMetric] = useState(METRIC_OPTIONS[0]!.value);
@@ -271,10 +274,24 @@ export function WhatIfPanel({
           {isLoading ? 'Simulating...' : 'Run Simulation'}
         </button>
 
+        {/* Error */}
+        {error && !isLoading && (
+          <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+            {error}
+          </div>
+        )}
+
         {/* Results */}
         {result && !isLoading && (
           <div className="space-y-3">
             <h4 className="text-xs font-semibold text-foreground">Results</h4>
+
+            {result.baseValue === 0 && (
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-500">
+                No baseline data found for the last 30 days. Projected values will all be $0.
+                Ensure transaction data exists in the reporting read models.
+              </div>
+            )}
 
             {/* Bar chart comparison */}
             <ResponsiveContainer width="100%" height={Math.max(chartData.length * 40 + 30, 120)}>

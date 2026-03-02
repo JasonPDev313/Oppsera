@@ -12,6 +12,7 @@ import {
   XCircle,
   Printer,
   RotateCcw,
+  LogIn,
   LogOut,
   X,
   Banknote,
@@ -24,6 +25,11 @@ import {
   Pencil,
   QrCode,
   Copy,
+  PlusCircle,
+  StickyNote,
+  Gift,
+  Monitor,
+  Mail,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useAuthContext } from '@/components/auth-provider';
@@ -39,6 +45,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
 import { Cart } from '@/components/pos/Cart';
 import { CartTotals } from '@/components/pos/CartTotals';
+import { SuggestedItemsStrip } from '@/components/pos/SuggestedItemsStrip';
 import { VirtualItemGrid } from '@/components/pos/VirtualItemGrid';
 import { ItemListRow } from '@/components/pos/shared/ItemListRow';
 import { CustomerAttachment } from '@/components/pos/CustomerAttachment';
@@ -52,6 +59,7 @@ import {
 import { RegisterTabs } from '@/components/pos/RegisterTabs';
 import { useProfileDrawer } from '@/components/customer-profile-drawer';
 import { useRetailGuestPay } from '@/hooks/use-retail-guest-pay';
+import { useCustomerDisplayBroadcast } from '@/hooks/use-customer-display';
 import { useItemEditDrawer } from '@/components/inventory/ItemEditDrawerContext';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useManagerOverride } from '@/hooks/use-manager-override';
@@ -196,10 +204,377 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
   );
 }
 
+// ── Email Quote Dialog (inline) ──────────────────────────────────
+
+interface EmailQuoteDialogProps {
+  open: boolean;
+  onClose: () => void;
+  orderId: string;
+  businessName: string;
+}
+
+function EmailQuoteDialog({ open, onClose, orderId, businessName }: EmailQuoteDialogProps) {
+  const [email, setEmail] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const { toast } = useToast();
+
+  // Reset on open
+  useEffect(() => {
+    if (open) {
+      setEmail('');
+      setSending(false);
+      setSent(false);
+    }
+  }, [open]);
+
+  const handleSend = useCallback(async () => {
+    if (!email || sending) return;
+    setSending(true);
+    try {
+      await apiFetch(`/api/v1/orders/${orderId}/email-quote`, {
+        method: 'POST',
+        body: JSON.stringify({ email, businessName }),
+      });
+      setSent(true);
+      toast.success('Quote sent successfully');
+      setTimeout(onClose, 1200);
+    } catch {
+      toast.error('Failed to send quote email');
+    } finally {
+      setSending(false);
+    }
+  }, [email, sending, orderId, businessName, toast, onClose]);
+
+  if (!open || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-lg bg-surface shadow-xl">
+        <div className="flex items-center justify-between border-b border-border px-6 pt-6 pb-4">
+          <h3 className="text-lg font-semibold text-foreground">Email Quote</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="px-6 py-4">
+          <label htmlFor="quote-email" className="mb-1.5 block text-sm font-medium text-foreground">
+            Customer email
+          </label>
+          <input
+            id="quote-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
+            placeholder="customer@example.com"
+            autoFocus
+            className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          {sent && (
+            <p className="mt-2 text-sm text-green-500">Quote sent!</p>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!email || sending || sent}
+            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Send aria-hidden="true" className="h-4 w-4" />
+            {sending ? 'Sending…' : 'Send Quote'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ── Custom Item Portal ────────────────────────────────────────────
+
+interface CustomItemPortalProps {
+  allItems: CatalogItemForPOS[];
+  onAdd: (miscItem: CatalogItemForPOS, name: string, priceCents: number, qty: number) => void;
+  onClose: () => void;
+}
+
+const CustomItemPortal = memo(function CustomItemPortal({
+  allItems, onAdd, onClose,
+}: CustomItemPortalProps) {
+  const [name, setName] = useState('');
+  const [priceStr, setPriceStr] = useState('');
+  const [qty, setQty] = useState(1);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  // Find MISC catalog item (sku or name match)
+  const miscItem = useMemo(() => {
+    const bySku = allItems.find(
+      (i) => i.sku?.toUpperCase() === 'MISC' || i.sku?.toUpperCase() === 'MISCELLANEOUS',
+    );
+    if (bySku) return bySku;
+    return allItems.find(
+      (i) => i.name.toLowerCase().includes('miscellaneous') || i.name.toLowerCase().includes('misc item'),
+    ) ?? null;
+  }, [allItems]);
+
+  // Auto-focus name input on mount
+  useEffect(() => { nameRef.current?.focus(); }, []);
+
+  const priceCents = Math.round((parseFloat(priceStr) || 0) * 100);
+  const canSubmit = name.trim().length > 0 && priceCents > 0 && qty > 0 && miscItem !== null;
+
+  const handleSubmit = useCallback(() => {
+    if (!canSubmit || !miscItem) return;
+    onAdd(miscItem, name.trim(), priceCents, qty);
+  }, [canSubmit, miscItem, name, priceCents, qty, onAdd]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-lg bg-surface shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-6 pt-6 pb-4">
+          <h3
+            className="text-lg font-semibold text-foreground"
+            style={{ fontSize: 'calc(1.125rem * var(--pos-font-scale, 1))' }}
+          >
+            Custom Item
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="space-y-4 px-6 py-5">
+          {miscItem === null ? (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+              <p className="text-sm font-medium text-amber-500">Miscellaneous Item Required</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Create a catalog item with SKU &ldquo;MISC&rdquo; to enable custom line items.
+                This item acts as a placeholder for ad-hoc entries.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Item Name */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Item Name
+                </label>
+                <input
+                  ref={nameRef}
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) handleSubmit(); }}
+                  placeholder="e.g. Custom Engraving"
+                  className="w-full rounded-lg border border-input bg-surface px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+                />
+              </div>
+
+              {/* Price + Qty row */}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Price ($)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0.01"
+                    step="0.01"
+                    value={priceStr}
+                    onChange={(e) => setPriceStr(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) handleSubmit(); }}
+                    placeholder="0.00"
+                    className="w-full rounded-lg border border-input bg-surface px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+                  />
+                </div>
+                <div className="w-24">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Qty
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    step="1"
+                    value={qty}
+                    onChange={(e) => setQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) handleSubmit(); }}
+                    className="w-full rounded-lg border border-input bg-surface px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+                  />
+                </div>
+              </div>
+
+              {/* Total preview */}
+              {priceCents > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Total: {formatMoney(priceCents * qty)}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-2 border-t border-border px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+          >
+            Cancel
+          </button>
+          {miscItem !== null && (
+            <button
+              type="button"
+              disabled={!canSubmit}
+              onClick={handleSubmit}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+            >
+              <PlusCircle aria-hidden="true" className="h-4 w-4" />
+              Add to Order
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// ── Transaction Notes Portal ─────────────────────────────────────
+
+const TransactionNotesPortal = memo(function TransactionNotesPortal({
+  orderId,
+  initialNotes,
+  onSave,
+  onClose,
+}: {
+  orderId: string;
+  initialNotes: string;
+  onSave: (notes: string) => void;
+  onClose: () => void;
+}) {
+  const [notes, setNotes] = useState(initialNotes);
+  const [saving, setSaving] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      const res = await apiFetch<{ data: import('@/types/pos').Order }>(
+        `/api/v1/orders/${orderId}`,
+        { method: 'PATCH', body: JSON.stringify({ notes: notes.trim() || null }) },
+      );
+      onSave(res.data.notes ?? '');
+    } catch {
+      // keep dialog open so user can retry
+    } finally {
+      setSaving(false);
+    }
+  }, [orderId, notes, onSave]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Transaction Notes"
+    >
+      <div className="w-full max-w-md rounded-xl border border-border bg-surface p-5 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2
+            className="text-lg font-semibold text-foreground"
+            style={{ fontSize: 'calc(1.125rem * var(--pos-font-scale, 1))' }}
+          >
+            Transaction Notes
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <X aria-hidden="true" className="h-5 w-5" />
+          </button>
+        </div>
+
+        <textarea
+          ref={textareaRef}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          maxLength={2000}
+          rows={5}
+          placeholder="Add notes for this transaction..."
+          className="w-full resize-none rounded-lg border border-input bg-surface px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+          style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onClose();
+          }}
+        />
+        <p className="mt-1 text-right text-xs text-muted-foreground">
+          {notes.length} / 2000
+        </p>
+
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex flex-1 items-center justify-center rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+          >
+            {saving ? 'Saving...' : 'Save Notes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 // ── Retail POS Page ───────────────────────────────────────────────
 
 function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
-  const { locations, user } = useAuthContext();
+  const { locations, user, tenant } = useAuthContext();
   const { isModuleEnabled } = useEntitlementsContext();
   const { toast } = useToast();
   const canEditItem = isModuleEnabled('catalog');
@@ -244,6 +619,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       toast.success('Guest payment confirmed!');
     },
   });
+  const customerDisplay = useCustomerDisplayBroadcast();
 
   // Stable refs for pos and registerTabs — prevents cascading identity changes
   // in callbacks that depend on them (e.g. handlePaymentComplete), which would
@@ -373,6 +749,9 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   const [showGiftCardDialog, setShowGiftCardDialog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showQuickMenuEditor, setShowQuickMenuEditor] = useState(false);
+  const [showCustomItemDialog, setShowCustomItemDialog] = useState(false);
+  const [showNotesDialog, setShowNotesDialog] = useState(false);
+  const [showEmailQuoteDialog, setShowEmailQuoteDialog] = useState(false);
   const [voidReason, setVoidReason] = useState('');
 
   // Line-level edit dialogs (triggered from Cart → LineItemEditPanel)
@@ -550,9 +929,12 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       setShowGiftCardDialog(false);
       setShowSettings(false);
       setShowQuickMenuEditor(false);
+      setShowEmailQuoteDialog(false);
       setShowLinePriceOverride(false);
       setShowLineVoidDialog(false);
       setShowLineCompDialog(false);
+      setShowCustomItemDialog(false);
+      setShowNotesDialog(false);
       setEditTargetLine(null);
       setCartSelectMode(false);
       setSelectedLineIds(new Set());
@@ -706,6 +1088,73 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   // ── Initialize offline sync worker ─────────────────────────────
   useEffect(() => { initOfflineSync(); }, []);
 
+  // ── Broadcast order state to customer-facing display ──────────
+  useEffect(() => {
+    if (!isActive) return;
+    customerDisplay.broadcastOrder(pos.currentOrder ?? null);
+  }, [isActive, pos.currentOrder, customerDisplay]);
+
+  // ── POS Keyboard Shortcuts ────────────────────────────────────
+  useEffect(() => {
+    if (!isActive) return;
+    function handleKey(e: KeyboardEvent) {
+      // Skip when user is typing in an input/textarea
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable) {
+        // Still allow Escape to blur inputs
+        if (e.key === 'Escape') {
+          (e.target as HTMLElement).blur();
+        }
+        return;
+      }
+      switch (e.key) {
+        case 'F1':
+          e.preventDefault();
+          // Focus search bar
+          document.querySelector<HTMLInputElement>('[placeholder*="Search items"]')?.focus();
+          break;
+        case 'F2':
+          e.preventDefault();
+          if (posRef.current.currentOrder?.lines?.length) {
+            setPosView('payment');
+          }
+          break;
+        case 'F3':
+          e.preventDefault();
+          posRef.current.holdOrder();
+          break;
+        case 'F4':
+          e.preventDefault();
+          setShowRecallDialog(true);
+          break;
+        case 'F5':
+          e.preventDefault();
+          setShowDiscountDialog(true);
+          break;
+        case 'F6':
+          e.preventDefault();
+          if (posPerms.returns) setShowReturnDialog(true);
+          break;
+        case 'F8':
+          e.preventDefault();
+          if (posRef.current.currentOrder?.id) setShowVoidConfirm(true);
+          break;
+        case 'F9':
+          e.preventDefault();
+          setShowNewCustomerDialog(true);
+          break;
+        case 'Escape':
+          e.preventDefault();
+          if (posView === 'payment') {
+            setPosView('order');
+          }
+          break;
+      }
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isActive, posView, posPerms.returns]);
+
   // ── Order actions ───────────────────────────────────────────────
 
   // Detect F&B items in the current order for Send button highlighting
@@ -773,8 +1222,9 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       setRemainingBalance(null);
       posRef.current.clearOrder();
       registerTabsRef.current.clearActiveTab();
+      customerDisplay.broadcastPaymentComplete();
     },
-    [],
+    [customerDisplay],
   );
 
   const handlePaymentCancel = useCallback(() => {
@@ -791,15 +1241,80 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     setRemainingBalance(null);
     posRef.current.clearOrder();
     registerTabsRef.current.clearActiveTab();
-  }, []);
+    customerDisplay.broadcastPaymentComplete();
+  }, [customerDisplay]);
 
   const handleGiftCardRedeem = useCallback(
-    (_cardNumber: string, _amountCents: number) => {
-      // V1: Gift card redemption uses the standard tender flow
-      toast.info('Gift card applied — complete payment via the payment panel');
-      setShowGiftCardDialog(false);
+    async (voucherId: string, cardNumber: string, amountCents: number) => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        toast.error('Offline — payments disabled until connection restored');
+        return;
+      }
+      // Ensure the order is created and batched items are flushed
+      let orderId = posRef.current.currentOrder?.id;
+      if (!orderId) {
+        try {
+          const ready = await posRef.current.ensureOrderReady();
+          orderId = ready.id;
+        } catch {
+          toast.error('Failed to create order — please try again');
+          return;
+        }
+      }
+      if (!orderId) {
+        toast.error('Order is still being created — please wait');
+        return;
+      }
+
+      const order = posRef.current.currentOrder!;
+      const locationHeader: Record<string, string> = order.locationId ? { 'X-Location-Id': order.locationId } : {};
+      const businessDate = new Date();
+      const bDate = `${businessDate.getFullYear()}-${String(businessDate.getMonth() + 1).padStart(2, '0')}-${String(businessDate.getDate()).padStart(2, '0')}`;
+
+      try {
+        const res = await apiFetch<{ data: RecordTenderResult }>(
+          `/api/v1/orders/${orderId}/place-and-pay`,
+          {
+            method: 'POST',
+            headers: locationHeader,
+            body: JSON.stringify({
+              clientRequestId: crypto.randomUUID(),
+              placeClientRequestId: crypto.randomUUID(),
+              orderId,
+              tenderType: 'gift_card',
+              amountGiven: amountCents,
+              tipAmount: 0,
+              terminalId: config?.terminalId ?? '',
+              employeeId: user?.id ?? '',
+              businessDate: bDate,
+              shiftId: shift.currentShift?.id ?? undefined,
+              posMode: config?.posMode ?? 'retail',
+              metadata: { voucherId, cardNumber },
+            }),
+          },
+        );
+        const result = res.data;
+
+        if (result.isFullyPaid) {
+          toast.success('Gift card payment complete!');
+          setShowGiftCardDialog(false);
+          setShowTenderDialog(false);
+          setPosView('order');
+          setRemainingBalance(null);
+          posRef.current.clearOrder();
+          registerTabsRef.current.clearActiveTab();
+          customerDisplay.broadcastPaymentComplete();
+        } else {
+          toast.info(`Gift card applied. Remaining: $${(result.remainingBalance / 100).toFixed(2)}`);
+          setRemainingBalance(result.remainingBalance);
+          setShowGiftCardDialog(false);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Gift card payment failed';
+        toast.error(message);
+      }
     },
-    [toast],
+    [config?.terminalId, config?.posMode, user?.id, shift.currentShift?.id, toast],
   );
 
   const handleSaveTab = useCallback(
@@ -983,8 +1498,8 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       <div className="flex flex-1 overflow-hidden">
         {/* ── LEFT PANEL ──────────────────────────────────────────── */}
         <div
-          className={`relative flex flex-col border-r border-border bg-surface ${posView === 'payment' ? 'pointer-events-none' : ''}`}
-          style={{ width: leftPct }}
+          className={`relative flex shrink flex-col border-r border-border bg-surface ${posView === 'payment' ? 'pointer-events-none' : ''}`}
+          style={{ width: leftPct, minWidth: 0 }}
         >
           {/* Dim overlay when in payment mode */}
           {posView === 'payment' && (
@@ -1259,7 +1774,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         </div>
 
         {/* ── RIGHT PANEL ─────────────────────────────────────────── */}
-        <div className="flex flex-col bg-surface" style={{ width: rightPct }}>
+        <div className="flex min-w-[320px] flex-col bg-surface" style={{ width: rightPct }}>
           {posView === 'payment' && pos.currentOrder && config ? (
             /* ── PAYMENT VIEW ──────────────────────────────────────── */
             <PaymentPanel
@@ -1313,6 +1828,15 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
               {/* Cart totals */}
               <CartTotals order={pos.currentOrder} />
 
+              {/* Suggested items strip (upsell) */}
+              {pos.currentOrder && pos.currentOrder.lines && pos.currentOrder.lines.length > 0 && (
+                <SuggestedItemsStrip
+                  allItems={catalog.allItems}
+                  orderLines={pos.currentOrder.lines}
+                  onItemTap={handleItemTap}
+                />
+              )}
+
               {/* Action buttons: Discount + Charges + Tax Exempt (permission-gated) */}
               <div className="shrink-0 border-t border-border px-4 py-2">
                 <div className="flex gap-2">
@@ -1356,6 +1880,28 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                   >
                     <ShieldOff aria-hidden="true" className="h-4 w-4" />
                     {pos.currentOrder?.taxExempt ? 'Tax Exempt ✓' : 'Tax Exempt'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowNotesDialog(true)}
+                    disabled={!pos.currentOrder}
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                      pos.currentOrder?.notes
+                        ? 'border-amber-500/30 bg-amber-500/10 text-amber-500 hover:bg-amber-500/10'
+                        : 'border-border text-foreground hover:bg-accent'
+                    }`}
+                  >
+                    <StickyNote aria-hidden="true" className="h-4 w-4" />
+                    {pos.currentOrder?.notes ? 'Notes ✓' : 'Notes'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowGiftCardDialog(true)}
+                    disabled={!hasItems}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Gift aria-hidden="true" className="h-4 w-4" />
+                    Gift Card
                   </button>
                 </div>
               </div>
@@ -1416,11 +1962,11 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                     Print
                   </button>
 
-                  {/* Pay button */}
+                  {/* Pay button — disabled while batch items are still in-flight */}
                   <button
                     type="button"
                     onClick={handlePayClick}
-                    disabled={!hasItems}
+                    disabled={!hasItems || pos.pendingItemCount > 0}
                     className="flex flex-[1.5] items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
                   >
                     Pay
@@ -1460,6 +2006,15 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
               </button>
               <button
                 type="button"
+                onClick={() => setShowEmailQuoteDialog(true)}
+                disabled={!hasItems}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-2 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Mail aria-hidden="true" className="h-4 w-4" />
+                Email
+              </button>
+              <button
+                type="button"
                 onClick={async () => {
                   if (posPerms.voidOrder) {
                     setShowVoidConfirm(true);
@@ -1481,25 +2036,27 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         </div>
       </div>
 
-      {/* ── Footer Bar ─────────────────────────────────────────────── */}
-      <div className="flex shrink-0 items-center gap-2 border-t border-border bg-muted px-4 py-2">
+      {/* ── Footer Action Bar ────────────────────────────────────── */}
+      <div className="flex shrink-0 items-center gap-3 border-t border-border bg-muted px-4 py-3">
         {posPerms.cashDrawer && (
           <button
             type="button"
             onClick={() => shift.openDrawer()}
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 font-medium text-muted-foreground transition-colors hover:bg-accent"
+            style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
           >
-            <Unlock aria-hidden="true" className="h-3.5 w-3.5" />
-            Open Drawer
+            <Unlock aria-hidden="true" className="h-5 w-5" />
+            Drawer
           </button>
         )}
         {posPerms.cashDrawer && (
           <button
             type="button"
             onClick={() => shift.recordNoSale()}
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 font-medium text-muted-foreground transition-colors hover:bg-accent"
+            style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
           >
-            <XCircle aria-hidden="true" className="h-3.5 w-3.5" />
+            <XCircle aria-hidden="true" className="h-5 w-5" />
             No Sale
           </button>
         )}
@@ -1508,42 +2065,73 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
             type="button"
             onClick={() => setShowDrawerEventDialog(true)}
             disabled={!shift.isOpen}
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 font-medium text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
           >
-            <Banknote aria-hidden="true" className="h-3.5 w-3.5" />
+            <Banknote aria-hidden="true" className="h-5 w-5" />
             Cash Mgmt
           </button>
         )}
         <button
           type="button"
           onClick={() => setShowReceiptPreview(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+          className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 font-medium text-muted-foreground transition-colors hover:bg-accent"
+          style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
         >
-          <Printer aria-hidden="true" className="h-3.5 w-3.5" />
+          <Printer aria-hidden="true" className="h-5 w-5" />
           Reprint
         </button>
         {posPerms.returns && (
           <button
             type="button"
             onClick={() => setShowReturnDialog(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 font-medium text-muted-foreground transition-colors hover:bg-accent"
+            style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
           >
-            <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
+            <RotateCcw aria-hidden="true" className="h-5 w-5" />
             Return
           </button>
         )}
 
+        <button
+          type="button"
+          onClick={() => setShowCustomItemDialog(true)}
+          className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 font-medium text-muted-foreground transition-colors hover:bg-accent"
+          style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+        >
+          <PlusCircle aria-hidden="true" className="h-5 w-5" />
+          Custom Item
+        </button>
+
         {/* Offline sync badge (only visible when there are pending transactions) */}
         <OfflineSyncBadge />
 
-        {/* Settings gear */}
+        {/* Settings */}
         <button
           type="button"
           onClick={() => setShowSettings(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+          className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 font-medium text-muted-foreground transition-colors hover:bg-accent"
+          style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
           title="POS Settings"
         >
-          <Settings className="h-3.5 w-3.5" />
+          <Settings className="h-5 w-5" />
+          Settings
+        </button>
+
+        {/* Customer Display */}
+        <button
+          type="button"
+          onClick={() => customerDisplay.openDisplay()}
+          className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 font-medium transition-colors ${
+            customerDisplay.isDisplayOpen()
+              ? 'border-green-500/30 text-green-500 hover:bg-green-500/10'
+              : 'border-border bg-surface text-muted-foreground hover:bg-accent'
+          }`}
+          style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+          title="Open Customer Display"
+        >
+          <Monitor aria-hidden="true" className="h-5 w-5" />
+          Display
         </button>
 
         {/* Spacer */}
@@ -1551,18 +2139,19 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
 
         {/* Shift indicator + end */}
         {shift.isOpen ? (
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-xs font-medium text-green-500">Shift Open</span>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-sm font-medium text-green-500">Shift Open</span>
             </span>
             {posPerms.shiftManage && (
               <button
                 type="button"
                 onClick={() => setShowShiftEndConfirm(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-1.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
+                className="flex items-center gap-2 rounded-lg border border-red-500/30 px-4 py-2.5 font-medium text-red-500 transition-colors hover:bg-red-500/10"
+                style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
               >
-                <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
+                <LogOut aria-hidden="true" className="h-5 w-5" />
                 End Shift
               </button>
             )}
@@ -1572,8 +2161,10 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
             <button
               type="button"
               onClick={() => setShowOpenShiftDialog(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700"
+              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 font-medium text-white transition-colors hover:bg-green-700"
+              style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
             >
+              <LogIn aria-hidden="true" className="h-5 w-5" />
               Open Shift
             </button>
           )
@@ -1662,6 +2253,41 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
           document.body,
         )}
 
+      {/* Custom Item Dialog */}
+      {showCustomItemDialog && typeof document !== 'undefined' &&
+        createPortal(
+          <CustomItemPortal
+            allItems={catalog.allItems}
+            onAdd={(miscItem, name, priceCents, qty) => {
+              pos.addItem({
+                catalogItemId: miscItem.id,
+                qty,
+                priceOverride: { unitPrice: priceCents, reason: `Custom: ${name}`, approvedBy: user?.id ?? 'pos' },
+                notes: name,
+                _display: { name, unitPrice: priceCents, itemType: miscItem.type, sku: 'MISC' },
+              });
+              setShowCustomItemDialog(false);
+            }}
+            onClose={() => setShowCustomItemDialog(false)}
+          />,
+          document.body,
+        )}
+
+      {/* Transaction Notes Dialog */}
+      {showNotesDialog && pos.currentOrder && typeof document !== 'undefined' &&
+        createPortal(
+          <TransactionNotesPortal
+            orderId={pos.currentOrder.id}
+            initialNotes={pos.currentOrder.notes ?? ''}
+            onSave={(notes) => {
+              pos.setOrder({ ...pos.currentOrder!, notes: notes || null });
+              setShowNotesDialog(false);
+            }}
+            onClose={() => setShowNotesDialog(false)}
+          />,
+          document.body,
+        )}
+
       {/* Discount Dialog */}
       <DiscountDialog
         open={showDiscountDialog}
@@ -1727,7 +2353,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                   type="button"
                   onClick={handleVoidOrder}
                   disabled={!voidReason.trim()}
-                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Void Order
                 </button>
@@ -1905,6 +2531,16 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         locationId={locationId}
         allItems={catalog.allItems}
       />
+
+      {/* Email Quote Dialog */}
+      {pos.currentOrder && (
+        <EmailQuoteDialog
+          open={showEmailQuoteDialog}
+          onClose={() => setShowEmailQuoteDialog(false)}
+          orderId={pos.currentOrder.id}
+          businessName={tenant?.name ?? 'Our Business'}
+        />
+      )}
     </div>
   );
 }

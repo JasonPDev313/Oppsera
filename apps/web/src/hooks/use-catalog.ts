@@ -18,6 +18,8 @@ interface ItemFilters {
   subDepartmentId?: string;
   categoryId?: string;
   itemType?: string;
+  /** Comma-separated multi-type filter (e.g., 'food,beverage') */
+  itemTypes?: string;
   search?: string;
   includeArchived?: boolean;
   /** Include on-hand, reorderPoint, etc. from inventory (single query) */
@@ -33,6 +35,7 @@ export function useCatalogItems(filters: ItemFilters) {
       const params = new URLSearchParams();
       if (filters.categoryId) params.set('categoryId', filters.categoryId);
       if (filters.itemType) params.set('itemType', filters.itemType);
+      if (filters.itemTypes) params.set('itemTypes', filters.itemTypes);
       if (filters.search) params.set('search', filters.search);
       if (filters.includeArchived) params.set('includeArchived', 'true');
       if (filters.includeInventory) params.set('includeInventory', 'true');

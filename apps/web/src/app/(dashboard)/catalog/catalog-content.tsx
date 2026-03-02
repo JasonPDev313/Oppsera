@@ -28,7 +28,6 @@ const typeFilterOptions = [
 ];
 
 const typeToBackend: Record<string, string | undefined> = {
-  fnb: 'food',
   retail: 'retail',
   service: 'service',
   package: 'other',
@@ -82,6 +81,7 @@ export default function CatalogPage() {
   const { data: items, isLoading, hasMore, loadMore, mutate } = useCatalogItems({
     categoryId: catId || undefined,
     itemType: typeToBackend[typeFilter],
+    itemTypes: typeFilter === 'fnb' ? 'food,beverage' : undefined,
     includeArchived: showAll ? true : undefined,
     search: search || undefined,
     includeInventory: true,

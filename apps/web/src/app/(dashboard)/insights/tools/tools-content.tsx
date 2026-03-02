@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -35,17 +35,76 @@ interface RegistryMetric {
 // and forecast services (from rm_daily_sales columns).
 
 const FALLBACK_METRICS: RegistryMetric[] = [
-  { slug: 'net_sales', displayName: 'Net Sales', description: 'Total sales minus voids and discounts', domain: 'Sales' },
-  { slug: 'gross_sales', displayName: 'Gross Sales', description: 'Total sales before adjustments', domain: 'Sales' },
-  { slug: 'order_count', displayName: 'Order Count', description: 'Number of orders placed', domain: 'Sales' },
-  { slug: 'avg_order_value', displayName: 'Avg Order Value', description: 'Average revenue per order', domain: 'Sales' },
-  { slug: 'discount_total', displayName: 'Discount Total', description: 'Total discounts applied', domain: 'Sales' },
-  { slug: 'tax_total', displayName: 'Tax Total', description: 'Total tax collected', domain: 'Sales' },
-  { slug: 'void_count', displayName: 'Void Count', description: 'Number of voided orders', domain: 'Operations' },
-  { slug: 'void_total', displayName: 'Void Total', description: 'Total value of voided orders', domain: 'Operations' },
-  { slug: 'tender_cash', displayName: 'Cash Tenders', description: 'Total cash payments received', domain: 'Payments' },
-  { slug: 'tender_card', displayName: 'Card Tenders', description: 'Total card payments received', domain: 'Payments' },
+  // ── rm_daily_sales metrics (Core) ──
+  { slug: 'net_sales', displayName: 'Net Sales', description: 'Total sales minus voids and discounts', domain: 'Core' },
+  { slug: 'gross_sales', displayName: 'Gross Sales', description: 'Total sales before adjustments', domain: 'Core' },
+  { slug: 'order_count', displayName: 'Order Count', description: 'Number of orders placed', domain: 'Core' },
+  { slug: 'avg_order_value', displayName: 'Avg Order Value', description: 'Average revenue per order', domain: 'Core' },
+  { slug: 'discount_total', displayName: 'Discount Total', description: 'Total discounts applied', domain: 'Core' },
+  { slug: 'tax_total', displayName: 'Tax Total', description: 'Total tax collected', domain: 'Core' },
+  { slug: 'void_count', displayName: 'Void Count', description: 'Number of voided orders', domain: 'Core' },
+  { slug: 'void_total', displayName: 'Void Total', description: 'Total value of voided orders', domain: 'Core' },
+  { slug: 'tender_cash', displayName: 'Cash Tenders', description: 'Total cash payments received', domain: 'Core' },
+  { slug: 'tender_card', displayName: 'Card Tenders', description: 'Total card payments received', domain: 'Core' },
+  { slug: 'tender_gift_card', displayName: 'Gift Card Tenders', description: 'Total gift card payments received', domain: 'Core' },
+  { slug: 'tender_house_account', displayName: 'House Account Tenders', description: 'Total house account payments received', domain: 'Core' },
+  { slug: 'tender_ach', displayName: 'ACH Tenders', description: 'Total ACH payments received', domain: 'Core' },
+  { slug: 'tender_other', displayName: 'Other Tenders', description: 'Total other payments received', domain: 'Core' },
+  { slug: 'tip_total', displayName: 'Tips', description: 'Total tips collected', domain: 'Core' },
+  { slug: 'service_charge_total', displayName: 'Service Charges', description: 'Total service charges applied', domain: 'Core' },
+  { slug: 'surcharge_total', displayName: 'Surcharges', description: 'Total surcharges applied', domain: 'Core' },
+  { slug: 'return_total', displayName: 'Returns', description: 'Total value of returns processed', domain: 'Core' },
+  { slug: 'pms_revenue', displayName: 'PMS Revenue', description: 'Revenue from property management', domain: 'Core' },
+  { slug: 'ar_revenue', displayName: 'AR Revenue', description: 'Revenue from accounts receivable', domain: 'Core' },
+  { slug: 'membership_revenue', displayName: 'Membership Revenue', description: 'Revenue from membership billing', domain: 'Core' },
+  { slug: 'voucher_revenue', displayName: 'Voucher Revenue', description: 'Revenue from voucher redemptions', domain: 'Core' },
+  { slug: 'total_business_revenue', displayName: 'Total Business Revenue', description: 'Aggregate revenue across all sources', domain: 'Core' },
+  // ── rm_item_sales metrics (Inventory) ──
+  { slug: 'item_quantity_sold', displayName: 'Items Quantity Sold', description: 'Total quantity of items sold', domain: 'Inventory' },
+  { slug: 'item_gross_revenue', displayName: 'Items Gross Revenue', description: 'Gross revenue from item sales', domain: 'Inventory' },
+  { slug: 'item_quantity_voided', displayName: 'Items Quantity Voided', description: 'Total quantity of items voided', domain: 'Inventory' },
+  { slug: 'item_void_revenue', displayName: 'Items Void Revenue', description: 'Revenue lost from voided items', domain: 'Inventory' },
+  // ── rm_spa_daily_operations metrics (Spa) ──
+  { slug: 'spa_appointment_count', displayName: 'Spa Appointment Count', description: 'Total spa appointments scheduled', domain: 'Spa' },
+  { slug: 'spa_completed_count', displayName: 'Spa Completed Count', description: 'Total spa appointments completed', domain: 'Spa' },
+  { slug: 'spa_canceled_count', displayName: 'Spa Canceled Count', description: 'Total spa appointments canceled', domain: 'Spa' },
+  { slug: 'spa_no_show_count', displayName: 'Spa No-Show Count', description: 'Total spa appointment no-shows', domain: 'Spa' },
+  { slug: 'spa_walk_in_count', displayName: 'Spa Walk-In Count', description: 'Total spa walk-in appointments', domain: 'Spa' },
+  { slug: 'spa_online_booking_count', displayName: 'Spa Online Bookings', description: 'Total spa online bookings received', domain: 'Spa' },
+  { slug: 'spa_total_revenue', displayName: 'Spa Total Revenue', description: 'Total spa revenue from all sources', domain: 'Spa' },
+  { slug: 'spa_service_revenue', displayName: 'Spa Service Revenue', description: 'Revenue from spa services', domain: 'Spa' },
+  { slug: 'spa_addon_revenue', displayName: 'Spa Add-On Revenue', description: 'Revenue from spa add-on services', domain: 'Spa' },
+  { slug: 'spa_retail_revenue', displayName: 'Spa Retail Revenue', description: 'Revenue from spa retail product sales', domain: 'Spa' },
+  { slug: 'spa_tip_total', displayName: 'Spa Tips', description: 'Total tips from spa services', domain: 'Spa' },
+  { slug: 'spa_avg_appointment_duration', displayName: 'Spa Avg Duration', description: 'Average spa appointment duration in minutes', domain: 'Spa' },
+  { slug: 'spa_utilization_pct', displayName: 'Spa Utilization %', description: 'Percentage of spa provider capacity utilized', domain: 'Spa' },
+  { slug: 'spa_rebooking_rate', displayName: 'Spa Rebooking Rate', description: 'Rate at which spa clients rebook', domain: 'Spa' },
 ];
+
+// ── Time-series metric slugs ─────────────────────────────────────
+// These are the metrics backed by tables with a business_date column
+// (rm_daily_sales, rm_item_sales, rm_spa_daily_operations).
+// Snapshot-only metrics (rm_inventory_on_hand, rm_customer_activity)
+// do NOT have date-based aggregation and cannot be used with
+// Root Cause, Correlations, or Forecast tools.
+
+const TIME_SERIES_METRIC_SLUGS = new Set([
+  // rm_daily_sales
+  'net_sales', 'gross_sales', 'order_count', 'avg_order_value',
+  'discount_total', 'tax_total', 'void_count', 'void_total',
+  'tender_cash', 'tender_card', 'tender_gift_card', 'tender_house_account',
+  'tender_ach', 'tender_other', 'tip_total', 'service_charge_total',
+  'surcharge_total', 'return_total', 'pms_revenue', 'ar_revenue',
+  'membership_revenue', 'voucher_revenue', 'total_business_revenue',
+  // rm_item_sales
+  'item_quantity_sold', 'item_gross_revenue', 'item_quantity_voided', 'item_void_revenue',
+  // rm_spa_daily_operations
+  'spa_appointment_count', 'spa_completed_count', 'spa_canceled_count',
+  'spa_no_show_count', 'spa_walk_in_count', 'spa_online_booking_count',
+  'spa_total_revenue', 'spa_service_revenue', 'spa_addon_revenue',
+  'spa_retail_revenue', 'spa_tip_total', 'spa_avg_appointment_duration',
+  'spa_utilization_pct', 'spa_rebooking_rate',
+]);
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -147,6 +206,14 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
     return () => { cancelled = true; };
   }, []);
 
+  // ── Filter metrics for time-series tools ──
+  // Root Cause, Correlations, and Forecast need date-based aggregation.
+  // Snapshot-only metrics (inventory on-hand, customer activity) are excluded.
+  const timeSeriesMetrics = useMemo(
+    () => metrics.filter((m) => TIME_SERIES_METRIC_SLUGS.has(m.slug)),
+    [metrics],
+  );
+
   // ── Hooks ──
   const rootCause = useRootCause();
   const correlations = useCorrelations();
@@ -242,7 +309,7 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div className="sm:col-span-2">
                   <label htmlFor="rc-metric" className="block text-xs font-medium text-muted-foreground mb-1">Metric</label>
-                  <MetricSelect id="rc-metric" value={rcMetric} onChange={setRcMetric} metrics={metrics} isLoading={metricsLoading} />
+                  <MetricSelect id="rc-metric" value={rcMetric} onChange={setRcMetric} metrics={timeSeriesMetrics} isLoading={metricsLoading} />
                   <FieldHint>The KPI whose change you want to explain.</FieldHint>
                 </div>
                 <div>
@@ -331,7 +398,7 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
                     id="corr-metric"
                     value={corrMetric}
                     onChange={setCorrMetric}
-                    metrics={metrics}
+                    metrics={timeSeriesMetrics}
                     isLoading={metricsLoading}
                     placeholder="Select a target metric..."
                   />
@@ -409,7 +476,7 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div className="sm:col-span-2">
                   <label htmlFor="fc-metric" className="block text-xs font-medium text-muted-foreground mb-1">Metric</label>
-                  <MetricSelect id="fc-metric" value={fcMetric} onChange={setFcMetric} metrics={metrics} isLoading={metricsLoading} />
+                  <MetricSelect id="fc-metric" value={fcMetric} onChange={setFcMetric} metrics={timeSeriesMetrics} isLoading={metricsLoading} />
                   <FieldHint>The KPI you want to project into the future.</FieldHint>
                 </div>
                 <div>
@@ -444,8 +511,7 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
                   if (!fcMetric) return;
                   forecast.generate({
                     metricSlug: fcMetric,
-                    horizonDays: fcHorizon,
-                    includeSeasonality: fcSeasonality,
+                    forecastDays: fcHorizon,
                   });
                 }}
                 disabled={!fcMetric || forecast.isLoading}
@@ -470,18 +536,9 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
               {!forecast.isLoading && forecast.result && (
                 <div className="mt-4">
                   <ForecastChart
-                    historical={forecast.result.dataPoints
-                      .filter((dp) => dp.isActual)
-                      .map((dp) => ({ date: dp.date, value: dp.value }))}
-                    forecast={forecast.result.dataPoints
-                      .filter((dp) => !dp.isActual)
-                      .map((dp) => ({
-                        date: dp.date,
-                        predicted: dp.value,
-                        upperBound: dp.upperBound,
-                        lowerBound: dp.lowerBound,
-                      }))}
-                    metric={forecast.result.metricDisplayName}
+                    historical={forecast.result.historicalData}
+                    forecast={forecast.result.forecastData}
+                    metric={forecast.result.metric}
                     trend={forecast.result.trend}
                   />
                 </div>
@@ -510,13 +567,10 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
 
 
               <WhatIfPanel
-                onSimulate={(input) => {
-                  const scenarioText = input.scenarios
-                    .map((s) => `${s.label}: ${s.adjustmentType} ${s.changePct > 0 ? '+' : ''}${s.changePct}%`)
-                    .join(', ');
-                  whatIf.simulate(`${input.baseMetric} with ${scenarioText}`);
-                }}
+                onSimulate={(input) => whatIf.simulate(input)}
+                result={whatIf.result ?? undefined}
                 isLoading={whatIf.isLoading}
+                error={whatIf.error ?? undefined}
               />
             </div>
           </div>

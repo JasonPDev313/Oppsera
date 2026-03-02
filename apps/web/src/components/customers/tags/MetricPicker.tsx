@@ -42,12 +42,9 @@ export const METRIC_INFO: Record<string, MetricInfo> = {
   predicted_clv: { label: 'Predicted CLV', category: 'Predictive', valueType: 'number', unit: '$' },
   spend_velocity: { label: 'Spend Velocity', category: 'Predictive', valueType: 'number' },
   days_until_predicted_visit: { label: 'Days Until Predicted Visit', category: 'Predictive', valueType: 'number', unit: 'days' },
-  // Golf
-  handicap_index: { label: 'Handicap Index', category: 'Golf', valueType: 'number' },
-  projected_rounds: { label: 'Projected Rounds', category: 'Golf', valueType: 'number' },
 } as const;
 
-const CATEGORY_ORDER = ['Visits', 'Spending', 'Lifecycle', 'Demographic', 'Financial', 'Predictive', 'Golf'];
+const CATEGORY_ORDER = ['Visits', 'Spending', 'Lifecycle', 'Demographic', 'Financial', 'Predictive'];
 
 function getGroupedMetrics(): { category: string; metrics: { key: string; label: string }[] }[] {
   const groups: Record<string, { key: string; label: string }[]> = {};

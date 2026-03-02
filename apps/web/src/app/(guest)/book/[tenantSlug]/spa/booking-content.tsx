@@ -18,7 +18,14 @@ import {
   Phone,
   FileText,
   AlertCircle,
+  CreditCard,
+  ShieldCheck,
+  MapPin,
+  Globe,
+  ExternalLink,
 } from 'lucide-react';
+import { PaymentMethodCapture } from '@/components/payments/payment-method-capture';
+import type { TokenizeResult, TokenizerClientConfig } from '@oppsera/shared';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -30,6 +37,58 @@ interface WidgetConfig {
   cancellationPolicy?: string;
   depositPolicy?: string;
   onlineBookingEnabled: boolean;
+  businessIdentity?: {
+    businessName?: string;
+    tagline?: string;
+    description?: string;
+    email?: string;
+    phone?: string;
+    website?: string;
+  };
+  contactLocation?: {
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    latitude?: number;
+    longitude?: number;
+    directionsUrl?: string;
+    parkingInfo?: string;
+    accessibilityInfo?: string;
+  };
+  branding?: {
+    faviconUrl?: string;
+    bannerImageUrl?: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+    backgroundColor?: string;
+    textColor?: string;
+    fontFamily?: string;
+    buttonStyle?: 'rounded' | 'square' | 'pill';
+    headerLayout?: 'centered' | 'left-aligned';
+  };
+  operational?: {
+    timezoneDisplay?: string;
+    hoursOfOperation?: Array<{ day: string; periods: Array<{ open: string; close: string }> }>;
+    holidayNotice?: string;
+    specialInstructions?: string;
+    healthSafetyNotice?: string;
+  };
+  legal?: {
+    privacyPolicyUrl?: string;
+    termsOfServiceUrl?: string;
+    cancellationPolicyText?: string;
+    consentCheckboxText?: string;
+    accessibilityStatementUrl?: string;
+  };
+  seo?: {
+    metaTitle?: string;
+    metaDescription?: string;
+    ogImage?: string;
+    canonicalUrl?: string;
+  };
 }
 
 interface ServiceCategory {
@@ -195,7 +254,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
             {i > 0 && (
               <div
                 className={`h-0.5 w-4 sm:w-6 ${
-                  isComplete ? 'bg-indigo-500' : 'bg-gray-200'
+                  isComplete ? 'bg-indigo-500' : 'bg-border'
                 }`}
               />
             )}
@@ -204,8 +263,8 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
                 isComplete
                   ? 'bg-indigo-500 text-white'
                   : isActive
-                  ? 'bg-indigo-600 text-white ring-2 ring-indigo-200'
-                  : 'bg-gray-100 text-gray-400'
+                  ? 'bg-indigo-600 text-white ring-2 ring-indigo-500/30'
+                  : 'bg-accent text-muted-foreground'
               }`}
             >
               {isComplete ? <Check className="h-3 w-3" /> : stepNum}
@@ -223,9 +282,9 @@ function ServiceSkeleton() {
   return (
     <div className="space-y-3 px-4">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="animate-pulse rounded-lg border border-gray-100 p-4">
-          <div className="h-4 w-2/3 rounded bg-gray-100 mb-2" />
-          <div className="h-3 w-1/2 rounded bg-gray-50" />
+        <div key={i} className="animate-pulse rounded-lg border border-border p-4">
+          <div className="h-4 w-2/3 rounded bg-accent mb-2" />
+          <div className="h-3 w-1/2 rounded bg-surface" />
         </div>
       ))}
     </div>
@@ -236,7 +295,7 @@ function SlotSkeleton() {
   return (
     <div className="flex flex-wrap gap-2 px-4">
       {[1, 2, 3, 4, 5, 6].map((i) => (
-        <div key={i} className="animate-pulse h-10 w-24 rounded-lg bg-gray-100" />
+        <div key={i} className="animate-pulse h-10 w-24 rounded-lg bg-accent" />
       ))}
     </div>
   );
@@ -244,7 +303,7 @@ function SlotSkeleton() {
 
 // ── Main Component ─────────────────────────────────────────────────
 
-export default function BookingContent() {
+export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean } = {}) {
   const params = useParams<{ tenantSlug: string }>();
   const tenantSlug = params.tenantSlug;
 
@@ -279,7 +338,18 @@ export default function BookingContent() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [lookupDone, setLookupDone] = useState(false);
 
+  // ── Card Tokenization State ─────────────────────────
+  const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerClientConfig | null>(null);
+  const [isTokenizerLoading, setIsTokenizerLoading] = useState(false);
+  const [tokenizeResult, setTokenizeResult] = useState<TokenizeResult | null>(null);
+  const [cardError, setCardError] = useState<string | null>(null);
+
   const baseUrl = `/api/v1/spa/public/${tenantSlug}`;
+
+  // ── Notify parent on embed ready ────────────────────────
+  useEffect(() => {
+    notifyParent('ready');
+  }, [notifyParent]);
 
   // ── Fetch Config on Mount ─────────────────────────────
   useEffect(() => {
@@ -299,6 +369,25 @@ export default function BookingContent() {
       .finally(() => setIsLoading(false));
   }, [tenantSlug, baseUrl]);
 
+  // ── SEO Meta Tags ───────────────────────────────────────
+  useEffect(() => {
+    if (!config) return;
+    if (config.seo?.metaTitle) {
+      document.title = config.seo.metaTitle;
+    } else {
+      document.title = `Book Online — ${config.tenantName}`;
+    }
+    if (config.seo?.metaDescription) {
+      let meta = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.name = 'description';
+        document.head.appendChild(meta);
+      }
+      meta.content = config.seo.metaDescription;
+    }
+  }, [config]);
+
   // ── Fetch Services when step 1 ────────────────────────
   useEffect(() => {
     if (step !== 1 || !config) return;
@@ -315,6 +404,23 @@ export default function BookingContent() {
       .catch(() => setError('Unable to load services.'))
       .finally(() => setIsLoading(false));
   }, [step, config, baseUrl, activeCategoryId]);
+
+  // ── Fetch Tokenizer Config (for deposit card capture) ─
+  useEffect(() => {
+    if (!config?.depositPolicy || !tenantSlug) return;
+    setIsTokenizerLoading(true);
+    fetch(`${baseUrl}/tokenizer-config`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.data) {
+          setTokenizerConfig(json.data as TokenizerClientConfig);
+        }
+      })
+      .catch(() => {
+        // Non-fatal — deposit tracked but not collected online
+      })
+      .finally(() => setIsTokenizerLoading(false));
+  }, [config?.depositPolicy, tenantSlug, baseUrl]);
 
   // ── Fetch Providers when step 2 ───────────────────────
   useEffect(() => {
@@ -422,6 +528,19 @@ export default function BookingContent() {
     setIsSubmitting(true);
     setError(null);
     try {
+      // Build card token fields if deposit tokenization was done
+      const cardFields: Record<string, string> = {};
+      if (tokenizeResult?.token) {
+        cardFields.paymentMethodToken = tokenizeResult.token;
+        if (tokenizeResult.expMonth && tokenizeResult.expYear) {
+          const mm = String(tokenizeResult.expMonth).padStart(2, '0');
+          const yy = String(tokenizeResult.expYear).slice(-2);
+          cardFields.expiry = `${mm}${yy}`;
+        }
+      }
+
+      const guestName = `${customerInfo.firstName.trim()} ${customerInfo.lastName.trim()}`.trim();
+
       const res = await fetch(`${baseUrl}/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -430,11 +549,11 @@ export default function BookingContent() {
           addonIds: selectedAddons,
           providerId: selectedProvider,
           startTime: selectedSlot.startTime,
-          email: customerInfo.email.trim(),
-          firstName: customerInfo.firstName.trim(),
-          lastName: customerInfo.lastName.trim(),
-          phone: customerInfo.phone.trim() || undefined,
+          guestName,
+          guestEmail: customerInfo.email.trim(),
+          guestPhone: customerInfo.phone.trim() || undefined,
           notes: customerInfo.notes.trim() || undefined,
+          ...cardFields,
         }),
       });
       if (!res.ok) {
@@ -443,14 +562,34 @@ export default function BookingContent() {
         return;
       }
       const json = await res.json();
-      setBooking(json.data as BookingResult);
+      const result = json.data as BookingResult;
+      setBooking(result);
       setStep(6);
+      notifyParent('booking_complete', {
+        appointmentId: result.appointmentId,
+        confirmationNumber: result.confirmationNumber,
+        startTime: result.startTime,
+        endTime: result.endTime,
+      });
     } catch {
       setError('Network error. Please check your connection and try again.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedService, selectedSlot, selectedAddons, selectedProvider, customerInfo, baseUrl]);
+  }, [selectedService, selectedSlot, selectedAddons, selectedProvider, customerInfo, baseUrl, notifyParent, tokenizeResult]);
+
+  // ── Embed PostMessage ────────────────────────────────
+  const notifyParent = useCallback(
+    (type: string, payload?: Record<string, unknown>) => {
+      if (!isEmbed) return;
+      try {
+        window.parent.postMessage({ source: 'oppsera-booking', type, ...payload }, '*');
+      } catch {
+        // ignore — parent may be same-origin or blocked
+      }
+    },
+    [isEmbed],
+  );
 
   // ── Reset Wizard ──────────────────────────────────────
   const handleReset = useCallback(() => {
@@ -467,6 +606,8 @@ export default function BookingContent() {
     setLookupDone(false);
     setSlots([]);
     setProviders([]);
+    setTokenizeResult(null);
+    setCardError(null);
   }, []);
 
   // ── Navigation ────────────────────────────────────────
@@ -486,7 +627,7 @@ export default function BookingContent() {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-          <p className="text-sm text-gray-500">Loading booking...</p>
+          <p className="text-sm text-muted-foreground">Loading booking...</p>
         </div>
       </div>
     );
@@ -497,8 +638,8 @@ export default function BookingContent() {
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="text-center">
           <AlertCircle className="h-10 w-10 text-red-400 mx-auto mb-3" />
-          <h1 className="text-lg font-semibold text-gray-900 mb-2">Booking Unavailable</h1>
-          <p className="text-sm text-gray-500">{error}</p>
+          <h1 className="text-lg font-semibold text-foreground mb-2">Booking Unavailable</h1>
+          <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
     );
@@ -508,9 +649,9 @@ export default function BookingContent() {
     return (
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="text-center">
-          <CalendarDays className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <h1 className="text-lg font-semibold text-gray-900 mb-2">Online Booking Unavailable</h1>
-          <p className="text-sm text-gray-500">
+          <CalendarDays className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+          <h1 className="text-lg font-semibold text-foreground mb-2">Online Booking Unavailable</h1>
+          <p className="text-sm text-muted-foreground">
             Online booking is not currently available. Please call us to schedule your appointment.
           </p>
         </div>
@@ -520,21 +661,46 @@ export default function BookingContent() {
 
   // ── Render ────────────────────────────────────────────
 
+  // ── Branding CSS custom properties ──────────────────────
+  const brandingStyle: React.CSSProperties = {};
+  if (config?.branding?.primaryColor) brandingStyle['--booking-primary' as string] = config.branding.primaryColor;
+  if (config?.branding?.backgroundColor) brandingStyle['--booking-bg' as string] = config.branding.backgroundColor;
+  if (config?.branding?.textColor) brandingStyle['--booking-text' as string] = config.branding.textColor;
+  if (config?.branding?.fontFamily) brandingStyle.fontFamily = config.branding.fontFamily;
+  if (config?.branding?.backgroundColor) brandingStyle.backgroundColor = config.branding.backgroundColor;
+  if (config?.branding?.textColor) brandingStyle.color = config.branding.textColor;
+
+  const displayName = config?.businessIdentity?.businessName || config?.tenantName;
+
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen" style={brandingStyle}>
+      {/* Banner Image */}
+      {config?.branding?.bannerImageUrl && (
+        <div className="w-full h-40 overflow-hidden">
+          <img
+            src={config.branding.bannerImageUrl}
+            alt={displayName ?? ''}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
       {/* Header */}
-      <div className="text-center pt-6 px-6 pb-2">
+      <div className={`text-center pt-6 px-6 pb-2 ${config?.branding?.headerLayout === 'left-aligned' ? 'text-left' : ''}`}>
         {config?.logoUrl ? (
           <img
             src={config.logoUrl}
-            alt={config.tenantName}
-            className="h-10 mx-auto mb-2 object-contain"
+            alt={displayName ?? ''}
+            className={`h-10 mb-2 object-contain ${config?.branding?.headerLayout === 'left-aligned' ? '' : 'mx-auto'}`}
           />
         ) : (
-          <h1 className="text-lg font-bold text-gray-900">{config?.tenantName}</h1>
+          <h1 className="text-lg font-bold text-foreground">{displayName}</h1>
+        )}
+        {config?.businessIdentity?.tagline && (
+          <p className="text-xs text-muted-foreground mt-0.5">{config.businessIdentity.tagline}</p>
         )}
         {step === 1 && config?.welcomeMessage && (
-          <p className="text-sm text-gray-500 mt-1">{config.welcomeMessage}</p>
+          <p className="text-sm text-muted-foreground mt-1">{config.welcomeMessage}</p>
         )}
       </div>
 
@@ -543,9 +709,9 @@ export default function BookingContent() {
 
       {/* Error Banner */}
       {error && step < 6 && (
-        <div className="mx-4 mb-3 rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
+        <div className="mx-4 mb-3 rounded-lg bg-red-500/10 border border-red-500/30 p-3 flex items-start gap-2">
           <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-red-700">{error}</p>
+          <p className="text-sm text-red-500">{error}</p>
         </div>
       )}
 
@@ -557,13 +723,13 @@ export default function BookingContent() {
             {/* Search */}
             <div className="px-4 mb-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="text"
                   value={serviceSearch}
                   onChange={(e) => setServiceSearch(e.target.value)}
                   placeholder="Search services..."
-                  className="w-full rounded-lg border border-gray-200 pl-9 pr-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+                  className="w-full rounded-lg border border-border pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
                 />
               </div>
             </div>
@@ -582,7 +748,7 @@ export default function BookingContent() {
                     className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                       activeCategoryId === cat.id
                         ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        : 'bg-accent text-muted-foreground hover:bg-accent'
                     }`}
                   >
                     {cat.name}
@@ -609,46 +775,46 @@ export default function BookingContent() {
                       setError(null);
                       setStep(2);
                     }}
-                    className="w-full text-left rounded-lg border border-gray-200 p-4 hover:border-indigo-300 hover:shadow-sm transition-all active:scale-[0.99]"
+                    className="w-full text-left rounded-lg border border-border p-4 hover:border-indigo-500/30 hover:shadow-sm transition-all active:scale-[0.99]"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold text-gray-900">{service.name}</h3>
+                        <h3 className="text-sm font-semibold text-foreground">{service.name}</h3>
                         {service.description && (
-                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{service.description}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{service.description}</p>
                         )}
                         <div className="flex items-center gap-3 mt-2">
-                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             {service.durationMinutes} min
                           </span>
                         </div>
                       </div>
                       <div className="ml-3 shrink-0 text-right">
-                        <span className="text-sm font-bold text-gray-900">
+                        <span className="text-sm font-bold text-foreground">
                           {formatMoney(service.priceCents)}
                         </span>
-                        <ChevronRight className="h-4 w-4 text-gray-400 ml-auto mt-1" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto mt-1" />
                       </div>
                     </div>
 
                     {/* Addons Preview */}
                     {service.addons.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-gray-100">
-                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-1">
+                      <div className="mt-2 pt-2 border-t border-border">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
                           Add-ons available
                         </p>
                         <div className="flex flex-wrap gap-1">
                           {service.addons.slice(0, 3).map((addon) => (
                             <span
                               key={addon.id}
-                              className="text-[10px] bg-gray-50 text-gray-500 rounded px-1.5 py-0.5"
+                              className="text-[10px] bg-surface text-muted-foreground rounded px-1.5 py-0.5"
                             >
                               {addon.name}
                             </span>
                           ))}
                           {service.addons.length > 3 && (
-                            <span className="text-[10px] text-gray-400">
+                            <span className="text-[10px] text-muted-foreground">
                               +{service.addons.length - 3} more
                             </span>
                           )}
@@ -660,7 +826,7 @@ export default function BookingContent() {
 
                 {!isLoading && filteredCategories.flatMap((c) => c.services).length === 0 && (
                   <div className="text-center py-8">
-                    <p className="text-sm text-gray-400">No services found.</p>
+                    <p className="text-sm text-muted-foreground">No services found.</p>
                   </div>
                 )}
               </div>
@@ -669,7 +835,7 @@ export default function BookingContent() {
             {/* Addon Selection (if service selected and has addons, show below) */}
             {selectedService && selectedService.addons.length > 0 && step === 1 && (
               <div className="px-4 mt-4">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                   Enhance Your Experience
                 </h3>
                 <div className="space-y-2">
@@ -680,8 +846,8 @@ export default function BookingContent() {
                         key={addon.id}
                         className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
                           isSelected
-                            ? 'border-indigo-300 bg-indigo-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-indigo-500/30 bg-indigo-500/10'
+                            : 'border-border hover:border-border'
                         }`}
                       >
                         <input
@@ -692,13 +858,13 @@ export default function BookingContent() {
                               isSelected ? prev.filter((id) => id !== addon.id) : [...prev, addon.id]
                             );
                           }}
-                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
                         />
                         <div className="flex-1 min-w-0">
-                          <span className="text-sm font-medium text-gray-900">{addon.name}</span>
-                          <span className="text-xs text-gray-500 ml-1">+{addon.durationMinutes} min</span>
+                          <span className="text-sm font-medium text-foreground">{addon.name}</span>
+                          <span className="text-xs text-muted-foreground ml-1">+{addon.durationMinutes} min</span>
                         </div>
-                        <span className="text-sm font-semibold text-gray-700">
+                        <span className="text-sm font-semibold text-foreground">
                           +{formatMoney(addon.priceCents)}
                         </span>
                       </label>
@@ -713,7 +879,7 @@ export default function BookingContent() {
         {/* ── Step 2: Provider Selection ───────────────────── */}
         {step === 2 && (
           <div className="px-4 pb-6">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               Choose Your Provider
             </h2>
 
@@ -731,17 +897,17 @@ export default function BookingContent() {
                   }}
                   className={`w-full text-left rounded-lg border-2 p-4 transition-all active:scale-[0.99] ${
                     selectedProvider === null
-                      ? 'border-indigo-500 bg-indigo-50'
-                      : 'border-gray-200 hover:border-indigo-300'
+                      ? 'border-indigo-500 bg-indigo-500/10'
+                      : 'border-border hover:border-indigo-500/30'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10">
                       <Star className="h-5 w-5 text-indigo-600" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-900">Any Available Provider</h3>
-                      <p className="text-xs text-gray-500">Recommended - first available</p>
+                      <h3 className="text-sm font-semibold text-foreground">Any Available Provider</h3>
+                      <p className="text-xs text-muted-foreground">Recommended - first available</p>
                     </div>
                   </div>
                 </button>
@@ -756,7 +922,7 @@ export default function BookingContent() {
                       setError(null);
                       setStep(3);
                     }}
-                    className="w-full text-left rounded-lg border border-gray-200 p-4 hover:border-indigo-300 hover:shadow-sm transition-all active:scale-[0.99]"
+                    className="w-full text-left rounded-lg border border-border p-4 hover:border-indigo-500/30 hover:shadow-sm transition-all active:scale-[0.99]"
                   >
                     <div className="flex items-center gap-3">
                       {provider.photoUrl ? (
@@ -766,21 +932,21 @@ export default function BookingContent() {
                           className="h-10 w-10 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-500">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-xs font-bold text-muted-foreground">
                           {getInitials(provider.displayName)}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold text-gray-900">{provider.displayName}</h3>
+                        <h3 className="text-sm font-semibold text-foreground">{provider.displayName}</h3>
                         {provider.bio && (
-                          <p className="text-xs text-gray-500 line-clamp-1">{provider.bio}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">{provider.bio}</p>
                         )}
                         {provider.specialties && provider.specialties.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {provider.specialties.slice(0, 3).map((spec) => (
                               <span
                                 key={spec}
-                                className="text-[10px] bg-gray-50 text-gray-500 rounded px-1.5 py-0.5"
+                                className="text-[10px] bg-surface text-muted-foreground rounded px-1.5 py-0.5"
                               >
                                 {spec}
                               </span>
@@ -788,14 +954,14 @@ export default function BookingContent() {
                           </div>
                         )}
                       </div>
-                      <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     </div>
                   </button>
                 ))}
 
                 {!isLoading && providers.length === 0 && (
                   <div className="text-center py-6">
-                    <p className="text-sm text-gray-400">
+                    <p className="text-sm text-muted-foreground">
                       No providers available for this service. Please select "Any Available."
                     </p>
                   </div>
@@ -808,7 +974,7 @@ export default function BookingContent() {
         {/* ── Step 3: Date & Time Selection ────────────────── */}
         {step === 3 && (
           <div className="pb-6">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 px-4">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-4">
               Select a Date
             </h2>
 
@@ -829,7 +995,7 @@ export default function BookingContent() {
                     className={`shrink-0 flex flex-col items-center rounded-lg px-3 py-2 text-center transition-colors ${
                       isSelected
                         ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                        : 'bg-surface text-foreground hover:bg-accent'
                     }`}
                   >
                     <span className="text-[10px] uppercase font-semibold">
@@ -853,15 +1019,15 @@ export default function BookingContent() {
                   <SlotSkeleton />
                 ) : slots.length === 0 ? (
                   <div className="text-center py-8">
-                    <CalendarDays className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">No available times on this date.</p>
-                    <p className="text-xs text-gray-400 mt-1">Please try another date.</p>
+                    <CalendarDays className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">No available times on this date.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Please try another date.</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {grouped.morning.length > 0 && (
                       <div>
-                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                           Morning
                         </h3>
                         <div className="flex flex-wrap gap-2">
@@ -882,7 +1048,7 @@ export default function BookingContent() {
                     )}
                     {grouped.afternoon.length > 0 && (
                       <div>
-                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                           Afternoon
                         </h3>
                         <div className="flex flex-wrap gap-2">
@@ -903,7 +1069,7 @@ export default function BookingContent() {
                     )}
                     {grouped.evening.length > 0 && (
                       <div>
-                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                           Evening
                         </h3>
                         <div className="flex flex-wrap gap-2">
@@ -932,13 +1098,13 @@ export default function BookingContent() {
         {/* ── Step 4: Your Details ─────────────────────────── */}
         {step === 4 && (
           <div className="px-4 pb-6 space-y-4">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">
               Your Details
             </h2>
 
             {/* Email */}
             <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
                 <Mail className="h-3.5 w-3.5" />
                 Email
               </label>
@@ -951,13 +1117,13 @@ export default function BookingContent() {
                 }}
                 onBlur={handleEmailLookup}
                 placeholder="your@email.com"
-                className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+                className="w-full rounded-lg border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
               />
             </div>
 
             {/* First Name */}
             <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
                 <User className="h-3.5 w-3.5" />
                 First Name
               </label>
@@ -966,13 +1132,13 @@ export default function BookingContent() {
                 value={customerInfo.firstName}
                 onChange={(e) => setCustomerInfo((prev) => ({ ...prev, firstName: e.target.value }))}
                 placeholder="First name"
-                className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+                className="w-full rounded-lg border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
               />
             </div>
 
             {/* Last Name */}
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
                 Last Name
               </label>
               <input
@@ -980,37 +1146,37 @@ export default function BookingContent() {
                 value={customerInfo.lastName}
                 onChange={(e) => setCustomerInfo((prev) => ({ ...prev, lastName: e.target.value }))}
                 placeholder="Last name"
-                className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+                className="w-full rounded-lg border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
               />
             </div>
 
             {/* Phone */}
             <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
                 <Phone className="h-3.5 w-3.5" />
-                Phone <span className="normal-case text-gray-400">(optional)</span>
+                Phone <span className="normal-case text-muted-foreground">(optional)</span>
               </label>
               <input
                 type="tel"
                 value={customerInfo.phone}
                 onChange={(e) => setCustomerInfo((prev) => ({ ...prev, phone: e.target.value }))}
                 placeholder="(555) 123-4567"
-                className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
+                className="w-full rounded-lg border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
               />
             </div>
 
             {/* Notes */}
             <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
                 <FileText className="h-3.5 w-3.5" />
-                Notes <span className="normal-case text-gray-400">(optional)</span>
+                Notes <span className="normal-case text-muted-foreground">(optional)</span>
               </label>
               <textarea
                 value={customerInfo.notes}
                 onChange={(e) => setCustomerInfo((prev) => ({ ...prev, notes: e.target.value }))}
                 placeholder="Any special requests or notes..."
                 rows={3}
-                className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 resize-none"
+                className="w-full rounded-lg border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 resize-none"
               />
             </div>
 
@@ -1043,20 +1209,20 @@ export default function BookingContent() {
         {/* ── Step 5: Review & Confirm ─────────────────────── */}
         {step === 5 && selectedService && selectedSlot && (
           <div className="px-4 pb-6">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               Review Your Booking
             </h2>
 
             {/* Summary Card */}
-            <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
+            <div className="rounded-lg border border-border divide-y divide-border">
               <div className="p-4">
-                <h3 className="text-base font-bold text-gray-900">{selectedService.name}</h3>
+                <h3 className="text-base font-bold text-foreground">{selectedService.name}</h3>
                 {selectedAddons.length > 0 && (
                   <div className="mt-1 space-y-0.5">
                     {selectedAddons.map((addonId) => {
                       const addon = selectedService.addons.find((a) => a.id === addonId);
                       return addon ? (
-                        <p key={addonId} className="text-xs text-gray-500">
+                        <p key={addonId} className="text-xs text-muted-foreground">
                           + {addon.name} ({formatMoney(addon.priceCents)})
                         </p>
                       ) : null;
@@ -1066,8 +1232,8 @@ export default function BookingContent() {
               </div>
 
               <div className="px-4 py-3 flex items-center gap-3">
-                <User className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-700">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-foreground">
                   {selectedProvider
                     ? providers.find((p) => p.id === selectedProvider)?.displayName ?? 'Selected Provider'
                     : 'Any Available Provider'}
@@ -1075,37 +1241,103 @@ export default function BookingContent() {
               </div>
 
               <div className="px-4 py-3 flex items-center gap-3">
-                <CalendarDays className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-700">
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-foreground">
                   {formatDate(selectedDate)}
                 </span>
               </div>
 
               <div className="px-4 py-3 flex items-center gap-3">
-                <Clock className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-700">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-foreground">
                   {formatTime(selectedSlot.startTime)} - {formatTime(selectedSlot.endTime)}
-                  <span className="text-gray-400 ml-1">({totalDuration} min)</span>
+                  <span className="text-muted-foreground ml-1">({totalDuration} min)</span>
                 </span>
               </div>
 
               <div className="px-4 py-3 flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-700">Total</span>
-                <span className="text-lg font-bold text-gray-900">{formatMoney(totalPriceCents)}</span>
+                <span className="text-sm font-semibold text-foreground">Total</span>
+                <span className="text-lg font-bold text-foreground">{formatMoney(totalPriceCents)}</span>
               </div>
             </div>
 
             {/* Deposit Notice */}
             {config?.depositPolicy && (
-              <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
-                <p className="text-xs text-amber-700">{config.depositPolicy}</p>
+              <div className="mt-3 rounded-lg bg-amber-500/10 border border-amber-500/30 p-3">
+                <p className="text-xs text-amber-500">{config.depositPolicy}</p>
+              </div>
+            )}
+
+            {/* Card Capture for Deposit */}
+            {config?.depositPolicy && (
+              <div className="mt-3">
+                {tokenizeResult ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 p-3">
+                    <ShieldCheck className="h-4 w-4 text-green-500 shrink-0" />
+                    <span className="text-xs text-green-500">
+                      Card ending in {tokenizeResult.last4}
+                      {tokenizeResult.brand ? ` (${tokenizeResult.brand})` : ''} saved for deposit
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setTokenizeResult(null); setCardError(null); }}
+                      className="ml-auto text-xs text-muted-foreground hover:text-foreground underline"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-border bg-surface p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CreditCard className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-medium text-foreground">Card for Deposit</span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">Optional</span>
+                    </div>
+                    <PaymentMethodCapture
+                      config={tokenizerConfig}
+                      isConfigLoading={isTokenizerLoading}
+                      configError={cardError}
+                      onTokenize={(result) => { setTokenizeResult(result); setCardError(null); }}
+                      onError={(err) => setCardError(err)}
+                    />
+                    {cardError && (
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <AlertCircle className="h-3 w-3 text-red-500 shrink-0" />
+                        <p className="text-[11px] text-red-500">{cardError}</p>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-muted-foreground mt-2">
+                      Your card will only be charged the deposit amount. You can also pay in-person.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Cancellation Policy */}
-            {config?.cancellationPolicy && (
-              <div className="mt-3 rounded-lg bg-gray-50 p-3">
-                <p className="text-xs text-gray-500">{config.cancellationPolicy}</p>
+            {(config?.legal?.cancellationPolicyText || config?.cancellationPolicy) && (
+              <div className="mt-3 rounded-lg bg-surface p-3">
+                <p className="text-xs text-muted-foreground">
+                  {config?.legal?.cancellationPolicyText ?? config?.cancellationPolicy}
+                </p>
+              </div>
+            )}
+
+            {/* Legal Links */}
+            {(config?.legal?.privacyPolicyUrl || config?.legal?.termsOfServiceUrl) && (
+              <div className="flex items-center gap-3 mt-2">
+                {config.legal.privacyPolicyUrl && (
+                  <a href={config.legal.privacyPolicyUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-[11px] text-indigo-500 hover:text-indigo-400 flex items-center gap-1">
+                    <ExternalLink className="h-3 w-3" /> Privacy Policy
+                  </a>
+                )}
+                {config.legal.termsOfServiceUrl && (
+                  <a href={config.legal.termsOfServiceUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-[11px] text-indigo-500 hover:text-indigo-400 flex items-center gap-1">
+                    <ExternalLink className="h-3 w-3" /> Terms of Service
+                  </a>
+                )}
               </div>
             )}
 
@@ -1115,10 +1347,11 @@ export default function BookingContent() {
                 type="checkbox"
                 checked={termsAccepted}
                 onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="mt-0.5 h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
               />
-              <span className="text-xs text-gray-500 leading-relaxed">
-                I agree to the cancellation policy and authorize any required deposit charge.
+              <span className="text-xs text-muted-foreground leading-relaxed">
+                {config?.legal?.consentCheckboxText ??
+                  'I agree to the cancellation policy and authorize any required deposit charge.'}
               </span>
             </label>
 
@@ -1147,27 +1380,27 @@ export default function BookingContent() {
           <div className="px-4 pb-8">
             {/* Success Icon */}
             <div className="text-center mb-6">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mx-auto mb-3">
-                <Check className="h-8 w-8 text-green-600" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10 mx-auto mb-3">
+                <Check className="h-8 w-8 text-green-500" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900">Booking Confirmed!</h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <h2 className="text-xl font-bold text-foreground">Booking Confirmed!</h2>
+              <p className="text-sm text-muted-foreground mt-1">
                 Confirmation #{booking.confirmationNumber}
               </p>
             </div>
 
             {/* Details Card */}
-            <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
+            <div className="rounded-lg border border-border divide-y divide-border">
               <div className="p-4">
-                <h3 className="text-base font-bold text-gray-900">{booking.serviceName}</h3>
+                <h3 className="text-base font-bold text-foreground">{booking.serviceName}</h3>
               </div>
               <div className="px-4 py-3 flex items-center gap-3">
-                <User className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-700">{booking.providerName}</span>
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-foreground">{booking.providerName}</span>
               </div>
               <div className="px-4 py-3 flex items-center gap-3">
-                <CalendarDays className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-700">
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-foreground">
                   {new Date(booking.startTime).toLocaleDateString('en-US', {
                     weekday: 'long',
                     month: 'long',
@@ -1177,27 +1410,86 @@ export default function BookingContent() {
                 </span>
               </div>
               <div className="px-4 py-3 flex items-center gap-3">
-                <Clock className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-700">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-foreground">
                   {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
                 </span>
               </div>
               {booking.depositAmountCents > 0 && (
                 <div className="px-4 py-3 flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Deposit Charged</span>
-                  <span className="text-sm font-semibold text-gray-700">
+                  <span className="text-sm text-muted-foreground">Deposit Charged</span>
+                  <span className="text-sm font-semibold text-foreground">
                     {formatMoney(booking.depositAmountCents)}
                   </span>
                 </div>
               )}
             </div>
 
+            {/* Contact & Location */}
+            {(config?.contactLocation?.addressLine1 || config?.businessIdentity?.phone || config?.businessIdentity?.email) && (
+              <div className="mt-4 rounded-lg border border-border p-4 space-y-2.5">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  Location & Contact
+                </h3>
+                {config.contactLocation?.addressLine1 && (
+                  <div className="text-sm text-muted-foreground">
+                    <p>{config.contactLocation.addressLine1}</p>
+                    {config.contactLocation.addressLine2 && <p>{config.contactLocation.addressLine2}</p>}
+                    {(config.contactLocation.city || config.contactLocation.state || config.contactLocation.postalCode) && (
+                      <p>
+                        {[config.contactLocation.city, config.contactLocation.state].filter(Boolean).join(', ')}
+                        {config.contactLocation.postalCode ? ` ${config.contactLocation.postalCode}` : ''}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {config.contactLocation?.directionsUrl && (
+                  <a href={config.contactLocation.directionsUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-400">
+                    <Globe className="h-3 w-3" /> Get Directions
+                  </a>
+                )}
+                {config.businessIdentity?.phone && (
+                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5 shrink-0" />
+                    <a href={`tel:${config.businessIdentity.phone}`} className="hover:text-foreground">
+                      {config.businessIdentity.phone}
+                    </a>
+                  </p>
+                )}
+                {config.businessIdentity?.email && (
+                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Mail className="h-3.5 w-3.5 shrink-0" />
+                    <a href={`mailto:${config.businessIdentity.email}`} className="hover:text-foreground">
+                      {config.businessIdentity.email}
+                    </a>
+                  </p>
+                )}
+                {config.contactLocation?.parkingInfo && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <span className="font-medium">Parking:</span> {config.contactLocation.parkingInfo}
+                  </p>
+                )}
+                {config.contactLocation?.accessibilityInfo && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Accessibility:</span> {config.contactLocation.accessibilityInfo}
+                  </p>
+                )}
+                {config.operational?.specialInstructions && (
+                  <p className="text-xs text-muted-foreground italic mt-1">
+                    {config.operational.specialInstructions}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Actions */}
             <div className="mt-4 space-y-2">
               <button
                 type="button"
                 onClick={() => downloadIcs(booking)}
-                className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-200 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-lg border border-border py-3 text-sm font-semibold text-foreground hover:bg-accent transition-colors"
               >
                 <Download className="h-4 w-4" />
                 Add to Calendar
@@ -1206,7 +1498,7 @@ export default function BookingContent() {
               <button
                 type="button"
                 onClick={handleReset}
-                className="w-full flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-indigo-600 hover:bg-indigo-500/10 transition-colors"
               >
                 <RefreshCw className="h-4 w-4" />
                 Book Another Appointment
@@ -1215,7 +1507,7 @@ export default function BookingContent() {
 
             {/* Manage Link */}
             {booking.managementToken && (
-              <p className="text-center text-xs text-gray-400 mt-4">
+              <p className="text-center text-xs text-muted-foreground mt-4">
                 A confirmation email has been sent. You can manage your appointment from that email.
               </p>
             )}
@@ -1225,11 +1517,11 @@ export default function BookingContent() {
 
       {/* Back Button (fixed at bottom for steps 2-5) */}
       {step >= 2 && step <= 5 && (
-        <div className="shrink-0 border-t border-gray-100 px-4 py-3">
+        <div className="shrink-0 border-t border-border px-4 py-3">
           <button
             type="button"
             onClick={goBack}
-            className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+            className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <ChevronLeft className="h-4 w-4" />
             Back
@@ -1238,9 +1530,42 @@ export default function BookingContent() {
       )}
 
       {/* Footer */}
-      <div className="shrink-0 text-center pb-4 pt-2">
-        <p className="text-[10px] text-gray-400">Powered by OppsEra</p>
-      </div>
+      {!isEmbed && (
+        <div className="shrink-0 pb-4 pt-2 space-y-3">
+          {/* Hours of Operation */}
+          {config?.operational?.hoursOfOperation && config.operational.hoursOfOperation.length > 0 && (
+            <div className="px-6">
+              <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                <Clock className="h-3 w-3" /> Hours of Operation
+              </h4>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                {config.operational.hoursOfOperation.map((entry) => (
+                  <div key={entry.day} className="flex justify-between text-[11px] text-muted-foreground">
+                    <span className="capitalize font-medium">{entry.day}</span>
+                    <span>
+                      {entry.periods.length === 0
+                        ? 'Closed'
+                        : entry.periods.map((p) => `${p.open}–${p.close}`).join(', ')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Holiday Notice */}
+          {config?.operational?.holidayNotice && (
+            <div className="mx-6 rounded-lg bg-amber-500/10 border border-amber-500/30 px-3 py-2">
+              <p className="text-[11px] text-amber-500">
+                <AlertCircle className="inline h-3 w-3 mr-1 -mt-0.5" />
+                {config.operational.holidayNotice}
+              </p>
+            </div>
+          )}
+
+          <p className="text-[10px] text-muted-foreground text-center">Powered by OppsEra</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -1263,7 +1588,7 @@ function SlotButton({
       className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.97] ${
         isSelected
           ? 'bg-indigo-600 text-white shadow-sm'
-          : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+          : 'bg-surface text-foreground hover:bg-accent border border-border'
       }`}
     >
       {formatTime(slot.startTime)}

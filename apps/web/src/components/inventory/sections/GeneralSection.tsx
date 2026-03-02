@@ -18,9 +18,11 @@ const ITEM_TYPES = [
 interface GeneralSectionProps {
   form: ItemFormState;
   onUpdate: (updates: Partial<ItemFormState>) => void;
+  /** When provided, only show these item types in the dropdown */
+  allowedItemTypes?: string[];
 }
 
-export function GeneralSection({ form, onUpdate }: GeneralSectionProps) {
+export function GeneralSection({ form, onUpdate, allowedItemTypes }: GeneralSectionProps) {
   // Single hook call — departments, subDepts, categories all derived in-memory
   const { data: allCategories } = useAllCategories();
   const cats: CategoryRow[] = allCategories ?? [];
@@ -93,7 +95,10 @@ export function GeneralSection({ form, onUpdate }: GeneralSectionProps) {
               onChange={(e) => onUpdate({ itemType: e.target.value })}
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             >
-              {ITEM_TYPES.map((t) => (
+              {(allowedItemTypes
+                ? ITEM_TYPES.filter((t) => allowedItemTypes.includes(t.value))
+                : ITEM_TYPES
+              ).map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>

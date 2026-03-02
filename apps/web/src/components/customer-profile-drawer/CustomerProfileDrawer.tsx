@@ -20,6 +20,8 @@ import { ProfileCommunicationsTab } from './ProfileCommunicationsTab';
 import { ProfileTagsTab } from './ProfileTagsTab';
 import { ProfileComplianceTab } from './ProfileComplianceTab';
 import { ProfilePaymentMethodsTab } from './ProfilePaymentMethodsTab';
+import { ProfileReservationsTab } from './ProfileReservationsTab';
+import { ProfileOrdersTab } from './ProfileOrdersTab';
 import type { CustomerProfileOverview } from '@/types/customers';
 
 const TABS = [
@@ -35,6 +37,8 @@ const TABS = [
   { key: 'comms', label: 'Comms' },
   { key: 'tags', label: 'Tags' },
   { key: 'compliance', label: 'Compliance' },
+  { key: 'reservations', label: 'Reservations' },
+  { key: 'orders', label: 'Orders' },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
@@ -315,6 +319,10 @@ export function CustomerProfileDrawer() {
         return <ProfileTagsTab customerId={customerId} />;
       case 'compliance':
         return <ProfileComplianceTab customerId={customerId} />;
+      case 'reservations':
+        return <ProfileReservationsTab customerId={customerId} />;
+      case 'orders':
+        return <ProfileOrdersTab customerId={customerId} />;
       default:
         return null;
     }

@@ -6,6 +6,7 @@ import {
   ExternalLink,
   Check,
   Globe,
+  Settings2,
   UserCircle,
   QrCode,
   ClipboardList,
@@ -19,6 +20,7 @@ import {
   DoorOpen,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
 import {
@@ -71,8 +73,12 @@ function resolveAppUrl(
   }
 
   if (app.urlSource === 'origin' && app.urlPath) {
-    if (typeof window === 'undefined') return app.urlPath;
-    return `${window.location.origin}${app.urlPath}`;
+    // Interpolate {tenantSlug} placeholder if present
+    const resolvedPath = tenantSlug
+      ? app.urlPath.replace('{tenantSlug}', tenantSlug)
+      : app.urlPath;
+    if (typeof window === 'undefined') return resolvedPath;
+    return `${window.location.origin}${resolvedPath}`;
   }
 
   return null;
@@ -142,6 +148,7 @@ interface WebAppCardProps {
 }
 
 function WebAppCard({ app, tenantSlug }: WebAppCardProps) {
+  const router = useRouter();
   const Icon = resolveIcon(app.icon);
   const url = resolveAppUrl(app, tenantSlug);
   const status = resolveStatus(app, url);
@@ -200,6 +207,15 @@ function WebAppCard({ app, tenantSlug }: WebAppCardProps) {
                 <ExternalLink className="h-3.5 w-3.5" />
                 Open
               </a>
+              {app.settingsRoute && (
+                <button
+                  onClick={() => router.push(app.settingsRoute!)}
+                  className="inline-flex items-center gap-1.5 text-sm bg-surface border border-border text-foreground px-3 py-1.5 rounded-lg hover:bg-accent transition-colors"
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  Configure
+                </button>
+              )}
             </div>
           </div>
         )}

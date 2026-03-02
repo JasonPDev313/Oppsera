@@ -100,10 +100,13 @@ function findDepartmentId(categoryId: string, categoryMap: Map<string, CategoryR
   if (!current) return categoryId;
 
   // Walk up until we hit a root (parentId === null)
-  while (current && current.parentId !== null) {
+  // Max 10 iterations guards against category tree cycles
+  let depth = 0;
+  while (current && current.parentId !== null && depth < 10) {
     const parent = categoryMap.get(current.parentId);
     if (!parent) break;
     current = parent;
+    depth++;
   }
 
   return current?.id ?? categoryId;
@@ -376,6 +379,9 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
         const catItems = itemsByCategory.get(cat.id) ?? [];
         items.push(...catItems);
       }
+      // Also include items directly in the sub-department (2-level hierarchy)
+      const directItems = itemsByCategory.get(nav.subDepartmentId) ?? [];
+      items.push(...directItems);
       return items;
     }
 

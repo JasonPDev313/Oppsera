@@ -83,6 +83,9 @@ export const ItemButton = memo(function ItemButton({
   const badgeConfig = ITEM_TYPE_BADGES[item.typeGroup];
   const barColor = TYPE_BAR_COLORS[item.typeGroup];
 
+  // Item image from metadata (optional — no migration needed)
+  const imageUrl = (item.metadata?.imageUrl as string) ?? null;
+
   // Menu color from metadata + auto-contrast text
   const menuColor = (item.metadata?.menuColor as string) ?? null;
   const hasMenuColor = !!menuColor && menuColor !== '#FFFFFF';
@@ -130,16 +133,36 @@ export const ItemButton = memo(function ItemButton({
 
         {/* Content */}
         <div className="flex flex-1 flex-col justify-between p-2">
-          {/* Item name */}
-          <span
-            className={`line-clamp-2 text-left font-medium leading-tight ${hasMenuColor ? '' : 'text-foreground'}`}
-            style={{
-              fontSize: `calc(${isNormal ? '0.875rem' : '1rem'} * var(--pos-font-scale, 1))`,
-              ...(textColor ? { color: textColor } : {}),
-            }}
-          >
-            {item.name}
-          </span>
+          {/* Item image + name row */}
+          {imageUrl ? (
+            <div className="flex items-start gap-1.5">
+              <img
+                src={imageUrl}
+                alt=""
+                className="h-8 w-8 shrink-0 rounded object-cover"
+                loading="lazy"
+              />
+              <span
+                className={`line-clamp-2 text-left font-medium leading-tight ${hasMenuColor ? '' : 'text-foreground'}`}
+                style={{
+                  fontSize: `calc(${isNormal ? '0.75rem' : '0.875rem'} * var(--pos-font-scale, 1))`,
+                  ...(textColor ? { color: textColor } : {}),
+                }}
+              >
+                {item.name}
+              </span>
+            </div>
+          ) : (
+            <span
+              className={`line-clamp-2 text-left font-medium leading-tight ${hasMenuColor ? '' : 'text-foreground'}`}
+              style={{
+                fontSize: `calc(${isNormal ? '0.875rem' : '1rem'} * var(--pos-font-scale, 1))`,
+                ...(textColor ? { color: textColor } : {}),
+              }}
+            >
+              {item.name}
+            </span>
+          )}
 
           {/* Price */}
           <span

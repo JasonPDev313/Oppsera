@@ -92,6 +92,8 @@ import { ExemptionToggles } from './ExemptionToggles';
 import { TabActionBar } from './TabActionBar';
 import { FnbMenuNav, FnbMenuContent, FnbMenuError, recordRecentItem } from '@/components/fnb/menu/FnbMenuPanel';
 import { FnbModifierDrawer } from '@/components/fnb/menu/FnbModifierDrawer';
+import { useAuthContext } from '@/components/auth-provider';
+import { ManageTabsButton } from '../manage-tabs/ManageTabsButton';
 
 interface FnbTabViewProps {
   userId: string;
@@ -220,6 +222,8 @@ function UpsellBanner({ items, onTap: _onTap }: {
 }
 
 export function FnbTabView({ userId: _userId, isActive: _isActive = true, kdsSendEnabled = true }: FnbTabViewProps) {
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const store = useFnbPosStore();
   const tabId = store.activeTabId;
   const activeSeat = store.activeSeatNumber;
@@ -687,7 +691,10 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true, kdsSen
   return (
     <div className="flex h-full flex-col" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
       {/* ── Full-width tab header ──────────────────────────────────── */}
-      <TabHeader tab={tab} onBack={handleBack} />
+      <div className="flex items-center">
+        <div className="flex-1"><TabHeader tab={tab} onBack={handleBack} /></div>
+        <div className="pr-3"><ManageTabsButton locationId={locationId ?? ''} /></div>
+      </div>
       <TableContextCard tab={tab} />
 
       {/* Guest Pay banner */}

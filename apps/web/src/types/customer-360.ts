@@ -701,3 +701,63 @@ export interface MembershipAccountingSettings {
   defaultLateFeeAccountId: string | null;
   defaultMinimumRevenueAccountId: string | null;
 }
+
+// ── Reservations & Waitlist (Cross-Module) ──────────────────────
+
+export interface CustomerReservationEntry {
+  id: string;
+  module: 'spa' | 'pms' | 'dining' | 'golf';
+  type: string;
+  title: string;
+  date: string;
+  time: string | null;
+  endTime: string | null;
+  status: string;
+  partySize: number | null;
+  locationId: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface CustomerWaitlistEntry {
+  id: string;
+  module: 'spa' | 'dining';
+  guestName: string;
+  partySize: number | null;
+  status: string;
+  position: number | null;
+  quotedWaitMinutes: number | null;
+  addedAt: string;
+  seatedAt: string | null;
+}
+
+export interface CustomerReservationsData {
+  spa: CustomerReservationEntry[];
+  hotel: CustomerReservationEntry[];
+  dining: CustomerReservationEntry[];
+  golf: CustomerReservationEntry[];
+  waitlist: CustomerWaitlistEntry[];
+}
+
+// ── Order History ───────────────────────────────────────────────
+
+export interface CustomerOrderEntry {
+  id: string;
+  orderNumber: string;
+  businessDate: string | null;
+  status: string;
+  orderType: string;
+  subtotalCents: number;
+  taxCents: number;
+  totalCents: number;
+  itemCount: number;
+  locationId: string | null;
+  tenderSummary: string | null;
+  createdAt: string;
+}
+
+export interface CustomerOrdersResult {
+  items: CustomerOrderEntry[];
+  cursor: string | null;
+  hasMore: boolean;
+}

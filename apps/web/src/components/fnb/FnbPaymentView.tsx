@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbTab } from '@/hooks/use-fnb-tab';
 import { usePaymentSession, usePreAuth, useTipActions } from '@/hooks/use-fnb-payments';
-import { useTokenizerConfig } from '@/hooks/use-tokenizer-config';
 import { useAuthContext } from '@/components/auth-provider';
 import { apiFetch } from '@/lib/api-client';
 import { printReceiptDocument } from '@/lib/receipt-printer';
@@ -16,7 +15,9 @@ import type { FnbTabDetail } from '@/types/fnb';
 import type { TenderType } from './payment/TenderGrid';
 import type { ReceiptAction } from './payment/ReceiptOptions';
 import type { TenderResult } from './payment/PaymentScreen';
+import { useTokenizerConfig } from '@/hooks/use-tokenizer-config';
 import { ArrowLeft, WifiOff } from 'lucide-react';
+import { ManageTabsButton } from './manage-tabs/ManageTabsButton';
 
 interface FnbPaymentViewProps {
   userId: string;
@@ -224,18 +225,19 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
           clientRequestId: crypto.randomUUID(),
         });
 
-        // Adjust tip if applicable
+        // Adjust tip — must await to prevent Vercel fire-and-forget zombie connections
         if (tipCents > 0) {
-          await adjustTip({
-            tabId: tab.id,
-            originalTipCents: 0,
-            adjustedTipCents: tipCents,
-            adjustmentReason: 'Customer tip',
-          });
+          try {
+            await adjustTip({
+              tabId: tab.id,
+              originalTipCents: 0,
+              adjustedTipCents: tipCents,
+              adjustmentReason: 'Customer tip',
+            });
+          } catch (err) {
+            console.error('[fnb-tip] adjustTip failed:', err);
+          }
         }
-
-        // Refresh check to get accurate paidCents/remainingCents from server
-        await refreshCheck();
 
         // Use server response to determine if fully paid
         // Backend auto-completes session when remaining ≤ 0
@@ -261,7 +263,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
         isActingRef.current = false;
       }
     },
-    [tab, check, sessions, startSession, recordTender, adjustTip, completeSession, refreshCheck],
+    [tab, check, sessions, startSession, recordTender, adjustTip, completeSession],
   );
 
   // ── Void last tender handler (Phase 1C) ───────────────────────
@@ -274,14 +276,13 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
 
     try {
       const result = await voidLastTender(sessionId);
-      await refreshCheck();
       const voidResult = result as Record<string, unknown>;
       const remaining = (voidResult?.remainingAmountCents as number) ?? check?.remainingCents ?? 0;
       return { isFullyPaid: false, remainingCents: remaining };
     } finally {
       isActingRef.current = false;
     }
-  }, [tab, check, voidLastTender, refreshCheck]);
+  }, [tab, check, voidLastTender]);
 
   const handleCapturePreAuth = useCallback(
     async (preauthId: string, captureAmountCents: number, tipCents: number) => {
@@ -290,9 +291,8 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
         captureAmountCents,
         tipAmountCents: tipCents,
       });
-      await refreshCheck();
     },
-    [capturePreauth, refreshCheck],
+    [capturePreauth],
   );
 
   const handleVoidPreAuth = useCallback(
@@ -397,6 +397,32 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   // ── Error state: check failed to load ─────────────────────────
   if (!check) {
     const hasNoItems = tab && tab.lines.filter((l) => l.status !== 'voided').length === 0;
+
+    // If tab has items but check isn't ready yet and no error occurred,
+    // we're in the brief gap between tab loading and prepare-check/fetch
+    // firing — show loading instead of the error screen.
+    if (!hasNoItems && !checkError) {
+      return (
+        <div
+          className="flex h-full flex-col items-center justify-center gap-3"
+          style={{ backgroundColor: 'var(--fnb-bg-primary)' }}
+        >
+          <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>
+            Preparing check...
+          </p>
+          <button
+            type="button"
+            onClick={handleBack}
+            className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs transition-colors hover:opacity-80"
+            style={{ color: 'var(--fnb-text-muted)' }}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Cancel
+          </button>
+        </div>
+      );
+    }
+
     const errorMessage = checkError
       ? checkError
       : hasNoItems
@@ -496,6 +522,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
             Payment — Tab #{tab.tabNumber}
           </h2>
         </div>
+        <ManageTabsButton locationId={locationId ?? ''} />
       </div>
 
       {/* Payment content */}

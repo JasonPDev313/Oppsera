@@ -34,10 +34,10 @@ export function BankAccountCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const verificationStatus = (method as any).verificationStatus ?? 'not_applicable';
-  const bankAccountType = (method as any).bankAccountType ?? null;
-  const bankName = (method as any).bankName ?? null;
-  const routingLast4 = (method as any).bankRoutingLast4 ?? null;
+  const verificationStatus = method.verificationStatus ?? 'not_applicable';
+  const bankAccountType = method.bankAccountType ?? null;
+  const bankName = method.bankName ?? null;
+  const routingLast4 = method.bankRoutingLast4 ?? null;
   const badge = VERIFICATION_BADGES[verificationStatus];
 
   useEffect(() => {
@@ -98,6 +98,12 @@ export function BankAccountCard({
               <>
                 <span className="text-muted-foreground/30">&middot;</span>
                 <span className="truncate max-w-[120px]">{method.nickname}</span>
+              </>
+            )}
+            {method.createdAt && (
+              <>
+                <span className="text-muted-foreground/30">&middot;</span>
+                <span>Added {new Date(method.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
               </>
             )}
           </div>

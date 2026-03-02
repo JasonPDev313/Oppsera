@@ -47,6 +47,8 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
     refresh();
   }, [refresh]);
 
+  // ── Mutations: return server response directly (no redundant session list refetch) ──
+
   const startSession = useCallback(
     async (input: Record<string, unknown>) => {
       const res = await apiFetch<{ data: PaymentSession }>('/api/v1/fnb/payments/sessions', {
@@ -54,10 +56,11 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
         body: JSON.stringify(input),
         headers: locHeaders,
       });
-      await refresh();
+      // Optimistic: prepend new session to local state
+      if (res.data) setSessions((prev) => [res.data, ...prev]);
       return res.data;
     },
-    [refresh, locHeaders],
+    [locHeaders],
   );
 
   const completeSession = useCallback(
@@ -66,10 +69,15 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
         `/api/v1/fnb/payments/sessions/${sessionId}/complete`,
         { method: 'POST', body: JSON.stringify(input), headers: locHeaders },
       );
-      await refresh();
+      // Optimistic: update the completed session in local state
+      if (res.data) {
+        setSessions((prev) =>
+          prev.map((s) => (s.id === sessionId ? res.data : s)),
+        );
+      }
       return res.data;
     },
-    [refresh, locHeaders],
+    [locHeaders],
   );
 
   const failSession = useCallback(
@@ -78,10 +86,14 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
         `/api/v1/fnb/payments/sessions/${sessionId}/fail`,
         { method: 'POST', body: JSON.stringify(input), headers: locHeaders },
       );
-      await refresh();
+      if (res.data) {
+        setSessions((prev) =>
+          prev.map((s) => (s.id === sessionId ? res.data : s)),
+        );
+      }
       return res.data;
     },
-    [refresh, locHeaders],
+    [locHeaders],
   );
 
   const recordTender = useCallback(
@@ -91,10 +103,9 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
         body: JSON.stringify(input),
         headers: locHeaders,
       });
-      await refresh();
       return res.data;
     },
-    [refresh, locHeaders],
+    [locHeaders],
   );
 
   const voidLastTender = useCallback(
@@ -103,10 +114,9 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
         `/api/v1/fnb/payments/sessions/${sessionId}/void-last-tender`,
         { method: 'POST', headers: locHeaders },
       );
-      await refresh();
       return res.data;
     },
-    [refresh, locHeaders],
+    [locHeaders],
   );
 
   const processCardPayment = useCallback(
@@ -125,10 +135,9 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
         body: JSON.stringify(input),
         headers: locHeaders,
       });
-      await refresh();
       return res.data;
     },
-    [refresh, locHeaders],
+    [locHeaders],
   );
 
   return {

@@ -3,7 +3,7 @@
 import { createPortal } from 'react-dom';
 import type { FnbTableWithStatus } from '@/types/fnb';
 import {
-  Users, Trash2, ArrowRightLeft, Merge, Unlink, ChevronRight, Plus,
+  Users, Trash2, ArrowRightLeft, Merge, Unlink, ChevronRight, Plus, XCircle,
 } from 'lucide-react';
 
 interface TableActionMenuProps {
@@ -17,11 +17,12 @@ interface TableActionMenuProps {
   onCombine: () => void;
   onUncombine: () => void;
   onViewTab: () => void;
+  onDeleteTab: () => void;
 }
 
 export function TableActionMenu({
   open, onClose, table,
-  onSeat, onAddTab, onClear, onTransfer, onCombine, onUncombine, onViewTab,
+  onSeat, onAddTab, onClear, onTransfer, onCombine, onUncombine, onViewTab, onDeleteTab,
 }: TableActionMenuProps) {
   if (!open || !table) return null;
 
@@ -35,6 +36,7 @@ export function TableActionMenu({
     { label: 'Combine', icon: Merge, onClick: onCombine, show: !table.combineGroupId && table.isCombinable },
     { label: 'Uncombine', icon: Unlink, onClick: onUncombine, show: !!table.combineGroupId },
     { label: 'Clear Table', icon: Trash2, onClick: onClear, show: ['paid', 'dirty'].includes(table.status) },
+    { label: 'Delete Tab', icon: XCircle, onClick: onDeleteTab, show: !!table.currentTabId },
   ].filter((a) => a.show);
 
   return createPortal(

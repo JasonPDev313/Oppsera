@@ -19,6 +19,11 @@ import { MySectionDialog } from './MySectionDialog';
 import { ServerLockBanner } from '../ServerLockBanner';
 import { ServerPinModal } from '../ServerPinModal';
 import { useMySection } from '@/hooks/use-my-section';
+import { useManagerOverride } from '@/hooks/use-manager-override';
+import { useFnbSettings } from '@/hooks/use-fnb-settings';
+import { ManagerPinModal } from '../manager/ManagerPinModal';
+import { apiFetch } from '@/lib/api-client';
+import { ManageTabsButton } from '../manage-tabs/ManageTabsButton';
 
 /** Minimum table size in editor pixels (matches FnbTableNode MIN_TABLE_SIZE) */
 const MIN_TABLE_SIZE = 60;
@@ -91,6 +96,8 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   }, [activeRoom?.locationId, locations]);
 
   const mySection = useMySection({ roomId: activeRoomId, userId, timezone: locationTimezone });
+  const managerOverride = useManagerOverride();
+  const { settings: fnbGeneralSettings } = useFnbSettings({ moduleKey: 'fnb_general', locationId: activeRoom?.locationId });
 
   // ── Local UI State ──────────────────────────────────────────
 
@@ -112,8 +119,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       setActionMenuTable(null);
       setLockPinModalOpen(false);
       store.setMySectionEditing(false);
+      managerOverride.closePinModal();
     }
-  }, [isActive, store]);
+  }, [isActive, store, managerOverride]);
 
   // Derive locationId from the active room (needed for API calls)
   const locationId = activeRoom?.locationId ?? null;
@@ -355,6 +363,37 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
     }
   }, [tables]);
 
+  const handleDeleteTab = useCallback(async () => {
+    const tabId = actionMenuTable?.currentTabId;
+    if (!tabId) return;
+
+    // Check if manager override is required
+    if (fnbGeneralSettings?.require_manager_override_for_tab_delete) {
+      const { verified } = await managerOverride.requestOverride('Delete Tab', 'pos_fnb.tabs.manage');
+      if (!verified) return;
+    }
+
+    try {
+      // Fetch the tab to get its current version (needed for optimistic locking)
+      const tabRes = await apiFetch<{ data: { version: number } }>(`/api/v1/fnb/tabs/${tabId}`);
+      const tabVersion = tabRes.data.version;
+
+      // Void the tab
+      await apiFetch(`/api/v1/fnb/tabs/${tabId}/void`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: 'Deleted from floor view', expectedVersion: tabVersion }),
+      });
+
+      setToastMessage({ type: 'success', text: 'Tab deleted' });
+      setTimeout(() => setToastMessage(null), 3000);
+      await refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete tab';
+      setToastMessage({ type: 'error', text: message });
+      setTimeout(() => setToastMessage(null), 4000);
+    }
+  }, [actionMenuTable, fnbGeneralSettings, managerOverride, refresh]);
+
   // ── Loading ─────────────────────────────────────────────────
 
   // Full-screen spinner ONLY on true first load (no cached/snapshot data at all).
@@ -435,6 +474,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <ManageTabsButton locationId={locationId ?? ''} />
             {/* Sync feedback */}
             {syncFeedback === 'success' && (
               <span className="text-xs font-medium text-green-500">Synced</span>
@@ -749,6 +789,15 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
             store.navigateTo('tab', { tabId: actionMenuTable.currentTabId });
           }
         }}
+        onDeleteTab={handleDeleteTab}
+      />
+
+      <ManagerPinModal
+        open={managerOverride.showPinModal}
+        onClose={managerOverride.closePinModal}
+        onVerify={managerOverride.verifyPin}
+        error={managerOverride.pinError}
+        title="Manager Override — Delete Tab"
       />
     </div>
   );

@@ -21,12 +21,15 @@ interface ItemEditDrawerState {
   initialSection?: string;
   onSaveSuccess?: () => void;
   preSeed?: ItemPreSeed;
+  mode?: 'fnb' | 'all';
 }
 
 interface OpenOptions {
   section?: string;
   onSaveSuccess?: () => void;
   preSeed?: ItemPreSeed;
+  /** When 'fnb', restricts item type dropdown to food/beverage only */
+  mode?: 'fnb' | 'all';
 }
 
 interface ItemEditDrawerContextType {
@@ -51,6 +54,7 @@ export function ItemEditDrawerProvider({ children }: { children: ReactNode }) {
         initialSection: options?.section,
         onSaveSuccess: options?.onSaveSuccess,
         preSeed: options?.preSeed,
+        mode: options?.mode,
       });
     },
     [],

@@ -132,7 +132,7 @@ export function AddSubDepartmentDialog({
               onKeyDown={(e) => {
                 if (e.key === 'Escape') handleClose();
               }}
-              placeholder="e.g. Beverages, Golf Equipment..."
+              placeholder="e.g. Beverages, Apparel, Accessories..."
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               autoFocus
             />

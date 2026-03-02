@@ -13,11 +13,12 @@ function formatMoney(cents: number): string {
 interface GiftCardTenderDialogProps {
   open: boolean;
   onClose: () => void;
-  onRedeem: (cardNumber: string, amountCents: number) => void;
+  onRedeem: (voucherId: string, cardNumber: string, amountCents: number) => void;
   remainingBalanceCents: number;
 }
 
 interface GiftCardBalance {
+  id: string;
   balanceCents: number;
   cardNumber: string;
 }
@@ -75,7 +76,7 @@ export function GiftCardTenderDialog({
     setBalance(null);
     setRedeemAmount('');
     try {
-      const res = await apiFetch<{ data: GiftCardBalance }>(
+      const res = await apiFetch<{ data: { id: string; voucherNumber: string; balanceCents: number } }>(
         `/api/v1/payments/gift-card-balance?cardNumber=${encodeURIComponent(trimmed)}`,
       );
       if (res.data.balanceCents <= 0) {
@@ -83,7 +84,11 @@ export function GiftCardTenderDialog({
         setIsLookingUp(false);
         return;
       }
-      setBalance(res.data);
+      setBalance({
+        id: res.data.id,
+        balanceCents: res.data.balanceCents,
+        cardNumber: res.data.voucherNumber,
+      });
       // Pre-fill the redeem amount: min of card balance and remaining order balance
       const maxRedeem = Math.min(res.data.balanceCents, remainingBalanceCents);
       setRedeemAmount((maxRedeem / 100).toFixed(2));
@@ -112,7 +117,7 @@ export function GiftCardTenderDialog({
     }
 
     setIsSubmitting(true);
-    onRedeem(balance.cardNumber, parsedCents);
+    onRedeem(balance.id, balance.cardNumber, parsedCents);
   }, [balance, redeemAmount, remainingBalanceCents, isSubmitting, onRedeem, toast]);
 
   const handleKeyDown = useCallback(

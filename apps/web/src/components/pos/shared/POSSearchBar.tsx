@@ -346,7 +346,7 @@ export const POSSearchBar = memo(function POSSearchBar({
   return (
     <div ref={containerRef} className={`relative ${className ?? ''}`}>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
         <input
           ref={inputRef}
           type="text"
@@ -355,18 +355,19 @@ export const POSSearchBar = memo(function POSSearchBar({
           onKeyDown={handleKeyDown}
           onFocus={() => { if (flatResults.length > 0) setIsOpen(true); }}
           placeholder="Search items, @customers, #held orders..."
-          className="w-full rounded-lg border border-border bg-surface py-2.5 pl-10 pr-10 text-sm text-foreground placeholder-gray-400 outline-none transition-colors focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+          className="w-full rounded-xl border-2 border-border bg-surface py-3 pl-12 pr-12 text-foreground placeholder:text-muted-foreground outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:shadow-lg"
+          style={{ fontSize: 'calc(1rem * var(--pos-font-scale, 1))' }}
         />
         {query ? (
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+            className="absolute right-4 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         ) : (
-          <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+          <kbd className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 rounded border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
             /
           </kbd>
         )}

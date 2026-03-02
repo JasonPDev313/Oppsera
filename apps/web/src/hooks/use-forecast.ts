@@ -3,41 +3,35 @@
 import { useState, useCallback } from 'react';
 import { apiFetch } from '@/lib/api-client';
 
-// ── Types ──────────────────────────────────────────────────────────
+// ── Types (aligned with backend predictive-forecaster.ts) ───────
+
+export interface HistoricalDataPoint {
+  date: string;
+  value: number;
+}
 
 export interface ForecastDataPoint {
   date: string;
-  value: number;
-  lowerBound: number;
+  predicted: number;
   upperBound: number;
-  isActual: boolean;
-}
-
-export interface ForecastSeasonality {
-  type: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  strength: number;
-  description: string;
+  lowerBound: number;
+  confidence: number;
 }
 
 export interface ForecastResult {
-  metricSlug: string;
-  metricDisplayName: string;
-  horizonDays: number;
-  method: string;
-  dataPoints: ForecastDataPoint[];
-  trend: 'increasing' | 'decreasing' | 'stable' | 'volatile';
+  metric: string;
+  historicalData: HistoricalDataPoint[];
+  forecastData: ForecastDataPoint[];
+  trend: 'up' | 'down' | 'flat';
   trendStrength: number;
-  seasonality: ForecastSeasonality[];
-  confidenceLevel: number;
-  mape: number | null;
-  narrative: string;
+  methodology: string;
 }
 
 export interface ForecastInput {
   metricSlug: string;
-  horizonDays?: number;
-  confidenceLevel?: number;
-  includeSeasonality?: boolean;
+  forecastDays?: number;
+  historyDays?: number;
+  method?: 'linear' | 'moving_average' | 'exponential_smoothing';
 }
 
 interface ForecastApiResponse {

@@ -87,7 +87,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     } catch {
       // Non-critical — silently ignore
     }
-  }, [config.locationId]);
+  }, [locationHeaders]);
 
   // Refresh held count after initial render (deferred so it doesn't block POS load)
   useEffect(() => {
@@ -267,7 +267,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
 
     placingPromise.current = doPlace();
     return placingPromise.current;
-  }, [toast, handleMutationError, batch.flushBatch]);
+  }, [toast, handleMutationError, batch.drainBatch]);
 
   // ── Record Tender ────────────────────────────────────────────────
 
@@ -408,6 +408,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
       batch.batchTimerRef.current = null;
     }
     batch.batchQueue.current = [];
+    batch.resetPendingCount();
 
     // Clear promise refs so the next order starts with a clean slate
     openOrderPromise.current = null;
@@ -448,6 +449,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     isLoading,
     isCreatingOrder,
     heldOrderCount,
+    pendingItemCount: batch.pendingItemCount,
 
     // Line Items
     openOrder,

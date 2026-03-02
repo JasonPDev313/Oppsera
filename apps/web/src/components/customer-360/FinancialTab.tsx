@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
+import { PaymentMethodsList } from '@/components/customers/payment-methods-list';
 import {
   useFinancialAccounts,
   useUnifiedLedger,
@@ -1133,6 +1134,14 @@ export default function FinancialTab({
         totalOutstandingCents={agingHook.data?.totalOutstandingCents ?? 0}
         isLoading={agingHook.isLoading && !agingHook.data}
       />
+
+      {/* Stored Payment Methods */}
+      <section className="rounded-lg border border-border bg-surface">
+        <h3 className="px-6 pt-5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Payment Methods
+        </h3>
+        <PaymentMethodsList customerId={customerId} />
+      </section>
 
       {/* Adjustment Form (collapsible) */}
       {adjustFormOpen && (

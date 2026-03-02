@@ -51,6 +51,8 @@ import type {
   CreateDiscountRuleInput,
   UpdateDiscountRuleInput,
   ToggleDiscountRuleInput,
+  CustomerReservationsData,
+  CustomerOrdersResult,
 } from '@/types/customer-360';
 import { buildQueryString } from '@/lib/query-string';
 
@@ -71,6 +73,7 @@ export function useCustomerHeader(customerId: string | null) {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load customer header'));
     } finally {
       setIsLoading(false);
@@ -99,6 +102,7 @@ export function useCustomerOverview(customerId: string | null) {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load customer overview'));
     } finally {
       setIsLoading(false);
@@ -127,6 +131,7 @@ export function useCustomerContacts360(customerId: string | null) {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load customer contacts'));
     } finally {
       setIsLoading(false);
@@ -154,6 +159,7 @@ export function useCustomerEmailMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to add email');
       setError(e);
       throw e;
@@ -172,6 +178,7 @@ export function useCustomerEmailMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to update email');
       setError(e);
       throw e;
@@ -189,6 +196,7 @@ export function useCustomerEmailMutations() {
         { method: 'DELETE' }
       );
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to remove email');
       setError(e);
       throw e;
@@ -216,6 +224,7 @@ export function useCustomerPhoneMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to add phone');
       setError(e);
       throw e;
@@ -234,6 +243,7 @@ export function useCustomerPhoneMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to update phone');
       setError(e);
       throw e;
@@ -251,6 +261,7 @@ export function useCustomerPhoneMutations() {
         { method: 'DELETE' }
       );
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to remove phone');
       setError(e);
       throw e;
@@ -278,6 +289,7 @@ export function useCustomerAddressMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to add address');
       setError(e);
       throw e;
@@ -296,6 +308,7 @@ export function useCustomerAddressMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to update address');
       setError(e);
       throw e;
@@ -313,6 +326,7 @@ export function useCustomerAddressMutations() {
         { method: 'DELETE' }
       );
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to remove address');
       setError(e);
       throw e;
@@ -340,6 +354,7 @@ export function useEmergencyContactMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to add emergency contact');
       setError(e);
       throw e;
@@ -358,6 +373,7 @@ export function useEmergencyContactMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to update emergency contact');
       setError(e);
       throw e;
@@ -375,6 +391,7 @@ export function useEmergencyContactMutations() {
         { method: 'DELETE' }
       );
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to remove emergency contact');
       setError(e);
       throw e;
@@ -403,6 +420,7 @@ export function useFinancialAccounts(customerId: string | null) {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load financial accounts'));
     } finally {
       setIsLoading(false);
@@ -438,6 +456,7 @@ export function useUnifiedLedger(customerId: string | null, filters?: {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load ledger'));
     } finally {
       setIsLoading(false);
@@ -464,6 +483,7 @@ export function useAgingSummary(customerId: string | null) {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load aging summary'));
     } finally {
       setIsLoading(false);
@@ -489,6 +509,7 @@ export function useFinancialMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to create financial account');
       setError(e);
       throw e;
@@ -507,6 +528,7 @@ export function useFinancialMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to update financial account');
       setError(e);
       throw e;
@@ -525,6 +547,7 @@ export function useFinancialMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to adjust ledger');
       setError(e);
       throw e;
@@ -543,6 +566,7 @@ export function useFinancialMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to transfer funds');
       setError(e);
       throw e;
@@ -561,6 +585,7 @@ export function useFinancialMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to configure autopay');
       setError(e);
       throw e;
@@ -579,6 +604,7 @@ export function useFinancialMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to place hold');
       setError(e);
       throw e;
@@ -597,6 +623,7 @@ export function useFinancialMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to lift hold');
       setError(e);
       throw e;
@@ -615,6 +642,7 @@ export function useFinancialMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to update credit limit');
       setError(e);
       throw e;
@@ -655,6 +683,7 @@ export function useFinancialAuditTrail(customerId: string | null, cursor?: strin
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load audit trail'));
     } finally {
       setIsLoading(false);
@@ -690,6 +719,7 @@ export function useActivityFeed(customerId: string | null, cursor?: string) {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load activity feed'));
     } finally {
       setIsLoading(false);
@@ -722,6 +752,7 @@ export function useCustomerNotes(customerId: string | null) {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load notes'));
     } finally {
       setIsLoading(false);
@@ -747,6 +778,7 @@ export function useNoteMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to add note');
       setError(e);
       throw e;
@@ -765,6 +797,7 @@ export function useNoteMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to update note');
       setError(e);
       throw e;
@@ -782,6 +815,7 @@ export function useNoteMutations() {
         { method: 'DELETE' }
       );
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to remove note');
       setError(e);
       throw e;
@@ -815,6 +849,7 @@ export function useCommunicationTimeline(customerId: string | null, filters?: { 
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load communication timeline'));
     } finally {
       setIsLoading(false);
@@ -840,6 +875,7 @@ export function useMessageMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to send message');
       setError(e);
       throw e;
@@ -884,6 +920,7 @@ export function useRelationshipsExtended(customerId: string | null) {
       }));
       setData({ relationships: mapped });
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load relationships'));
     } finally {
       setIsLoading(false);
@@ -909,6 +946,7 @@ export function useRelationshipMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to update relationship');
       setError(e);
       throw e;
@@ -926,6 +964,7 @@ export function useRelationshipMutations() {
         { method: 'DELETE' }
       );
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to remove relationship');
       setError(e);
       throw e;
@@ -958,6 +997,7 @@ export function useCustomerFiles(customerId: string | null) {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load files'));
     } finally {
       setIsLoading(false);
@@ -983,6 +1023,7 @@ export function useFileMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to upload file');
       setError(e);
       throw e;
@@ -1000,6 +1041,7 @@ export function useFileMutations() {
         { method: 'DELETE' }
       );
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to delete file');
       setError(e);
       throw e;
@@ -1032,6 +1074,7 @@ export function useStoredValueInstruments(customerId: string | null, filters?: {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load stored value instruments'));
     } finally {
       setIsLoading(false);
@@ -1062,6 +1105,7 @@ export function useStoredValueTransactions(customerId: string | null, instrument
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load transactions'));
     } finally {
       setIsLoading(false);
@@ -1087,6 +1131,7 @@ export function useStoredValueMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to issue stored value');
       setError(e);
       throw e;
@@ -1105,6 +1150,7 @@ export function useStoredValueMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to redeem stored value');
       setError(e);
       throw e;
@@ -1123,6 +1169,7 @@ export function useStoredValueMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to reload stored value');
       setError(e);
       throw e;
@@ -1141,6 +1188,7 @@ export function useStoredValueMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to transfer stored value');
       setError(e);
       throw e;
@@ -1159,6 +1207,7 @@ export function useStoredValueMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to void stored value');
       setError(e);
       throw e;
@@ -1192,6 +1241,7 @@ export function useDiscountRules(filters?: {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load discount rules'));
     } finally {
       setIsLoading(false);
@@ -1218,6 +1268,7 @@ export function useApplicableDiscountRules(customerId: string | null) {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load applicable discount rules'));
     } finally {
       setIsLoading(false);
@@ -1243,6 +1294,7 @@ export function useDiscountRuleMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to create discount rule');
       setError(e);
       throw e;
@@ -1261,6 +1313,7 @@ export function useDiscountRuleMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to update discount rule');
       setError(e);
       throw e;
@@ -1279,6 +1332,7 @@ export function useDiscountRuleMutations() {
       );
       return res.data;
     } catch (err) {
+      console.error('[customer-360]', err);
       const e = err instanceof Error ? err : new Error('Failed to toggle discount rule');
       setError(e);
       throw e;
@@ -1307,6 +1361,7 @@ export function useCustomerPrivilegesExtended(customerId: string | null) {
       );
       setData(res.data);
     } catch (err) {
+      console.error('[customer-360]', err);
       setError(err instanceof Error ? err : new Error('Failed to load privileges'));
     } finally {
       setIsLoading(false);
@@ -1316,4 +1371,99 @@ export function useCustomerPrivilegesExtended(customerId: string | null) {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   return { data, isLoading, error, mutate: fetchData };
+}
+
+// ── Reservations & Waitlist Hook ────────────────────────────────
+
+export function useCustomerReservations(
+  customerId: string | null,
+  timeframe: 'upcoming' | 'past' | 'all' = 'all',
+) {
+  const [data, setData] = useState<CustomerReservationsData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchData = useCallback(async () => {
+    if (!customerId) { setData(null); return; }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const qs = buildQueryString({ timeframe });
+      const res = await apiFetch<{ data: CustomerReservationsData }>(
+        `/api/v1/customers/${customerId}/reservations${qs}`
+      );
+      setData(res.data);
+    } catch (err) {
+      console.error('[customer-360]', err);
+      setError(err instanceof Error ? err : new Error('Failed to load reservations'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [customerId, timeframe]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  return { data, isLoading, error, mutate: fetchData };
+}
+
+// ── Order History Hook ──────────────────────────────────────────
+
+export function useCustomerOrders(
+  customerId: string | null,
+  options?: { status?: string; limit?: number },
+) {
+  const [data, setData] = useState<CustomerOrdersResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchData = useCallback(async () => {
+    if (!customerId) { setData(null); return; }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const qs = buildQueryString({
+        status: options?.status,
+        limit: options?.limit ? String(options.limit) : undefined,
+      });
+      const res = await apiFetch<{ data: CustomerOrdersResult }>(
+        `/api/v1/customers/${customerId}/orders${qs}`
+      );
+      setData(res.data);
+    } catch (err) {
+      console.error('[customer-360]', err);
+      setError(err instanceof Error ? err : new Error('Failed to load orders'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [customerId, options?.status, options?.limit]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const loadMore = useCallback(async () => {
+    if (!customerId || !data?.cursor) return;
+    setIsLoadingMore(true);
+    try {
+      const qs = buildQueryString({
+        cursor: data.cursor,
+        status: options?.status,
+        limit: options?.limit ? String(options.limit) : undefined,
+      });
+      const res = await apiFetch<{ data: CustomerOrdersResult }>(
+        `/api/v1/customers/${customerId}/orders${qs}`
+      );
+      setData((prev) => prev ? {
+        items: [...prev.items, ...res.data.items],
+        cursor: res.data.cursor,
+        hasMore: res.data.hasMore,
+      } : res.data);
+    } catch (err) {
+      console.error('[customer-360]', err);
+      setError(err instanceof Error ? err : new Error('Failed to load more orders'));
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [customerId, data?.cursor, options?.status, options?.limit]);
+
+  return { data, isLoading, isLoadingMore, error, mutate: fetchData, loadMore };
 }
