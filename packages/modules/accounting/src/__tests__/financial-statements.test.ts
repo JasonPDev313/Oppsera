@@ -686,7 +686,7 @@ describe('getFinancialHealthSummary', () => {
       const mockTx = {
         execute: vi
           .fn()
-          // 1. Settings
+          // 1. Settings (sequential, before Promise.all)
           .mockResolvedValueOnce([
             {
               fiscal_year_start_month: 1,
@@ -695,20 +695,20 @@ describe('getFinancialHealthSummary', () => {
               default_undeposited_funds_account_id: 'acct-udf',
             },
           ])
-          // 2. Net income (month + YTD)
+          // 2. Net income — Promise.all slot 1
           .mockResolvedValueOnce([{ month_net_income: '3500.00', ytd_net_income: '12000.00' }])
-          // 3. Cash balance (bank accounts)
+          // 3. Batched control account balances (AP+AR+UDF) — Promise.all slot 2
+          .mockResolvedValueOnce([
+            { account_id: 'acct-ap', balance: '4500.00' },
+            { account_id: 'acct-ar', balance: '2000.00' },
+            { account_id: 'acct-udf', balance: '750.00' },
+          ])
+          // 4. Cash balance (bank accounts) — Promise.all slot 3
           .mockResolvedValueOnce([{ balance: '25000.00' }])
-          // 4. Trial balance check
+          // 5. Trial balance check — Promise.all slot 4
           .mockResolvedValueOnce([{ total_debits: '50000.00', total_credits: '50000.00' }])
-          // 5. Unmapped events count
-          .mockResolvedValueOnce([{ count: 3 }])
-          // 6. AP balance (getAccountBalance in return)
-          .mockResolvedValueOnce([{ balance: '4500.00' }])
-          // 7. AR balance (getAccountBalance in return)
-          .mockResolvedValueOnce([{ balance: '2000.00' }])
-          // 8. Undeposited funds (getAccountBalance in return)
-          .mockResolvedValueOnce([{ balance: '750.00' }]),
+          // 6. Unmapped events count — Promise.all slot 5
+          .mockResolvedValueOnce([{ count: 3 }]),
       };
       return fn(mockTx);
     });

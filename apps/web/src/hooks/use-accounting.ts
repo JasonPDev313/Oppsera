@@ -85,11 +85,12 @@ export function useGLClassifications() {
 
 export function useAccountingBootstrapStatus() {
   const settings = useAccountingSettings();
-  const accounts = useGLAccounts();
 
+  // Settings are created atomically with accounts during bootstrap —
+  // no need to fetch the entire GL accounts list just to check .length > 0.
   return {
-    isBootstrapped: settings.data !== null && accounts.data.length > 0,
-    isLoading: settings.isLoading || accounts.isLoading,
+    isBootstrapped: settings.data !== null,
+    isLoading: settings.isLoading,
   };
 }
 

@@ -6,7 +6,6 @@ import {
   getMappingCoverage,
   listJournalEntries,
   listClosePeriods,
-  getCloseChecklist,
 } from '@oppsera/module-accounting';
 
 // GET /api/v1/accounting/statements/health-summary — financial health dashboard KPIs
@@ -23,35 +22,12 @@ export const GET = withMiddleware(
       listClosePeriods({ tenantId: ctx.tenantId, limit: 1 }).catch(() => ({ items: [] })),
     ]);
 
-    // Get close checklist for the most recent period
-    let periodWithChecklist: {
-      id: string;
-      postingPeriod: string;
-      status: string;
-      checklist: Array<{ label: string; status: 'pass' | 'fail' | 'warning'; detail?: string }>;
-      closedAt: string | null;
-      closedBy: string | null;
-      notes: string | null;
-    } | null = null;
-
+    // Return period status without the full close checklist (11-16 queries).
+    // The dashboard only shows period name + status; the close workflow page
+    // loads the full checklist when the user navigates there.
     const latestPeriod = periods.items[0] ?? null;
-    if (latestPeriod) {
-      try {
-        const checklist = await getCloseChecklist({
-          tenantId: ctx.tenantId,
-          postingPeriod: latestPeriod.postingPeriod,
-        });
-        periodWithChecklist = {
-          id: latestPeriod.id,
-          postingPeriod: latestPeriod.postingPeriod,
-          status: checklist.status,
-          checklist: checklist.items,
-          closedAt: latestPeriod.closedAt,
-          closedBy: latestPeriod.closedBy,
-          notes: latestPeriod.notes,
-        };
-      } catch {
-        periodWithChecklist = {
+    const periodInfo = latestPeriod
+      ? {
           id: latestPeriod.id,
           postingPeriod: latestPeriod.postingPeriod,
           status: latestPeriod.status,
@@ -59,9 +35,8 @@ export const GET = withMiddleware(
           closedAt: latestPeriod.closedAt,
           closedBy: latestPeriod.closedBy,
           notes: latestPeriod.notes,
-        };
-      }
-    }
+        }
+      : null;
 
     // Working capital = current assets (cash + undeposited) - current liabilities (AP)
     const workingCapital =
@@ -86,7 +61,7 @@ export const GET = withMiddleware(
         : { departments: { mapped: 0, total: 0 }, paymentTypes: { mapped: 0, total: 0 }, taxGroups: { mapped: 0, total: 0 }, overallPercentage: 0 },
       unmappedEventCount: summary.unmappedEventsCount,
       recentJournals: journals.items,
-      currentPeriod: periodWithChecklist,
+      currentPeriod: periodInfo,
     };
 
     return NextResponse.json({ data });
