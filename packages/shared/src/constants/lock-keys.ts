@@ -28,6 +28,9 @@ export const LOCK_KEYS = {
 
   /** Expired lock cleanup (self-maintaining) */
   LOCK_CLEANUP: 'lock-cleanup',
+
+  /** Admin backup scheduler */
+  BACKUP_SCHEDULER: 'backup-scheduler',
 } as const;
 
 export type LockKey = (typeof LOCK_KEYS)[keyof typeof LOCK_KEYS];

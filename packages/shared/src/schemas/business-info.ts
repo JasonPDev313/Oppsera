@@ -6,7 +6,7 @@ export const ACCESS_TYPES = ['public', 'private', 'members_only', 'appointment_o
 export const RENTAL_TYPES = ['none', 'equipment', 'space', 'vehicles', 'multiple'] as const;
 export const FNB_LEVELS = ['none', 'vending_only', 'limited_menu', 'full_service', 'catering'] as const;
 export const INDUSTRY_TYPES = [
-  'retail', 'restaurant', 'golf_club', 'hotel', 'spa',
+  'retail', 'restaurant', 'hotel', 'spa', 'golf_club',
   'fitness', 'entertainment', 'professional_services', 'hybrid', 'other',
 ] as const;
 

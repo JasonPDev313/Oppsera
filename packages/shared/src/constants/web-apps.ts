@@ -31,6 +31,8 @@ export interface WebAppDefinition {
   sortOrder: number;
   /** Default availability status */
   defaultStatus: WebAppStatus;
+  /** Dashboard route for configuring this app's settings */
+  settingsRoute?: string;
 }
 
 export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
@@ -123,8 +125,11 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     associatedModules: ['spa'],
     requiredModules: ['spa'],
     sortOrder: 70,
-    defaultStatus: 'coming_soon',
+    defaultStatus: 'active',
     urlSource: 'origin',
+    urlPath: '/book/{tenantSlug}/spa',
+    helpTextActive: 'Guests can browse services, select providers, and book appointments online. Embed this on your website with an iframe.',
+    settingsRoute: '/spa/booking',
   },
   {
     key: 'reservation-portal',
@@ -146,8 +151,8 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     description: 'Kitchen display screen — ticket queue, bump bar, timers.',
     icon: 'Monitor',
     category: 'staff_tools',
-    associatedModules: ['pos_fnb', 'kds'],
-    requiredModules: ['pos_fnb'],
+    associatedModules: ['kds'],
+    requiredModules: ['kds'],
     urlSource: 'origin',
     urlPath: '/kds',
     helpTextActive: 'Open on a kitchen display to show ticket queue with bump controls.',
@@ -160,8 +165,8 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     description: 'Expeditor screen — cross-station order readiness and plating.',
     icon: 'LayoutGrid',
     category: 'staff_tools',
-    associatedModules: ['pos_fnb', 'kds'],
-    requiredModules: ['pos_fnb'],
+    associatedModules: ['kds'],
+    requiredModules: ['kds'],
     urlSource: 'origin',
     urlPath: '/expo',
     helpTextActive: 'Open on the expo station to coordinate cross-station order assembly.',

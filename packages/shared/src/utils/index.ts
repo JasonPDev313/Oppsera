@@ -9,3 +9,5 @@ export type { ComponentAllocationInput, ComponentAllocation } from './package-al
 export { getInitials, formatPhone } from './format';
 export { parseUserAgent } from './user-agent';
 export type { ParsedUserAgent } from './user-agent';
+export { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from './calendar-links';
+export type { CalendarEvent } from './calendar-links';
