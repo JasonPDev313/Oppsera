@@ -85,7 +85,7 @@ function KPICard({
 
 export default function GlCodeSummaryContent() {
   const { locations } = useAuthContext();
-  const filters = useReportFilters({ defaultPreset: 'today' });
+  const filters = useReportFilters({ defaultPreset: 'last_30_days' });
 
   const { data, isLoading, mutate } = useGlCodeSummary({
     startDate: filters.dateFrom,

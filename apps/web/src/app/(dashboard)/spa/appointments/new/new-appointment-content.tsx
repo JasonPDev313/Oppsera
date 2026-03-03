@@ -895,9 +895,10 @@ export default function NewAppointmentContent() {
     return {
       serviceId: selectedServiceId,
       providerId: selectedProviderId || undefined,
+      locationId: locationId || undefined,
       date: selectedDate,
     };
-  }, [selectedServiceId, selectedProviderId, selectedDate]);
+  }, [selectedServiceId, selectedProviderId, selectedDate, locationId]);
 
   const { data: slots, isLoading: isLoadingSlots } =
     useSpaAvailableSlots(slotsParams);

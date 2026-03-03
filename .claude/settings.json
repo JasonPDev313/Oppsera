@@ -48,7 +48,8 @@
       "Bash(export PATH=\"/c/Users/Jason/AppData/Roaming/npm:$PATH:/c/Program Files/nodejs\")",
       "Bash(export PATH=\"/c/Users/Jason/AppData/Roaming/npm:/c/Program Files/nodejs:/c/Windows/System32:$PATH\")",
       "Bash(export PATH=\"/c/Users/Jason/AppData/Roaming/npm:/c/Program Files/nodejs:/c/Windows/System32:/usr/bin:/bin:/mingw64/bin:$PATH\")",
-      "Bash(export PATH=\"/usr/bin:/bin:/mingw64/bin:$PATH\")"
+      "Bash(export PATH=\"/usr/bin:/bin:/mingw64/bin:$PATH\")",
+      "Read(//c/Users/Jason/AppData/Local/Temp/claude/c--Users-Jason-Dev-Oppsera/tasks/**)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",
@@ -58,7 +59,8 @@
       "c:\\Users\\Jason\\Dev\\Oppsera\\.claude\\Admin Portal Prompts",
       "C:\\Users\\Jason\\.claude\\projects\\c--Users-Jason-Dev-Oppsera\\memory",
       "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\api\\v1\\pms\\housekeeping\\assignments\\[id]",
-      "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\admin\\.next"
+      "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\admin\\.next",
+      "C:\\Users\\Jason\\Dev\\Oppsera\\docs"
     ]
   }
 }

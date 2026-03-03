@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { db } from '@oppsera/db';
+import { createAdminClient } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -14,7 +14,9 @@ export async function GET(
   const { token } = await params;
 
   try {
-    const rows = await db.execute(sql`
+    // Use admin client to bypass RLS (public guest endpoint, no tenant context)
+    const adminDb = createAdminClient();
+    const rows = await adminDb.execute(sql`
       SELECT
         w.id,
         w.guest_name,
@@ -85,7 +87,8 @@ export async function DELETE(
   const { token } = await params;
 
   try {
-    const entryRows = await db.execute(sql`
+    const adminDb = createAdminClient();
+    const entryRows = await adminDb.execute(sql`
       SELECT id, status FROM fnb_waitlist_entries
       WHERE guest_token = ${token} AND status IN ('waiting', 'notified')
       LIMIT 1
@@ -98,7 +101,7 @@ export async function DELETE(
       );
     }
 
-    await db.execute(sql`
+    await adminDb.execute(sql`
       UPDATE fnb_waitlist_entries
       SET status = 'left', updated_at = now()
       WHERE id = ${String(entry.id)}

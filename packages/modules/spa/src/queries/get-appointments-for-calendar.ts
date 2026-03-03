@@ -46,7 +46,7 @@ export interface CalendarResult {
  */
 export async function getAppointmentsForCalendar(input: {
   tenantId: string;
-  locationId: string;
+  locationId?: string;
   startDate: string;
   endDate: string;
   providerIds?: string[];
@@ -60,10 +60,13 @@ export async function getAppointmentsForCalendar(input: {
 
     const conditions: ReturnType<typeof eq>[] = [
       eq(spaAppointments.tenantId, input.tenantId),
-      eq(spaAppointments.locationId, input.locationId),
       gte(spaAppointments.startAt, startTs),
       lte(spaAppointments.startAt, endTs),
     ];
+
+    if (input.locationId) {
+      conditions.push(eq(spaAppointments.locationId, input.locationId));
+    }
 
     // Only show active appointment statuses on calendar (exclude canceled)
     conditions.push(

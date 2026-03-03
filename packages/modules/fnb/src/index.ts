@@ -67,6 +67,7 @@ export const MODULE_TABLES = [
   'fnb_kds_item_prep_times',
   'fnb_manager_overrides',
   'fnb_manage_tabs_settings',
+  'fnb_server_load_snapshots',
 ] as const;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1014,6 +1015,8 @@ export { hostSeatFromWaitlist } from './commands/host-seat-from-waitlist';
 export { hostRemoveFromWaitlist } from './commands/host-remove-from-waitlist';
 export { recordTableTurn } from './commands/record-table-turn';
 export { sendGuestNotification } from './commands/send-guest-notification';
+export { atomicSeatParty } from './commands/atomic-seat-party';
+export type { AtomicSeatPartyResult } from './commands/atomic-seat-party';
 
 // V2 Helpers
 export { mapHostReservationRow, mapHostWaitlistRow } from './commands/host-helpers';
@@ -1098,7 +1101,42 @@ export {
   completeReservationSchema,
   seatReservationSchema,
   hostGetPreShiftReportSchema,
+  atomicSeatPartySchema,
+  SEATING_SOURCE_TYPES,
+  // Session 5 — Waitlist Auto-Promotion
+  offerTableToWaitlistSchema,
+  acceptTableOfferSchema,
+  declineTableOfferSchema,
 } from './validation-host';
+export type {
+  AtomicSeatPartyInput,
+  SeatingSourceType,
+  // Session 5 — Waitlist Auto-Promotion
+  OfferTableToWaitlistInput,
+  AcceptTableOfferInput,
+  DeclineTableOfferInput,
+} from './validation-host';
+
+// ═══════════════════════════════════════════════════════════════════
+// Session 5 (Host) — Waitlist Auto-Promotion
+// ═══════════════════════════════════════════════════════════════════
+
+// Commands
+export { offerTableToWaitlist } from './commands/offer-table-to-waitlist';
+export { acceptTableOffer } from './commands/accept-table-offer';
+export { declineTableOffer } from './commands/decline-table-offer';
+
+// Consumer
+export { handleTableAvailableForWaitlist } from './consumers/handle-table-available-for-waitlist';
+export type { TableAvailableEventData } from './consumers/handle-table-available-for-waitlist';
+
+// Pure scoring service
+export { rankWaitlistForTable } from './services/waitlist-promoter';
+export type {
+  WaitlistEntryForPromotion,
+  TableForPromotion,
+  PromotionMatch,
+} from './services/waitlist-promoter';
 
 // V2 Services (pure algorithm exports)
 export {
@@ -1241,3 +1279,198 @@ export type {
   BulkCloseTabsInput, EmergencyCleanupInput, VerifyManagerPinInput,
   ManageTabsSettingsInput, ListManagerOverridesInput,
 } from './validation';
+
+// ═══════════════════════════════════════════════════════════════════
+// Reservation Conflict Detection & Turn Window Validation (Session 2)
+// ═══════════════════════════════════════════════════════════════════
+
+// Queries
+export { checkReservationConflicts } from './queries/check-reservation-conflicts';
+export type { CheckReservationConflictsInput, ConflictResult } from './queries/check-reservation-conflicts';
+export { getTurnTimeAverages } from './queries/get-turn-time-averages';
+export type { GetTurnTimeAveragesInput, TurnTimeAverages } from './queries/get-turn-time-averages';
+
+// Pure service helpers (importable without DB access)
+export { detectConflicts, validateTurnWindow } from './services/reservation-conflict-checker';
+export type {
+  ProposedReservation,
+  ExistingReservation,
+  TurnTimeValidation,
+} from './services/reservation-conflict-checker';
+
+// ═══════════════════════════════════════════════════════════════════
+// Session 3 (Host): Pacing Engine
+// ═══════════════════════════════════════════════════════════════════
+
+// Commands
+export { upsertPacingRule } from './commands/upsert-pacing-rule';
+export { deletePacingRule } from './commands/delete-pacing-rule';
+
+// Queries
+export { getPacingAvailability } from './queries/get-pacing-availability';
+export type { PacingAvailabilityResult } from './queries/get-pacing-availability';
+export { listPacingRules } from './queries/list-pacing-rules';
+export type { PacingRuleListItem } from './queries/list-pacing-rules';
+
+// Pure service (no DB)
+export { evaluatePacing, computePacingAvailability } from './services/pacing-evaluator';
+export type {
+  PacingRule,
+  PacingEvalInput,
+  PacingEvalResult,
+  PacingSlot,
+} from './services/pacing-evaluator';
+
+// Validation
+export {
+  upsertPacingRuleSchema,
+  getPacingAvailabilitySchema,
+} from './validation-host';
+export type {
+  UpsertPacingRuleInput,
+  GetPacingAvailabilityInput,
+} from './validation-host';
+
+// ═══════════════════════════════════════════════════════════════════
+// Session 6 (Host): Server Load Snapshot & Intelligent Assignment
+// ═══════════════════════════════════════════════════════════════════
+
+// Commands
+export { refreshServerLoadSnapshot } from './commands/refresh-server-load-snapshot';
+
+// Queries
+export { getServerLoadSnapshot } from './queries/get-server-load-snapshot';
+export { getSectionTableMap } from './queries/get-section-table-map';
+export type { GetSectionTableMapInput } from './queries/get-section-table-map';
+
+// Pure service
+export { recommendServer } from './services/server-recommender';
+export type {
+  ServerLoadSnapshot,
+  SectionAssignment,
+  ServerRecommendation,
+  RecommendServerSettings,
+} from './services/server-recommender';
+
+// Validation
+export {
+  refreshServerLoadSchema,
+  getServerLoadQuerySchema,
+  recommendServerQuerySchema,
+} from './validation-host';
+export type {
+  RefreshServerLoadInput,
+  GetServerLoadQueryInput,
+  RecommendServerQueryInput,
+} from './validation-host';
+
+// ═══════════════════════════════════════════════════════════════════
+// Session 4 (POS Integration): Event-Driven Table Status Progression
+// ═══════════════════════════════════════════════════════════════════
+
+// Command
+export { autoProgressTableStatus, STATUS_ORDER } from './commands/auto-progress-table-status';
+export type { AutoProgressTableStatusInput, AutoProgressResult } from './commands/auto-progress-table-status';
+
+// Consumers
+export {
+  handleCourseSentForTableStatus,
+  handleCourseFiredForTableStatus,
+  handleCheckPresentedForTableStatus,
+  handlePaymentCompletedForTableStatus,
+  handleTabClosedForTableStatus,
+} from './consumers/handle-tab-status-for-table';
+
+// ═══════════════════════════════════════════════════════════════════
+// SESSION 7 — Predictive Turn Engine V2
+// ═══════════════════════════════════════════════════════════════════
+
+// Pure service (no DB)
+export { predictTurnTime } from './services/turn-time-predictor';
+export type {
+  TurnTimeAggregate,
+  PredictionInput,
+  PredictionResult,
+  PredictionSettings,
+} from './services/turn-time-predictor';
+
+// Query
+export { getTurnTimePrediction } from './queries/get-turn-time-prediction';
+export type { GetTurnTimePredictionInput } from './queries/get-turn-time-prediction';
+
+// Consumer
+export { handleTurnCompletedForAggregates } from './consumers/handle-turn-for-aggregates';
+export type { TurnCompletedForAggregatesData } from './consumers/handle-turn-for-aggregates';
+
+// ═══════════════════════════════════════════════════════════════════
+// SESSION 8 — Revenue Optimization (RevPASH & Dynamic Yield)
+// ═══════════════════════════════════════════════════════════════════
+
+// Pure service (no DB)
+export { calculateRevPASH, generateYieldRecommendations } from './services/revpash-calculator';
+export type {
+  RevPASHResult,
+  DemandSlot,
+  YieldRecommendation,
+} from './services/revpash-calculator';
+
+// Queries
+export { getRevpashMetrics } from './queries/get-revpash-metrics';
+export type { GetRevpashMetricsInput } from './queries/get-revpash-metrics';
+export { getYieldRecommendations } from './queries/get-yield-recommendations';
+export type { GetYieldRecommendationsInput } from './queries/get-yield-recommendations';
+
+// ═══════════════════════════════════════════════════════════════════
+// SESSION 9 — Guest Intelligence
+// ═══════════════════════════════════════════════════════════════════
+
+// Pure service (no DB)
+export {
+  aggregateGuestProfile,
+  computeReliabilityScore,
+  deriveGuestSegment,
+  mergeVisitData,
+} from './services/guest-profile-aggregator';
+export type {
+  GuestReservationData,
+  GuestTabData,
+  GuestProfileData,
+  GuestProfileSummary,
+  NewVisitData,
+  GuestProfileUpdate,
+} from './services/guest-profile-aggregator';
+
+// Commands
+export { refreshGuestProfile } from './commands/refresh-guest-profile';
+export type { RefreshGuestProfileInput } from './commands/refresh-guest-profile';
+export { updateGuestNotes } from './commands/update-guest-notes';
+export type { UpdateGuestNotesInput } from './commands/update-guest-notes';
+
+// Queries
+export { getGuestProfile } from './queries/get-guest-profile';
+export type { GetGuestProfileInput, GuestProfileResult } from './queries/get-guest-profile';
+export { searchGuestProfiles } from './queries/search-guest-profiles';
+export type { SearchGuestProfilesInput } from './queries/search-guest-profiles';
+
+// Consumer
+export { handleGuestProfileUpdate } from './consumers/handle-guest-profile-update';
+export type { HandleGuestProfileUpdateData } from './consumers/handle-guest-profile-update';
+
+// ═══════════════════════════════════════════════════════════════════
+// SESSION 10 — Analytics Read Models & Dashboard Metrics
+// ═══════════════════════════════════════════════════════════════════
+
+// Commands
+export { refreshHostAnalytics } from './commands/refresh-host-analytics';
+export type { RefreshHostAnalyticsInput, RefreshHostAnalyticsResult } from './commands/refresh-host-analytics';
+
+// Queries
+export { getHostAnalyticsDashboard } from './queries/get-host-analytics-dashboard';
+export type {
+  HostAnalyticsDashboardInput,
+  HostAnalyticsDashboard,
+  HourlyMetric,
+  WaitlistAccuracyMetric,
+  SeatingEfficiencyMetric,
+  DashboardSummary,
+} from './queries/get-host-analytics-dashboard';

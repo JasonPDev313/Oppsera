@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { db } from '@oppsera/db';
+import { createAdminClient } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 
 /**
  * GET /api/v1/guest/waitlist/estimate?locationId=xxx
  * Public endpoint — returns current queue length and estimated wait.
+ * Uses admin client to bypass RLS (no tenant context in guest routes).
  */
 export async function GET(req: NextRequest) {
   const locationId = req.nextUrl.searchParams.get('locationId');
@@ -17,18 +18,19 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const adminDb = createAdminClient();
     const businessDate = new Date().toISOString().slice(0, 10);
 
     // Get queue length + venue name in parallel
     const [queueRows, locRows] = await Promise.all([
-      db.execute(sql`
+      adminDb.execute(sql`
         SELECT COUNT(*) AS queue_length
         FROM fnb_waitlist_entries
         WHERE location_id = ${locationId}
           AND business_date = ${businessDate}
           AND status IN ('waiting', 'notified')
       `),
-      db.execute(sql`
+      adminDb.execute(sql`
         SELECT name FROM locations WHERE id = ${locationId} LIMIT 1
       `),
     ]);

@@ -61,6 +61,7 @@ const ENV_VALUES: Record<string, string> = {
 function resolveAppUrl(
   app: WebAppDefinition,
   tenantSlug: string | undefined,
+  locationId: string | undefined,
 ): string | null {
   if (app.defaultStatus === 'coming_soon') return null;
 
@@ -73,10 +74,9 @@ function resolveAppUrl(
   }
 
   if (app.urlSource === 'origin' && app.urlPath) {
-    // Interpolate {tenantSlug} placeholder if present
-    const resolvedPath = tenantSlug
-      ? app.urlPath.replace('{tenantSlug}', tenantSlug)
-      : app.urlPath;
+    let resolvedPath = app.urlPath;
+    if (tenantSlug) resolvedPath = resolvedPath.replace('{tenantSlug}', tenantSlug);
+    if (locationId) resolvedPath = resolvedPath.replace('{locationId}', locationId);
     if (typeof window === 'undefined') return resolvedPath;
     return `${window.location.origin}${resolvedPath}`;
   }
@@ -145,12 +145,13 @@ function ModuleTag({ moduleKey }: { moduleKey: string }) {
 interface WebAppCardProps {
   app: WebAppDefinition;
   tenantSlug: string | undefined;
+  locationId: string | undefined;
 }
 
-function WebAppCard({ app, tenantSlug }: WebAppCardProps) {
+function WebAppCard({ app, tenantSlug, locationId }: WebAppCardProps) {
   const router = useRouter();
   const Icon = resolveIcon(app.icon);
-  const url = resolveAppUrl(app, tenantSlug);
+  const url = resolveAppUrl(app, tenantSlug, locationId);
   const status = resolveStatus(app, url);
 
   return (
@@ -295,9 +296,10 @@ interface CategorySectionProps {
   category: WebAppCategory;
   apps: WebAppDefinition[];
   tenantSlug: string | undefined;
+  locationId: string | undefined;
 }
 
-function CategorySection({ category, apps, tenantSlug }: CategorySectionProps) {
+function CategorySection({ category, apps, tenantSlug, locationId }: CategorySectionProps) {
   if (apps.length === 0) return null;
 
   return (
@@ -307,7 +309,7 @@ function CategorySection({ category, apps, tenantSlug }: CategorySectionProps) {
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {apps.map((app) => (
-          <WebAppCard key={app.key} app={app} tenantSlug={tenantSlug} />
+          <WebAppCard key={app.key} app={app} tenantSlug={tenantSlug} locationId={locationId} />
         ))}
       </div>
     </div>
@@ -317,7 +319,8 @@ function CategorySection({ category, apps, tenantSlug }: CategorySectionProps) {
 // ── Main content ──
 
 export default function WebAppsContent() {
-  const { tenant } = useAuthContext();
+  const { tenant, locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const { isModuleEnabled } = useEntitlementsContext();
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
 
@@ -397,6 +400,7 @@ export default function WebAppsContent() {
               category={cat}
               apps={appsByCategory[cat]}
               tenantSlug={tenant?.slug}
+              locationId={locationId}
             />
           ))}
         </div>
@@ -404,7 +408,7 @@ export default function WebAppsContent() {
         // Flat grid for module filter
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredApps.map((app) => (
-            <WebAppCard key={app.key} app={app} tenantSlug={tenant?.slug} />
+            <WebAppCard key={app.key} app={app} tenantSlug={tenant?.slug} locationId={locationId} />
           ))}
         </div>
       )}

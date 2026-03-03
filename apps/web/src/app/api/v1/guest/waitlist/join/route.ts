@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { db } from '@oppsera/db';
+import { createAdminClient } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -56,8 +56,10 @@ export async function POST(req: NextRequest) {
     }
     const input = parsed.data;
 
-    // Resolve tenant from location
-    const locRows = await db.execute(sql`
+    // Resolve tenant from location — use admin client to bypass RLS
+    // (this is a public/guest endpoint with no tenant context set)
+    const adminDb = createAdminClient();
+    const locRows = await adminDb.execute(sql`
       SELECT tenant_id FROM locations WHERE id = ${input.locationId} AND is_active = true LIMIT 1
     `);
     const loc = Array.from(locRows as Iterable<Record<string, unknown>>)[0];
@@ -77,7 +79,8 @@ export async function POST(req: NextRequest) {
 
     // Atomic position calculation + insert inside a transaction to prevent race conditions.
     // Without this, concurrent requests can read the same MAX(position) and get duplicate positions.
-    const rows = await db.transaction(async (tx) => {
+    // Use admin client to bypass RLS (public guest endpoint, no tenant context).
+    const rows = await adminDb.transaction(async (tx) => {
       const posRows = await tx.execute(sql`
         SELECT COALESCE(MAX(position), 0) + 1 AS next_pos
         FROM fnb_waitlist_entries

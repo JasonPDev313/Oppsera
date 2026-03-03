@@ -275,3 +275,88 @@ export const hostGetAnalyticsSchema = z.object({
   mealPeriod: z.enum(MEAL_PERIODS).optional(),
 });
 export type HostGetAnalyticsInput = z.input<typeof hostGetAnalyticsSchema>;
+
+// ── Atomic Seat Party Schema ──────────────────────────────────────
+
+export const SEATING_SOURCE_TYPES = ['reservation', 'waitlist', 'walk_in'] as const;
+export type SeatingSourceType = (typeof SEATING_SOURCE_TYPES)[number];
+
+export const atomicSeatPartySchema = z.object({
+  tableIds: z.array(z.string().min(1)).min(1).max(10),
+  partySize: z.number().int().min(1).max(99),
+  guestNames: z.string().max(500).optional(),
+  serverUserId: z.string().optional(),
+  sourceType: z.enum(SEATING_SOURCE_TYPES),
+  sourceId: z.string().optional(),
+  businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Business date must be YYYY-MM-DD'),
+  clientRequestId: z.string().min(1).max(128).optional(),
+});
+export type AtomicSeatPartyInput = z.input<typeof atomicSeatPartySchema>;
+
+// ── Pacing Engine Schemas ─────────────────────────────────────────
+
+export const upsertPacingRuleSchema = z.object({
+  id: z.string().optional(),
+  mealPeriod: z.enum(MEAL_PERIODS).nullable().optional(),
+  dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
+  intervalStartTime: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  intervalEndTime: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  maxCovers: z.number().int().min(1).max(999),
+  maxReservations: z.number().int().min(1).nullable().optional(),
+  minPartySize: z.number().int().min(1).nullable().optional(),
+  priority: z.number().int().min(0).max(100).default(0),
+  isActive: z.boolean().default(true),
+  clientRequestId: z.string().min(1).max(128).optional(),
+});
+export type UpsertPacingRuleInput = z.input<typeof upsertPacingRuleSchema>;
+
+export const getPacingAvailabilitySchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().min(1),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  mealPeriod: z.enum(MEAL_PERIODS).optional(),
+});
+export type GetPacingAvailabilityInput = z.input<typeof getPacingAvailabilitySchema>;
+
+// ── Server Load Snapshot Schemas ──────────────────────────────────
+
+export const refreshServerLoadSchema = z.object({
+  locationId: z.string().min(1),
+  businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Business date must be YYYY-MM-DD').optional(),
+});
+export type RefreshServerLoadInput = z.input<typeof refreshServerLoadSchema>;
+
+export const getServerLoadQuerySchema = z.object({
+  locationId: z.string().min(1),
+  businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+export type GetServerLoadQueryInput = z.input<typeof getServerLoadQuerySchema>;
+
+export const recommendServerQuerySchema = z.object({
+  tableId: z.string().min(1),
+  locationId: z.string().min(1),
+  businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+export type RecommendServerQueryInput = z.input<typeof recommendServerQuerySchema>;
+
+// ── Waitlist Auto-Promotion Schemas ───────────────────────────────
+
+export const offerTableToWaitlistSchema = z.object({
+  waitlistEntryId: z.string().min(1),
+  tableId: z.string().min(1),
+  expiryMinutes: z.number().int().min(1).max(60).default(10),
+  clientRequestId: z.string().min(1).max(128).optional(),
+});
+export type OfferTableToWaitlistInput = z.input<typeof offerTableToWaitlistSchema>;
+
+export const acceptTableOfferSchema = z.object({
+  waitlistEntryId: z.string().min(1),
+  clientRequestId: z.string().min(1).max(128).optional(),
+});
+export type AcceptTableOfferInput = z.input<typeof acceptTableOfferSchema>;
+
+export const declineTableOfferSchema = z.object({
+  waitlistEntryId: z.string().min(1),
+  clientRequestId: z.string().min(1).max(128).optional(),
+});
+export type DeclineTableOfferInput = z.input<typeof declineTableOfferSchema>;

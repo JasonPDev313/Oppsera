@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { db, tenants, spaSettings, spaBookingWidgetConfig } from '@oppsera/db';
+import { createAdminClient, tenants, spaSettings, spaBookingWidgetConfig } from '@oppsera/db';
 
 /**
  * Resolves a tenant by slug and validates spa online booking is enabled.
@@ -21,8 +21,12 @@ export interface ResolvedTenant {
 export async function resolveTenantBySlug(
   slug: string,
 ): Promise<ResolvedTenant | null> {
+  // Public route — no RLS tenant context available.
+  // Use admin client to bypass FORCE ROW LEVEL SECURITY on tenants / spa_settings.
+  const adminDb = createAdminClient();
+
   // Look up tenant by slug
-  const [tenant] = await db
+  const [tenant] = await adminDb
     .select({
       id: tenants.id,
       name: tenants.name,
@@ -37,7 +41,7 @@ export async function resolveTenantBySlug(
   }
 
   // Check that spa has online booking enabled
-  const [settings] = await db
+  const [settings] = await adminDb
     .select({
       onlineBookingEnabled: spaSettings.onlineBookingEnabled,
       locationId: spaSettings.locationId,
@@ -62,7 +66,10 @@ export async function resolveTenantBySlug(
  * Used by the config route and the book route (for deposit settings).
  */
 export async function getBookingWidgetConfig(tenantId: string) {
-  const [config] = await db
+  // Public route — use admin client to bypass FORCE RLS on spa_booking_widget_config.
+  const adminDb = createAdminClient();
+
+  const [config] = await adminDb
     .select({
       theme: spaBookingWidgetConfig.theme,
       logoUrl: spaBookingWidgetConfig.logoUrl,

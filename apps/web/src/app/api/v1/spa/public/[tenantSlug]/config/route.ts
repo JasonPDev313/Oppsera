@@ -80,8 +80,10 @@ export async function GET(
       : tenant.tenantName;
 
     // Return defaults if no config row exists
+    // onlineBookingEnabled is guaranteed true — resolveTenantBySlug already validated it.
     return NextResponse.json({
       data: {
+        onlineBookingEnabled: true,
         tenantName: displayName,
         theme: config?.theme ?? null,
         logoUrl: config?.logoUrl ?? null,

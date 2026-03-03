@@ -73,7 +73,7 @@ export interface ListAppointmentsResult {
 /**
  * List appointments with filters and cursor pagination.
  * Joins with appointment items, services, providers, and resources for display data.
- * Sort by startAt descending by default.
+ * Sort by createdAt descending by default (most recently created first).
  */
 export async function listAppointments(
   input: ListAppointmentsInput,
@@ -86,9 +86,9 @@ export async function listAppointments(
     ];
 
     if (input.cursor) {
-      const [cursorStartAt, cursorId] = input.cursor.split('|');
+      const [cursorCreatedAt, cursorId] = input.cursor.split('|');
       conditions.push(
-        sql`(${spaAppointments.startAt}, ${spaAppointments.id}) < (${new Date(cursorStartAt!)}, ${cursorId})` as ReturnType<typeof eq>,
+        sql`(${spaAppointments.createdAt}, ${spaAppointments.id}) < (${new Date(cursorCreatedAt!)}, ${cursorId})` as ReturnType<typeof eq>,
       );
     }
 
@@ -120,13 +120,13 @@ export async function listAppointments(
 
     if (input.startDate) {
       conditions.push(
-        gte(spaAppointments.startAt, new Date(input.startDate)),
+        gte(spaAppointments.startAt, new Date(`${input.startDate}T00:00:00.000Z`)),
       );
     }
 
     if (input.endDate) {
       conditions.push(
-        lte(spaAppointments.startAt, new Date(input.endDate)),
+        lte(spaAppointments.startAt, new Date(`${input.endDate}T23:59:59.999Z`)),
       );
     }
 
@@ -168,7 +168,7 @@ export async function listAppointments(
       .leftJoin(spaProviders, eq(spaAppointments.providerId, spaProviders.id))
       .leftJoin(spaResources, eq(spaAppointments.resourceId, spaResources.id))
       .where(and(...conditions))
-      .orderBy(desc(spaAppointments.startAt), desc(spaAppointments.id))
+      .orderBy(desc(spaAppointments.createdAt), desc(spaAppointments.id))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
@@ -263,7 +263,7 @@ export async function listAppointments(
     return {
       items,
       cursor: hasMore
-        ? `${sliced[sliced.length - 1]!.startAt.toISOString()}|${sliced[sliced.length - 1]!.id}`
+        ? `${sliced[sliced.length - 1]!.createdAt.toISOString()}|${sliced[sliced.length - 1]!.id}`
         : null,
       hasMore,
     };

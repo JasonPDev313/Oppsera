@@ -200,7 +200,7 @@ export default function SpaCalendarContent() {
   }, [viewMode, currentDate]);
 
   const { data: calendarData, isLoading, error } = useSpaCalendar(
-    locationId ? { locationId, startDate, endDate } : null,
+    { locationId: locationId || undefined, startDate, endDate },
   );
 
   const PROVIDER_COLORS = [

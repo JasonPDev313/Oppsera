@@ -95,6 +95,7 @@ export const fnbTableLiveStatus = pgTable(
     guestNames: text('guest_names'), // comma-separated for host stand
     waitlistEntryId: text('waitlist_entry_id'), // FK stub for waitlist
     combineGroupId: text('combine_group_id'), // FK to fnb_table_combine_groups
+    dirtySince: timestamp('dirty_since', { withTimezone: true }), // Session 4 (migration 0259)
     version: integer('version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -2234,6 +2235,11 @@ export const fnbWaitlistEntries = pgTable(
     lastNotificationMethod: text('last_notification_method'),
     confirmationStatus: text('confirmation_status'),
     estimatedArrivalAt: timestamp('estimated_arrival_at', { withTimezone: true }),
+    // Session 5 — Waitlist Auto-Promotion (migration 0260)
+    offeredTableId: text('offered_table_id'),
+    offeredAt: timestamp('offered_at', { withTimezone: true }),
+    offerExpiresAt: timestamp('offer_expires_at', { withTimezone: true }),
+    offerDeclinedCount: integer('offer_declined_count').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -2475,3 +2481,119 @@ export const fnbManageTabsSettings = pgTable(
     uniqueIndex('uq_fnb_manage_tabs_settings_tenant_location').on(table.tenantId, table.locationId),
   ],
 );
+
+// ── Session 3: Pacing Engine ────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════════
+// Session 6 (Host): Server Load Snapshots
+// ═══════════════════════════════════════════════════════════════════
+
+export const fnbServerLoadSnapshots = pgTable('fnb_server_load_snapshots', {
+  id: text('id').primaryKey().$defaultFn(generateUlid),
+  tenantId: text('tenant_id').notNull().references(() => tenants.id),
+  locationId: text('location_id').notNull().references(() => locations.id),
+  serverUserId: text('server_user_id').notNull(),
+  businessDate: date('business_date').notNull(),
+  openTabCount: integer('open_tab_count').notNull().default(0),
+  activeSeatedCount: integer('active_seated_count').notNull().default(0),
+  totalCoverCount: integer('total_cover_count').notNull().default(0),
+  avgTicketCents: integer('avg_ticket_cents').notNull().default(0),
+  sectionId: text('section_id'),
+  sectionCapacity: integer('section_capacity'),
+  lastRefreshedAt: timestamp('last_refreshed_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('idx_fnb_server_load_tenant_location_date').on(table.tenantId, table.locationId, table.businessDate),
+]);
+
+export const fnbPacingRules = pgTable('fnb_pacing_rules', {
+  id: text('id').primaryKey().$defaultFn(generateUlid),
+  tenantId: text('tenant_id').notNull().references(() => tenants.id),
+  locationId: text('location_id').notNull().references(() => locations.id),
+  mealPeriod: text('meal_period'),
+  dayOfWeek: integer('day_of_week'),
+  intervalStartTime: text('interval_start_time'),
+  intervalEndTime: text('interval_end_time'),
+  maxCovers: integer('max_covers').notNull(),
+  maxReservations: integer('max_reservations'),
+  minPartySize: integer('min_party_size'),
+  priority: integer('priority').notNull().default(0),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdBy: text('created_by'),
+}, (table) => [
+  index('idx_fnb_pacing_rules_tenant_location').on(table.tenantId, table.locationId),
+]);
+
+// ═══════════════════════════════════════════════════════════════════
+// SESSION 9 — Guest Intelligence
+// ═══════════════════════════════════════════════════════════════════
+
+export const fnbGuestProfiles = pgTable(
+  'fnb_guest_profiles',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull().references(() => locations.id),
+    customerId: text('customer_id'),
+    guestPhone: text('guest_phone'),
+    guestEmail: text('guest_email'),
+    guestName: text('guest_name'),
+    visitCount: integer('visit_count').notNull().default(0),
+    noShowCount: integer('no_show_count').notNull().default(0),
+    cancelCount: integer('cancel_count').notNull().default(0),
+    avgTicketCents: integer('avg_ticket_cents'),
+    totalSpendCents: integer('total_spend_cents').notNull().default(0),
+    lastVisitDate: date('last_visit_date'),
+    firstVisitDate: date('first_visit_date'),
+    preferredTables: text('preferred_tables'),
+    preferredServer: text('preferred_server'),
+    seatingPreference: text('seating_preference'),
+    frequentItems: jsonb('frequent_items'),
+    tags: jsonb('tags'),
+    notes: text('notes'),
+    lastComputedAt: timestamp('last_computed_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_guest_profiles_customer').on(table.tenantId, table.customerId),
+    index('idx_fnb_guest_profiles_phone').on(table.tenantId, table.guestPhone),
+    index('idx_fnb_guest_profiles_email').on(table.tenantId, table.guestEmail),
+  ],
+);
+
+// ═══════════════════════════════════════════════════════════════════
+// SESSION 7 — Predictive Turn Engine V2
+// ═══════════════════════════════════════════════════════════════════
+
+// ── Turn-Time Aggregates (pre-computed percentile buckets) ────────
+export const fnbTurnTimeAggregates = pgTable('fnb_turn_time_aggregates', {
+  id: text('id').primaryKey().$defaultFn(generateUlid),
+  tenantId: text('tenant_id').notNull().references(() => tenants.id),
+  locationId: text('location_id').notNull().references(() => locations.id),
+  tableType: text('table_type'),
+  mealPeriod: text('meal_period'),
+  dayOfWeek: integer('day_of_week'),
+  partySizeBucket: text('party_size_bucket'),
+  avgMinutes: integer('avg_minutes').notNull(),
+  p50Minutes: integer('p50_minutes').notNull(),
+  p75Minutes: integer('p75_minutes').notNull(),
+  p90Minutes: integer('p90_minutes').notNull(),
+  sampleCount: integer('sample_count').notNull(),
+  serverAvgMinutes: integer('server_avg_minutes'),
+  lastComputedAt: timestamp('last_computed_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('uq_fnb_turn_agg_natural_key').on(
+    table.tenantId, table.locationId, table.tableType,
+    table.mealPeriod, table.dayOfWeek, table.partySizeBucket,
+  ),
+  index('idx_fnb_turn_agg_lookup').on(
+    table.tenantId, table.locationId, table.tableType,
+    table.mealPeriod, table.dayOfWeek, table.partySizeBucket,
+  ),
+]);

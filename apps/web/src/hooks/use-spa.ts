@@ -565,7 +565,7 @@ export function useSpaCalendar(params: SpaCalendarParams | null) {
         `/api/v1/spa/appointments/calendar${qs}`,
       ).then((r) => r.data);
     },
-    enabled: !!params?.startDate && !!params?.endDate && !!params?.locationId,
+    enabled: !!params?.startDate && !!params?.endDate,
     staleTime: 30_000,
     refetchInterval: 30_000,
   });
