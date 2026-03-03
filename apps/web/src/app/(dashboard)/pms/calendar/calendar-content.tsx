@@ -39,6 +39,7 @@ interface Property {
 
 const POS_TERMINAL_KEY = 'pos_terminal_id';
 const PMS_RESERVATION_CATALOG_ITEM_KEY = 'pms:reservation-charge-catalog-item';
+const QUICK_LOOKBACK = 7;
 
 export default function CalendarContent() {
   const router = useRouter();
@@ -62,9 +63,18 @@ export default function CalendarContent() {
   }>({});
   const [listRefreshKey, setListRefreshKey] = useState(0);
 
-  // Persist page view preference
+  // Persist page view preference + adjust weekStart anchor
   useEffect(() => {
     localStorage.setItem('pms_view_mode', pageView);
+    if (pageView === 'quick') {
+      // Quick View: anchor on today
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      setWeekStart(d);
+    } else if (pageView === 'calendar') {
+      // Calendar grid: snap to Monday
+      setWeekStart((prev) => getMonday(prev));
+    }
   }, [pageView]);
 
   // ── State ───────────────────────────────────────────────────────
@@ -72,7 +82,24 @@ export default function CalendarContent() {
   const [viewRange, setViewRange] = useState<ViewRange>(7);
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState('');
-  const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
+  const [weekStart, setWeekStart] = useState<Date>(() => {
+    // Quick View (default) anchors on today; Calendar Grid anchors on Monday
+    const initialView = (() => {
+      if (typeof window !== 'undefined') {
+        const param = new URLSearchParams(window.location.search).get('view');
+        if (param === 'list' || param === 'calendar') return param;
+        const stored = localStorage.getItem('pms_view_mode');
+        if (stored === 'list' || stored === 'calendar' || stored === 'quick') return stored;
+      }
+      return 'quick';
+    })();
+    if (initialView === 'quick') {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    return getMonday(new Date());
+  });
   const [selectedDate, setSelectedDate] = useState<string>(() => formatDate(new Date()));
   const [weekData, setWeekData] = useState<CalendarWeekData | null>(null);
   const [dayData, setDayData] = useState<CalendarDayData | null>(null);
@@ -115,7 +142,13 @@ export default function CalendarContent() {
     if (!propertyId) return;
     if (!silent) { setIsLoading(true); setError(null); }
     try {
-      const qs = buildQueryString({ propertyId, start: formatDate(weekStart) });
+      // Quick View fetches extra lookback days for prior history
+      const isQuick = pageView === 'quick';
+      const fetchStart = isQuick
+        ? (() => { const d = new Date(weekStart); d.setDate(d.getDate() - QUICK_LOOKBACK); return formatDate(d); })()
+        : formatDate(weekStart);
+      const days = isQuick ? viewRange + QUICK_LOOKBACK : viewRange;
+      const qs = buildQueryString({ propertyId, start: fetchStart, days });
       const res = await apiFetch<{ data: CalendarWeekData }>(`/api/v1/pms/calendar/week${qs}`);
       setWeekData(res.data);
       lastUpdatedRef.current = res.data.meta.lastUpdatedAt;
@@ -124,7 +157,7 @@ export default function CalendarContent() {
     } finally {
       if (!silent) setIsLoading(false);
     }
-  }, [propertyId, weekStart]);
+  }, [propertyId, weekStart, pageView, viewRange]);
 
   useEffect(() => {
     if (pageView === 'quick' || (pageView === 'calendar' && viewMode === 'grid')) {
@@ -236,21 +269,39 @@ export default function CalendarContent() {
   }, [usesWeekNav, viewRange]);
 
   const goToToday = useCallback(() => {
-    if (usesWeekNav) setWeekStart(getMonday(new Date()));
-    else setSelectedDate(formatDate(new Date()));
-  }, [usesWeekNav]);
+    if (pageView === 'quick') {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      setWeekStart(d);
+    } else if (usesWeekNav) {
+      setWeekStart(getMonday(new Date()));
+    } else {
+      setSelectedDate(formatDate(new Date()));
+    }
+  }, [pageView, usesWeekNav]);
 
   const handleDateJump = useCallback((dateStr: string) => {
     const d = new Date(`${dateStr}T00:00:00`);
-    if (usesWeekNav) {
+    if (pageView === 'quick') {
+      d.setHours(0, 0, 0, 0);
+      setWeekStart(d);
+    } else if (usesWeekNav) {
       setWeekStart(getMonday(d));
     } else {
       setSelectedDate(dateStr);
     }
-  }, [usesWeekNav]);
+  }, [pageView, usesWeekNav]);
 
   // ── Grid date range ────────────────────────────────────────────
-  const dates = useMemo(() => getDateRange(weekStart, viewRange), [weekStart, viewRange]);
+  const dates = useMemo(() => {
+    if (pageView === 'quick') {
+      // Include lookback days for scrollable past history
+      const pastStart = new Date(weekStart);
+      pastStart.setDate(pastStart.getDate() - QUICK_LOOKBACK);
+      return getDateRange(pastStart, viewRange + QUICK_LOOKBACK);
+    }
+    return getDateRange(weekStart, viewRange);
+  }, [pageView, weekStart, viewRange]);
 
   // ── Aggregate stats for stats bar ─────────────────────────────
   const aggregateOccupancy = useMemo((): OccupancyByDate | null => {

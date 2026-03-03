@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { ArrowRight } from 'lucide-react';
 import type { CalendarRoom, CalendarSegment } from './types';
 import { formatDateShort, formatDate } from './types';
@@ -109,6 +109,18 @@ export default function CondensedView({
     : '';
 
   const todayStr = formatDate(new Date());
+  const todayRowRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Scroll today's row to the top of the scroll container on mount / date changes
+  useEffect(() => {
+    const row = todayRowRef.current;
+    const container = scrollContainerRef.current;
+    if (row && container) {
+      const rowTop = row.offsetTop - container.offsetTop;
+      container.scrollTop = rowTop;
+    }
+  }, [dates.length, todayStr]);
 
   return (
     <div className="flex min-h-0 flex-1 gap-0 rounded-lg border border-border bg-surface">
@@ -168,7 +180,7 @@ export default function CondensedView({
       </div>
 
       {/* ── Main content ────────────────────────────────────── */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-5">
+      <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto p-5">
         {/* KPI cards */}
         <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <KpiCard
@@ -221,6 +233,7 @@ export default function CondensedView({
             const dayOfWeek = d.toLocaleDateString('en-US', { weekday: 'short' });
             const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             const isToday = day.date === todayStr;
+            const isPast = day.date < todayStr;
             const dotColor = availabilityDotColor(day.pct);
             const label = day.available === 0
               ? 'Full'
@@ -231,11 +244,12 @@ export default function CondensedView({
             return (
               <div
                 key={day.date}
-                className="flex items-center gap-4 py-3.5"
+                ref={isToday ? todayRowRef : undefined}
+                className={`flex items-center gap-4 py-3.5${isPast ? ' opacity-50' : ''}${isToday ? ' border-l-2 border-l-amber-500 pl-3' : ''}`}
               >
                 {/* Date column */}
                 <div className="w-28 shrink-0">
-                  <div className="text-lg font-bold text-foreground">{monthDay}</div>
+                  <div className={`text-lg font-bold ${isToday ? 'text-amber-500' : 'text-foreground'}`}>{monthDay}</div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">{dayOfWeek}</span>
                     {isToday && (

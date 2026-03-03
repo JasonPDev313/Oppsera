@@ -286,13 +286,17 @@ function RoomCellTooltip({
 
 type ViewDays = 7 | 14 | 30;
 
+// ── History offset ───────────────────────────────────────────────────
+// Show a few days of history above today so the grid doesn't start cold.
+const HISTORY_DAYS = 3;
+
 // ── Main Component ───────────────────────────────────────────────────
 
 export default function UtilizationContent() {
   const { data: properties, isLoading: propsLoading } = useProperties();
 
   const [propertyId, setPropertyId] = useState<string>('');
-  const [rangeStart, setRangeStart] = useState<Date>(() => new Date());
+  const [rangeStart, setRangeStart] = useState<Date>(() => addDays(new Date(), -HISTORY_DAYS));
   const [viewDays, setViewDays] = useState<ViewDays>(14);
   const [guestCount, setGuestCount] = useState<number | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -398,7 +402,7 @@ export default function UtilizationContent() {
   // Navigation
   const handlePrev = useCallback(() => setRangeStart((s) => addDays(s, -viewDays)), [viewDays]);
   const handleNext = useCallback(() => setRangeStart((s) => addDays(s, viewDays)), [viewDays]);
-  const handleToday = useCallback(() => setRangeStart(new Date()), []);
+  const handleToday = useCallback(() => setRangeStart(addDays(new Date(), -HISTORY_DAYS)), []);
   const handleDateJump = useCallback((date: string) => {
     setRangeStart(new Date(date + 'T00:00:00'));
   }, []);
@@ -615,14 +619,27 @@ export default function UtilizationContent() {
               {dates.map((date) => {
                 const today = isToday(date);
                 return (
-                  <tr key={date} className={today ? 'bg-indigo-500/10' : ''}>
+                  <tr key={date} className={today ? 'bg-orange-500/6' : ''}>
                     <td
-                      className="sticky left-0 z-10 bg-surface border-r border-border whitespace-nowrap"
-                      style={{ padding: `${6 * scale}px ${16 * scale}px`, minWidth: `${130 * scale}px` }}
+                      className="sticky left-0 z-10 border-r border-border whitespace-nowrap"
+                      style={{
+                        padding: `${6 * scale}px ${16 * scale}px`,
+                        minWidth: `${130 * scale}px`,
+                        backgroundColor: today ? 'rgba(249, 115, 22, 0.06)' : undefined,
+                      }}
                     >
-                      <span className={`font-semibold ${today ? 'text-indigo-600' : 'text-foreground'}`}>
-                        {formatDayLabel(date)}
-                      </span>
+                      {today ? (
+                        <span
+                          className="inline-flex items-center rounded-full bg-orange-500 font-semibold text-white"
+                          style={{ padding: `${2 * scale}px ${10 * scale}px` }}
+                        >
+                          {formatDayLabel(date)}
+                        </span>
+                      ) : (
+                        <span className="font-semibold text-foreground">
+                          {formatDayLabel(date)}
+                        </span>
+                      )}
                     </td>
                     {roomTypes.map((rt) => {
                       const cell = cellMap.get(`${date}:${rt.id}`);
@@ -707,14 +724,27 @@ export default function UtilizationContent() {
               {dates.map((date) => {
                 const today = isToday(date);
                 return (
-                  <tr key={date} className={today ? 'bg-indigo-500/10' : ''}>
+                  <tr key={date} className={today ? 'bg-orange-500/6' : ''}>
                     <td
-                      className="sticky left-0 z-10 bg-surface border-r border-border whitespace-nowrap"
-                      style={{ padding: `${6 * scale}px ${16 * scale}px`, minWidth: `${130 * scale}px` }}
+                      className="sticky left-0 z-10 border-r border-border whitespace-nowrap"
+                      style={{
+                        padding: `${6 * scale}px ${16 * scale}px`,
+                        minWidth: `${130 * scale}px`,
+                        backgroundColor: today ? 'rgba(249, 115, 22, 0.06)' : undefined,
+                      }}
                     >
-                      <span className={`font-semibold ${today ? 'text-indigo-600' : 'text-foreground'}`}>
-                        {formatDayLabel(date)}
-                      </span>
+                      {today ? (
+                        <span
+                          className="inline-flex items-center rounded-full bg-orange-500 font-semibold text-white"
+                          style={{ padding: `${2 * scale}px ${10 * scale}px` }}
+                        >
+                          {formatDayLabel(date)}
+                        </span>
+                      ) : (
+                        <span className="font-semibold text-foreground">
+                          {formatDayLabel(date)}
+                        </span>
+                      )}
                     </td>
                     {rooms.map((room) => {
                       const cell = roomCellMap.get(`${date}:${room.id}`);

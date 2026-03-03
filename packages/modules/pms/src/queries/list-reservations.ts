@@ -46,6 +46,7 @@ export async function listReservations(input: ListReservationsInput) {
       .select({
         id: pmsReservations.id,
         propertyId: pmsReservations.propertyId,
+        confirmationNumber: pmsReservations.confirmationNumber,
         guestId: pmsReservations.guestId,
         primaryGuestJson: pmsReservations.primaryGuestJson,
         roomId: pmsReservations.roomId,

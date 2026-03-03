@@ -95,11 +95,11 @@ export async function getCalendarWeek(
   tenantId: string,
   propertyId: string,
   startDate: string,
+  days = 7,
 ): Promise<CalendarWeekResponse> {
-  // Calculate end date = start + 7
   const start = new Date(startDate + 'T00:00:00Z');
   const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 7);
+  end.setUTCDate(end.getUTCDate() + days);
   const endDate = end.toISOString().split('T')[0]!;
 
   return withTenant(tenantId, async (tx) => {

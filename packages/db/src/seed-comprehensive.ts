@@ -1356,9 +1356,10 @@ async function seedComprehensive() {
 
       // ── New Reservations ──
       const allGuestRows = await db.execute(sql`
-        SELECT id FROM pms_guests WHERE tenant_id = ${tenantId}
-      `) as Array<{ id: string }>;
+        SELECT id, first_name, last_name, email, phone FROM pms_guests WHERE tenant_id = ${tenantId}
+      `) as Array<{ id: string; first_name: string; last_name: string; email: string | null; phone: string | null }>;
       const allGuestIds = allGuestRows.map(g => g.id);
+      const guestById = Object.fromEntries(allGuestRows.map(g => [g.id, g]));
 
       const allRPIds = Object.values(ratePlanIdByCode);
       const allRoomNumbers = Object.keys(roomByNumber);
@@ -1416,7 +1417,12 @@ async function seedComprehensive() {
         resInserts.push({
           id: resId, tenantId, propertyId,
           guestId,
-          primaryGuestJson: {},
+          primaryGuestJson: {
+            firstName: guestById[guestId]?.first_name ?? 'Guest',
+            lastName: guestById[guestId]?.last_name ?? `#${i}`,
+            ...(guestById[guestId]?.email ? { email: guestById[guestId]!.email } : {}),
+            ...(guestById[guestId]?.phone ? { phone: guestById[guestId]!.phone } : {}),
+          },
           roomTypeId: room.typeId,
           roomId: room.id,
           ratePlanId,

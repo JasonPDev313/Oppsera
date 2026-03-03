@@ -16,7 +16,9 @@ export const GET = withMiddleware(
         { status: 400 },
       );
     }
-    const result = await getCalendarWeek(ctx.tenantId, propertyId, start);
+    const daysParam = searchParams.get('days');
+    const days = daysParam ? Math.max(1, Math.min(45, parseInt(daysParam, 10) || 7)) : 7;
+    const result = await getCalendarWeek(ctx.tenantId, propertyId, start, days);
     return NextResponse.json({ data: result });
   },
   { permission: PMS_PERMISSIONS.CALENDAR_VIEW, entitlement: 'pms' },
