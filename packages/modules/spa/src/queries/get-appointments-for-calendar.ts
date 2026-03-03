@@ -52,11 +52,11 @@ export async function getAppointmentsForCalendar(input: {
   providerIds?: string[];
 }): Promise<CalendarResult> {
   return withTenant(input.tenantId, async (tx) => {
-    const startTs = new Date(input.startDate);
-    const endTs = new Date(input.endDate);
-    // endDate string parses to midnight UTC — push to end of day so day view
-    // (where startDate === endDate) actually returns appointments.
-    endTs.setHours(23, 59, 59, 999);
+    // Construct UTC day boundaries directly from YYYY-MM-DD strings so we
+    // don't inherit the server's local timezone (UTC on Vercel, but arbitrary
+    // in local dev). This matches the businessDate convention used elsewhere.
+    const startTs = new Date(`${input.startDate}T00:00:00.000Z`);
+    const endTs = new Date(`${input.endDate}T23:59:59.999Z`);
 
     const conditions: ReturnType<typeof eq>[] = [
       eq(spaAppointments.tenantId, input.tenantId),

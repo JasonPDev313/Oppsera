@@ -111,6 +111,7 @@ export async function voidJournalEntry(
         .insert(glJournalLines)
         .values({
           id: generateUlid(),
+          tenantId: ctx.tenantId,
           journalEntryId: reversalId,
           accountId: origLine.accountId,
           debitAmount: origLine.creditAmount, // swap

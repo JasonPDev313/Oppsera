@@ -72,6 +72,7 @@ async function rebuildSegments(
   }
 
   // Batch insert all segments in a single statement using generate_series + UNNEST for IDs
+  const idsArray = sql`ARRAY[${sql.join(ids.map(id => sql`${id}`), sql`, `)}]`;
   await tx.execute(sql`
     INSERT INTO rm_pms_calendar_segments (
       id, tenant_id, property_id, room_id, business_date,
@@ -79,7 +80,7 @@ async function rebuildSegments(
       source_type, color_key, created_at
     )
     SELECT
-      unnest(${ids}::text[]),
+      unnest(${idsArray}),
       ${tenantId},
       ${propertyId},
       ${roomId},

@@ -341,6 +341,94 @@ const PATTERNS: FastPathPattern[] = [
       return buildFastIntent('sql', [], [], undefined, label);
     },
   },
+
+  // ── SPA FAST-PATH PATTERNS ──────────────────────────────────────
+
+  // ── "spa appointments today" / "how many spa appointments today" ──
+  {
+    pattern: /^(?:how\s+many\s+)?spa\s+(?:appointments?|bookings?)\s+today\??$/i,
+    build: (_m, ctx, cat) => {
+      if (!hasMetric(cat, 'spa_appointment_count') || !hasDimension(cat, 'date')) return null;
+      return buildFastIntent('metrics', ['spa_appointment_count', 'spa_completed_count'], ['date'], todayRange(ctx), 'Spa appointments for today');
+    },
+  },
+
+  // ── "spa revenue today" / "spa sales today" ──
+  {
+    pattern: /^(?:(?:total|net)\s+)?spa\s+(?:revenue|sales)\s+today\??$/i,
+    build: (_m, ctx, cat) => {
+      if (!hasMetric(cat, 'spa_total_revenue') || !hasDimension(cat, 'date')) return null;
+      return buildFastIntent('metrics', ['spa_total_revenue', 'spa_service_revenue'], ['date'], todayRange(ctx), 'Spa revenue for today');
+    },
+  },
+
+  // ── "spa revenue this week" / "spa sales this week" ──
+  {
+    pattern: /^(?:(?:total|net)\s+)?spa\s+(?:revenue|sales)\s+(?:this\s+week|last\s+7\s+days)\??$/i,
+    build: (_m, ctx, cat) => {
+      if (!hasMetric(cat, 'spa_total_revenue') || !hasDimension(cat, 'date')) return null;
+      return buildFastIntent('metrics', ['spa_total_revenue', 'spa_service_revenue'], ['date'], last7DaysRange(ctx), 'Spa revenue for last 7 days', 'day');
+    },
+  },
+
+  // ── "spa revenue this month" ──
+  {
+    pattern: /^(?:(?:total|net)\s+)?spa\s+(?:revenue|sales)\s+this\s+month\??$/i,
+    build: (_m, ctx, cat) => {
+      if (!hasMetric(cat, 'spa_total_revenue') || !hasDimension(cat, 'date')) return null;
+      return buildFastIntent('metrics', ['spa_total_revenue', 'spa_service_revenue'], ['date'], thisMonthRange(ctx), 'Spa revenue for this month', 'day');
+    },
+  },
+
+  // ── "spa utilization" / "how busy is the spa" ──
+  {
+    pattern: /^(?:spa\s+utilization(?:\s+(?:rate|today|this\s+week))?|how\s+busy\s+is\s+the\s+spa)\??$/i,
+    build: (_m, ctx, cat) => {
+      if (!hasMetric(cat, 'spa_utilization_pct') || !hasDimension(cat, 'date')) return null;
+      return buildFastIntent('metrics', ['spa_utilization_pct', 'spa_completed_count'], ['date'], last7DaysRange(ctx), 'Spa utilization rate', 'day');
+    },
+  },
+
+  // ── "spa tips today" / "spa tips this week" ──
+  {
+    pattern: /^spa\s+tips?\s+(?:today|this\s+week)\??$/i,
+    build: (_m, ctx, cat) => {
+      if (!hasMetric(cat, 'spa_tip_total') || !hasDimension(cat, 'date')) return null;
+      const isToday = /today/i.test(_m[0]);
+      const range = isToday ? todayRange(ctx) : last7DaysRange(ctx);
+      const label = isToday ? 'Spa tips for today' : 'Spa tips for this week';
+      return buildFastIntent('metrics', ['spa_tip_total'], ['date'], range, label, isToday ? undefined : 'day');
+    },
+  },
+
+  // ── "spa cancellations today" / "spa no-shows today" ──
+  {
+    pattern: /^spa\s+(?:cancellations?|no[\s-]?shows?)\s+today\??$/i,
+    build: (_m, ctx, cat) => {
+      const isCancels = /cancel/i.test(_m[0]);
+      const slug = isCancels ? 'spa_canceled_count' : 'spa_no_show_count';
+      if (!hasMetric(cat, slug) || !hasDimension(cat, 'date')) return null;
+      const label = isCancels ? 'Spa cancellations for today' : 'Spa no-shows for today';
+      return buildFastIntent('metrics', [slug], ['date'], todayRange(ctx), label);
+    },
+  },
+
+  // ── "spa walk-ins today" ──
+  {
+    pattern: /^(?:spa\s+)?walk[\s-]?ins?\s+today\??$/i,
+    build: (_m, ctx, cat) => {
+      if (!hasMetric(cat, 'spa_walk_in_count') || !hasDimension(cat, 'date')) return null;
+      return buildFastIntent('metrics', ['spa_walk_in_count'], ['date'], todayRange(ctx), 'Spa walk-ins for today');
+    },
+  },
+
+  // ── "spa services" / "what spa services" (SQL — catalog query) ──
+  {
+    pattern: /^(?:(?:what|list|show)\s+(?:me\s+)?(?:(?:the|our|my)\s+)?)?spa\s+services?\??$/i,
+    build: (_m, _ctx, _cat) => {
+      return buildFastIntent('sql', [], [], undefined, 'List spa services');
+    },
+  },
 ];
 
 // ── Public API ───────────────────────────────────────────────────

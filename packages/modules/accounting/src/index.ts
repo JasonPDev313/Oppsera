@@ -326,7 +326,7 @@ export type {
   TransactionTypeGL,
   UnmappedEventParams,
 } from './helpers/resolve-mapping';
-export { getAccountingSettings } from './helpers/get-accounting-settings';
+export { getAccountingSettings, isAccountingBootstrapped } from './helpers/get-accounting-settings';
 export type { AccountingSettings } from './helpers/get-accounting-settings';
 export { ensureAccountingSettings } from './helpers/ensure-accounting-settings';
 export { tryAutoRemap } from './helpers/try-auto-remap';

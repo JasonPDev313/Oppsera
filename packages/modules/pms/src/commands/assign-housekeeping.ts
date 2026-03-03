@@ -26,13 +26,21 @@ export async function assignHousekeeping(ctx: RequestContext, input: AssignHouse
 
     for (const a of input.assignments) {
       const id = generateUlid();
+      const cleaningTypeId = a.cleaningTypeId ?? null;
+      let dueBy: Date | null = null;
+      if (a.dueBy) {
+        const parsed = new Date(a.dueBy);
+        if (!isNaN(parsed.getTime())) dueBy = parsed;
+      }
       await tx.execute(sql`
-        INSERT INTO pms_housekeeping_assignments (id, tenant_id, property_id, room_id, housekeeper_id, business_date, priority, status)
-        VALUES (${id}, ${ctx.tenantId}, ${input.propertyId}, ${a.roomId}, ${a.housekeeperId}, ${input.businessDate}, ${a.priority ?? 0}, 'pending')
+        INSERT INTO pms_housekeeping_assignments (id, tenant_id, property_id, room_id, housekeeper_id, business_date, priority, status, cleaning_type_id, due_by)
+        VALUES (${id}, ${ctx.tenantId}, ${input.propertyId}, ${a.roomId}, ${a.housekeeperId}, ${input.businessDate}, ${a.priority ?? 0}, 'pending', ${cleaningTypeId}, ${dueBy})
         ON CONFLICT (tenant_id, room_id, business_date)
         DO UPDATE SET
           housekeeper_id = EXCLUDED.housekeeper_id,
           priority = EXCLUDED.priority,
+          cleaning_type_id = EXCLUDED.cleaning_type_id,
+          due_by = EXCLUDED.due_by,
           updated_at = now()
       `);
       assignmentIds.push(id);

@@ -55,7 +55,7 @@ async function upsertMetrics(
         ${m.requiresDimensions ?? null}, ${m.incompatibleWith ?? null},
         TRUE, FALSE, NOW(), NOW()
       )
-      ON CONFLICT (slug) DO UPDATE SET
+      ON CONFLICT (slug) WHERE tenant_id IS NULL DO UPDATE SET
         display_name        = EXCLUDED.display_name,
         description         = EXCLUDED.description,
         domain              = EXCLUDED.domain,
@@ -103,7 +103,7 @@ async function upsertDimensions(
         ${d.aliases ?? null}, ${d.exampleValues ?? null}, ${d.examplePhrases ?? null},
         TRUE, NOW(), NOW()
       )
-      ON CONFLICT (slug) DO UPDATE SET
+      ON CONFLICT (slug) WHERE tenant_id IS NULL DO UPDATE SET
         display_name        = EXCLUDED.display_name,
         description         = EXCLUDED.description,
         domain              = EXCLUDED.domain,
@@ -229,7 +229,9 @@ export async function syncRegistryToDb(): Promise<{
     await upsertMetrics(pg, allMetrics);
     await upsertRelations(pg, allRelations);
     await upsertLenses(pg, allLenses);
-    await upsertExamples(pg, allExamples);
+    // Skip examples — upsertExamples uses DELETE+INSERT which is destructive.
+    // Only re-enable when examples actually change and you intend to replace them.
+    // await upsertExamples(pg, allExamples);
 
     // Invalidate in-memory cache so next request picks up fresh data
     invalidateRegistryCache();
@@ -239,7 +241,7 @@ export async function syncRegistryToDb(): Promise<{
       dimensions: allDimensions.length,
       relations: allRelations.length,
       lenses: allLenses.length,
-      examples: allExamples.length,
+      examples: 0,
     };
   } finally {
     await pg.end();

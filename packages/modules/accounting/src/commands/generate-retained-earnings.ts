@@ -134,6 +134,7 @@ export async function generateRetainedEarnings(
 
     const lines: Array<{
       id: string;
+      tenantId: string;
       journalEntryId: string;
       accountId: string;
       debitAmount: string;
@@ -159,6 +160,7 @@ export async function generateRetainedEarnings(
           if (balance > 0) {
             lines.push({
               id: generateUlid(),
+              tenantId: ctx.tenantId,
               journalEntryId: entryId,
               accountId,
               debitAmount: balance.toFixed(2),
@@ -170,6 +172,7 @@ export async function generateRetainedEarnings(
           } else {
             lines.push({
               id: generateUlid(),
+              tenantId: ctx.tenantId,
               journalEntryId: entryId,
               accountId,
               debitAmount: '0',
@@ -187,6 +190,7 @@ export async function generateRetainedEarnings(
           if (balance > 0) {
             lines.push({
               id: generateUlid(),
+              tenantId: ctx.tenantId,
               journalEntryId: entryId,
               accountId,
               debitAmount: '0',
@@ -198,6 +202,7 @@ export async function generateRetainedEarnings(
           } else {
             lines.push({
               id: generateUlid(),
+              tenantId: ctx.tenantId,
               journalEntryId: entryId,
               accountId,
               debitAmount: Math.abs(balance).toFixed(2),
@@ -219,6 +224,7 @@ export async function generateRetainedEarnings(
       // More debits than credits from closing → credit RE (profit)
       lines.push({
         id: generateUlid(),
+        tenantId: ctx.tenantId,
         journalEntryId: entryId,
         accountId: input.retainedEarningsAccountId,
         debitAmount: '0',
@@ -230,6 +236,7 @@ export async function generateRetainedEarnings(
       // More credits than debits → debit RE (loss)
       lines.push({
         id: generateUlid(),
+        tenantId: ctx.tenantId,
         journalEntryId: entryId,
         accountId: input.retainedEarningsAccountId,
         debitAmount: Math.abs(reDiff).toFixed(2),

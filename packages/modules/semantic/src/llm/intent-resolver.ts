@@ -209,6 +209,9 @@ Respond with a single JSON object — no markdown fences, no prose before/after.
 - Metrics from rm_daily_sales and rm_item_sales are already in DOLLARS (no conversion needed)
 - Metrics from rm_customer_activity total_spend is in DOLLARS
 - PMS metrics (adr, revpar, room_revenue, tax_revenue_pms) convert cents→dollars automatically in their SQL expressions
+- Spa metrics from rm_spa_daily_operations/rm_spa_provider_metrics/rm_spa_service_metrics are already in DOLLARS (no conversion needed)
+- If you route to SQL mode: spa_appointments deposit_amount_cents and spa_appointment_items prices are in CENTS (divide by 100 for dollars)
+- If you route to SQL mode: spa_services.price, member_price, peak_price are in DOLLARS (no conversion needed)
 - If you route to SQL mode: orders/tenders tables store amounts in CENTS (divide by 100 for dollars)
 - If you route to SQL mode: pms_reservations amounts (nightly_rate_cents, total_cents, etc.) are in CENTS
 - If you route to SQL mode: rm_pms_daily_occupancy adr_cents, revpar_cents are in CENTS
@@ -234,12 +237,27 @@ Respond with a single JSON object — no markdown fences, no prose before/after.
 - Active vendors: is_active = true.
 - Inventory on-hand = SUM(quantity_delta) from inventory_movements. Never a stored column.
 - **Reservations**: Active/upcoming = status IN ('CONFIRMED', 'HOLD'). In-house = 'CHECKED_IN'. Completed = 'CHECKED_OUT'. Cancelled = 'CANCELLED'. No-show = 'NO_SHOW'.
+- **Spa appointments**: Active = status IN ('confirmed', 'checked_in', 'in_service'). Completed = 'completed' or 'checked_out'. Canceled = 'canceled'. No-show = 'no_show'. Full flow: draft→reserved→confirmed→checked_in→in_service→completed→checked_out.
 
 ### PMS (Property Management) Routing
 - For **aggregate occupancy/rate questions** (occupancy %, ADR, RevPAR, rooms occupied, arrivals count, departures count) → use **mode="metrics"** with PMS metrics from rm_pms_daily_occupancy / rm_pms_revenue_by_room_type / rm_pms_housekeeping_productivity.
 - For **specific reservation questions** (list reservations for a date, guest details, room assignments, upcoming arrivals with names, in-house guests) → use **mode="sql"** querying pms_reservations, pms_guests, pms_rooms, pms_room_types directly.
 - For "how many reservations" on a specific date → use **mode="sql"** with COUNT on pms_reservations (the read models don't track individual reservation counts).
 - pms_reservations has check_in_date (DATE) and check_out_date (DATE) for date-based queries. Use primary_guest_json->>'firstName' and primary_guest_json->>'lastName' for guest names.
+
+### Spa (Spa & Wellness) Routing
+- For **aggregate spa KPIs** (appointment counts, revenue, utilization %, rebooking rate, no-show/walk-in/online counts, tips) → use **mode="metrics"** with spa metrics from rm_spa_daily_operations.
+- For **provider performance aggregates** (provider revenue, commissions, tips, utilization, client counts) → use **mode="metrics"** with spa_provider metrics from rm_spa_provider_metrics.
+- For **service analytics aggregates** (service bookings, revenue by service, addon attachment rate) → use **mode="metrics"** with spa_service metrics from rm_spa_service_metrics.
+- For **specific appointment lookups** (list today's appointments, appointment details, who is booked with which provider, upcoming schedule) → use **mode="sql"** querying spa_appointments, spa_appointment_items, spa_providers, spa_services directly.
+- For **service menu / catalog questions** (what services do we offer, service prices, durations, categories) → use **mode="sql"** querying spa_services, spa_service_categories, spa_service_addons.
+- For **provider schedule questions** (who is working today, provider availability, time off) → use **mode="sql"** querying spa_providers, spa_provider_availability, spa_provider_time_off.
+- For **client history** (customer's spa visits, packages, clinical notes) → use **mode="sql"** querying spa_appointments, spa_package_balances, spa_clinical_notes.
+- For **waitlist questions** → use **mode="sql"** querying spa_waitlist.
+- For **commission questions** (provider commissions, unpaid commissions) → use **mode="sql"** querying spa_commission_ledger, spa_commission_rules.
+- spa_appointments.status values: draft, reserved, confirmed, checked_in, in_service, completed, checked_out, canceled, no_show. Active = confirmed or checked_in or in_service.
+- spa_services.price is in DOLLARS (NUMERIC). spa_appointment_items prices are in CENTS (INTEGER).
+- spa_appointments.booking_source: front_desk, online, phone, mobile_app, kiosk, walk_in, pms.
 
 ## Rules
 1. Only use metric/dimension slugs from the lists below. Never invent slugs.

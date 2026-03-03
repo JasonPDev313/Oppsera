@@ -59,6 +59,7 @@ export const PMS_EVENTS = {
   HOUSEKEEPING_STARTED: 'pms.housekeeping.started.v1',
   HOUSEKEEPING_COMPLETED: 'pms.housekeeping.completed.v1',
   HOUSEKEEPING_SKIPPED: 'pms.housekeeping.skipped.v1',
+  HOUSEKEEPING_DEADLINE_SET: 'pms.housekeeping.deadline_set.v1',
 
   // Maintenance
   WORK_ORDER_CREATED: 'pms.work_order.created.v1',

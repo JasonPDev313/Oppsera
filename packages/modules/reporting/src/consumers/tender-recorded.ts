@@ -127,8 +127,7 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
             THEN 'split'
             ELSE ${tenderType}
           END,
-          tip_dollars = COALESCE(tip_dollars, 0) + ${tipDollars},
-          updated_at = NOW()
+          tip_dollars = COALESCE(tip_dollars, 0) + ${tipDollars}
       WHERE tenant_id = ${event.tenantId}
         AND source = 'pos_order'
         AND source_id = ${data.orderId}

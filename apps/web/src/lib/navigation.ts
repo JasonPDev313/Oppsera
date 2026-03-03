@@ -86,7 +86,17 @@ export interface NavItem {
 
 export const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, requiredPermission: 'dashboard.view' },
-  { name: 'Retail POS', href: '/pos/retail', icon: ShoppingCart, moduleKey: 'pos_retail', requiredPermission: 'orders.create' },
+  {
+    name: 'Retail POS',
+    href: '/pos/retail',
+    icon: ShoppingCart,
+    moduleKey: 'pos_retail',
+    requiredPermission: 'orders.create',
+    children: [
+      { name: 'Retail POS', href: '/pos/retail', icon: ShoppingCart, requiredPermission: 'orders.create' },
+      { name: 'Retail Inventory', href: '/retail-inventory', icon: Package, requiredPermission: 'inventory.view' },
+    ],
+  },
   {
     name: 'F&B POS',
     href: '/pos/fnb',
@@ -255,7 +265,6 @@ export const navigation: NavItem[] = [
       { name: 'Tax', href: '/accounting/tax', icon: FileBarChart, requiredPermission: 'accounting.tax.view' },
       { name: 'Fixed Assets', href: '/accounting/fixed-assets', icon: Warehouse, requiredPermission: 'accounting.view' },
       { name: 'Financials', href: '/accounting/financials', icon: Scale, requiredPermission: 'accounting.financials.view' },
-      { name: 'GL Code Summary', href: '/accounting/reports/gl-code-summary', icon: FileBarChart, requiredPermission: 'accounting.view' },
       { name: 'Period Close', href: '/accounting/period-close', icon: Lock, requiredPermission: 'accounting.period.close' },
     ],
   },

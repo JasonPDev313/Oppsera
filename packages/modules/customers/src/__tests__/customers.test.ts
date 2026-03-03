@@ -1391,7 +1391,8 @@ describe('Customers Module', () => {
         },
       };
 
-      // Update customer stats (default update mock handles this)
+      // Update customer stats — must return a row so activity log is triggered
+      mockUpdateReturns([{ id: 'cust_001' }]);
 
       // Insert activity log for customer visit
       mockInsertReturns([{ id: 'activity_visit' }]);

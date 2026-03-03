@@ -71,3 +71,17 @@ ALTER TABLE pms_housekeeping_assignments
 CREATE INDEX IF NOT EXISTS idx_pms_hk_assignments_due_by
   ON pms_housekeeping_assignments (tenant_id, property_id, business_date, due_by)
   WHERE due_by IS NOT NULL;
+
+-- FK: cleaning_type_id → pms_cleaning_types (nullable, soft reference)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_hk_assignment_cleaning_type'
+      AND table_name = 'pms_housekeeping_assignments'
+  ) THEN
+    ALTER TABLE pms_housekeeping_assignments
+      ADD CONSTRAINT fk_hk_assignment_cleaning_type
+      FOREIGN KEY (cleaning_type_id) REFERENCES pms_cleaning_types(id)
+      ON DELETE SET NULL;
+  END IF;
+END $$;

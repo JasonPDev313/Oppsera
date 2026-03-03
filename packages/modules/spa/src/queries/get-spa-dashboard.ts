@@ -196,7 +196,7 @@ export async function getSpaDashboard(input: {
             eq(spaAppointments.locationId, input.locationId),
             gte(spaAppointments.startAt, dayStart),
             lte(spaAppointments.startAt, dayEnd),
-            sql`${spaAppointments.status} IN ('confirmed', 'checked_in', 'in_service')` as ReturnType<typeof eq>,
+            sql`${spaAppointments.status} IN ('scheduled', 'confirmed', 'checked_in', 'in_service')` as ReturnType<typeof eq>,
           ),
         )
         .orderBy(spaAppointments.startAt)

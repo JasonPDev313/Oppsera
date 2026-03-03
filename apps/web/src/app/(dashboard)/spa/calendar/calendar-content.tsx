@@ -25,9 +25,14 @@ import type { CheckoutToPosResult } from '@/components/spa/checkout-to-pos-dialo
 type ViewMode = 'day' | 'week';
 
 type AppointmentStatus =
+  | 'draft'
+  | 'reserved'
+  | 'scheduled'
   | 'confirmed'
   | 'checked_in'
+  | 'in_service'
   | 'completed'
+  | 'checked_out'
   | 'canceled'
   | 'no_show';
 
@@ -66,11 +71,16 @@ const SLOT_HEIGHT_PX = PX_PER_HOUR / 2; // 30px per 30-min slot
 const TOTAL_HEIGHT_PX = (DAY_END_HOUR - DAY_START_HOUR) * PX_PER_HOUR;
 
 const STATUS_COLORS: Record<AppointmentStatus, { bg: string; border: string; text: string }> = {
-  confirmed:  { bg: 'bg-blue-500/10',   border: 'border-blue-500/30',   text: 'text-blue-500' },
-  checked_in: { bg: 'bg-green-500/10',  border: 'border-green-500/30',  text: 'text-green-500' },
-  completed:  { bg: 'bg-gray-500/10',   border: 'border-gray-500/30',   text: 'text-muted-foreground' },
-  canceled:   { bg: 'bg-red-500/10',    border: 'border-red-500/30',    text: 'text-red-500' },
-  no_show:    { bg: 'bg-amber-500/10',  border: 'border-amber-500/30',  text: 'text-amber-500' },
+  draft:       { bg: 'bg-gray-500/10',    border: 'border-gray-500/30',    text: 'text-muted-foreground' },
+  reserved:    { bg: 'bg-cyan-500/10',    border: 'border-cyan-500/30',    text: 'text-cyan-500' },
+  scheduled:   { bg: 'bg-indigo-500/10',  border: 'border-indigo-500/30',  text: 'text-indigo-500' },
+  confirmed:   { bg: 'bg-blue-500/10',    border: 'border-blue-500/30',    text: 'text-blue-500' },
+  checked_in:  { bg: 'bg-green-500/10',   border: 'border-green-500/30',   text: 'text-green-500' },
+  in_service:  { bg: 'bg-purple-500/10',  border: 'border-purple-500/30',  text: 'text-purple-500' },
+  completed:   { bg: 'bg-gray-500/10',    border: 'border-gray-500/30',    text: 'text-muted-foreground' },
+  checked_out: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', text: 'text-emerald-500' },
+  canceled:    { bg: 'bg-red-500/10',     border: 'border-red-500/30',     text: 'text-red-500' },
+  no_show:     { bg: 'bg-amber-500/10',   border: 'border-amber-500/30',   text: 'text-amber-500' },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -201,10 +211,10 @@ export default function SpaCalendarContent() {
   // Map hook data to local CalendarProviderColumn shape.
   // Backend returns startAt/endAt/guestName/services[] — map to startTime/endTime/customerName/serviceName.
   const providers: CalendarProviderColumn[] = useMemo(() => {
-    return (calendarData?.providers ?? []).map((p, idx) => ({
-      id: p.providerId,
-      name: p.providerName,
-      color: PROVIDER_COLORS[idx % PROVIDER_COLORS.length]!,
+    return (calendarData?.providers ?? []).map((p: any, idx: number) => ({
+      id: p.providerId as string,
+      name: p.providerName as string,
+      color: (p.providerColor as string) || PROVIDER_COLORS[idx % PROVIDER_COLORS.length]!,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend fields differ from frontend type
       appointments: (p.appointments ?? []).map((a: any) => ({
         id: a.id as string,

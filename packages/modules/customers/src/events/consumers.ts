@@ -61,7 +61,7 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
 
     // ── Customer stats ──────────────────────────────────────────
     if (customerId) {
-      await tx
+      const updatedRows = await tx
         .update(customers)
         .set({
           totalVisits: sql`${customers.totalVisits} + 1`,
@@ -74,18 +74,22 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
             eq(customers.tenantId, event.tenantId),
             eq(customers.id, customerId),
           ),
-        );
+        )
+        .returning({ id: customers.id });
 
-      await tx.insert(customerActivityLog).values({
-        id: generateUlid(),
-        tenantId: event.tenantId,
-        customerId,
-        activityType: 'order_placed',
-        title: `Order #${orderNumber} placed`,
-        details: `Total: ${total}`,
-        metadata: { orderId, total },
-        createdBy,
-      });
+      // Only log activity if the customer actually exists (FK guard)
+      if (updatedRows.length > 0) {
+        await tx.insert(customerActivityLog).values({
+          id: generateUlid(),
+          tenantId: event.tenantId,
+          customerId,
+          activityType: 'order_placed',
+          title: `Order #${orderNumber} placed`,
+          details: `Total: ${total}`,
+          metadata: { orderId, total },
+          createdBy,
+        });
+      }
     }
 
     // ── House-account charge ────────────────────────────────────
@@ -152,20 +156,33 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
           locationId: event.locationId ?? eventLocationId ?? '',
         };
 
-        // 3. Activity log for the billing charge
+        // 3. Activity log for the billing charge (guard: verify customer exists)
         const activityCustomerId =
           customerId ?? billingAccount?.primaryCustomerId;
         if (activityCustomerId) {
-          await tx.insert(customerActivityLog).values({
-            id: generateUlid(),
-            tenantId: event.tenantId,
-            customerId: activityCustomerId,
-            activityType: 'billing_charge',
-            title: `House account charged for Order #${orderNumber}`,
-            details: `Charge: ${total}`,
-            metadata: { orderId, billingAccountId, amountCents: total },
-            createdBy,
-          });
+          const [customerExists] = await tx
+            .select({ id: customers.id })
+            .from(customers)
+            .where(
+              and(
+                eq(customers.tenantId, event.tenantId),
+                eq(customers.id, activityCustomerId),
+              ),
+            )
+            .limit(1);
+
+          if (customerExists) {
+            await tx.insert(customerActivityLog).values({
+              id: generateUlid(),
+              tenantId: event.tenantId,
+              customerId: activityCustomerId,
+              activityType: 'billing_charge',
+              title: `House account charged for Order #${orderNumber}`,
+              details: `Charge: ${total}`,
+              metadata: { orderId, billingAccountId, amountCents: total },
+              createdBy,
+            });
+          }
         }
       }
     }
@@ -607,18 +624,31 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
       locationId: event.locationId ?? '',
     };
 
-    // 4. Activity log
+    // 4. Activity log (guard: verify customer exists)
     if (activityCustomerId) {
-      await tx.insert(customerActivityLog).values({
-        id: generateUlid(),
-        tenantId: event.tenantId,
-        customerId: activityCustomerId,
-        activityType: 'billing_payment',
-        title: `Payment received for Order #${orderNumber}`,
-        details: `Amount: ${amount}`,
-        metadata: { orderId, billingAccountId, tenderId, amountCents: amount },
-        createdBy,
-      });
+      const [customerExists] = await tx
+        .select({ id: customers.id })
+        .from(customers)
+        .where(
+          and(
+            eq(customers.tenantId, event.tenantId),
+            eq(customers.id, activityCustomerId),
+          ),
+        )
+        .limit(1);
+
+      if (customerExists) {
+        await tx.insert(customerActivityLog).values({
+          id: generateUlid(),
+          tenantId: event.tenantId,
+          customerId: activityCustomerId,
+          activityType: 'billing_payment',
+          title: `Payment received for Order #${orderNumber}`,
+          details: `Amount: ${amount}`,
+          metadata: { orderId, billingAccountId, tenderId, amountCents: amount },
+          createdBy,
+        });
+      }
     }
   });
 

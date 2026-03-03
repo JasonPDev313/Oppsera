@@ -70,8 +70,13 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
     await db.transaction(async (tx) => {
       // Extend statement timeout — keep conservative for Vercel pool health.
       // 120s is generous for most DBs; very large DBs should use manual backup.
-      await tx.execute(sql`SET LOCAL statement_timeout = '120s'`);
-      await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '180s'`);
+      // Wrapped in try/catch: Supavisor may block SET LOCAL for some parameters.
+      try {
+        await tx.execute(sql`SET LOCAL statement_timeout = '120s'`);
+        await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '180s'`);
+      } catch (e) {
+        console.warn('[backup] Could not set transaction timeouts (Supavisor may block SET LOCAL):', e);
+      }
 
       // Bypass RLS for this transaction.
       // Try multiple approaches since Supavisor may restrict SET ROLE.

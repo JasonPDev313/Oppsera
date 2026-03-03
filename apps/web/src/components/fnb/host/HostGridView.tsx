@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, Clock } from 'lucide-react';
+import { Users, Clock, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { HostTableItem } from '@/hooks/use-fnb-host';
 import { useAssignMode } from './AssignModeContext';
 
@@ -8,6 +8,9 @@ interface HostGridViewProps {
   tables: HostTableItem[];
   onSeatTable?: (tableId: string) => void;
   onClearTable?: (tableId: string) => void;
+  onSyncTables?: () => void;
+  isSyncing?: boolean;
+  error?: string | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -34,16 +37,44 @@ export function formatElapsed(seatedAt: string | null): string {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
-export function HostGridView({ tables, onSeatTable, onClearTable }: HostGridViewProps) {
+export function HostGridView({ tables, onSeatTable, onClearTable, onSyncTables, isSyncing, error }: HostGridViewProps) {
   const { assignMode, selectedParty } = useAssignMode();
 
   if (tables.length === 0) {
     return (
       <div
-        className="flex items-center justify-center h-full"
+        className="flex flex-col items-center justify-center h-full gap-3 px-6"
         style={{ color: 'var(--fnb-text-muted)' }}
       >
-        <span className="text-xs">No tables to display</span>
+        {error ? (
+          <>
+            <AlertTriangle size={20} style={{ color: 'var(--fnb-danger)' }} />
+            <span className="text-xs text-center" style={{ color: 'var(--fnb-danger)' }}>
+              {error}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="text-xs text-center">
+              No tables to display. Sync tables from your floor plan to get started.
+            </span>
+            {onSyncTables && (
+              <button
+                type="button"
+                onClick={onSyncTables}
+                disabled={isSyncing}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all active:scale-95"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--fnb-info) 15%, transparent)',
+                  color: 'var(--fnb-info)',
+                }}
+              >
+                <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
+                {isSyncing ? 'Syncing…' : 'Sync Tables'}
+              </button>
+            )}
+          </>
+        )}
       </div>
     );
   }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
 import type { HostTableItem } from '@/hooks/use-fnb-host';
 import { useAssignMode } from './AssignModeContext';
 import { TableContextMenu } from './TableContextMenu';
@@ -13,6 +14,9 @@ interface HostFloorMapProps {
   onClearTable?: (tableId: string) => void;
   onTableAction?: (action: string, tableId: string) => void;
   rooms?: { id: string; name: string }[];
+  onSyncTables?: () => void;
+  isSyncing?: boolean;
+  error?: string | null;
 }
 
 const STATUS_COLORS: Record<string, { bg: string; border: string; text: string }> = {
@@ -63,6 +67,9 @@ export function HostFloorMap({
   onClearTable: _onClearTable,
   onTableAction,
   rooms,
+  onSyncTables,
+  isSyncing,
+  error,
 }: HostFloorMapProps) {
   const { selectedParty, assignMode, cancelAssign } = useAssignMode();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -171,10 +178,38 @@ export function HostFloorMap({
   if (tables.length === 0) {
     return (
       <div
-        className="flex items-center justify-center h-full"
+        className="flex flex-col items-center justify-center h-full gap-3 px-6"
         style={{ color: 'var(--fnb-text-muted)' }}
       >
-        <span className="text-xs">No tables to display</span>
+        {error ? (
+          <>
+            <AlertTriangle size={20} style={{ color: 'var(--fnb-danger)' }} />
+            <span className="text-xs text-center" style={{ color: 'var(--fnb-danger)' }}>
+              {error}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="text-xs text-center">
+              No tables to display. Sync tables from your floor plan to get started.
+            </span>
+            {onSyncTables && (
+              <button
+                type="button"
+                onClick={onSyncTables}
+                disabled={isSyncing}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all active:scale-95"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--fnb-info) 15%, transparent)',
+                  color: 'var(--fnb-info)',
+                }}
+              >
+                <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
+                {isSyncing ? 'Syncing…' : 'Sync Tables'}
+              </button>
+            )}
+          </>
+        )}
       </div>
     );
   }

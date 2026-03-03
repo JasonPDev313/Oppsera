@@ -83,14 +83,30 @@ export function useGLClassifications() {
 
 // ── useAccountingBootstrapStatus ──────────────────────────────
 
-export function useAccountingBootstrapStatus() {
-  const settings = useAccountingSettings();
+interface BootstrapStatusResponse {
+  bootstrapped: boolean;
+  accountCount: number;
+}
 
-  // Settings are created atomically with accounts during bootstrap —
-  // no need to fetch the entire GL accounts list just to check .length > 0.
+export function useAccountingBootstrapStatus() {
+  // Use the lightweight bootstrap-status endpoint (raw SQL, no Drizzle SELECT *)
+  // instead of the full accounting-settings endpoint. This survives schema mismatches
+  // from un-applied migrations — the #1 cause of "bootstrap runs but page says not configured."
+  const result = useQuery({
+    queryKey: ['accounting-bootstrap-status'],
+    queryFn: () =>
+      apiFetch<{ data: BootstrapStatusResponse }>('/api/v1/accounting/bootstrap-status')
+        .then((r) => r.data),
+    staleTime: 60_000,
+    retry: 1,
+  });
+
   return {
-    isBootstrapped: settings.data !== null,
-    isLoading: settings.isLoading,
+    isBootstrapped: result.data?.bootstrapped ?? false,
+    accountCount: result.data?.accountCount ?? 0,
+    isLoading: result.isLoading,
+    // Surface errors so the UI can show them instead of silently showing the wizard
+    error: result.error,
   };
 }
 

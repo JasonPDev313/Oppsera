@@ -55,6 +55,7 @@ export const accountingSections: AccountingSection[] = [
       { id: 'journal-entries', label: 'Journal Entries', icon: FileSpreadsheet, requiredPermission: 'accounting.view' },
       { id: 'gl-mappings', label: 'GL Mappings', icon: ArrowRightLeft, requiredPermission: 'accounting.mappings.manage' },
       { id: 'recurring', label: 'Recurring Templates', icon: Repeat, requiredPermission: 'accounting.manage' },
+      { id: 'gl-code-summary', label: 'GL Code Summary', icon: FileBarChart, requiredPermission: 'accounting.view' },
     ],
   },
   {

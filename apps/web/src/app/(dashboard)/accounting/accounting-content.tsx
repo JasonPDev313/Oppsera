@@ -77,17 +77,26 @@ function getDefaultDateRange() {
 
 export default function AccountingDashboardContent() {
   const queryClient = useQueryClient();
-  const { isBootstrapped, isLoading: bootstrapLoading } = useAccountingBootstrapStatus();
+  const { isBootstrapped, isLoading: bootstrapLoading, error: bootstrapError } = useAccountingBootstrapStatus();
   const [showBootstrap, setShowBootstrap] = useState(false);
   const [bootstrapJustCompleted, setBootstrapJustCompleted] = useState(false);
 
   const handleBootstrapComplete = useCallback(async () => {
-    // Await refetches so cache is fully populated before hiding the wizard
-    await Promise.all([
-      queryClient.refetchQueries({ queryKey: ['accounting-settings'] }),
-      queryClient.refetchQueries({ queryKey: ['gl-accounts'] }),
-      queryClient.refetchQueries({ queryKey: ['accounting-health-summary'] }),
-    ]);
+    // Refetch bootstrap status + supporting queries, then show dashboard.
+    // Wrap in try/catch so the "Done" button doesn't silently fail if the
+    // refetch errors (e.g., schema mismatch on GET /settings).
+    try {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['accounting-bootstrap-status'] }),
+        queryClient.refetchQueries({ queryKey: ['accounting-settings'] }),
+        queryClient.refetchQueries({ queryKey: ['gl-accounts'] }),
+        queryClient.refetchQueries({ queryKey: ['accounting-health-summary'] }),
+      ]);
+    } catch {
+      // Even if refetch fails, proceed — the bootstrap-status endpoint
+      // (raw SQL) should still work even if full-settings endpoint doesn't.
+      await queryClient.refetchQueries({ queryKey: ['accounting-bootstrap-status'] }).catch(() => {});
+    }
     setBootstrapJustCompleted(true);
     setShowBootstrap(false);
   }, [queryClient]);
@@ -129,6 +138,49 @@ export default function AccountingDashboardContent() {
                 <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
               ))}
             </div>
+          </div>
+        </div>
+      </AccountingPageShell>
+    );
+  }
+
+  // Show bootstrap error if the status check itself failed
+  if (bootstrapError && !bootstrapJustCompleted) {
+    // If user clicked "Run Setup Anyway", show the wizard instead of the error
+    if (showBootstrap) {
+      return (
+        <AccountingPageShell title="Accounting Dashboard" subtitle="Financial overview and quick actions">
+          <BootstrapWizard onComplete={handleBootstrapComplete} />
+        </AccountingPageShell>
+      );
+    }
+    const errorMessage = bootstrapError instanceof Error ? bootstrapError.message : 'Unknown error';
+    return (
+      <AccountingPageShell title="Accounting Dashboard" subtitle="Financial overview and quick actions">
+        <div className="mx-auto max-w-xl space-y-4 py-8 text-center">
+          <AlertTriangle className="mx-auto h-12 w-12 text-amber-500" />
+          <h2 className="text-lg font-semibold text-foreground">Unable to check accounting status</h2>
+          <p className="text-sm text-muted-foreground">
+            The accounting status check failed. This usually means database migrations need to be applied.
+          </p>
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-left text-xs font-mono text-amber-400 break-all">
+            {errorMessage}
+          </div>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => queryClient.refetchQueries({ queryKey: ['accounting-bootstrap-status'] })}
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowBootstrap(true)}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+            >
+              Run Setup Anyway
+            </button>
           </div>
         </div>
       </AccountingPageShell>

@@ -1,0 +1,30 @@
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import {
+  updateCleaningType,
+  updateCleaningTypeSchema,
+  PMS_PERMISSIONS,
+} from '@oppsera/module-pms';
+import { ValidationError } from '@oppsera/shared';
+
+export const PATCH = withMiddleware(
+  async (request: NextRequest, ctx) => {
+    const url = new URL(request.url);
+    const segments = url.pathname.split('/');
+    const cleaningTypeId = segments[segments.length - 1]!;
+
+    const body = await request.json();
+    const parsed = updateCleaningTypeSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new ValidationError('Invalid input', parsed.error.issues.map((i) => ({
+        field: i.path.join('.'),
+        message: i.message,
+      })));
+    }
+
+    const result = await updateCleaningType(ctx, cleaningTypeId, parsed.data);
+    return NextResponse.json({ data: result });
+  },
+  { entitlement: 'pms', permission: PMS_PERMISSIONS.HOUSEKEEPING_MANAGE, writeAccess: true },
+);

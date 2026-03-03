@@ -246,23 +246,23 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
         for (const comp of line.packageComponents!) {
           const compSubDeptId = comp.subDepartmentId ?? 'unmapped';
           const existing = revenueBySubDept.get(compSubDeptId) ?? 0;
-          revenueBySubDept.set(compSubDeptId, existing + Math.round(comp.allocatedRevenueCents * tenderRatio));
+          revenueBySubDept.set(compSubDeptId, existing + comp.allocatedRevenueCents * tenderRatio);
         }
       } else {
         // Regular item or legacy package: use line-level subdepartment
         const subDeptId = line.subDepartmentId ?? 'unmapped';
         const existing = revenueBySubDept.get(subDeptId) ?? 0;
-        revenueBySubDept.set(subDeptId, existing + Math.round(line.extendedPriceCents * tenderRatio));
+        revenueBySubDept.set(subDeptId, existing + line.extendedPriceCents * tenderRatio);
       }
 
       if (line.costCents && shouldPostCogs) {
         const subDeptId = line.subDepartmentId ?? 'unmapped';
-        cogsLines.push({ subDeptId, costCents: Math.round(line.costCents * line.qty * tenderRatio) });
+        cogsLines.push({ subDeptId, costCents: line.costCents * line.qty * tenderRatio });
       }
 
       if (line.taxGroupId && line.taxAmountCents) {
         const existingTax = taxByGroup.get(line.taxGroupId) ?? 0;
-        taxByGroup.set(line.taxGroupId, existingTax + Math.round(line.taxAmountCents * tenderRatio));
+        taxByGroup.set(line.taxGroupId, existingTax + line.taxAmountCents * tenderRatio);
       }
     }
 
@@ -282,11 +282,12 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
         missingMappings.push(`sub_department:${subDeptId}`);
       }
 
-      if (revenueAccountId && amountCents > 0) {
+      const roundedCents = Math.round(amountCents);
+      if (revenueAccountId && roundedCents > 0) {
         glLines.push({
           accountId: revenueAccountId,
           debitAmount: '0',
-          creditAmount: (amountCents / 100).toFixed(2),
+          creditAmount: (roundedCents / 100).toFixed(2),
           locationId: data.locationId,
           subDepartmentId: subDeptId !== 'unmapped' ? subDeptId : undefined,
           terminalId: data.terminalId,
@@ -295,7 +296,7 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
             ? `Revenue - sub-dept ${subDeptId}`
             : `Revenue - unmapped (fallback: uncategorized)`,
         });
-      } else if (!revenueAccountId && amountCents > 0) {
+      } else if (!revenueAccountId && roundedCents > 0) {
         // Should never happen after ensureAccountingSettings guarantees suspense
         missingMappings.push(`revenue_account_null:${subDeptId}`);
       }
@@ -442,10 +443,11 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
         cogsBySubDept.set(c.subDeptId, existing + c.costCents);
       }
 
-      for (const [subDeptId, costCents] of cogsBySubDept) {
+      for (const [subDeptId, rawCostCents] of cogsBySubDept) {
         const subDeptMapping = subDeptMap.get(subDeptId);
         if (!subDeptMapping || !subDeptMapping.cogsAccountId || !subDeptMapping.inventoryAccountId) continue;
 
+        const costCents = Math.round(rawCostCents);
         if (costCents > 0) {
           const costDollars = (costCents / 100).toFixed(2);
           glLines.push({
@@ -473,7 +475,7 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     }
 
     // Tax credits — proportional share (with fallback to default tax payable)
-    for (const [taxGroupId, taxCents] of taxByGroup) {
+    for (const [taxGroupId, rawTaxCents] of taxByGroup) {
       let taxAccountId = taxGroupMap.get(taxGroupId) ?? null;
 
       if (!taxAccountId) {
@@ -482,6 +484,7 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
         missingMappings.push(`tax_group:${taxGroupId}`);
       }
 
+      const taxCents = Math.round(rawTaxCents);
       if (taxAccountId && taxCents > 0) {
         glLines.push({
           accountId: taxAccountId,

@@ -375,7 +375,7 @@ export function useHostDashboard({
 // ── Host Tables Hook ─────────────────────────────────────────────
 
 export function useHostTables(locationId: string | null) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['host-tables', locationId],
     queryFn: async ({ signal }) => {
       const json = await apiFetch<{ data: HostTableItem[] }>(
@@ -389,7 +389,7 @@ export function useHostTables(locationId: string | null) {
     refetchInterval: 30_000,
   });
 
-  return { tables: data ?? [], isLoading };
+  return { tables: data ?? [], isLoading, error: error?.message ?? null };
 }
 
 // ── Wait Time Estimate Hook ──────────────────────────────────────

@@ -111,7 +111,11 @@ function computeDirtyFields(
 export function ItemEditDrawer() {
   const { state, close } = useItemEditDrawer();
   const { isOpen, itemId, onSaveSuccess, preSeed, mode } = state;
-  const allowedItemTypes = mode === 'fnb' ? ['food', 'beverage'] : undefined;
+  const allowedItemTypes = mode === 'fnb'
+    ? ['food', 'beverage']
+    : mode === 'retail'
+      ? ['retail', 'green_fee', 'rental', 'other']
+      : undefined;
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);

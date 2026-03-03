@@ -7,6 +7,7 @@ import { withTenant } from '@oppsera/db';
 interface HousekeepingRoomRow {
   roomId: string;
   roomNumber: string;
+  roomTypeId: string;
   roomTypeName: string;
   floor: string | null;
   status: string;
@@ -28,6 +29,7 @@ export async function listHousekeepingRooms(
       SELECT
         r.id AS room_id,
         r.room_number,
+        r.room_type_id,
         rt.name AS room_type_name,
         r.floor,
         r.status,
@@ -64,6 +66,7 @@ export async function listHousekeepingRooms(
       return {
         roomId: String(row.room_id),
         roomNumber: String(row.room_number),
+        roomTypeId: String(row.room_type_id),
         roomTypeName: String(row.room_type_name),
         floor: row.floor ? String(row.floor) : null,
         status: String(row.status),

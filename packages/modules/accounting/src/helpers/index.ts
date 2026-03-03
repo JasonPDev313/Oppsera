@@ -14,5 +14,5 @@ export type {
   PaymentTypeGL,
   UnmappedEventParams,
 } from './resolve-mapping';
-export { getAccountingSettings } from './get-accounting-settings';
+export { getAccountingSettings, isAccountingBootstrapped } from './get-accounting-settings';
 export type { AccountingSettings } from './get-accounting-settings';

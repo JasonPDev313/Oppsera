@@ -69,6 +69,7 @@ export default function BackupsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [createLabel, setCreateLabel] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const { items, isLoading, hasMore, loadMore, refresh } = useBackups({
     status: statusFilter || undefined,
@@ -77,14 +78,15 @@ export default function BackupsPage() {
   const { createBackup, deleteBackup, isActing } = useBackupActions();
 
   const handleCreate = async () => {
+    setCreateError(null);
     try {
       await createBackup(createLabel || undefined);
       setShowCreateDialog(false);
       setCreateLabel('');
       refresh();
       refreshStats();
-    } catch {
-      // error is displayed via isActing state
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Backup creation failed');
     }
   };
 
@@ -311,9 +313,14 @@ export default function BackupsPage() {
               placeholder="Backup label (optional)..."
               className="w-full bg-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm border border-slate-600 placeholder:text-slate-500 mb-4"
             />
+            {createError && (
+              <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-400">
+                {createError}
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => { setShowCreateDialog(false); setCreateLabel(''); }}
+                onClick={() => { setShowCreateDialog(false); setCreateLabel(''); setCreateError(null); }}
                 className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
               >
                 Cancel

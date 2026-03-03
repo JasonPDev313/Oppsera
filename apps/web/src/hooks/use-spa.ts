@@ -619,6 +619,7 @@ export function useSpaDashboard(locationId?: string, date?: string) {
       ).then((r) => r.data);
     },
     staleTime: 60_000,
+    enabled: !!locationId && !!date,
   });
 
   return {

@@ -8,6 +8,10 @@ import { sql } from 'drizzle-orm';
 import { withAdminAuth } from '@/lib/with-admin-auth';
 import { createBackup } from '@/lib/backup/backup-service';
 
+// Backup creation can take minutes for large databases — extend Vercel timeout.
+export const maxDuration = 300;
+export const dynamic = 'force-dynamic';
+
 // ── GET /api/v1/admin/backups — List backups ─────────────────────
 
 export const GET = withAdminAuth(async (req: NextRequest) => {
@@ -88,13 +92,21 @@ export const POST = withAdminAuth(async (req: NextRequest, session) => {
     );
   }
 
-  const result = await createBackup({
-    type: 'manual',
-    label: parsed.data.label ?? `Manual backup by ${session.name}`,
-    adminId: session.adminId,
-  });
+  try {
+    const result = await createBackup({
+      type: 'manual',
+      label: parsed.data.label ?? `Manual backup by ${session.name}`,
+      adminId: session.adminId,
+    });
 
-  return NextResponse.json({ data: result }, { status: 201 });
+    return NextResponse.json({ data: result }, { status: 201 });
+  } catch (err) {
+    console.error('[backups] POST create failed:', err);
+    return NextResponse.json(
+      { error: { code: 'BACKUP_FAILED', message: err instanceof Error ? err.message : 'Backup creation failed' } },
+      { status: 500 },
+    );
+  }
 }, 'super_admin');
 
 // ── Helpers ──────────────────────────────────────────────────────

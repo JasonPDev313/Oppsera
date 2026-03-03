@@ -108,19 +108,27 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
         return;
       }
 
-      // Force refetch ALL accounting queries and WAIT for them to complete.
-      // invalidateQueries marks as stale + triggers refetch, but we also
-      // explicitly refetch to guarantee data is available before proceeding.
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['accounting-settings'] }),
-        queryClient.invalidateQueries({ queryKey: ['gl-accounts'] }),
-        queryClient.invalidateQueries({ queryKey: ['accounting-health-summary'] }),
-      ]);
-      // Double-ensure: refetchQueries blocks until data is returned
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ['accounting-settings'] }),
-        queryClient.refetchQueries({ queryKey: ['gl-accounts'] }),
-      ]);
+      // Invalidate the lightweight bootstrap-status first (raw SQL, always works),
+      // then best-effort invalidate the full settings + accounts queries.
+      await queryClient.invalidateQueries({ queryKey: ['accounting-bootstrap-status'] });
+      await queryClient.refetchQueries({ queryKey: ['accounting-bootstrap-status'] });
+
+      // Best-effort refetch of full queries — wrapped in try/catch because these
+      // use Drizzle SELECT * which can fail if schema is out of sync.
+      try {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['accounting-settings'] }),
+          queryClient.invalidateQueries({ queryKey: ['gl-accounts'] }),
+          queryClient.invalidateQueries({ queryKey: ['accounting-health-summary'] }),
+        ]);
+        await Promise.all([
+          queryClient.refetchQueries({ queryKey: ['accounting-settings'] }),
+          queryClient.refetchQueries({ queryKey: ['gl-accounts'] }),
+        ]);
+      } catch {
+        // Full settings fetch may fail due to schema mismatch — that's OK,
+        // the bootstrap-status endpoint confirms bootstrap succeeded.
+      }
 
       toast.success(`Accounting setup complete! ${res.data.accountCount} accounts created.`);
       setStep(5);

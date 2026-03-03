@@ -37,7 +37,7 @@ const ANALYTICAL_KEYWORDS = /\b(compare|vs\.?|versus|correlat|analyz|analysis|fo
 const SIMPLE_KEYWORDS = /^(?:hi|hello|hey|thanks|thank\s+you|ok|okay|sure|yes|no|got\s+it)\b/i;
 
 /** Detect document paste — long structured content (tables, CSVs, JSON, lists) */
-const DOCUMENT_PASTE_PATTERN = /(?:\|.*\|.*\||\{[\s\S]*\}|"[^"]+",|^\d+[\.\)]\s)/m;
+const DOCUMENT_PASTE_PATTERN = /(?:\|.*\|.*\||\{[\s\S]*\}|"[^"]+",|^\d+[.)]\s)/m;
 
 /** Multi-table SQL intent — cross-collection analysis */
 const MULTI_TABLE_INDICATORS = /\b(join|cross.?reference|across\s+(?:all|multiple|different)|correlat|between\s+\w+\s+and\s+\w+)\b/i;

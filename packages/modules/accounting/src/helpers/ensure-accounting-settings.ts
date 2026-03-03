@@ -139,7 +139,11 @@ export async function ensureAccountingSettings(
     updates['defaultSalesTaxPayableAccountId'] ??
     (current.defaultSalesTaxPayableAccountId as string | null);
 
-  if (!uncatId || !undepId) {
+  const roundingId =
+    updates['defaultRoundingAccountId'] ??
+    (current.defaultRoundingAccountId as string | null);
+
+  if (!uncatId || !undepId || !roundingId) {
     const suspenseId = await ensureSuspenseAccount(tx, tenantId);
     if (suspenseId) {
       if (!uncatId) {
@@ -152,6 +156,10 @@ export async function ensureAccountingSettings(
       if (!taxPayableId) {
         updates['defaultSalesTaxPayableAccountId'] = suspenseId;
       }
+      // Wire rounding account so the pre-posting balance guard always works
+      if (!roundingId) {
+        updates['defaultRoundingAccountId'] = suspenseId;
+      }
     }
   }
 
@@ -163,7 +171,40 @@ export async function ensureAccountingSettings(
       .where(eq(accountingSettings.tenantId, tenantId));
   }
 
+  // 5. Auto-provision standard payment type GL defaults if missing.
+  //    Uses defaultUndepositedFundsAccountId as the deposit target — accountant
+  //    can reclassify later, but this eliminates "Missing GL mapping: payment_type:*"
+  //    noise in gl_unmapped_events for every tender.
+  const depositAccountId = updates['defaultUndepositedFundsAccountId'] ?? undepId;
+  if (depositAccountId) {
+    await ensureDefaultPaymentTypeMappings(tx, tenantId, depositAccountId);
+  }
+
   return { created, autoWired };
+}
+
+/**
+ * Standard payment types that should always have a GL mapping.
+ * ON CONFLICT DO NOTHING — safe for retries, won't overwrite tenant customizations.
+ */
+const STANDARD_PAYMENT_TYPES = ['cash', 'card', 'check', 'ecom', 'ach'];
+
+async function ensureDefaultPaymentTypeMappings(
+  tx: Database,
+  tenantId: string,
+  depositAccountId: string,
+): Promise<void> {
+  try {
+    for (const paymentType of STANDARD_PAYMENT_TYPES) {
+      await tx.execute(sql`
+        INSERT INTO payment_type_gl_defaults (tenant_id, payment_type_id, cash_account_id, created_at, updated_at)
+        VALUES (${tenantId}, ${paymentType}, ${depositAccountId}, NOW(), NOW())
+        ON CONFLICT (tenant_id, payment_type_id) DO NOTHING
+      `);
+    }
+  } catch {
+    // Never block — payment type mappings are non-critical fallbacks
+  }
 }
 
 /**

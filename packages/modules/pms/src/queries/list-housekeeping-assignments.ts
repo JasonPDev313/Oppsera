@@ -19,6 +19,12 @@ export interface HousekeepingAssignmentItem {
   completedAt: string | null;
   durationMinutes: number | null;
   notes: string | null;
+  dueBy: string | null;
+  requestedBy: string | null;
+  cleaningTypeId: string | null;
+  cleaningTypeName: string | null;
+  cleaningTypeCode: string | null;
+  estimatedMinutes: number | null;
   createdAt: string;
 }
 
@@ -44,10 +50,17 @@ export async function listHousekeepingAssignments(
         a.completed_at,
         a.duration_minutes,
         a.notes,
+        a.due_by,
+        a.requested_by,
+        a.cleaning_type_id,
+        ct.name AS cleaning_type_name,
+        ct.code AS cleaning_type_code,
+        ct.estimated_minutes,
         a.created_at
       FROM pms_housekeeping_assignments a
       JOIN pms_rooms r ON r.id = a.room_id AND r.tenant_id = a.tenant_id
       JOIN pms_housekeepers h ON h.id = a.housekeeper_id AND h.tenant_id = a.tenant_id
+      LEFT JOIN pms_cleaning_types ct ON ct.id = a.cleaning_type_id AND ct.tenant_id = a.tenant_id
       WHERE a.tenant_id = ${tenantId}
         AND a.property_id = ${propertyId}
         AND a.business_date = ${businessDate}
@@ -69,6 +82,12 @@ export async function listHousekeepingAssignments(
       completedAt: row.completed_at ? new Date(row.completed_at as string).toISOString() : null,
       durationMinutes: row.duration_minutes != null ? Number(row.duration_minutes) : null,
       notes: row.notes ? String(row.notes) : null,
+      dueBy: row.due_by ? new Date(row.due_by as string).toISOString() : null,
+      requestedBy: row.requested_by ? String(row.requested_by) : null,
+      cleaningTypeId: row.cleaning_type_id ? String(row.cleaning_type_id) : null,
+      cleaningTypeName: row.cleaning_type_name ? String(row.cleaning_type_name) : null,
+      cleaningTypeCode: row.cleaning_type_code ? String(row.cleaning_type_code) : null,
+      estimatedMinutes: row.estimated_minutes != null ? Number(row.estimated_minutes) : null,
       createdAt: new Date(row.created_at as string).toISOString(),
     }));
   });

@@ -101,6 +101,7 @@ export async function postJournalEntry(
         .insert(glJournalLines)
         .values({
           id: generateUlid(),
+          tenantId: ctx.tenantId,
           journalEntryId: entryId,
           accountId: line.accountId,
           debitAmount: line.debitAmount ?? '0',

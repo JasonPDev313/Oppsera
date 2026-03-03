@@ -985,6 +985,10 @@ export function usePmsMutations(_propertyId: string | null) {
     queryClient.invalidateQueries({ queryKey: ['pms-room'] });
   };
 
+  const invalidateCleaningTypes = () => {
+    queryClient.invalidateQueries({ queryKey: ['pms-cleaning-types'] });
+  };
+
   const invalidateWorkOrders = () => {
     queryClient.invalidateQueries({ queryKey: ['pms-work-orders'] });
     queryClient.invalidateQueries({ queryKey: ['pms-work-order'] });
@@ -1846,6 +1850,33 @@ export function usePmsMutations(_propertyId: string | null) {
     onSuccess: () => invalidateHkAssignments(),
   });
 
+  const setAssignmentDeadline = useMutation({
+    mutationFn: ({ assignmentId, dueBy, requestedBy }: { assignmentId: string; dueBy: string; requestedBy?: string }) =>
+      apiFetch<{ data: { id: string } }>(`/api/v1/pms/housekeeping/assignments/${assignmentId}/deadline`, {
+        method: 'POST',
+        body: JSON.stringify({ dueBy, requestedBy }),
+      }).then((r) => r.data),
+    onSuccess: () => invalidateHkAssignments(),
+  });
+
+  const createCleaningType = useMutation({
+    mutationFn: (input: { propertyId: string; code: string; name: string; description?: string; estimatedMinutes?: number; sortOrder?: number }) =>
+      apiFetch<{ data: PMSCleaningType }>('/api/v1/pms/housekeeping/cleaning-types', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }).then((r) => r.data),
+    onSuccess: () => invalidateCleaningTypes(),
+  });
+
+  const updateCleaningType = useMutation({
+    mutationFn: ({ id, ...input }: { id: string; name?: string; description?: string; estimatedMinutes?: number; sortOrder?: number; isActive?: boolean }) =>
+      apiFetch<{ data: PMSCleaningType }>(`/api/v1/pms/housekeeping/cleaning-types/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }).then((r) => r.data),
+    onSuccess: () => invalidateCleaningTypes(),
+  });
+
   // ── Work Order Mutations ──────────────────────────────────────────
 
   const createWorkOrder = useMutation({
@@ -2380,6 +2411,9 @@ export function usePmsMutations(_propertyId: string | null) {
     startCleaning,
     completeCleaning,
     skipCleaning,
+    setAssignmentDeadline,
+    createCleaningType,
+    updateCleaningType,
     // Work Orders
     createWorkOrder,
     updateWorkOrder,
@@ -2785,9 +2819,28 @@ export interface PMSHousekeepingAssignment {
   completedAt: string | null;
   durationMinutes: number | null;
   notes: string | null;
+  dueBy: string | null;
+  requestedBy: string | null;
+  cleaningTypeId: string | null;
+  cleaningTypeName: string | null;
+  cleaningTypeCode: string | null;
+  estimatedMinutes: number | null;
   roomNumber: string | null;
   roomTypeName: string | null;
   housekeeperName: string | null;
+}
+
+export interface PMSCleaningType {
+  id: string;
+  propertyId: string;
+  code: string;
+  name: string;
+  description: string | null;
+  estimatedMinutes: number | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PMSHousekeeperWorkload {
@@ -2975,6 +3028,32 @@ export function useHousekeeperWorkload(
     },
     enabled: !!propertyId && !!date,
     staleTime: 15_000,
+  });
+
+  return {
+    data: result.data ?? [],
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}
+
+// ── useCleaningTypes ────────────────────────────────────────────
+
+export function useCleaningTypes(
+  propertyId: string | null,
+  includeInactive = false,
+) {
+  const result = useQuery({
+    queryKey: ['pms-cleaning-types', propertyId, includeInactive],
+    queryFn: () => {
+      const qs = buildQueryString({ propertyId, includeInactive: includeInactive || undefined });
+      return apiFetch<{ data: PMSCleaningType[] }>(
+        `/api/v1/pms/housekeeping/cleaning-types${qs}`,
+      ).then((r) => r.data);
+    },
+    enabled: !!propertyId,
+    staleTime: 60_000,
   });
 
   return {

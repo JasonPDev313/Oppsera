@@ -21,6 +21,7 @@ import { RotationQueue } from '@/components/fnb/host/RotationQueue';
 import { PreShiftPanel } from '@/components/fnb/host/PreShiftPanel';
 import { HostFloorMap } from '@/components/fnb/host/HostFloorMap';
 import { HostGridView } from '@/components/fnb/host/HostGridView';
+import { HostLayoutView } from '@/components/fnb/host/HostLayoutView';
 import { AddGuestDialog } from '@/components/fnb/host/AddGuestDialog';
 import { NewReservationDialog } from '@/components/fnb/host/NewReservationDialog';
 import { SeatGuestDialog } from '@/components/fnb/host/SeatGuestDialog';
@@ -31,6 +32,7 @@ import { QrCodeDisplay } from '@/components/fnb/host/QrCodeDisplay';
 import { AssignModeProvider, useAssignMode } from '@/components/fnb/host/AssignModeContext';
 import HostSettingsPanel from '@/components/host/HostSettingsPanel';
 import { useSectionActions } from '@/hooks/use-fnb-manager';
+import { useFnbRooms, useTableActions } from '@/hooks/use-fnb-floor';
 import { FeaturePlaceholderBlock, FeatureBadge } from '@/components/fnb/host/FeaturePlaceholder';
 import {
   Users,
@@ -39,6 +41,7 @@ import {
   Settings,
   LayoutGrid,
   List,
+  Map,
   ClipboardList,
   Bell,
   QrCode,
@@ -47,7 +50,7 @@ import {
 import { useRouter } from 'next/navigation';
 
 type RightPanelTab = 'reservations' | 'floor' | 'preshift' | 'pickup';
-type FloorViewMode = 'map' | 'grid';
+type FloorViewMode = 'layout' | 'map' | 'grid';
 
 function HostContentInner() {
   const { locations } = useAuthContext();
@@ -60,7 +63,7 @@ function HostContentInner() {
 
   // ── UI State ─────────────────────────────────────
   const [rightTab, setRightTab] = useState<RightPanelTab>('reservations');
-  const [floorViewMode, setFloorViewMode] = useState<FloorViewMode>('map');
+  const [floorViewMode, setFloorViewMode] = useState<FloorViewMode>('layout');
 
   // ── Data ────────────────────────────────────────────
   const {
@@ -73,13 +76,25 @@ function HostContentInner() {
     refresh,
   } = useHostDashboard({ locationId, businessDate: today });
 
-  const { tables } = useHostTables(locationId);
+  const { tables, error: tablesError } = useHostTables(locationId);
   const { settings: hostSettings } = useHostSettings(locationId);
   const { data: preShiftData, isLoading: preShiftLoading } = usePreShift(
     rightTab === 'preshift' ? locationId : null,
   );
 
+  const { rooms } = useFnbRooms();
+  const { syncFromFloorPlan, isActing: isSyncActing } = useTableActions(() => {
+    refresh();
+  });
+
   const { advanceRotation, isActing } = useSectionActions();
+
+  // ── Sync all rooms ────────────────────────────────
+  const handleSyncTables = useCallback(async () => {
+    for (const room of rooms) {
+      await syncFromFloorPlan(room.id);
+    }
+  }, [rooms, syncFromFloorPlan]);
 
   // ── Dialogs ─────────────────────────────────────────
   const [showAddGuest, setShowAddGuest] = useState(false);
@@ -412,8 +427,22 @@ function HostContentInner() {
               <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5 mr-1">
                 <button
                   type="button"
+                  onClick={() => setFloorViewMode('layout')}
+                  aria-label="Layout view"
+                  title="Room layout"
+                  className={`p-1.5 rounded-md transition-all ${
+                    floorViewMode === 'layout'
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Map size={14} />
+                </button>
+                <button
+                  type="button"
                   onClick={() => setFloorViewMode('map')}
                   aria-label="Map view"
+                  title="Quick map"
                   className={`p-1.5 rounded-md transition-all ${
                     floorViewMode === 'map'
                       ? 'bg-card text-foreground shadow-sm'
@@ -426,6 +455,7 @@ function HostContentInner() {
                   type="button"
                   onClick={() => setFloorViewMode('grid')}
                   aria-label="Grid view"
+                  title="Table list"
                   className={`p-1.5 rounded-md transition-all ${
                     floorViewMode === 'grid'
                       ? 'bg-card text-foreground shadow-sm'
@@ -463,16 +493,28 @@ function HostContentInner() {
 
             {rightTab === 'floor' && (
               <div className="flex-1 overflow-hidden rounded-xl bg-card border border-border shadow-sm">
-                {floorViewMode === 'map' ? (
+                {floorViewMode === 'layout' ? (
+                  <HostLayoutView
+                    onSeatTable={handleFloorSeatTable}
+                    onTableAction={handleTableAction}
+                  />
+                ) : floorViewMode === 'map' ? (
                   <HostFloorMap
                     tables={tables}
                     onSeatTable={handleFloorSeatTable}
                     onTableAction={handleTableAction}
+                    rooms={rooms.map((r) => ({ id: r.id, name: r.name }))}
+                    onSyncTables={handleSyncTables}
+                    isSyncing={isSyncActing}
+                    error={tablesError}
                   />
                 ) : (
                   <HostGridView
                     tables={tables}
                     onSeatTable={handleFloorSeatTable}
+                    onSyncTables={handleSyncTables}
+                    isSyncing={isSyncActing}
+                    error={tablesError}
                   />
                 )}
               </div>

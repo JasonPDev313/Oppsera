@@ -118,6 +118,14 @@ async function recalculateOccupancy(
     departuresArr.push(Number(row.departures ?? 0));
   }
 
+  const idsArray = sql`ARRAY[${sql.join(ids.map(v => sql`${v}`), sql`, `)}]`;
+  const datesArray = sql`ARRAY[${sql.join(businessDates.map(v => sql`${v}::date`), sql`, `)}]`;
+  const occupiedArray = sql`ARRAY[${sql.join(roomsOccupiedArr.map(v => sql`${v}::int`), sql`, `)}]`;
+  const availableArray = sql`ARRAY[${sql.join(roomsAvailableArr.map(v => sql`${v}::int`), sql`, `)}]`;
+  const pctArray = sql`ARRAY[${sql.join(occupancyPctArr.map(v => sql`${v}::numeric`), sql`, `)}]`;
+  const arrivArray = sql`ARRAY[${sql.join(arrivalsArr.map(v => sql`${v}::int`), sql`, `)}]`;
+  const departArray = sql`ARRAY[${sql.join(departuresArr.map(v => sql`${v}::int`), sql`, `)}]`;
+
   await tx.execute(sql`
     INSERT INTO rm_pms_daily_occupancy (
       id, tenant_id, property_id, business_date,
@@ -125,17 +133,17 @@ async function recalculateOccupancy(
       occupancy_pct, arrivals, departures, created_at, updated_at
     )
     SELECT
-      unnest(${ids}::text[]),
+      unnest(${idsArray}),
       ${tenantId},
       ${propertyId},
-      unnest(${businessDates}::date[]),
+      unnest(${datesArray}),
       ${totalRooms},
-      unnest(${roomsOccupiedArr}::int[]),
-      unnest(${roomsAvailableArr}::int[]),
+      unnest(${occupiedArray}),
+      unnest(${availableArray}),
       ${oooRooms},
-      unnest(${occupancyPctArr}::numeric[]),
-      unnest(${arrivalsArr}::int[]),
-      unnest(${departuresArr}::int[]),
+      unnest(${pctArray}),
+      unnest(${arrivArray}),
+      unnest(${departArray}),
       NOW(),
       NOW()
     ON CONFLICT (tenant_id, property_id, business_date)

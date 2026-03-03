@@ -111,6 +111,9 @@ export type { HousekeepingAssignmentItem } from './list-housekeeping-assignments
 export { getHousekeeperWorkload } from './get-housekeeper-workload';
 export type { HousekeeperWorkload } from './get-housekeeper-workload';
 
+export { listCleaningTypes } from './list-cleaning-types';
+export type { CleaningTypeItem } from './list-cleaning-types';
+
 export { listWorkOrders } from './list-work-orders';
 export type { WorkOrderListItem, ListWorkOrdersInput, ListWorkOrdersResult } from './list-work-orders';
 

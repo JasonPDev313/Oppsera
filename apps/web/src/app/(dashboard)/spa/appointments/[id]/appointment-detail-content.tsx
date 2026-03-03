@@ -132,6 +132,7 @@ function getAvailableActions(status: string): ActionConfig[] {
   switch (status) {
     case 'draft':
     case 'reserved':
+    case 'scheduled':
       actions.push({
         key: 'confirm',
         label: 'Confirm Appointment',

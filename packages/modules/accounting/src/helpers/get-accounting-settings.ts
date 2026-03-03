@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Database } from '@oppsera/db';
 import { accountingSettings } from '@oppsera/db';
 
@@ -119,4 +119,43 @@ export async function getAccountingSettings(
     dayEndCloseTime: row.dayEndCloseTime ?? '23:00',
     supportedCurrencies: row.supportedCurrencies ?? ['USD'],
   };
+}
+
+/**
+ * Lightweight bootstrap status check using raw SQL.
+ * Unlike getAccountingSettings (which does SELECT * via Drizzle ORM and fails
+ * if any Drizzle-schema column doesn't exist in the DB), this only checks
+ * whether a settings row + at least one GL account exist for the tenant.
+ * This survives schema mismatches from un-applied migrations.
+ *
+ * If the accounting tables don't exist yet (pre-migration 0075), returns
+ * { bootstrapped: false, accountCount: 0 } instead of throwing.
+ */
+export async function isAccountingBootstrapped(
+  tx: Database,
+  tenantId: string,
+): Promise<{ bootstrapped: boolean; accountCount: number }> {
+  try {
+    const result = await tx.execute(
+      sql`SELECT
+            (SELECT COUNT(*)::int FROM accounting_settings WHERE tenant_id = ${tenantId}) AS settings_count,
+            (SELECT COUNT(*)::int FROM gl_accounts WHERE tenant_id = ${tenantId}) AS account_count`,
+    );
+    const row = Array.from(result as Iterable<{ settings_count: number | string; account_count: number | string }>)[0];
+    // postgres.js may return numeric strings — coerce with Number()
+    const settingsCount = Number(row?.settings_count ?? 0);
+    const accountCount = Number(row?.account_count ?? 0);
+    return {
+      bootstrapped: settingsCount > 0 && accountCount > 0,
+      accountCount,
+    };
+  } catch (err) {
+    // If accounting tables don't exist yet (migration 0075 not applied),
+    // the query fails with "relation does not exist". Treat as not bootstrapped.
+    const msg = String((err as Error)?.message ?? '').toLowerCase();
+    if (msg.includes('relation') && msg.includes('does not exist')) {
+      return { bootstrapped: false, accountCount: 0 };
+    }
+    throw err;
+  }
 }

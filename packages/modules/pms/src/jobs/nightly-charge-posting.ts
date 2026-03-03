@@ -99,30 +99,38 @@ export async function runNightlyChargePosting(
 
     try {
       // Batch insert room charges
+      const chIdsArr = sql`ARRAY[${sql.join(chargeIds.map(v => sql`${v}`), sql`, `)}]`;
+      const chFolioArr = sql`ARRAY[${sql.join(chargeFolioIds.map(v => sql`${v}`), sql`, `)}]`;
+      const chDescsArr = sql`ARRAY[${sql.join(chargeDescs.map(v => sql`${v}`), sql`, `)}]`;
+      const chAmtsArr = sql`ARRAY[${sql.join(chargeAmounts.map(v => sql`${v}::int`), sql`, `)}]`;
       await tx.execute(sql`
         INSERT INTO pms_folio_entries (id, tenant_id, folio_id, entry_type, description, amount_cents, business_date, posted_by)
         SELECT
-          unnest(${chargeIds}::text[]),
+          unnest(${chIdsArr}),
           ${tenantId},
-          unnest(${chargeFolioIds}::text[]),
+          unnest(${chFolioArr}),
           'ROOM_CHARGE',
-          unnest(${chargeDescs}::text[]),
-          unnest(${chargeAmounts}::int[]),
+          unnest(${chDescsArr}),
+          unnest(${chAmtsArr}),
           ${businessDate},
           'system'
       `);
 
       // Batch insert tax entries (if any)
       if (taxIds.length > 0) {
+        const txIdsArr = sql`ARRAY[${sql.join(taxIds.map(v => sql`${v}`), sql`, `)}]`;
+        const txFolioArr = sql`ARRAY[${sql.join(taxFolioIds.map(v => sql`${v}`), sql`, `)}]`;
+        const txDescsArr = sql`ARRAY[${sql.join(taxDescs.map(v => sql`${v}`), sql`, `)}]`;
+        const txAmtsArr = sql`ARRAY[${sql.join(taxAmounts.map(v => sql`${v}::int`), sql`, `)}]`;
         await tx.execute(sql`
           INSERT INTO pms_folio_entries (id, tenant_id, folio_id, entry_type, description, amount_cents, business_date, posted_by)
           SELECT
-            unnest(${taxIds}::text[]),
+            unnest(${txIdsArr}),
             ${tenantId},
-            unnest(${taxFolioIds}::text[]),
+            unnest(${txFolioArr}),
             'TAX',
-            unnest(${taxDescs}::text[]),
-            unnest(${taxAmounts}::int[]),
+            unnest(${txDescsArr}),
+            unnest(${txAmtsArr}),
             ${businessDate},
             'system'
         `);
@@ -139,6 +147,9 @@ export async function runNightlyChargePosting(
         updateTaxes.push(amounts.tax);
       }
 
+      const upFolioArr = sql`ARRAY[${sql.join(updateFolioIds.map(v => sql`${v}`), sql`, `)}]`;
+      const upChargeArr = sql`ARRAY[${sql.join(updateCharges.map(v => sql`${v}::int`), sql`, `)}]`;
+      const upTaxArr = sql`ARRAY[${sql.join(updateTaxes.map(v => sql`${v}::int`), sql`, `)}]`;
       await tx.execute(sql`
         UPDATE pms_folios f
         SET subtotal_cents = f.subtotal_cents + v.charge,
@@ -148,9 +159,9 @@ export async function runNightlyChargePosting(
             updated_at = NOW()
         FROM (
           SELECT
-            unnest(${updateFolioIds}::text[]) AS folio_id,
-            unnest(${updateCharges}::int[]) AS charge,
-            unnest(${updateTaxes}::int[]) AS tax
+            unnest(${upFolioArr}) AS folio_id,
+            unnest(${upChargeArr}) AS charge,
+            unnest(${upTaxArr}) AS tax
         ) v
         WHERE f.id = v.folio_id AND f.tenant_id = ${tenantId}
       `);

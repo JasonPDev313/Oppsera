@@ -486,6 +486,8 @@ export const assignHousekeepingSchema = z.object({
     roomId: z.string().min(1),
     housekeeperId: z.string().min(1),
     priority: z.number().int().min(0).default(0),
+    cleaningTypeId: z.string().min(1).optional().nullable(),
+    dueBy: z.string().refine((v) => !isNaN(Date.parse(v)), { message: 'Invalid date' }).optional().nullable(),
   })).min(1),
 });
 export type AssignHousekeepingInput = z.input<typeof assignHousekeepingSchema>;
@@ -494,6 +496,33 @@ export const completeCleaningSchema = z.object({
   notes: z.string().max(1000).optional().nullable(),
 });
 export type CompleteCleaningInput = z.input<typeof completeCleaningSchema>;
+
+// ── Cleaning Types ──────────────────────────────────────────────
+export const createCleaningTypeSchema = z.object({
+  propertyId: z.string().min(1),
+  code: z.string().min(1).max(20),
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional().nullable(),
+  estimatedMinutes: z.number().int().min(1).optional().nullable(),
+  sortOrder: z.number().int().min(0).default(0),
+});
+export type CreateCleaningTypeInput = z.input<typeof createCleaningTypeSchema>;
+
+export const updateCleaningTypeSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional().nullable(),
+  estimatedMinutes: z.number().int().min(1).optional().nullable(),
+  sortOrder: z.number().int().min(0).optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateCleaningTypeInput = z.input<typeof updateCleaningTypeSchema>;
+
+// ── Assignment Deadline ─────────────────────────────────────────
+export const setAssignmentDeadlineSchema = z.object({
+  dueBy: z.string().min(1).refine((v) => !isNaN(Date.parse(v)), { message: 'Invalid date' }),
+  requestedBy: z.string().max(200).optional().nullable(),
+});
+export type SetAssignmentDeadlineInput = z.input<typeof setAssignmentDeadlineSchema>;
 
 // ── Work Orders ─────────────────────────────────────────────────
 export const createWorkOrderSchema = z.object({

@@ -114,16 +114,21 @@ export async function checkOut(
           }
 
           // Single batch insert for all extra night entries
+          const eIdsArr = sql`ARRAY[${sql.join(entryIds.map(v => sql`${v}`), sql`, `)}]`;
+          const eTypesArr = sql`ARRAY[${sql.join(entryTypes.map(v => sql`${v}`), sql`, `)}]`;
+          const eDescsArr = sql`ARRAY[${sql.join(descriptions.map(v => sql`${v}`), sql`, `)}]`;
+          const eAmtsArr = sql`ARRAY[${sql.join(amounts.map(v => sql`${v}::int`), sql`, `)}]`;
+          const eDatesArr = sql`ARRAY[${sql.join(businessDates.map(v => sql`${v}::date`), sql`, `)}]`;
           await tx.execute(sql`
             INSERT INTO pms_folio_entries (id, tenant_id, folio_id, entry_type, description, amount_cents, business_date, posted_by)
             SELECT
-              unnest(${entryIds}::text[]),
+              unnest(${eIdsArr}),
               ${ctx.tenantId},
               ${folio.id},
-              unnest(${entryTypes}::text[]),
-              unnest(${descriptions}::text[]),
-              unnest(${amounts}::int[]),
-              unnest(${businessDates}::date[]),
+              unnest(${eTypesArr}),
+              unnest(${eDescsArr}),
+              unnest(${eAmtsArr}),
+              unnest(${eDatesArr}),
               ${ctx.user.id}
           `);
         }

@@ -27,6 +27,7 @@ export const MODULE_TABLES = [
   'pms_message_log',
   'pms_housekeepers',
   'pms_housekeeping_assignments',
+  'pms_cleaning_types',
   'pms_work_orders',
   'pms_work_order_comments',
   'pms_rate_packages',
@@ -97,6 +98,7 @@ export {
   pmsLoyaltyPrograms,
   pmsLoyaltyMembers,
   pmsLoyaltyTransactions,
+  pmsCleaningTypes,
 } from '@oppsera/db';
 
 // Validation schemas
@@ -144,6 +146,9 @@ export {
   updateHousekeeperSchema,
   assignHousekeepingSchema,
   completeCleaningSchema,
+  createCleaningTypeSchema,
+  updateCleaningTypeSchema,
+  setAssignmentDeadlineSchema,
   createWorkOrderSchema,
   updateWorkOrderSchema,
   completeWorkOrderSchema,
@@ -238,6 +243,9 @@ export type {
   UpdateHousekeeperInput,
   AssignHousekeepingInput,
   CompleteCleaningInput,
+  CreateCleaningTypeInput,
+  UpdateCleaningTypeInput,
+  SetAssignmentDeadlineInput,
   CreateWorkOrderInput,
   UpdateWorkOrderInput,
   CompleteWorkOrderInput,
@@ -384,6 +392,8 @@ export { assignHousekeeping } from './commands/assign-housekeeping';
 export { startCleaning } from './commands/start-cleaning';
 export { completeCleaning } from './commands/complete-cleaning';
 export { skipCleaning } from './commands/skip-cleaning';
+export { setAssignmentDeadline } from './commands/set-assignment-deadline';
+export { createCleaningType, updateCleaningType } from './commands/manage-cleaning-types';
 export { createWorkOrder } from './commands/create-work-order';
 export { updateWorkOrder } from './commands/update-work-order';
 export { completeWorkOrder } from './commands/complete-work-order';
@@ -479,6 +489,7 @@ export {
   listHousekeepers,
   listHousekeepingAssignments,
   getHousekeeperWorkload,
+  listCleaningTypes,
   listWorkOrders,
   getWorkOrder,
   listRatePackages,
@@ -570,6 +581,7 @@ export type {
   HousekeeperItem,
   HousekeepingAssignmentItem,
   HousekeeperWorkload,
+  CleaningTypeItem,
   WorkOrderListItem,
   ListWorkOrdersResult,
   WorkOrderDetail,

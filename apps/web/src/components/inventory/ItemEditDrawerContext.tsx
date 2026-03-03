@@ -21,15 +21,15 @@ interface ItemEditDrawerState {
   initialSection?: string;
   onSaveSuccess?: () => void;
   preSeed?: ItemPreSeed;
-  mode?: 'fnb' | 'all';
+  mode?: 'fnb' | 'retail' | 'all';
 }
 
 interface OpenOptions {
   section?: string;
   onSaveSuccess?: () => void;
   preSeed?: ItemPreSeed;
-  /** When 'fnb', restricts item type dropdown to food/beverage only */
-  mode?: 'fnb' | 'all';
+  /** When 'fnb', restricts to food/beverage. When 'retail', restricts to retail/green_fee/rental/package. */
+  mode?: 'fnb' | 'retail' | 'all';
 }
 
 interface ItemEditDrawerContextType {

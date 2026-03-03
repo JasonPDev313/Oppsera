@@ -4,21 +4,12 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Grid3X3, Search, Filter } from 'lucide-react';
 import { useCapabilityMatrix } from '@/hooks/use-feature-flags';
+import { MODULE_REGISTRY } from '@oppsera/core/entitlements/registry';
 
-const MODULE_KEYS = ['pos', 'catalog', 'crm', 'tee_sheet', 'fnb', 'inventory', 'accounting', 'reporting', 'membership', 'pms', 'events'];
-const MODULE_INFO: Record<string, { label: string; description: string }> = {
-  pos: { label: 'Retail POS', description: 'Point of sale for retail operations — orders, tenders, receipts, shifts' },
-  catalog: { label: 'Product Catalog', description: 'Items, categories, modifiers, pricing, tax rules, barcode management' },
-  crm: { label: 'Customer Management', description: 'CRM, billing accounts, memberships, loyalty, house accounts' },
-  tee_sheet: { label: 'Tee Sheet', description: 'Golf tee-time reservations, bookings, player management' },
-  fnb: { label: 'Food & Beverage POS', description: 'Restaurant POS — tabs, checks, courses, kitchen display, tips' },
-  inventory: { label: 'Inventory', description: 'Stock tracking, receiving, vendors, purchase orders, movements' },
-  accounting: { label: 'Accounting', description: 'General ledger, chart of accounts, journal entries, financial statements' },
-  reporting: { label: 'Reports & Dashboards', description: 'Sales reports, custom report builder, dashboards, CSV export' },
-  membership: { label: 'Memberships', description: 'Membership plans, billing cycles, privileges, member portal access' },
-  pms: { label: 'Property Management', description: 'Reservations, room management, folios, housekeeping, channels' },
-  events: { label: 'Events & Banquets', description: 'Event bookings, banquet management, group reservations' },
-};
+const MODULE_KEYS = MODULE_REGISTRY.map((m) => m.key);
+const MODULE_INFO: Record<string, { label: string; description: string }> = Object.fromEntries(
+  MODULE_REGISTRY.map((m) => [m.key, { label: m.name, description: m.description }])
+);
 
 const MODE_STYLES: Record<string, { label: string; bg: string; text: string }> = {
   full: { label: '\u25CF', bg: 'bg-emerald-500/20', text: 'text-emerald-400' },

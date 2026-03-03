@@ -150,7 +150,6 @@ export async function getCustomerSpending(
       FROM page_customers pc
       JOIN customers c ON c.id = pc.customer_id AND c.tenant_id = ${input.tenantId}
       JOIN dept_spend ds ON ds.customer_id = pc.customer_id
-      ORDER BY pc.total_spend_cents DESC, ds.spend_cents DESC
 
       UNION ALL
 
@@ -160,6 +159,8 @@ export async function getCustomerSpending(
         s.total_customers,
         s.total_spend_cents
       FROM summary_stats s
+
+      ORDER BY row_type ASC, total_spend_cents DESC NULLS LAST, spend_cents DESC NULLS LAST
     `);
 
     const flatRows = Array.from(rows as Iterable<Record<string, unknown>>);

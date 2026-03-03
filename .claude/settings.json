@@ -43,7 +43,12 @@
       "Read(//c/Users/Jason/.claude/projects/c--Users-Jason-Dev-Oppsera/memory/**)",
       "Read(//c/Users/Jason/Dev//**)",
       "Bash(git clone https://github.com/JasonPDev313/databridge /tmp/databridge)",
-      "Read(//c/Users/Jason/Dev/Oppsera/**)"
+      "Read(//c/Users/Jason/Dev/Oppsera/**)",
+      "Read(//c/Users/Jason/.claude/projects/c--Users-Jason-Dev-Oppsera/ebde8c59-a4d4-4ae0-894a-6bf6adc530cf/tool-results/**)",
+      "Bash(export PATH=\"/c/Users/Jason/AppData/Roaming/npm:$PATH:/c/Program Files/nodejs\")",
+      "Bash(export PATH=\"/c/Users/Jason/AppData/Roaming/npm:/c/Program Files/nodejs:/c/Windows/System32:$PATH\")",
+      "Bash(export PATH=\"/c/Users/Jason/AppData/Roaming/npm:/c/Program Files/nodejs:/c/Windows/System32:/usr/bin:/bin:/mingw64/bin:$PATH\")",
+      "Bash(export PATH=\"/usr/bin:/bin:/mingw64/bin:$PATH\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",
@@ -51,7 +56,9 @@
       "c:\\Users\\Jason\\Dev\\Oppsera\\apps\\admin\\src\\app\\api\\v1\\audit\\tenant",
       "c:\\Users\\Jason\\Dev\\Oppsera\\.claude",
       "c:\\Users\\Jason\\Dev\\Oppsera\\.claude\\Admin Portal Prompts",
-      "C:\\Users\\Jason\\.claude\\projects\\c--Users-Jason-Dev-Oppsera\\memory"
+      "C:\\Users\\Jason\\.claude\\projects\\c--Users-Jason-Dev-Oppsera\\memory",
+      "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\api\\v1\\pms\\housekeeping\\assignments\\[id]",
+      "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\admin\\.next"
     ]
   }
 }
