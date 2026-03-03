@@ -22,6 +22,7 @@ import {
   useCreateAppointment,
 } from '@/hooks/use-spa';
 import type { SpaService, SpaProvider, AvailableSlot } from '@/hooks/use-spa';
+import { useAuthContext } from '@/components/auth-provider';
 
 // ═══════════════════════════════════════════════════════════════════
 // Helpers
@@ -861,6 +862,8 @@ function BookingSummary({
 
 export default function NewAppointmentContent() {
   const router = useRouter();
+  const { locations } = useAuthContext();
+  const locationId = locations[0]?.id ?? '';
 
   // ── Form state ──────────────────────────────────────────────────
   const [selectedServiceId, setSelectedServiceId] = useState('');
@@ -961,57 +964,64 @@ export default function NewAppointmentContent() {
   }, []);
 
   const handleSubmit = useCallback(() => {
-    if (!canSubmit) return;
+    if (!canSubmit || !selectedSlot || !selectedService) return;
     setErrorMessage(null);
 
-    // Build input aligned with the useCreateAppointment mutation signature.
-    // The mutation expects startTime (ISO string) and providerId.
-    // Use the slot's providerId if one was assigned by the availability engine,
-    // otherwise fall back to the user's explicit selection.
+    // Prefer the slot's assigned providerId (from availability engine),
+    // fall back to the user's explicit provider selection.
     const resolvedProviderId =
-      selectedSlot?.providerId || selectedProviderId || '';
+      selectedSlot.providerId || selectedProviderId || undefined;
 
-    const input: Record<string, unknown> = {
+    const startAt = selectedSlot.startTime;
+    const endAt = selectedSlot.endTime;
+
+    const item = {
       serviceId: selectedServiceId,
       providerId: resolvedProviderId,
-      startTime: selectedTime,
-      notes: notes.trim() || undefined,
+      startAt,
+      endAt,
+      priceCents: selectedService.priceCents,
+      finalPriceCents: selectedService.priceCents,
+      discountAmountCents: 0,
     };
 
-    // Pass customer info as extra fields — the API may accept these
-    // or the backend resolves customers separately. Included for
-    // forward-compatibility with the booking endpoint contract.
-    if (isGuest) {
-      input.guestName = guestName.trim();
-      if (customerPhone.trim()) {
-        input.customerPhone = customerPhone.trim();
-      }
-    } else {
-      input.customerName = customerName.trim();
-      if (customerEmail.trim()) {
-        input.customerEmail = customerEmail.trim();
-      }
-      if (customerPhone.trim()) {
-        input.customerPhone = customerPhone.trim();
-      }
-    }
-
-    createAppointment.mutate(input as Parameters<typeof createAppointment.mutate>[0], {
-      onSuccess: (data) => {
-        router.push(`/spa/appointments/${data.id}`);
+    createAppointment.mutate(
+      {
+        locationId,
+        startAt,
+        endAt,
+        bookingSource: 'front_desk',
+        notes: notes.trim() || undefined,
+        items: [item],
+        ...(isGuest
+          ? {
+              guestName: guestName.trim(),
+              guestPhone: customerPhone.trim() || undefined,
+            }
+          : {
+              guestName: customerName.trim(),
+              guestEmail: customerEmail.trim() || undefined,
+              guestPhone: customerPhone.trim() || undefined,
+            }),
       },
-      onError: (err) => {
-        const msg =
-          err instanceof Error ? err.message : 'Failed to book appointment.';
-        setErrorMessage(msg);
+      {
+        onSuccess: (data) => {
+          router.push(`/spa/appointments/${data.id}`);
+        },
+        onError: (err) => {
+          const msg =
+            err instanceof Error ? err.message : 'Failed to book appointment.';
+          setErrorMessage(msg);
+        },
       },
-    });
+    );
   }, [
     canSubmit,
+    locationId,
     selectedServiceId,
+    selectedService,
     selectedProviderId,
     selectedSlot,
-    selectedTime,
     notes,
     isGuest,
     guestName,

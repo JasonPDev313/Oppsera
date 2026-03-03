@@ -12,15 +12,21 @@ export interface SpaSettings {
   id: string;
   tenantId: string;
   locationId: string | null;
-  bookingWindowDays: number;
-  cancellationPolicyMinutes: number;
-  bufferMinutes: number;
-  maxConcurrentAppointments: number;
-  allowOnlineBooking: boolean;
-  requireDeposit: boolean;
-  depositAmountCents: number | null;
-  depositPercentage: number | null;
-  operatingHours: Record<string, { open: string; close: string }> | null;
+  timezone: string;
+  dayCloseTime: string;
+  defaultCurrency: string;
+  taxInclusive: boolean;
+  defaultBufferMinutes: number;
+  defaultCleanupMinutes: number;
+  defaultSetupMinutes: number;
+  onlineBookingEnabled: boolean;
+  waitlistEnabled: boolean;
+  autoAssignProvider: boolean;
+  rebookingWindowDays: number;
+  notificationPreferences: Record<string, unknown> | null;
+  depositRules: Record<string, unknown> | null;
+  cancellationDefaults: Record<string, unknown> | null;
+  enterpriseMode: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -87,39 +93,104 @@ export interface SpaResource {
   updatedAt: string;
 }
 
-export interface SpaAppointment {
+export interface SpaAppointmentListItem {
   id: string;
-  tenantId: string;
-  locationId: string | null;
+  appointmentNumber: string;
   customerId: string | null;
-  customerName: string | null;
-  providerId: string;
-  providerName: string;
-  serviceId: string;
-  serviceName: string;
+  guestName: string | null;
+  guestEmail: string | null;
+  guestPhone: string | null;
+  locationId: string | null;
+  providerId: string | null;
+  providerName: string | null;
+  providerColor: string | null;
   resourceId: string | null;
   resourceName: string | null;
+  startAt: string;
+  endAt: string;
   status: string;
-  startTime: string;
-  endTime: string;
-  durationMinutes: number;
-  priceCents: number;
+  bookingSource: string;
   notes: string | null;
-  internalNotes: string | null;
-  cancellationReason: string | null;
+  depositAmountCents: number;
+  depositStatus: string;
+  orderId: string | null;
+  version: number;
   createdAt: string;
   updatedAt: string;
+  services: Array<{
+    id: string;
+    serviceName: string;
+    priceCents: number;
+    finalPriceCents: number;
+    status: string;
+  }>;
 }
 
-export interface SpaAppointmentDetail extends SpaAppointment {
-  customerEmail: string | null;
-  customerPhone: string | null;
-  providerDisplayName: string;
-  serviceDescription: string | null;
-  serviceCategoryName: string | null;
-  depositPaidCents: number | null;
-  totalPaidCents: number | null;
+export interface SpaAppointmentItemDetail {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  serviceCategory: string;
+  serviceDurationMinutes: number;
+  addonId: string | null;
+  providerId: string | null;
+  providerName: string | null;
+  providerColor: string | null;
+  resourceId: string | null;
+  resourceName: string | null;
+  startAt: string;
+  endAt: string;
+  priceCents: number;
+  memberPriceCents: number | null;
+  finalPriceCents: number;
+  discountAmountCents: number;
+  discountReason: string | null;
+  packageBalanceId: string | null;
+  notes: string | null;
+  status: string;
+  sortOrder: number;
+}
+
+export interface SpaAppointmentDetail {
+  id: string;
+  appointmentNumber: string;
+  customerId: string | null;
+  guestName: string | null;
+  guestEmail: string | null;
+  guestPhone: string | null;
+  locationId: string | null;
+  providerId: string | null;
+  providerName: string | null;
+  providerColor: string | null;
+  providerPhotoUrl: string | null;
+  resourceId: string | null;
+  resourceName: string | null;
+  resourceType: string | null;
+  startAt: string;
+  endAt: string;
+  status: string;
+  bookingSource: string;
+  bookingChannel: string | null;
+  notes: string | null;
+  internalNotes: string | null;
+  depositAmountCents: number;
+  depositStatus: string;
+  depositPaymentId: string | null;
+  cancellationReason: string | null;
+  canceledAt: string | null;
+  canceledBy: string | null;
+  noShowFeeCharged: boolean;
+  checkedInAt: string | null;
+  checkedInBy: string | null;
+  serviceStartedAt: string | null;
+  serviceCompletedAt: string | null;
+  checkedOutAt: string | null;
+  orderId: string | null;
+  pmsFolioId: string | null;
   version: number;
+  createdAt: string;
+  updatedAt: string;
+  items: SpaAppointmentItemDetail[];
 }
 
 export interface CalendarAppointment {
@@ -437,7 +508,7 @@ export function useSpaAppointments(filters: SpaAppointmentFilters = {}) {
     queryKey: ['spa-appointments', filters],
     queryFn: () => {
       const qs = buildQueryString(filters);
-      return apiFetch<{ data: SpaAppointment[]; meta: CursorMeta }>(
+      return apiFetch<{ data: SpaAppointmentListItem[]; meta: CursorMeta }>(
         `/api/v1/spa/appointments${qs}`,
       ).then((r) => ({ items: r.data, meta: r.meta }));
     },
@@ -495,7 +566,8 @@ export function useSpaCalendar(params: SpaCalendarParams | null) {
       ).then((r) => r.data);
     },
     enabled: !!params?.startDate && !!params?.endDate && !!params?.locationId,
-    staleTime: 60_000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 
   return {
@@ -563,23 +635,46 @@ export function useSpaDashboard(locationId?: string, date?: string) {
 
 // ── useCreateAppointment ────────────────────────────────────────
 
+export interface CreateAppointmentItemInput {
+  serviceId: string;
+  addonId?: string;
+  providerId?: string;
+  resourceId?: string;
+  startAt: string;
+  endAt: string;
+  priceCents: number;
+  memberPriceCents?: number;
+  finalPriceCents: number;
+  discountAmountCents?: number;
+  discountReason?: string;
+  packageBalanceId?: string;
+  notes?: string;
+}
+
+export interface CreateAppointmentInput {
+  clientRequestId?: string;
+  locationId: string;
+  customerId?: string;
+  guestName?: string;
+  guestEmail?: string;
+  guestPhone?: string;
+  providerId?: string;
+  resourceId?: string;
+  startAt: string;
+  endAt: string;
+  bookingSource?: string;
+  bookingChannel?: string;
+  notes?: string;
+  internalNotes?: string;
+  items: CreateAppointmentItemInput[];
+}
+
 export function useCreateAppointment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: {
-      serviceId: string;
-      providerId: string;
-      customerId?: string;
-      resourceId?: string;
-      locationId?: string;
-      startTime: string;
-      durationMinutes?: number;
-      notes?: string;
-      internalNotes?: string;
-      clientRequestId?: string;
-    }) =>
-      apiFetch<{ data: SpaAppointment }>('/api/v1/spa/appointments', {
+    mutationFn: (input: CreateAppointmentInput) =>
+      apiFetch<{ data: SpaAppointmentListItem }>('/api/v1/spa/appointments', {
         method: 'POST',
         body: JSON.stringify(input),
       }).then((r) => r.data),
@@ -609,7 +704,7 @@ export function useUpdateAppointment() {
       expectedVersion?: number;
     }) => {
       const { id, ...body } = input;
-      return apiFetch<{ data: SpaAppointment }>(
+      return apiFetch<{ data: SpaAppointmentListItem }>(
         `/api/v1/spa/appointments/${id}`,
         {
           method: 'PATCH',
@@ -827,15 +922,22 @@ export function useUpdateSpaSettings() {
 
   return useMutation({
     mutationFn: (input: {
-      bookingWindowDays?: number;
-      cancellationPolicyMinutes?: number;
-      bufferMinutes?: number;
-      maxConcurrentAppointments?: number;
-      allowOnlineBooking?: boolean;
-      requireDeposit?: boolean;
-      depositAmountCents?: number | null;
-      depositPercentage?: number | null;
-      operatingHours?: Record<string, { open: string; close: string }> | null;
+      locationId?: string;
+      timezone?: string;
+      dayCloseTime?: string;
+      defaultCurrency?: string;
+      taxInclusive?: boolean;
+      defaultBufferMinutes?: number;
+      defaultCleanupMinutes?: number;
+      defaultSetupMinutes?: number;
+      onlineBookingEnabled?: boolean;
+      waitlistEnabled?: boolean;
+      autoAssignProvider?: boolean;
+      rebookingWindowDays?: number;
+      notificationPreferences?: Record<string, unknown>;
+      depositRules?: Record<string, unknown>;
+      cancellationDefaults?: Record<string, unknown>;
+      enterpriseMode?: boolean;
     }) =>
       apiFetch<{ data: SpaSettings }>('/api/v1/spa/settings', {
         method: 'PATCH',
@@ -944,23 +1046,21 @@ export interface BookingWidgetConfig {
 }
 
 export interface OnlineBookingStats {
-  totalOnlineBookings: number;
-  bookingsThisPeriod: number;
-  onlineRevenueCents: number;
+  totalBookings: number;
+  bookingsToday: number;
+  upcomingCount: number;
+  revenueCents: number;
+  cancellationCount: number;
   cancellationRate: number;
-  avgLeadTimeDays: number;
-  topServices: Array<{
-    serviceId: string;
-    serviceName: string;
-    bookingCount: number;
-  }>;
   recentBookings: Array<{
-    appointmentId: string;
+    id: string;
+    appointmentNumber: string;
     guestName: string | null;
     guestEmail: string | null;
-    serviceName: string;
+    serviceName: string | null;
     providerName: string | null;
     startAt: string;
+    endAt: string;
     status: string;
     depositAmountCents: number;
     createdAt: string;

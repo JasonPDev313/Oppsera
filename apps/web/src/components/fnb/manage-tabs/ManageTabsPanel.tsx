@@ -5,8 +5,14 @@ import { createPortal } from 'react-dom';
 import {
   X, Search, Trash2, ArrowRightLeft, CheckSquare, AlertTriangle,
   Filter, SortAsc, ChevronDown, ChevronRight, SquareCheck, Square, MinusSquare,
+  Eye, List,
 } from 'lucide-react';
-import { useManageTabs, type ManageTabsSortBy } from '@/hooks/use-manage-tabs';
+import {
+  useManageTabs,
+  type ManageTabsSortBy,
+  type ManageTabsViewMode,
+  type ManageTabsGroupBy,
+} from '@/hooks/use-manage-tabs';
 import { ManageTabCard } from './ManageTabCard';
 import { BulkActionConfirmDialog } from './BulkActionConfirmDialog';
 import { TransferTargetPicker } from './TransferTargetPicker';
@@ -18,6 +24,7 @@ interface ManageTabsPanelProps {
   onClose: () => void;
 }
 
+// Fix #10: added 'split' and 'abandoned'
 const STATUS_OPTIONS = [
   { value: 'open', label: 'Open' },
   { value: 'ordering', label: 'Ordering' },
@@ -25,13 +32,31 @@ const STATUS_OPTIONS = [
   { value: 'in_progress', label: 'In Progress' },
   { value: 'check_requested', label: 'Check Requested' },
   { value: 'paying', label: 'Paying' },
+  { value: 'split', label: 'Split' },
+  { value: 'abandoned', label: 'Abandoned' },
 ];
 
-const SORT_OPTIONS = [
+const SORT_OPTIONS: { value: ManageTabsSortBy; label: string }[] = [
   { value: 'oldest', label: 'Oldest First' },
   { value: 'newest', label: 'Newest First' },
   { value: 'highest_balance', label: 'Highest Balance' },
   { value: 'recently_updated', label: 'Recently Updated' },
+];
+
+// Fix #11: view mode options
+const VIEW_MODE_OPTIONS: { value: ManageTabsViewMode; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'open_only', label: 'Open Only' },
+  { value: 'needs_attention', label: 'Needs Attention' },
+];
+
+// Fix #12: group by options
+const GROUP_BY_OPTIONS: { value: ManageTabsGroupBy | 'none'; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'server', label: 'Server' },
+  { value: 'table', label: 'Table' },
+  { value: 'status', label: 'Status' },
+  { value: 'age', label: 'Age' },
 ];
 
 type BulkAction = 'void' | 'transfer' | 'close';
@@ -39,12 +64,11 @@ type BulkAction = 'void' | 'transfer' | 'close';
 export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
   const mgr = useManageTabs(locationId);
 
-  // Local UI state
+  // Local UI state — search is local-only (instant filter); filters/sort/viewMode/groupBy delegate to mgr
   const [search, setSearch] = useState('');
-  const [statusFilters, setStatusFilters] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState('oldest');
   const [showFilters, setShowFilters] = useState(false);
   const [showSort, setShowSort] = useState(false);
+  const [showGroupBy, setShowGroupBy] = useState(false);
 
   // Action dialogs
   const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
@@ -53,10 +77,13 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
   const [transferTargetId, setTransferTargetId] = useState<string | null>(null);
   const [_transferTargetName, setTransferTargetName] = useState<string | null>(null);
 
-  // Undo
-  const [undoBanner, setUndoBanner] = useState<{ message: string; tabIds: string[] } | null>(null);
+  // Fix #8/#9: verifiedApprover state — captured from PIN bridge
+  const [verifiedApprover, setVerifiedApprover] = useState<{ userId: string; userName: string } | null>(null);
 
-  // Apply local filters/search
+  // Collapsed group sections
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  // Apply local search on top of hook-managed tabs
   const filteredTabs = useMemo(() => {
     let items = mgr.tabs ?? [];
     if (search) {
@@ -65,29 +92,20 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
         (t) =>
           String(t.tabNumber).includes(q) ||
           t.guestName?.toLowerCase().includes(q) ||
-          t.tableLabel?.toLowerCase().includes(q) ||
+          t.tableLabel?.toLowerCase().includes(q) || // Fix #1: tableLabel not tableName
           t.serverName?.toLowerCase().includes(q),
       );
     }
-    if (statusFilters.size > 0) {
-      items = items.filter((t) => statusFilters.has(t.status));
-    }
     return items;
-  }, [mgr.tabs, search, statusFilters]);
+  }, [mgr.tabs, search]);
 
-  // Group by server
-  const grouped = useMemo(() => {
-    const map = new Map<string, typeof filteredTabs>();
-    for (const tab of filteredTabs) {
-      const key = tab.serverName ?? 'Unknown';
-      const arr = map.get(key) ?? [];
-      arr.push(tab);
-      map.set(key, arr);
-    }
-    return map;
-  }, [filteredTabs]);
-
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  // Fix #3: use mgr.groupedTabs from hook (server-computed groups) instead of local Map
+  // Fallback: if no groupBy is active, show flat list wrapped in a single group
+  const displayGroups = useMemo(() => {
+    if (mgr.groupedTabs) return mgr.groupedTabs;
+    // No grouping — single virtual group
+    return [{ key: '__all__', label: '', tabs: filteredTabs }];
+  }, [mgr.groupedTabs, filteredTabs]);
 
   function toggleGroup(key: string) {
     setCollapsedGroups((prev) => {
@@ -97,28 +115,57 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
     });
   }
 
+  // Fix: delegate status filter changes to mgr.setFilters
   function toggleStatus(s: string) {
-    setStatusFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(s)) { next.delete(s); } else { next.add(s); }
-      return next;
-    });
+    const current = new Set(mgr.filters.statuses ?? []);
+    if (current.has(s)) { current.delete(s); } else { current.add(s); }
+    const statuses = Array.from(current);
+    mgr.setFilters({ ...mgr.filters, statuses: statuses.length > 0 ? statuses : undefined });
   }
 
-  // Update sort + refetch
-  function handleSortChange(val: string) {
-    setSortBy(val);
+  function clearStatusFilters() {
+    mgr.setFilters({ ...mgr.filters, statuses: undefined });
+  }
+
+  // Fix: delegate sort to mgr.setFilters
+  function handleSortChange(val: ManageTabsSortBy) {
     setShowSort(false);
-    mgr.setFilters({ ...mgr.filters, sortBy: val as ManageTabsSortBy });
+    mgr.setFilters({ ...mgr.filters, sortBy: val });
   }
 
-  // Bulk action execution
+  // Fix #11: view mode change
+  function handleViewModeChange(val: ManageTabsViewMode) {
+    mgr.setFilters({ ...mgr.filters, viewMode: val });
+  }
+
+  // Fix #12: group by change
+  function handleGroupByChange(val: ManageTabsGroupBy | 'none') {
+    setShowGroupBy(false);
+    mgr.setFilters({ ...mgr.filters, groupBy: val === 'none' ? undefined : val });
+  }
+
+  // Fix #8: PIN bridge — captures approver info into state, returns boolean for dialog
+  async function pinBridge(pin: string, actionType: string): Promise<boolean> {
+    try {
+      const result = await mgr.verifyPin(pin, actionType);
+      if (result.verified) {
+        setVerifiedApprover({ userId: result.userId, userName: result.userName });
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  // Fix #6/#9: bulk action execution with object params + approverUserId from PIN state
   async function handleBulkExecute(reasonCode: string, reasonText?: string) {
-    const clientRequestId = `bulk-${bulkAction}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const clientRequestId = crypto.randomUUID();
+    const approverUserId = verifiedApprover?.userId ?? '';
     if (bulkAction === 'void') {
-      return mgr.bulkVoid({ reasonCode, reasonText, approverUserId: '', clientRequestId });
+      return mgr.bulkVoid({ reasonCode, reasonText, approverUserId, clientRequestId });
     } else if (bulkAction === 'close') {
-      return mgr.bulkClose({ reasonCode, reasonText, approverUserId: '', clientRequestId });
+      return mgr.bulkClose({ reasonCode, reasonText, approverUserId, clientRequestId });
     }
     return { succeeded: [], failed: [] };
   }
@@ -127,18 +174,23 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
     setTransferTargetId(serverId);
     setTransferTargetName(serverName);
     setShowTransfer(false);
-    // Open transfer confirm dialog
     setBulkAction('transfer');
   }
 
+  // Fix #7: bulkTransfer with object params
   async function handleTransferExecute(reasonCode: string, reasonText?: string) {
     if (!transferTargetId) return { succeeded: [], failed: [] };
-    const clientRequestId = `bulk-transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    return mgr.bulkTransfer({ toServerUserId: transferTargetId, reasonCode, reasonText, clientRequestId });
+    const clientRequestId = crypto.randomUUID();
+    const approverUserId = verifiedApprover?.userId ?? '';
+    return mgr.bulkTransfer({ toServerUserId: transferTargetId, reasonCode, reasonText, approverUserId, clientRequestId });
   }
 
   const selCount = mgr.selectionSummary.count;
   const selBalance = mgr.selectionSummary.totalBalance;
+  const activeStatuses = new Set(mgr.filters.statuses ?? []);
+  const currentSortBy = mgr.filters.sortBy ?? 'oldest';
+  const currentViewMode = mgr.filters.viewMode ?? 'all';
+  const currentGroupBy = mgr.filters.groupBy;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex">
@@ -185,6 +237,29 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
               />
             </div>
 
+            {/* Fix #11: View mode selector */}
+            <div>
+              <div className="flex items-center gap-2 text-xs font-medium mb-2" style={{ color: 'var(--fnb-text-secondary)' }}>
+                <Eye size={12} />
+                View
+              </div>
+              <div className="flex flex-col gap-1">
+                {VIEW_MODE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleViewModeChange(opt.value)}
+                    className="text-left text-xs py-1 px-2 rounded"
+                    style={{
+                      color: currentViewMode === opt.value ? 'var(--fnb-accent-primary)' : 'var(--fnb-text-primary)',
+                      background: currentViewMode === opt.value ? 'var(--fnb-accent-primary-muted)' : 'transparent',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Status filter */}
             <div>
               <button
@@ -194,12 +269,12 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
               >
                 <Filter size={12} />
                 Status Filter
-                {statusFilters.size > 0 && (
+                {activeStatuses.size > 0 && (
                   <span
                     className="px-1.5 rounded-full text-[10px] font-bold"
                     style={{ background: 'var(--fnb-accent-primary)', color: '#fff' }}
                   >
-                    {statusFilters.size}
+                    {activeStatuses.size}
                   </span>
                 )}
               </button>
@@ -209,16 +284,16 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
                     <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-xs py-0.5">
                       <input
                         type="checkbox"
-                        checked={statusFilters.has(opt.value)}
+                        checked={activeStatuses.has(opt.value)}
                         onChange={() => toggleStatus(opt.value)}
                         className="w-3.5 h-3.5 rounded accent-indigo-500"
                       />
                       <span style={{ color: 'var(--fnb-text-primary)' }}>{opt.label}</span>
                     </label>
                   ))}
-                  {statusFilters.size > 0 && (
+                  {activeStatuses.size > 0 && (
                     <button
-                      onClick={() => setStatusFilters(new Set())}
+                      onClick={clearStatusFilters}
                       className="text-[10px] mt-1"
                       style={{ color: 'var(--fnb-accent-primary)' }}
                     >
@@ -248,8 +323,8 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
                       onClick={() => handleSortChange(opt.value)}
                       className="text-left text-xs py-1 px-2 rounded"
                       style={{
-                        color: sortBy === opt.value ? 'var(--fnb-accent-primary)' : 'var(--fnb-text-primary)',
-                        background: sortBy === opt.value ? 'var(--fnb-accent-primary-muted)' : 'transparent',
+                        color: currentSortBy === opt.value ? 'var(--fnb-accent-primary)' : 'var(--fnb-text-primary)',
+                        background: currentSortBy === opt.value ? 'var(--fnb-accent-primary-muted)' : 'transparent',
                       }}
                     >
                       {opt.label}
@@ -259,11 +334,46 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
               )}
             </div>
 
-            {/* Stats */}
+            {/* Fix #12: Group By selector */}
+            <div>
+              <button
+                onClick={() => setShowGroupBy(!showGroupBy)}
+                className="flex items-center gap-2 text-xs font-medium mb-2"
+                style={{ color: 'var(--fnb-text-secondary)' }}
+              >
+                <List size={12} />
+                Group By
+                <ChevronDown size={10} />
+              </button>
+              {showGroupBy && (
+                <div className="flex flex-col gap-1">
+                  {GROUP_BY_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => handleGroupByChange(opt.value)}
+                      className="text-left text-xs py-1 px-2 rounded"
+                      style={{
+                        color: (currentGroupBy ?? 'none') === opt.value ? 'var(--fnb-accent-primary)' : 'var(--fnb-text-primary)',
+                        background: (currentGroupBy ?? 'none') === opt.value ? 'var(--fnb-accent-primary-muted)' : 'transparent',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Fix #14: Stats derived from mgr.groupedTabs or mgr.tabs */}
             <div className="mt-auto pt-3" style={{ borderTop: '1px solid var(--fnb-border-subtle)' }}>
               <div className="text-xs space-y-1" style={{ color: 'var(--fnb-text-muted)' }}>
-                <div>Total: {filteredTabs.length} tab{filteredTabs.length !== 1 ? 's' : ''}</div>
-                <div>Servers: {grouped.size}</div>
+                <div>Total: {mgr.tabs.length} tab{mgr.tabs.length !== 1 ? 's' : ''}</div>
+                {mgr.groupedTabs && (
+                  <div>Groups: {mgr.groupedTabs.length}</div>
+                )}
+                <div>
+                  Servers: {new Set(mgr.tabs.map((t) => t.serverUserId).filter(Boolean)).size}
+                </div>
               </div>
             </div>
           </div>
@@ -275,10 +385,11 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
               className="flex items-center gap-3 px-4 py-2 shrink-0"
               style={{ borderBottom: '1px solid var(--fnb-border-subtle)' }}
             >
+              {/* Fix #4: selectAll() takes no args */}
               <button
                 onClick={() => {
-                  if (selCount === filteredTabs.length) mgr.clearSelection();
-                  else mgr.selectByIds(filteredTabs.map((t) => t.id));
+                  if (selCount === filteredTabs.length && selCount > 0) mgr.clearSelection();
+                  else mgr.selectAll();
                 }}
                 className="p-0.5"
                 style={{ color: 'var(--fnb-text-secondary)' }}
@@ -305,8 +416,9 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
 
               {selCount > 0 && (
                 <>
+                  {/* Fix #5: invertSelection() takes no args */}
                   <button
-                    onClick={() => mgr.selectByIds(filteredTabs.filter((t) => !mgr.selectedIds.has(t.id)).map((t) => t.id))}
+                    onClick={() => mgr.invertSelection()}
                     className="text-[10px] px-2 py-0.5 rounded"
                     style={{ color: 'var(--fnb-text-secondary)', border: '1px solid var(--fnb-border-subtle)' }}
                   >
@@ -334,35 +446,39 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
                   <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>No tabs found</p>
                 </div>
               ) : (
-                Array.from(grouped.entries()).map(([serverName, tabs]) => (
-                  <div key={serverName}>
-                    <button
-                      onClick={() => toggleGroup(serverName)}
-                      className="flex items-center gap-2 mb-2 w-full text-left"
-                    >
-                      {collapsedGroups.has(serverName) ? (
-                        <ChevronRight size={14} style={{ color: 'var(--fnb-text-muted)' }} />
-                      ) : (
-                        <ChevronDown size={14} style={{ color: 'var(--fnb-text-muted)' }} />
-                      )}
-                      <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--fnb-text-secondary)' }}>
-                        {serverName}
-                      </span>
-                      <span
-                        className="text-[10px] px-1.5 rounded-full"
-                        style={{ background: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-muted)' }}
+                displayGroups.map((group) => (
+                  <div key={group.key}>
+                    {/* Only show group header when grouping is active */}
+                    {group.label && (
+                      <button
+                        onClick={() => toggleGroup(group.key)}
+                        className="flex items-center gap-2 mb-2 w-full text-left"
                       >
-                        {tabs.length}
-                      </span>
-                    </button>
-                    {!collapsedGroups.has(serverName) && (
+                        {collapsedGroups.has(group.key) ? (
+                          <ChevronRight size={14} style={{ color: 'var(--fnb-text-muted)' }} />
+                        ) : (
+                          <ChevronDown size={14} style={{ color: 'var(--fnb-text-muted)' }} />
+                        )}
+                        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--fnb-text-secondary)' }}>
+                          {group.label}
+                        </span>
+                        <span
+                          className="text-[10px] px-1.5 rounded-full"
+                          style={{ background: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-muted)' }}
+                        >
+                          {group.tabs.length}
+                        </span>
+                      </button>
+                    )}
+                    {!collapsedGroups.has(group.key) && (
                       <div className="space-y-2">
-                        {tabs.map((tab) => (
+                        {group.tabs.map((tab) => (
                           <ManageTabCard
                             key={tab.id}
                             tab={tab}
                             selected={mgr.selectedIds.has(tab.id)}
                             onToggle={mgr.toggleSelect}
+                            isStale={mgr.staleIds.has(tab.id)} // Fix #13
                           />
                         ))}
                       </div>
@@ -399,7 +515,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
                   </div>
                   <div className="flex justify-between text-xs mt-1">
                     <span style={{ color: 'var(--fnb-text-muted)' }}>Servers</span>
-                    <span style={{ color: 'var(--fnb-text-primary)' }}>{mgr.selectionSummary.servers.length}</span>
+                    <span style={{ color: 'var(--fnb-text-primary)' }}>{mgr.selectionSummary.serverCount}</span>
                   </div>
                 </div>
               )}
@@ -475,6 +591,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
           open={true}
           onClose={() => {
             setBulkAction(null);
+            setVerifiedApprover(null);
             mgr.refreshTabs();
             mgr.clearSelection();
           }}
@@ -486,10 +603,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
               ? mgr.settings?.requirePinForVoid !== false
               : false
           }
-          onVerifyPin={async (pin: string) => {
-            const result = await mgr.verifyPin(pin, bulkAction ?? 'void');
-            return result.verified;
-          }}
+          onVerifyPin={(pin: string) => pinBridge(pin, bulkAction ?? 'void')}
           onExecute={handleBulkExecute}
         />
       )}
@@ -501,6 +615,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
             setBulkAction(null);
             setTransferTargetId(null);
             setTransferTargetName(null);
+            setVerifiedApprover(null);
             mgr.refreshTabs();
             mgr.clearSelection();
           }}
@@ -508,10 +623,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
           selectedCount={selCount}
           totalBalance={selBalance}
           requirePin={mgr.settings?.requirePinForTransfer === true}
-          onVerifyPin={async (pin: string) => {
-            const result = await mgr.verifyPin(pin, 'transfer');
-            return result.verified;
-          }}
+          onVerifyPin={(pin: string) => pinBridge(pin, 'transfer')}
           onExecute={handleTransferExecute}
         />
       )}
@@ -532,30 +644,26 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
         </div>
       )}
 
+      {/* Fix #15: EmergencyCleanupDialog — no approverUserId prop, handles PIN inline */}
       <EmergencyCleanupDialog
         open={showEmergency}
         onClose={() => {
           setShowEmergency(false);
           mgr.refreshTabs();
         }}
-        onExecute={async (input) => {
-          const result = await mgr.runEmergencyCleanup(input);
-          return {
-            closedPaidTabs: Array(result.paidTabsClosed).fill(''),
-            releasedLocks: result.locksReleased,
-            voidedStaleTabs: Array(result.staleTabsVoided).fill(''),
-          };
-        }}
-        approverUserId=""
+        onExecute={mgr.runEmergencyCleanup}
+        locationId={locationId}
+        verifyPin={mgr.verifyPin}
       />
 
-      {undoBanner && (
+      {/* Fix #2: Use mgr.undoSnapshot / mgr.dismissUndo instead of local undoBanner state */}
+      {mgr.undoSnapshot && (
         <UndoBanner
-          message={undoBanner.message}
+          message={getUndoMessage(mgr.undoSnapshot)}
           onUndo={async () => {
             // Undo not implemented in V1
           }}
-          onDismiss={() => setUndoBanner(null)}
+          onDismiss={mgr.dismissUndo}
         />
       )}
     </div>,
@@ -565,4 +673,15 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
 
 function formatMoney(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
+}
+
+function getUndoMessage(snapshot: { action: string; tabIds: string[]; result: unknown }): string {
+  const count = snapshot.tabIds.length;
+  switch (snapshot.action) {
+    case 'bulk_void': return `Voided ${count} tab${count !== 1 ? 's' : ''}`;
+    case 'bulk_transfer': return `Transferred ${count} tab${count !== 1 ? 's' : ''}`;
+    case 'bulk_close': return `Closed ${count} tab${count !== 1 ? 's' : ''}`;
+    case 'emergency_cleanup': return 'Emergency cleanup completed';
+    default: return 'Action completed';
+  }
 }

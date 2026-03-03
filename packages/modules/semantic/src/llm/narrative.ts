@@ -418,6 +418,8 @@ export interface GenerateNarrativeOptions {
   dimensionDefs?: DimensionDef[];
   /** When true, use the fast model (Haiku) with reduced tokens for time-constrained responses */
   fast?: boolean;
+  /** Explicit model ID override from model router. Takes precedence over `fast` flag. */
+  narrativeModel?: string;
   /** Max time (ms) the LLM call should take. Passed to the adapter as per-call timeout. */
   timeoutMs?: number;
   /** Pre-masked rows from the pipeline — avoids double PII masking when provided */
@@ -462,16 +464,22 @@ export async function generateNarrative(
     { role: 'user', content: userContent },
   ];
 
-  // Default to fast model (Haiku) for lower latency. Use Sonnet only when explicitly
-  // requested via fast === false (e.g., deep/strategic analysis).
-  const useSonnet = opts.fast === false;
+  // Model selection priority:
+  // 1. Explicit narrativeModel from model router (3-tier complexity routing)
+  // 2. Legacy fast flag: fast=true → Haiku, fast=false → adapter default (Sonnet)
+  // 3. Default: Haiku (lowest latency)
+  const explicitModel = opts.narrativeModel;
+  const useSonnet = !explicitModel && opts.fast === false;
+  const isHighTier = explicitModel || useSonnet;
   const startMs = Date.now();
 
   // SEM-02: Use prompt caching parts when available, fall back to plain systemPrompt
   const completionOpts: LLMCompletionOptions = {
     temperature: 0.3,
-    maxTokens: useSonnet ? 2048 : 1536,
-    ...(!useSonnet ? { model: SEMANTIC_FAST_MODEL } : {}),
+    maxTokens: isHighTier ? 2048 : 1536,
+    ...(explicitModel
+      ? { model: explicitModel }
+      : !useSonnet ? { model: SEMANTIC_FAST_MODEL } : {}),
     ...(opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
     ...(narrativePrompt.parts
       ? { systemPromptParts: narrativePrompt.parts }
@@ -536,13 +544,17 @@ export async function generateNarrativeStreaming(
     { role: 'user', content: contentParts.join('\n\n') },
   ];
 
-  const useSonnet = opts.fast === false;
+  const explicitModel = opts.narrativeModel;
+  const useSonnet = !explicitModel && opts.fast === false;
+  const isHighTier = explicitModel || useSonnet;
   const startMs = Date.now();
 
   const completionOpts: LLMCompletionOptions = {
     temperature: 0.3,
-    maxTokens: useSonnet ? 2048 : 1536,
-    ...(!useSonnet ? { model: SEMANTIC_FAST_MODEL } : {}),
+    maxTokens: isHighTier ? 2048 : 1536,
+    ...(explicitModel
+      ? { model: explicitModel }
+      : !useSonnet ? { model: SEMANTIC_FAST_MODEL } : {}),
     ...(opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
     ...(narrativePrompt.parts
       ? { systemPromptParts: narrativePrompt.parts }

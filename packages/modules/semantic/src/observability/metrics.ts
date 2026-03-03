@@ -15,6 +15,10 @@ export interface SemanticRequestRecord {
   cacheStatus: 'HIT' | 'MISS' | 'SKIP';
   hadError: boolean;
   isClarification: boolean;
+  /** Model tier selected for narrative generation (haiku/sonnet/opus) */
+  modelTier?: string;
+  /** Reason for model tier selection */
+  modelReason?: string;
 }
 
 export interface TenantMetricsSummary {
@@ -28,6 +32,8 @@ export interface TenantMetricsSummary {
   p95LatencyMs: number;
   totalTokensIn: number;
   totalTokensOut: number;
+  /** Model tier usage distribution (haiku/sonnet/opus → count) */
+  modelTierCounts: Record<string, number>;
 }
 
 export interface GlobalMetricsSummary {
@@ -58,6 +64,8 @@ interface TenantBucket {
   latencies: number[];   // rolling window of last MAX_LATENCY_SAMPLES values
   totalTokensIn: number;
   totalTokensOut: number;
+  /** Model tier usage counts (haiku/sonnet/opus) */
+  modelTierCounts: Record<string, number>;
 }
 
 const MAX_TRACKED_TENANTS = 1_000;
@@ -109,6 +117,7 @@ function getOrCreateBucket(tenantId: string): TenantBucket {
     latencies: [],
     totalTokensIn: 0,
     totalTokensOut: 0,
+    modelTierCounts: {},
   };
   _tenants.set(tenantId, bucket);
   startCleanupTimer();
@@ -146,6 +155,9 @@ export function recordSemanticRequest(record: SemanticRequestRecord): void {
     if (record.isClarification) bucket.clarifications++;
     bucket.totalTokensIn += record.tokensInput;
     bucket.totalTokensOut += record.tokensOutput;
+    if (record.modelTier) {
+      bucket.modelTierCounts[record.modelTier] = (bucket.modelTierCounts[record.modelTier] ?? 0) + 1;
+    }
 
     // Rolling latency window
     bucket.latencies.push(record.latencyMs);
@@ -178,6 +190,7 @@ export function getTenantMetrics(tenantId: string): TenantMetricsSummary | null 
     p95LatencyMs: p95,
     totalTokensIn: bucket.totalTokensIn,
     totalTokensOut: bucket.totalTokensOut,
+    modelTierCounts: { ...bucket.modelTierCounts },
   };
 }
 
@@ -216,6 +229,7 @@ export function getGlobalMetrics(topN = 10): GlobalMetricsSummary {
       p95LatencyMs: p95,
       totalTokensIn: bucket.totalTokensIn,
       totalTokensOut: bucket.totalTokensOut,
+      modelTierCounts: { ...bucket.modelTierCounts },
     });
   }
 

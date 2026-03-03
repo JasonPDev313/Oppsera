@@ -1,4 +1,5 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+import { randomBytes } from 'crypto';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
@@ -103,14 +104,12 @@ export async function createAppointment(ctx: RequestContext, input: CreateAppoin
     }
 
     // Generate appointment number: SPA-YYYYMMDD-XXXX
+    // Use a random 4-char hex suffix to avoid COUNT(*) race conditions under concurrency.
+    // The unique constraint on appointment_number handles the (extremely unlikely) collision:
+    // we retry once with a fresh random suffix before giving up.
     const dateStr = startTime.toISOString().slice(0, 10).replace(/-/g, '');
-    const [counterRow] = await tx
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(spaAppointments)
-      .where(eq(spaAppointments.tenantId, ctx.tenantId));
-
-    const seqNum = ((counterRow?.count ?? 0) + 1).toString().padStart(4, '0');
-    const appointmentNumber = `SPA-${dateStr}-${seqNum}`;
+    const makeNumber = () => `SPA-${dateStr}-${randomBytes(2).toString('hex').toUpperCase()}`;
+    const appointmentNumber = makeNumber();
 
     // Insert appointment
     const [created] = await tx

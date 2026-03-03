@@ -24,6 +24,8 @@ import { tryFastPath } from './fast-path';
 import { scoreDataQuality } from '../intelligence/data-quality-scorer';
 import { checkPlausibility, formatPlausibilityForNarrative } from '../intelligence/plausibility-checker';
 import { maskRowsForLLM } from '../pii/pii-masker';
+import { selectModel, applyTimeBudgetOverride } from './model-router';
+import type { ModelRouting } from './types';
 
 export { getLLMAdapter, setLLMAdapter };
 
@@ -408,6 +410,22 @@ async function _runPipelineStreamingInner(
     : null;
   const plausibilityContext = plausibilityResult ? formatPlausibilityForNarrative(plausibilityResult) : undefined;
 
+  // ── 5b. Model routing — select narrative model tier ────────
+  const isFastPath = intent.provider === 'fast-path';
+  let modelRouting: ModelRouting = selectModel({
+    message,
+    intent,
+    historyLength: context.history?.length ?? 0,
+    isFastPath,
+  });
+
+  // Time budget override: downgrade to Haiku if running low
+  const isTimeBudgetTight = shouldSkipExpensiveOp(startMs, 20_000);
+  modelRouting = applyTimeBudgetOverride(modelRouting, isTimeBudgetTight);
+
+  console.log(`[semantic/stream] Model routing: ${modelRouting.tier} (${modelRouting.reason})`);
+  emit({ type: 'model_selected', data: { tier: modelRouting.tier, model: modelRouting.model, reason: modelRouting.reason } });
+
   // ── 6. Streaming narrative ─────────────────────────────────
   emit({ type: 'status', data: { stage: 'narrating', message: 'Generating insights…' } });
 
@@ -415,8 +433,6 @@ async function _runPipelineStreamingInner(
   let narrativeSections: PipelineOutput['sections'] = [];
   let narrativeTokensIn = 0;
   let narrativeTokensOut = 0;
-
-  const useFast = shouldSkipExpensiveOp(startMs, 20_000);
 
   try {
     const narrativeResult = await generateNarrativeStreaming(
@@ -427,7 +443,7 @@ async function _runPipelineStreamingInner(
         lensPromptFragment,
         metricDefs: compiled?.metaDefs,
         dimensionDefs: compiled?.dimensionDefs,
-        fast: useFast,
+        narrativeModel: modelRouting.model,
         timeoutMs: Math.max(5_000, remainingMs(startMs) - 2_000),
         premaskedRows: maskedRows.length > 0 ? maskedRows : undefined,
         plausibilityContext,
@@ -487,6 +503,7 @@ async function _runPipelineStreamingInner(
     executionError: compilationErrors.length > 0 ? compilationErrors[0]! : null,
     cacheStatus, narrative: narrativeText,
     responseSections: narrativeSections.map((s) => s.type),
+    modelRouting,
   });
 
   const totalLatencyMs = Date.now() - startMs;
@@ -500,6 +517,8 @@ async function _runPipelineStreamingInner(
     cacheStatus,
     hadError: compilationErrors.length > 0,
     isClarification: false,
+    modelTier: modelRouting.tier,
+    modelReason: modelRouting.reason,
   });
 
   return {
@@ -527,6 +546,7 @@ async function _runPipelineStreamingInner(
     chartConfig,
     dataQuality,
     plausibility: plausibilityResult,
+    modelRouting,
   };
 }
 
@@ -1016,6 +1036,17 @@ async function runMetricsMode(
     console.log(`[semantic] Plausibility grade=${plausibilityResult.grade}, ${plausibilityResult.warnings.length} warning(s)`);
   }
 
+  // ── Model routing for narrative ────────────────────────────────
+  const isFastPathMetrics = intent.provider === 'fast-path';
+  let metricsModelRouting: ModelRouting = selectModel({
+    message,
+    intent,
+    historyLength: context.history?.length ?? 0,
+    isFastPath: isFastPathMetrics,
+  });
+  metricsModelRouting = applyTimeBudgetOverride(metricsModelRouting, shouldSkipExpensiveOp(startMs, 20_000));
+  console.log(`[semantic] Model routing (metrics): ${metricsModelRouting.tier} (${metricsModelRouting.reason})`);
+
   // ── Narrative (with LLM response cache) ────────────────────────
   let narrativeText: string | null = null;
   let narrativeSections: PipelineOutput['sections'] = [];
@@ -1033,16 +1064,13 @@ async function runMetricsMode(
       narrativeSections = cachedNarrative.sectionsJson ? JSON.parse(cachedNarrative.sectionsJson) as PipelineOutput['sections'] : [];
       console.log('[semantic] Narrative served from LLM cache');
     } else {
-      // Use fast model when time budget is tight
-      const useFast = shouldSkipExpensiveOp(startMs, 20_000);
-      if (useFast) console.log(`[semantic] Using fast narrative model (${remainingMs(startMs)}ms remaining)`);
       try {
         const narrativeResult = await generateNarrative(queryResult, intent, message, context, {
           lensSlug: context.lensSlug,
           lensPromptFragment,
           metricDefs: compiled.metaDefs,
           dimensionDefs: compiled.dimensionDefs,
-          fast: useFast,
+          narrativeModel: metricsModelRouting.model,
           timeoutMs: Math.max(5_000, remainingMs(startMs) - 2_000), // leave 2s for response
           premaskedRows: maskedRows,
           plausibilityContext,
@@ -1099,6 +1127,7 @@ async function runMetricsMode(
     executionError: null, cacheStatus,
     narrative: narrativeText,
     responseSections: narrativeSections.map((s) => s.type),
+    modelRouting: metricsModelRouting,
   });
 
   const totalLatencyMs = Date.now() - startMs;
@@ -1112,6 +1141,8 @@ async function runMetricsMode(
     cacheStatus,
     hadError: false,
     isClarification: false,
+    modelTier: metricsModelRouting.tier,
+    modelReason: metricsModelRouting.reason,
   });
 
   return {
@@ -1138,6 +1169,7 @@ async function runMetricsMode(
     chartConfig,
     dataQuality,
     plausibility: plausibilityResult,
+    modelRouting: metricsModelRouting,
   };
 }
 
@@ -1370,6 +1402,16 @@ async function runSqlMode(
     console.log(`[semantic] SQL plausibility grade=${plausibilityResult.grade}, ${plausibilityResult.warnings.length} warning(s)`);
   }
 
+  // ── Model routing for narrative (SQL mode) ────────────────────
+  let sqlModelRouting: ModelRouting = selectModel({
+    message,
+    intent,
+    historyLength: context.history?.length ?? 0,
+    isFastPath: false,
+  });
+  sqlModelRouting = applyTimeBudgetOverride(sqlModelRouting, shouldSkipExpensiveOp(startMs, 20_000));
+  console.log(`[semantic] Model routing (sql): ${sqlModelRouting.tier} (${sqlModelRouting.reason})`);
+
   // ── Narrative (with LLM response cache) ────────────────────────
   let narrativeText: string | null = null;
   let narrativeSections: PipelineOutput['sections'] = [];
@@ -1388,12 +1430,10 @@ async function runSqlMode(
       console.log('[semantic] Narrative served from LLM cache');
     } else {
       try {
-        const useFast = shouldSkipExpensiveOp(startMs, 20_000);
-        if (useFast) console.log(`[semantic] Using fast narrative model for SQL mode (${remainingMs(startMs)}ms remaining)`);
         const narrativeResult = await generateNarrative(queryResult, intent, message, context, {
           lensSlug: context.lensSlug,
           lensPromptFragment,
-          fast: useFast,
+          narrativeModel: sqlModelRouting.model,
           timeoutMs: Math.max(5_000, remainingMs(startMs) - 2_000),
           premaskedRows: maskedRows,
           plausibilityContext,
@@ -1450,6 +1490,7 @@ async function runSqlMode(
     executionError: null, cacheStatus,
     narrative: narrativeText,
     responseSections: narrativeSections.map((s) => s.type),
+    modelRouting: sqlModelRouting,
   });
 
   const totalLatencyMs = Date.now() - startMs;
@@ -1463,6 +1504,8 @@ async function runSqlMode(
     cacheStatus,
     hadError: false,
     isClarification: false,
+    modelTier: sqlModelRouting.tier,
+    modelReason: sqlModelRouting.reason,
   });
 
   return {
@@ -1490,6 +1533,7 @@ async function runSqlMode(
     chartConfig,
     dataQuality,
     plausibility: plausibilityResult,
+    modelRouting: sqlModelRouting,
   };
 }
 
@@ -1572,6 +1616,8 @@ interface CaptureArgs {
   cacheStatus: string;
   narrative: string | null;
   responseSections: string[];
+  /** Model routing metadata (tier, model, reason) for observability */
+  modelRouting?: ModelRouting | null;
 }
 
 async function captureEvalTurnBestEffort(args: CaptureArgs): Promise<void> {
@@ -1589,6 +1635,13 @@ async function captureEvalTurnBestEffort(args: CaptureArgs): Promise<void> {
         locationId: args.context.locationId ?? null,
         lensSlug: args.context.lensSlug ?? null,
         currentDate: args.context.currentDate,
+        ...(args.modelRouting ? {
+          modelRouting: {
+            tier: args.modelRouting.tier,
+            model: args.modelRouting.model,
+            reason: args.modelRouting.reason,
+          },
+        } : {}),
       },
       llmResponse: {
         plan: args.intent.plan as unknown as Record<string, unknown>,

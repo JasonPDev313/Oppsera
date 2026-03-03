@@ -273,28 +273,30 @@ function FeedbackMessage({
 // ═══════════════════════════════════════════════════════════════════
 
 function AppointmentInfoCard({ data }: { data: SpaAppointmentDetail }) {
-  const customerDisplay = data.customerName || '\u2014';
-  const providerDisplay = data.providerDisplayName || data.providerName || '\u2014';
+  const customerDisplay = data.guestName || '\u2014';
+  const providerDisplay = data.providerName || '\u2014';
+  const durationMs = new Date(data.endAt).getTime() - new Date(data.startAt).getTime();
+  const durationMinutes = Math.round(durationMs / 60_000);
 
   return (
     <Card title="Appointment Details" icon={Calendar}>
       <div className="divide-y divide-border">
         <InfoRow
           label="Date"
-          value={formatDate(data.startTime)}
+          value={formatDate(data.startAt)}
         />
         <InfoRow
           label="Time"
           value={
             <span className="tabular-nums">
-              {formatTime(data.startTime)}
-              {data.endTime ? ` \u2013 ${formatTime(data.endTime)}` : ''}
+              {formatTime(data.startAt)}
+              {data.endAt ? ` \u2013 ${formatTime(data.endAt)}` : ''}
             </span>
           }
         />
         <InfoRow
           label="Duration"
-          value={formatDuration(data.durationMinutes)}
+          value={formatDuration(durationMinutes)}
         />
         <InfoRow
           label="Customer"
@@ -311,19 +313,16 @@ function AppointmentInfoCard({ data }: { data: SpaAppointmentDetail }) {
             )
           }
         />
-        {data.customerEmail && (
-          <InfoRow label="Email" value={data.customerEmail} />
+        {data.guestEmail && (
+          <InfoRow label="Email" value={data.guestEmail} />
         )}
-        {data.customerPhone && (
-          <InfoRow label="Phone" value={data.customerPhone} />
+        {data.guestPhone && (
+          <InfoRow label="Phone" value={data.guestPhone} />
         )}
         <InfoRow
           label="Provider"
           value={providerDisplay}
         />
-        {data.serviceCategoryName && (
-          <InfoRow label="Category" value={data.serviceCategoryName} />
-        )}
         <InfoRow
           label="Resource"
           value={data.resourceName}
@@ -342,25 +341,42 @@ function AppointmentInfoCard({ data }: { data: SpaAppointmentDetail }) {
 // ═══════════════════════════════════════════════════════════════════
 
 function ServiceInfoCard({ data }: { data: SpaAppointmentDetail }) {
+  const items = data.items ?? [];
+
+  if (items.length === 0) {
+    return (
+      <Card title="Services" icon={Sparkles}>
+        <p className="text-sm text-muted-foreground">{'\u2014'}</p>
+      </Card>
+    );
+  }
+
   return (
-    <Card title="Service" icon={Sparkles}>
+    <Card title="Services" icon={Sparkles}>
       <div className="divide-y divide-border">
-        <InfoRow label="Service" value={data.serviceName} />
-        {data.serviceDescription && (
-          <div className="py-2">
-            <span className="text-sm text-muted-foreground">Description</span>
-            <p className="mt-1 text-sm text-foreground">
-              {data.serviceDescription}
-            </p>
+        {items.map((item) => (
+          <div key={item.id} className="py-3 first:pt-0 last:pb-0">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">{item.serviceName}</span>
+              <span className="text-sm tabular-nums text-foreground">{formatMoney(item.finalPriceCents)}</span>
+            </div>
+            <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+              <span>{formatDuration(item.serviceDurationMinutes)}</span>
+              {item.providerName && <span>{item.providerName}</span>}
+              {item.discountAmountCents > 0 && (
+                <span className="text-green-500">-{formatMoney(item.discountAmountCents)} discount</span>
+              )}
+            </div>
+          </div>
+        ))}
+        {items.length > 1 && (
+          <div className="flex items-center justify-between py-3">
+            <span className="text-sm font-semibold text-foreground">Total</span>
+            <span className="text-sm font-semibold tabular-nums text-foreground">
+              {formatMoney(items.reduce((sum, i) => sum + i.finalPriceCents, 0))}
+            </span>
           </div>
         )}
-        <InfoRow label="Duration" value={formatDuration(data.durationMinutes)} />
-        <InfoRow
-          label="Price"
-          value={
-            <span className="tabular-nums">{formatMoney(data.priceCents)}</span>
-          }
-        />
       </div>
     </Card>
   );
@@ -494,33 +510,31 @@ function ActionsCard({
 // ═══════════════════════════════════════════════════════════════════
 
 function FinancialSummaryCard({ data }: { data: SpaAppointmentDetail }) {
-  const depositPaid = data.depositPaidCents ?? 0;
-  const totalPaid = data.totalPaidCents ?? 0;
-  const balanceDue = data.priceCents - totalPaid;
+  const totalPriceCents = data.items?.reduce((sum, i) => sum + i.finalPriceCents, 0) ?? 0;
+  const depositPaid = data.depositAmountCents ?? 0;
 
   return (
     <Card title="Financial Summary" icon={DollarSign}>
       <div className="divide-y divide-border">
         <InfoRow
-          label="Service Price"
-          value={<span className="tabular-nums">{formatMoney(data.priceCents)}</span>}
+          label="Service Total"
+          value={<span className="tabular-nums">{formatMoney(totalPriceCents)}</span>}
         />
         {depositPaid > 0 && (
           <InfoRow
-            label="Deposit Paid"
-            value={<span className="tabular-nums text-green-500">{formatMoney(depositPaid)}</span>}
+            label="Deposit"
+            value={
+              <span className="tabular-nums text-green-500">
+                {formatMoney(depositPaid)}
+                <span className="ml-1 text-xs text-muted-foreground">({data.depositStatus})</span>
+              </span>
+            }
           />
         )}
-        <InfoRow
-          label="Total Paid"
-          value={<span className="tabular-nums text-green-500">{formatMoney(totalPaid)}</span>}
-        />
         <div className="flex items-start justify-between py-2">
-          <span className="text-sm font-semibold text-foreground">Balance Due</span>
-          <span
-            className={`text-sm font-semibold tabular-nums ${balanceDue > 0 ? 'text-amber-500' : 'text-green-500'}`}
-          >
-            {formatMoney(Math.max(balanceDue, 0))}
+          <span className="text-sm font-semibold text-foreground">Total</span>
+          <span className="text-sm font-semibold tabular-nums text-foreground">
+            {formatMoney(totalPriceCents)}
           </span>
         </div>
       </div>
@@ -749,17 +763,17 @@ export default function AppointmentDetailContent() {
               Appointment
             </h1>
             <span className="text-sm text-muted-foreground">
-              {data.serviceName}
+              {data.items?.[0]?.serviceName ?? data.appointmentNumber}
             </span>
             <StatusBadge status={data.status} size="md" />
           </div>
         </div>
 
-        {/* Header action — reschedule for non-terminal */}
+        {/* Header action — reschedule for non-terminal (opens edit with reschedule context) */}
         {!isTerminal(data.status) && data.status !== 'completed' && (
           <button
             type="button"
-            onClick={() => router.push(`/spa/appointments/${data.id}/reschedule`)}
+            onClick={() => router.push(`/spa/appointments/${data.id}?action=reschedule`)}
             className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             <CalendarX className="h-4 w-4" aria-hidden="true" />
@@ -783,8 +797,8 @@ export default function AppointmentDetailContent() {
           open={showCheckoutDialog}
           onClose={() => setShowCheckoutDialog(false)}
           appointmentId={data.id}
-          serviceName={data.serviceName}
-          totalCents={data.priceCents}
+          serviceName={data.items?.[0]?.serviceName ?? 'Spa Service'}
+          totalCents={data.items?.reduce((sum, i) => sum + i.finalPriceCents, 0) ?? 0}
           onSuccess={handleCheckoutSuccess}
         />
       )}

@@ -39,12 +39,19 @@
       "WebFetch(domain:konghq.com)",
       "WebFetch(domain:digitalasset.intuit.com)",
       "WebFetch(domain:www.xotels.com)",
-      "WebFetch(domain:fasttracconsulting.com)"
+      "WebFetch(domain:fasttracconsulting.com)",
+      "Read(//c/Users/Jason/.claude/projects/c--Users-Jason-Dev-Oppsera/memory/**)",
+      "Read(//c/Users/Jason/Dev//**)",
+      "Bash(git clone https://github.com/JasonPDev313/databridge /tmp/databridge)",
+      "Read(//c/Users/Jason/Dev/Oppsera/**)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",
       "C:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\api\\v1\\fnb\\payments\\sessions\\[id]",
-      "c:\\Users\\Jason\\Dev\\Oppsera\\apps\\admin\\src\\app\\api\\v1\\audit\\tenant"
+      "c:\\Users\\Jason\\Dev\\Oppsera\\apps\\admin\\src\\app\\api\\v1\\audit\\tenant",
+      "c:\\Users\\Jason\\Dev\\Oppsera\\.claude",
+      "c:\\Users\\Jason\\Dev\\Oppsera\\.claude\\Admin Portal Prompts",
+      "C:\\Users\\Jason\\.claude\\projects\\c--Users-Jason-Dev-Oppsera\\memory"
     ]
   }
 }

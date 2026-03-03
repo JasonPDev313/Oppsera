@@ -15,6 +15,7 @@ import {
 
 const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
 const FAST_MODEL = 'claude-haiku-4-5-20251001';
+const POWER_MODEL = 'claude-opus-4-20250514';
 const DEFAULT_MAX_TOKENS = 2048;
 const DEFAULT_TIMEOUT_MS = 60_000; // 60s — generous for first-request compilation in dev
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
@@ -24,6 +25,9 @@ const BASE_RETRY_DELAY_MS = 1_000; // 1s base delay, doubles each retry
 
 /** The fast model ID for structured JSON output (intent resolution, SQL generation) */
 export const SEMANTIC_FAST_MODEL = process.env.ANTHROPIC_FAST_MODEL ?? FAST_MODEL;
+
+/** The power model ID for complex reasoning (cross-collection analysis, deep analysis) */
+export const SEMANTIC_POWER_MODEL = process.env.ANTHROPIC_POWER_MODEL ?? POWER_MODEL;
 
 export class AnthropicAdapter implements LLMAdapter {
   readonly provider = 'anthropic';

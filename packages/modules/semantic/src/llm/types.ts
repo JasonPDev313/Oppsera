@@ -1,6 +1,21 @@
 import type { QueryPlan } from '../compiler/types';
 import type { EvalExample } from '../evaluation/types';
 
+// ── Model routing types ───────────────────────────────────────────
+// Dynamic 3-tier model selection for narrative generation.
+// Intent resolution & SQL generation always use Haiku (structured JSON).
+
+export type ModelTier = 'haiku' | 'sonnet' | 'opus';
+
+export interface ModelRouting {
+  /** Selected model tier */
+  tier: ModelTier;
+  /** Actual model ID sent to Anthropic */
+  model: string;
+  /** Human-readable reason for tier selection */
+  reason: string;
+}
+
 // ── LLM adapter interface ─────────────────────────────────────────
 // Abstraction over different LLM providers (Anthropic, OpenAI, etc.)
 // The adapter is swappable — tests use a MockLLMAdapter.
@@ -138,6 +153,7 @@ export interface PipelineInput {
 export type SSEEventType =
   | 'status'           // pipeline stage progress (e.g. "Resolving intent…")
   | 'intent_resolved'  // intent resolution complete — includes plan + confidence
+  | 'model_selected'   // model tier selected for narrative generation
   | 'data_ready'       // query execution done — includes rows, rowCount, mode
   | 'narrative_chunk'  // incremental narrative text delta
   | 'enrichments'      // follow-ups, chart config, data quality (sent after narrative)
@@ -213,6 +229,8 @@ export interface PipelineOutput {
     grade: 'A' | 'B' | 'C' | 'D' | 'F';
     warnings: Array<{ code: string; severity: 'info' | 'warning' | 'error'; message: string }>;
   } | null;
+  // Model routing: which tier was selected for narrative generation and why
+  modelRouting?: ModelRouting | null;
 }
 
 // ── Errors ────────────────────────────────────────────────────────

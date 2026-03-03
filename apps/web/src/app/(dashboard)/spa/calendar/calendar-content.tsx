@@ -28,7 +28,7 @@ type AppointmentStatus =
   | 'confirmed'
   | 'checked_in'
   | 'completed'
-  | 'cancelled'
+  | 'canceled'
   | 'no_show';
 
 interface CalendarAppointment {
@@ -69,7 +69,7 @@ const STATUS_COLORS: Record<AppointmentStatus, { bg: string; border: string; tex
   confirmed:  { bg: 'bg-blue-500/10',   border: 'border-blue-500/30',   text: 'text-blue-500' },
   checked_in: { bg: 'bg-green-500/10',  border: 'border-green-500/30',  text: 'text-green-500' },
   completed:  { bg: 'bg-gray-500/10',   border: 'border-gray-500/30',   text: 'text-muted-foreground' },
-  cancelled:  { bg: 'bg-red-500/10',    border: 'border-red-500/30',    text: 'text-red-500' },
+  canceled:   { bg: 'bg-red-500/10',    border: 'border-red-500/30',    text: 'text-red-500' },
   no_show:    { bg: 'bg-amber-500/10',  border: 'border-amber-500/30',  text: 'text-amber-500' },
 };
 

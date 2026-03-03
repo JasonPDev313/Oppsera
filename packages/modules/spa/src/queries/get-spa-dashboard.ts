@@ -84,11 +84,11 @@ export async function getSpaDashboard(input: {
   date: string; // YYYY-MM-DD — typically today
 }): Promise<SpaDashboardMetrics> {
   return withTenant(input.tenantId, async (tx) => {
-    const dateObj = new Date(input.date);
-    const dayStart = new Date(dateObj);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dateObj);
-    dayEnd.setHours(23, 59, 59, 999);
+    // Construct UTC day boundaries directly from the YYYY-MM-DD string so we
+    // don't inherit the server's local timezone (UTC on Vercel, but arbitrary
+    // in local dev). This matches the businessDate convention used elsewhere.
+    const dayStart = new Date(`${input.date}T00:00:00.000Z`);
+    const dayEnd = new Date(`${input.date}T23:59:59.999Z`);
 
     // Fetch read model data, today's appointments, provider metrics,
     // and service metrics in parallel
@@ -167,7 +167,7 @@ export async function getSpaDashboard(input: {
             eq(rmSpaServiceMetrics.tenantId, input.tenantId),
             gte(
               rmSpaServiceMetrics.businessDate,
-              new Date(dateObj.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+              new Date(dayStart.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
             ),
             lte(rmSpaServiceMetrics.businessDate, input.date),
           ),

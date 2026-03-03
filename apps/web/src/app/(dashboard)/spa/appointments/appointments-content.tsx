@@ -32,16 +32,14 @@ interface AppointmentService {
 interface SpaAppointment {
   id: string;
   appointmentNumber: string;
-  scheduledAt: string;
+  startAt: string;
   endAt: string;
-  customerName: string | null;
   customerId: string | null;
   guestName: string | null;
   services: AppointmentService[];
   providerName: string | null;
   providerId: string | null;
   status: string;
-  totalCents: number;
   notes: string | null;
   createdAt: string;
 }
@@ -315,25 +313,25 @@ export default function AppointmentsContent() {
         ),
       },
       {
-        key: 'scheduledAt',
+        key: 'startAt',
         header: 'Date & Time',
         width: '180px',
         render: (row: AppointmentRow) => (
           <div className="flex flex-col">
-            <span className="text-sm text-foreground">{formatDate(row.scheduledAt)}</span>
+            <span className="text-sm text-foreground">{formatDate(row.startAt)}</span>
             <span className="text-xs text-muted-foreground">
-              {formatTime(row.scheduledAt)}
+              {formatTime(row.startAt)}
               {row.endAt ? ` \u2013 ${formatTime(row.endAt)}` : ''}
             </span>
           </div>
         ),
       },
       {
-        key: 'customerName',
+        key: 'guestName',
         header: 'Customer',
         render: (row: AppointmentRow) => (
           <span className="text-sm text-foreground">
-            {row.customerName || row.guestName || '\u2014'}
+            {row.guestName || '\u2014'}
           </span>
         ),
       },
@@ -370,14 +368,17 @@ export default function AppointmentsContent() {
         ),
       },
       {
-        key: 'totalCents',
+        key: 'total',
         header: 'Total',
         width: '100px',
-        render: (row: AppointmentRow) => (
-          <span className="text-sm font-medium tabular-nums text-foreground">
-            {row.totalCents > 0 ? formatMoney(row.totalCents) : '\u2014'}
-          </span>
-        ),
+        render: (row: AppointmentRow) => {
+          const totalCents = row.services?.reduce((sum: number, s: AppointmentService) => sum + (s.priceCents ?? 0), 0) ?? 0;
+          return (
+            <span className="text-sm font-medium tabular-nums text-foreground">
+              {totalCents > 0 ? formatMoney(totalCents) : '\u2014'}
+            </span>
+          );
+        },
       },
       {
         key: 'status',

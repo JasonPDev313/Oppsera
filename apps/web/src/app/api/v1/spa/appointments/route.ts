@@ -19,6 +19,7 @@ export const GET = withMiddleware(
     const locationId = searchParams.get('locationId') ?? undefined;
     const startDate = searchParams.get('startDate') ?? undefined;
     const endDate = searchParams.get('endDate') ?? undefined;
+    const search = searchParams.get('search') ?? undefined;
     const cursor = searchParams.get('cursor') ?? undefined;
     const limitParam = searchParams.get('limit');
 
@@ -30,6 +31,7 @@ export const GET = withMiddleware(
       status: statusParam || undefined,
       startDate,
       endDate,
+      search,
       cursor,
       limit: limitParam ? parseInt(limitParam, 10) : undefined,
     });

@@ -1,3 +1,8 @@
+---
+description: Dark mode class enforcement for UI components
+paths: ["**/*.tsx", "**/*.jsx", "**/*.css"]
+---
+
 ## Dark Mode Enforcement — MANDATORY
 
 When writing or modifying ANY `.tsx` file in this codebase, you MUST follow these dark mode rules.

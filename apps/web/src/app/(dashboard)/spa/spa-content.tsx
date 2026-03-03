@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   CalendarDays,
   Users,
@@ -118,6 +119,7 @@ function ProviderBar({ name, color, utilization, appointments }: ProviderBarProp
 // ---------------------------------------------------------------------------
 
 export default function SpaContent() {
+  const router = useRouter();
   const { locations } = useAuthContext();
   const locationId = locations[0]?.id ?? '';
 
@@ -179,7 +181,10 @@ export default function SpaContent() {
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-foreground">Spa Dashboard</h1>
-        <button className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors">
+        <button
+          onClick={() => router.push('/spa/appointments/new')}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+        >
           <Plus className="h-4 w-4" />
           New Appointment
         </button>
@@ -321,7 +326,10 @@ export default function SpaContent() {
           <h2 className="text-sm font-medium text-foreground">
             Upcoming Appointments
           </h2>
-          <button className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+          <button
+            onClick={() => router.push('/spa/appointments')}
+            className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
             View all
             <ArrowRight className="h-3.5 w-3.5" />
           </button>

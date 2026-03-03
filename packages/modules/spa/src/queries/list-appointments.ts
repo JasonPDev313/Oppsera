@@ -1,4 +1,4 @@
-import { eq, and, lt, gte, lte, desc, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 import {
   withTenant,
   spaAppointments,
@@ -16,6 +16,7 @@ export interface ListAppointmentsInput {
   status?: string;
   startDate?: string;
   endDate?: string;
+  search?: string;
   cursor?: string;
   limit?: number;
 }
@@ -85,7 +86,10 @@ export async function listAppointments(
     ];
 
     if (input.cursor) {
-      conditions.push(lt(spaAppointments.id, input.cursor));
+      const [cursorStartAt, cursorId] = input.cursor.split('|');
+      conditions.push(
+        sql`(${spaAppointments.startAt}, ${spaAppointments.id}) < (${new Date(cursorStartAt!)}, ${cursorId})` as ReturnType<typeof eq>,
+      );
     }
 
     if (input.locationId) {
@@ -123,6 +127,13 @@ export async function listAppointments(
     if (input.endDate) {
       conditions.push(
         lte(spaAppointments.startAt, new Date(input.endDate)),
+      );
+    }
+
+    if (input.search) {
+      const term = `%${input.search}%`;
+      conditions.push(
+        sql`(${spaAppointments.appointmentNumber} ILIKE ${term} OR ${spaAppointments.guestName} ILIKE ${term})` as ReturnType<typeof eq>,
       );
     }
 
@@ -251,7 +262,9 @@ export async function listAppointments(
 
     return {
       items,
-      cursor: hasMore ? sliced[sliced.length - 1]!.id : null,
+      cursor: hasMore
+        ? `${sliced[sliced.length - 1]!.startAt.toISOString()}|${sliced[sliced.length - 1]!.id}`
+        : null,
       hasMore,
     };
   });

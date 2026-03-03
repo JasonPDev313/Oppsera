@@ -8,7 +8,8 @@ export { validateGeneratedSql } from './sql-validator';
 export { executeSqlQuery } from './sql-executor';
 export { retrySqlGeneration } from './sql-retry';
 export { pruneConversation, pruneForIntentResolver, pruneForSqlGenerator, pruneForFrontend, estimateTokens } from './conversation-pruner';
-export { AnthropicAdapter } from './adapters/anthropic';
+export { AnthropicAdapter, SEMANTIC_POWER_MODEL } from './adapters/anthropic';
+export { selectModel, applyTimeBudgetOverride, MODELS } from './model-router';
 export type {
   LLMAdapter,
   LLMMessage,
@@ -26,6 +27,9 @@ export type {
   PipelineMode,
   SSEEventType,
   ChartConfig,
+  ModelTier,
+  ModelRouting,
 } from './types';
+export type { SelectModelInput } from './model-router';
 export type { SqlRetryResult, SqlRetryOptions, RetryParams } from './sql-retry';
 export type { PruneOptions } from './conversation-pruner';

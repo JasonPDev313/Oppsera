@@ -903,12 +903,14 @@ function RecentBookingsTable({
   bookings,
 }: {
   bookings: Array<{
-    appointmentId: string;
+    id: string;
+    appointmentNumber: string;
     guestName: string | null;
     guestEmail: string | null;
-    serviceName: string;
+    serviceName: string | null;
     providerName: string | null;
     startAt: string;
+    endAt: string;
     status: string;
     depositAmountCents: number;
     createdAt: string;
@@ -938,7 +940,7 @@ function RecentBookingsTable({
         <tbody>
           {bookings.map((b) => (
             <tr
-              key={b.appointmentId}
+              key={b.id}
               className="border-b border-border last:border-0 hover:bg-accent"
             >
               <td className="py-2 pr-3">
@@ -951,7 +953,7 @@ function RecentBookingsTable({
                   </div>
                 )}
               </td>
-              <td className="py-2 pr-3 text-foreground">{b.serviceName}</td>
+              <td className="py-2 pr-3 text-foreground">{b.serviceName ?? '—'}</td>
               <td className="py-2 pr-3 text-muted-foreground">
                 {b.providerName ?? '—'}
               </td>
@@ -1024,25 +1026,25 @@ export default function BookingContent() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Online Bookings"
-          value={String(stats?.bookingsThisPeriod ?? 0)}
+          value={String(stats?.totalBookings ?? 0)}
           icon={CalendarCheck}
           accent="indigo"
         />
         <KpiCard
           label="Online Revenue"
-          value={formatMoney(stats?.onlineRevenueCents ?? 0)}
+          value={formatMoney(stats?.revenueCents ?? 0)}
           icon={DollarSign}
           accent="green"
         />
         <KpiCard
-          label="Avg Lead Time"
-          value={`${(stats?.avgLeadTimeDays ?? 0).toFixed(1)}d`}
+          label="Bookings Today"
+          value={String(stats?.bookingsToday ?? 0)}
           icon={Clock}
           accent="amber"
         />
         <KpiCard
           label="Cancellation Rate"
-          value={`${((stats?.cancellationRate ?? 0) * 100).toFixed(1)}%`}
+          value={`${(stats?.cancellationRate ?? 0).toFixed(1)}%`}
           icon={XCircle}
           accent="red"
         />
@@ -1069,20 +1071,21 @@ export default function BookingContent() {
           </Section>
 
           {/* Quick Stats */}
-          {stats && stats.topServices.length > 0 && (
-            <Section title="Top Services (Online)" defaultOpen={false}>
+          {stats && (
+            <Section title="Booking Summary" defaultOpen={false}>
               <div className="space-y-2">
-                {stats.topServices.map((s) => (
-                  <div
-                    key={s.serviceId}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span className="text-foreground">{s.serviceName}</span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {s.bookingCount} bookings
-                    </span>
-                  </div>
-                ))}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-foreground">Upcoming</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {stats.upcomingCount} appointments
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-foreground">Cancellations</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {stats.cancellationCount}
+                  </span>
+                </div>
               </div>
             </Section>
           )}

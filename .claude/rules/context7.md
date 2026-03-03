@@ -1,3 +1,8 @@
+---
+description: Mandatory Context7 doc lookup for libraries with changing APIs
+paths: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.css"]
+---
+
 ## Context7 — Mandatory Documentation Lookup
 
 When generating, modifying, or debugging code that touches ANY of the following

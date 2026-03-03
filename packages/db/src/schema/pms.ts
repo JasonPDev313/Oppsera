@@ -902,6 +902,28 @@ export const pmsHousekeepers = pgTable(
   ],
 );
 
+// ── PMS Cleaning Types ──────────────────────────────────────────
+export const pmsCleaningTypes = pgTable(
+  'pms_cleaning_types',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    propertyId: text('property_id').notNull().references(() => pmsProperties.id),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    estimatedMinutes: integer('estimated_minutes'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_pms_cleaning_types_property').on(table.tenantId, table.propertyId),
+    uniqueIndex('uq_pms_cleaning_types_code').on(table.tenantId, table.propertyId, table.code),
+  ],
+);
+
 // ── PMS Housekeeping Assignments ─────────────────────────────────
 export const pmsHousekeepingAssignments = pgTable(
   'pms_housekeeping_assignments',
@@ -926,6 +948,9 @@ export const pmsHousekeepingAssignments = pgTable(
     completedAt: timestamp('completed_at', { withTimezone: true }),
     durationMinutes: integer('duration_minutes'),
     notes: text('notes'),
+    dueBy: timestamp('due_by', { withTimezone: true }),
+    cleaningTypeId: text('cleaning_type_id'),
+    requestedBy: text('requested_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

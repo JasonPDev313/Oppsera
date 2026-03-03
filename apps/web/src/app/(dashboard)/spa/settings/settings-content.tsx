@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Save, Clock } from 'lucide-react';
+import { Settings, Save } from 'lucide-react';
 import { useSpaSettings, useUpdateSpaSettings } from '@/hooks/use-spa';
 import type { SpaSettings } from '@/hooks/use-spa';
 
@@ -10,97 +10,87 @@ import type { SpaSettings } from '@/hooks/use-spa';
  * ──────────────────────────────────────────────────────────────────── */
 
 interface FormState {
-  defaultAppointmentDuration: number;     // derived from bufferMinutes or custom
-  bookingLeadTimeHours: number;           // bookingWindowDays * 24 (simplified)
-  cancellationWindowHours: number;        // cancellationPolicyMinutes / 60
-  allowOnlineBooking: boolean;
+  defaultBufferMinutes: number;
+  defaultCleanupMinutes: number;
+  defaultSetupMinutes: number;
+  rebookingWindowDays: number;
+  cancellationWindowHours: number;        // derived from cancellationDefaults
+  onlineBookingEnabled: boolean;
+  waitlistEnabled: boolean;
+  autoAssignProvider: boolean;
   requireDeposit: boolean;
-  defaultDepositPercentage: number;       // depositPercentage ?? 25
-  allowWalkIns: boolean;                  // local-only for now
-  sendConfirmationEmail: boolean;         // local-only for now
-  sendReminder: boolean;                  // local-only for now
-  reminderHoursBefore: number;            // local-only for now
-  businessHours: Record<string, { open: string; close: string; closed: boolean }>;
+  defaultDepositPercentage: number;       // derived from depositRules
+  sendConfirmationEmail: boolean;         // derived from notificationPreferences
+  sendReminder: boolean;                  // derived from notificationPreferences
+  reminderHoursBefore: number;            // derived from notificationPreferences
 }
 
-const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
-const DAY_LABELS: Record<string, string> = {
-  monday: 'Monday',
-  tuesday: 'Tuesday',
-  wednesday: 'Wednesday',
-  thursday: 'Thursday',
-  friday: 'Friday',
-  saturday: 'Saturday',
-  sunday: 'Sunday',
-};
-
-const DEFAULT_BUSINESS_HOURS: FormState['businessHours'] = {
-  monday:    { open: '09:00', close: '18:00', closed: false },
-  tuesday:   { open: '09:00', close: '18:00', closed: false },
-  wednesday: { open: '09:00', close: '18:00', closed: false },
-  thursday:  { open: '09:00', close: '18:00', closed: false },
-  friday:    { open: '09:00', close: '18:00', closed: false },
-  saturday:  { open: '10:00', close: '16:00', closed: false },
-  sunday:    { open: '10:00', close: '16:00', closed: true },
-};
-
 const DEFAULT_FORM: FormState = {
-  defaultAppointmentDuration: 60,
-  bookingLeadTimeHours: 2,
+  defaultBufferMinutes: 15,
+  defaultCleanupMinutes: 10,
+  defaultSetupMinutes: 5,
+  rebookingWindowDays: 90,
   cancellationWindowHours: 24,
-  allowOnlineBooking: true,
+  onlineBookingEnabled: false,
+  waitlistEnabled: true,
+  autoAssignProvider: true,
   requireDeposit: false,
   defaultDepositPercentage: 25,
-  allowWalkIns: true,
   sendConfirmationEmail: true,
   sendReminder: true,
   reminderHoursBefore: 24,
-  businessHours: DEFAULT_BUSINESS_HOURS,
 };
 
 /** Map backend SpaSettings to local form state */
 function toFormState(s: SpaSettings): FormState {
-  const opHours = s.operatingHours ?? {};
-  const businessHours: FormState['businessHours'] = {};
-  for (const day of DAYS) {
-    const h = opHours[day];
-    businessHours[day] = h
-      ? { open: h.open, close: h.close, closed: false }
-      : (DEFAULT_BUSINESS_HOURS[day] ?? { open: '09:00', close: '18:00', closed: true });
-  }
+  const cancelDefaults = (s.cancellationDefaults ?? {}) as Record<string, unknown>;
+  const cancelMinutes = typeof cancelDefaults.windowMinutes === 'number' ? cancelDefaults.windowMinutes : 1440;
+
+  const depositRules = (s.depositRules ?? {}) as Record<string, unknown>;
+  const requireDeposit = depositRules.required === true;
+  const depositPct = typeof depositRules.percentage === 'number' ? depositRules.percentage : 25;
+
+  const notifPrefs = (s.notificationPreferences ?? {}) as Record<string, unknown>;
 
   return {
-    defaultAppointmentDuration: s.bufferMinutes > 0 ? s.bufferMinutes : 60,
-    bookingLeadTimeHours: (s.bookingWindowDays ?? 0) > 0 ? s.bookingWindowDays * 24 : 2,
-    cancellationWindowHours: Math.round((s.cancellationPolicyMinutes ?? 0) / 60) || 24,
-    allowOnlineBooking: s.allowOnlineBooking,
-    requireDeposit: s.requireDeposit,
-    defaultDepositPercentage: s.depositPercentage ?? 25,
-    allowWalkIns: true,
-    sendConfirmationEmail: true,
-    sendReminder: true,
-    reminderHoursBefore: 24,
-    businessHours,
+    defaultBufferMinutes: s.defaultBufferMinutes,
+    defaultCleanupMinutes: s.defaultCleanupMinutes,
+    defaultSetupMinutes: s.defaultSetupMinutes,
+    rebookingWindowDays: s.rebookingWindowDays,
+    cancellationWindowHours: Math.round(cancelMinutes / 60),
+    onlineBookingEnabled: s.onlineBookingEnabled,
+    waitlistEnabled: s.waitlistEnabled,
+    autoAssignProvider: s.autoAssignProvider,
+    requireDeposit,
+    defaultDepositPercentage: depositPct,
+    sendConfirmationEmail: notifPrefs.confirmationEmail !== false,
+    sendReminder: notifPrefs.reminder !== false,
+    reminderHoursBefore: typeof notifPrefs.reminderHoursBefore === 'number' ? notifPrefs.reminderHoursBefore : 24,
   };
 }
 
 /** Map local form state to backend update payload */
 function toUpdatePayload(f: FormState) {
-  const operatingHours: Record<string, { open: string; close: string }> = {};
-  for (const day of DAYS) {
-    const h = f.businessHours[day];
-    if (h && !h.closed) {
-      operatingHours[day] = { open: h.open, close: h.close };
-    }
-  }
-
   return {
-    bufferMinutes: f.defaultAppointmentDuration,
-    cancellationPolicyMinutes: f.cancellationWindowHours * 60,
-    allowOnlineBooking: f.allowOnlineBooking,
-    requireDeposit: f.requireDeposit,
-    depositPercentage: f.requireDeposit ? f.defaultDepositPercentage : null,
-    operatingHours: Object.keys(operatingHours).length > 0 ? operatingHours : null,
+    defaultBufferMinutes: f.defaultBufferMinutes,
+    defaultCleanupMinutes: f.defaultCleanupMinutes,
+    defaultSetupMinutes: f.defaultSetupMinutes,
+    rebookingWindowDays: f.rebookingWindowDays,
+    onlineBookingEnabled: f.onlineBookingEnabled,
+    waitlistEnabled: f.waitlistEnabled,
+    autoAssignProvider: f.autoAssignProvider,
+    depositRules: {
+      required: f.requireDeposit,
+      percentage: f.requireDeposit ? f.defaultDepositPercentage : null,
+    },
+    cancellationDefaults: {
+      windowMinutes: f.cancellationWindowHours * 60,
+    },
+    notificationPreferences: {
+      confirmationEmail: f.sendConfirmationEmail,
+      reminder: f.sendReminder,
+      reminderHoursBefore: f.reminderHoursBefore,
+    },
   };
 }
 
@@ -207,47 +197,37 @@ export default function SettingsContent() {
       <section className="bg-surface border border-border rounded-lg p-6">
         <h2 className="text-lg font-semibold text-foreground mb-4">General Settings</h2>
         <div className="space-y-1">
-          {/* Business Hours (display only) */}
-          <div className="pb-3">
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              <span className="text-sm font-medium text-foreground">Business Hours</span>
-            </div>
-            <div className="space-y-2 pl-6">
-              {DAYS.map((day) => {
-                const hours = form.businessHours[day];
-                return (
-                  <div key={day} className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground w-24">{DAY_LABELS[day]}</span>
-                    <span className="text-foreground tabular-nums">
-                      {hours?.closed ? (
-                        <span className="text-muted-foreground italic">Closed</span>
-                      ) : (
-                        `${hours?.open ?? '09:00'} - ${hours?.close ?? '18:00'}`
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div className="border-t border-border pt-3">
-            <NumberField
-              label="Default appointment duration"
-              value={form.defaultAppointmentDuration}
-              onChange={(v) => update('defaultAppointmentDuration', v)}
-              suffix="min"
-              min={15}
-              max={480}
-            />
-          </div>
           <NumberField
-            label="Booking lead time"
-            value={form.bookingLeadTimeHours}
-            onChange={(v) => update('bookingLeadTimeHours', v)}
-            suffix="hours"
+            label="Buffer between appointments"
+            value={form.defaultBufferMinutes}
+            onChange={(v) => update('defaultBufferMinutes', v)}
+            suffix="min"
             min={0}
-            max={168}
+            max={120}
+          />
+          <NumberField
+            label="Cleanup time"
+            value={form.defaultCleanupMinutes}
+            onChange={(v) => update('defaultCleanupMinutes', v)}
+            suffix="min"
+            min={0}
+            max={120}
+          />
+          <NumberField
+            label="Setup time"
+            value={form.defaultSetupMinutes}
+            onChange={(v) => update('defaultSetupMinutes', v)}
+            suffix="min"
+            min={0}
+            max={120}
+          />
+          <NumberField
+            label="Rebooking window"
+            value={form.rebookingWindowDays}
+            onChange={(v) => update('rebookingWindowDays', v)}
+            suffix="days"
+            min={1}
+            max={365}
           />
           <NumberField
             label="Cancellation policy window"
@@ -265,9 +245,19 @@ export default function SettingsContent() {
         <h2 className="text-lg font-semibold text-foreground mb-4">Booking Settings</h2>
         <div className="space-y-1">
           <Toggle
-            label="Allow online booking"
-            checked={form.allowOnlineBooking}
-            onChange={(v) => update('allowOnlineBooking', v)}
+            label="Enable online booking"
+            checked={form.onlineBookingEnabled}
+            onChange={(v) => update('onlineBookingEnabled', v)}
+          />
+          <Toggle
+            label="Enable waitlist"
+            checked={form.waitlistEnabled}
+            onChange={(v) => update('waitlistEnabled', v)}
+          />
+          <Toggle
+            label="Auto-assign provider"
+            checked={form.autoAssignProvider}
+            onChange={(v) => update('autoAssignProvider', v)}
           />
           <Toggle
             label="Require deposit"
@@ -286,11 +276,6 @@ export default function SettingsContent() {
               />
             </div>
           )}
-          <Toggle
-            label="Allow walk-ins"
-            checked={form.allowWalkIns}
-            onChange={(v) => update('allowWalkIns', v)}
-          />
         </div>
       </section>
 
