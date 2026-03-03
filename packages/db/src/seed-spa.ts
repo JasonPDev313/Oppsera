@@ -446,18 +446,26 @@ async function seedSpa() {
     }
     console.log(`  ${reqCount} resource requirements created`);
 
-    // ── 9. New Customers ─────────────────────────────────────────
+    // ── 9. New Customers (idempotent — looks up existing by email) ──
     console.log('-- Creating new spa customers...');
     const newCustIds: string[] = [];
     for (const cust of NEW_CUSTOMERS) {
-      const id = generateUlid();
-      newCustIds.push(id);
-      await db.execute(sql`
-        INSERT INTO customers (id, tenant_id, type, first_name, last_name, display_name, email, phone, status, created_by)
-        VALUES (${id}, ${tenantId}, 'person', ${cust.firstName}, ${cust.lastName}, ${cust.firstName + ' ' + cust.lastName}, ${cust.email}, ${cust.phone}, 'active', ${primaryUserId})
+      // Check if customer already exists (e.g. from a previous partial seed run)
+      const existing = await db.execute(sql`
+        SELECT id FROM customers WHERE tenant_id = ${tenantId} AND email = ${cust.email} LIMIT 1
       `);
+      if (Array.from(existing as Iterable<any>).length > 0) {
+        newCustIds.push(Array.from(existing as Iterable<any>)[0].id);
+      } else {
+        const id = generateUlid();
+        newCustIds.push(id);
+        await db.execute(sql`
+          INSERT INTO customers (id, tenant_id, type, first_name, last_name, display_name, email, phone, status, created_by)
+          VALUES (${id}, ${tenantId}, 'person', ${cust.firstName}, ${cust.lastName}, ${cust.firstName + ' ' + cust.lastName}, ${cust.email}, ${cust.phone}, 'active', ${primaryUserId})
+        `);
+      }
     }
-    console.log(`  ${NEW_CUSTOMERS.length} new customers created`);
+    console.log(`  ${newCustIds.length} spa customers ready (new + existing)`);
 
     // Build full customer pool: new + existing + walk-in (null) slots
     const customerPool: Array<{ id: string; name: string } | null> = [
@@ -473,15 +481,18 @@ async function seedSpa() {
 
     for (let i = 0; i < PROVIDERS.length; i++) {
       const pDef = PROVIDERS[i]!;
-      const id = generateUlid();
+      const newId = generateUlid();
       // Cycle through existing users for userId FK
       const userId = userRows[i % userRows.length]!.id;
-      providerIds.push({ id, def: pDef });
 
-      await db.execute(sql`
+      const result = await db.execute(sql`
         INSERT INTO spa_providers (id, tenant_id, user_id, display_name, bio, specialties, employment_type, color, is_active)
-        VALUES (${id}, ${tenantId}, ${userId}, ${pDef.displayName}, ${pDef.bio}, ${JSON.stringify(pDef.specialties)}, 'employee', ${pDef.color}, true)
+        VALUES (${newId}, ${tenantId}, ${userId}, ${pDef.displayName}, ${pDef.bio}, ${JSON.stringify(pDef.specialties)}, 'employee', ${pDef.color}, true)
+        ON CONFLICT (tenant_id, user_id) DO UPDATE SET display_name = EXCLUDED.display_name, color = EXCLUDED.color
+        RETURNING id
       `);
+      const id = Array.from(result as Iterable<any>)[0]?.id ?? newId;
+      providerIds.push({ id, def: pDef });
 
       // Determine eligible services
       const eligibleSvcIds: string[] = [];
@@ -565,8 +576,10 @@ async function seedSpa() {
     // ── 14. Commission Rules ─────────────────────────────────────
     console.log('-- Creating commission rules...');
     let commRuleCount = 0;
+    const providerRuleMap: Record<string, string> = {}; // providerId → ruleId
     for (const prov of providerIds) {
       const id = generateUlid();
+      providerRuleMap[prov.id] = id;
       // Provider-level default commission
       await db.execute(sql`
         INSERT INTO spa_commission_rules (id, tenant_id, name, provider_id, commission_type, rate, applies_to, effective_from, priority, is_active)
@@ -895,9 +908,11 @@ async function seedSpa() {
       const commStatus = rand() < 0.80 ? 'approved' : (rand() < 0.75 ? 'calculated' : 'paid');
 
       const commId = generateUlid();
+      const ruleId = providerRuleMap[a.providerId!] ?? null;
+      if (!ruleId) continue; // skip if no rule found
       commValues.push(sql`(
         ${commId}, ${tenantId}, ${a.providerId}, ${a.id}, ${null},
-        ${null}, 'percentage', ${a.finalPriceCents}, ${commissionCents},
+        ${ruleId}, 'percentage', ${a.finalPriceCents}, ${commissionCents},
         ${rate.toFixed(4)}, ${commStatus}, ${null}
       )`);
       commCount++;

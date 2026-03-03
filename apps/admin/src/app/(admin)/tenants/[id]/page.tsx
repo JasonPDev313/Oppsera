@@ -20,6 +20,7 @@ import {
 import { useTenantDetail } from '@/hooks/use-tenant-management';
 import { adminFetch } from '@/lib/api-fetch';
 import { EditTenantDialog } from '@/components/tenants/EditTenantDialog';
+import { TenantHealthCard } from '@/components/tenants/TenantHealthCard';
 import { TenantStatusBadge } from '@/components/tenants/TenantStatusBadge';
 import { OrgHierarchyBuilder } from '@/components/tenants/OrgHierarchyBuilder';
 import { ModuleManager } from '@/components/tenants/ModuleManager';
@@ -32,8 +33,9 @@ import { NotesTab } from '@/components/tenants/NotesTab';
 import { ApiKeysTab } from '@/components/tenants/ApiKeysTab';
 import { ImpersonateDialog } from '@/components/tenants/ImpersonateDialog';
 import { ImpersonationHistoryTab } from '@/components/tenants/ImpersonationHistoryTab';
+import { TenantAuditPanel } from '@/components/audit/TenantAuditPanel';
 
-type Tab = 'overview' | 'organization' | 'modules' | 'roles' | 'users' | 'subscription' | 'onboarding' | 'notes' | 'impersonation' | 'api-keys';
+type Tab = 'overview' | 'organization' | 'modules' | 'roles' | 'users' | 'subscription' | 'onboarding' | 'notes' | 'impersonation' | 'api-keys' | 'audit';
 
 const HEALTH_GRADE_COLORS: Record<string, string> = {
   A: 'text-emerald-400 bg-emerald-500/10',
@@ -99,6 +101,7 @@ export default function TenantDetailPage() {
     { key: 'notes', label: 'Notes' },
     { key: 'api-keys', label: 'API Keys' },
     { key: 'impersonation', label: 'Impersonation' },
+    { key: 'audit', label: 'Audit Log' },
   ];
 
   return (
@@ -211,6 +214,7 @@ export default function TenantDetailPage() {
       {tab === 'notes' && <NotesTab tenantId={id} />}
       {tab === 'api-keys' && <ApiKeysTab tenantId={id} />}
       {tab === 'impersonation' && <ImpersonationHistoryTab tenantId={id} />}
+      {tab === 'audit' && <TenantAuditPanel fixedTenantId={id} fixedTenantName={tenant.name} />}
 
       {/* Impersonation Dialog */}
       <ImpersonateDialog
@@ -247,6 +251,9 @@ function OverviewTab({ tenant, onUpdate }: { tenant: NonNullable<ReturnType<type
           Edit Tenant Info
         </button>
       </div>
+
+      {/* Health Card */}
+      <TenantHealthCard tenantId={tenant.id} />
 
       {/* Zero-site warning */}
       {tenant.siteCount === 0 && (

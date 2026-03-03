@@ -233,3 +233,25 @@ export const onboardingStepTemplates = pgTable(
     uniqueIndex('uq_onboarding_templates_industry_step').on(table.industry, table.stepKey),
   ],
 );
+
+// ── Admin Recent Searches ──────────────────────────────────────
+// Tracks recent search/navigation events for command palette history.
+// No RLS — platform-level table.
+
+export const adminRecentSearches = pgTable(
+  'admin_recent_searches',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    adminId: text('admin_id')
+      .notNull()
+      .references(() => platformAdmins.id),
+    searchQuery: text('search_query'),
+    entityType: text('entity_type'),
+    entityId: text('entity_id'),
+    entityLabel: text('entity_label').notNull(),
+    searchedAt: timestamp('searched_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_admin_recent_searches_admin').on(table.adminId, table.searchedAt),
+  ],
+);

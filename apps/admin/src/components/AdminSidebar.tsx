@@ -34,8 +34,13 @@ import {
   Settings,
   CreditCard,
   SlidersHorizontal,
+  HeartPulse,
+  Wallet,
+  ClipboardCheck,
+  Search,
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { useCommandPalette } from './search/CommandPaletteProvider';
 
 interface NavModule {
   label: string;
@@ -83,6 +88,31 @@ const MODULES: NavModule[] = [
     ],
   },
   {
+    label: 'Finance',
+    icon: Wallet,
+    prefix: '/finance',
+    children: [
+      { href: '/finance', label: 'Financial Support Hub', icon: DollarSign },
+    ],
+  },
+  {
+    label: 'Health',
+    icon: HeartPulse,
+    prefix: '/health',
+    children: [
+      { href: '/health', label: 'System Health', icon: HeartPulse },
+    ],
+  },
+  {
+    label: 'Audit & Compliance',
+    icon: ClipboardCheck,
+    prefix: '/audit',
+    children: [
+      { href: '/audit', label: 'Audit Log', icon: ClipboardCheck },
+      { href: '/search', label: 'Global Search', icon: Search },
+    ],
+  },
+  {
     label: 'Event System',
     icon: Zap,
     prefix: '/events',
@@ -125,6 +155,7 @@ const MODULES: NavModule[] = [
 export function AdminSidebar() {
   const pathname = usePathname();
   const { session, logout } = useAdminAuth();
+  const { open: openPalette } = useCommandPalette();
 
   return (
     <aside className="w-60 min-h-screen bg-slate-900 border-r border-slate-800 flex flex-col">
@@ -137,6 +168,20 @@ export function AdminSidebar() {
           <p className="text-sm font-semibold text-white leading-none">OppsEra</p>
           <p className="text-xs text-slate-400">Admin Panel</p>
         </div>
+      </div>
+
+      {/* Search trigger */}
+      <div className="px-3 pt-3 pb-1">
+        <button
+          onClick={openPalette}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 bg-slate-800 border border-slate-700 hover:text-white hover:border-slate-600 transition-colors"
+        >
+          <Search size={14} />
+          <span className="flex-1 text-left">Search...</span>
+          <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 border border-slate-600 text-slate-400">
+            Ctrl+K
+          </kbd>
+        </button>
       </div>
 
       {/* Nav */}

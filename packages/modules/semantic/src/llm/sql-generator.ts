@@ -251,6 +251,50 @@ SELECT 'Previous Week' as period, order_count, revenue FROM prev_week
 - Use business_date for orders (not created_at)
 - Remember: order amounts are in CENTS — divide by 100.0 for dollar values
 
+## Customer Spend & Frequency by Period
+When the user asks about "average spend per customer", "spend per customer trending", "customer spend MoM", "customer spend YoY", or any time-series customer spend analysis:
+- Calculate from the \`orders\` table directly (NOT \`rm_customer_activity\` which stores lifetime running totals only with no date dimension)
+- Only include orders with a \`customer_id\` (exclude anonymous/walk-in transactions)
+- Money is in CENTS on orders — divide by 100.0 for dollars
+- Formula: \`SUM(total) / NULLIF(COUNT(DISTINCT customer_id), 0) / 100.0\`
+- Monthly trend:
+\`\`\`
+SELECT
+  DATE_TRUNC('month', business_date) as month,
+  COUNT(*) as total_orders,
+  COUNT(DISTINCT customer_id) as unique_customers,
+  SUM(total) / 100.0 as total_revenue,
+  SUM(total) / NULLIF(COUNT(DISTINCT customer_id), 0) / 100.0 as avg_spend_per_customer
+FROM orders
+WHERE tenant_id = $1 AND status IN ('placed', 'paid') AND customer_id IS NOT NULL
+GROUP BY DATE_TRUNC('month', business_date)
+ORDER BY month DESC
+LIMIT 24
+\`\`\`
+- For MoM/YoY comparison with growth rates:
+\`\`\`
+WITH monthly AS (
+  SELECT
+    DATE_TRUNC('month', business_date) as month,
+    COUNT(DISTINCT customer_id) as unique_customers,
+    SUM(total) / 100.0 as total_revenue,
+    SUM(total) / NULLIF(COUNT(DISTINCT customer_id), 0) / 100.0 as avg_spend_per_customer
+  FROM orders
+  WHERE tenant_id = $1 AND status IN ('placed', 'paid') AND customer_id IS NOT NULL
+  GROUP BY DATE_TRUNC('month', business_date)
+)
+SELECT month, unique_customers, total_revenue, avg_spend_per_customer,
+  LAG(avg_spend_per_customer, 1) OVER (ORDER BY month) as prev_month_avg,
+  ROUND((avg_spend_per_customer - LAG(avg_spend_per_customer, 1) OVER (ORDER BY month))
+    / NULLIF(LAG(avg_spend_per_customer, 1) OVER (ORDER BY month), 0) * 100, 1) as mom_growth_pct,
+  LAG(avg_spend_per_customer, 12) OVER (ORDER BY month) as same_month_last_year_avg,
+  ROUND((avg_spend_per_customer - LAG(avg_spend_per_customer, 12) OVER (ORDER BY month))
+    / NULLIF(LAG(avg_spend_per_customer, 12) OVER (ORDER BY month), 0) * 100, 1) as yoy_growth_pct
+FROM monthly ORDER BY month DESC LIMIT 24
+\`\`\`
+- For "top customers by spend in a period": \`SELECT customer_id, SUM(total)/100.0 as period_spend, COUNT(*) as order_count FROM orders WHERE tenant_id = $1 AND status IN ('placed','paid') AND customer_id IS NOT NULL AND business_date >= '{start}' AND business_date <= '{end}' GROUP BY customer_id ORDER BY period_spend DESC LIMIT 20\`
+- Join to \`customers\` table for display names: \`LEFT JOIN customers c ON o.customer_id = c.id AND c.tenant_id = $1\`
+
 ## Important Query Guidelines
 - When the user says "how many" or asks for a count, use \`SELECT count(*) ...\` with NO LIMIT clause. Aggregates return a single row naturally.
 - When listing records, include the most useful columns (name, email, status, dates) not just IDs.

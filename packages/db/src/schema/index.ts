@@ -89,3 +89,4 @@ export * from './fixed-assets';
 export * from './spa';
 export * from './spa-reporting';
 export * from './distributed-locks';
+export * from './health-monitoring';
