@@ -18,7 +18,7 @@ export async function cloneOrder(ctx: RequestContext, sourceOrderId: string, inp
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'cloneOrder');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as typeof orders.$inferSelect, events: [] };
 
     // Fetch source order
     const [source] = await tx

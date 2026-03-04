@@ -154,7 +154,8 @@ describe('createReturn', () => {
       return result.result;
     });
 
-    const result = await createReturn(baseCtx as any, 'order-1', {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: any = await createReturn(baseCtx as any, 'order-1', {
       clientRequestId: 'cr-1',
       returnLines: [
         { originalLineId: 'line-1', qty: 1, reason: 'defective' },
@@ -218,7 +219,8 @@ describe('createReturn', () => {
       return (await fn(mockTx)).result;
     });
 
-    const result = await createReturn(baseCtx as any, 'order-1', {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: any = await createReturn(baseCtx as any, 'order-1', {
       clientRequestId: 'cr-2',
       returnLines: [
         { originalLineId: 'line-1', qty: 1, reason: 'customer request' },
@@ -348,7 +350,8 @@ describe('createReturn', () => {
       return (await fn(mockTx)).result;
     });
 
-    const result = await createReturn(baseCtx as any, 'order-1', {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: any = await createReturn(baseCtx as any, 'order-1', {
       clientRequestId: 'cr-dup',
       returnLines: [{ originalLineId: 'line-1', qty: 1, reason: 'test' }],
     });

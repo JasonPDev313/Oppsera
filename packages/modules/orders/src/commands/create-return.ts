@@ -21,7 +21,9 @@ export async function createReturn(
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createReturn');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
+    if (idempotencyCheck.isDuplicate) {
+      return { result: idempotencyCheck.originalResult as { returnOrderId: string; originalOrderId: string; orderNumber: string; returnType: string; returnTotal: number; lines: unknown[] }, events: [] };
+    }
 
     // 1. Fetch original order — must be paid
     const [originalOrder] = await tx
@@ -170,7 +172,7 @@ export async function createReturn(
       await tx.insert(orderLines).values({
         id: lineId,
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         orderId: returnOrderId,
         catalogItemId: orig.catalogItemId,
         catalogItemName: orig.catalogItemName,
