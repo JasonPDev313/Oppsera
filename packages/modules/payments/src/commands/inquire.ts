@@ -128,7 +128,7 @@ export async function inquirePaymentIntent(
         // Validate the transition is legal
         const allowed = INTENT_STATUS_TRANSITIONS[currentStatus];
         if (allowed && allowed.includes(resolvedStatus)) {
-          const updateData: Record<string, any> = {
+          const updateData: Record<string, unknown> = {
             status: resolvedStatus,
             errorMessage: null,
             updatedAt: new Date(),
@@ -198,7 +198,7 @@ export async function inquirePaymentIntent(
 }
 
 function mapIntentToResult(
-  intent: Record<string, any>,
+  intent: typeof paymentIntents.$inferSelect,
   providerRef?: string | null,
   interpretation?: ResponseInterpretation | null,
 ): PaymentIntentResult {
@@ -206,7 +206,7 @@ function mapIntentToResult(
     id: intent.id,
     tenantId: intent.tenantId,
     locationId: intent.locationId,
-    status: intent.status,
+    status: intent.status as PaymentIntentStatus,
     amountCents: intent.amountCents,
     currency: intent.currency,
     authorizedAmountCents: intent.authorizedAmountCents ?? null,

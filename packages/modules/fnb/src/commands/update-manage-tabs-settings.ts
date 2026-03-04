@@ -22,7 +22,7 @@ export async function updateManageTabsSettings(
     if (input.maxBulkSelection !== undefined) setFields.maxBulkSelection = input.maxBulkSelection;
 
     // Upsert: try update first, insert if not exists
-    const existing = await (tx as any)
+    const existing = await tx
       .select()
       .from(fnbManageTabsSettings)
       .where(and(
@@ -35,13 +35,13 @@ export async function updateManageTabsSettings(
 
     let settings;
     if (existing.length > 0) {
-      [settings] = await (tx as any)
+      [settings] = await tx
         .update(fnbManageTabsSettings)
         .set(setFields)
-        .where(eq(fnbManageTabsSettings.id, existing[0].id))
+        .where(eq(fnbManageTabsSettings.id, existing[0]!.id))
         .returning();
     } else {
-      [settings] = await (tx as any)
+      [settings] = await tx
         .insert(fnbManageTabsSettings)
         .values({
           tenantId: ctx.tenantId,
@@ -52,7 +52,7 @@ export async function updateManageTabsSettings(
     }
 
     const event = buildEventFromContext(ctx, 'fnb.manage_tabs.settings_updated.v1', {
-      settingsId: settings.id,
+      settingsId: settings!.id,
       locationId: locationId ?? null,
       changes: input,
     });

@@ -49,7 +49,7 @@ export async function upsertPacingRule(
 
     if (input.id) {
       // UPDATE path — verify the rule belongs to this tenant
-      const [existing] = await (tx as any)
+      const [existing] = await tx
         .select()
         .from(fnbPacingRules)
         .where(
@@ -64,7 +64,7 @@ export async function upsertPacingRule(
         throw new AppError('NOT_FOUND', `Pacing rule ${input.id} not found`);
       }
 
-      const [updated] = await (tx as any)
+      const [updated] = await tx
         .update(fnbPacingRules)
         .set({
           ...(input.mealPeriod !== undefined && { mealPeriod: input.mealPeriod }),
@@ -90,11 +90,11 @@ export async function upsertPacingRule(
       isNew = false;
     } else {
       // INSERT path
-      const [created] = await (tx as any)
+      const [created] = await tx
         .insert(fnbPacingRules)
         .values({
           tenantId: ctx.tenantId,
-          locationId: ctx.locationId,
+          locationId: ctx.locationId!,
           mealPeriod: input.mealPeriod ?? null,
           dayOfWeek: input.dayOfWeek ?? null,
           intervalStartTime: input.intervalStartTime ?? null,

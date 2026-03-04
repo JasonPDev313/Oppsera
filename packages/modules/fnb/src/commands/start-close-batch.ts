@@ -17,7 +17,7 @@ interface StartCloseBatchInput {
 export async function startCloseBatch(ctx: RequestContext, input: StartCloseBatchInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'startCloseBatch');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     // Check for existing batch on this date+location
     const existing = await tx.execute(

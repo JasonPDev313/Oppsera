@@ -18,10 +18,10 @@ export async function bumpTicket(
       tx, ctx.tenantId, input.clientRequestId, 'bumpTicket',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [ticket] = await (tx as any)
+    const [ticket] = await tx
       .select()
       .from(fnbKitchenTickets)
       .where(and(
@@ -32,7 +32,7 @@ export async function bumpTicket(
     if (!ticket) throw new TicketNotFoundError(input.ticketId);
 
     // Verify all non-voided items are ready
-    const notReadyItems = await (tx as any)
+    const notReadyItems = await tx
       .select()
       .from(fnbKitchenTicketItems)
       .where(and(
@@ -49,7 +49,7 @@ export async function bumpTicket(
 
     // Bump ticket to served
     const now = new Date();
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbKitchenTickets)
       .set({
         status: 'served',
@@ -62,7 +62,7 @@ export async function bumpTicket(
       .returning();
 
     // Mark all ready items as served
-    await (tx as any)
+    await tx
       .update(fnbKitchenTicketItems)
       .set({
         itemStatus: 'served',

@@ -56,7 +56,7 @@ export async function listManagerOverrides(
 
     const limit = input.limit ?? 50;
 
-    const rows = await (tx as any).execute(sql`
+    const rows = await tx.execute(sql`
       SELECT
         mo.id,
         mo.location_id,

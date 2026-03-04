@@ -18,11 +18,11 @@ export async function assignServerToSection(
       tx, ctx.tenantId, input.clientRequestId, 'assignServerToSection',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate section exists
-    const [section] = await (tx as any)
+    const [section] = await tx
       .select()
       .from(fnbSections)
       .where(and(
@@ -33,7 +33,7 @@ export async function assignServerToSection(
       .limit(1);
     if (!section) throw new NotFoundError('Section', input.sectionId);
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbServerAssignments)
       .values({
         tenantId: ctx.tenantId,

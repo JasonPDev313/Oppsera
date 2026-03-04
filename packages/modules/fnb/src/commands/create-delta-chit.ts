@@ -18,11 +18,11 @@ export async function createDeltaChit(
       tx, ctx.tenantId, input.clientRequestId, 'createDeltaChit',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate ticket exists
-    const [ticket] = await (tx as any)
+    const [ticket] = await tx
       .select()
       .from(fnbKitchenTickets)
       .where(and(
@@ -32,7 +32,7 @@ export async function createDeltaChit(
       .limit(1);
     if (!ticket) throw new TicketNotFoundError(input.ticketId);
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbKitchenDeltaChits)
       .values({
         tenantId: ctx.tenantId,

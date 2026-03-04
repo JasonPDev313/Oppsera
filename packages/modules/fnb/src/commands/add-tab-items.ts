@@ -37,11 +37,11 @@ export async function addTabItems(
       tx, ctx.tenantId, input.clientRequestId, 'addTabItems',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate tab exists and is in a writable state
-    const tabRows = await (tx as any).execute(
+    const tabRows = await tx.execute(
       sql`SELECT id, status FROM fnb_tabs
           WHERE id = ${input.tabId} AND tenant_id = ${ctx.tenantId}
           LIMIT 1`,
@@ -60,7 +60,7 @@ export async function addTabItems(
     }
 
     // Get existing course numbers for this tab
-    const courseRows = await (tx as any).execute(
+    const courseRows = await tx.execute(
       sql`SELECT course_number FROM fnb_tab_courses
           WHERE tab_id = ${input.tabId} AND tenant_id = ${ctx.tenantId}`,
     );
@@ -73,7 +73,7 @@ export async function addTabItems(
     const neededCourses = new Set(input.items.map((item) => item.courseNumber));
     for (const courseNumber of neededCourses) {
       if (!existingCourses.has(courseNumber)) {
-        await (tx as any).insert(fnbTabCourses).values({
+        await tx.insert(fnbTabCourses).values({
           tenantId: ctx.tenantId,
           tabId: input.tabId,
           courseNumber,
@@ -93,7 +93,7 @@ export async function addTabItems(
 
       const subDepartmentId = subDeptMap.get(item.catalogItemId) ?? null;
 
-      await (tx as any).insert(fnbTabItems).values({
+      await tx.insert(fnbTabItems).values({
         id,
         tenantId: ctx.tenantId,
         tabId: input.tabId,

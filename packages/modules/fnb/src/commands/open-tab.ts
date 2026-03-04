@@ -21,11 +21,11 @@ export async function openTab(
       tx, ctx.tenantId, input.clientRequestId, 'openTab',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Get next tab number via upsert on counter
-    const counterResult = await (tx as any).execute(
+    const counterResult = await tx.execute(
       sql`INSERT INTO fnb_tab_counters (tenant_id, location_id, business_date, last_number)
           VALUES (${ctx.tenantId}, ${ctx.locationId}, ${input.businessDate}, 1)
           ON CONFLICT (tenant_id, location_id, business_date)
@@ -38,7 +38,7 @@ export async function openTab(
 
     // If dine-in with a table, validate the table exists in fnb_tables
     if (input.tableId) {
-      const tableRows = await (tx as any).execute(
+      const tableRows = await tx.execute(
         sql`SELECT id FROM fnb_tables
             WHERE id = ${input.tableId} AND tenant_id = ${ctx.tenantId}
             LIMIT 1`,
@@ -50,11 +50,11 @@ export async function openTab(
     }
 
     // Create the tab
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbTabs)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         tabNumber,
         tabType: input.tabType,
         status: 'open',
@@ -72,7 +72,7 @@ export async function openTab(
       .returning();
 
     // Create default course 1
-    await (tx as any)
+    await tx
       .insert(fnbTabCourses)
       .values({
         tenantId: ctx.tenantId,
@@ -84,7 +84,7 @@ export async function openTab(
 
     // Upsert table live status if dine-in (defensive: creates row if missing)
     if (input.tableId) {
-      await (tx as any).execute(
+      await tx.execute(
         sql`INSERT INTO fnb_table_live_status (tenant_id, table_id, status, current_tab_id, current_server_user_id, party_size, seated_at, updated_at)
             VALUES (${ctx.tenantId}, ${input.tableId}, 'seated', ${created!.id}, ${input.serverUserId}, ${input.partySize ?? null}, NOW(), NOW())
             ON CONFLICT (tenant_id, table_id) DO UPDATE SET

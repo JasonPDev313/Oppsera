@@ -36,10 +36,10 @@ export async function redeemVoucher(
       input.clientRequestId,
       'redeemVoucher',
     );
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     // 1. Fetch voucher
-    const [voucher] = await (tx as any)
+    const [voucher] = await tx
       .select()
       .from(vouchers)
       .where(
@@ -85,7 +85,7 @@ export async function redeemVoucher(
     const newStatus = newRemainingBalance <= 0 ? 'fully_redeemed' : 'partially_redeemed';
     const now = new Date();
 
-    await (tx as any).update(vouchers).set({
+    await tx.update(vouchers).set({
       redeemedAmountCents: newRedeemedAmount,
       redemptionStatus: newStatus,
       updatedAt: now,
@@ -93,7 +93,7 @@ export async function redeemVoucher(
 
     // 6. Create ledger entry (redemption = negative amount)
     const ledgerEntryId = generateUlid();
-    await (tx as any).insert(voucherLedgerEntries).values({
+    await tx.insert(voucherLedgerEntries).values({
       id: ledgerEntryId,
       tenantId: ctx.tenantId,
       voucherId: input.voucherId,
@@ -107,7 +107,7 @@ export async function redeemVoucher(
 
     // 7. Fetch voucher type for GL account references
     const [vType] = voucher.voucherTypeId
-      ? await (tx as any)
+      ? await tx
           .select()
           .from(voucherTypes)
           .where(eq(voucherTypes.id, voucher.voucherTypeId))

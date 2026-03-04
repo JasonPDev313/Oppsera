@@ -21,11 +21,11 @@ export async function updateTab(
       tx, ctx.tenantId, input.clientRequestId, 'updateTab',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Fetch tab with version check
-    const [tab] = await (tx as any)
+    const [tab] = await tx
       .select()
       .from(fnbTabs)
       .where(and(
@@ -71,7 +71,7 @@ export async function updateTab(
       changes.customerId = { from: tab.customerId, to: input.customerId };
     }
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbTabs)
       .set(setFields)
       .where(and(

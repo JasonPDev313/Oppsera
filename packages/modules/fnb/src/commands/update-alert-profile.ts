@@ -28,7 +28,7 @@ export async function updateAlertProfile(
 
     // If setting as default, clear other defaults for this tenant
     if (input.isDefault) {
-      await (tx as any).execute(
+      await tx.execute(
         sql`UPDATE fnb_kds_alert_profiles SET is_default = false
             WHERE tenant_id = ${ctx.tenantId} AND is_default = true AND id != ${input.profileId}`,
       );

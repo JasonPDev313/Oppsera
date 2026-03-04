@@ -84,13 +84,13 @@ export async function createKitchenTicket(
       tx, ctx.tenantId, input.clientRequestId, 'createKitchenTicket',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate tab (when present — retail orders have no tab)
     let tab: Record<string, unknown> | null = null;
     if (input.tabId) {
-      const [found] = await (tx as any)
+      const [found] = await tx
         .select()
         .from(fnbTabs)
         .where(and(
@@ -108,7 +108,7 @@ export async function createKitchenTicket(
     }
 
     // Get next ticket number
-    const counterResult = await (tx as any).execute(
+    const counterResult = await tx.execute(
       sql`INSERT INTO fnb_kitchen_ticket_counters (tenant_id, location_id, business_date, last_number)
           VALUES (${ctx.tenantId}, ${ctx.locationId}, ${resolvedBusinessDate}, 1)
           ON CONFLICT (tenant_id, location_id, business_date)
@@ -129,11 +129,11 @@ export async function createKitchenTicket(
     }
 
     // Create the ticket with enhanced fields
-    const [ticket] = await (tx as any)
+    const [ticket] = await tx
       .insert(fnbKitchenTickets)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         tabId: input.tabId ?? null,
         orderId: input.orderId,
         ticketNumber,
@@ -159,7 +159,7 @@ export async function createKitchenTicket(
       const resolvedRoutingRuleId = routing?.routingRuleId ?? null;
       const resolvedPrepSeconds = prepTimeMap.get(item.orderLineId) ?? null;
 
-      await (tx as any)
+      await tx
         .insert(fnbKitchenTicketItems)
         .values({
           tenantId: ctx.tenantId,

@@ -19,11 +19,11 @@ export async function createSection(
       tx, ctx.tenantId, input.clientRequestId, 'createSection',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate room exists
-    const [room] = await (tx as any)
+    const [room] = await tx
       .select()
       .from(floorPlanRooms)
       .where(and(
@@ -34,7 +34,7 @@ export async function createSection(
     if (!room) throw new RoomNotFoundError(input.roomId);
 
     // Check for duplicate section name in room
-    const [existing] = await (tx as any)
+    const [existing] = await tx
       .select()
       .from(fnbSections)
       .where(and(
@@ -45,7 +45,7 @@ export async function createSection(
       .limit(1);
     if (existing) throw new ConflictError(`Section '${input.name}' already exists in this room`);
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbSections)
       .values({
         tenantId: ctx.tenantId,

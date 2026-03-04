@@ -18,11 +18,11 @@ export async function tagItemAllergen(
       tx, ctx.tenantId, input.clientRequestId, 'tagItemAllergen',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate allergen exists
-    const [allergen] = await (tx as any)
+    const [allergen] = await tx
       .select()
       .from(fnbAllergenDefinitions)
       .where(and(
@@ -32,7 +32,7 @@ export async function tagItemAllergen(
       .limit(1);
     if (!allergen) throw new AllergenNotFoundError(input.allergenId);
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbItemAllergens)
       .values({
         tenantId: ctx.tenantId,

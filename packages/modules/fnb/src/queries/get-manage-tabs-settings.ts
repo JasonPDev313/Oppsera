@@ -29,7 +29,7 @@ export async function getManageTabsSettings(
   return withTenant(tenantId, async (tx) => {
     // Fetch location-specific + tenant-wide default in one query
     // ORDER BY location_id DESC NULLS LAST ensures location-specific row comes first
-    const rows = await (tx as any).execute(sql`
+    const rows = await tx.execute(sql`
       SELECT
         id,
         tenant_id,

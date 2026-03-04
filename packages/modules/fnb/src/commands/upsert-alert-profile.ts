@@ -16,12 +16,12 @@ export async function upsertAlertProfile(
       tx, ctx.tenantId, input.clientRequestId, 'upsertAlertProfile',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // If isDefault, clear other defaults for this tenant
     if (input.isDefault) {
-      await (tx as any).execute(
+      await tx.execute(
         sql`UPDATE fnb_kds_alert_profiles SET is_default = false
             WHERE tenant_id = ${ctx.tenantId} AND is_default = true`,
       );
@@ -42,7 +42,7 @@ export async function upsertAlertProfile(
       isActive: true,
     };
 
-    const [profile] = await (tx as any)
+    const [profile] = await tx
       .insert(fnbKdsAlertProfiles)
       .values(values)
       .onConflictDoUpdate({

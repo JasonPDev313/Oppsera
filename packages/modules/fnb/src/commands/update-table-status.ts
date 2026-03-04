@@ -20,7 +20,7 @@ export async function updateTableStatus(
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
     // Fetch current status with table info
-    const rows = await (tx as any).execute(sql`
+    const rows = await tx.execute(sql`
       SELECT
         ls.id AS live_status_id,
         ls.status AS current_status,
@@ -83,7 +83,7 @@ export async function updateTableStatus(
     }
 
     // Update with optimistic lock check
-    const updated = await (tx as any).execute(sql`
+    const updated = await tx.execute(sql`
       UPDATE fnb_table_live_status
       SET
         status = ${newStatus},
@@ -109,7 +109,7 @@ export async function updateTableStatus(
     }
 
     // Log status transition
-    await (tx as any)
+    await tx
       .insert(fnbTableStatusHistory)
       .values({
         tenantId: ctx.tenantId,

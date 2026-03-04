@@ -24,7 +24,7 @@ export async function recordSplitTender(
   const result = await publishWithOutbox(ctx, async (tx) => {
     if (input.clientRequestId) {
       const check = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'recordSplitTender');
-      if (check.isDuplicate) return { result: check.originalResult as any, events: [] };
+      if (check.isDuplicate) return { result: check.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Fetch payment session

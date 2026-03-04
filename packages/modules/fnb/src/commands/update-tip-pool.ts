@@ -23,7 +23,7 @@ export async function updateTipPool(
   const result = await publishWithOutbox(ctx, async (tx) => {
     if (input.clientRequestId) {
       const check = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'updateTipPool');
-      if (check.isDuplicate) return { result: check.originalResult as any, events: [] };
+      if (check.isDuplicate) return { result: check.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Verify pool exists

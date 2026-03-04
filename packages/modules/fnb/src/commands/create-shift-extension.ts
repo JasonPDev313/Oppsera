@@ -18,11 +18,11 @@ export async function createShiftExtension(
       tx, ctx.tenantId, input.clientRequestId, 'createShiftExtension',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Check for existing shift extension for this time entry
-    const [existing] = await (tx as any)
+    const [existing] = await tx
       .select()
       .from(fnbShiftExtensions)
       .where(and(
@@ -32,7 +32,7 @@ export async function createShiftExtension(
       .limit(1);
     if (existing) throw new ConflictError('Shift extension already exists for this time entry');
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbShiftExtensions)
       .values({
         tenantId: ctx.tenantId,

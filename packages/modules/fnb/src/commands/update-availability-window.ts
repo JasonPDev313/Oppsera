@@ -17,10 +17,10 @@ export async function updateAvailabilityWindow(
       tx, ctx.tenantId, input.clientRequestId, 'updateAvailabilityWindow',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [existing] = await (tx as any)
+    const [existing] = await tx
       .select()
       .from(fnbMenuAvailabilityWindows)
       .where(and(
@@ -38,7 +38,7 @@ export async function updateAvailabilityWindow(
     if (input.hideWhenUnavailable !== undefined) setFields.hideWhenUnavailable = input.hideWhenUnavailable;
     if (input.isActive !== undefined) setFields.isActive = input.isActive;
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbMenuAvailabilityWindows)
       .set(setFields)
       .where(eq(fnbMenuAvailabilityWindows.id, windowId))

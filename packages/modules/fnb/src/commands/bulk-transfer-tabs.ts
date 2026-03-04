@@ -29,7 +29,7 @@ export async function bulkTransferTabs(
     }
 
     // Fetch all tabs in one query
-    const tabs = await (tx as any)
+    const tabs = await tx
       .select()
       .from(fnbTabs)
       .where(and(
@@ -41,7 +41,7 @@ export async function bulkTransferTabs(
     const failed: { tabId: string; error: string }[] = [];
 
     for (const tabId of input.tabIds) {
-      const tab = tabs.find((t: any) => t.id === tabId);
+      const tab = tabs.find((t) => t.id === tabId);
       if (!tab) {
         failed.push({ tabId, error: 'Tab not found' });
         continue;
@@ -58,7 +58,7 @@ export async function bulkTransferTabs(
       const fromServerUserId = tab.serverUserId;
 
       // Transfer the tab
-      await (tx as any)
+      await tx
         .update(fnbTabs)
         .set({
           transferredFromServerUserId: fromServerUserId,
@@ -69,7 +69,7 @@ export async function bulkTransferTabs(
         .where(eq(fnbTabs.id, tabId));
 
       // Record transfer audit
-      await (tx as any)
+      await tx
         .insert(fnbTabTransfers)
         .values({
           tenantId: ctx.tenantId,
@@ -87,7 +87,7 @@ export async function bulkTransferTabs(
     const resultSummary = { succeeded: succeeded.length, failed: failed.length, errors: failed };
 
     // Insert manager override audit row
-    const [override] = await (tx as any)
+    const [override] = await tx
       .insert(fnbManagerOverrides)
       .values({
         tenantId: ctx.tenantId,
@@ -107,11 +107,11 @@ export async function bulkTransferTabs(
     const bulkResult: BulkTransferResult = {
       succeeded,
       failed,
-      overrideId: override.id,
+      overrideId: override!.id,
     };
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.TABS_BULK_TRANSFERRED, {
-      overrideId: override.id,
+      overrideId: override!.id,
       locationId: input.locationId,
       tabIds: input.tabIds,
       toServerUserId: input.toServerUserId,

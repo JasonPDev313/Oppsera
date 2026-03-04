@@ -38,7 +38,7 @@ export async function emergencyCleanup(
 
     // Sub-operation 1: Close tabs that are fully paid but still in 'paying' status
     if (input.actions.closePaidTabs) {
-      const payingTabs = await (tx as any)
+      const payingTabs = await tx
         .select()
         .from(fnbTabs)
         .where(and(
@@ -49,7 +49,7 @@ export async function emergencyCleanup(
 
       for (const tab of payingTabs) {
         try {
-          await (tx as any)
+          await tx
             .update(fnbTabs)
             .set({
               status: 'closed',
@@ -60,7 +60,7 @@ export async function emergencyCleanup(
             .where(eq(fnbTabs.id, tab.id));
 
           if (tab.tableId) {
-            await (tx as any)
+            await tx
               .update(fnbTableLiveStatus)
               .set({
                 status: 'dirty',
@@ -86,7 +86,7 @@ export async function emergencyCleanup(
 
     // Sub-operation 2: Release all soft locks for the location
     if (input.actions.releaseLocks) {
-      const deleteResult = await (tx as any)
+      const deleteResult = await tx
         .delete(fnbSoftLocks)
         .where(eq(fnbSoftLocks.tenantId, ctx.tenantId))
         .returning();
@@ -99,7 +99,7 @@ export async function emergencyCleanup(
       const thresholdMinutes = input.actions.staleThresholdMinutes ?? 240;
       const cutoff = new Date(Date.now() - thresholdMinutes * 60 * 1000);
 
-      const staleTabs = await (tx as any)
+      const staleTabs = await tx
         .select()
         .from(fnbTabs)
         .where(and(
@@ -111,7 +111,7 @@ export async function emergencyCleanup(
 
       for (const tab of staleTabs) {
         try {
-          await (tx as any)
+          await tx
             .update(fnbTabs)
             .set({
               status: 'voided',
@@ -128,7 +128,7 @@ export async function emergencyCleanup(
             .where(eq(fnbTabs.id, tab.id));
 
           if (tab.tableId) {
-            await (tx as any)
+            await tx
               .update(fnbTableLiveStatus)
               .set({
                 status: 'available',
@@ -158,7 +158,7 @@ export async function emergencyCleanup(
       const abandonedThreshold = input.actions.abandonedThresholdMinutes ?? 480;
       const abandonedCutoff = new Date(Date.now() - abandonedThreshold * 60 * 1000);
 
-      const abandonedTabs = await (tx as any)
+      const abandonedTabs = await tx
         .select()
         .from(fnbTabs)
         .where(and(
@@ -170,7 +170,7 @@ export async function emergencyCleanup(
 
       for (const tab of abandonedTabs) {
         try {
-          await (tx as any)
+          await tx
             .update(fnbTabs)
             .set({
               status: 'abandoned',
@@ -186,7 +186,7 @@ export async function emergencyCleanup(
             .where(eq(fnbTabs.id, tab.id));
 
           if (tab.tableId) {
-            await (tx as any)
+            await tx
               .update(fnbTableLiveStatus)
               .set({
                 status: 'available',
@@ -214,7 +214,7 @@ export async function emergencyCleanup(
     const resultSummary = { paidTabsClosed, locksReleased, staleTabsVoided, staleTabsAbandoned, errors };
 
     // Insert manager override audit row
-    const [override] = await (tx as any)
+    const [override] = await tx
       .insert(fnbManagerOverrides)
       .values({
         tenantId: ctx.tenantId,
@@ -237,11 +237,11 @@ export async function emergencyCleanup(
       staleTabsVoided,
       staleTabsAbandoned,
       errors,
-      overrideId: override.id,
+      overrideId: override!.id,
     };
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.TABS_EMERGENCY_CLEANUP, {
-      overrideId: override.id,
+      overrideId: override!.id,
       locationId: input.locationId,
       initiatorUserId: ctx.user.id,
       approverUserId: input.approverUserId,

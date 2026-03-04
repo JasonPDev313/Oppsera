@@ -28,7 +28,7 @@ export async function combineTables(
       tx, ctx.tenantId, input.clientRequestId, 'combineTables',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate primary is in the list
@@ -37,7 +37,7 @@ export async function combineTables(
     }
 
     // Fetch all tables
-    const tables = await (tx as any)
+    const tables = await tx
       .select()
       .from(fnbTables)
       .where(and(
@@ -45,21 +45,21 @@ export async function combineTables(
         inArray(fnbTables.id, input.tableIds),
       ));
 
-    if ((tables as any[]).length !== input.tableIds.length) {
-      const foundIds = new Set((tables as any[]).map((t: any) => t.id));
+    if (tables.length !== input.tableIds.length) {
+      const foundIds = new Set(tables.map((t) => t.id));
       const missing = input.tableIds.find((id) => !foundIds.has(id));
       throw new TableNotFoundError(missing!);
     }
 
     // Validate all tables are combinable
-    for (const table of tables as any[]) {
+    for (const table of tables) {
       if (!table.isCombinable) {
         throw new TableNotCombinableError(table.id);
       }
     }
 
     // Check none are already in a combine group
-    const liveStatuses = await (tx as any)
+    const liveStatuses = await tx
       .select()
       .from(fnbTableLiveStatus)
       .where(and(
@@ -67,22 +67,22 @@ export async function combineTables(
         inArray(fnbTableLiveStatus.tableId, input.tableIds),
       ));
 
-    for (const ls of liveStatuses as any[]) {
+    for (const ls of liveStatuses) {
       if (ls.combineGroupId) {
         throw new TableAlreadyCombinedError(ls.tableId);
       }
     }
 
     // Calculate combined capacity
-    const combinedCapacity = (tables as any[]).reduce(
-      (sum: number, t: any) => sum + t.capacityMax,
+    const combinedCapacity = tables.reduce(
+      (sum: number, t) => sum + t.capacityMax,
       0,
     );
 
-    const locationId = (tables as any[])[0]!.locationId;
+    const locationId = tables[0]!.locationId;
 
     // Create combine group
-    const [group] = await (tx as any)
+    const [group] = await tx
       .insert(fnbTableCombineGroups)
       .values({
         tenantId: ctx.tenantId,
@@ -95,7 +95,7 @@ export async function combineTables(
 
     // Create member rows
     for (const tableId of input.tableIds) {
-      await (tx as any)
+      await tx
         .insert(fnbTableCombineMembers)
         .values({
           tenantId: ctx.tenantId,
@@ -107,7 +107,7 @@ export async function combineTables(
 
     // Update live status for all tables to link to the combine group
     for (const tableId of input.tableIds) {
-      await (tx as any)
+      await tx
         .update(fnbTableLiveStatus)
         .set({
           combineGroupId: group!.id,

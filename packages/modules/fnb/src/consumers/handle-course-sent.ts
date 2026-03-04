@@ -30,7 +30,7 @@ export async function handleCourseSent(
   try {
     await withTenant(tenantId, async (tx) => {
       // 1. Fetch the tab (need orderId + locationId)
-      const [tab] = await (tx as any)
+      const [tab] = await tx
         .select({
           id: fnbTabs.id,
           locationId: fnbTabs.locationId,
@@ -60,7 +60,7 @@ export async function handleCourseSent(
       const locationId = data.locationId || tab.locationId;
 
       // 2. Fetch the course record (for courseName)
-      const [course] = await (tx as any)
+      const [course] = await tx
         .select({
           courseName: fnbTabCourses.courseName,
         })
@@ -76,7 +76,7 @@ export async function handleCourseSent(
       const courseName = course?.courseName ?? `Course ${data.courseNumber}`;
 
       // 3. Fetch items for this course (only non-voided items)
-      const items = await (tx as any)
+      const items = await tx
         .select({
           id: fnbTabItems.id,
           catalogItemId: fnbTabItems.catalogItemId,
@@ -104,7 +104,7 @@ export async function handleCourseSent(
       }
 
       // 4. Check if any stations exist at this location
-      const stationCheck = await (tx as any)
+      const stationCheck = await tx
         .select({ id: fnbKitchenStations.id })
         .from(fnbKitchenStations)
         .where(

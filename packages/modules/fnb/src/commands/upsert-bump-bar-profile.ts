@@ -16,12 +16,12 @@ export async function upsertBumpBarProfile(
       tx, ctx.tenantId, input.clientRequestId, 'upsertBumpBarProfile',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // If isDefault, clear other defaults for this tenant
     if (input.isDefault) {
-      await (tx as any).execute(
+      await tx.execute(
         sql`UPDATE fnb_kds_bump_bar_profiles SET is_default = false
             WHERE tenant_id = ${ctx.tenantId} AND is_default = true`,
       );
@@ -37,7 +37,7 @@ export async function upsertBumpBarProfile(
       isActive: true,
     };
 
-    const [profile] = await (tx as any)
+    const [profile] = await tx
       .insert(fnbKdsBumpBarProfiles)
       .values(values)
       .onConflictDoUpdate({

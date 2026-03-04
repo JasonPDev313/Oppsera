@@ -15,13 +15,13 @@ export async function upsertItemPrepTime(
       tx, ctx.tenantId, input.clientRequestId, 'upsertItemPrepTime',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     const stationId = input.stationId ?? null;
 
     // Manual upsert — ON CONFLICT doesn't support COALESCE expressions directly
-    const existingRows = await (tx as any).execute(
+    const existingRows = await tx.execute(
       sql`SELECT id FROM fnb_kds_item_prep_times
           WHERE tenant_id = ${ctx.tenantId}
             AND catalog_item_id = ${input.catalogItemId}
@@ -33,7 +33,7 @@ export async function upsertItemPrepTime(
 
     let rows;
     if (existing) {
-      rows = await (tx as any).execute(
+      rows = await tx.execute(
         sql`UPDATE fnb_kds_item_prep_times SET
               estimated_prep_seconds = ${input.estimatedPrepSeconds},
               updated_at = NOW()
@@ -41,7 +41,7 @@ export async function upsertItemPrepTime(
             RETURNING *`,
       );
     } else {
-      rows = await (tx as any).execute(
+      rows = await tx.execute(
         sql`INSERT INTO fnb_kds_item_prep_times (
               tenant_id, catalog_item_id, station_id,
               estimated_prep_seconds, is_active
@@ -79,7 +79,7 @@ export async function bulkUpsertItemPrepTimes(
       tx, ctx.tenantId, input.clientRequestId, 'bulkUpsertItemPrepTimes',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     const savedItems: Record<string, unknown>[] = [];
@@ -87,7 +87,7 @@ export async function bulkUpsertItemPrepTimes(
     for (const item of input.items) {
       const stationId = item.stationId ?? null;
 
-      const existingRows = await (tx as any).execute(
+      const existingRows = await tx.execute(
         sql`SELECT id FROM fnb_kds_item_prep_times
             WHERE tenant_id = ${ctx.tenantId}
               AND catalog_item_id = ${item.catalogItemId}
@@ -99,7 +99,7 @@ export async function bulkUpsertItemPrepTimes(
 
       let rows;
       if (existing) {
-        rows = await (tx as any).execute(
+        rows = await tx.execute(
           sql`UPDATE fnb_kds_item_prep_times SET
                 estimated_prep_seconds = ${item.estimatedPrepSeconds},
                 updated_at = NOW()
@@ -107,7 +107,7 @@ export async function bulkUpsertItemPrepTimes(
               RETURNING *`,
         );
       } else {
-        rows = await (tx as any).execute(
+        rows = await tx.execute(
           sql`INSERT INTO fnb_kds_item_prep_times (
                 tenant_id, catalog_item_id, station_id,
                 estimated_prep_seconds, is_active

@@ -18,7 +18,7 @@ export async function completePaymentSession(
   const result = await publishWithOutbox(ctx, async (tx) => {
     if (input.clientRequestId) {
       const check = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'completePaymentSession');
-      if (check.isDuplicate) return { result: check.originalResult as any, events: [] };
+      if (check.isDuplicate) return { result: check.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Fetch session
@@ -63,7 +63,7 @@ export async function completePaymentSession(
     const tabDetailArr = Array.from(tabDetailRows as Iterable<Record<string, unknown>>);
     const tableId = tabDetailArr[0]?.table_id as string | null;
     if (tableId) {
-      await (tx as any)
+      await tx
         .update(fnbTableLiveStatus)
         .set({
           status: 'dirty',

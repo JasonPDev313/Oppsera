@@ -16,11 +16,11 @@ export async function upsertDisplayConfig(
       tx, ctx.tenantId, input.clientRequestId, 'upsertDisplayConfig',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate station exists
-    const [station] = await (tx as any)
+    const [station] = await tx
       .select()
       .from(fnbKitchenStations)
       .where(and(
@@ -31,7 +31,7 @@ export async function upsertDisplayConfig(
     if (!station) throw new StationNotFoundError(input.stationId);
 
     // Check for existing config for this station
-    const [existing] = await (tx as any)
+    const [existing] = await tx
       .select()
       .from(fnbStationDisplayConfigs)
       .where(and(
@@ -42,7 +42,7 @@ export async function upsertDisplayConfig(
 
     let saved;
     if (existing) {
-      [saved] = await (tx as any)
+      [saved] = await tx
         .update(fnbStationDisplayConfigs)
         .set({
           displayDeviceId: input.displayDeviceId ?? existing.displayDeviceId,
@@ -59,7 +59,7 @@ export async function upsertDisplayConfig(
         .where(eq(fnbStationDisplayConfigs.id, existing.id))
         .returning();
     } else {
-      [saved] = await (tx as any)
+      [saved] = await tx
         .insert(fnbStationDisplayConfigs)
         .values({
           tenantId: ctx.tenantId,

@@ -36,10 +36,10 @@ export async function purchaseVoucher(
       input.clientRequestId,
       'purchaseVoucher',
     );
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     // 1. Validate voucher type exists
-    const [vType] = await (tx as any)
+    const [vType] = await tx
       .select()
       .from(voucherTypes)
       .where(
@@ -60,7 +60,7 @@ export async function purchaseVoucher(
     const voucherId = generateUlid();
     const now = new Date();
 
-    await (tx as any).insert(vouchers).values({
+    await tx.insert(vouchers).values({
       id: voucherId,
       tenantId: ctx.tenantId,
       voucherTypeId: input.voucherTypeId,
@@ -81,7 +81,7 @@ export async function purchaseVoucher(
 
     // 4. Create initial ledger entry (purchase = positive balance)
     const ledgerEntryId = generateUlid();
-    await (tx as any).insert(voucherLedgerEntries).values({
+    await tx.insert(voucherLedgerEntries).values({
       id: ledgerEntryId,
       tenantId: ctx.tenantId,
       voucherId,
@@ -94,7 +94,7 @@ export async function purchaseVoucher(
 
     // 5. Create deposit record
     const depositId = generateUlid();
-    await (tx as any).insert(voucherDeposits).values({
+    await tx.insert(voucherDeposits).values({
       id: depositId,
       tenantId: ctx.tenantId,
       voucherId,

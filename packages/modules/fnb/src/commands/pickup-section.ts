@@ -18,10 +18,10 @@ export async function pickupSection(
       tx, ctx.tenantId, input.clientRequestId, 'pickupSection',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [assignment] = await (tx as any)
+    const [assignment] = await tx
       .select()
       .from(fnbServerAssignments)
       .where(and(
@@ -40,7 +40,7 @@ export async function pickupSection(
     }
 
     // Mark old assignment as picked_up
-    await (tx as any)
+    await tx
       .update(fnbServerAssignments)
       .set({
         status: 'picked_up',
@@ -51,7 +51,7 @@ export async function pickupSection(
       .where(eq(fnbServerAssignments.id, input.assignmentId));
 
     // Create a new active assignment for the picking-up server
-    const [newAssignment] = await (tx as any)
+    const [newAssignment] = await tx
       .insert(fnbServerAssignments)
       .values({
         tenantId: ctx.tenantId,

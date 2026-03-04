@@ -22,7 +22,7 @@ export async function setServiceChargeExempt(
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'setServiceChargeExempt',
     );
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 

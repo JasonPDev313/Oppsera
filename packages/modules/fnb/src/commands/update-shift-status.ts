@@ -20,7 +20,7 @@ export async function updateShiftStatus(
   input: UpdateShiftStatusInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
-    const [existing] = await (tx as any)
+    const [existing] = await tx
       .select()
       .from(fnbShiftExtensions)
       .where(and(
@@ -53,7 +53,7 @@ export async function updateShiftStatus(
       updates.checkoutCompletedBy = ctx.user.id;
     }
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbShiftExtensions)
       .set(updates)
       .where(eq(fnbShiftExtensions.id, shiftExtensionId))

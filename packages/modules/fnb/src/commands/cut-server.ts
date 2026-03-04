@@ -18,10 +18,10 @@ export async function cutServer(
       tx, ctx.tenantId, input.clientRequestId, 'cutServer',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [assignment] = await (tx as any)
+    const [assignment] = await tx
       .select()
       .from(fnbServerAssignments)
       .where(and(
@@ -39,7 +39,7 @@ export async function cutServer(
       );
     }
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbServerAssignments)
       .set({
         status: 'cut',
@@ -51,7 +51,7 @@ export async function cutServer(
       .returning();
 
     // Also update shift extension status to 'cut' if exists
-    await (tx as any)
+    await tx
       .update(fnbShiftExtensions)
       .set({ shiftStatus: 'cut', updatedAt: new Date() })
       .where(and(

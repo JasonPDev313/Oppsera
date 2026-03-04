@@ -17,7 +17,7 @@ export async function advanceRotation(
 ) {
   return publishWithOutbox(ctx, async (tx) => {
     // Get or create rotation tracker
-    const [existing] = await (tx as any)
+    const [existing] = await tx
       .select()
       .from(fnbRotationTracker)
       .where(and(
@@ -33,7 +33,7 @@ export async function advanceRotation(
       const nextIdx = (currentIdx + 1) % order.length;
       const nextServer = order[nextIdx]!;
 
-      const [updated] = await (tx as any)
+      const [updated] = await tx
         .update(fnbRotationTracker)
         .set({
           nextServerUserId: nextServer,
@@ -53,7 +53,7 @@ export async function advanceRotation(
     }
 
     // No tracker exists — build from active assignments
-    const rows = await (tx as any).execute(sql`
+    const rows = await tx.execute(sql`
       SELECT DISTINCT server_user_id
       FROM fnb_server_assignments
       WHERE tenant_id = ${ctx.tenantId}
@@ -70,7 +70,7 @@ export async function advanceRotation(
       return { result: null, events: [] };
     }
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbRotationTracker)
       .values({
         tenantId: ctx.tenantId,

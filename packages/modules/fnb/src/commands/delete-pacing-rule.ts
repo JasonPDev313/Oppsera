@@ -29,7 +29,7 @@ export async function deletePacingRule(
     }
 
     // Verify the rule exists and belongs to this tenant
-    const [existing] = await (tx as any)
+    const [existing] = await tx
       .select()
       .from(fnbPacingRules)
       .where(
@@ -44,7 +44,7 @@ export async function deletePacingRule(
       throw new AppError('NOT_FOUND', `Pacing rule ${input.id} not found`);
     }
 
-    await (tx as any)
+    await tx
       .delete(fnbPacingRules)
       .where(
         and(

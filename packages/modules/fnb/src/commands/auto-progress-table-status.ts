@@ -196,7 +196,7 @@ export async function autoProgressTableStatus(
     }
 
     // 4. Record status history
-    await (tx as any)
+    await tx
       .insert(fnbTableStatusHistory)
       .values({
         tenantId: ctx.tenantId,

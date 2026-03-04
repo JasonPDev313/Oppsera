@@ -25,7 +25,7 @@ export async function verifyManagerPin(
 ): Promise<VerifyPinResult> {
   return withTenant(tenantId, async (tx) => {
     // Find active members with manager+ roles via roleAssignments → roles
-    const managerRows = await (tx as any)
+    const managerRows = await tx
       .select({
         userId: memberships.userId,
         roleName: roles.name,

@@ -19,10 +19,10 @@ export async function updateTicketItemStatus(
       tx, ctx.tenantId, input.clientRequestId, 'updateTicketItemStatus',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [item] = await (tx as any)
+    const [item] = await tx
       .select()
       .from(fnbKitchenTicketItems)
       .where(and(
@@ -42,14 +42,14 @@ export async function updateTicketItemStatus(
     if (input.itemStatus === 'served') setFields.servedAt = new Date();
     if (input.itemStatus === 'voided') setFields.voidedAt = new Date();
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbKitchenTicketItems)
       .set(setFields)
       .where(eq(fnbKitchenTicketItems.id, itemId))
       .returning();
 
     // Look up the ticket for locationId
-    const [ticket] = await (tx as any)
+    const [ticket] = await tx
       .select()
       .from(fnbKitchenTickets)
       .where(eq(fnbKitchenTickets.id, item.ticketId))

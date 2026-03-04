@@ -19,10 +19,10 @@ export async function updateStation(
       tx, ctx.tenantId, input.clientRequestId, 'updateStation',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [station] = await (tx as any)
+    const [station] = await tx
       .select()
       .from(fnbKitchenStations)
       .where(and(
@@ -46,7 +46,7 @@ export async function updateStation(
     if (input.criticalThresholdSeconds !== undefined) { setFields.criticalThresholdSeconds = input.criticalThresholdSeconds; changes.criticalThresholdSeconds = input.criticalThresholdSeconds; }
     if (input.isActive !== undefined) { setFields.isActive = input.isActive; changes.isActive = input.isActive; }
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbKitchenStations)
       .set(setFields)
       .where(eq(fnbKitchenStations.id, stationId))

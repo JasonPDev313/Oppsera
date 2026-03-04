@@ -21,10 +21,10 @@ export async function voidTab(
       tx, ctx.tenantId, input.clientRequestId, 'voidTab',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [tab] = await (tx as any)
+    const [tab] = await tx
       .select()
       .from(fnbTabs)
       .where(and(
@@ -42,7 +42,7 @@ export async function voidTab(
       throw new TabVersionConflictError(tabId);
     }
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbTabs)
       .set({
         status: 'voided',
@@ -61,7 +61,7 @@ export async function voidTab(
 
     // Clear table live status if dine-in
     if (tab.tableId) {
-      await (tx as any)
+      await tx
         .update(fnbTableLiveStatus)
         .set({
           status: 'available',

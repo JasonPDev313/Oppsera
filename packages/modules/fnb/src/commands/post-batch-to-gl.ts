@@ -21,7 +21,7 @@ interface PostBatchToGlInput {
 export async function postBatchToGl(ctx: RequestContext, input: PostBatchToGlInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'postBatchToGl');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     // Validate close batch exists and is reconciled
     const batchRows = await tx.execute(

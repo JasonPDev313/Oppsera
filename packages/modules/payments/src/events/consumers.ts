@@ -58,7 +58,7 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
       const reversalId = generateUlid();
 
       // 1. Create reversal record (ALWAYS — operational, not GL)
-      await (tx as any).insert(tenderReversals).values({
+      await tx.insert(tenderReversals).values({
         id: reversalId,
         tenantId: event.tenantId,
         locationId: tender.locationId,
@@ -107,7 +107,7 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
           }));
 
           // Insert reversal journal entry
-          await (tx as any).insert(paymentJournalEntries).values({
+          await tx.insert(paymentJournalEntries).values({
             tenantId: event.tenantId,
             locationId: tender.locationId,
             referenceType: 'reversal',
@@ -120,7 +120,7 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
           });
 
           // Mark original journal entry as voided
-          await (tx as any)
+          await tx
             .update(paymentJournalEntries)
             .set({
               postingStatus: 'voided',

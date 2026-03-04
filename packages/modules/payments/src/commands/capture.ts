@@ -7,7 +7,7 @@ import { paymentIntents, paymentTransactions } from '@oppsera/db';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import type { CapturePaymentInput } from '../gateway-validation';
 import type { PaymentIntentResult } from '../types/gateway-results';
-import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition } from '../events/gateway-types';
+import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition, type PaymentIntentStatus } from '../events/gateway-types';
 import { resolveProvider } from '../helpers/resolve-provider';
 import { centsToDollars, dollarsToCents } from '../helpers/amount';
 import { interpretResponse } from '../services/response-interpreter';
@@ -59,7 +59,7 @@ export async function capturePayment(
     }
 
     // 3. Validate status transition
-    assertIntentTransition(intent.status as any, 'captured');
+    assertIntentTransition(intent.status as PaymentIntentStatus, 'captured');
 
     // 4. Get the latest provider ref (retref)
     const [latestTxn] = await tx
@@ -168,12 +168,12 @@ export async function capturePayment(
   return result;
 }
 
-function mapIntentToResult(intent: Record<string, any>, interpretation?: ResponseInterpretation | null): PaymentIntentResult {
+function mapIntentToResult(intent: typeof paymentIntents.$inferSelect, interpretation?: ResponseInterpretation | null): PaymentIntentResult {
   return {
     id: intent.id,
     tenantId: intent.tenantId,
     locationId: intent.locationId,
-    status: intent.status,
+    status: intent.status as PaymentIntentStatus,
     amountCents: intent.amountCents,
     currency: intent.currency,
     authorizedAmountCents: intent.authorizedAmountCents ?? null,

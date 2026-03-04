@@ -15,7 +15,7 @@ export async function retryBatchPosting(ctx: RequestContext, input: RetryBatchPo
     // Idempotency check
     if (input.clientRequestId) {
       const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'retryBatchPosting');
-      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     const batchRows = await tx.execute(

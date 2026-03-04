@@ -6,6 +6,8 @@ import {
   getRevenueAccountForDepartment,
 } from './account-mapping';
 
+type PaymentJournalEntry = typeof paymentJournalEntries.$inferSelect;
+
 // Types for the function
 interface TenderForGL {
   id: string;
@@ -63,7 +65,7 @@ export async function generateJournalEntry(
 
   if (isFinalTender) {
     // REMAINDER METHOD: post whatever hasn't been posted by previous tenders
-    const previousJournals = await (tx as any)
+    const previousJournals = await tx
       .select()
       .from(paymentJournalEntries)
       .where(
@@ -250,7 +252,7 @@ export async function generateJournalEntry(
   };
 
   // Store journal entry
-  await (tx as any).insert(paymentJournalEntries).values({
+  await tx.insert(paymentJournalEntries).values({
     tenantId: tender.tenantId,
     locationId: tender.locationId,
     referenceType: 'tender',
@@ -267,7 +269,7 @@ export async function generateJournalEntry(
 
 // Helper: aggregate previous postings from existing journal entries
 function aggregatePreviousPostings(
-  journals: Array<Record<string, unknown>>,
+  journals: PaymentJournalEntry[],
 ): {
   revenue: Map<string, number>;
   tax: number;

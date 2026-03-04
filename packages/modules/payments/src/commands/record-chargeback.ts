@@ -36,10 +36,10 @@ export async function recordChargeback(
       input.clientRequestId,
       'recordChargeback',
     );
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     // 1. Validate tender exists and belongs to this tenant
-    const [tender] = await (tx as any)
+    const [tender] = await tx
       .select()
       .from(tenders)
       .where(
@@ -66,10 +66,10 @@ export async function recordChargeback(
     const chargebackId = generateUlid();
     const now = new Date();
 
-    await (tx as any).insert(chargebacks).values({
+    await tx.insert(chargebacks).values({
       id: chargebackId,
       tenantId: ctx.tenantId,
-      locationId: ctx.locationId,
+      locationId: ctx.locationId!,
       tenderId: input.tenderId,
       orderId: input.orderId,
       chargebackReason: input.chargebackReason,

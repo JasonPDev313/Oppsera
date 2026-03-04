@@ -16,7 +16,7 @@ export async function compItem(
   const result = await publishWithOutbox(ctx, async (tx) => {
     if (input.clientRequestId) {
       const check = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'compItem');
-      if (check.isDuplicate) return { result: check.originalResult as any, events: [] };
+      if (check.isDuplicate) return { result: check.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Fetch order line to get amount for comp

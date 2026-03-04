@@ -30,10 +30,10 @@ export async function transferTab(
       tx, ctx.tenantId, input.clientRequestId, 'transferTab',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [tab] = await (tx as any)
+    const [tab] = await tx
       .select()
       .from(fnbTabs)
       .where(and(
@@ -69,7 +69,7 @@ export async function transferTab(
 
       // Clear old table status
       if (tab.tableId) {
-        await (tx as any)
+        await tx
           .update(fnbTableLiveStatus)
           .set({
             status: 'available',
@@ -87,7 +87,7 @@ export async function transferTab(
       }
 
       // Set new table status
-      await (tx as any)
+      await tx
         .update(fnbTableLiveStatus)
         .set({
           status: 'seated',
@@ -103,7 +103,7 @@ export async function transferTab(
         ));
     }
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbTabs)
       .set(setFields)
       .where(and(
@@ -121,7 +121,7 @@ export async function transferTab(
         ? 'server'
         : 'table';
 
-    await (tx as any)
+    await tx
       .insert(fnbTabTransfers)
       .values({
         tenantId: ctx.tenantId,

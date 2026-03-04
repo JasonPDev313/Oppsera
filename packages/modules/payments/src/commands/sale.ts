@@ -7,7 +7,7 @@ import { paymentIntents, paymentTransactions } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import type { SalePaymentInput } from '../gateway-validation';
 import type { PaymentIntentResult } from '../types/gateway-results';
-import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition } from '../events/gateway-types';
+import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition, type PaymentIntentStatus } from '../events/gateway-types';
 import { resolveProvider } from '../helpers/resolve-provider';
 import { centsToDollars, dollarsToCents, generateProviderOrderId, extractCardLast4, detectCardBrand } from '../helpers/amount';
 import { CardPointeTimeoutError } from '../providers/cardpointe/client';
@@ -229,7 +229,7 @@ export async function salePayment(
       errorMessage = responseText;
     }
 
-    assertIntentTransition('created', intentStatus as any);
+    assertIntentTransition('created', intentStatus as PaymentIntentStatus);
 
     const updateFields: Record<string, unknown> = {
       status: intentStatus,
@@ -301,7 +301,7 @@ export async function salePayment(
 }
 
 function mapIntentToResult(
-  intent: Record<string, any>,
+  intent: typeof paymentIntents.$inferSelect,
   providerRef: string | null,
   interpretation: ResponseInterpretation | null,
 ): PaymentIntentResult {
@@ -309,7 +309,7 @@ function mapIntentToResult(
     id: intent.id,
     tenantId: intent.tenantId,
     locationId: intent.locationId,
-    status: intent.status,
+    status: intent.status as PaymentIntentStatus,
     amountCents: intent.amountCents,
     currency: intent.currency,
     authorizedAmountCents: intent.authorizedAmountCents ?? null,

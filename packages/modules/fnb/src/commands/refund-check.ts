@@ -18,7 +18,7 @@ export async function refundCheck(
   const result = await publishWithOutbox(ctx, async (tx) => {
     if (input.clientRequestId) {
       const check = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'refundCheck');
-      if (check.isDuplicate) return { result: check.originalResult as any, events: [] };
+      if (check.isDuplicate) return { result: check.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Verify tender exists and refund doesn't exceed amount

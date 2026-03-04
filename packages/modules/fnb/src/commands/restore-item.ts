@@ -18,10 +18,10 @@ export async function restoreItem(
       tx, ctx.tenantId, input.clientRequestId, 'restoreItem',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [logEntry] = await (tx as any)
+    const [logEntry] = await tx
       .select()
       .from(fnbEightySixLog)
       .where(and(
@@ -31,7 +31,7 @@ export async function restoreItem(
       .limit(1);
     if (!logEntry) throw new EightySixLogNotFoundError(input.eightySixLogId);
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbEightySixLog)
       .set({
         restoredAt: new Date(),

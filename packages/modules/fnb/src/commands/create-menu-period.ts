@@ -21,11 +21,11 @@ export async function createMenuPeriod(
       tx, ctx.tenantId, input.clientRequestId, 'createMenuPeriod',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Check for duplicate name
-    const [existing] = await (tx as any)
+    const [existing] = await tx
       .select()
       .from(fnbMenuPeriods)
       .where(and(
@@ -36,11 +36,11 @@ export async function createMenuPeriod(
       .limit(1);
     if (existing) throw new DuplicateMenuPeriodNameError(input.name);
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbMenuPeriods)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         name: input.name,
         startTime: input.startTime,
         endTime: input.endTime,

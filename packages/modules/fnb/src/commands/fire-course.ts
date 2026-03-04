@@ -20,11 +20,11 @@ export async function fireCourse(
       tx, ctx.tenantId, input.clientRequestId, 'fireCourse',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate tab exists
-    const [tab] = await (tx as any)
+    const [tab] = await tx
       .select()
       .from(fnbTabs)
       .where(and(
@@ -35,7 +35,7 @@ export async function fireCourse(
     if (!tab) throw new TabNotFoundError(input.tabId);
 
     // Find the course
-    const [course] = await (tx as any)
+    const [course] = await tx
       .select()
       .from(fnbTabCourses)
       .where(and(
@@ -49,7 +49,7 @@ export async function fireCourse(
       throw new CourseStatusConflictError(input.courseNumber, course.courseStatus, 'fire');
     }
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbTabCourses)
       .set({
         courseStatus: 'fired',

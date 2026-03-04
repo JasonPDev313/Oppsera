@@ -7,7 +7,7 @@ import { paymentIntents, paymentTransactions } from '@oppsera/db';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import type { RefundPaymentInput } from '../gateway-validation';
 import type { PaymentIntentResult } from '../types/gateway-results';
-import { PAYMENT_GATEWAY_EVENTS } from '../events/gateway-types';
+import { PAYMENT_GATEWAY_EVENTS, type PaymentIntentStatus } from '../events/gateway-types';
 import { resolveProvider } from '../helpers/resolve-provider';
 import { centsToDollars, dollarsToCents } from '../helpers/amount';
 import { interpretResponse } from '../services/response-interpreter';
@@ -135,8 +135,8 @@ export async function refundPayment(
         orderId: `REV-${intent.providerOrderId?.slice(0, 14) ?? 'ach'}`,
         capture: 'Y',
         ecomind: 'E',
-        achAccountType: (intent as any).achAccountType ?? 'ECHK',
-        achSecCode: (intent as any).achSecCode ?? 'WEB',
+        achAccountType: (intent.achAccountType ?? 'ECHK') as 'ECHK' | 'ESAV',
+        achSecCode: (intent.achSecCode ?? 'WEB') as 'WEB' | 'CCD' | 'PPD' | 'TEL',
         achDescription: 'Reversal',
       });
     } else {
@@ -228,12 +228,12 @@ export async function refundPayment(
   return result;
 }
 
-function mapIntentToResult(intent: Record<string, any>, interpretation?: ResponseInterpretation | null): PaymentIntentResult {
+function mapIntentToResult(intent: typeof paymentIntents.$inferSelect, interpretation?: ResponseInterpretation | null): PaymentIntentResult {
   return {
     id: intent.id,
     tenantId: intent.tenantId,
     locationId: intent.locationId,
-    status: intent.status,
+    status: intent.status as PaymentIntentStatus,
     amountCents: intent.amountCents,
     currency: intent.currency,
     authorizedAmountCents: intent.authorizedAmountCents ?? null,

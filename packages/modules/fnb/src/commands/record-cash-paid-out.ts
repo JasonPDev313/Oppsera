@@ -19,7 +19,7 @@ interface RecordCashPaidOutInput {
 export async function recordCashPaidOut(ctx: RequestContext, input: RecordCashPaidOutInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'recordCashPaidOut');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     const rows = await tx.execute(
       sql`INSERT INTO fnb_cash_paid_outs (

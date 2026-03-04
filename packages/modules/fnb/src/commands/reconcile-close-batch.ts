@@ -17,7 +17,7 @@ interface ReconcileCloseBatchInput {
 export async function reconcileCloseBatch(ctx: RequestContext, input: ReconcileCloseBatchInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'reconcileCloseBatch');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     const batchRows = await tx.execute(
       sql`SELECT id, status, location_id, business_date FROM fnb_close_batches

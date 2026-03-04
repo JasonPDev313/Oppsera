@@ -68,12 +68,12 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
     let rlsBypassMethod: string | null = null;
 
     await db.transaction(async (tx) => {
-      // Extend statement timeout — keep conservative for Vercel pool health.
-      // 120s is generous for most DBs; very large DBs should use manual backup.
+      // Extend statement timeout — must be generous for large table exports.
+      // Route has maxDuration=300, so 300s per statement / 600s idle is safe.
       // Wrapped in try/catch: Supavisor may block SET LOCAL for some parameters.
       try {
-        await tx.execute(sql`SET LOCAL statement_timeout = '120s'`);
-        await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '180s'`);
+        await tx.execute(sql`SET LOCAL statement_timeout = '300s'`);
+        await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '600s'`);
       } catch (e) {
         console.warn('[backup] Could not set transaction timeouts (Supavisor may block SET LOCAL):', e);
       }
@@ -196,25 +196,33 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
 }
 
 /**
- * Export all rows from a single table using batched SELECT (inside a transaction).
+ * Export all rows from a single table using a server-side cursor (inside a transaction).
+ * Uses DECLARE/FETCH instead of LIMIT/OFFSET to avoid O(n²) rescanning on large tables.
  */
 async function exportTableInTx(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], tableName: string): Promise<unknown[]> {
   const allRows: unknown[] = [];
-  let offset = 0;
+  const cursorName = 'backup_export_cursor';
 
-  while (true) {
-    // Table name is from information_schema (safe), not user input
-    const result = await tx.execute(
-      sql.raw(`SELECT * FROM "${tableName}" ORDER BY ctid LIMIT ${BATCH_SIZE} OFFSET ${offset}`),
-    );
+  // Table name is from information_schema (safe), not user input
+  await tx.execute(
+    sql.raw(`DECLARE ${cursorName} NO SCROLL CURSOR FOR SELECT * FROM "${tableName}"`),
+  );
 
-    const rows = Array.from(result as Iterable<unknown>);
-    if (rows.length === 0) break;
+  try {
+    while (true) {
+      const result = await tx.execute(
+        sql.raw(`FETCH ${BATCH_SIZE} FROM ${cursorName}`),
+      );
 
-    allRows.push(...rows);
-    offset += rows.length;
+      const rows = Array.from(result as Iterable<unknown>);
+      if (rows.length === 0) break;
 
-    if (rows.length < BATCH_SIZE) break;
+      allRows.push(...rows);
+
+      if (rows.length < BATCH_SIZE) break;
+    }
+  } finally {
+    await tx.execute(sql.raw(`CLOSE ${cursorName}`));
   }
 
   return allRows;

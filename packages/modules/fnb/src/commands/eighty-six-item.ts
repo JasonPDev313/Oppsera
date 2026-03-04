@@ -21,11 +21,11 @@ export async function eightySixItem(
       tx, ctx.tenantId, input.clientRequestId, 'eightySixItem',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Check if already 86'd (active, not restored)
-    const existing = await (tx as any)
+    const existing = await tx
       .select()
       .from(fnbEightySixLog)
       .where(and(
@@ -38,11 +38,11 @@ export async function eightySixItem(
       .limit(1);
     if (existing.length > 0) throw new ItemAlreadyEightySixedError(input.entityId);
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbEightySixLog)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         entityType: input.entityType ?? 'item',
         entityId: input.entityId,
         stationId: input.stationId ?? null,

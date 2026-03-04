@@ -21,6 +21,12 @@ import type {
   VoidByOrderIdRequest,
   ProviderCredentials,
 } from '../interface';
+import type {
+  CardPointeAuthRequest,
+  CardPointeCaptureRequest,
+  CardPointeRefundRequest,
+  CardPointeProfileRequest,
+} from './types';
 import { CardPointeClient, CardPointeTimeoutError } from './client';
 import { extractCardLast4, detectCardBrand } from '../../helpers/amount';
 
@@ -63,7 +69,7 @@ export class CardPointeProvider implements PaymentProvider {
   }
 
   async authorize(request: AuthorizeRequest): Promise<AuthorizeResponse> {
-    const cpRequest: Record<string, unknown> = {
+    const cpRequest: CardPointeAuthRequest = {
       merchid: request.merchantId,
       account: request.token,
       amount: request.amount,
@@ -88,10 +94,10 @@ export class CardPointeProvider implements PaymentProvider {
     // Clean undefined values
     const cleaned = Object.fromEntries(
       Object.entries(cpRequest).filter(([, v]) => v !== undefined),
-    );
+    ) as CardPointeAuthRequest;
 
     try {
-      const resp = await this.client.authorize(cleaned as any);
+      const resp = await this.client.authorize(cleaned);
       return {
         providerRef: resp.retref,
         authCode: resp.authcode || null,
@@ -116,13 +122,13 @@ export class CardPointeProvider implements PaymentProvider {
   }
 
   async capture(request: CaptureRequest): Promise<CaptureResponse> {
-    const cpRequest: Record<string, string> = {
+    const cpRequest: CardPointeCaptureRequest = {
       merchid: request.merchantId,
       retref: request.providerRef,
+      ...(request.amount ? { amount: request.amount } : {}),
     };
-    if (request.amount) cpRequest.amount = request.amount;
 
-    const resp = await this.client.capture(cpRequest as any);
+    const resp = await this.client.capture(cpRequest);
     return {
       providerRef: resp.retref,
       amount: resp.amount,
@@ -153,13 +159,13 @@ export class CardPointeProvider implements PaymentProvider {
   }
 
   async refund(request: RefundRequest): Promise<RefundResponse> {
-    const cpRequest: Record<string, string> = {
+    const cpRequest: CardPointeRefundRequest = {
       merchid: request.merchantId,
       retref: request.providerRef,
+      ...(request.amount ? { amount: request.amount } : {}),
     };
-    if (request.amount) cpRequest.amount = request.amount;
 
-    const resp = await this.client.refund(cpRequest as any);
+    const resp = await this.client.refund(cpRequest);
     return {
       providerRef: resp.retref,
       amount: resp.amount,
@@ -219,20 +225,20 @@ export class CardPointeProvider implements PaymentProvider {
   }
 
   async createProfile(request: CreateProfileRequest): Promise<CreateProfileResponse> {
-    const cpRequest: Record<string, string> = {
+    const cpRequest: CardPointeProfileRequest = {
       merchid: request.merchantId,
       account: request.token,
+      ...(request.expiry ? { expiry: request.expiry } : {}),
+      ...(request.name ? { name: request.name } : {}),
+      ...(request.address ? { address: request.address } : {}),
+      ...(request.postal ? { postal: request.postal } : {}),
+      ...(request.profileUpdate === 'Y' ? {
+        profileupdate: 'Y',
+        ...(request.existingProfileId ? { profile: request.existingProfileId } : {}),
+      } : {}),
     };
-    if (request.expiry) cpRequest.expiry = request.expiry;
-    if (request.name) cpRequest.name = request.name;
-    if (request.address) cpRequest.address = request.address;
-    if (request.postal) cpRequest.postal = request.postal;
-    if (request.profileUpdate === 'Y') {
-      cpRequest.profileupdate = 'Y';
-      if (request.existingProfileId) cpRequest.profile = request.existingProfileId;
-    }
 
-    const resp = await this.client.createProfile(cpRequest as any);
+    const resp = await this.client.createProfile(cpRequest);
     return {
       profileId: resp.profileid,
       accountId: resp.acctid,

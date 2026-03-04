@@ -22,11 +22,11 @@ export async function uncombineTables(
       tx, ctx.tenantId, input.clientRequestId, 'uncombineTables',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Fetch combine group
-    const [group] = await (tx as any)
+    const [group] = await tx
       .select()
       .from(fnbTableCombineGroups)
       .where(and(
@@ -39,22 +39,22 @@ export async function uncombineTables(
     if (!group) throw new CombineGroupNotFoundError(input.combineGroupId);
 
     // Get all member table IDs
-    const members = await (tx as any)
+    const members = await tx
       .select()
       .from(fnbTableCombineMembers)
       .where(eq(fnbTableCombineMembers.combineGroupId, input.combineGroupId));
 
-    const tableIds = (members as any[]).map((m: any) => m.tableId);
+    const tableIds = members.map((m) => m.tableId);
 
     // Mark the group as dissolved
-    await (tx as any)
+    await tx
       .update(fnbTableCombineGroups)
       .set({ status: 'dissolved', updatedAt: new Date() })
       .where(eq(fnbTableCombineGroups.id, input.combineGroupId));
 
     // Clear combineGroupId on all member tables' live status
     for (const tableId of tableIds) {
-      await (tx as any)
+      await tx
         .update(fnbTableLiveStatus)
         .set({ combineGroupId: null, updatedAt: new Date() })
         .where(and(

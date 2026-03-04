@@ -1,11 +1,12 @@
 import { sql } from 'drizzle-orm';
 import { randomBytes } from 'node:crypto';
 import { AppError } from '@oppsera/shared';
+import type { Database } from '@oppsera/db';
 
 // ── Reservation Fetch ───────────────────────────────────────────
 
 export async function fetchHostReservation(
-  tx: any,
+  tx: Database,
   tenantId: string,
   reservationId: string,
 ) {

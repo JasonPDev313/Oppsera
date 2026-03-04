@@ -17,10 +17,10 @@ export async function updateRoutingRule(
       tx, ctx.tenantId, input.clientRequestId, 'updateRoutingRule',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [rule] = await (tx as any)
+    const [rule] = await tx
       .select()
       .from(fnbKitchenRoutingRules)
       .where(and(
@@ -40,7 +40,7 @@ export async function updateRoutingRule(
     if (input.timeConditionEnd !== undefined) setFields.timeConditionEnd = input.timeConditionEnd;
     if (input.isActive !== undefined) setFields.isActive = input.isActive;
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbKitchenRoutingRules)
       .set(setFields)
       .where(eq(fnbKitchenRoutingRules.id, ruleId))

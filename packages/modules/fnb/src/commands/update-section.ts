@@ -14,7 +14,7 @@ export async function updateSection(
   input: UpdateSectionInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
-    const [existing] = await (tx as any)
+    const [existing] = await tx
       .select()
       .from(fnbSections)
       .where(and(
@@ -48,7 +48,7 @@ export async function updateSection(
       return { result: existing, events: [] };
     }
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbSections)
       .set(updates)
       .where(eq(fnbSections.id, sectionId))

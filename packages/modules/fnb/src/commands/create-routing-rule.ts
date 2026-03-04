@@ -17,14 +17,14 @@ export async function createRoutingRule(
       tx, ctx.tenantId, input.clientRequestId, 'createRoutingRule',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbKitchenRoutingRules)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         ruleType: input.ruleType,
         catalogItemId: input.catalogItemId ?? null,
         modifierId: input.modifierId ?? null,

@@ -15,10 +15,10 @@ export async function removeItemAllergen(
       tx, ctx.tenantId, input.clientRequestId, 'removeItemAllergen',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const deleted = await (tx as any)
+    const deleted = await tx
       .delete(fnbItemAllergens)
       .where(and(
         eq(fnbItemAllergens.tenantId, ctx.tenantId),

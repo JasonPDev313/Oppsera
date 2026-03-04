@@ -18,10 +18,10 @@ export async function callBackToStation(
       tx, ctx.tenantId, input.clientRequestId, 'callBackToStation',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [item] = await (tx as any)
+    const [item] = await tx
       .select()
       .from(fnbKitchenTicketItems)
       .where(and(
@@ -32,7 +32,7 @@ export async function callBackToStation(
     if (!item) throw new TicketItemNotFoundError(input.ticketItemId);
 
     // Send item back to station for rework
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbKitchenTicketItems)
       .set({
         itemStatus: 'cooking',
@@ -45,14 +45,14 @@ export async function callBackToStation(
       .returning();
 
     // If ticket was served, move back to in_progress
-    const [ticket] = await (tx as any)
+    const [ticket] = await tx
       .select()
       .from(fnbKitchenTickets)
       .where(eq(fnbKitchenTickets.id, item.ticketId))
       .limit(1);
 
     if (ticket && (ticket.status === 'served' || ticket.status === 'ready')) {
-      await (tx as any)
+      await tx
         .update(fnbKitchenTickets)
         .set({
           status: 'in_progress',

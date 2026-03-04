@@ -94,7 +94,7 @@ export async function atomicSeatParty(
     // (duplicate IDs would cause incorrect version increments and
     // double-inserts into status history / turn log).
     const tableIdList = [...new Set(input.tableIds)];
-    const lockedRows = await (tx as any).execute(sql`
+    const lockedRows = await tx.execute(sql`
       SELECT
         ls.id          AS live_status_id,
         ls.table_id,
@@ -150,7 +150,7 @@ export async function atomicSeatParty(
       resolvedServerUserId = input.serverUserId;
     } else {
       // Try rotation tracker first
-      const rotationRows = await (tx as any).execute(sql`
+      const rotationRows = await tx.execute(sql`
         SELECT next_server_user_id
         FROM fnb_rotation_tracker
         WHERE tenant_id = ${ctx.tenantId}
@@ -164,7 +164,7 @@ export async function atomicSeatParty(
         resolvedServerUserId = String(rotationArr[0]!.next_server_user_id);
       } else {
         // Fallback: first active server assignment for this location/date
-        const assignmentRows = await (tx as any).execute(sql`
+        const assignmentRows = await tx.execute(sql`
           SELECT server_user_id
           FROM fnb_server_assignments
           WHERE tenant_id = ${ctx.tenantId}
@@ -186,7 +186,7 @@ export async function atomicSeatParty(
     }
 
     // ── 5. Get next tab number ───────────────────────────────────
-    const counterResult = await (tx as any).execute(sql`
+    const counterResult = await tx.execute(sql`
       INSERT INTO fnb_tab_counters (tenant_id, location_id, business_date, last_number)
       VALUES (${ctx.tenantId}, ${ctx.locationId}, ${input.businessDate}, 1)
       ON CONFLICT (tenant_id, location_id, business_date)
@@ -200,11 +200,11 @@ export async function atomicSeatParty(
     // ── 6. Create tab ────────────────────────────────────────────
     const primaryTableId = tableIdList[0]!;
 
-    const [createdTab] = await (tx as any)
+    const [createdTab] = await tx
       .insert(fnbTabs)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         tabNumber,
         tabType: 'dine_in',
         status: 'open',
@@ -223,7 +223,7 @@ export async function atomicSeatParty(
     const tabId = createdTab!.id;
 
     // ── 7. Create default course ─────────────────────────────────
-    await (tx as any)
+    await tx
       .insert(fnbTabCourses)
       .values({
         tenantId: ctx.tenantId,
@@ -248,7 +248,7 @@ export async function atomicSeatParty(
       const liveStatusId = String(lockedRow.live_status_id);
 
       // Update live status with version increment
-      const updatedStatus = await (tx as any).execute(sql`
+      const updatedStatus = await tx.execute(sql`
         UPDATE fnb_table_live_status
         SET
           status                  = 'seated',
@@ -278,7 +278,7 @@ export async function atomicSeatParty(
       tableStatusResults.push({ tableId, version: newVersion });
 
       // Insert status history row
-      await (tx as any)
+      await tx
         .insert(fnbTableStatusHistory)
         .values({
           tenantId: ctx.tenantId,
@@ -293,11 +293,11 @@ export async function atomicSeatParty(
         });
 
       // Insert table turn log row
-      await (tx as any)
+      await tx
         .insert(fnbTableTurnLog)
         .values({
           tenantId: ctx.tenantId,
-          locationId: ctx.locationId,
+          locationId: ctx.locationId!,
           tableId,
           partySize: input.partySize,
           mealPeriod,
@@ -311,7 +311,7 @@ export async function atomicSeatParty(
 
     // ── 11. Update reservation if source ─────────────────────────
     if (input.sourceType === 'reservation' && input.sourceId) {
-      await (tx as any).execute(sql`
+      await tx.execute(sql`
         UPDATE fnb_reservations
         SET
           status                  = 'seated',
@@ -327,7 +327,7 @@ export async function atomicSeatParty(
 
     // ── 12. Update waitlist entry and recompute positions ─────────
     if (input.sourceType === 'waitlist' && input.sourceId) {
-      const entryRows = await (tx as any).execute(sql`
+      const entryRows = await tx.execute(sql`
         SELECT added_at, created_at, business_date
         FROM fnb_waitlist_entries
         WHERE id = ${input.sourceId}
@@ -342,7 +342,7 @@ export async function atomicSeatParty(
         actualWaitMinutes = Math.round((now.getTime() - addedAt.getTime()) / 60_000);
       }
 
-      await (tx as any).execute(sql`
+      await tx.execute(sql`
         UPDATE fnb_waitlist_entries
         SET
           status                = 'seated',
@@ -358,7 +358,7 @@ export async function atomicSeatParty(
 
       // Recompute positions for remaining waiting entries
       const businessDate = input.businessDate;
-      await (tx as any).execute(sql`
+      await tx.execute(sql`
         WITH ranked AS (
           SELECT id, ROW_NUMBER() OVER (ORDER BY priority DESC, added_at ASC) AS new_pos
           FROM fnb_waitlist_entries

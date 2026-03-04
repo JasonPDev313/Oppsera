@@ -46,7 +46,7 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
     }
 
     const lines: OrderLineRow[] = await withTenant(event.tenantId, (tx) =>
-      (tx as any)
+      tx
         .select({
           id: orderLines.id,
           catalogItemId: orderLines.catalogItemId,

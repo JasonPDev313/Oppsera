@@ -14,10 +14,10 @@ export async function createPrepNotePreset(
       tx, ctx.tenantId, input.clientRequestId, 'createPrepNotePreset',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbPrepNotePresets)
       .values({
         tenantId: ctx.tenantId,

@@ -36,11 +36,11 @@ export async function syncTablesFromFloorPlan(
       'syncTablesFromFloorPlan',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate room exists and belongs to tenant
-    const [room] = await (tx as any)
+    const [room] = await tx
       .select()
       .from(floorPlanRooms)
       .where(
@@ -56,7 +56,7 @@ export async function syncTablesFromFloorPlan(
     if (!room.currentVersionId) throw new NoPublishedVersionError(input.roomId);
 
     // Get the published version's snapshot
-    const [version] = await (tx as any)
+    const [version] = await tx
       .select()
       .from(floorPlanVersions)
       .where(eq(floorPlanVersions.id, room.currentVersionId))
@@ -68,7 +68,7 @@ export async function syncTablesFromFloorPlan(
     const snapshotTables = extractTablesFromSnapshot(snapshotJson);
 
     // Get existing fnb_tables for this room
-    const existingTables = await (tx as any)
+    const existingTables = await tx
       .select()
       .from(fnbTables)
       .where(
@@ -79,13 +79,13 @@ export async function syncTablesFromFloorPlan(
       );
 
     const existingByObjectId = new Map(
-      (existingTables as any[]).map((t: any) => [t.floorPlanObjectId, t]),
+      existingTables.map((t) => [t.floorPlanObjectId, t]),
     );
 
     // Find max table number for auto-assignment
     let maxTableNumber = Math.max(
       0,
-      ...(existingTables as any[]).map((t: any) => t.tableNumber),
+      ...existingTables.map((t) => t.tableNumber),
     );
 
     const snapshotObjectIds = new Set(snapshotTables.map((t) => t.floorPlanObjectId));
@@ -100,7 +100,7 @@ export async function syncTablesFromFloorPlan(
 
       if (existing) {
         // UPDATE existing table's position/capacity from snapshot
-        await (tx as any)
+        await tx
           .update(fnbTables)
           .set({
             positionX: String(st.positionX),
@@ -130,7 +130,7 @@ export async function syncTablesFromFloorPlan(
         }
 
         // INSERT new table
-        const [created] = await (tx as any)
+        const [created] = await tx
           .insert(fnbTables)
           .values({
             tenantId: ctx.tenantId,
@@ -154,7 +154,7 @@ export async function syncTablesFromFloorPlan(
           .returning();
 
         // Create live status row for the new table
-        await (tx as any)
+        await tx
           .insert(fnbTableLiveStatus)
           .values({
             tenantId: ctx.tenantId,
@@ -167,13 +167,13 @@ export async function syncTablesFromFloorPlan(
     }
 
     // Soft-deactivate tables removed from the snapshot
-    for (const existing of existingTables as any[]) {
+    for (const existing of existingTables) {
       if (
         existing.floorPlanObjectId &&
         !snapshotObjectIds.has(existing.floorPlanObjectId) &&
         existing.isActive
       ) {
-        await (tx as any)
+        await tx
           .update(fnbTables)
           .set({ isActive: false, updatedAt: new Date() })
           .where(eq(fnbTables.id, existing.id));

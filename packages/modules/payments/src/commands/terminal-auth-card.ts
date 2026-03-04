@@ -7,7 +7,7 @@ import { paymentIntents, paymentTransactions } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import type { TerminalAuthCardInput } from '../validation/terminal-operations';
 import type { PaymentIntentResult } from '../types/gateway-results';
-import { PAYMENT_GATEWAY_EVENTS } from '../events/gateway-types';
+import { PAYMENT_GATEWAY_EVENTS, type PaymentIntentStatus } from '../events/gateway-types';
 import { resolveTerminalContext } from '../helpers/resolve-terminal-context';
 import { getTerminalSession, invalidateTerminalSession } from '../services/terminal-session-manager';
 import { CardPointeTerminalClient, TerminalTimeoutError } from '../providers/cardpointe/terminal-client';
@@ -251,14 +251,14 @@ export async function terminalAuthCard(
 }
 
 function mapIntentToResult(
-  intent: Record<string, any>,
+  intent: typeof paymentIntents.$inferSelect,
   providerRef: string | null,
 ): PaymentIntentResult {
   return {
     id: intent.id,
     tenantId: intent.tenantId,
     locationId: intent.locationId,
-    status: intent.status,
+    status: intent.status as PaymentIntentStatus,
     amountCents: intent.amountCents,
     currency: intent.currency,
     authorizedAmountCents: intent.authorizedAmountCents ?? null,
@@ -270,12 +270,12 @@ function mapIntentToResult(
     cardBrand: intent.cardBrand ?? null,
     providerRef: providerRef ?? null,
     errorMessage: intent.errorMessage ?? null,
-    userMessage: intent.userMessage ?? null,
-    suggestedAction: intent.suggestedAction ?? null,
-    declineCategory: intent.declineCategory ?? null,
-    retryable: intent.retryable ?? false,
-    avsResult: intent.avsResult ?? null,
-    cvvResult: intent.cvvResult ?? null,
+    userMessage: null,
+    suggestedAction: null,
+    declineCategory: null,
+    retryable: false,
+    avsResult: null,
+    cvvResult: null,
     createdAt: intent.createdAt,
     updatedAt: intent.updatedAt,
   };

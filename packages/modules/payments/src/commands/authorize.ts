@@ -7,7 +7,8 @@ import { paymentIntents, paymentTransactions } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import type { AuthorizePaymentInput } from '../gateway-validation';
 import type { PaymentIntentResult } from '../types/gateway-results';
-import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition } from '../events/gateway-types';
+import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition, type PaymentIntentStatus } from '../events/gateway-types';
+import type { InquireResponse, VoidByOrderIdRequest, VoidResponse } from '../providers/interface';
 import { resolveProvider } from '../helpers/resolve-provider';
 import { centsToDollars, dollarsToCents, generateProviderOrderId, extractCardLast4, detectCardBrand } from '../helpers/amount';
 import { CardPointeTimeoutError } from '../providers/cardpointe/client';
@@ -196,7 +197,7 @@ export async function authorizePayment(
       errorMessage = responseText;
     }
 
-    assertIntentTransition('created', intentStatus as any);
+    assertIntentTransition('created', intentStatus as PaymentIntentStatus);
 
     const [updated] = await tx
       .update(paymentIntents)
@@ -261,7 +262,7 @@ type TimeoutRecoveryResult =
  * Timeout recovery: inquireByOrderId → if not found, voidByOrderId 3x → unknown
  */
 async function handleAuthTimeout(
-  provider: { inquireByOrderId: (orderId: string, merchantId: string) => Promise<any>; voidByOrderId: (request: { merchantId: string; orderId: string }) => Promise<any> },
+  provider: { inquireByOrderId: (orderId: string, merchantId: string) => Promise<InquireResponse | null>; voidByOrderId: (request: VoidByOrderIdRequest) => Promise<VoidResponse> },
   merchantId: string,
   providerOrderId: string,
 ): Promise<TimeoutRecoveryResult> {
@@ -298,7 +299,7 @@ async function handleAuthTimeout(
 }
 
 function mapIntentToResult(
-  intent: Record<string, any>,
+  intent: typeof paymentIntents.$inferSelect,
   providerRef: string | null,
   interpretation: ResponseInterpretation | null,
 ): PaymentIntentResult {
@@ -306,7 +307,7 @@ function mapIntentToResult(
     id: intent.id,
     tenantId: intent.tenantId,
     locationId: intent.locationId,
-    status: intent.status,
+    status: intent.status as PaymentIntentStatus,
     amountCents: intent.amountCents,
     currency: intent.currency,
     authorizedAmountCents: intent.authorizedAmountCents ?? null,

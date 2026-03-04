@@ -22,7 +22,7 @@ export async function resolveChargeback(
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
     // 1. Fetch the chargeback
-    const [chargeback] = await (tx as any)
+    const [chargeback] = await tx
       .select()
       .from(chargebacks)
       .where(
@@ -46,7 +46,7 @@ export async function resolveChargeback(
     }
 
     // 3. Fetch tender for tenderType (needed for GL adapter)
-    const [tender] = await (tx as any)
+    const [tender] = await tx
       .select()
       .from(tenders)
       .where(
@@ -63,7 +63,7 @@ export async function resolveChargeback(
     const now = new Date();
     const today = now.toISOString().split('T')[0]!;
 
-    await (tx as any)
+    await tx
       .update(chargebacks)
       .set({
         status: input.resolution,

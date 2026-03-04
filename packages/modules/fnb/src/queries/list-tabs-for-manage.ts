@@ -158,7 +158,7 @@ export async function listTabsForManage(
       ? sql`, order_agg.order_total, tender_agg.amount_paid`
       : sql``;
 
-    const rows = await (tx as any).execute(sql`
+    const rows = await tx.execute(sql`
       SELECT
         t.id,
         t.tab_number,

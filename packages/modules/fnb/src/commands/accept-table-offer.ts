@@ -208,11 +208,11 @@ export async function acceptTableOffer(
     const liveStatusId = String(tableRow.live_status_id);
 
     // ── 7. Create POS tab ─────────────────────────────────────────────────
-    const [createdTab] = await (tx as any)
+    const [createdTab] = await tx
       .insert(fnbTabs)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         tabNumber,
         tabType: 'dine_in',
         status: 'open',
@@ -231,7 +231,7 @@ export async function acceptTableOffer(
     const tabId = createdTab!.id;
 
     // ── 8. Create default course ───────────────────────────────────────────
-    await (tx as any)
+    await tx
       .insert(fnbTabCourses)
       .values({
         tenantId: ctx.tenantId,
@@ -268,7 +268,7 @@ export async function acceptTableOffer(
     }
 
     // ── 10. Insert status history ─────────────────────────────────────────
-    await (tx as any)
+    await tx
       .insert(fnbTableStatusHistory)
       .values({
         tenantId: ctx.tenantId,
@@ -283,11 +283,11 @@ export async function acceptTableOffer(
       });
 
     // ── 11. Insert turn log ───────────────────────────────────────────────
-    await (tx as any)
+    await tx
       .insert(fnbTableTurnLog)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         tableId: offeredTableId,
         partySize,
         mealPeriod,

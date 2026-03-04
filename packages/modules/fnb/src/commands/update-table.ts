@@ -14,7 +14,7 @@ export async function updateTable(
   input: UpdateTableInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
-    const [existing] = await (tx as any)
+    const [existing] = await tx
       .select()
       .from(fnbTables)
       .where(and(
@@ -64,7 +64,7 @@ export async function updateTable(
       return { result: existing, events: [] };
     }
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbTables)
       .set(updates)
       .where(eq(fnbTables.id, tableId))

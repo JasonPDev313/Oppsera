@@ -21,11 +21,11 @@ export async function createStation(
       tx, ctx.tenantId, input.clientRequestId, 'createStation',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Check for duplicate name at this location
-    const [existing] = await (tx as any)
+    const [existing] = await tx
       .select()
       .from(fnbKitchenStations)
       .where(and(
@@ -36,11 +36,11 @@ export async function createStation(
       .limit(1);
     if (existing) throw new DuplicateStationNameError(input.name);
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbKitchenStations)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         name: input.name,
         displayName: input.displayName,
         stationType: input.stationType ?? 'prep',

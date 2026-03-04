@@ -19,10 +19,10 @@ export async function reopenTab(
       tx, ctx.tenantId, input.clientRequestId, 'reopenTab',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [tab] = await (tx as any)
+    const [tab] = await tx
       .select()
       .from(fnbTabs)
       .where(and(
@@ -40,7 +40,7 @@ export async function reopenTab(
       throw new TabVersionConflictError(tabId);
     }
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbTabs)
       .set({
         status: 'open',

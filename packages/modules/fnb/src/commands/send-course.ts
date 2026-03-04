@@ -18,11 +18,11 @@ export async function sendCourse(
       tx, ctx.tenantId, input.clientRequestId, 'sendCourse',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate tab exists
-    const [tab] = await (tx as any)
+    const [tab] = await tx
       .select()
       .from(fnbTabs)
       .where(and(
@@ -33,7 +33,7 @@ export async function sendCourse(
     if (!tab) throw new TabNotFoundError(input.tabId);
 
     // Find the course
-    const [course] = await (tx as any)
+    const [course] = await tx
       .select()
       .from(fnbTabCourses)
       .where(and(
@@ -47,7 +47,7 @@ export async function sendCourse(
       throw new CourseStatusConflictError(input.courseNumber, course.courseStatus, 'send');
     }
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbTabCourses)
       .set({
         courseStatus: 'sent',
@@ -59,7 +59,7 @@ export async function sendCourse(
 
     // Update tab status if still 'open' or 'ordering'
     if (['open', 'ordering'].includes(tab.status)) {
-      await (tx as any)
+      await tx
         .update(fnbTabs)
         .set({
           status: 'sent_to_kitchen',

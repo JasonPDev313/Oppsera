@@ -18,10 +18,10 @@ export async function recallItem(
       tx, ctx.tenantId, input.clientRequestId, 'recallItem',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [item] = await (tx as any)
+    const [item] = await tx
       .select()
       .from(fnbKitchenTicketItems)
       .where(and(
@@ -32,7 +32,7 @@ export async function recallItem(
     if (!item) throw new TicketItemNotFoundError(input.ticketItemId);
 
     // Un-bump: set back to cooking, clear bump attribution
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbKitchenTicketItems)
       .set({
         itemStatus: 'cooking',
@@ -44,7 +44,7 @@ export async function recallItem(
       .where(eq(fnbKitchenTicketItems.id, input.ticketItemId))
       .returning();
 
-    const [ticket] = await (tx as any)
+    const [ticket] = await tx
       .select()
       .from(fnbKitchenTickets)
       .where(eq(fnbKitchenTickets.id, item.ticketId))

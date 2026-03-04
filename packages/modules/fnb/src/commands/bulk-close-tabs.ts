@@ -29,7 +29,7 @@ export async function bulkCloseTabs(
     }
 
     // Fetch all tabs in one query
-    const tabs = await (tx as any)
+    const tabs = await tx
       .select()
       .from(fnbTabs)
       .where(and(
@@ -41,7 +41,7 @@ export async function bulkCloseTabs(
     const failed: { tabId: string; error: string }[] = [];
 
     for (const tabId of input.tabIds) {
-      const tab = tabs.find((t: any) => t.id === tabId);
+      const tab = tabs.find((t) => t.id === tabId);
       if (!tab) {
         failed.push({ tabId, error: 'Tab not found' });
         continue;
@@ -52,7 +52,7 @@ export async function bulkCloseTabs(
       }
 
       // Close the tab
-      await (tx as any)
+      await tx
         .update(fnbTabs)
         .set({
           status: 'closed',
@@ -64,7 +64,7 @@ export async function bulkCloseTabs(
 
       // Mark table as dirty if dine-in
       if (tab.tableId) {
-        await (tx as any)
+        await tx
           .update(fnbTableLiveStatus)
           .set({
             status: 'dirty',
@@ -86,7 +86,7 @@ export async function bulkCloseTabs(
     const resultSummary = { succeeded: succeeded.length, failed: failed.length, errors: failed };
 
     // Insert manager override audit row
-    const [override] = await (tx as any)
+    const [override] = await tx
       .insert(fnbManagerOverrides)
       .values({
         tenantId: ctx.tenantId,
@@ -106,11 +106,11 @@ export async function bulkCloseTabs(
     const bulkResult: BulkCloseResult = {
       succeeded,
       failed,
-      overrideId: override.id,
+      overrideId: override!.id,
     };
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.TABS_BULK_CLOSED, {
-      overrideId: override.id,
+      overrideId: override!.id,
       locationId: input.locationId,
       tabIds: input.tabIds,
       initiatorUserId: ctx.user.id,

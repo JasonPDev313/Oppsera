@@ -19,10 +19,10 @@ export async function updateMenuPeriod(
       tx, ctx.tenantId, input.clientRequestId, 'updateMenuPeriod',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [period] = await (tx as any)
+    const [period] = await tx
       .select()
       .from(fnbMenuPeriods)
       .where(and(
@@ -42,7 +42,7 @@ export async function updateMenuPeriod(
     if (input.sortOrder !== undefined) { setFields.sortOrder = input.sortOrder; changes.sortOrder = input.sortOrder; }
     if (input.isActive !== undefined) { setFields.isActive = input.isActive; changes.isActive = input.isActive; }
 
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbMenuPeriods)
       .set(setFields)
       .where(eq(fnbMenuPeriods.id, periodId))

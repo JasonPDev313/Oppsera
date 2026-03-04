@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@oppsera/db';
+import type { Database } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { ChargeMemberAccountInput } from '../validation';
@@ -41,8 +42,8 @@ export async function chargeMemberAccount(
     // Idempotency check — uses tenantId from session since there is no RequestContext
     // Cast tx to any: db.transaction() returns PgTransaction (no $client), but checkIdempotency
     // internally casts to any as well — safe at runtime.
-    const idempotencyCheck = await checkIdempotency(tx as any, tenantIdFromSession, input.clientRequestId, 'chargeMemberAccount');
-    if (idempotencyCheck.isDuplicate) return idempotencyCheck.originalResult as any;
+    const idempotencyCheck = await checkIdempotency(tx as unknown as Database, tenantIdFromSession, input.clientRequestId, 'chargeMemberAccount');
+    if (idempotencyCheck.isDuplicate) return idempotencyCheck.originalResult as any; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     const status = session.status as string;
     const expiresAt = new Date(session.expires_at as string);
@@ -122,7 +123,7 @@ export async function chargeMemberAccount(
       status: 'paid' as const,
     };
 
-    await saveIdempotencyKey(tx as any, tenantId, input.clientRequestId, 'chargeMemberAccount', resultPayload);
+    await saveIdempotencyKey(tx as unknown as Database, tenantId, input.clientRequestId, 'chargeMemberAccount', resultPayload);
 
     return resultPayload;
   });

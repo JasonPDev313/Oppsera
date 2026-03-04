@@ -46,7 +46,7 @@ export async function recordTender(
       input.clientRequestId,
       'recordTender',
     );
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     // 1. Fetch order -- must be 'placed'
     const order = await fetchOrderForMutation(
       tx,
@@ -120,7 +120,7 @@ export async function recordTender(
       .insert(tenders)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         orderId,
         tenderType: input.tenderType,
         tenderSequence,

@@ -21,10 +21,10 @@ export async function voidTicket(
       tx, ctx.tenantId, input.clientRequestId, 'voidTicket',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [ticket] = await (tx as any)
+    const [ticket] = await tx
       .select()
       .from(fnbKitchenTickets)
       .where(and(
@@ -43,7 +43,7 @@ export async function voidTicket(
     }
 
     // Void the ticket
-    const [updated] = await (tx as any)
+    const [updated] = await tx
       .update(fnbKitchenTickets)
       .set({
         status: 'voided',
@@ -55,7 +55,7 @@ export async function voidTicket(
       .returning();
 
     // Void all items
-    await (tx as any)
+    await tx
       .update(fnbKitchenTicketItems)
       .set({
         itemStatus: 'voided',

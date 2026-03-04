@@ -81,7 +81,7 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
       checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'addLineItem'),
       fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open'),
     ]);
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     const unitPrice = input.priceOverride ? input.priceOverride.unitPrice : posItem.unitPriceCents;
     const lineSubtotal = Math.round(Number(input.qty) * unitPrice);

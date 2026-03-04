@@ -41,7 +41,7 @@ export async function adjustTip(
       input.clientRequestId,
       'adjustTip',
     );
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     // 1. Fetch the tender
     const [tender] = await tx
@@ -114,7 +114,7 @@ export async function adjustTip(
 
     await tx.insert(paymentJournalEntries).values({
       tenantId: ctx.tenantId,
-      locationId: ctx.locationId,
+      locationId: ctx.locationId!,
       referenceType: 'tender',
       referenceId: tenderId,
       orderId: tender.orderId,

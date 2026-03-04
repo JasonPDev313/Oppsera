@@ -40,10 +40,10 @@ export async function reverseTender(
       input.clientRequestId,
       'reverseTender',
     );
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     // 1. Fetch the original tender
-    const [tender] = await (tx as any)
+    const [tender] = await tx
       .select()
       .from(tenders)
       .where(
@@ -62,7 +62,7 @@ export async function reverseTender(
     }
 
     // 2. Check not already reversed
-    const existingReversals = await (tx as any)
+    const existingReversals = await tx
       .select()
       .from(tenderReversals)
       .where(
@@ -72,7 +72,7 @@ export async function reverseTender(
         ),
       );
 
-    if ((existingReversals as any[]).length > 0) {
+    if (existingReversals.length > 0) {
       throw new ConflictError('Tender has already been reversed');
     }
 
@@ -85,11 +85,11 @@ export async function reverseTender(
     }
 
     // 4. Create reversal record
-    const [reversal] = await (tx as any)
+    const [reversal] = await tx
       .insert(tenderReversals)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         originalTenderId: tenderId,
         orderId: tender.orderId,
         reversalType: input.reversalType,
@@ -101,8 +101,10 @@ export async function reverseTender(
       })
       .returning();
 
+    if (!reversal) throw new AppError('INSERT_FAILED', 'Failed to create reversal record', 500);
+
     // 5. Generate reversing GL journal entry
-    const originalJournals = await (tx as any)
+    const originalJournals = await tx
       .select()
       .from(paymentJournalEntries)
       .where(
@@ -114,8 +116,8 @@ export async function reverseTender(
         ),
       );
 
-    if ((originalJournals as any[]).length > 0) {
-      const original = (originalJournals as any[])[0]!;
+    if (originalJournals.length > 0) {
+      const original = originalJournals[0]!;
       const originalEntries = original.entries as Array<{
         accountCode: string;
         accountName: string;
@@ -146,11 +148,11 @@ export async function reverseTender(
         });
       }
 
-      await (tx as any).insert(paymentJournalEntries).values({
+      await tx.insert(paymentJournalEntries).values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         referenceType: 'reversal',
-        referenceId: reversal.id,
+        referenceId: reversal!.id,
         orderId: tender.orderId,
         entries: reversedEntries,
         businessDate: tender.businessDate,
@@ -160,7 +162,7 @@ export async function reverseTender(
 
       // Mark original journal as voided if full reversal
       if (input.amount === tender.amount) {
-        await (tx as any)
+        await tx
           .update(paymentJournalEntries)
           .set({ postingStatus: 'voided' })
           .where(eq(paymentJournalEntries.id, original.id));
@@ -169,14 +171,14 @@ export async function reverseTender(
 
     // 6. If this was a full reversal, check if order needs status change
     // Recalculate remaining balance
-    const [order] = await (tx as any)
+    const [order] = await tx
       .select()
       .from(orders)
       .where(eq(orders.id, tender.orderId));
 
     if (order && order.status === 'paid') {
       // Check if there are still active (non-reversed) tenders covering the total
-      const allTenders = await (tx as any)
+      const allTenders = await tx
         .select()
         .from(tenders)
         .where(
@@ -187,7 +189,7 @@ export async function reverseTender(
           ),
         );
 
-      const allReversals = await (tx as any)
+      const allReversals = await tx
         .select()
         .from(tenderReversals)
         .where(
@@ -198,22 +200,22 @@ export async function reverseTender(
         );
 
       const reversalMap = new Map<string, number>();
-      for (const rev of allReversals as any[]) {
+      for (const rev of allReversals) {
         reversalMap.set(
           rev.originalTenderId,
           (reversalMap.get(rev.originalTenderId) || 0) + rev.amount,
         );
       }
 
-      const netTendered = (allTenders as any[]).reduce((sum: number, t: any) => {
+      const netTendered = allTenders.reduce((sum, t) => {
         const reversed = reversalMap.get(t.id) || 0;
-        return sum + (t.amount as number) - reversed;
+        return sum + t.amount - reversed;
       }, 0);
 
       if (netTendered < order.total) {
         // Order is no longer fully paid — revert to placed
         const now = new Date();
-        await (tx as any)
+        await tx
           .update(orders)
           .set({
             status: 'placed',

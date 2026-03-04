@@ -16,7 +16,7 @@ export async function upsertPerformanceTarget(
       tx, ctx.tenantId, input.clientRequestId, 'upsertPerformanceTarget',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Use raw SQL upsert with ON CONFLICT since Drizzle doesn't support it well
@@ -29,7 +29,7 @@ export async function upsertPerformanceTarget(
 
     // Check for existing target matching the natural key (tenant_id, station_id, order_type)
     // Can't use ON CONFLICT with COALESCE expressions directly — use manual upsert
-    const existingRows = await (tx as any).execute(
+    const existingRows = await tx.execute(
       sql`SELECT id FROM fnb_kds_performance_targets
           WHERE tenant_id = ${ctx.tenantId}
             AND COALESCE(station_id, '') = COALESCE(${stationId}, '')
@@ -40,7 +40,7 @@ export async function upsertPerformanceTarget(
 
     let rows;
     if (existing) {
-      rows = await (tx as any).execute(
+      rows = await tx.execute(
         sql`UPDATE fnb_kds_performance_targets SET
               target_prep_seconds = ${input.targetPrepSeconds},
               warning_prep_seconds = ${input.warningPrepSeconds},
@@ -52,7 +52,7 @@ export async function upsertPerformanceTarget(
             RETURNING *`,
       );
     } else {
-      rows = await (tx as any).execute(
+      rows = await tx.execute(
         sql`INSERT INTO fnb_kds_performance_targets (
               id, tenant_id, location_id, station_id, order_type,
               target_prep_seconds, warning_prep_seconds, critical_prep_seconds,

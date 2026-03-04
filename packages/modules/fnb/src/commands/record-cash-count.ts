@@ -16,7 +16,7 @@ export async function recordCashCount(ctx: RequestContext, input: RecordCashCoun
     // Idempotency check
     if (input.clientRequestId) {
       const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'recordCashCount');
-      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate close batch

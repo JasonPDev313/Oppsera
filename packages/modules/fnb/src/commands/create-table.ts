@@ -18,11 +18,11 @@ export async function createTable(
       tx, ctx.tenantId, input.clientRequestId, 'createTable',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate room exists
-    const [room] = await (tx as any)
+    const [room] = await tx
       .select()
       .from(floorPlanRooms)
       .where(and(
@@ -33,7 +33,7 @@ export async function createTable(
     if (!room) throw new RoomNotFoundError(input.roomId);
 
     // Check for duplicate table number in this room
-    const [existing] = await (tx as any)
+    const [existing] = await tx
       .select()
       .from(fnbTables)
       .where(and(
@@ -44,7 +44,7 @@ export async function createTable(
       .limit(1);
     if (existing) throw new DuplicateTableNumberError(input.tableNumber, input.roomId);
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbTables)
       .values({
         tenantId: ctx.tenantId,
@@ -70,7 +70,7 @@ export async function createTable(
       .returning();
 
     // Create live status row
-    await (tx as any)
+    await tx
       .insert(fnbTableLiveStatus)
       .values({
         tenantId: ctx.tenantId,

@@ -17,14 +17,14 @@ export async function createAvailabilityWindow(
       tx, ctx.tenantId, input.clientRequestId, 'createAvailabilityWindow',
     );
     if (idempotencyCheck.isDuplicate) {
-      return { result: idempotencyCheck.originalResult as any, events: [] };
+      return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(fnbMenuAvailabilityWindows)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: ctx.locationId!,
         entityType: input.entityType,
         entityId: input.entityId,
         menuPeriodId: input.menuPeriodId ?? null,
