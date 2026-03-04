@@ -1,7 +1,7 @@
 import { gzip, gunzip } from 'zlib';
 import { promisify } from 'util';
 import { createHash } from 'node:crypto';
-import { db } from '@oppsera/db';
+import { db, createAdminClient } from '@oppsera/db';
 import { platformBackups } from '@oppsera/db/schema';
 import { generateUlid } from '@oppsera/shared';
 import { sql, eq } from 'drizzle-orm';
@@ -67,16 +67,18 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
     let rlsBypassed = false;
     let rlsBypassMethod: string | null = null;
 
-    await db.transaction(async (tx) => {
+    // Use the admin client (direct connection, port 5432) for the backup transaction.
+    // The regular `db` goes through Supavisor pooler (port 6543) which blocks
+    // SET LOCAL statement_timeout, causing backups to hit the database-level
+    // default timeout and fail with "canceling statement due to statement timeout".
+    const adminDb = createAdminClient();
+
+    await adminDb.transaction(async (tx) => {
       // Extend statement timeout — must be generous for large table exports.
       // Route has maxDuration=300, so 300s per statement / 600s idle is safe.
-      // Wrapped in try/catch: Supavisor may block SET LOCAL for some parameters.
-      try {
-        await tx.execute(sql`SET LOCAL statement_timeout = '300s'`);
-        await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '600s'`);
-      } catch (e) {
-        console.warn('[backup] Could not set transaction timeouts (Supavisor may block SET LOCAL):', e);
-      }
+      // Direct connection (adminDb) allows SET LOCAL, unlike pooled connections.
+      await tx.execute(sql`SET LOCAL statement_timeout = '300s'`);
+      await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '600s'`);
 
       // Bypass RLS for this transaction.
       // Try multiple approaches since Supavisor may restrict SET ROLE.

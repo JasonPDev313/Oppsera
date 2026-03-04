@@ -1,4 +1,4 @@
-import { db } from '@oppsera/db';
+import { db, createAdminClient } from '@oppsera/db';
 import { platformRestoreOperations } from '@oppsera/db/schema';
 import { sql, eq } from 'drizzle-orm';
 import { createBackup } from './backup-service';
@@ -181,7 +181,9 @@ export async function executeRestore(restoreOpId: string): Promise<void> {
     let rowsRestored = 0;
 
     try {
-      await db.transaction(async (tx) => {
+      // Use direct connection (adminDb) — Supavisor pooler blocks SET LOCAL statement_timeout
+      const adminDb = createAdminClient();
+      await adminDb.transaction(async (tx) => {
         // Set generous timeouts for restore (large tables take time)
         await tx.execute(sql`SET LOCAL statement_timeout = '300s'`);
         await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '600s'`);
@@ -461,7 +463,9 @@ export async function executeTenantRestore(restoreOpId: string): Promise<void> {
     let rowsRestored = 0;
 
     try {
-      await db.transaction(async (tx) => {
+      // Use direct connection (adminDb) — Supavisor pooler blocks SET LOCAL statement_timeout
+      const adminDb = createAdminClient();
+      await adminDb.transaction(async (tx) => {
         await tx.execute(sql`SET LOCAL statement_timeout = '300s'`);
         await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '600s'`);
 
