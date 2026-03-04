@@ -131,10 +131,10 @@ export async function handleAchOriginatedForAccounting(event: EventEnvelope): Pr
       return;
     }
 
-    // Check if a POS adapter already posted GL for this payment intent.
-    // The POS adapter would have used the tenderId as sourceReferenceId,
-    // but we can skip origination posting if any GL entry references this intent.
-    // We'll rely on our own idempotency key — if ach-orig-{intentId} exists, skip.
+    // If orderId is present, this ACH payment was collected at POS — the POS tender
+    // adapter already posted the GL entry via tender.recorded.v1. Skip to prevent double-posting.
+    if (data.orderId) return;
+
     const sourceRef = `ach-orig-${data.paymentIntentId}`;
 
     // Revenue credit — for non-POS ACH, use uncategorized revenue as fallback

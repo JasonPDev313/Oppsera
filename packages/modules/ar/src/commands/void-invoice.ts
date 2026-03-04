@@ -74,7 +74,10 @@ export async function voidInvoice(ctx: RequestContext, input: VoidInvoiceInput) 
           memo: `Void AR Invoice ${invoice.invoiceNumber}: ${input.reason}`,
         });
 
-        // Reverse: Debit revenue accounts
+        // Reverse: Debit revenue accounts + tax payable
+        const settingsAny = settings as Record<string, any>;
+        const taxPayableAccountId = (settingsAny.defaultSalesTaxPayableAccountId as string | null) ?? null;
+
         for (const line of lines) {
           reversedGlLines.push({
             accountId: line.accountId,
@@ -83,6 +86,18 @@ export async function voidInvoice(ctx: RequestContext, input: VoidInvoiceInput) 
             customerId: invoice.customerId,
             memo: `Void reversal: ${line.description}`,
           });
+
+          // Debit tax payable to reverse the original tax credit
+          const lineTax = Number(line.taxAmount ?? '0');
+          if (lineTax > 0 && taxPayableAccountId) {
+            reversedGlLines.push({
+              accountId: taxPayableAccountId,
+              debitAmount: lineTax.toFixed(2),
+              creditAmount: '0',
+              customerId: invoice.customerId,
+              memo: `Void tax reversal: ${line.description}`,
+            });
+          }
         }
 
         const glResult = await accountingApi.postEntry(ctx, {
@@ -103,6 +118,8 @@ export async function voidInvoice(ctx: RequestContext, input: VoidInvoiceInput) 
       .update(arInvoices)
       .set({
         status: 'voided',
+        balanceDue: '0',
+        amountPaid: '0',
         voidedAt: new Date(),
         voidedBy: ctx.user.id,
         voidReason: input.reason,

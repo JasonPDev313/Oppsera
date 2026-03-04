@@ -52,7 +52,7 @@ export async function bridgeArTransaction(ctx: RequestContext, input: BridgeArTr
           invoiceNumber,
           invoiceDate: businessDate,
           dueDate: businessDate,
-          status: 'posted',
+          status: 'draft',
           memo: description,
           currency: 'USD',
           totalAmount: amount.toFixed(2),

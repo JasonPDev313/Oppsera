@@ -6,6 +6,7 @@ export interface WaitlistEntry {
   id: string;
   guestName: string;
   guestPhone: string | null;
+  guestEmail: string | null;
   partySize: number;
   quotedWaitMinutes: number | null;
   status: string;
@@ -21,6 +22,7 @@ export interface WaitlistEntry {
   elapsedMinutes: number;
   source: string;
   notes: string | null;
+  confirmationStatus: string | null;
 }
 
 export interface ReservationEntry {
@@ -257,6 +259,7 @@ function mapWaitlistEntry(row: Record<string, unknown>): WaitlistEntry {
     id: String(row.id),
     guestName: String(row.guest_name),
     guestPhone: row.guest_phone ? String(row.guest_phone) : null,
+    guestEmail: row.guest_email ? String(row.guest_email) : null,
     partySize: Number(row.party_size),
     quotedWaitMinutes: row.quoted_wait_minutes != null ? Number(row.quoted_wait_minutes) : null,
     status: String(row.status),
@@ -272,6 +275,7 @@ function mapWaitlistEntry(row: Record<string, unknown>): WaitlistEntry {
     elapsedMinutes: Math.round(Number(row.elapsed_minutes ?? 0)),
     source: String(row.source),
     notes: row.notes ? String(row.notes) : null,
+    confirmationStatus: row.confirmation_status ? String(row.confirmation_status) : null,
   };
 }
 

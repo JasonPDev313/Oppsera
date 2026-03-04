@@ -1,6 +1,7 @@
 'use client';
 
-import { LayoutGrid, ListOrdered, ListChecks, BarChart3 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { LayoutGrid, ListOrdered, ListChecks, BarChart3, ClipboardList } from 'lucide-react';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import type { FnbNavTab } from '@/types/fnb';
 
@@ -12,6 +13,7 @@ const NAV_ITEMS: { key: FnbNavTab; label: string; icon: typeof LayoutGrid }[] = 
 ];
 
 export function FnbBottomNav() {
+  const router = useRouter();
   const activeNavTab = useFnbPosStore((s) => s.activeNavTab);
   const currentScreen = useFnbPosStore((s) => s.currentScreen);
   const setNavTab = useFnbPosStore((s) => s.setNavTab);
@@ -60,6 +62,22 @@ export function FnbBottomNav() {
           </button>
         );
       })}
+      {/* Divider before Host button */}
+      <div
+        className="w-px h-7 shrink-0"
+        style={{ backgroundColor: 'var(--fnb-border-subtle)' }}
+      />
+      <button
+        type="button"
+        onClick={() => router.push('/host')}
+        className="flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors hover:text-indigo-400"
+        style={{ color: 'var(--fnb-text-muted)' }}
+      >
+        <ClipboardList className="h-5 w-5" />
+        <span className="text-[10px] font-semibold">
+          Host
+        </span>
+      </button>
     </nav>
   );
 }

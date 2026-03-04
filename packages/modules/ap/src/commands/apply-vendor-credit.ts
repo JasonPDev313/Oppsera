@@ -75,7 +75,7 @@ export async function applyVendorCredit(ctx: RequestContext, input: ApplyVendorC
 
     // 5. Update credit bill balance (increase toward 0)
     const newCreditBalance = (Number(credit.balanceDue) + applyAmount).toFixed(2); // e.g. -100 + 50 = -50
-    const creditStatus = Number(newCreditBalance) === 0 ? 'paid' : 'posted';
+    const creditStatus = Number(newCreditBalance) === 0 ? 'paid' : 'partial';
 
     await tx
       .update(apBills)

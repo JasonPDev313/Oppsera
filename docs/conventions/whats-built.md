@@ -1492,7 +1492,21 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~Guest Pay retail integration (guest-pay-retail.ts, retail close)~~ ✓ DONE
 - ~~Deploy tooling (deploy-oppsera.cjs, predeploy.cjs, audit-deep.cjs, slow-query-audit.cjs)~~ ✓ DONE
 - ~~New accounting reports (aged trial balance, budget vs actual, cash flow forecast, consolidated P&L, fixed asset summary)~~ ✓ DONE
-- Run migrations 0224-0246 on dev DB
+- ~~F&B Host Orchestration (guest intelligence, pacing engine, server load balancing, waitlist table offers, RevPASH analytics, yield recommendations)~~ ✓ DONE
+- ~~Waitlist Config system (self-service JSONB config, public guest-facing APIs, cron sweep, merge/split/bump operations, embeddable widget)~~ ✓ DONE
+- ~~Housekeeping Enhancements (cleaning types CRUD, workload/productivity queries, assignment deadlines)~~ ✓ DONE
+- ~~Semantic Fast-Path + Schema Catalog (deterministic regex resolver for common queries, SWR-cached schema catalog with table descriptions)~~ ✓ DONE
+- ~~Retail Inventory page (standalone enriched catalog view with stock color-coding and low-stock filter)~~ ✓ DONE
+- ~~Admin Portal expansions (health monitoring + grading, audit deep-dive 4-panel, finance tools 6-tab, global search + command palette)~~ ✓ DONE
+- ~~SPA enhancements (dashboard API, calendar queries, daily trends, commission ledger, bulk updates, online booking stats)~~ ✓ DONE
+- ~~PMS Front Desk overhaul + Calendar condensed view (room-type heatmap, 3 view modes, date jump)~~ ✓ DONE
+- ~~Accounting: retained earnings command, multi-currency validate-journal, rounding tolerance auto-balancing~~ ✓ DONE
+- ~~GL adapter multi-currency support (all 7 adapters pass transactionCurrency/exchangeRate)~~ ✓ DONE
+- ~~POS race condition fix (derive totals from lines, preserve temp lines across refreshes)~~ ✓ DONE
+- ~~Accounting dashboard perf (~30 queries → ~10 via consolidated endpoints)~~ ✓ DONE
+- ~~KDS restored as standalone module (v1 entitlement + settings page + permissions)~~ ✓ DONE
+- ~~F&B payment perf (optimistic check display + visibility-based view switching)~~ ✓ DONE
+- Run migrations 0224-0265 on dev DB
 - Run `tools/scripts/setup-spa-gl.ts` after spa migrations (creates GL accounts for spa adapters)
 - Intercompany commands/queries (schema is done, business logic pending)
 - PMS-POS room charge integration frontend polish (guest search dialog, folio balance badge)

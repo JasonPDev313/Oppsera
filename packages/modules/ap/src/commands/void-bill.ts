@@ -6,7 +6,7 @@ import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idem
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apBills, apBillLines, apPaymentAllocations, vendors } from '@oppsera/db';
-import { NotFoundError } from '@oppsera/shared';
+import { NotFoundError, AppError } from '@oppsera/shared';
 import { BillStatusError, BillHasPaymentsError } from '../errors';
 import { AP_EVENTS } from '../events/types';
 import type { VoidBillInput } from '../validation';
@@ -102,27 +102,33 @@ export async function voidBill(ctx: RequestContext, input: VoidBillInput) {
         apControlAccountId = settings.defaultAPControlAccountId;
       }
 
-      if (apControlAccountId) {
-        reversedGlLines.push({
-          accountId: apControlAccountId,
-          debitAmount: bill.totalAmount,
-          creditAmount: '0',
-          vendorId: bill.vendorId,
-          memo: `Void AP Bill ${bill.billNumber}: ${input.reason}`,
-        });
-
-        const glResult = await accountingApi.postEntry(ctx, {
-          businessDate: bill.billDate,
-          sourceModule: 'ap',
-          sourceReferenceId: `void-${bill.id}`,
-          memo: `Void AP Bill ${bill.billNumber}: ${input.reason}`,
-          currency: bill.currency,
-          lines: reversedGlLines,
-          forcePost: true,
-        });
-
-        reversalJournalEntryId = glResult.id;
+      if (!apControlAccountId) {
+        throw new AppError(
+          'NO_AP_CONTROL_ACCOUNT',
+          'Cannot reverse GL entry: AP control account not found. Resolve account configuration first.',
+          400,
+        );
       }
+
+      reversedGlLines.push({
+        accountId: apControlAccountId,
+        debitAmount: bill.totalAmount,
+        creditAmount: '0',
+        vendorId: bill.vendorId,
+        memo: `Void AP Bill ${bill.billNumber}: ${input.reason}`,
+      });
+
+      const glResult = await accountingApi.postEntry(ctx, {
+        businessDate: bill.billDate,
+        sourceModule: 'ap',
+        sourceReferenceId: `void-${bill.id}`,
+        memo: `Void AP Bill ${bill.billNumber}: ${input.reason}`,
+        currency: bill.currency,
+        lines: reversedGlLines,
+        forcePost: true,
+      });
+
+      reversalJournalEntryId = glResult.id;
     }
 
     // 4. Update bill status to voided
@@ -130,6 +136,8 @@ export async function voidBill(ctx: RequestContext, input: VoidBillInput) {
       .update(apBills)
       .set({
         status: 'voided',
+        balanceDue: '0',
+        amountPaid: '0',
         voidedAt: new Date(),
         voidedBy: ctx.user.id,
         voidReason: input.reason,

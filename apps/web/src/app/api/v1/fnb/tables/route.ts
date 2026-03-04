@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import {
   listTables,
@@ -44,6 +45,7 @@ export const POST = withMiddleware(
     }
 
     const table = await createTable(ctx, parsed.data);
+    broadcastFnb(ctx, 'tables').catch(() => {});
     return NextResponse.json({ data: table }, { status: 201 });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' , writeAccess: true },

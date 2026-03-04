@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import { warmOpenTabs } from '@/hooks/use-fnb-tab';
+import { onChannelRefresh } from '@/hooks/use-fnb-realtime';
 import type {
   FloorPlanWithLiveStatus,
   FnbTableWithStatus,
@@ -139,6 +140,12 @@ export function useFnbFloor({ roomId, pollIntervalMs = 20 * 60_000 }: UseFnbFloo
   const refresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['fnb-floor', roomId] });
   }, [queryClient, roomId]);
+
+  // Subscribe to realtime broadcast notifications
+  useEffect(() => {
+    if (!roomId) return;
+    return onChannelRefresh('floor', () => { refresh(); });
+  }, [roomId, refresh]);
 
   // Listen for POS visibility resume
   useEffect(() => {

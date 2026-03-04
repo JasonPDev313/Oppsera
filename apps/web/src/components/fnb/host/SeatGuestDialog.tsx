@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Users, ChevronDown, ChevronUp, Check, Armchair } from 'lucide-react';
+import { X, Users, ChevronDown, ChevronUp, Check, Armchair, Info } from 'lucide-react';
 
 interface SuggestedTable {
   tableId: string;
@@ -235,6 +235,29 @@ export function SeatGuestDialog({
               >
                 Suggested Tables
               </span>
+              {/* Fit score explanation */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '8px',
+                  padding: '10px 12px',
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.2)',
+                  borderRadius: 'var(--fnb-radius-md)',
+                }}
+              >
+                <Info size={14} style={{ color: 'rgba(129, 140, 248, 0.9)', flexShrink: 0, marginTop: '1px' }} />
+                <span
+                  style={{
+                    color: 'var(--fnb-text-secondary)',
+                    fontSize: 'var(--fnb-text-xs)',
+                    lineHeight: '1.4',
+                  }}
+                >
+                  Tables ranked by fit score — capacity match, seating preference, and server workload. Green border = best match.
+                </span>
+              </div>
               {suggestedTables.map((table) => (
                 <button
                   key={table.tableId}
@@ -456,7 +479,7 @@ export function SeatGuestDialog({
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: 'var(--fnb-space-8)',
-                gap: 'var(--fnb-space-2)',
+                gap: 'var(--fnb-space-3)',
               }}
             >
               <Armchair
@@ -467,9 +490,21 @@ export function SeatGuestDialog({
                 style={{
                   color: 'var(--fnb-text-muted)',
                   fontSize: 'var(--fnb-text-base)',
+                  fontWeight: 'var(--fnb-font-medium)',
                 }}
               >
-                No tables available
+                All tables occupied
+              </span>
+              <span
+                style={{
+                  color: 'var(--fnb-text-muted)',
+                  fontSize: 'var(--fnb-text-sm)',
+                  textAlign: 'center',
+                  maxWidth: '280px',
+                  lineHeight: '1.4',
+                }}
+              >
+                Close this dialog and notify the guest when a table opens up.
               </span>
             </div>
           )}

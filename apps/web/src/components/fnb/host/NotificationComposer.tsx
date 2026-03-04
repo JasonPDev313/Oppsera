@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Send, Edit3, AlertCircle, Check, X } from 'lucide-react';
 
@@ -28,6 +28,15 @@ export function NotificationComposer({
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Reset state when dialog reopens for a different guest
+  useEffect(() => {
+    setMessage(templateMessage);
+    setIsCustom(false);
+    setSending(false);
+    setSent(false);
+    setError(null);
+  }, [templateMessage, recipientName]);
 
   const handleSend = useCallback(async () => {
     setSending(true);
@@ -115,6 +124,22 @@ export function NotificationComposer({
         ) : (
           /* Compose */
           <div className="px-5 py-4 space-y-3">
+            {/* Phone missing warning */}
+            {!recipientPhone && (
+              <div
+                className="flex items-center gap-2 rounded-lg px-3 py-2"
+                style={{
+                  backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                }}
+              >
+                <AlertCircle size={14} style={{ color: 'var(--fnb-warning)', flexShrink: 0 }} />
+                <span className="text-[11px]" style={{ color: 'var(--fnb-text-secondary)' }}>
+                  No phone number on file. Edit the guest to add one before sending SMS.
+                </span>
+              </div>
+            )}
+
             {/* Recipient */}
             <div
               className="rounded-lg px-3 py-2"
@@ -127,7 +152,7 @@ export function NotificationComposer({
                 {recipientName}
               </span>
               <span className="text-[11px] ml-2" style={{ color: 'var(--fnb-text-muted)' }}>
-                {recipientPhone}
+                {recipientPhone || 'No phone'}
               </span>
             </div>
 
@@ -207,7 +232,7 @@ export function NotificationComposer({
               <button
                 type="button"
                 onClick={handleSend}
-                disabled={sending || !message.trim()}
+                disabled={sending || !message.trim() || !recipientPhone}
                 className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold rounded-lg py-2.5 transition-all active:scale-95 disabled:opacity-50"
                 style={{
                   backgroundColor: 'var(--fnb-info)',

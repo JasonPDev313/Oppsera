@@ -20,7 +20,7 @@ const guestPaySucceededSchema = z.object({
 
 const CONSUMER_NAME = 'reporting.guestPaySucceeded';
 
-const KNOWN_TENDER_TYPES = new Set(['cash', 'card', 'gift_card', 'house_account', 'ach']);
+const KNOWN_TENDER_TYPES = new Set(['cash', 'card', 'credit_card', 'debit_card', 'gift_card', 'house_account', 'ach']);
 
 /**
  * Handles fnb.guestpay.payment_succeeded.v1 events.
@@ -81,7 +81,8 @@ export async function handleGuestPaySucceeded(event: EventEnvelope): Promise<voi
     const paymentMethod = data.paymentMethod || 'card';
 
     const tenderCash = paymentMethod === 'cash' ? amountDollars : 0;
-    const tenderCard = paymentMethod === 'card' ? amountDollars : 0;
+    const isCard = paymentMethod === 'card' || paymentMethod === 'credit_card' || paymentMethod === 'debit_card';
+    const tenderCard = isCard ? amountDollars : 0;
     const tenderGiftCard = paymentMethod === 'gift_card' ? amountDollars : 0;
     const tenderHouseAccount = paymentMethod === 'house_account' ? amountDollars : 0;
     const tenderAch = paymentMethod === 'ach' ? amountDollars : 0;

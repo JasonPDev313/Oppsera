@@ -25,7 +25,7 @@ export async function getOrdersSummary(
 
     const rows = await tx.execute(sql`
       SELECT
-        COALESCE(SUM(CASE WHEN status != 'voided' THEN subtotal + tax_total + service_charge_total ELSE 0 END), 0)::integer AS gross_sales,
+        COALESCE(SUM(CASE WHEN status != 'voided' THEN subtotal ELSE 0 END), 0)::integer AS gross_sales,
         COALESCE(SUM(CASE WHEN status != 'voided' THEN discount_total ELSE 0 END), 0)::integer AS discount_total,
         COALESCE(SUM(CASE WHEN status != 'voided' THEN total ELSE 0 END), 0)::integer AS net_sales,
         COALESCE(SUM(CASE WHEN status != 'voided' THEN tax_total ELSE 0 END), 0)::integer AS tax,

@@ -99,6 +99,7 @@ export function mapHostWaitlistRow(row: Record<string, unknown>) {
     seatedAt: row.seated_at ? String(row.seated_at) : null,
     seatedTableId: row.seated_table_id ? String(row.seated_table_id) : null,
     actualWaitMinutes: row.actual_wait_minutes != null ? Number(row.actual_wait_minutes) : null,
+    confirmationStatus: row.confirmation_status ? String(row.confirmation_status) : null,
     businessDate: String(row.business_date),
   };
 }

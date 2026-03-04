@@ -78,6 +78,9 @@ export async function handleLedgerEntryForAccounting(event: EventEnvelope): Prom
     const arAccountId = settings.defaultARControlAccountId
       ?? settings.defaultUncategorizedRevenueAccountId;
     const revenueAccountId = settings.defaultUncategorizedRevenueAccountId;
+    const settingsAny = settings as Record<string, any>;
+    const badDebtAccountId = (settingsAny.defaultBadDebtExpenseAccountId as string | null)
+      ?? revenueAccountId;
 
     if (!arAccountId || !revenueAccountId) {
       try {
@@ -138,7 +141,7 @@ export async function handleLedgerEntryForAccounting(event: EventEnvelope): Prom
         },
       );
     } else if (data.type === 'writeoff') {
-      // Writeoff reduces AR: Dr Bad Debt (or Uncategorized) / Cr AR
+      // Writeoff reduces AR: Dr Bad Debt Expense / Cr AR
       await postingApi.postEntry(
         {
           tenantId: event.tenantId,
@@ -151,7 +154,7 @@ export async function handleLedgerEntryForAccounting(event: EventEnvelope): Prom
           sourceReferenceId: `ledger-${data.transactionId}`,
           memo: `Writeoff: $${absDollars} — customer ${data.customerId}`,
           lines: [
-            { accountId: revenueAccountId, debitAmount: absDollars, creditAmount: '0', memo: 'Bad debt expense — writeoff' },
+            { accountId: badDebtAccountId!, debitAmount: absDollars, creditAmount: '0', memo: 'Bad debt expense — writeoff' },
             { accountId: arAccountId, debitAmount: '0', creditAmount: absDollars, memo: 'AR writeoff' },
           ],
           forcePost: true,

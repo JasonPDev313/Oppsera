@@ -67,6 +67,8 @@ export async function getFinancialHealthSummary(input: GetFinancialHealthInput):
         JOIN gl_journal_entries je ON je.id = jl.journal_entry_id
         JOIN gl_accounts a ON a.id = jl.account_id
         WHERE je.tenant_id = ${input.tenantId}
+          AND a.tenant_id = ${input.tenantId}
+          AND a.is_active = true
           AND je.status = 'posted'
           AND je.business_date >= ${ytdStart}
           AND je.business_date <= ${asOfDate}
@@ -78,14 +80,19 @@ export async function getFinancialHealthSummary(input: GetFinancialHealthInput):
         ? tx.execute(sql`
             SELECT
               jl.account_id,
-              COALESCE(SUM(jl.credit_amount) - SUM(jl.debit_amount), 0) AS balance
+              a.normal_balance,
+              CASE WHEN a.normal_balance = 'debit'
+                THEN COALESCE(SUM(jl.debit_amount) - SUM(jl.credit_amount), 0)
+                ELSE COALESCE(SUM(jl.credit_amount) - SUM(jl.debit_amount), 0)
+              END AS balance
             FROM gl_journal_lines jl
             JOIN gl_journal_entries je ON je.id = jl.journal_entry_id
+            JOIN gl_accounts a ON a.id = jl.account_id
             WHERE jl.account_id IN ${sql`(${sql.join(controlAccountIds.map(id => sql`${id}`), sql`, `)})`}
               AND je.tenant_id = ${input.tenantId}
               AND je.status = 'posted'
               AND je.business_date <= ${asOfDate}
-            GROUP BY jl.account_id
+            GROUP BY jl.account_id, a.normal_balance
           `)
         : Promise.resolve([]),
 

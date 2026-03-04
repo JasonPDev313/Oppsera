@@ -46,7 +46,7 @@ export async function getAgedTrialBalance(
 ): Promise<AgedTrialBalanceReport> {
   return withTenant(input.tenantId, async (tx) => {
     const locationFilter = input.locationId
-      ? sql`AND jl.profit_center_id = ${input.locationId}`
+      ? sql`AND jl.location_id = ${input.locationId}`
       : sql``;
 
     // Aged trial balance: group journal lines by account, bucket by age of business_date

@@ -29,7 +29,7 @@ export async function createReceipt(ctx: RequestContext, input: CreateReceiptInp
 
     // Validate allocations total doesn't exceed receipt amount
     const allocTotal = input.allocations.reduce((s, a) => s + Number(a.amountApplied), 0);
-    if (allocTotal > Number(input.amount) + 0.01) {
+    if (allocTotal > Number(input.amount)) {
       throw new AppError('ALLOCATION_EXCEEDS_RECEIPT', 'Allocation total exceeds receipt amount', 400);
     }
 
@@ -45,7 +45,7 @@ export async function createReceipt(ctx: RequestContext, input: CreateReceiptInp
       if (invoice.customerId !== input.customerId) {
         throw new AppError('INVOICE_CUSTOMER_MISMATCH', `Invoice ${alloc.invoiceId} belongs to a different customer`, 400);
       }
-      if (Number(alloc.amountApplied) > Number(invoice.balanceDue) + 0.01) {
+      if (Number(alloc.amountApplied) > Number(invoice.balanceDue)) {
         throw new AppError('ALLOCATION_EXCEEDS_BALANCE', `Allocation $${alloc.amountApplied} exceeds invoice balance $${invoice.balanceDue}`, 400);
       }
     }

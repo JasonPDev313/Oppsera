@@ -61,6 +61,7 @@ export async function generateRetainedEarnings(
       JOIN gl_journal_entries je ON je.id = jl.journal_entry_id
       JOIN gl_accounts a ON a.id = jl.account_id
       WHERE je.tenant_id = ${ctx.tenantId}
+        AND a.tenant_id = ${ctx.tenantId}
         AND je.status = 'posted'
         AND je.business_date >= ${startDate}
         AND je.business_date <= ${endDate}
@@ -123,6 +124,7 @@ export async function generateRetainedEarnings(
       JOIN gl_journal_entries je ON je.id = jl.journal_entry_id
       JOIN gl_accounts a ON a.id = jl.account_id
       WHERE je.tenant_id = ${ctx.tenantId}
+        AND a.tenant_id = ${ctx.tenantId}
         AND je.status = 'posted'
         AND je.business_date >= ${startDate}
         AND je.business_date <= ${endDate}

@@ -49,7 +49,19 @@
       "Bash(export PATH=\"/c/Users/Jason/AppData/Roaming/npm:/c/Program Files/nodejs:/c/Windows/System32:$PATH\")",
       "Bash(export PATH=\"/c/Users/Jason/AppData/Roaming/npm:/c/Program Files/nodejs:/c/Windows/System32:/usr/bin:/bin:/mingw64/bin:$PATH\")",
       "Bash(export PATH=\"/usr/bin:/bin:/mingw64/bin:$PATH\")",
-      "Read(//c/Users/Jason/AppData/Local/Temp/claude/c--Users-Jason-Dev-Oppsera/tasks/**)"
+      "Read(//c/Users/Jason/AppData/Local/Temp/claude/c--Users-Jason-Dev-Oppsera/tasks/**)",
+      "Read(//c/Users/Jason/Dev/Oppsera/packages/modules/$pkg/**)",
+      "Read(//c/Users/Jason/Users/Jason/.claude/projects/c--Users-Jason-Dev-Oppsera/7afca280-526f-4565-a261-0c2d0c49c0b0/tool-results/**)",
+      "WebFetch(domain:rsmus.com)",
+      "WebFetch(domain:www.gaapdynamics.com)",
+      "WebFetch(domain:nationalclub.org)",
+      "WebFetch(domain:keitercpa.com)",
+      "WebFetch(domain:www.schneiderdowns.com)",
+      "WebFetch(domain:www.pkfod.com)",
+      "WebFetch(domain:www.revenuehub.org)",
+      "WebFetch(domain:www.accountingtools.com)",
+      "WebFetch(domain:www.double-entry-bookkeeping.com)",
+      "WebFetch(domain:buzsoftware.com)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",
@@ -60,7 +72,11 @@
       "C:\\Users\\Jason\\.claude\\projects\\c--Users-Jason-Dev-Oppsera\\memory",
       "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\api\\v1\\pms\\housekeeping\\assignments\\[id]",
       "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\admin\\.next",
-      "C:\\Users\\Jason\\Dev\\Oppsera\\docs"
+      "C:\\Users\\Jason\\Dev\\Oppsera\\docs",
+      "c:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\api\\v1\\fnb\\public\\[tenantSlug]\\waitlist",
+      "c:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\(guest)\\waitlist\\[tenantSlug]\\status",
+      "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\api\\v1\\fnb\\host\\waitlist\\[id]",
+      "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\(guest)\\waitlist\\[tenantSlug]"
     ]
   }
 }

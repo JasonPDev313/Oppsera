@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Loader2, Check, Grid3X3, List, MapPin, Store, Monitor, MoreVertical, Copy, GitCompare, Trash2, Lock } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, X, Loader2, Check, Grid3X3, List, MapPin, Store, Monitor, MoreVertical, Copy, GitCompare, Trash2, Lock, ShieldCheck, FileBarChart } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { usePermissionsContext } from '@/components/permissions-provider';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
@@ -1100,6 +1101,23 @@ export function AuditLogTab() {
       <p className="mt-1 text-sm text-muted-foreground">
         View all activity and changes across your organization.
       </p>
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-muted-foreground">Financial audit in Accounting:</span>
+        <Link
+          href="/accounting/audit"
+          className="flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <ShieldCheck className="h-3.5 w-3.5" />
+          Financial Audit
+        </Link>
+        <Link
+          href="/accounting/reports/audit-trail"
+          className="flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <FileBarChart className="h-3.5 w-3.5" />
+          Audit Trail Report
+        </Link>
+      </div>
       <div className="mt-6">
         <AuditLogViewer showActor pageSize={50} />
       </div>

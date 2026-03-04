@@ -54,6 +54,7 @@ export async function getArAging(input: GetArAgingInput): Promise<ArAgingReport>
       WHERE i.tenant_id = ${input.tenantId}
         AND i.status IN ('posted', 'partial')
         AND i.balance_due::numeric > 0
+        AND i.invoice_date <= ${asOfDate}
         ${customerFilter}
       GROUP BY i.customer_id, c.display_name
       HAVING SUM(i.balance_due::numeric) > 0

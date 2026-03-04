@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import {
   updateWaitlistEntry,
@@ -26,7 +27,7 @@ export const PATCH = withMiddleware(
     }
 
     const result = await updateWaitlistEntry(ctx, id, parsed.data);
-
+    broadcastFnb(ctx, 'waitlist').catch(() => {});
     return NextResponse.json({ data: result });
   },
   {
@@ -48,7 +49,7 @@ export const DELETE = withMiddleware(
     }
 
     await removeFromWaitlist(ctx, id, reason);
-
+    broadcastFnb(ctx, 'waitlist').catch(() => {});
     return NextResponse.json({ data: { success: true } });
   },
   {

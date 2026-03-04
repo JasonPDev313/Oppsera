@@ -9,9 +9,11 @@
  * accounting core) are loaded in parallel. Non-critical modules (golf, PMS, F&B
  * reporting) are deferred until after the first request to reduce cold start time.
  *
- * NOTE: Sentry integration is available but requires installing @sentry/nextjs.
- * Once installed, uncomment the sentry.server.config / sentry.edge.config imports below.
+ * NOTE: Sentry is wired up. Set SENTRY_DSN env var to activate error tracking.
+ * Configs in sentry.server.config.ts / sentry.edge.config.ts gate on SENTRY_DSN.
  */
+
+import * as Sentry from '@sentry/nextjs';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -26,8 +28,7 @@ async function importSafe(label: string, fn: () => Promise<void>): Promise<void>
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    // TODO: Uncomment when @sentry/nextjs is installed:
-    // await import('../sentry.server.config');
+    await import('../sentry.server.config');
 
     const { initializeEventSystem, getEventBus } = await import('@oppsera/core');
     await initializeEventSystem();
@@ -176,10 +177,9 @@ export async function register() {
     // registry.ts handles cold starts — first semantic query loads it.
     // See: Production Outage 2026-02-28 in MEMORY.md
   }
-  // TODO: Uncomment when @sentry/nextjs is installed:
-  // if (process.env.NEXT_RUNTIME === 'edge') {
-  //   await import('../sentry.edge.config');
-  // }
+  if (process.env.NEXT_RUNTIME === 'edge') {
+    await import('../sentry.edge.config');
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -204,6 +204,9 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('voucher.redeemed.v1', accounting.handleVoucherRedemptionForAccounting);
       bus.subscribe('voucher.expired.v1', accounting.handleVoucherExpirationForAccounting);
       bus.subscribe('membership.billing.charged.v1', accounting.handleMembershipBillingForAccounting);
+      bus.subscribe('membership.initiation.contract.created.v1', accounting.handleInitiationContractForAccounting);
+      bus.subscribe('membership.initiation.installment.billed.v1', accounting.handleInitiationInstallmentForAccounting);
+      bus.subscribe('membership.initiation.extra_principal.recorded.v1', accounting.handleInitiationExtraPrincipalForAccounting);
       bus.subscribe('chargeback.received.v1', accounting.handleChargebackReceivedForAccounting);
       bus.subscribe('chargeback.resolved.v1', accounting.handleChargebackResolvedForAccounting);
       bus.subscribe('payment.gateway.ach_returned.v1', accounting.handleAchReturnForAccounting);
@@ -360,3 +363,6 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
     }),
   ]);
 }
+
+// Automatically captures unhandled server-side request errors
+export const onRequestError = Sentry.captureRequestError;

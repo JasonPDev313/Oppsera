@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import { getKitchenTicketDetail, updateTicketStatus, updateTicketStatusSchema } from '@oppsera/module-fnb';
 
@@ -34,6 +35,7 @@ export const PATCH = withMiddleware(
     }
 
     const ticket = await updateTicketStatus(ctx, ticketId, parsed.data);
+    broadcastFnb(ctx, 'kds').catch(() => {});
     return NextResponse.json({ data: ticket });
   },
   { entitlement: 'kds', permission: 'kds.manage', writeAccess: true },

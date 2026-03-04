@@ -112,9 +112,46 @@ export async function handleChargebackReceivedForAccounting(event: EventEnvelope
     }
 
     const amountDollars = (data.chargebackAmountCents / 100).toFixed(2);
+    const feeDollars = ((data.feeAmountCents ?? 0) / 100).toFixed(2);
+    const totalCreditDollars = ((data.chargebackAmountCents + (data.feeAmountCents ?? 0)) / 100).toFixed(2);
 
     const postingApi = getAccountingPostingApi();
     const ctx = buildSyntheticCtx(event.tenantId, data.locationId, data.chargebackId);
+
+    const glLines: Array<{
+      accountId: string;
+      debitAmount: string;
+      creditAmount: string;
+      locationId?: string;
+      memo?: string;
+    }> = [
+      {
+        accountId: expenseAccountId,
+        debitAmount: amountDollars,
+        creditAmount: '0',
+        locationId: data.locationId,
+        memo: `Chargeback expense — tender ${data.tenderId}`,
+      },
+    ];
+
+    // Add chargeback processing fee if present
+    if ((data.feeAmountCents ?? 0) > 0) {
+      glLines.push({
+        accountId: expenseAccountId,
+        debitAmount: feeDollars,
+        creditAmount: '0',
+        locationId: data.locationId,
+        memo: `Chargeback processing fee — tender ${data.tenderId}`,
+      });
+    }
+
+    glLines.push({
+      accountId: depositAccountId,
+      debitAmount: '0',
+      creditAmount: (data.feeAmountCents ?? 0) > 0 ? totalCreditDollars : amountDollars,
+      locationId: data.locationId,
+      memo: `Chargeback cash withdrawal — tender ${data.tenderId}`,
+    });
 
     await postingApi.postEntry(ctx, {
       businessDate: data.businessDate,
@@ -122,22 +159,7 @@ export async function handleChargebackReceivedForAccounting(event: EventEnvelope
       sourceReferenceId: `received-${data.chargebackId}`,
       memo: `Chargeback received: order ${data.orderId} — ${data.chargebackReason}`,
       currency: 'USD',
-      lines: [
-        {
-          accountId: expenseAccountId,
-          debitAmount: amountDollars,
-          creditAmount: '0',
-          locationId: data.locationId,
-          memo: `Chargeback expense — tender ${data.tenderId}`,
-        },
-        {
-          accountId: depositAccountId,
-          debitAmount: '0',
-          creditAmount: amountDollars,
-          locationId: data.locationId,
-          memo: `Chargeback cash withdrawal — tender ${data.tenderId}`,
-        },
-      ],
+      lines: glLines,
       forcePost: true,
     });
   } catch (err) {

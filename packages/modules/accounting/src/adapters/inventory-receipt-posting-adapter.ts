@@ -123,12 +123,13 @@ export async function handleInventoryReceiptPostedForAccounting(event: EventEnve
       }
     }
 
-    // Credit side: AP accrued for total amount
-    const totalDollars = Number(data.total).toFixed(2);
+    // Credit side: AP accrued for the sum of all debit lines (ensures balanced entry)
+    const totalDebit = lines.reduce((sum, l) => sum + Number(l.debitAmount), 0);
+    const creditDollars = totalDebit.toFixed(2);
     lines.push({
       accountId: apAccountId,
       debitAmount: '0',
-      creditAmount: totalDollars,
+      creditAmount: creditDollars,
       memo: `AP accrued — receipt ${data.receiptNumber}`,
     });
 
@@ -145,7 +146,7 @@ export async function handleInventoryReceiptPostedForAccounting(event: EventEnve
         businessDate: new Date().toISOString().split('T')[0]!,
         sourceModule: 'inventory',
         sourceReferenceId: `receipt-${data.receiptId}`,
-        memo: `Inventory receipt posted: ${data.receiptNumber} — $${totalDollars}`,
+        memo: `Inventory receipt posted: ${data.receiptNumber} — $${creditDollars}`,
         lines,
         forcePost: true,
       },

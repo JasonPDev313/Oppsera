@@ -38,12 +38,12 @@ export async function getPeriodComparison(input: GetPeriodComparisonInput): Prom
         a.normal_balance,
         COALESCE(SUM(
           CASE WHEN je.business_date >= ${input.currentFrom} AND je.business_date <= ${input.currentTo}
-            THEN CASE WHEN a.normal_balance = 'debit' THEN jl.debit_amount - jl.credit_amount ELSE jl.credit_amount - jl.debit_amount END
+            THEN CASE WHEN a.normal_balance = 'debit' THEN (jl.debit_amount - jl.credit_amount) * COALESCE(je.exchange_rate, 1) ELSE (jl.credit_amount - jl.debit_amount) * COALESCE(je.exchange_rate, 1) END
             ELSE 0 END
         ), 0) AS current_amount,
         COALESCE(SUM(
           CASE WHEN je.business_date >= ${input.priorFrom} AND je.business_date <= ${input.priorTo}
-            THEN CASE WHEN a.normal_balance = 'debit' THEN jl.debit_amount - jl.credit_amount ELSE jl.credit_amount - jl.debit_amount END
+            THEN CASE WHEN a.normal_balance = 'debit' THEN (jl.debit_amount - jl.credit_amount) * COALESCE(je.exchange_rate, 1) ELSE (jl.credit_amount - jl.debit_amount) * COALESCE(je.exchange_rate, 1) END
             ELSE 0 END
         ), 0) AS prior_amount
       FROM gl_accounts a

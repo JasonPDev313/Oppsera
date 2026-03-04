@@ -272,6 +272,27 @@ export default function AccountingDashboardContent() {
         />
       </div>
 
+      {/* Audit Coverage */}
+      {auditCoverage && (
+        <Link
+          href="/accounting/audit"
+          className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm transition-colors ${
+            auditCoverage.totalGaps === 0
+              ? 'border-green-500/30 bg-green-500/10 text-green-500 hover:bg-green-500/20'
+              : 'border-amber-500/30 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20'
+          }`}
+        >
+          <ShieldCheck className={`h-5 w-5 shrink-0 ${auditCoverage.totalGaps === 0 ? 'text-green-500' : 'text-amber-500'}`} />
+          <span>
+            <strong>Audit Coverage:</strong>{' '}
+            <strong>{auditCoverage.totalAuditEntries}</strong> audit entries / <strong>{auditCoverage.totalTransactions}</strong> financial transactions
+            {auditCoverage.totalGaps > 0
+              ? ` — ${auditCoverage.totalGaps} gap${auditCoverage.totalGaps !== 1 ? 's' : ''} detected`
+              : ' — full coverage'}
+          </span>
+        </Link>
+      )}
+
       {/* Unmapped Events Alert */}
       {health && health.unmappedEventCount > 0 && (
         <Link
@@ -358,26 +379,6 @@ export default function AccountingDashboardContent() {
           </div>
         </div>
       </div>
-
-      {/* Data Integrity Card */}
-      {auditCoverage && (
-        <Link
-          href="/accounting/audit"
-          className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm transition-colors ${
-            auditCoverage.totalGaps === 0
-              ? 'border-green-500/30 bg-green-500/10 text-green-500 hover:bg-green-500/20'
-              : 'border-amber-500/30 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20'
-          }`}
-        >
-          <ShieldCheck className={`h-5 w-5 shrink-0 ${auditCoverage.totalGaps === 0 ? 'text-green-500' : 'text-amber-500'}`} />
-          <span>
-            <strong>{auditCoverage.totalAuditEntries}</strong> audit entries / <strong>{auditCoverage.totalTransactions}</strong> financial transactions
-            {auditCoverage.totalGaps > 0
-              ? ` — ${auditCoverage.totalGaps} gap${auditCoverage.totalGaps !== 1 ? 's' : ''} detected`
-              : ' — full coverage'}
-          </span>
-        </Link>
-      )}
 
       {/* Mapping Coverage + Period Close Status */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

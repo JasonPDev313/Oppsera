@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { onChannelRefresh } from '@/hooks/use-fnb-realtime';
 
 interface GuestPaySession {
   id: string;
@@ -90,6 +91,12 @@ export function useFnbGuestPay({
       clearInterval(interval);
     };
   }, [fetchActive, pollEnabled, pollIntervalMs, tabId]);
+
+  // Subscribe to realtime broadcast notifications
+  useEffect(() => {
+    if (!tabId || !pollEnabled) return;
+    return onChannelRefresh('guest_pay', () => { fetchActive(abortRef.current?.signal); });
+  }, [tabId, pollEnabled, fetchActive]);
 
   const invalidate = useCallback(async (sessionId: string, reason?: string) => {
     await apiFetch(`/api/v1/fnb/guest-pay/sessions/${sessionId}/invalidate`, {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import { uncombineTables, uncombineTablesSchema } from '@oppsera/module-fnb';
 
@@ -17,6 +18,7 @@ export const POST = withMiddleware(
     }
 
     const result = await uncombineTables(ctx, parsed.data);
+    broadcastFnb(ctx, 'tables').catch(() => {});
     return NextResponse.json({ data: result });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' , writeAccess: true },

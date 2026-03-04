@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
+import { onChannelRefresh } from '@/hooks/use-fnb-realtime';
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -102,7 +103,7 @@ export interface UndoSnapshot {
   timestamp: number;
 }
 
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 15_000;
 const UNDO_WINDOW_MS = 30_000;
 
 // ── Hook ────────────────────────────────────────────────────────
@@ -166,7 +167,16 @@ export function useManageTabs(locationId: string) {
     refreshTabs();
   }, [refreshTabs]);
 
-  // ─── Polling (5s interval) ───────────────────────────────────
+  // ─── Realtime broadcast listener ─────────────────────────────
+  // Use a ref so the listener never re-subscribes when filters change.
+  const refreshTabsRef = useRef(refreshTabs);
+  refreshTabsRef.current = refreshTabs;
+
+  useEffect(() => {
+    return onChannelRefresh('tab', () => { refreshTabsRef.current(); });
+  }, []);
+
+  // ─── Polling (15s interval — safety net for missed broadcasts) ─
   const pollEnabled = useRef(true);
 
   useEffect(() => {

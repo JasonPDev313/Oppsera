@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { X, MapPin, Monitor, User, ShoppingCart, UtensilsCrossed, Moon, Sun } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
+import { useFnbRealtime, type ChannelName } from '@/hooks/use-fnb-realtime';
 import { useTheme } from '@/components/theme-provider';
 import { refreshTokenIfNeeded, apiFetch } from '@/lib/api-client';
 import { warmCustomerCache } from '@/lib/customer-cache';
@@ -137,11 +138,22 @@ function usePOSVisibilityRefresh(): void {
 
 // ── POS Layout ────────────────────────────────────────────────────
 
+const FNB_REALTIME_CHANNELS: ChannelName[] = ['floor', 'tab', 'kds', 'expo', 'dashboard', 'guest_pay'];
+
 export default function POSLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, locations, isLoading, isAuthenticated } = useAuthContext();
+  const { user, tenant, locations, isLoading, isAuthenticated } = useAuthContext();
   const terminalId = useTerminalId();
+
+  // ── F&B Realtime — singleton subscription for the POS ──────
+  // Drives all onChannelRefresh listeners (floor, tab, kds, expo, dashboard, guest_pay).
+  useFnbRealtime({
+    channels: FNB_REALTIME_CHANNELS,
+    tenantId: tenant?.id ?? '',
+    locationId: locations[0]?.id ?? '',
+    enabled: isAuthenticated && !isLoading,
+  });
 
   // Barcode scanner listener
   useBarcodeScannerListener();

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { assertImpersonationCanRefund } from '@oppsera/core/auth/impersonation-safety';
 import { ValidationError } from '@oppsera/shared';
 import { refundCheck, refundCheckSchema } from '@oppsera/module-fnb';
@@ -23,6 +24,7 @@ export const POST = withMiddleware(
     const orderId = body.orderId as string;
 
     const result = await refundCheck(ctx, ctx.locationId ?? '', orderId, parsed.data);
+    broadcastFnb(ctx, 'tabs').catch(() => {});
     return NextResponse.json({ data: result });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage' , writeAccess: true },

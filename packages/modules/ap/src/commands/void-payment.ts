@@ -53,8 +53,12 @@ export async function voidPayment(ctx: RequestContext, paymentId: string, reason
           .limit(1);
         bankGlAccountId = bank?.glAccountId ?? null;
       }
-      if (!bankGlAccountId && apControlAccountId) {
-        bankGlAccountId = apControlAccountId;
+      if (!bankGlAccountId) {
+        throw new AppError(
+          'NO_BANK_ACCOUNT',
+          'No bank/cash GL account configured for this payment. Cannot create GL reversal for void.',
+          400,
+        );
       }
 
       if (apControlAccountId && bankGlAccountId) {
@@ -84,7 +88,7 @@ export async function voidPayment(ctx: RequestContext, paymentId: string, reason
       const [bill] = await tx
         .select()
         .from(apBills)
-        .where(eq(apBills.id, alloc.billId))
+        .where(and(eq(apBills.id, alloc.billId), eq(apBills.tenantId, ctx.tenantId)))
         .limit(1);
 
       if (bill) {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { autoProgressTableStatus } from '@oppsera/module-fnb';
 
 /**
@@ -28,6 +29,7 @@ export const POST = withMiddleware(
       clearFields: true,
     });
 
+    if (result?.progressed) broadcastFnb(ctx, 'tables').catch(() => {});
     return NextResponse.json({ data: result ?? { progressed: false } });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage', writeAccess: true },

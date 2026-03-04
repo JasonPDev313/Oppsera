@@ -1,11 +1,12 @@
 import { eq, and, sql, asc, sum } from 'drizzle-orm';
-import { withTenant } from '@oppsera/db';
+import { db, withTenant } from '@oppsera/db';
 import {
   customers,
   customerActivityLog,
   billingAccounts,
   arTransactions,
   arAllocations,
+  membershipAccountingSettings,
 } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
@@ -196,7 +197,19 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
       try { await postingApi.ensureSettings(event.tenantId); } catch { /* non-fatal */ }
       const settings = await postingApi.getSettings(event.tenantId);
 
-      const arAccountId = settings.defaultARControlAccountId
+      // House account-specific receivable — falls back to general AR control
+      let houseAccountReceivableId: string | null = null;
+      try {
+        const [mbrSettings] = await db
+          .select({ defaultHouseAccountReceivableAccountId: membershipAccountingSettings.defaultHouseAccountReceivableAccountId })
+          .from(membershipAccountingSettings)
+          .where(eq(membershipAccountingSettings.tenantId, event.tenantId))
+          .limit(1);
+        houseAccountReceivableId = mbrSettings?.defaultHouseAccountReceivableAccountId ?? null;
+      } catch { /* best-effort — fall back to AR control */ }
+
+      const arAccountId = houseAccountReceivableId
+        ?? settings.defaultARControlAccountId
         ?? settings.defaultUncategorizedRevenueAccountId;
       const revenueAccountId = settings.defaultUncategorizedRevenueAccountId;
 
@@ -400,7 +413,20 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
       const settings = await postingApi.getSettings(event.tenantId);
 
       const revenueAccountId = settings.defaultUncategorizedRevenueAccountId;
-      const arAccountId = settings.defaultARControlAccountId
+
+      // House account-specific receivable — falls back to general AR control
+      let houseAccountReceivableId2: string | null = null;
+      try {
+        const [mbrSettings] = await db
+          .select({ defaultHouseAccountReceivableAccountId: membershipAccountingSettings.defaultHouseAccountReceivableAccountId })
+          .from(membershipAccountingSettings)
+          .where(eq(membershipAccountingSettings.tenantId, event.tenantId))
+          .limit(1);
+        houseAccountReceivableId2 = mbrSettings?.defaultHouseAccountReceivableAccountId ?? null;
+      } catch { /* best-effort */ }
+
+      const arAccountId = houseAccountReceivableId2
+        ?? settings.defaultARControlAccountId
         ?? settings.defaultUncategorizedRevenueAccountId;
 
       if (revenueAccountId && arAccountId) {
@@ -662,7 +688,20 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
 
       const cashAccountId = settings.defaultUndepositedFundsAccountId
         ?? settings.defaultUncategorizedRevenueAccountId;
-      const arAccountId = settings.defaultARControlAccountId
+
+      // House account-specific receivable — falls back to general AR control
+      let houseAccountReceivableId3: string | null = null;
+      try {
+        const [mbrSettings] = await db
+          .select({ defaultHouseAccountReceivableAccountId: membershipAccountingSettings.defaultHouseAccountReceivableAccountId })
+          .from(membershipAccountingSettings)
+          .where(eq(membershipAccountingSettings.tenantId, event.tenantId))
+          .limit(1);
+        houseAccountReceivableId3 = mbrSettings?.defaultHouseAccountReceivableAccountId ?? null;
+      } catch { /* best-effort */ }
+
+      const arAccountId = houseAccountReceivableId3
+        ?? settings.defaultARControlAccountId
         ?? settings.defaultUncategorizedRevenueAccountId;
 
       if (cashAccountId && arAccountId) {

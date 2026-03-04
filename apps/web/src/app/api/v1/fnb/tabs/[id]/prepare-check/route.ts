@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { sql } from 'drizzle-orm';
 import { db } from '@oppsera/db';
 import { getTabDetail, getCheckSummary } from '@oppsera/module-fnb';
@@ -87,7 +88,7 @@ export const POST = withMiddleware(
 
     // 8. Return check summary
     const check = await getCheckSummary({ tenantId: ctx.tenantId, orderId: order.id });
-
+    broadcastFnb(ctx, 'tabs').catch(() => {});
     return NextResponse.json({ data: { orderId: order.id, check } });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create', writeAccess: true },

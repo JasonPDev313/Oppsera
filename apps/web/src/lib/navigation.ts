@@ -31,6 +31,7 @@ import {
   ConciergeBell,
   Brush,
   Shield,
+  ShieldCheck,
   Globe,
   Rocket,
   Upload,
@@ -108,6 +109,7 @@ export const navigation: NavItem[] = [
       { name: 'Host Stand', href: '/host', icon: Users, requiredPermission: 'pos_fnb.floor_plan.view' },
       { name: 'Manager', href: '/fnb-manager', icon: Settings, requiredPermission: 'pos_fnb.reports.view' },
       { name: 'Close Batch', href: '/close-batch', icon: Lock, requiredPermission: 'pos_fnb.close_batch.manage' },
+      { name: 'Waitlist Config', href: '/host/waitlist-config', icon: ClipboardList, group: 'F&B Settings', requiredPermission: 'pos_fnb.host.manage' },
       { name: 'F&B Config', href: '/settings/fnb', icon: Sliders, group: 'F&B Settings', requiredPermission: 'pos_fnb.settings.manage' },
       { name: 'F&B Inventory', href: '/fnb-inventory', icon: Package, group: 'F&B Settings', requiredPermission: 'pos_fnb.inventory.view' },
     ],
@@ -266,6 +268,7 @@ export const navigation: NavItem[] = [
       { name: 'Fixed Assets', href: '/accounting/fixed-assets', icon: Warehouse, requiredPermission: 'accounting.view' },
       { name: 'Financials', href: '/accounting/financials', icon: Scale, requiredPermission: 'accounting.financials.view' },
       { name: 'Period Close', href: '/accounting/period-close', icon: Lock, requiredPermission: 'accounting.period.close' },
+      { name: 'Audit', href: '/accounting/audit', icon: ShieldCheck, requiredPermission: 'accounting.view' },
     ],
   },
   {

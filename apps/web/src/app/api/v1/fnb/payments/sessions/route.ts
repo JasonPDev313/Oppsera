@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import {
   startPaymentSession,
@@ -44,6 +45,7 @@ export const POST = withMiddleware(
     }
 
     const result = await startPaymentSession(ctx, ctx.locationId ?? '', parsed.data);
+    broadcastFnb(ctx, 'tabs').catch(() => {});
     return NextResponse.json({ data: result }, { status: 201 });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage' , writeAccess: true },

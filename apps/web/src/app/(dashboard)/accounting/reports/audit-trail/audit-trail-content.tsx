@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import {
   Search,
   Printer,
@@ -11,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   Eye,
+  ScrollText,
 } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { useAuditCoverage, usePaginatedAuditTrail } from '@/hooks/use-audit';
@@ -125,6 +127,25 @@ export default function AuditTrailContent() {
         { label: 'Audit Trail' },
       ]}
     >
+      {/* Cross-links to related audit views */}
+      <div className="flex flex-wrap items-center gap-2 text-xs print:hidden">
+        <span className="text-muted-foreground">Also see:</span>
+        <Link
+          href="/accounting/audit"
+          className="flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <ShieldCheck className="h-3.5 w-3.5" />
+          Financial Audit (Live)
+        </Link>
+        <Link
+          href="/settings/general?tab=audit"
+          className="flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <ScrollText className="h-3.5 w-3.5" />
+          Activity Log (Settings)
+        </Link>
+      </div>
+
       {/* Print header */}
       <div className="hidden print:block print:mb-4">
         <h1 className="text-xl font-bold text-foreground">Audit Trail Report</h1>

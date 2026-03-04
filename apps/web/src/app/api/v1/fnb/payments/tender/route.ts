@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { hasPaymentsGateway, getPaymentsGatewayApi } from '@oppsera/core/helpers/payments-gateway-api';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { AppError } from '@oppsera/shared';
 import { recordSplitTender } from '@oppsera/module-fnb';
 
@@ -48,6 +49,7 @@ export const POST = withMiddleware(
     }
 
     const result = await recordSplitTender(ctx, ctx.locationId ?? '', body);
+    broadcastFnb(ctx, 'tabs').catch(() => {});
     return NextResponse.json({ data: result }, { status: 201 });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage', writeAccess: true },

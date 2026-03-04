@@ -45,11 +45,11 @@ export async function getGlSummary(
         a.classification_id,
         c.name AS classification_name,
         a.account_type,
-        COALESCE(SUM(jl.debit_amount), 0) AS debit_total,
-        COALESCE(SUM(jl.credit_amount), 0) AS credit_total,
+        COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) AS debit_total,
+        COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) AS credit_total,
         CASE WHEN a.normal_balance = 'debit'
-          THEN COALESCE(SUM(jl.debit_amount), 0) - COALESCE(SUM(jl.credit_amount), 0)
-          ELSE COALESCE(SUM(jl.credit_amount), 0) - COALESCE(SUM(jl.debit_amount), 0)
+          THEN COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) - COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0)
+          ELSE COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) - COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0)
         END AS net_balance
       FROM gl_accounts a
       LEFT JOIN gl_classifications c ON c.id = a.classification_id

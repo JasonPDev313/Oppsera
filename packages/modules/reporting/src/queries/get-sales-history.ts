@@ -177,7 +177,7 @@ export async function getSalesHistory(
       (tx as any).execute(sql`
         SELECT
           COALESCE(SUM(CASE WHEN status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS total_amount,
-          COUNT(*) AS total_count
+          COUNT(CASE WHEN status != 'voided' THEN 1 END) AS total_count
         FROM rm_revenue_activity
         WHERE ${summaryWhereClause}
       `),

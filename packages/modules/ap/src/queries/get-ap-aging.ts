@@ -45,51 +45,41 @@ export async function getApAging(input: GetApAgingInput): Promise<ApAgingReport>
         v.name AS vendor_name,
         COALESCE(SUM(
           CASE WHEN b.due_date::date >= ${asOfDate}::date THEN
-            b.total_amount - COALESCE(paid.paid_amount, 0)
+            b.balance_due::numeric
           ELSE 0 END
         ), 0) AS current_bucket,
         COALESCE(SUM(
           CASE WHEN b.due_date::date < ${asOfDate}::date
             AND b.due_date::date >= (${asOfDate}::date - INTERVAL '30 days') THEN
-            b.total_amount - COALESCE(paid.paid_amount, 0)
+            b.balance_due::numeric
           ELSE 0 END
         ), 0) AS days_1_to_30,
         COALESCE(SUM(
           CASE WHEN b.due_date::date < (${asOfDate}::date - INTERVAL '30 days')
             AND b.due_date::date >= (${asOfDate}::date - INTERVAL '60 days') THEN
-            b.total_amount - COALESCE(paid.paid_amount, 0)
+            b.balance_due::numeric
           ELSE 0 END
         ), 0) AS days_31_to_60,
         COALESCE(SUM(
           CASE WHEN b.due_date::date < (${asOfDate}::date - INTERVAL '60 days')
             AND b.due_date::date >= (${asOfDate}::date - INTERVAL '90 days') THEN
-            b.total_amount - COALESCE(paid.paid_amount, 0)
+            b.balance_due::numeric
           ELSE 0 END
         ), 0) AS days_61_to_90,
         COALESCE(SUM(
           CASE WHEN b.due_date::date < (${asOfDate}::date - INTERVAL '90 days') THEN
-            b.total_amount - COALESCE(paid.paid_amount, 0)
+            b.balance_due::numeric
           ELSE 0 END
         ), 0) AS days_90_plus,
-        COALESCE(SUM(
-          b.total_amount - COALESCE(paid.paid_amount, 0)
-        ), 0) AS total
+        COALESCE(SUM(b.balance_due::numeric), 0) AS total
       FROM ap_bills b
       INNER JOIN vendors v ON v.id = b.vendor_id
-      LEFT JOIN LATERAL (
-        SELECT COALESCE(SUM(pa.amount_applied), 0) AS paid_amount
-        FROM ap_payment_allocations pa
-        INNER JOIN ap_payments p ON p.id = pa.payment_id
-        WHERE pa.bill_id = b.id
-          AND p.status != 'voided'
-          AND p.payment_date::date <= ${asOfDate}::date
-      ) paid ON true
       WHERE b.tenant_id = ${input.tenantId}
         AND b.status IN ('posted', 'partial')
-        AND (b.total_amount - COALESCE(paid.paid_amount, 0)) > 0
+        AND b.balance_due::numeric > 0
         ${vendorFilter}
       GROUP BY v.id, v.name
-      HAVING SUM(b.total_amount - COALESCE(paid.paid_amount, 0)) > 0
+      HAVING SUM(b.balance_due::numeric) > 0
       ORDER BY v.name
     `);
 

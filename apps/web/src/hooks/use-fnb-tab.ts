@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { onChannelRefresh } from '@/hooks/use-fnb-realtime';
 import type { FnbTabDetail, CheckSummary } from '@/types/fnb';
 
 // ── Module-level tab snapshot cache ─────────────────────────────
@@ -191,6 +192,12 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
     const interval = setInterval(fetchTab, pollIntervalMs);
     return () => clearInterval(interval);
   }, [tabId, pollIntervalMs, fetchTab, pollEnabled, notFound]);
+
+  // Subscribe to realtime broadcast notifications
+  useEffect(() => {
+    if (!tabId || notFound) return;
+    return onChannelRefresh('tab', () => { fetchTab(); });
+  }, [tabId, notFound, fetchTab]);
 
   // Refresh on POS visibility resume (e.g. returning from idle)
   useEffect(() => {

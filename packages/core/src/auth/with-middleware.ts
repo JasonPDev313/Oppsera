@@ -38,6 +38,8 @@ interface MiddlewareOptions {
   botDetection?: 'standard' | 'strict' | false;
   /** When true, requires locationId (via x-location-id header or locationId query param). Returns 400 if missing. */
   requireLocation?: boolean;
+  /** Rate limit preset. Defaults to 'api' for GET, 'apiWrite' for mutations. Set to false to disable. */
+  rateLimit?: 'auth' | 'authStrict' | 'api' | 'apiWrite' | 'publicRead' | 'publicWrite' | false;
 }
 
 // ── Global middleware timeout ──────────────────────────────────────────────────
@@ -280,6 +282,7 @@ async function _executeMiddleware(
   trackIds: (tenantId: string, userId: string) => void,
 ): Promise<NextResponse> {
       let response: NextResponse;
+      let _requestId = '';
 
       // ── Bot detection (runs BEFORE auth to catch unauthenticated scanners) ──
       if (options?.botDetection !== false) {
@@ -297,6 +300,27 @@ async function _executeMiddleware(
         }
       }
 
+      // ── Rate limiting (after bot detection, before auth) ──
+      if (options?.rateLimit !== false) {
+        try {
+          const { getRateLimitKey, checkRateLimit, rateLimitHeaders, RATE_LIMITS } =
+            await import('../security/rate-limiter');
+          const presetKey = options?.rateLimit
+            ?? (options?.public
+              ? (['GET', 'HEAD', 'OPTIONS'].includes(request.method) ? 'publicRead' : 'publicWrite')
+              : (['GET', 'HEAD', 'OPTIONS'].includes(request.method) ? 'api' : 'apiWrite'));
+          const rl = checkRateLimit(getRateLimitKey(request, presetKey), RATE_LIMITS[presetKey]);
+          if (!rl.allowed) {
+            return NextResponse.json(
+              { error: { code: 'RATE_LIMITED', message: 'Too many requests' } },
+              { status: 429, headers: { ...rateLimitHeaders(rl), 'Retry-After': String(Math.ceil(rl.resetMs / 1000)) } },
+            );
+          }
+        } catch {
+          // Rate limiter not loaded — allow through
+        }
+      }
+
       if (options?.public) {
         const ctx: RequestContext = {
           user: null as unknown as RequestContext['user'],
@@ -304,6 +328,7 @@ async function _executeMiddleware(
           requestId: generateUlid(),
           isPlatformAdmin: false,
         };
+        _requestId = ctx.requestId;
         response = await handler(request, ctx);
       } else {
         const user = await authenticate(request);
@@ -316,10 +341,12 @@ async function _executeMiddleware(
             requestId: generateUlid(),
             isPlatformAdmin: false,
           };
+          _requestId = ctx.requestId;
           trackIds(ctx.tenantId, user.id);
           response = await requestContext.run(ctx, () => handler(request, ctx));
         } else {
           const ctx = await resolveTenant(user);
+          _requestId = ctx.requestId;
 
           const locationId = await resolveLocation(request, ctx);
           if (locationId) {
@@ -397,6 +424,11 @@ async function _executeMiddleware(
       // Apply Cache-Control header to GET responses when configured
       if (options?.cache && request.method === 'GET') {
         response.headers.set('Cache-Control', options.cache);
+      }
+
+      // Correlation ID for client-side error reporting and support
+      if (_requestId) {
+        response.headers.set('X-Request-Id', _requestId);
       }
 
       return response;

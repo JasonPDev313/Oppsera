@@ -114,7 +114,7 @@ export async function getTrialBalance(
       accounts,
       totalDebits,
       totalCredits,
-      isBalanced: totalDebits === totalCredits,
+      isBalanced: Math.abs(totalDebits - totalCredits) < 0.01,
       asOfDate: input.asOfDate ?? null,
       startDate: input.startDate ?? null,
       endDate: input.endDate ?? null,

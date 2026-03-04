@@ -1856,6 +1856,34 @@
       "when": 1741497600000,
       "tag": "0264_host_analytics_read_models",
       "breakpoints": true
+    },
+    {
+      "idx": 265,
+      "version": "7",
+      "when": 1741584000000,
+      "tag": "0265_waitlist_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 266,
+      "version": "7",
+      "when": 1741670400000,
+      "tag": "0266_membership_dues_recognition",
+      "breakpoints": true
+    },
+    {
+      "idx": 267,
+      "version": "7",
+      "when": 1741756800000,
+      "tag": "0267_gl_journal_lines_rls_optimize",
+      "breakpoints": true
+    },
+    {
+      "idx": 268,
+      "version": "7",
+      "when": 1741843200000,
+      "tag": "0268_membership_gl_receivables",
+      "breakpoints": true
     }
   ]
 }

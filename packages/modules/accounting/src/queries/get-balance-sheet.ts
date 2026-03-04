@@ -103,6 +103,7 @@ export async function getBalanceSheet(input: GetBalanceSheetInput): Promise<Bala
       JOIN gl_journal_entries je ON je.id = jl.journal_entry_id
       JOIN gl_accounts a ON a.id = jl.account_id
       WHERE je.tenant_id = ${input.tenantId}
+        AND a.tenant_id = ${input.tenantId}
         AND je.status = 'posted'
         AND je.business_date >= ${fyStartDate}
         AND je.business_date <= ${input.asOfDate}

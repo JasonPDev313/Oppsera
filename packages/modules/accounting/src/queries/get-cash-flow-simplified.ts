@@ -56,7 +56,7 @@ export async function getCashFlowSimplified(input: GetCashFlowInput): Promise<Ca
       if (!accountId) return 0;
       const rows = await tx.execute(sql`
         SELECT
-          COALESCE(SUM(jl.credit_amount) - SUM(jl.debit_amount), 0) AS change
+          COALESCE(SUM((jl.credit_amount - jl.debit_amount) * COALESCE(je.exchange_rate, 1)), 0) AS change
         FROM gl_journal_lines jl
         JOIN gl_journal_entries je ON je.id = jl.journal_entry_id
         WHERE jl.account_id = ${accountId}
@@ -72,8 +72,11 @@ export async function getCashFlowSimplified(input: GetCashFlowInput): Promise<Ca
     const changeInAP = Math.round((await getBalanceChange(apAccountId as string | null)) * 100) / 100;
     const changeInAR = Math.round((await getBalanceChange(arAccountId as string | null)) * 100) / 100;
 
-    // Operating cash flow = Net Income + Change in AP - Change in AR
-    const netOperatingCashFlow = Math.round((netIncome + changeInAP - changeInAR) * 100) / 100;
+    // Operating cash flow = Net Income + Change in AP + Change in AR
+    // Note: getBalanceChange returns (credits - debits). For AP (credit-normal), a positive
+    // change means AP increased (cash conserved = positive). For AR (debit-normal), a negative
+    // change means AR increased (cash NOT collected = negative). Adding both is correct.
+    const netOperatingCashFlow = Math.round((netIncome + changeInAP + changeInAR) * 100) / 100;
 
     return {
       period: { from: input.from, to: input.to },

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
+import { onChannelRefresh } from '@/hooks/use-fnb-realtime';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ export interface WaitlistEntry {
   elapsedMinutes: number;
   source: string;
   notes: string | null;
+  confirmationStatus: string | null;
 }
 
 export interface ReservationEntry {
@@ -339,8 +341,9 @@ interface UseHostDashboardOptions {
 export function useHostDashboard({
   locationId,
   businessDate,
-  pollIntervalMs = 15_000,
+  pollIntervalMs = 30_000, // reduced from 15s — realtime broadcast is primary, polling is safety net
 }: UseHostDashboardOptions) {
+  const queryClient = useQueryClient();
   const date = businessDate ?? new Date().toISOString().slice(0, 10);
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -357,6 +360,14 @@ export function useHostDashboard({
     refetchInterval: pollIntervalMs,
     refetchOnWindowFocus: true,
   });
+
+  // Subscribe to realtime broadcast notifications
+  useEffect(() => {
+    if (!locationId) return;
+    return onChannelRefresh('dashboard', () => {
+      queryClient.invalidateQueries({ queryKey: ['host-dashboard', locationId] });
+    });
+  }, [queryClient, locationId]);
 
   return {
     dashboard: data ?? null,
@@ -375,6 +386,8 @@ export function useHostDashboard({
 // ── Host Tables Hook ─────────────────────────────────────────────
 
 export function useHostTables(locationId: string | null) {
+  const queryClient = useQueryClient();
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['host-tables', locationId],
     queryFn: async ({ signal }) => {
@@ -386,8 +399,16 @@ export function useHostTables(locationId: string | null) {
     },
     enabled: !!locationId,
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000, // reduced from 30s — realtime broadcast is primary
   });
+
+  // Subscribe to realtime broadcast notifications
+  useEffect(() => {
+    if (!locationId) return;
+    return onChannelRefresh('floor', () => {
+      queryClient.invalidateQueries({ queryKey: ['host-tables', locationId] });
+    });
+  }, [queryClient, locationId]);
 
   return { tables: data ?? [], isLoading, error: error?.message ?? null };
 }
@@ -551,8 +572,45 @@ export function useWaitlistMutations(locationId: string | null) {
   const removeGuest = useMutation({
     mutationFn: async (input: { id: string; reason?: string }) => {
       const json = await apiFetch<{ data: unknown }>(
-        `/api/v1/fnb/host/waitlist/${input.id}${locParam}`,
-        { method: 'DELETE', body: JSON.stringify({ reason: input.reason }) },
+        `/api/v1/fnb/host/waitlist/${input.id}/remove${locParam}`,
+        { method: 'POST', body: JSON.stringify({ reason: input.reason }) },
+      );
+      return json.data;
+    },
+    onSuccess: invalidateAll,
+    onError: (e) => setError(e.message),
+  });
+
+  const bumpPosition = useMutation({
+    mutationFn: async (input: { id: string; direction: 'up' | 'down' }) => {
+      const json = await apiFetch<{ data: unknown }>(
+        `/api/v1/fnb/host/waitlist/${input.id}/bump${locParam}`,
+        { method: 'POST', body: JSON.stringify({ direction: input.direction }) },
+      );
+      return json.data;
+    },
+    onSuccess: invalidateAll,
+    onError: (e) => setError(e.message),
+  });
+
+  const mergeEntries = useMutation({
+    mutationFn: async (input: { primaryId: string; secondaryId: string }) => {
+      const json = await apiFetch<{ data: unknown }>(
+        `/api/v1/fnb/host/waitlist/merge${locParam}`,
+        { method: 'POST', body: JSON.stringify(input) },
+      );
+      return json.data;
+    },
+    onSuccess: invalidateAll,
+    onError: (e) => setError(e.message),
+  });
+
+  const splitEntry = useMutation({
+    mutationFn: async (input: { id: string; newPartySize: number; newGuestName: string; newGuestPhone?: string }) => {
+      const { id, ...body } = input;
+      const json = await apiFetch<{ data: unknown }>(
+        `/api/v1/fnb/host/waitlist/${id}/split${locParam}`,
+        { method: 'POST', body: JSON.stringify(body) },
       );
       return json.data;
     },
@@ -566,7 +624,11 @@ export function useWaitlistMutations(locationId: string | null) {
     seatGuest: seatGuest.mutateAsync,
     notifyGuest: notifyGuest.mutateAsync,
     removeGuest: removeGuest.mutateAsync,
+    bumpPosition: bumpPosition.mutateAsync,
+    mergeEntries: mergeEntries.mutateAsync,
+    splitEntry: splitEntry.mutateAsync,
     isAdding: addToWaitlist.isPending,
+    isUpdating: updateEntry.isPending,
     isSeating: seatGuest.isPending,
     isNotifying: notifyGuest.isPending,
     error,
@@ -713,4 +775,34 @@ export function useReservationMutations(locationId: string | null) {
     error,
     clearError: () => setError(null),
   };
+}
+
+// ── Host Analytics ──────────────────────────────────────────────
+
+export interface HostAnalyticsResult {
+  coversSummary: { actual: number; expected: number };
+  waitTimeSummary: { avgQuotedMinutes: number; avgActualMinutes: number; accuracyPercent: number };
+  turnTimeSummary: { totalTurns: number; avgMinutes: number; previousPeriodAvg: number };
+  noShowSummary: { count: number; totalReservations: number; ratePercent: number };
+  waitlistSummary: { totalAdded: number; totalSeated: number; conversionPercent: number };
+  coversByHour: Array<{ hour: number; reservationCovers: number; walkInCovers: number }>;
+  waitTimeScatter: Array<{ quotedMinutes: number; actualMinutes: number; partySize: number }>;
+  turnTimeDistribution: Array<{ bucketLabel: string; count: number }>;
+  noShowTrend: Array<{ date: string; count: number; movingAvg7d: number }>;
+  peakHeatmap: Array<{ dayOfWeek: number; hour: number; covers: number }>;
+}
+
+export function useHostAnalytics(locationId: string | null, startDate: string, endDate: string) {
+  const { data, isLoading, error } = useQuery<HostAnalyticsResult>({
+    queryKey: ['host-analytics', locationId, startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams({ locationId: locationId!, startDate, endDate });
+      const json = await apiFetch<{ data: HostAnalyticsResult }>(`/api/v1/fnb/host/analytics?${params}`);
+      return json.data;
+    },
+    enabled: !!locationId,
+    staleTime: 60_000,
+  });
+
+  return { analytics: data ?? null, isLoading, error };
 }

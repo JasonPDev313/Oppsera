@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { hasPaymentsGateway, getPaymentsGatewayApi } from '@oppsera/core/helpers/payments-gateway-api';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { AppError, ValidationError } from '@oppsera/shared';
 import { recordSplitTender } from '@oppsera/module-fnb';
 import { z } from 'zod';
@@ -85,6 +86,7 @@ export const POST = withMiddleware(
       clientRequestId: `tender-${input.clientRequestId}`,
     });
 
+    broadcastFnb(ctx, 'tabs').catch(() => {});
     return NextResponse.json({
       data: {
         ...tenderResult,

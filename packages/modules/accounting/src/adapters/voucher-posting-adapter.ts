@@ -195,11 +195,9 @@ export async function handleVoucherRedemptionForAccounting(event: EventEnvelope)
       return;
     }
 
-    // For redemptions, revenue is recognized. Use the AR control as a proxy for
-    // general revenue, or fall back to undeposited funds. In practice, tenants
-    // should configure a specific gift card revenue account.
-    // We use the defaultARControlAccountId as revenue recognition.
-    const revenueAccountId = settings.defaultARControlAccountId;
+    // For redemptions, revenue is recognized when the voucher is used.
+    // Credit a revenue account (not AR — AR is an asset, not revenue).
+    const revenueAccountId = settings.defaultUncategorizedRevenueAccountId;
     if (!revenueAccountId) {
       await logUnmappedEvent(db, event.tenantId, {
         eventType: 'voucher.redeemed.v1',
@@ -207,7 +205,7 @@ export async function handleVoucherRedemptionForAccounting(event: EventEnvelope)
         sourceReferenceId: data.voucherId,
         entityType: 'revenue_account',
         entityId: 'default',
-        reason: 'Missing default AR control / revenue account for voucher redemption',
+        reason: 'Missing default revenue account for voucher redemption',
       });
       return;
     }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, Fragment } from 'react';
+import Link from 'next/link';
 import {
   Search,
   ChevronDown,
@@ -10,6 +11,8 @@ import {
   Clock,
   User,
   FileSpreadsheet,
+  FileBarChart,
+  ScrollText,
 } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { usePaginatedAuditTrail, useAuditCoverage } from '@/hooks/use-audit';
@@ -90,6 +93,25 @@ export default function AuditContent() {
 
   return (
     <AccountingPageShell title="Audit Trail" subtitle="Financial transaction audit log and coverage analysis">
+      {/* Cross-links to related audit views */}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-muted-foreground">Also see:</span>
+        <Link
+          href="/accounting/reports/audit-trail"
+          className="flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <FileBarChart className="h-3.5 w-3.5" />
+          Audit Trail Report
+        </Link>
+        <Link
+          href="/settings/general?tab=audit"
+          className="flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <ScrollText className="h-3.5 w-3.5" />
+          Activity Log (Settings)
+        </Link>
+      </div>
+
       {/* Coverage Cards */}
       {coverage && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

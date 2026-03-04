@@ -80,7 +80,10 @@ export async function postInvoice(ctx: RequestContext, input: PostInvoiceInput) 
       memo: `AR Invoice ${invoice.invoiceNumber}`,
     });
 
-    // Credit revenue accounts from lines
+    // Credit revenue accounts from lines + tax payable
+    const settingsAny = settings as Record<string, any>;
+    const taxPayableAccountId = (settingsAny.defaultSalesTaxPayableAccountId as string | null) ?? null;
+
     for (const line of lines) {
       glLines.push({
         accountId: line.accountId,
@@ -90,8 +93,17 @@ export async function postInvoice(ctx: RequestContext, input: PostInvoiceInput) 
         memo: line.description,
       });
 
-      // If line has tax, credit tax payable
-      // TODO: resolve tax account from tax group mapping when available
+      // Credit tax payable for line tax amount
+      const lineTax = Number(line.taxAmount ?? '0');
+      if (lineTax > 0 && taxPayableAccountId) {
+        glLines.push({
+          accountId: taxPayableAccountId,
+          debitAmount: '0',
+          creditAmount: lineTax.toFixed(2),
+          customerId: invoice.customerId,
+          memo: `Tax — ${line.description ?? 'invoice line'}`,
+        });
+      }
     }
 
     // 6. Post GL entry

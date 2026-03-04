@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import {
   invalidateGuestPaySession,
   invalidateGuestPaySessionSchema,
@@ -26,6 +27,7 @@ export const POST = withMiddleware(
     }
 
     const result = await invalidateGuestPaySession(ctx, ctx.locationId ?? '', parsed.data);
+    broadcastFnb(ctx, 'guest_pay').catch(() => {});
     return NextResponse.json({ data: result });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage', writeAccess: true },

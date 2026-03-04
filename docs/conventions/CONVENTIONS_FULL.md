@@ -10794,3 +10794,561 @@ await writeApi.postFolioCharge(tenantId, folioId, {
 3. **Guest must have active reservation** — `PmsReadApi.getGuestFolio()` returns null for checked-out guests
 4. **Credit limit check** — some properties set per-folio charge limits. Check before posting
 
+---
+
+## §215 F&B Host Orchestration
+
+Comprehensive host-stand intelligence system for F&B operations.
+
+### Server Load Balancing
+
+```
+refreshServerLoadSnapshot(ctx, input):
+  withTenant → query fnb_server_assignments + tabs → compute per-server stats
+  DELETE + batch INSERT to fnb_server_load_snapshots (atomic replace)
+  No outbox — read-model materialisation only
+
+getServerLoadSnapshot(ctx):
+  Reads snapshot ordered by total_cover_count ASC (lightest first)
+
+recommendServer(ctx, input):
+  Scoring algorithm (0–100+):
+    +50 section affinity (server already assigned to section)
+    +30 cover balance (fewer covers = higher score)
+    +20 tab balance (fewer open tabs = higher score)
+    +10 round-robin rotation bonus
+  Methods: round_robin | cover_balance | manual
+```
+
+Service: `packages/modules/fnb/src/services/server-recommender.ts` (pure — no DB)
+
+### Pacing Engine
+
+```
+upsertPacingRule(ctx, input):
+  Defines per-slot cover limits (e.g., max 20 covers per 15-min slot)
+  publishWithOutbox, emits fnb.pacing.rule_upserted.v1
+
+getPacingAvailability(ctx, input):
+  Loads active rules + booked cover counts → computePacingAvailability()
+  Returns per-slot: { slot, maxCovers, bookedCovers, available }
+```
+
+Service: `packages/modules/fnb/src/services/pacing-evaluator.ts`
+
+### RevPASH / Yield Optimization
+
+```
+RevPASH = Revenue ÷ (Available Seats × Hours)
+
+getRevpashMetrics(ctx, input):
+  Aggregates from rm_fnb_table_turns, per-meal-period scoping
+
+getYieldRecommendations(ctx, input):
+  Loads pacing rules + reservation/tab/turn data in parallel
+  → generateYieldRecommendations() → increase/decrease/hold advice per slot
+```
+
+Service: `packages/modules/fnb/src/services/revpash-calculator.ts` (pure functions)
+
+### Host Analytics (Read-Model Materialisation)
+
+```
+refreshHostAnalytics(ctx, input):
+  Materialises 3 read-model tables:
+    rm_fnb_host_hourly — hourly slot aggregates
+    rm_fnb_waitlist_accuracy — quoted vs actual wait by meal period
+    rm_fnb_seating_efficiency — turn counts, utilization, fill ratios
+  Uses ON CONFLICT ... DO UPDATE (idempotent upsert)
+  NOT using outbox — pure read-model refresh
+
+getHostAnalyticsDashboard(ctx, input):
+  Returns: coversSummary, waitTimeSummary, turnTimeSummary, noShowSummary
+  Charts: coversByHour[], waitTimeScatter[], turnTimeDistribution[],
+          noShowTrend[], peakHeatmap[] (day-of-week × hour grid)
+```
+
+Frontend: `WaitlistAnalytics.tsx` — summary cards, bar/scatter charts, 7×14 heat grid
+
+### Waitlist Table Offers
+
+```
+offerTableToWaitlist(ctx, input):
+  publishWithOutbox → validates entry is waiting/notified, table is available
+  Writes offer fields atomically with expiry (default 10 min)
+  Emits fnb.waitlist.table_offered.v1
+
+acceptTableOffer / declineTableOffer:
+  Guest responds via token-authenticated public route or host panel
+  Accept → auto-seats party, emits fnb.waitlist.offer_accepted.v1
+  Decline → clears offer, re-queues, emits fnb.waitlist.offer_declined.v1
+
+Consumer: handleTableAvailableForWaitlist
+  On table status → available, auto-evaluates waitlist for best-fit offer
+```
+
+### Guest Intelligence
+
+```
+refreshGuestProfile(ctx, input):
+  Aggregates visit history, spend patterns, preferences from orders/tabs
+  Upserts fnb_guest_profiles with: visitCount, avgSpend, preferredServer,
+  dietaryNotes, lastVisitAt, vipTier
+
+searchGuestProfiles(ctx, input):
+  Full-text search on name/phone/email with visit-count enrichment
+```
+
+Service: `packages/modules/fnb/src/services/guest-profile-aggregator.ts`
+
+### Turn Time Prediction
+
+```
+getTurnTimePrediction(ctx, input):
+  Uses historical turn data + current party size + day-of-week + meal period
+  Returns estimated minutes with confidence interval
+
+Service: packages/modules/fnb/src/services/turn-time-predictor.ts
+```
+
+### Events
+
+```
+fnb.waitlist.table_offered.v1
+fnb.waitlist.offer_accepted.v1
+fnb.waitlist.offer_declined.v1
+fnb.waitlist.offer_expired.v1
+fnb.waitlist.settings_updated.v1
+fnb.host.analytics_refreshed.v1
+fnb.host.server_load_refreshed.v1
+```
+
+### Rules
+
+1. **Read-model refreshes do NOT use outbox** — `refreshHostAnalytics` and `refreshServerLoadSnapshot` use `withTenant()` directly. No domain event, no idempotency key — just upsert-safe SQL
+2. **Server recommender is pure** — zero DB access, takes snapshot data as input. Easy to unit test
+3. **RevPASH is revenue per available seat-hour** — industry-standard metric. Always compute from posted revenue, not order totals
+4. **Offer expiry is host-configurable** — default 10 min, stored in waitlist config. Expired offers auto-decline via cron
+
+---
+
+## §216 Waitlist Config System
+
+Self-service waitlist configuration with public guest-facing pages.
+
+### Schema
+
+```
+fnb_waitlist_config:
+  tenant_id, location_id (nullable — null = tenant-wide default)
+  slug_override (UNIQUE — vanity public URLs)
+  form_config (JSONB)
+  notification_config (JSONB)
+  queue_config (JSONB)
+  branding (JSONB)
+  content_config (JSONB)
+  operating_hours (JSONB)
+  UNIQUE(tenant_id, location_id)
+```
+
+Migration: `0265_waitlist_config.sql`
+
+### JSONB Config Sections (Zod-validated)
+
+```
+formConfig:
+  partySizeMin/Max, requirePhone, seatingPreferences[], occasions[],
+  customFields[] (type: text|number|select), termsText
+
+notificationConfig:
+  SMS templates with placeholders: {guest_name}, {venue_name},
+  {estimated_wait}, {track_link}
+  gracePeriodMinutes, autoRemoveAfterGrace, twoWaySmsEnabled
+
+queueConfig:
+  maxCapacity (default 50), estimationMethod (auto|manual),
+  promotionLogic (first_in_line|best_fit|priority_first),
+  vipPriorityLevels[], pacing { maxPerInterval, intervalMinutes }
+
+branding:
+  logoUrl, primaryColor, secondaryColor, accentColor, fontFamily,
+  welcomeHeadline, welcomeSubtitle, footerText
+
+contentConfig:
+  whileYouWait: { type: text|url|menu, content }
+
+operatingHours:
+  Per-day open/close windows
+```
+
+Service: `packages/modules/fnb/src/services/waitlist-config.ts`
+Helpers: `getDefaultWaitlistConfig()`, `mergeWaitlistConfig()`, `mapWaitlistConfigRow()`
+
+### Commands
+
+```
+upsertWaitlistConfig(ctx, input):
+  Loads existing → mergeWaitlistConfig() deep-merge (prevents data loss)
+  ON CONFLICT upsert. Emits fnb.waitlist.settings_updated.v1
+
+bumpWaitlistPosition(ctx, input):
+  Atomically swaps entry with neighbor (up/down)
+  CTE locks both rows in id-order → deadlock-safe
+
+mergeWaitlistEntries(ctx, input):
+  Locks two entries in canonical id order (deadlock-safe)
+  Adds party sizes, cancels secondary, appends merge notes
+
+splitWaitlistEntry(ctx, input):
+  Splits one entry into two, shifts subsequent positions
+
+confirmWaitlistArrival(ctx, input):
+  PUBLIC (no auth) — uses guest_token for identity
+  Sets confirmation_status = 'on_my_way' with optional ETA
+  Uses createAdminClient() (bypasses RLS — no tenant context)
+
+expireWaitlistEntries():
+  Cron sweep across ALL tenants (every 2 min)
+  LATERAL JOIN for config fallback: location-specific → tenant-wide default
+  Recomputes positions using added_at as FIFO tiebreaker
+```
+
+### Public Guest-Facing API (no auth)
+
+```
+GET  /api/v1/fnb/public/[tenantSlug]/waitlist/config    — branding + form config
+POST /api/v1/fnb/public/[tenantSlug]/waitlist/join       — rate-limited, config-driven validation
+GET  /api/v1/fnb/public/[tenantSlug]/waitlist/estimate   — wait time estimate
+GET  /api/v1/fnb/public/[tenantSlug]/waitlist/locations  — multi-location selector
+GET  /api/v1/fnb/public/[tenantSlug]/waitlist/status/[token]          — guest status
+POST /api/v1/fnb/public/[tenantSlug]/waitlist/status/[token]/confirm  — "on my way"
+```
+
+### Cron
+
+```
+POST /api/v1/fnb/cron/waitlist-sweep — Vercel cron, every 2 min
+  Authenticated with CRON_SECRET, calls expireWaitlistEntries()
+```
+
+### Frontend
+
+- `waitlist-config-content.tsx` — Operator config UI (7 tabs: General, Form, Notifications, Queue, Branding, Content, Operating Hours)
+- `join-content.tsx` — Config-driven guest join form (reads branding from public config)
+- `status/[token]/page.tsx` — Guest status tracking (position, wait, "on my way" button)
+- `widget/` + `embed/` — Embeddable/iframe variants
+
+### Rules
+
+1. **Config is JSONB blobs, not columns** — mirrors `spa_booking_widget_config` pattern. Flexible without schema migrations
+2. **Deep-merge on upsert** — partial config updates never lose unrelated fields
+3. **Deadlock-safe swaps** — `bumpWaitlistPosition` and `mergeWaitlistEntries` lock rows in canonical `ORDER BY id` sequence
+4. **LATERAL JOIN for config fallback** — `LEFT JOIN LATERAL ... ORDER BY c.location_id IS NULL ASC LIMIT 1` prefers location-specific config over tenant-wide default
+5. **Public routes resolve tenant from slug** — no auth required. Rate-limited via `checkRateLimit` + `RATE_LIMITS.publicWrite`
+6. **Cron uses `createAdminClient()`** — bypasses RLS since it sweeps across all tenants
+
+---
+
+## §217 Semantic Fast-Path + Schema Catalog
+
+### Fast-Path (Deterministic Intent Resolution)
+
+Regex/keyword-based resolver that skips the LLM for simple, unambiguous queries.
+
+```
+tryFastPath(message, catalog):
+  Guards:
+    - Skip if conversation history exists (multi-turn changes meaning)
+    - Skip if message > 100 chars
+  Pattern matching:
+    "sales today" → metric=total_revenue, timeRange=today
+    "yesterday's sales" → metric=total_revenue, timeRange=yesterday
+    "last 7 days sales" → metric=total_revenue, timeRange=last_7_days
+    "spa revenue today" → metric=spa_revenue, timeRange=today
+    "list spa services" → metric=spa_services, type=list
+  Catalog validation:
+    Checks hasMetric() + hasDimension() against live RegistryCatalog
+    Falls through to LLM if catalog doesn't have expected slug
+  Returns:
+    ResolvedIntent with confidence=0.95, provider='fast-path',
+    model='deterministic', tokensInput=0, latencyMs=0
+```
+
+File: `packages/modules/semantic/src/llm/fast-path.ts`
+
+### Schema Catalog (SWR-Cached)
+
+```
+buildSchemaCatalog(tenantId):
+  Queries information_schema for all tenant tables
+  Excludes system/infra tables (outbox, admin, job tables)
+  Generates:
+    fullText — all columns for SQL generation
+    summaryText — table names + descriptions for intent routing
+  Human-readable TABLE_DESCRIPTIONS map:
+    "users = staff/employees, NOT customers"
+  Cache: 1-hour TTL, 2-hour stale-while-revalidate window
+```
+
+File: `packages/modules/semantic/src/schema/schema-catalog.ts`
+
+### Rules
+
+1. **Fast-path returns null on miss** — pipeline silently falls through to LLM. No error, no retry
+2. **Catalog validation prevents stale matches** — if a fast-path pattern references a metric slug that doesn't exist in the registry, it falls through
+3. **Schema catalog SWR** — serve stale data after 1h TTL, trigger background refresh. Hard-expire at 2h
+4. **Fast-path result envelope** — always includes `provider: 'fast-path'` and `model: 'deterministic'` so callers can observe which path was taken
+
+---
+
+## §218 Admin Portal Operations
+
+Expanded admin portal with health monitoring, audit, finance, and global search.
+
+### Health Monitoring (`/health`)
+
+```
+Dashboard:
+  SystemSnapshot: event queue depth, tenants, orders, users, DB size
+  HealthAlert[]: severity-ranked alerts (critical → warning → info)
+  TopIssue[]: trending problems across tenants
+  AreaCharts (recharts): 24h metric trends
+  HealthGradePill: A/B/C/D/F grading per-tenant
+
+API:
+  GET  /api/v1/health/dashboard     — system snapshot + alerts
+  GET  /api/v1/health/tenants       — tenant list with health grades
+  GET  /api/v1/health/tenants/[id]/history — grade history over time
+  GET  /api/v1/health/alerts        — active alerts list
+  POST /api/v1/health/capture       — trigger health snapshot
+```
+
+### Audit Deep-Dive (`/audit`)
+
+```
+4 panels:
+  PlatformAuditPanel — platform admin actions
+  TenantAuditPanel — per-tenant activity drill-down
+  ImpersonationAuditPanel — impersonation session log with timeline
+  AuditExportPanel — CSV/JSON export with date range + entity filters
+
+Components: AuditLogEntry, AuditQuickFilters, SnapshotDiffViewer,
+            ImpersonationSessionCard
+
+API:
+  GET  /api/v1/audit/route          — platform audit log
+  GET  /api/v1/audit/actions        — action type list
+  GET  /api/v1/audit/tenant/[tenantId] — tenant-scoped audit
+  GET  /api/v1/audit/impersonation  — impersonation sessions
+  GET  /api/v1/audit/export         — export (CSV/JSON)
+```
+
+### Finance Tools (`/finance`)
+
+```
+6 tabs:
+  OrderSearchPanel — order lookup by number/id/date range
+  OrderDetailPanel — drill-down with line items + tenders + GL entries
+  VoidsRefundsPanel — void/refund list with cross-link to order detail
+  GLIssuesPanel — GL posting failures + resolution actions
+  ChargebacksPanel — chargeback lifecycle management
+  CloseBatchesPanel — batch reconciliation status
+  VoucherLookupPanel — voucher search by code/status
+
+API:
+  GET  /api/v1/finance/orders       — order search
+  GET  /api/v1/finance/orders/[id]  — order detail
+  GET  /api/v1/finance/voids        — voids list
+  GET  /api/v1/finance/refunds      — refunds list
+  GET  /api/v1/finance/gl-issues    — GL posting failures
+  GET  /api/v1/finance/chargebacks  — chargeback list
+  GET  /api/v1/finance/close-batches — batch status
+  GET  /api/v1/finance/vouchers     — voucher lookup
+```
+
+### Global Search (`/search`)
+
+```
+CommandPalette (Ctrl+K):
+  Searches: tenants, users, customers, orders, locations, terminals
+  Scope filter dropdown (all | tenants | users | orders | ...)
+  SearchHighlight component for match rendering
+  Recent searches saved to history
+
+API:
+  GET  /api/v1/search              — global search
+  GET  /api/v1/search/quick-nav    — quick navigation suggestions
+  GET  /api/v1/search/recent       — recent search history
+```
+
+### Rules
+
+1. **Health grades are computed, not stored** — `health-scoring.ts` calculates grades from live metrics on each request
+2. **Audit export respects tenant isolation** — admin can only export for tenants they have access to
+3. **Finance tools are read-only** — no mutations from admin finance panel, only investigation + navigation to tenant context
+4. **Command palette uses `SearchHighlight`** — highlights matching substrings in results for quick visual scanning
+
+---
+
+## §219 Housekeeping Management
+
+### Cleaning Types
+
+```
+Tables: pms_cleaning_types
+  id, tenant_id, code, name, description, estimated_minutes, sort_order, is_active
+
+Commands (manage-cleaning-types.ts):
+  createCleaningType — insert with tenant validation + auditLog
+  updateCleaningType — patch-style (only applies defined fields) + auditLog
+  deleteCleaningType / deactivateCleaningType
+
+Queries:
+  listCleaningTypes — ordered by sort_order, optional includeInactive flag
+  getHousekeeperWorkload — per-housekeeper stats (pending, inProgress, completed, skipped, avgMinutes)
+  getHousekeepingProductivity — productivity metrics
+```
+
+Frontend: `cleaning-types-tab.tsx` — CRUD UI for defining service levels (Full Clean, Stayover, Turn-Down, etc.)
+
+### Rules
+
+1. **Cleaning types are tenant-scoped** — each property defines its own service levels with estimated durations
+2. **Soft-delete preferred** — deactivate via `isActive=false` rather than hard-delete when cleaning type has historical assignments
+3. **Assignment deadlines** — `setAssignmentDeadline` command sets per-day completion targets
+
+---
+
+## §220 Accounting: Retained Earnings + Journal Validation
+
+### Generate Retained Earnings
+
+```
+generateRetainedEarnings(ctx, input):
+  1. Reads fiscal_year_start_month from accounting_settings
+  2. Computes FY start date from end date + start month (handles cross-year FYs)
+  3. Idempotency via source_reference_id = 'retained-earnings-{startDate}-{endDate}'
+  4. Net income = revenue credits − expense debits from gl_journal_lines for FY
+  5. Validates retained earnings GL account exists
+  6. Posts closing journal entry, emits accounting event
+  Errors:
+    DUPLICATE_CLOSE (409) — already closed for this period
+    NO_NET_INCOME (400) — net income is zero, nothing to close
+```
+
+### Journal Validation Enhancements
+
+```
+validateJournal(params):
+  New params: transactionCurrency, exchangeRate
+  Returns: transactionCurrency, exchangeRate (as string for DB storage)
+
+  New error: ControlAccountError
+    Prevents posting to control accounts without hasControlAccountPermission
+
+  Rounding tolerance:
+    When debit/credit imbalance is within roundingToleranceCents,
+    auto-generates a rounding journal line using defaultRoundingAccountId
+    from accounting_settings
+```
+
+### GL Adapter Multi-Currency
+
+All 7 GL adapters updated to pass `transactionCurrency` and `exchangeRate` to `validateJournal`:
+- `ach-posting-adapter.ts`
+- `chargeback-posting-adapter.ts`
+- `customer-financial-posting-adapter.ts`
+- `fnb-posting-adapter.ts` (also added `resolveRevenueBySubDepartment()`)
+- `inventory-receipt-posting-adapter.ts`
+- `spa-posting-adapter.ts`
+- `voucher-posting-adapter.ts`
+
+### Rules
+
+1. **Retained earnings is idempotent** — cannot close the same fiscal year twice (409 on duplicate)
+2. **Rounding auto-balancing** — imbalances within tolerance are automatically corrected via a rounding account, not rejected
+3. **Control account guard** — GL accounts flagged as control accounts (AP, AR, inventory) cannot be posted to directly without explicit permission
+4. **F&B revenue routes through sub-department** — `resolveRevenueBySubDepartment()` uses the same path as retail POS since F&B items are catalog items
+
+---
+
+## §221 Cross-Cutting Patterns (2025-03)
+
+New reusable patterns introduced across multiple modules.
+
+### Read-Model Materialisation Without Outbox
+
+For pure read-model refreshes (no domain event, no idempotency requirement):
+
+```typescript
+// Use withTenant() directly — NOT publishWithOutbox
+export async function refreshServerLoadSnapshot(ctx: CommandContext, input: Input) {
+  return withTenant(ctx.tenantId, async (tx) => {
+    // DELETE + batch INSERT (atomic replace)
+    await tx.delete(serverLoadSnapshots).where(eq(...));
+    await tx.insert(serverLoadSnapshots).values(rows);
+    // No event emission, no idempotency key
+  });
+}
+```
+
+When to use: host analytics, server load snapshots, reporting read models that are recomputed on-demand.
+When NOT to use: anything that needs event consumers, audit trail, or at-least-once delivery.
+
+### Deadlock-Safe Concurrent Row Locking
+
+When two rows must be locked atomically (swaps, merges):
+
+```typescript
+// Always lock in canonical ORDER BY id to prevent deadlocks
+const [row1, row2] = id1 < id2 ? [id1, id2] : [id2, id1];
+// CTE or sequential SELECT ... FOR UPDATE in id order
+```
+
+Used by: `bumpWaitlistPosition`, `mergeWaitlistEntries`
+
+### LATERAL JOIN Config Fallback
+
+For tenant-default → location-override config lookups:
+
+```sql
+LEFT JOIN LATERAL (
+  SELECT * FROM fnb_waitlist_config c
+  WHERE c.tenant_id = w.tenant_id
+    AND (c.location_id = w.location_id OR c.location_id IS NULL)
+  ORDER BY c.location_id IS NULL ASC  -- prefer location-specific
+  LIMIT 1
+) cfg ON true
+```
+
+Used by: `expireWaitlistEntries` (cron sweep)
+
+### Public Routes With Admin Client
+
+For guest-facing or cron routes without tenant auth context:
+
+```typescript
+// No tenant context → bypass RLS with admin client
+const db = createAdminClient();
+// Validate identity via guest_token or CRON_SECRET
+```
+
+Used by: `confirmWaitlistArrival`, `expireWaitlistEntries`, public waitlist APIs
+
+### JSONB Config Blobs With Zod Validation
+
+For operator-customizable configuration that evolves without migrations:
+
+```typescript
+// Define Zod schema in service layer
+export const formConfigSchema = z.object({ ... });
+// Store as JSONB column in DB
+// Deep-merge on upsert to prevent data loss
+export function mergeConfig(existing, partial) {
+  return { ...getDefaults(), ...existing, ...partial };
+}
+```
+
+Used by: `fnb_waitlist_config`, `spa_booking_widget_config`
+
+

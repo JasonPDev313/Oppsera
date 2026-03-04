@@ -117,5 +117,5 @@ pnpm db:seed              # Seed dev data
 | [docs/conventions/gotchas-top30.md](docs/conventions/gotchas-top30.md) | Need full details on top 30 gotchas |
 | [docs/conventions/gotchas-reference.md](docs/conventions/gotchas-reference.md) | All 490 gotchas |
 | [docs/conventions/whats-built.md](docs/conventions/whats-built.md) | Complete module/feature inventory |
-| [docs/conventions/CONVENTIONS_FULL.md](docs/conventions/CONVENTIONS_FULL.md) | Full dev conventions (214 sections) |
+| [docs/conventions/CONVENTIONS_FULL.md](docs/conventions/CONVENTIONS_FULL.md) | Full dev conventions (221 sections) |
 | [CONVENTIONS.md](CONVENTIONS.md) | Index into CONVENTIONS_FULL.md by section number |

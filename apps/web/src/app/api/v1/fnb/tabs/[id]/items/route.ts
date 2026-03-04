@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import { addTabItems, addTabItemsSchema } from '@oppsera/module-fnb';
 
@@ -21,6 +22,7 @@ export const POST = withMiddleware(
     }
 
     const result = await addTabItems(ctx, parsed.data);
+    broadcastFnb(ctx, 'kds', 'tabs').catch(() => {});
     return NextResponse.json({ data: result }, { status: 201 });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage' , writeAccess: true },

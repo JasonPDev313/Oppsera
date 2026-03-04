@@ -20,6 +20,8 @@ export const HOST_EVENTS = {
   WAITLIST_OFFER_ACCEPTED: 'fnb.waitlist.offer_accepted.v1',
   WAITLIST_OFFER_DECLINED: 'fnb.waitlist.offer_declined.v1',
   WAITLIST_OFFER_EXPIRED: 'fnb.waitlist.offer_expired.v1',
+  // Session 8 — Waitlist V1 Config
+  WAITLIST_SETTINGS_UPDATED: 'fnb.waitlist.settings_updated.v1',
 } as const;
 
 export type HostEventType = (typeof HOST_EVENTS)[keyof typeof HOST_EVENTS];

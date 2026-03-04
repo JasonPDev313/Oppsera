@@ -1,0 +1,41 @@
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
+import { z } from 'zod';
+import { ValidationError } from '@oppsera/shared';
+import { bumpWaitlistPosition } from '@oppsera/module-fnb';
+
+const bumpSchema = z.object({
+  direction: z.enum(['up', 'down']),
+});
+
+function extractId(request: NextRequest): string {
+  // URL: /api/v1/fnb/host/waitlist/[id]/bump
+  const parts = new URL(request.url).pathname.split('/');
+  // parts = ['', 'api', 'v1', 'fnb', 'host', 'waitlist', '{id}', 'bump']
+  return parts[parts.length - 2]!;
+}
+
+export const POST = withMiddleware(
+  async (req: NextRequest, ctx) => {
+    const id = extractId(req);
+    const body = await req.json();
+    const parsed = bumpSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new ValidationError(
+        'Invalid bump request',
+        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+      );
+    }
+
+    const result = await bumpWaitlistPosition(ctx, id, parsed.data.direction);
+    broadcastFnb(ctx, 'waitlist').catch(() => {});
+    return NextResponse.json({ data: result });
+  },
+  {
+    entitlement: 'pos_fnb',
+    permission: 'pos_fnb.host.manage',
+    writeAccess: true,
+  },
+);

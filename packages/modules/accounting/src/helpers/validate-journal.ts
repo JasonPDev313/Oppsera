@@ -185,9 +185,12 @@ export async function validateJournal(
       if (roundingAccount) {
         const invalidRoundingTypes = ['revenue', 'asset'];
         if (invalidRoundingTypes.includes(roundingAccount.accountType)) {
-          console.warn(
-            `[validate-journal] Rounding account ${roundingAccount.accountNumber} is type '${roundingAccount.accountType}'. ` +
-            `Rounding accounts should be expense or equity type to avoid inflating revenue or creating phantom asset balances.`,
+          throw new AppError(
+            'INVALID_ROUNDING_ACCOUNT',
+            `Rounding account ${roundingAccount.accountNumber} is type '${roundingAccount.accountType}'. ` +
+            `Rounding accounts must be expense or equity type to avoid inflating revenue or creating phantom asset balances. ` +
+            `Debits=${totalDebits}, Credits=${totalCredits}.`,
+            400,
           );
         }
       }
@@ -238,16 +241,16 @@ function getAllowedSourcesForControlType(controlAccountType: string): string[] {
     case 'ar':
       return ['ar', 'customers', 'membership', 'pms', 'manual'];
     case 'sales_tax':
-      return ['pos', 'pos_return', 'fnb', 'ar', 'pms', 'ach', 'manual'];
+      return ['pos', 'pos_return', 'pos_legacy', 'fnb', 'ar', 'pms', 'ach', 'manual'];
     case 'undeposited_funds':
       return [
-        'pos', 'pos_return', 'fnb', 'payments', 'chargeback',
+        'pos', 'pos_return', 'pos_legacy', 'fnb', 'payments', 'chargeback',
         'ach', 'ach_return', 'stored_value', 'voucher', 'pms',
         'drawer_session', 'customers', 'membership', 'inventory', 'manual',
       ];
     case 'bank':
       return [
-        'ap', 'ar', 'pos', 'pos_return', 'fnb', 'payments', 'chargeback',
+        'ap', 'ar', 'pos', 'pos_return', 'pos_legacy', 'fnb', 'payments', 'chargeback',
         'ach', 'ach_return', 'pms', 'drawer_session', 'stored_value',
         'voucher', 'customers', 'membership', 'inventory', 'manual',
       ];

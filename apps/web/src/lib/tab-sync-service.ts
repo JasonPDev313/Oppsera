@@ -1,15 +1,11 @@
 /**
- * Phase 4A + 5C: Unified Tab Sync Service.
+ * Unified Tab Sync Service.
  *
  * Single sync abstraction consumed by BOTH `use-register-tabs.ts` and
  * `use-fnb-tab.ts`. Wraps:
  *   - BroadcastChannel (same-browser, instant)
- *   - Polling (cross-device, 3s default)
- *   - SSE push (sub-second when available — Phase 5)
- *
- * Transport selection:
- *   SSE available && online → SSE (polling at 30s safety net)
- *   else → polling at 3s + BroadcastChannel
+ *   - Supabase Realtime Broadcast (cross-device, sub-second via use-fnb-realtime)
+ *   - Polling (safety net, 30s)
  */
 
 import { apiFetch } from '@/lib/api-client';
@@ -22,8 +18,8 @@ import {
   type TabSyncAction,
   type TabSyncMessage,
 } from '@/lib/tab-sync-channel';
-import { updatePresence, clearPresence, type PresenceInfo } from '@/lib/tab-presence';
-import { connectTabSyncSSE, disconnectTabSyncSSE, type TabSyncSSEEvent } from '@/lib/tab-sync-sse';
+import { clearPresence } from '@/lib/tab-presence';
+import { onChannelRefresh } from '@/lib/realtime-channel-registry';
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -54,11 +50,11 @@ const _subscriptions: Subscription[] = [];
 let _pollTimer: ReturnType<typeof setInterval> | null = null;
 let _lastPollTimestamp: string | null = null;
 let _currentLocationId: string | null = null;
-let _sseActive = false;
+let _realtimeUnsub: (() => void) | null = null;
+let _pollInFlight = false;
 
-// Polling intervals
-const POLL_INTERVAL_FAST = 3_000; // 3s — no SSE
-const POLL_INTERVAL_SLOW = 30_000; // 30s — SSE active, polling is safety net
+// Polling interval — safety net only (realtime handles sub-second)
+const POLL_INTERVAL_MS = 30_000;
 
 // ── Internal ────────────────────────────────────────────────────────
 
@@ -84,25 +80,20 @@ function handleBroadcastMessage(msg: TabSyncMessage): void {
   });
 }
 
-function handleSSEEvent(event: TabSyncSSEEvent): void {
-  if (event.type === 'presence_update' && event.data) {
-    updatePresence(event.data as unknown as PresenceInfo);
-    return;
-  }
-
-  if (event.data) {
-    const d = event.data as Record<string, unknown>;
-    notifySubscribers({
-      tabId: (d.tabId as string) ?? '',
-      action: event.type as TabSyncAction,
-      version: (d.version as number) ?? 0,
-      terminalId: (d.terminalId as string) ?? '',
-      scope: (d.scope as TabSyncScope) ?? 'retail',
-    });
-  }
+function handleRealtimeRefresh(): void {
+  // Realtime broadcast received — notify all subscribers with a generic refresh
+  notifySubscribers({
+    tabId: '',
+    action: 'tab_updated',
+    version: 0,
+    terminalId: '',
+    scope: 'all',
+  });
 }
 
 async function pollForChanges(locationId: string): Promise<void> {
+  if (_pollInFlight) return; // Prevent stacking if previous fetch > interval
+  _pollInFlight = true;
   try {
     const params = new URLSearchParams({ locationId });
     if (_lastPollTimestamp) {
@@ -117,7 +108,6 @@ async function pollForChanges(locationId: string): Promise<void> {
     _lastPollTimestamp = resp.meta.serverTimestamp;
 
     if (resp.data.length > 0) {
-      // Notify subscribers of each changed tab
       for (const tab of resp.data) {
         notifySubscribers({
           tabId: (tab.id as string) ?? '',
@@ -130,15 +120,16 @@ async function pollForChanges(locationId: string): Promise<void> {
     }
   } catch {
     // Silent — polling failure is non-fatal
+  } finally {
+    _pollInFlight = false;
   }
 }
 
 function startPolling(locationId: string): void {
   stopPolling();
-  const interval = _sseActive ? POLL_INTERVAL_SLOW : POLL_INTERVAL_FAST;
   _pollTimer = setInterval(() => {
     pollForChanges(locationId);
-  }, interval);
+  }, POLL_INTERVAL_MS);
 }
 
 function stopPolling(): void {
@@ -152,7 +143,6 @@ function stopPolling(): void {
 
 function handleVisibilityChange(): void {
   if (document.visibilityState === 'visible' && _currentLocationId) {
-    // Immediate poll on resume
     pollForChanges(_currentLocationId);
   }
 }
@@ -181,20 +171,10 @@ export function subscribe(
     initTabSyncChannel(locationId);
     onTabSyncMessage(handleBroadcastMessage);
 
-    // SSE — sub-second cross-device (if endpoint exists)
-    connectTabSyncSSE(locationId, scope, handleSSEEvent)
-      .then(() => {
-        _sseActive = true;
-        // Slow down polling now that SSE is active
-        if (_pollTimer && _currentLocationId) {
-          startPolling(_currentLocationId);
-        }
-      })
-      .catch(() => {
-        _sseActive = false;
-      });
+    // Supabase Realtime — sub-second cross-device via use-fnb-realtime
+    _realtimeUnsub = onChannelRefresh('tab', handleRealtimeRefresh);
 
-    // Polling — fallback
+    // Polling — safety net at 30s
     startPolling(locationId);
 
     // Visibility resume
@@ -211,10 +191,12 @@ export function subscribe(
     if (_subscriptions.length === 0) {
       stopPolling();
       closeTabSyncChannel();
-      disconnectTabSyncSSE();
+      if (_realtimeUnsub) {
+        _realtimeUnsub();
+        _realtimeUnsub = null;
+      }
       clearPresence();
       _currentLocationId = null;
-      _sseActive = false;
 
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -225,7 +207,7 @@ export function subscribe(
 
 /**
  * Broadcast a change to all transports (BroadcastChannel).
- * Polling and SSE will naturally pick it up.
+ * Supabase Realtime broadcast is handled server-side via broadcastFnb().
  */
 export function broadcastChange(event: TabSyncEvent): void {
   broadcastTabChange(event.tabId, event.action, event.version, event.terminalId);

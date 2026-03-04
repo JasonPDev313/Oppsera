@@ -360,3 +360,20 @@ export const declineTableOfferSchema = z.object({
   clientRequestId: z.string().min(1).max(128).optional(),
 });
 export type DeclineTableOfferInput = z.input<typeof declineTableOfferSchema>;
+
+// ── Waitlist Merge / Split Schemas ────────────────────────────────
+
+export const hostMergeWaitlistSchema = z.object({
+  primaryId: z.string().min(1),
+  secondaryId: z.string().min(1),
+  clientRequestId: z.string().min(1).max(128).optional(),
+});
+export type HostMergeWaitlistInput = z.input<typeof hostMergeWaitlistSchema>;
+
+export const hostSplitWaitlistSchema = z.object({
+  newPartySize: z.number().int().min(1).max(98),
+  newGuestName: z.string().min(1).max(200),
+  newGuestPhone: z.string().regex(phoneRegex).optional(),
+  clientRequestId: z.string().min(1).max(128).optional(),
+});
+export type HostSplitWaitlistInput = z.input<typeof hostSplitWaitlistSchema>;

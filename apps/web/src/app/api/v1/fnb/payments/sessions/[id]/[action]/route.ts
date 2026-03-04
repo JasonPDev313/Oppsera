@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { hasPaymentsGateway, getPaymentsGatewayApi } from '@oppsera/core/helpers/payments-gateway-api';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError, AppError } from '@oppsera/shared';
 import {
   completePaymentSession,
@@ -49,6 +50,7 @@ export const POST = withMiddleware(
           );
         }
         const result = await completePaymentSession(ctx, ctx.locationId ?? '', parsed.data);
+        broadcastFnb(ctx, 'tabs', 'tables').catch(() => {});
         return NextResponse.json({ data: result });
       }
 
@@ -62,6 +64,7 @@ export const POST = withMiddleware(
           );
         }
         const result = await failPaymentSession(ctx, ctx.locationId ?? '', parsed.data);
+        broadcastFnb(ctx, 'tabs').catch(() => {});
         return NextResponse.json({ data: result });
       }
 
@@ -130,6 +133,7 @@ export const POST = withMiddleware(
           }
         }
 
+        broadcastFnb(ctx, 'tabs').catch(() => {});
         return NextResponse.json({
           data: {
             sessionId,

@@ -1,5 +1,7 @@
 import type { EventEnvelope } from '@oppsera/shared';
-import { db } from '@oppsera/db';
+import { generateUlid } from '@oppsera/shared';
+import { eq } from 'drizzle-orm';
+import { db, membershipDuesRecognitionSchedule, membershipAccountingSettings } from '@oppsera/db';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
@@ -61,8 +63,18 @@ export async function handleMembershipBillingForAccounting(event: EventEnvelope)
       return;
     }
 
-    // AR control account (debit side)
-    const arAccountId = settings.defaultARControlAccountId;
+    // Dues-specific receivable (debit side) — falls back to general AR control
+    let duesReceivableId: string | null = null;
+    try {
+      const [membershipSettings] = await db
+        .select({ defaultDuesReceivableAccountId: membershipAccountingSettings.defaultDuesReceivableAccountId })
+        .from(membershipAccountingSettings)
+        .where(eq(membershipAccountingSettings.tenantId, event.tenantId))
+        .limit(1);
+      duesReceivableId = membershipSettings?.defaultDuesReceivableAccountId ?? null;
+    } catch { /* best-effort — fall back to AR control */ }
+
+    const arAccountId = duesReceivableId ?? settings.defaultARControlAccountId;
     if (!arAccountId) {
       await logUnmappedEvent(db, event.tenantId, {
         eventType: 'membership.billing.charged.v1',
@@ -107,7 +119,7 @@ export async function handleMembershipBillingForAccounting(event: EventEnvelope)
           creditAmount: '0',
           locationId: data.locationId,
           customerId: data.customerId,
-          memo: `Membership billing — AR charge`,
+          memo: `Membership billing — dues receivable`,
         },
         {
           accountId: deferredRevenueAccountId,
@@ -119,6 +131,42 @@ export async function handleMembershipBillingForAccounting(event: EventEnvelope)
       ],
       forcePost: true,
     });
+
+    // Insert recognition schedule row so the daily cron can recognize revenue
+    // straight-line over the billing period. Best-effort — never blocks billing.
+    try {
+      const revenueAccountId = data.revenueGlAccountId;
+      if (!revenueAccountId) {
+        console.warn(
+          `[membership-gl] No revenue GL account on plan ${data.membershipPlanId} — ` +
+          `recognition schedule not created for ${data.membershipId}`,
+        );
+      } else {
+        await db
+          .insert(membershipDuesRecognitionSchedule)
+          .values({
+            id: generateUlid(),
+            tenantId: event.tenantId,
+            subscriptionId: data.membershipId,
+            billingSourceRef: `billing-${data.membershipId}-${data.billingPeriodStart}`,
+            revenueGlAccountId: revenueAccountId,
+            deferredRevenueGlAccountId: deferredRevenueAccountId,
+            customerId: data.customerId ?? null,
+            locationId: data.locationId ?? null,
+            billingPeriodStart: data.billingPeriodStart,
+            billingPeriodEnd: data.billingPeriodEnd,
+            totalAmountCents: data.amountCents,
+            recognizedAmountCents: 0,
+            status: 'active',
+          })
+          .onConflictDoNothing(); // idempotent — billingSourceRef unique index
+      }
+    } catch (scheduleErr) {
+      console.error(
+        `[membership-gl] Failed to create recognition schedule for ${data.membershipId}:`,
+        scheduleErr,
+      );
+    }
   } catch (err) {
     console.error(`Membership billing GL posting failed for ${data.membershipId}:`, err);
     try {

@@ -18,7 +18,7 @@ const fnbTenderAppliedSchema = z.object({
 
 const CONSUMER_NAME = 'reporting.fnbTenderApplied';
 
-const KNOWN_TENDER_TYPES = new Set(['cash', 'card', 'gift_card', 'house_account', 'ach']);
+const KNOWN_TENDER_TYPES = new Set(['cash', 'card', 'credit_card', 'debit_card', 'gift_card', 'house_account', 'ach']);
 
 /**
  * Handles fnb.payment.tender_applied.v1 events.
@@ -77,7 +77,8 @@ export async function handleFnbTenderApplied(event: EventEnvelope): Promise<void
     const tipDollars = (data.tipAmountCents ?? 0) / 100;
 
     const tenderCash = data.tenderType === 'cash' ? amountDollars : 0;
-    const tenderCard = data.tenderType === 'card' ? amountDollars : 0;
+    const isCard = data.tenderType === 'card' || data.tenderType === 'credit_card' || data.tenderType === 'debit_card';
+    const tenderCard = isCard ? amountDollars : 0;
     const tenderGiftCard = data.tenderType === 'gift_card' ? amountDollars : 0;
     const tenderHouseAccount = data.tenderType === 'house_account' ? amountDollars : 0;
     const tenderAch = data.tenderType === 'ach' ? amountDollars : 0;

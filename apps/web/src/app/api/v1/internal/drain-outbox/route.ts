@@ -131,10 +131,73 @@ export async function GET(request: Request) {
       results.expiredLocksRemoved = -1;
     }
 
-    // 7. Flush usage tracking buffer to DB (request-scoped, not background timer).
+    // 7. Clean expired processed_events rows (>90 days) to prevent unbounded table growth.
+    // Bounded to 5000 rows per run to keep the delete fast and avoid long locks.
+    try {
+      const cleaned = await db.execute(sql`
+        DELETE FROM processed_events WHERE id IN (
+          SELECT id FROM processed_events
+          WHERE processed_at < NOW() - INTERVAL '90 days'
+          LIMIT 5000
+        )
+      `) as unknown as { count: number };
+      results.processedEventsCleaned = cleaned.count ?? 0;
+    } catch (cleanErr) {
+      console.warn('[drain-outbox] processed_events cleanup failed:', cleanErr);
+      results.processedEventsCleaned = -1;
+    }
+
+    // 8. Clean published event_outbox rows older than 7 days.
+    // Published events have been consumed — no need to keep them beyond recovery window.
+    try {
+      const outboxCleaned = await db.execute(sql`
+        DELETE FROM event_outbox WHERE id IN (
+          SELECT id FROM event_outbox
+          WHERE published_at IS NOT NULL
+            AND published_at < NOW() - INTERVAL '7 days'
+          LIMIT 5000
+        )
+      `) as unknown as { count: number };
+      results.outboxEventsCleaned = outboxCleaned.count ?? 0;
+    } catch (outboxErr) {
+      console.warn('[drain-outbox] event_outbox cleanup failed:', outboxErr);
+      results.outboxEventsCleaned = -1;
+    }
+
+    // 9. Auto-create audit_log partitions for the next 3 months.
+    // Prevents insert failures when the current partition range is exhausted.
+    // Idempotent: skips creation if the partition already exists.
+    try {
+      await db.execute(sql`
+        DO $$
+        DECLARE
+          m DATE;
+          part_name TEXT;
+        BEGIN
+          FOR i IN 0..2 LOOP
+            m := date_trunc('month', NOW()) + (i || ' months')::interval;
+            part_name := 'audit_log_' || to_char(m, 'YYYY_MM');
+            IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = part_name) THEN
+              EXECUTE format(
+                'CREATE TABLE %I PARTITION OF audit_log FOR VALUES FROM (%L) TO (%L)',
+                part_name,
+                m,
+                m + '1 month'::interval
+              );
+              RAISE NOTICE 'Created audit_log partition: %', part_name;
+            END IF;
+          END LOOP;
+        END $$
+      `);
+      results.auditPartitionsChecked = true;
+    } catch (partErr) {
+      console.warn('[drain-outbox] audit_log partition check failed:', partErr);
+      results.auditPartitionsChecked = false;
+    }
+
+    // 10. Flush usage tracking buffer to DB.
     // The usage tracker accumulates events in-memory. Flushing here is safe because
     // the DB transaction completes BEFORE the response is sent (no fire-and-forget).
-    // The setInterval timer was removed to prevent Vercel zombie connections (2026-03-01).
     try {
       const { forceFlush } = await import('@oppsera/core/usage/tracker');
       await forceFlush();

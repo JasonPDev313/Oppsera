@@ -68,6 +68,7 @@ export const MODULE_TABLES = [
   'fnb_manager_overrides',
   'fnb_manage_tabs_settings',
   'fnb_server_load_snapshots',
+  'fnb_waitlist_config',
 ] as const;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -967,6 +968,13 @@ export {
 // Commands
 export { addToWaitlist } from './commands/add-to-waitlist';
 export { updateWaitlistEntry } from './commands/update-waitlist-entry';
+export { bumpWaitlistPosition } from './commands/bump-waitlist-position';
+export { expireWaitlistEntries } from './commands/expire-waitlist-entries';
+export type { ExpireWaitlistResult } from './commands/expire-waitlist-entries';
+export { confirmWaitlistArrival } from './commands/confirm-waitlist-arrival';
+export { mergeWaitlistEntries } from './commands/merge-waitlist-entries';
+export { splitWaitlistEntry } from './commands/split-waitlist-entry';
+export type { SplitWaitlistInput } from './commands/split-waitlist-entry';
 export { seatFromWaitlist } from './commands/seat-from-waitlist';
 export { removeFromWaitlist } from './commands/remove-from-waitlist';
 export { notifyWaitlistGuest } from './commands/notify-waitlist-guest';
@@ -1474,3 +1482,39 @@ export type {
   SeatingEfficiencyMetric,
   DashboardSummary,
 } from './queries/get-host-analytics-dashboard';
+
+// ═══════════════════════════════════════════════════════════════════
+// SESSION 11 — Waitlist V1: Configuration & Branding
+// ═══════════════════════════════════════════════════════════════════
+
+// Commands
+export { upsertWaitlistConfig } from './commands/upsert-waitlist-config';
+export type { UpsertWaitlistConfigInput } from './commands/upsert-waitlist-config';
+
+// Queries
+export { getWaitlistConfig, getWaitlistConfigBySlug } from './queries/get-waitlist-config';
+export type { WaitlistConfigRow } from './queries/get-waitlist-config';
+
+// Service / Schemas
+export {
+  waitlistConfigSchema,
+  waitlistFormConfigSchema,
+  waitlistNotificationConfigSchema,
+  waitlistQueueConfigSchema,
+  waitlistBrandingSchema,
+  waitlistContentConfigSchema,
+  waitlistOperatingHoursSchema,
+  getDefaultWaitlistConfig,
+  mergeWaitlistConfig,
+  mapWaitlistConfigRow,
+} from './services/waitlist-config';
+export type {
+  WaitlistConfig,
+  WaitlistConfigInput,
+  WaitlistFormConfig,
+  WaitlistNotificationConfig,
+  WaitlistQueueConfig,
+  WaitlistBranding,
+  WaitlistContentConfig,
+  WaitlistOperatingHours,
+} from './services/waitlist-config';

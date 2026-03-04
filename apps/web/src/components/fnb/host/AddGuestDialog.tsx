@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Minus, Plus, Star, Clock } from 'lucide-react';
+import { X, Minus, Plus, Star, Clock, Info, AlertTriangle } from 'lucide-react';
 
 interface AddGuestDialogProps {
   open: boolean;
@@ -29,6 +29,19 @@ const CONFIDENCE_COLORS: Record<string, string> = {
   medium: 'var(--fnb-warning)',
   low: 'var(--fnb-danger)',
 };
+
+const CONFIDENCE_GUIDANCE: Record<string, string> = {
+  high: 'Based on strong recent data. This is a reliable estimate you can quote to the guest.',
+  medium: 'Based on moderate data. Consider adding 5–10 minutes as a buffer when quoting.',
+  low: 'Limited data available. Use your best judgment when quoting a wait time.',
+};
+
+function formatPhoneDisplay(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+}
 
 export function AddGuestDialog({
   open,
@@ -201,7 +214,7 @@ export function AddGuestDialog({
             <input
               type="tel"
               value={guestPhone}
-              onChange={(e) => setGuestPhone(e.target.value)}
+              onChange={(e) => setGuestPhone(formatPhoneDisplay(e.target.value))}
               placeholder="(555) 555-5555"
               style={inputStyle}
             />
@@ -267,38 +280,67 @@ export function AddGuestDialog({
               </button>
             </div>
 
-            {/* Wait estimate */}
+            {/* Wait estimate info box */}
             {waitEstimate && (
               <div
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--fnb-space-2)',
                   marginTop: 'var(--fnb-space-2)',
-                  padding: '8px 12px',
-                  background: 'rgba(59, 130, 246, 0.1)',
+                  padding: '10px 12px',
+                  background: 'rgba(59, 130, 246, 0.08)',
+                  border: '1px solid rgba(59, 130, 246, 0.2)',
                   borderRadius: 'var(--fnb-radius-md)',
                 }}
               >
-                <Clock size={14} style={{ color: 'var(--fnb-info)' }} />
-                <span
+                <div
                   style={{
-                    color: 'var(--fnb-text-primary)',
-                    fontSize: 'var(--fnb-text-sm)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--fnb-space-2)',
+                    marginBottom: '6px',
                   }}
                 >
-                  Est. ~{waitEstimate.estimatedMinutes} min
-                </span>
-                <span
+                  <Clock size={14} style={{ color: 'var(--fnb-info)' }} />
+                  <span
+                    style={{
+                      color: 'var(--fnb-text-primary)',
+                      fontSize: 'var(--fnb-text-sm)',
+                      fontWeight: 'var(--fnb-font-semibold)',
+                    }}
+                  >
+                    Est. ~{waitEstimate.estimatedMinutes} min
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 'var(--fnb-font-medium)',
+                      color: CONFIDENCE_COLORS[waitEstimate.confidence] ?? 'var(--fnb-text-muted)',
+                      textTransform: 'uppercase',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      background: 'rgba(0,0,0,0.15)',
+                    }}
+                  >
+                    {waitEstimate.confidence}
+                  </span>
+                </div>
+                <div
                   style={{
-                    fontSize: 'var(--fnb-text-xs)',
-                    fontWeight: 'var(--fnb-font-medium)',
-                    color: CONFIDENCE_COLORS[waitEstimate.confidence] ?? 'var(--fnb-text-muted)',
-                    textTransform: 'uppercase',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '6px',
                   }}
                 >
-                  {waitEstimate.confidence}
-                </span>
+                  <Info size={12} style={{ color: 'var(--fnb-info)', flexShrink: 0, marginTop: '1px' }} />
+                  <span
+                    style={{
+                      color: 'var(--fnb-text-secondary)',
+                      fontSize: 'var(--fnb-text-xs)',
+                      lineHeight: '1.4',
+                    }}
+                  >
+                    {CONFIDENCE_GUIDANCE[waitEstimate.confidence] ?? CONFIDENCE_GUIDANCE.low}
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -306,15 +348,62 @@ export function AddGuestDialog({
           {/* Quoted Wait */}
           <div>
             <label style={labelStyle}>Quoted Wait (minutes)</label>
-            <input
-              type="number"
-              value={quotedWaitMinutes}
-              onChange={(e) => setQuotedWaitMinutes(e.target.value)}
-              placeholder={waitEstimate ? String(waitEstimate.estimatedMinutes) : 'e.g. 20'}
-              min={0}
-              max={180}
-              style={inputStyle}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--fnb-space-2)' }}>
+              <input
+                type="number"
+                value={quotedWaitMinutes}
+                onChange={(e) => setQuotedWaitMinutes(e.target.value)}
+                placeholder={waitEstimate ? String(waitEstimate.estimatedMinutes) : 'e.g. 20'}
+                min={0}
+                max={180}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              {waitEstimate && !quotedWaitMinutes && (
+                <button
+                  type="button"
+                  onClick={() => setQuotedWaitMinutes(String(waitEstimate.estimatedMinutes))}
+                  style={{
+                    background: 'rgba(59, 130, 246, 0.1)',
+                    color: 'var(--fnb-info)',
+                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                    borderRadius: 'var(--fnb-radius-md)',
+                    padding: '8px 12px',
+                    fontSize: 'var(--fnb-text-xs)',
+                    fontWeight: 'var(--fnb-font-semibold)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    minHeight: '44px',
+                  }}
+                >
+                  Use ~{waitEstimate.estimatedMinutes}m
+                </button>
+              )}
+            </div>
+            {/* Warning when quoted differs from estimate by >15 min */}
+            {waitEstimate && quotedWaitMinutes && Math.abs(Number(quotedWaitMinutes) - waitEstimate.estimatedMinutes) > 15 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginTop: '6px',
+                  padding: '6px 10px',
+                  background: 'rgba(245, 158, 11, 0.1)',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  borderRadius: 'var(--fnb-radius-md)',
+                }}
+              >
+                <AlertTriangle size={12} style={{ color: 'var(--fnb-warning)', flexShrink: 0 }} />
+                <span
+                  style={{
+                    color: 'var(--fnb-text-secondary)',
+                    fontSize: 'var(--fnb-text-xs)',
+                  }}
+                >
+                  Differs from estimate by {Math.abs(Number(quotedWaitMinutes) - waitEstimate.estimatedMinutes)} min
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Seating Preference */}

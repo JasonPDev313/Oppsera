@@ -137,19 +137,13 @@ export async function reverseTender(
       const totalCredit = reversedEntries.reduce((s, e) => s + e.credit, 0);
       if (totalDebit !== totalCredit) {
         const diff = totalDebit - totalCredit;
-        const adj = reversedEntries.find(
-          (e) => e.debit > 0 && e.accountCode.startsWith('4') && e.accountCode !== '4900',
-        );
-        if (adj) {
-          adj.debit += -diff;
-        } else {
-          reversedEntries.push({
-            accountCode: '4999',
-            accountName: 'Rounding Adjustment',
-            debit: diff < 0 ? -diff : 0,
-            credit: diff > 0 ? diff : 0,
-          });
-        }
+        // Always use a dedicated rounding entry to correct imbalance
+        reversedEntries.push({
+          accountCode: '4999',
+          accountName: 'Rounding Adjustment',
+          debit: diff < 0 ? -diff : 0,
+          credit: diff > 0 ? diff : 0,
+        });
       }
 
       await (tx as any).insert(paymentJournalEntries).values({

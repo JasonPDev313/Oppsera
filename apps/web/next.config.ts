@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import withBundleAnalyzer from '@next/bundle-analyzer';
+import { withSentryConfig } from '@sentry/nextjs';
 import type { NextConfig } from 'next';
 
 // Load env from monorepo root (.env.local first, then .env fallback)
@@ -15,7 +16,7 @@ const cspDirectives = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self'",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.cardconnect.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.cardconnect.com https://*.ingest.sentry.io",
   "frame-src https://*.cardconnect.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -120,4 +121,13 @@ const analyzer = withBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });
 
-export default analyzer(nextConfig);
+const withAnalyzer = analyzer(nextConfig);
+
+export default withSentryConfig(withAnalyzer, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  widenClientFileUpload: true,
+  tunnelRoute: '/monitoring',
+  silent: !process.env.CI,
+});

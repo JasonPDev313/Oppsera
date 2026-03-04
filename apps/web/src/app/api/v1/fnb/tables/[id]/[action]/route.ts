@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { seatTable, seatTableSchema, clearTable } from '@oppsera/module-fnb';
 
 const ACTIONS: Record<string, true> = { seat: true, clear: true };
@@ -38,6 +39,7 @@ export const POST = withMiddleware(
           );
         }
         const result = await seatTable(ctx, tableId, parsed.data);
+        broadcastFnb(ctx, 'tables').catch(() => {});
         return NextResponse.json({ data: result }, { status: 201 });
       }
       case 'clear': {
@@ -48,6 +50,7 @@ export const POST = withMiddleware(
           markAvailable: body.markAvailable as boolean | undefined,
           expectedVersion: body.expectedVersion as number | undefined,
         });
+        broadcastFnb(ctx, 'tables').catch(() => {});
         return NextResponse.json({ data: result });
       }
     }

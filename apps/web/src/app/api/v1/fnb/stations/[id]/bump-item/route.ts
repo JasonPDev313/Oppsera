@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import { bumpItem, bumpItemSchema } from '@oppsera/module-fnb';
 
@@ -17,6 +18,7 @@ export const POST = withMiddleware(
     }
 
     const item = await bumpItem(ctx, parsed.data);
+    broadcastFnb(ctx, 'kds').catch(() => {});
     return NextResponse.json({ data: item });
   },
   { entitlement: 'kds', permission: 'kds.bump', writeAccess: true },

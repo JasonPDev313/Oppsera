@@ -191,6 +191,7 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
         const fallbackAccountId = settings.defaultUncategorizedRevenueAccountId ?? null;
         if (fallbackAccountId) {
           if (diffCents > 0) {
+            // Debit side is larger — need a credit to balance. Revenue is credit-normal, appropriate.
             glLines.push({
               accountId: fallbackAccountId,
               debitAmount: '0',
@@ -200,8 +201,11 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
               memo: 'Balance adjustment — unmapped F&B category offset',
             });
           } else {
+            // Credit side is larger — need a debit to balance.
+            // Use rounding/expense account for debit shortfalls rather than revenue.
+            const debitFallbackId = settings.defaultRoundingAccountId ?? fallbackAccountId;
             glLines.push({
-              accountId: fallbackAccountId,
+              accountId: debitFallbackId,
               debitAmount: (Math.abs(diffCents) / 100).toFixed(2),
               creditAmount: '0',
               locationId: data.locationId,

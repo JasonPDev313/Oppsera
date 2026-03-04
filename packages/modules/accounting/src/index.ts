@@ -123,6 +123,10 @@ export { disposeFixedAsset } from './commands/dispose-fixed-asset';
 export type { DisposeFixedAssetInput } from './commands/dispose-fixed-asset';
 export { runMonthlyDepreciation } from './commands/run-monthly-depreciation';
 export type { RunMonthlyDepreciationInput, MonthlyDepreciationResult } from './commands/run-monthly-depreciation';
+export { recognizeMembershipRevenue } from './commands/recognize-membership-revenue';
+export type { RecognizeMembershipRevenueInput } from './commands/recognize-membership-revenue';
+export { runMembershipRevenueRecognition } from './commands/run-membership-revenue-recognition';
+export type { RunMembershipRevenueRecognitionInput, MembershipRecognitionResult } from './commands/run-membership-revenue-recognition';
 
 // Queries (COA)
 export { getCoaHealth } from './queries/get-coa-health';
@@ -142,6 +146,11 @@ export { handleOrderReturnForAccounting } from './adapters/return-posting-adapte
 export { handleFnbGlPostingForAccounting, handleFnbGlPostingReversedForAccounting } from './adapters/fnb-posting-adapter';
 export { handleVoucherPurchaseForAccounting, handleVoucherRedemptionForAccounting, handleVoucherExpirationForAccounting } from './adapters/voucher-posting-adapter';
 export { handleMembershipBillingForAccounting } from './adapters/membership-posting-adapter';
+export {
+  handleInitiationContractForAccounting,
+  handleInitiationInstallmentForAccounting,
+  handleInitiationExtraPrincipalForAccounting,
+} from './adapters/initiation-posting-adapter';
 export { handleChargebackReceivedForAccounting, handleChargebackResolvedForAccounting } from './adapters/chargeback-posting-adapter';
 export { handleAchReturnForAccounting } from './adapters/ach-return-posting-adapter';
 export {

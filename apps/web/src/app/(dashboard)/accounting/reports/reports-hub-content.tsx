@@ -86,6 +86,28 @@ function SectionHeader({
 
 const REPORT_CATEGORIES = [
   {
+    title: 'Audit & Compliance',
+    icon: ShieldCheck,
+    reports: [
+      {
+        icon: ShieldCheck,
+        title: 'Audit Trail',
+        description:
+          'Audit coverage analysis and chronological activity log for all accounting operations.',
+        href: '/accounting/reports/audit-trail',
+        accent: 'bg-fuchsia-500/10 text-fuchsia-500',
+      },
+      {
+        icon: ClipboardList,
+        title: 'Period Close',
+        description:
+          'Period close status, readiness checklist, and historical close records.',
+        href: '/accounting/reports/period-close',
+        accent: 'bg-pink-500/10 text-pink-500',
+      },
+    ],
+  },
+  {
     title: 'Financial Statements',
     icon: TrendingUp,
     reports: [
@@ -296,28 +318,6 @@ const REPORT_CATEGORIES = [
           'KPI overview with net income, cash, AP/AR balances, mapping coverage, and period status.',
         href: '/accounting/reports/financial-dashboard',
         accent: 'bg-violet-500/10 text-violet-500',
-      },
-    ],
-  },
-  {
-    title: 'Audit & Compliance',
-    icon: ShieldCheck,
-    reports: [
-      {
-        icon: ShieldCheck,
-        title: 'Audit Trail',
-        description:
-          'Audit coverage analysis and chronological activity log for all accounting operations.',
-        href: '/accounting/reports/audit-trail',
-        accent: 'bg-fuchsia-500/10 text-fuchsia-500',
-      },
-      {
-        icon: ClipboardList,
-        title: 'Period Close',
-        description:
-          'Period close status, readiness checklist, and historical close records.',
-        href: '/accounting/reports/period-close',
-        accent: 'bg-pink-500/10 text-pink-500',
       },
     ],
   },

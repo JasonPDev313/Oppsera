@@ -75,7 +75,10 @@ export async function getDailyReconciliation(input: {
 
   const netSalesCents = ordersSummary.netSalesCents;
   const totalTenderCents = tendersSummary.totalCents;
-  const diffCents = Math.abs(netSalesCents - totalTenderCents);
+  // Expected tenders = net sales + tax + service charges + tips (full guest-facing total)
+  const expectedTenderCents = ordersSummary.grossSalesCents - ordersSummary.discountTotalCents
+    + ordersSummary.taxCents + ordersSummary.serviceChargeCents + tendersSummary.tipsCents;
+  const diffCents = Math.abs(totalTenderCents - expectedTenderCents);
 
   return {
     businessDate: input.businessDate,
@@ -87,7 +90,7 @@ export async function getDailyReconciliation(input: {
       taxCents: ordersSummary.taxCents,
       serviceChargeCents: ordersSummary.serviceChargeCents,
       tipsCents: tendersSummary.tipsCents,
-      totalCents: netSalesCents + tendersSummary.tipsCents,
+      totalCents: expectedTenderCents,
       orderCount: ordersSummary.orderCount,
       voidCount: ordersSummary.voidCount,
       voidAmountCents: ordersSummary.voidAmountCents,

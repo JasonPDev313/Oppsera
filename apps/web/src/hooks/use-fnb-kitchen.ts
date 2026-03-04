@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { onChannelRefresh } from '@/hooks/use-fnb-realtime';
 import type { KdsView, ExpoView, FnbStation } from '@/types/fnb';
 
 // ── KDS View Hook ───────────────────────────────────────────────
@@ -36,11 +37,15 @@ export function useKdsView({
   const [error, setError] = useState<string | null>(null);
   const [isActing, setIsActing] = useState(false);
   const refreshCounter = useRef(0);
+  const fetchingRef = useRef(false);
 
   const today = businessDate ?? new Date().toISOString().slice(0, 10);
 
   const fetchKds = useCallback(async () => {
     if (!stationId) return;
+    // Dedup: skip if a fetch is already in-flight (prevents concurrent poll + broadcast fetches)
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
       const params = new URLSearchParams({ businessDate: today });
       if (locationId) params.set('locationId', locationId);
@@ -54,6 +59,7 @@ export function useKdsView({
         setError(err instanceof Error ? err.message : 'Failed to load KDS view');
       }
     } finally {
+      fetchingRef.current = false;
       setIsLoading(false);
     }
   }, [stationId, locationId, today]);
@@ -69,6 +75,12 @@ export function useKdsView({
     const interval = setInterval(fetchKds, pollIntervalMs);
     return () => clearInterval(interval);
   }, [stationId, fetchKds, pollIntervalMs]);
+
+  // Subscribe to realtime broadcast notifications
+  useEffect(() => {
+    if (!stationId) return;
+    return onChannelRefresh('kds', () => { fetchKds(); });
+  }, [stationId, fetchKds]);
 
   const refresh = useCallback(() => {
     refreshCounter.current += 1;
@@ -162,10 +174,14 @@ export function useExpoView({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isActing, setIsActing] = useState(false);
+  const fetchingExpoRef = useRef(false);
 
   const today = businessDate ?? new Date().toISOString().slice(0, 10);
 
   const fetchExpo = useCallback(async () => {
+    // Dedup: skip if a fetch is already in-flight (prevents concurrent poll + broadcast fetches)
+    if (fetchingExpoRef.current) return;
+    fetchingExpoRef.current = true;
     try {
       const params = new URLSearchParams({ businessDate: today });
       if (locationId) params.set('locationId', locationId);
@@ -179,6 +195,7 @@ export function useExpoView({
         setError(err instanceof Error ? err.message : 'Failed to load expo view');
       }
     } finally {
+      fetchingExpoRef.current = false;
       setIsLoading(false);
     }
   }, [locationId, today]);
@@ -189,6 +206,11 @@ export function useExpoView({
     const interval = setInterval(fetchExpo, pollIntervalMs);
     return () => clearInterval(interval);
   }, [fetchExpo, pollIntervalMs]);
+
+  // Subscribe to realtime broadcast notifications
+  useEffect(() => {
+    return onChannelRefresh('expo', () => { fetchExpo(); });
+  }, [fetchExpo]);
 
   const refresh = useCallback(() => {
     fetchExpo();

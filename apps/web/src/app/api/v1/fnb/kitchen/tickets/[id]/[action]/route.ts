@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import {
   voidTicket,
@@ -45,6 +46,7 @@ export const POST = withMiddleware(
           );
         }
         const ticket = await voidTicket(ctx, ticketId, parsed.data);
+        broadcastFnb(ctx, 'kds').catch(() => {});
         return NextResponse.json({ data: ticket });
       }
       case 'delta': {
@@ -56,6 +58,7 @@ export const POST = withMiddleware(
           );
         }
         const chit = await createDeltaChit(ctx, parsed.data);
+        broadcastFnb(ctx, 'kds').catch(() => {});
         return NextResponse.json({ data: chit }, { status: 201 });
       }
       case 'fire':
@@ -73,6 +76,7 @@ export const POST = withMiddleware(
           );
         }
         const updated = await updateTicketStatus(ctx, ticketId, parsed.data);
+        broadcastFnb(ctx, 'kds').catch(() => {});
         return NextResponse.json({ data: updated });
       }
     }

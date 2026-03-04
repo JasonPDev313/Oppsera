@@ -84,10 +84,11 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
       DO UPDATE SET
         void_count = rm_daily_sales.void_count + 1,
         void_total = rm_daily_sales.void_total + ${voidAmount},
+        order_count = GREATEST(rm_daily_sales.order_count - 1, 0),
         net_sales = rm_daily_sales.net_sales - ${voidAmount},
         avg_order_value = CASE
-          WHEN rm_daily_sales.order_count > 0
-          THEN (rm_daily_sales.net_sales - ${voidAmount}) / rm_daily_sales.order_count
+          WHEN GREATEST(rm_daily_sales.order_count - 1, 0) > 0
+          THEN (rm_daily_sales.net_sales - ${voidAmount}) / GREATEST(rm_daily_sales.order_count - 1, 0)
           ELSE 0
         END,
         total_business_revenue = (rm_daily_sales.net_sales - ${voidAmount}) + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue,

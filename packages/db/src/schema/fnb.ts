@@ -2597,3 +2597,32 @@ export const fnbTurnTimeAggregates = pgTable('fnb_turn_time_aggregates', {
     table.mealPeriod, table.dayOfWeek, table.partySizeBucket,
   ),
 ]);
+
+// ═══════════════════════════════════════════════════════════════════
+// SESSION 8 — Waitlist V1: Config & Branding
+// ═══════════════════════════════════════════════════════════════════
+
+// ── Waitlist Configuration (per-location branding, form, queue, notifications) ──
+export const fnbWaitlistConfig = pgTable(
+  'fnb_waitlist_config',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').references(() => locations.id),
+    enabled: boolean('enabled').notNull().default(false),
+    slugOverride: text('slug_override'),
+    formConfig: jsonb('form_config').notNull().default({}).$type<Record<string, unknown>>(),
+    notificationConfig: jsonb('notification_config').notNull().default({}).$type<Record<string, unknown>>(),
+    queueConfig: jsonb('queue_config').notNull().default({}).$type<Record<string, unknown>>(),
+    branding: jsonb('branding').notNull().default({}).$type<Record<string, unknown>>(),
+    contentConfig: jsonb('content_config').notNull().default({}).$type<Record<string, unknown>>(),
+    operatingHours: jsonb('operating_hours').notNull().default({}).$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_fnb_waitlist_config_tenant_location').on(table.tenantId, table.locationId),
+    index('idx_fnb_waitlist_config_tenant').on(table.tenantId),
+    uniqueIndex('uq_fnb_waitlist_config_slug').on(table.slugOverride),
+  ],
+);

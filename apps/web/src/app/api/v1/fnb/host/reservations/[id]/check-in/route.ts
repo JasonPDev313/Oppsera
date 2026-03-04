@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import {
   checkInReservation,
@@ -26,6 +27,8 @@ export const POST = withMiddleware(
     }
 
     const result = await checkInReservation(ctx, id, parsed.data);
+
+    broadcastFnb(ctx, 'reservations').catch(() => {});
 
     return NextResponse.json({ data: result });
   },

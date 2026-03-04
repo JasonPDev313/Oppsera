@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer, Download } from 'lucide-react';
+import { X, Printer, Copy, Check, Info } from 'lucide-react';
 
 interface QrCodeDisplayProps {
   open: boolean;
@@ -81,6 +81,13 @@ export function QrCodeDisplay({
 }: QrCodeDisplayProps) {
   const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/waitlist/join?location=${locationId}`;
   const qrSvg = useMemo(() => generateQrSvg(url, 200), [url]);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2500);
+    return () => clearTimeout(timer);
+  }, [copied]);
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
@@ -166,6 +173,22 @@ export function QrCodeDisplay({
             {url}
           </p>
 
+          {/* Instructions */}
+          <div
+            className="flex items-start gap-2 text-left mb-4"
+            style={{
+              padding: '10px 12px',
+              background: 'rgba(99, 102, 241, 0.08)',
+              border: '1px solid rgba(99, 102, 241, 0.2)',
+              borderRadius: '8px',
+            }}
+          >
+            <Info size={14} className="shrink-0 mt-0.5" style={{ color: 'rgba(129, 140, 248, 0.9)' }} />
+            <span className="text-[10px] leading-relaxed" style={{ color: 'var(--fnb-text-secondary)' }}>
+              Print this QR code and display it near your entrance. Guests scan it with their phone camera to join the waitlist automatically.
+            </span>
+          </div>
+
           {/* Actions */}
           <div className="flex gap-2">
             <button
@@ -184,15 +207,17 @@ export function QrCodeDisplay({
               type="button"
               onClick={() => {
                 navigator.clipboard.writeText(url);
+                setCopied(true);
               }}
               className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold rounded-lg py-2.5 transition-all active:scale-95"
               style={{
-                backgroundColor: 'var(--fnb-info)',
+                backgroundColor: copied ? 'var(--fnb-success)' : 'var(--fnb-info)',
                 color: '#fff',
+                transition: 'background-color 200ms ease',
               }}
             >
-              <Download size={13} />
-              Copy URL
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+              {copied ? 'Copied!' : 'Copy URL'}
             </button>
           </div>
         </div>

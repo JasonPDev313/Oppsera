@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import {
   closeTab,
   closeTabSchema,
@@ -52,6 +53,7 @@ export const POST = withMiddleware(
           );
         }
         const tab = await closeTab(ctx, tabId, parsed.data);
+        broadcastFnb(ctx, 'tabs', 'tables').catch(() => {});
         return NextResponse.json({ data: tab });
       }
       case 'void': {
@@ -63,6 +65,7 @@ export const POST = withMiddleware(
           );
         }
         const tab = await voidTab(ctx, tabId, parsed.data);
+        broadcastFnb(ctx, 'tabs', 'tables').catch(() => {});
         return NextResponse.json({ data: tab });
       }
       case 'transfer': {
@@ -74,6 +77,7 @@ export const POST = withMiddleware(
           );
         }
         const tab = await transferTab(ctx, tabId, parsed.data);
+        broadcastFnb(ctx, 'tabs').catch(() => {});
         return NextResponse.json({ data: tab });
       }
       case 'reopen': {
@@ -85,6 +89,7 @@ export const POST = withMiddleware(
           );
         }
         const tab = await reopenTab(ctx, tabId, parsed.data);
+        broadcastFnb(ctx, 'tabs').catch(() => {});
         return NextResponse.json({ data: tab });
       }
     }

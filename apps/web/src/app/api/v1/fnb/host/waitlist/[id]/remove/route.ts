@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import { hostRemoveFromWaitlist, hostRemoveFromWaitlistSchema } from '@oppsera/module-fnb';
 
@@ -19,6 +20,7 @@ export const POST = withMiddleware(
       throw new ValidationError('Invalid input', parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })));
     }
     const result = await hostRemoveFromWaitlist(ctx, id, parsed.data);
+    broadcastFnb(ctx, 'waitlist').catch(() => {});
     return NextResponse.json({ data: result });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.host.manage', writeAccess: true },

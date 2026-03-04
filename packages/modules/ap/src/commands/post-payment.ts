@@ -61,9 +61,11 @@ export async function postPayment(ctx: RequestContext, paymentId: string, client
       bankGlAccountId = bank?.glAccountId ?? null;
     }
     if (!bankGlAccountId) {
-      await accountingApi.getSettings(ctx.tenantId);
-      // Use AP control as fallback if no bank — though this is a config error
-      bankGlAccountId = apControlAccountId;
+      throw new AppError(
+        'NO_BANK_ACCOUNT',
+        'No bank/cash GL account configured for this payment. Set a GL account on the bank account or configure a default in accounting settings.',
+        400,
+      );
     }
 
     // 4. Post GL: Debit AP control, Credit Bank
@@ -97,7 +99,7 @@ export async function postPayment(ctx: RequestContext, paymentId: string, client
       const [bill] = await tx
         .select()
         .from(apBills)
-        .where(eq(apBills.id, alloc.billId))
+        .where(and(eq(apBills.id, alloc.billId), eq(apBills.tenantId, ctx.tenantId)))
         .limit(1);
 
       if (bill) {

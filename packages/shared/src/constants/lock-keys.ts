@@ -31,6 +31,9 @@ export const LOCK_KEYS = {
 
   /** Admin backup scheduler */
   BACKUP_SCHEDULER: 'backup-scheduler',
+
+  /** Daily membership dues revenue recognition cron */
+  MEMBERSHIP_REVENUE_RECOGNITION: 'membership-revenue-recognition',
 } as const;
 
 export type LockKey = (typeof LOCK_KEYS)[keyof typeof LOCK_KEYS];

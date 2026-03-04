@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { cancelReservation } from '@oppsera/module-fnb';
 
 function extractId(request: NextRequest): string {
@@ -21,6 +22,8 @@ export const POST = withMiddleware(
     }
 
     await cancelReservation(ctx, id, reason);
+
+    broadcastFnb(ctx, 'reservations').catch(() => {});
 
     return NextResponse.json({ data: { success: true } });
   },

@@ -146,34 +146,30 @@ export async function handleSpaCheckoutForAccounting(event: EventEnvelope): Prom
       });
     }
 
-    // Credit: Sales Tax Payable
+    // Credit: Sales Tax Payable (fall back to revenue if account not configured)
     if (data.taxCents > 0) {
-      const taxAccountId = settings.defaultSalesTaxPayableAccountId;
-      if (taxAccountId) {
-        lines.push({
-          accountId: taxAccountId,
-          debitAmount: '0',
-          creditAmount: (data.taxCents / 100).toFixed(2),
-          locationId: data.locationId,
-          channel: 'spa',
-          memo: 'Spa appointment checkout — sales tax',
-        });
-      }
+      const taxAccountId = settings.defaultSalesTaxPayableAccountId ?? revenueAccountId;
+      lines.push({
+        accountId: taxAccountId,
+        debitAmount: '0',
+        creditAmount: (data.taxCents / 100).toFixed(2),
+        locationId: data.locationId,
+        channel: 'spa',
+        memo: 'Spa appointment checkout — sales tax',
+      });
     }
 
-    // Credit: Tips Payable
+    // Credit: Tips Payable (fall back to revenue if account not configured)
     if (data.tipCents > 0) {
-      const tipsAccountId = settings.defaultTipsPayableAccountId;
-      if (tipsAccountId) {
-        lines.push({
-          accountId: tipsAccountId,
-          debitAmount: '0',
-          creditAmount: (data.tipCents / 100).toFixed(2),
-          locationId: data.locationId,
-          channel: 'spa',
-          memo: 'Spa appointment checkout — tips payable',
-        });
-      }
+      const tipsAccountId = settings.defaultTipsPayableAccountId ?? revenueAccountId;
+      lines.push({
+        accountId: tipsAccountId,
+        debitAmount: '0',
+        creditAmount: (data.tipCents / 100).toFixed(2),
+        locationId: data.locationId,
+        channel: 'spa',
+        memo: 'Spa appointment checkout — tips payable',
+      });
     }
 
     if (lines.length < 2) {

@@ -114,7 +114,7 @@ export async function postReceipt(ctx: RequestContext, input: PostReceiptInput) 
       const [invoice] = await tx
         .select()
         .from(arInvoices)
-        .where(eq(arInvoices.id, alloc.invoiceId))
+        .where(and(eq(arInvoices.id, alloc.invoiceId), eq(arInvoices.tenantId, ctx.tenantId)))
         .limit(1);
 
       if (!invoice) {

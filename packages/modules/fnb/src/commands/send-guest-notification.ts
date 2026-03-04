@@ -53,44 +53,40 @@ export async function sendGuestNotification(
     };
   });
 
-  // Fire-and-forget SMS dispatch — never blocks the response
+  // Awaited SMS dispatch — must not fire-and-forget on Vercel (Gotcha #1)
   if (input.channel === 'sms' && input.recipientPhone) {
     const tenantId = ctx.tenantId;
     const notificationId = notification.id;
     const fromNumber = process.env.TWILIO_FROM_NUMBER ?? '+10000000000';
-    getSmsProvider()
-      .sendSms(input.recipientPhone, input.messageBody, fromNumber)
-      .then(async (result) => {
-        try {
-          await withTenant(tenantId, async (tx) => {
-            await tx.execute(sql`
-              UPDATE fnb_guest_notifications
-              SET status = 'delivered',
-                  external_id = ${result.externalId},
-                  updated_at = now()
-              WHERE id = ${notificationId} AND tenant_id = ${tenantId}
-            `);
-          });
-        } catch {
-          // Update failed — notification was still sent
-        }
-      })
-      .catch(async (error: unknown) => {
-        console.error('[SMS] Dispatch failed:', error);
-        try {
-          await withTenant(tenantId, async (tx) => {
-            await tx.execute(sql`
-              UPDATE fnb_guest_notifications
-              SET status = 'failed',
-                  error_message = ${error instanceof Error ? error.message : 'Unknown error'},
-                  updated_at = now()
-              WHERE id = ${notificationId} AND tenant_id = ${tenantId}
-            `);
-          });
-        } catch {
-          // Update failed
-        }
+    try {
+      const result = await getSmsProvider().sendSms(
+        input.recipientPhone,
+        input.messageBody,
+        fromNumber,
+      );
+      await withTenant(tenantId, async (tx) => {
+        await tx.execute(sql`
+          UPDATE fnb_guest_notifications
+          SET status = 'delivered',
+              external_id = ${result.externalId},
+              updated_at = now()
+          WHERE id = ${notificationId} AND tenant_id = ${tenantId}
+        `);
       });
+      notification.status = 'delivered';
+    } catch (error: unknown) {
+      console.error('[SMS] Dispatch failed:', error);
+      await withTenant(tenantId, async (tx) => {
+        await tx.execute(sql`
+          UPDATE fnb_guest_notifications
+          SET status = 'failed',
+              error_message = ${error instanceof Error ? error.message : 'Unknown error'},
+              updated_at = now()
+          WHERE id = ${notificationId} AND tenant_id = ${tenantId}
+        `);
+      });
+      notification.status = 'failed';
+    }
   }
 
   return notification;

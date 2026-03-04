@@ -233,6 +233,18 @@
 | 206–210 | PMS conventions | 10452–10600 | State machines, calendar, pricing, channels |
 | 211–214 | Admin/tag/spa conventions | 10602–10796 | Admin eval, tag lifecycle, spa adapters |
 
+### Host, Waitlist & Operations (§215–§221)
+
+| § | Section | Lines | Key Topics |
+|---|---------|-------|------------|
+| 215 | F&B Host Orchestration | 10798–10920 | Server load, pacing, RevPASH, analytics, waitlist offers, guest intelligence |
+| 216 | Waitlist Config System | 10922–11040 | JSONB config, public guest APIs, cron sweep, merge/split/bump, embeddable widget |
+| 217 | Semantic Fast-Path + Schema Catalog | 11042–11100 | Deterministic regex resolver, SWR-cached schema catalog |
+| 218 | Admin Portal Operations | 11102–11190 | Health monitoring, audit deep-dive, finance tools, global search |
+| 219 | Housekeeping Management | 11192–11230 | Cleaning types CRUD, workload/productivity queries |
+| 220 | Accounting: Retained Earnings + Journal Validation | 11232–11300 | FY close, multi-currency, rounding tolerance, control account guard |
+| 221 | Cross-Cutting Patterns (2025-03) | 11302–11354 | Read-model without outbox, deadlock-safe locking, LATERAL JOIN fallback, public adminClient, JSONB config blobs |
+
 ---
 
 ## Quick Section Lookup by Topic
@@ -241,22 +253,22 @@
 |-------|----------|
 | **Money (dollars vs cents)** | §21, §65–§66, §73–§74, §153 |
 | **Dark mode** | §16, §136, §140–§145 |
-| **GL / Accounting** | §65–§80, §104, §176–§185, §201–§203 |
+| **GL / Accounting** | §65–§80, §104, §176–§185, §201–§203, §220 |
 | **POS** | §31–§38, §131 |
-| **F&B** | §46–§48, §75, §98 (KDS), §127–§128, §132–§134 |
+| **F&B** | §46–§48, §75, §98 (KDS), §127–§128, §132–§134, §215–§216 |
 | **Vercel / Serverless** | §123, §146–§150, §205 |
 | **Database / Schema** | §2, §118, §151 |
 | **Auth / Security** | §13–§14, §116, §119–§122 |
 | **Events / Consumers** | §8, §88, §186–§195 |
 | **Testing** | §11–§12, §138 |
 | **Reporting / Read Models** | §25, §39, §153–§160 |
-| **Semantic / AI** | §51–§54, §105–§106, §204 |
-| **PMS** | §44–§45, §206–§210 |
+| **Semantic / AI** | §51–§54, §105–§106, §204, §217 |
+| **PMS** | §44–§45, §206–§210, §219 |
 | **Spa** | §49–§50, §211–§214 |
 | **Settings / Config** | §110–§115, §130 |
 | **Inventory / Receiving** | §22, §26–§27, §161–§170 |
 | **Customer / Tags** | §24, §57, §211 |
-| **Admin Portal** | §55–§56, §137 |
+| **Admin Portal** | §55–§56, §137, §218 |
 
 ---
 
@@ -264,6 +276,6 @@
 
 - **Duplicate section numbers**: §98, §131, §132, §135 each appear twice (legacy numbering). Use line ranges to disambiguate.
 - **Line ranges are approximate** — sections may vary by ±20 lines. Use the section heading text for precise navigation.
-- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (10,796 lines)
+- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (11,354 lines, 221 sections)
 - **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (490 numbered gotchas)
-- **What's Built / What's Next**: `docs/conventions/whats-built.md` (1,502 lines)
+- **What's Built / What's Next**: `docs/conventions/whats-built.md`

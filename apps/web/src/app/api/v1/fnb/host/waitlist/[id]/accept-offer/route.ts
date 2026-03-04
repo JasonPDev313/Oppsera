@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import { acceptTableOffer } from '@oppsera/module-fnb';
 import { acceptTableOfferSchema } from '@oppsera/module-fnb';
@@ -25,6 +26,8 @@ export const POST = withMiddleware(
     }
 
     const result = await acceptTableOffer(ctx, parsed.data);
+
+    broadcastFnb(ctx, 'waitlist', 'tables').catch(() => {});
 
     return NextResponse.json({ data: result });
   },

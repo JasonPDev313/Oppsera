@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import {
   notifyWaitlistGuest,
@@ -26,7 +27,7 @@ export const POST = withMiddleware(
     }
 
     const result = await notifyWaitlistGuest(ctx, id, parsed.data);
-
+    broadcastFnb(ctx, 'waitlist').catch(() => {});
     return NextResponse.json({ data: result });
   },
   {
