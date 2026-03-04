@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useAuthContext } from '@/components/auth-provider';
 import { useStations } from '@/hooks/use-fnb-kitchen';
 import { ArrowLeft } from 'lucide-react';
 
@@ -21,7 +22,9 @@ function getStationColor(stationType: string): string {
 
 export default function KdsSelectorContent() {
   const router = useRouter();
-  const { stations, isLoading } = useStations({});
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
+  const { stations, isLoading } = useStations({ locationId });
 
   // Show all station types except 'expo' (expo has its own standalone page)
   const kdsStations = stations.filter(
