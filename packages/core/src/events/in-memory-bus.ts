@@ -171,7 +171,7 @@ export class InMemoryEventBus implements EventBus {
     error: Error,
     maxRetries: number,
   ): Promise<void> {
-    const tenantId = (event.data as Record<string, unknown>)?.tenantId as string | undefined;
+    const tenantId = event.tenantId;
 
     await guardedQuery('bus:persistDeadLetter', () =>
       db.insert(eventDeadLetters).values({

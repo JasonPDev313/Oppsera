@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
@@ -25,34 +25,30 @@ export async function redeemLoyaltyPoints(
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'redeemLoyaltyPoints');
     if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
 
-    const [member] = await tx
-      .select()
-      .from(pmsLoyaltyMembers)
-      .where(
-        and(
-          eq(pmsLoyaltyMembers.id, input.memberId),
-          eq(pmsLoyaltyMembers.tenantId, ctx.tenantId),
-        ),
-      )
-      .limit(1);
+    // Lock the member row to prevent concurrent balance races (FOR UPDATE)
+    const memberRows = await tx.execute(
+      sql`SELECT * FROM pms_loyalty_members WHERE id = ${input.memberId} AND tenant_id = ${ctx.tenantId} LIMIT 1 FOR UPDATE`,
+    );
+    const member = Array.from(memberRows as Iterable<Record<string, unknown>>)[0];
 
     if (!member) throw new NotFoundError('Loyalty member', input.memberId);
 
-    if (member.pointsBalance < input.points) {
-      throw new AppError('INSUFFICIENT_POINTS', `Only ${member.pointsBalance} points available`, 400);
+    const pointsBalance = Number(member.points_balance);
+    if (pointsBalance < input.points) {
+      throw new AppError('INSUFFICIENT_POINTS', `Only ${pointsBalance} points available`, 400);
     }
 
     // Get redemption value from program
     const [program] = await tx
       .select()
       .from(pmsLoyaltyPrograms)
-      .where(eq(pmsLoyaltyPrograms.id, member.programId))
+      .where(eq(pmsLoyaltyPrograms.id, String(member.program_id)))
       .limit(1);
 
-    const redemptionValueCents = program?.redemptionValueCents ?? 1;
+    const redemptionValueCents = program ? Number(program.redemptionValueCents ?? 1) : 1;
     const creditCents = input.points * redemptionValueCents;
 
-    const newBalance = member.pointsBalance - input.points;
+    const newBalance = pointsBalance - input.points;
 
     await tx
       .update(pmsLoyaltyMembers)

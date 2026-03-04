@@ -175,7 +175,7 @@ async function upsertLenses(
   }
 }
 
-async function upsertExamples(
+async function _upsertExamples(
   pg: postgres.Sql,
   inserts: ReturnType<typeof toEvalExampleInserts>,
 ) {
@@ -223,7 +223,7 @@ export async function syncRegistryToDb(): Promise<{
     const allDimensions = [...CORE_DIMENSIONS, ...GOLF_DIMENSIONS, ...PMS_DIMENSIONS, ...SPA_DIMENSIONS, ...ACCT_DIMENSIONS];
     const allRelations = [...CORE_METRIC_DIMENSIONS, ...GOLF_METRIC_DIMENSIONS, ...PMS_METRIC_DIMENSIONS, ...SPA_METRIC_DIMENSIONS, ...ACCT_METRIC_DIMENSIONS];
     const allLenses = [...SYSTEM_LENSES, ...PMS_SYSTEM_LENSES, ...SPA_SYSTEM_LENSES, ...ACCT_SYSTEM_LENSES];
-    const allExamples = toEvalExampleInserts(GOLF_EXAMPLES);
+    const _allExamples = toEvalExampleInserts(GOLF_EXAMPLES);
 
     await upsertDimensions(pg, allDimensions);
     await upsertMetrics(pg, allMetrics);

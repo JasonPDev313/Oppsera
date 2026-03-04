@@ -77,9 +77,12 @@ export async function handleSpaCommissionPaidForAccounting(event: EventEnvelope)
       return;
     }
 
-    // Expense account (debit side) — no dedicated commission expense account in settings,
-    // use uncategorized revenue as catch-all and log unmapped for proper remapping later
-    const expenseAccountId = settings.defaultUncategorizedRevenueAccountId;
+    // Expense account (debit side) — prefer dedicated commission expense account,
+    // fall back to uncategorized expense. NEVER use a revenue account for commission expense.
+    const expenseAccountId =
+      (settings as any).defaultCommissionExpenseAccountId ??
+      (settings as any).defaultUncategorizedExpenseAccountId ??
+      null;
     if (!expenseAccountId) {
       try {
         await logUnmappedEvent(db, event.tenantId, {
@@ -88,7 +91,7 @@ export async function handleSpaCommissionPaidForAccounting(event: EventEnvelope)
           sourceReferenceId: data.commissionId,
           entityType: 'gl_account',
           entityId: 'commission_expense',
-          reason: `Commission payout of $${(data.amountCents / 100).toFixed(2)} to ${data.providerName} has no expense GL account configured. Configure an uncategorized revenue account (or a dedicated commission expense account) in accounting settings.`,
+          reason: `Commission payout of $${(data.amountCents / 100).toFixed(2)} to ${data.providerName} skipped — no commission expense or uncategorized expense GL account configured. Configure an expense account in accounting settings.`,
         });
       } catch { /* best-effort */ }
       return;
@@ -129,7 +132,7 @@ export async function handleSpaCommissionPaidForAccounting(event: EventEnvelope)
         sourceReferenceId: data.commissionId,
         entityType: 'commission_expense_fallback',
         entityId: data.providerId,
-        reason: `Commission expense for ${data.providerName} ($${(data.amountCents / 100).toFixed(2)}) posted to uncategorized revenue as fallback. Configure a dedicated commission expense GL account and remap.`,
+        reason: `Commission expense for ${data.providerName} ($${(data.amountCents / 100).toFixed(2)}) posted to expense fallback account. Configure a dedicated commission expense GL account for proper classification.`,
       });
     } catch { /* best-effort — posting still proceeds */ }
 

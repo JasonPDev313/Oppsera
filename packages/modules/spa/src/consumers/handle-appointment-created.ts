@@ -12,8 +12,8 @@ const serviceItemSchema = z.object({
 
 const appointmentCreatedSchema = z.object({
   appointmentId: z.string(),
-  locationId: z.string(),
-  providerId: z.string(),
+  locationId: z.string().min(1),
+  providerId: z.string().optional(),
   customerId: z.string().optional(),
   businessDate: z.string(),
   bookingSource: z.string().optional(),
@@ -29,8 +29,9 @@ const CONSUMER_NAME = 'spa.appointmentCreated';
  * 1. Validate event payload with Zod schema
  * 2. Insert processed_events (idempotency guard)
  * 3. Upsert rm_spa_daily_operations — increment appointment_count, online_booking_count, walk_in_count
- * 4. Upsert rm_spa_service_metrics — increment booking_count per service item
- * 5. Upsert rm_spa_client_metrics — increment service_count (if customerId present)
+ * 4. Upsert rm_spa_provider_metrics — increment appointment_count
+ * 5. Upsert rm_spa_service_metrics — increment booking_count per service item
+ * 6. Upsert rm_spa_client_metrics — increment service_count (if customerId present)
  */
 export async function handleSpaAppointmentCreated(event: EventEnvelope): Promise<void> {
   const parsed = appointmentCreatedSchema.safeParse(event.data);
@@ -54,7 +55,7 @@ export async function handleSpaAppointmentCreated(event: EventEnvelope): Promise
     const rows = Array.from(inserted as Iterable<{ id: string }>);
     if (rows.length === 0) return;
 
-    const locationId = data.locationId || event.locationId || '';
+    const locationId = data.locationId; // Zod-validated as non-empty string
     const businessDate = data.businessDate;
     const isOnline = data.bookingSource === 'online';
     const isWalkIn = data.bookingSource === 'walk_in';
@@ -79,7 +80,27 @@ export async function handleSpaAppointmentCreated(event: EventEnvelope): Promise
         updated_at = NOW()
     `);
 
-    // Step 3: Upsert rm_spa_service_metrics per service item
+    // Step 3: Upsert rm_spa_provider_metrics — increment appointment_count
+    if (data.providerId) {
+      await (tx as any).execute(sql`
+        INSERT INTO rm_spa_provider_metrics (
+          id, tenant_id, provider_id, business_date,
+          appointment_count,
+          created_at, updated_at
+        )
+        VALUES (
+          ${generateUlid()}, ${event.tenantId}, ${data.providerId}, ${businessDate},
+          ${1},
+          NOW(), NOW()
+        )
+        ON CONFLICT (tenant_id, provider_id, business_date)
+        DO UPDATE SET
+          appointment_count = rm_spa_provider_metrics.appointment_count + 1,
+          updated_at = NOW()
+      `);
+    }
+
+    // Step 5: Upsert rm_spa_service_metrics per service item
     for (const item of data.serviceItems) {
       await (tx as any).execute(sql`
         INSERT INTO rm_spa_service_metrics (
@@ -99,7 +120,7 @@ export async function handleSpaAppointmentCreated(event: EventEnvelope): Promise
       `);
     }
 
-    // Step 4: Upsert rm_spa_client_metrics (if customerId present)
+    // Step 6: Upsert rm_spa_client_metrics (if customerId present)
     if (data.customerId) {
       const serviceCount = data.serviceItems.length;
       await (tx as any).execute(sql`

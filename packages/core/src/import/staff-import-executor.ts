@@ -22,12 +22,13 @@ import type { ValidatedStaffRow, StaffImportResult } from './staff-import-types'
 
 type TenantTx = Parameters<Parameters<typeof withTenant>[1]>[0];
 
-// Simple hash for PINs — in production, use bcrypt. Here we use a
-// lightweight SHA-256 approach that doesn't require an external dep.
+// Hash PINs using scrypt (same as the main user flow in users.ts).
+// scrypt is memory-hard, making brute-force of short PINs computationally expensive.
 async function hashPin(pin: string): Promise<string> {
-  // Use Node.js crypto
-  const { createHash } = await import('node:crypto');
-  return createHash('sha256').update(pin).digest('hex');
+  const { scryptSync, randomBytes } = await import('node:crypto');
+  const salt = randomBytes(16).toString('hex');
+  const derived = scryptSync(pin, salt, 64).toString('hex');
+  return `${salt}:${derived}`;
 }
 
 export interface ExecuteStaffImportInput {
@@ -205,9 +206,8 @@ async function updateUser(
   if (row.externalPayrollEmployeeId) setValues.externalPayrollEmployeeId = row.externalPayrollEmployeeId;
   if (row.externalPayrollId) setValues.externalPayrollId = row.externalPayrollId;
 
-  // Update PINs only if provided (empty = keep existing)
-  if (row.posPin) setValues.posPin = row.posPin;
-  if (row.overridePin) setValues.overridePin = row.overridePin;
+  // PINs are ONLY stored hashed in user_security (below).
+  // Never store plaintext PINs in the users table.
 
   await tx.update(users).set(setValues).where(
     sql`${users.id} = ${userId} AND ${users.tenantId} = ${tenantId}`

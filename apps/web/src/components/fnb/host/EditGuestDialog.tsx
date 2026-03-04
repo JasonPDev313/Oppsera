@@ -65,7 +65,6 @@ export function EditGuestDialog({
     setIsVip(entry.isVip);
     setNotes(entry.notes ?? '');
     setLocalError(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.id]);
 
   if (!open) return null;

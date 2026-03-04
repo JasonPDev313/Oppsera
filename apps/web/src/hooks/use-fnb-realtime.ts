@@ -100,7 +100,6 @@ export function useFnbRealtime({
   const channelsKey = channels.join(',');
   const stableChannels = useMemo(
     () => channels,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [channelsKey],
   );
 

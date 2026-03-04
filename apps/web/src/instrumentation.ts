@@ -150,6 +150,14 @@ export async function register() {
         const payments = await import('@oppsera/module-payments');
         bus.subscribe('order.voided.v1', payments.handleOrderVoided);
       }),
+      // KDS ticket creation: course sent/fired → create kitchen tickets.
+      // Must be in the critical path — if deferred, cold-start events miss
+      // the consumer and the outbox retry adds 10-30s KDS delay.
+      importSafe('KDS ticket creation consumers', async () => {
+        const fnb = await import('@oppsera/module-fnb');
+        bus.subscribe('fnb.course.sent.v1', (event) => fnb.handleCourseSent(event.tenantId, event.data as any));
+        bus.subscribe('fnb.course.fired.v1', (event) => fnb.handleCourseSent(event.tenantId, event.data as any));
+      }),
     ]);
 
     // ── DB connection warm-up REMOVED (2026-02-28) ──────────────────
@@ -271,9 +279,8 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('fnb.payment.check_comped.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as any));
       bus.subscribe('fnb.payment.check_discounted.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as any));
       bus.subscribe('fnb.payment.check_voided.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as any));
-      // KDS ticket creation: course sent/fired → create kitchen tickets
-      bus.subscribe('fnb.course.sent.v1', (event) => fnb.handleCourseSent(event.tenantId, event.data as any));
-      bus.subscribe('fnb.course.fired.v1', (event) => fnb.handleCourseSent(event.tenantId, event.data as any));
+      // NOTE: fnb.course.sent.v1 / fnb.course.fired.v1 → KDS ticket creation
+      // moved to critical path (above) to avoid cold-start delays.
     }),
 
     // Golf Reporting consumers

@@ -30,6 +30,21 @@ export async function recognizeMembershipRevenue(
   ctx: RequestContext,
   input: RecognizeMembershipRevenueInput,
 ): Promise<{ recognizedCents: number; skipped: boolean }> {
+  // GL data stored outside the transaction to avoid nesting publishWithOutbox.
+  // Populated inside the tx callback, read after commit.
+  interface GlPostData {
+    toRecognizeDollars: string;
+    sourceRef: string;
+    scheduleId: string;
+    throughDate: string;
+    billingPeriodStart: string;
+    deferredRevenueGlAccountId: string;
+    revenueGlAccountId: string;
+    locationId?: string;
+    customerId?: string;
+  }
+  let glData: GlPostData | null = null;
+
   const result = await publishWithOutbox(ctx, async (tx) => {
     // 1. Load schedule
     const [schedule] = await tx
@@ -108,36 +123,10 @@ export async function recognizeMembershipRevenue(
     // 4. Convert cents → dollars for GL
     const toRecognizeDollars = (toRecognize / 100).toFixed(2);
 
-    // 5. Post GL: Dr Deferred Revenue / Cr Revenue
-    const postingApi = getAccountingPostingApi();
+    // 5. Insert recognition entry (audit trail) — GL posted AFTER transaction
+    //    to avoid nested publishWithOutbox deadlock (postEntry calls publishWithOutbox
+    //    internally, and nesting two publishWithOutbox calls exhausts max:2 pool).
     const sourceRef = `recognition-${input.scheduleId}-${input.throughDate}`;
-    const journalResult = await postingApi.postEntry(ctx, {
-      businessDate: input.throughDate,
-      sourceModule: 'membership',
-      sourceReferenceId: sourceRef,
-      memo: `Membership revenue recognition: ${schedule.billingPeriodStart} through ${input.throughDate}`,
-      currency: 'USD',
-      lines: [
-        {
-          accountId: schedule.deferredRevenueGlAccountId,
-          debitAmount: toRecognizeDollars,
-          creditAmount: '0',
-          locationId: schedule.locationId ?? undefined,
-          memo: 'Deferred revenue release — membership dues',
-        },
-        {
-          accountId: schedule.revenueGlAccountId,
-          debitAmount: '0',
-          creditAmount: toRecognizeDollars,
-          locationId: schedule.locationId ?? undefined,
-          customerId: schedule.customerId ?? undefined,
-          memo: 'Earned membership dues revenue',
-        },
-      ],
-      forcePost: true,
-    });
-
-    // 6. Insert recognition entry (audit trail)
     await tx.insert(membershipDuesRecognitionEntries).values({
       id: generateUlid(),
       tenantId: ctx.tenantId,
@@ -145,10 +134,10 @@ export async function recognizeMembershipRevenue(
       recognitionDate: input.throughDate,
       recognizedCents: toRecognize,
       cumulativeRecognizedCents: newCumulative,
-      glJournalEntryId: journalResult.id,
+      glJournalEntryId: null, // Updated after GL post
     });
 
-    // 7. Update schedule
+    // 6. Update schedule
     const isFullyRecognized = newCumulative >= schedule.totalAmountCents;
     await tx
       .update(membershipDuesRecognitionSchedule)
@@ -165,8 +154,76 @@ export async function recognizeMembershipRevenue(
         ),
       );
 
-    return { result: { recognizedCents: toRecognize, skipped: false }, events: [] };
+    // Store GL data in outer variable for post-commit posting
+    glData = {
+      toRecognizeDollars,
+      sourceRef,
+      scheduleId: input.scheduleId,
+      throughDate: input.throughDate,
+      billingPeriodStart: schedule.billingPeriodStart,
+      deferredRevenueGlAccountId: schedule.deferredRevenueGlAccountId,
+      revenueGlAccountId: schedule.revenueGlAccountId,
+      locationId: schedule.locationId ?? undefined,
+      customerId: schedule.customerId ?? undefined,
+    };
+
+    return {
+      result: { recognizedCents: toRecognize, skipped: false },
+      events: [],
+    };
   });
+
+  // Post GL entry AFTER the outer transaction commits to avoid nested
+  // publishWithOutbox deadlock. postEntry opens its own transaction.
+  // TS can't track mutation inside async callbacks, so re-assert the type
+  const resolvedGlData = glData as GlPostData | null;
+  if (resolvedGlData) {
+    try {
+      const postingApi = getAccountingPostingApi();
+      const journalResult = await postingApi.postEntry(ctx, {
+        businessDate: resolvedGlData.throughDate,
+        sourceModule: 'membership',
+        sourceReferenceId: resolvedGlData.sourceRef,
+        memo: `Membership revenue recognition: ${resolvedGlData.billingPeriodStart} through ${resolvedGlData.throughDate}`,
+        currency: 'USD',
+        lines: [
+          {
+            accountId: resolvedGlData.deferredRevenueGlAccountId,
+            debitAmount: resolvedGlData.toRecognizeDollars,
+            creditAmount: '0',
+            locationId: resolvedGlData.locationId,
+            memo: 'Deferred revenue release — membership dues',
+          },
+          {
+            accountId: resolvedGlData.revenueGlAccountId,
+            debitAmount: '0',
+            creditAmount: resolvedGlData.toRecognizeDollars,
+            locationId: resolvedGlData.locationId,
+            customerId: resolvedGlData.customerId,
+            memo: 'Earned membership dues revenue',
+          },
+        ],
+        forcePost: true,
+      });
+
+      // Back-fill the GL journal entry ID on the recognition entry
+      const { db } = await import('@oppsera/db');
+      await db
+        .update(membershipDuesRecognitionEntries)
+        .set({ glJournalEntryId: journalResult.id })
+        .where(
+          and(
+            eq(membershipDuesRecognitionEntries.tenantId, ctx.tenantId),
+            eq(membershipDuesRecognitionEntries.scheduleId, resolvedGlData.scheduleId),
+            eq(membershipDuesRecognitionEntries.recognitionDate, resolvedGlData.throughDate),
+          ),
+        );
+    } catch (glErr) {
+      // GL adapter must never block the business operation (gotcha #9).
+      // The recognition is already committed. Log for reconciliation.
+      console.error('[recognizeMembershipRevenue] GL posting failed (recognition committed):', glErr);
+    }
+  }
 
   await auditLog(
     ctx,

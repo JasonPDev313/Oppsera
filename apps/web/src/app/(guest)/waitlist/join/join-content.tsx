@@ -84,8 +84,9 @@ export default function JoinContent() {
 
       const json = await res.json();
       const token = json.data?.token;
-      if (token) {
-        router.push(`/waitlist/${token}`);
+      const slug = json.data?.tenantSlug;
+      if (token && slug) {
+        router.push(`/waitlist/${slug}/status/${token}`);
       }
     } catch {
       setError('Network error. Please check your connection.');

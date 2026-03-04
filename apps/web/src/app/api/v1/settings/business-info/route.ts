@@ -10,7 +10,7 @@ export const GET = withMiddleware(
     const data = await getBusinessInfo(ctx.tenantId);
     return NextResponse.json({ data });
   },
-  { permission: 'settings.view' },
+  { entitlement: 'platform_core', permission: 'settings.view' },
 );
 
 export const PATCH = withMiddleware(
@@ -28,5 +28,5 @@ export const PATCH = withMiddleware(
     const data = await updateBusinessInfo(ctx, parsed.data);
     return NextResponse.json({ data });
   },
-  { permission: 'settings.update' },
+  { entitlement: 'platform_core', permission: 'settings.update' },
 );

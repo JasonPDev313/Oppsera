@@ -91,11 +91,40 @@ export async function completeService(ctx: RequestContext, input: CompleteServic
       performedBy: ctx.user.id,
     });
 
+    // Fetch appointment items to enrich the event payload (consumer needs these for read model updates)
+    const items = await tx
+      .select()
+      .from(spaAppointmentItems)
+      .where(
+        and(
+          eq(spaAppointmentItems.tenantId, ctx.tenantId),
+          eq(spaAppointmentItems.appointmentId, input.id),
+        ),
+      );
+
+    const serviceItems = items.map((i) => ({
+      serviceId: i.serviceId,
+      addonId: (i as any).addonId ?? undefined,
+      finalPriceCents: Number((i as any).finalPriceCents ?? 0),
+      durationMinutes: Number((i as any).durationMinutes ?? 0),
+    }));
+    const totalCents = serviceItems.reduce((s, i) => s + i.finalPriceCents, 0);
+    const durationMinutes = serviceItems.reduce((s, i) => s + i.durationMinutes, 0);
+
     const event = buildEventFromContext(ctx, SPA_EVENTS.APPOINTMENT_COMPLETED, {
       appointmentId: updated!.id,
       appointmentNumber: updated!.appointmentNumber,
       customerId: updated!.customerId,
       providerId: updated!.providerId,
+      locationId: updated!.locationId ?? ctx.locationId ?? '',
+      businessDate: now.toISOString().slice(0, 10),
+      durationMinutes,
+      serviceItems,
+      totalCents,
+      serviceCents: totalCents,
+      addonCents: 0,
+      tipCents: 0,
+      commissionCents: 0,
       serviceCompletedAt: now.toISOString(),
     });
 

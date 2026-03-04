@@ -335,6 +335,15 @@ export async function apiFetch<T = unknown>(
   return data;
 }
 
+/** Convert a caught error into a user-friendly message. */
+export function formatCaughtError(err: unknown): string {
+  if (err instanceof ApiError) return err.message;
+  if (err instanceof TypeError && err.message.includes('fetch')) {
+    return 'Unable to reach the server. Check your internet connection and try again.';
+  }
+  return 'Something went wrong. Please try again or contact support if this persists.';
+}
+
 export class ApiError extends Error {
   /** Cardholder-safe message from gateway response interpreter */
   userMessage?: string;

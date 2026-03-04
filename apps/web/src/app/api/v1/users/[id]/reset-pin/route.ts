@@ -42,5 +42,5 @@ export const POST = withMiddleware(
     await auditLog(ctx, 'user.reset_pin', 'user', userId);
     return NextResponse.json({ data: { userId } });
   },
-  { permission: 'users.manage' },
+  { entitlement: 'platform_core', permission: 'users.manage' },
 );

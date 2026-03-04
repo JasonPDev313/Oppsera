@@ -3,8 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { apiFetch } from '@/lib/api-client';
-import { ApiError } from '@/lib/api-client';
+import { apiFetch, ApiError, formatCaughtError } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
 
 function LoginForm() {
@@ -34,11 +33,8 @@ function LoginForm() {
       const { needsOnboarding } = await auth.login(email, password);
       router.push(needsOnboarding ? '/onboard' : '/dashboard');
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('An unexpected error occurred');
-      }
+      if (!(err instanceof ApiError)) console.error('[login] Unexpected error:', err);
+      setError(formatCaughtError(err));
     } finally {
       setIsLoading(false);
     }
@@ -59,11 +55,8 @@ function LoginForm() {
       });
       setMagicLinkSent(true);
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('An unexpected error occurred');
-      }
+      if (!(err instanceof ApiError)) console.error('[magic-link] Unexpected error:', err);
+      setError(formatCaughtError(err));
     } finally {
       setIsLoading(false);
     }

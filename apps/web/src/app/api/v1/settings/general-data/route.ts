@@ -8,5 +8,5 @@ export const GET = withMiddleware(
     const data = await getBusinessInfoAll(ctx.tenantId);
     return NextResponse.json({ data });
   },
-  { permission: 'settings.view' },
+  { entitlement: 'platform_core', permission: 'settings.view' },
 );

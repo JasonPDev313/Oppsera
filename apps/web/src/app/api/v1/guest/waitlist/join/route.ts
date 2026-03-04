@@ -60,7 +60,11 @@ export async function POST(req: NextRequest) {
     // (this is a public/guest endpoint with no tenant context set)
     const adminDb = createAdminClient();
     const locRows = await adminDb.execute(sql`
-      SELECT tenant_id FROM locations WHERE id = ${input.locationId} AND is_active = true LIMIT 1
+      SELECT l.tenant_id, t.slug AS tenant_slug
+      FROM locations l
+      JOIN tenants t ON t.id = l.tenant_id
+      WHERE l.id = ${input.locationId} AND l.is_active = true
+      LIMIT 1
     `);
     const loc = Array.from(locRows as Iterable<Record<string, unknown>>)[0];
     if (!loc) {
@@ -70,6 +74,7 @@ export async function POST(req: NextRequest) {
       );
     }
     const tenantId = String(loc.tenant_id);
+    const tenantSlug = String(loc.tenant_slug);
 
     const businessDate = new Date().toISOString().slice(0, 10);
 
@@ -120,6 +125,7 @@ export async function POST(req: NextRequest) {
       data: {
         id: String(created.id),
         token: String(created.guest_token),
+        tenantSlug,
       },
     }, { status: 201 });
   } catch {

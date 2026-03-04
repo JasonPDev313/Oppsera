@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ApiError } from '@/lib/api-client';
+import { ApiError, formatCaughtError } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
 
 function SignupForm() {
@@ -35,11 +35,8 @@ function SignupForm() {
       const { needsOnboarding } = await auth.login(email, password);
       router.push(needsOnboarding ? '/onboard' : '/dashboard');
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('An unexpected error occurred');
-      }
+      if (!(err instanceof ApiError)) console.error('[signup] Unexpected error:', err);
+      setError(formatCaughtError(err));
     } finally {
       setIsLoading(false);
     }

@@ -1,9 +1,10 @@
-import { sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
+import { fnbTableLiveStatus } from '@oppsera/db';
 import { FNB_EVENTS } from '../events/types';
 import type { PaymentCompletedPayload } from '../events/types';
 import { PaymentSessionNotFoundError, PaymentSessionStatusConflictError } from '../errors';
@@ -54,6 +55,29 @@ export async function completePaymentSession(
           SET status = 'closed', closed_at = NOW(), updated_at = NOW(), version = version + 1
           WHERE id = ${tabId} AND tenant_id = ${ctx.tenantId}`,
     );
+
+    // Clear table live status to 'dirty' (matches close-tab.ts behavior)
+    const tabDetailRows = await tx.execute(
+      sql`SELECT table_id FROM fnb_tabs WHERE id = ${tabId} AND tenant_id = ${ctx.tenantId}`,
+    );
+    const tabDetailArr = Array.from(tabDetailRows as Iterable<Record<string, unknown>>);
+    const tableId = tabDetailArr[0]?.table_id as string | null;
+    if (tableId) {
+      await (tx as any)
+        .update(fnbTableLiveStatus)
+        .set({
+          status: 'dirty',
+          currentTabId: null,
+          currentServerUserId: null,
+          partySize: null,
+          guestNames: null,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(fnbTableLiveStatus.tenantId, ctx.tenantId),
+          eq(fnbTableLiveStatus.tableId, tableId),
+        ));
+    }
 
     const payload: PaymentCompletedPayload = {
       paymentSessionId: input.sessionId,

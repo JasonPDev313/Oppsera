@@ -137,7 +137,7 @@ export default function WaitlistJoinContent() {
       setNotFound(true);
       setLoading(false);
     });
-  }, [activeSlug]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeSlug]);
 
   const effectiveSize = showCustom ? parseInt(customSize, 10) || 0 : partySize;
 

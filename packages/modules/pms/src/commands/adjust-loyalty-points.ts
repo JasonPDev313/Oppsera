@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
@@ -18,27 +18,24 @@ export async function adjustLoyaltyPoints(
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'adjustLoyaltyPoints');
     if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
 
-    const [member] = await tx
-      .select()
-      .from(pmsLoyaltyMembers)
-      .where(
-        and(
-          eq(pmsLoyaltyMembers.id, input.memberId),
-          eq(pmsLoyaltyMembers.tenantId, ctx.tenantId),
-        ),
-      )
-      .limit(1);
+    // Lock the member row to prevent concurrent balance races (FOR UPDATE)
+    const memberRows = await tx.execute(
+      sql`SELECT * FROM pms_loyalty_members WHERE id = ${input.memberId} AND tenant_id = ${ctx.tenantId} LIMIT 1 FOR UPDATE`,
+    );
+    const member = Array.from(memberRows as Iterable<Record<string, unknown>>)[0];
 
     if (!member) throw new NotFoundError('Loyalty member', input.memberId);
 
-    const newBalance = member.pointsBalance + input.points;
+    const currentBalance = Number(member.points_balance);
+    const currentLifetime = Number(member.lifetime_points);
+    const newBalance = currentBalance + input.points;
     if (newBalance < 0) {
       throw new AppError('NEGATIVE_BALANCE', 'Adjustment would result in negative balance', 400);
     }
 
     const newLifetime = input.points > 0
-      ? member.lifetimePoints + input.points
-      : member.lifetimePoints;
+      ? currentLifetime + input.points
+      : currentLifetime;
 
     await tx
       .update(pmsLoyaltyMembers)

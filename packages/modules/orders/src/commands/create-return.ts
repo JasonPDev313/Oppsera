@@ -4,7 +4,7 @@ import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError, generateUlid } from '@oppsera/shared';
 import { orders, orderLines } from '@oppsera/db';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import type { CreateReturnInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { getNextOrderNumber } from '../helpers/order-number';
@@ -68,23 +68,47 @@ export async function createReturn(
 
     const originalLineMap = new Map((originalLines as any[]).map((l: any) => [l.id, l]));
 
-    // 3. Validate return quantities
+    // 3. Fetch previously-returned quantities for these lines (sum across all prior returns)
+    const priorReturnLines = await (tx as any)
+      .select({
+        originalLineId: orderLines.originalLineId,
+        returnedQty: sql<string>`COALESCE(SUM(ABS(${orderLines.qty}::numeric)), 0)`,
+      })
+      .from(orderLines)
+      .innerJoin(orders, eq(orderLines.orderId, orders.id))
+      .where(
+        and(
+          eq(orders.tenantId, ctx.tenantId),
+          eq(orders.returnOrderId, originalOrderId),
+          inArray(orderLines.originalLineId, originalLineIds),
+        ),
+      )
+      .groupBy(orderLines.originalLineId);
+
+    const priorReturnMap = new Map(
+      (priorReturnLines as any[]).map((r: any) => [r.originalLineId, Number(r.returnedQty)]),
+    );
+
+    // 4. Validate return quantities against remaining returnable qty
     for (const returnLine of input.returnLines) {
       const orig = originalLineMap.get(returnLine.originalLineId)!;
       const origQty = Number(orig.qty);
-      if (returnLine.qty > origQty) {
+      const alreadyReturned = priorReturnMap.get(returnLine.originalLineId) ?? 0;
+      const remainingQty = origQty - alreadyReturned;
+      if (returnLine.qty > remainingQty) {
         throw new ValidationError(
-          `Return qty ${returnLine.qty} exceeds original qty ${origQty} for line ${returnLine.originalLineId}`,
-          [{ field: 'qty', message: `Max returnable qty is ${origQty}` }],
+          `Return qty ${returnLine.qty} exceeds remaining returnable qty ${remainingQty} for line ${returnLine.originalLineId}`,
+          [{ field: 'qty', message: `Max returnable qty is ${remainingQty} (${alreadyReturned} already returned)` }],
         );
       }
     }
 
-    // 4. Determine return type
+    // 5. Determine return type (full only if returning all remaining for all lines)
     const isFullReturn = input.returnLines.length === (originalLines as any[]).length
       && input.returnLines.every(rl => {
         const orig = originalLineMap.get(rl.originalLineId)!;
-        return rl.qty === Number(orig.qty);
+        const alreadyReturned = priorReturnMap.get(rl.originalLineId) ?? 0;
+        return rl.qty === (Number(orig.qty) - alreadyReturned);
       });
 
     // 5. Create return order

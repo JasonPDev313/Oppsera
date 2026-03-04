@@ -209,6 +209,7 @@ export function useAuth() {
       }
     }
     // All retries exhausted — throw so login page shows error instead of redirecting
+    console.error('[login] /me fetch failed after 3 attempts:', lastError);
     throw lastError;
   }, []);
 

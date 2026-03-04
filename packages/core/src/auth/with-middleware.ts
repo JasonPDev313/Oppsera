@@ -227,11 +227,14 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
 
       // Surface DB schema mismatch errors clearly — most common cause of 500s during development
       const isDbSchemaError = rawMsg.includes('column') || rawMsg.includes('relation') || rawMsg.includes('does not exist');
-      const userMsg = isDbSchemaError
-        ? `Database schema mismatch — run pending migrations (pnpm db:migrate). Detail: ${rawMsg}`
-        : process.env.NODE_ENV === 'development'
-          ? rawMsg
-          : 'An unexpected error occurred';
+      const userMsg =
+        process.env.NODE_ENV === 'development'
+          ? isDbSchemaError
+            ? `Database schema mismatch — run pending migrations (pnpm db:migrate). Detail: ${rawMsg}`
+            : rawMsg
+          : isDbSchemaError
+            ? 'Database schema mismatch — run pending migrations.'
+            : 'An unexpected error occurred';
 
       return NextResponse.json(
         { error: { code: isDbSchemaError ? 'SCHEMA_MISMATCH' : 'INTERNAL_ERROR', message: userMsg } },

@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
@@ -18,21 +18,16 @@ export async function earnLoyaltyPoints(
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'earnLoyaltyPoints');
     if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
 
-    const [member] = await tx
-      .select()
-      .from(pmsLoyaltyMembers)
-      .where(
-        and(
-          eq(pmsLoyaltyMembers.id, input.memberId),
-          eq(pmsLoyaltyMembers.tenantId, ctx.tenantId),
-        ),
-      )
-      .limit(1);
+    // Lock the member row to prevent concurrent balance races (FOR UPDATE)
+    const memberRows = await tx.execute(
+      sql`SELECT * FROM pms_loyalty_members WHERE id = ${input.memberId} AND tenant_id = ${ctx.tenantId} LIMIT 1 FOR UPDATE`,
+    );
+    const member = Array.from(memberRows as Iterable<Record<string, unknown>>)[0];
 
     if (!member) throw new NotFoundError('Loyalty member', input.memberId);
 
-    const newBalance = member.pointsBalance + input.points;
-    const newLifetime = member.lifetimePoints + input.points;
+    const newBalance = Number(member.points_balance) + input.points;
+    const newLifetime = Number(member.lifetime_points) + input.points;
 
     // Update member balance
     await tx

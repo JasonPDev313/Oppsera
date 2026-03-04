@@ -67,7 +67,7 @@ export async function getFolio(tenantId: string, folioId: string) {
         totalCharges,
         totalPayments,
         totalRefunds,
-        balanceDue: totalCharges - totalPayments + totalRefunds,
+        balanceDue: totalCharges - totalPayments - totalRefunds,
       },
       createdAt: String(folio.created_at),
     };

@@ -48,7 +48,7 @@ const EMPTY_DEFAULTS: TurnTimeAverages = {
 
 // ── Party-size bucket → SQL CASE expression ───────────────────────────────────
 
-const PARTY_SIZE_CASE = sql`
+const _PARTY_SIZE_CASE = sql`
   CASE
     WHEN party_size <= 2 THEN 'small'
     WHEN party_size <= 4 THEN 'medium'

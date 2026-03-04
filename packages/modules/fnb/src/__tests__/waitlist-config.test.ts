@@ -5,7 +5,6 @@ import {
   waitlistNotificationConfigSchema,
   waitlistQueueConfigSchema,
   waitlistBrandingSchema,
-  waitlistContentConfigSchema,
   waitlistOperatingHoursSchema,
   getDefaultWaitlistConfig,
   mergeWaitlistConfig,

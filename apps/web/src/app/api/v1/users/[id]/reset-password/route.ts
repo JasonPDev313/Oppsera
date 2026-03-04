@@ -17,5 +17,5 @@ export const POST = withMiddleware(
     await auditLog(ctx, 'user.reset_password', 'user', userId);
     return NextResponse.json({ data: { userId } });
   },
-  { permission: 'users.manage' },
+  { entitlement: 'platform_core', permission: 'users.manage' },
 );

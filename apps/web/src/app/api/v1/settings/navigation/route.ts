@@ -10,7 +10,7 @@ export const GET = withMiddleware(
     const itemOrder = await getNavPreferences(ctx.tenantId);
     return NextResponse.json({ data: { itemOrder } });
   },
-  { permission: 'settings.view' },
+  { entitlement: 'platform_core', permission: 'settings.view' },
 );
 
 export const PATCH = withMiddleware(
@@ -28,5 +28,5 @@ export const PATCH = withMiddleware(
     const itemOrder = await saveNavPreferences(ctx, parsed.data);
     return NextResponse.json({ data: { itemOrder } });
   },
-  { permission: 'settings.update' },
+  { entitlement: 'platform_core', permission: 'settings.update' },
 );

@@ -66,7 +66,7 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
         .update(customers)
         .set({
           totalVisits: sql`${customers.totalVisits} + 1`,
-          totalSpend: sql`${customers.totalSpend} + ${total}`,
+          totalSpend: sql`${customers.totalSpend} + ${total}`,  // total is cents, totalSpend is bigint cents
           lastVisitAt: new Date(),
           updatedAt: new Date(),
         })
@@ -86,7 +86,7 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
           customerId,
           activityType: 'order_placed',
           title: `Order #${orderNumber} placed`,
-          details: `Total: ${total}`,
+          details: `Total: $${(total / 100).toFixed(2)}`,
           metadata: { orderId, total },
           createdBy,
         });

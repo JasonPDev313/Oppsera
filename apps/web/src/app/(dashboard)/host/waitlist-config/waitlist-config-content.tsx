@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/toast';
 import {
   Settings, Palette, Bell, Users, FileText, Clock, Loader2,
   Save, ExternalLink, Copy, Check, ChevronDown, ChevronRight,
-  Plus, Trash2, GripVertical,
+  Plus, Trash2,
 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────

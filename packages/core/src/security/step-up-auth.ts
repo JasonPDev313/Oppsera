@@ -12,7 +12,7 @@
  *   5. Server validates HMAC signature + payload (userId, tenantId, category, expiry)
  */
 
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { AppError } from '@oppsera/shared';
 import { STEP_UP_CATEGORIES } from '@oppsera/shared';
 import type { StepUpCategory } from '@oppsera/shared';
@@ -157,9 +157,11 @@ function verifyStepUpToken(token: string): StepUpPayload | null {
   const encodedPayload = token.slice(0, dotIndex);
   const providedSignature = token.slice(dotIndex + 1);
 
-  // Verify HMAC
+  // Verify HMAC (timing-safe to prevent side-channel attacks)
   const expectedSignature = computeHmac(encodedPayload);
-  if (providedSignature !== expectedSignature) return null;
+  const a = Buffer.from(providedSignature, 'utf8');
+  const b = Buffer.from(expectedSignature, 'utf8');
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
 
   // Parse payload
   try {

@@ -84,11 +84,11 @@ export async function getSpaDashboard(input: {
   date: string; // YYYY-MM-DD — typically today
 }): Promise<SpaDashboardMetrics> {
   return withTenant(input.tenantId, async (tx) => {
-    // Construct UTC day boundaries directly from the YYYY-MM-DD string so we
-    // don't inherit the server's local timezone (UTC on Vercel, but arbitrary
-    // in local dev). This matches the businessDate convention used elsewhere.
-    const dayStart = new Date(`${input.date}T00:00:00.000Z`);
-    const dayEnd = new Date(`${input.date}T23:59:59.999Z`);
+    // Pad UTC day boundaries by 14 hours to cover all client timezone offsets.
+    // The operational queries count by status (always accurate for the padded
+    // range) and the dashboard KPIs come from date-keyed read models.
+    const dayStart = new Date(new Date(`${input.date}T00:00:00.000Z`).getTime() - 14 * 60 * 60 * 1000);
+    const dayEnd = new Date(new Date(`${input.date}T23:59:59.999Z`).getTime() + 14 * 60 * 60 * 1000);
 
     // Fetch read model data, today's appointments, provider metrics,
     // and service metrics in parallel
@@ -167,7 +167,7 @@ export async function getSpaDashboard(input: {
             eq(rmSpaServiceMetrics.tenantId, input.tenantId),
             gte(
               rmSpaServiceMetrics.businessDate,
-              new Date(dayStart.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+              new Date(new Date(`${input.date}T00:00:00.000Z`).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
             ),
             lte(rmSpaServiceMetrics.businessDate, input.date),
           ),
@@ -196,7 +196,7 @@ export async function getSpaDashboard(input: {
             eq(spaAppointments.locationId, input.locationId),
             gte(spaAppointments.startAt, dayStart),
             lte(spaAppointments.startAt, dayEnd),
-            sql`${spaAppointments.status} IN ('scheduled', 'confirmed', 'checked_in', 'in_service')` as ReturnType<typeof eq>,
+            sql`${spaAppointments.status} IN ('confirmed', 'checked_in', 'in_service')` as ReturnType<typeof eq>,
           ),
         )
         .orderBy(spaAppointments.startAt)

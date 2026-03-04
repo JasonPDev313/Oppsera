@@ -65,8 +65,12 @@ export class DrizzleAuditLogger implements AuditLogger {
       conditions.push(sql`created_at < ${filters.to.toISOString()}`);
     }
     if (filters.cursor) {
-      const [cursorTime, cursorId] = filters.cursor.split(':');
-      conditions.push(sql`(created_at, id) < (${cursorTime!}, ${cursorId!})`);
+      const delimIdx = filters.cursor.indexOf('|');
+      if (delimIdx !== -1) {
+        const cursorTime = filters.cursor.slice(0, delimIdx);
+        const cursorId = filters.cursor.slice(delimIdx + 1);
+        conditions.push(sql`(created_at, id) < (${cursorTime}, ${cursorId})`);
+      }
     }
 
     // Join conditions with AND
@@ -102,7 +106,7 @@ export class DrizzleAuditLogger implements AuditLogger {
     let cursor: string | undefined;
     if (hasMore && entries.length > 0) {
       const last = entries[entries.length - 1]!;
-      cursor = `${last.createdAt}:${last.id}`;
+      cursor = `${last.createdAt}|${last.id}`;
     }
 
     return { entries, cursor };

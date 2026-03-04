@@ -3,6 +3,39 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Bold, Italic, Underline, List, ListOrdered, Link, Heading2, Heading3 } from 'lucide-react';
 
+/** Strip dangerous HTML tags/attributes to prevent XSS from stored content. */
+function sanitizeHtml(html: string): string {
+  const ALLOWED_TAGS = new Set([
+    'p', 'br', 'b', 'strong', 'i', 'em', 'u', 'ul', 'ol', 'li',
+    'h1', 'h2', 'h3', 'h4', 'a', 'span', 'div', 'blockquote',
+  ]);
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  function walk(node: Node): void {
+    const children = Array.from(node.childNodes);
+    for (const child of children) {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        const el = child as Element;
+        if (!ALLOWED_TAGS.has(el.tagName.toLowerCase())) {
+          el.replaceWith(...Array.from(el.childNodes));
+          continue;
+        }
+        // Strip all attributes except href on <a>
+        for (const attr of Array.from(el.attributes)) {
+          if (el.tagName.toLowerCase() === 'a' && attr.name === 'href') {
+            // Only allow http/https/mailto URLs
+            if (!/^(https?:|mailto:)/i.test(attr.value)) el.removeAttribute(attr.name);
+          } else if (attr.name !== 'class') {
+            el.removeAttribute(attr.name);
+          }
+        }
+        walk(el);
+      }
+    }
+  }
+  walk(doc.body);
+  return doc.body.innerHTML;
+}
+
 interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
@@ -24,7 +57,7 @@ export function RichTextEditor({
 
   useEffect(() => {
     if (editorRef.current && !isInitializedRef.current) {
-      editorRef.current.innerHTML = value;
+      editorRef.current.innerHTML = sanitizeHtml(value);
       setCharCount(editorRef.current.textContent?.length ?? 0);
       isInitializedRef.current = true;
     }

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useAuthContext } from '@/components/auth-provider';
+import { useFnbRealtime, type ChannelName } from '@/hooks/use-fnb-realtime';
 import { useKdsView } from '@/hooks/use-fnb-kitchen';
 import { StationHeader } from '@/components/fnb/kitchen/StationHeader';
 import { TicketCard } from '@/components/fnb/kitchen/TicketCard';
@@ -17,9 +19,12 @@ type ViewMode = 'ticket_rail' | 'grid' | 'split';
 // Effectively infinite interval to stop polling when paused
 const PAUSED_INTERVAL = 999_999_999;
 
+const KDS_REALTIME_CHANNELS: ChannelName[] = ['kds', 'expo'];
+
 export default function KdsContent() {
   const params = useParams();
   const router = useRouter();
+  const { tenant, locations, isAuthenticated, isLoading: authLoading } = useAuthContext();
   const stationId = params.stationId as string;
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -27,6 +32,18 @@ export default function KdsContent() {
   const [inputMode, setInputMode] = useState<'touch' | 'bump_bar'>('touch');
   const [focusedTicketIdx, setFocusedTicketIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+
+  // ── KDS Realtime — subscribe to Supabase broadcasts ──────
+  // Handles both realtime WebSocket notifications and polling fallback.
+  // useKdsView's internal polling is disabled (PAUSED_INTERVAL) to avoid
+  // double-polling — useFnbRealtime fires notifyChannel('kds') which
+  // triggers useKdsView's onChannelRefresh listener.
+  useFnbRealtime({
+    channels: KDS_REALTIME_CHANNELS,
+    tenantId: tenant?.id ?? '',
+    locationId: locations[0]?.id ?? '',
+    enabled: isAuthenticated && !authLoading && !isPaused,
+  });
 
   const {
     kdsView,
@@ -37,7 +54,7 @@ export default function KdsContent() {
     recallItem: _recallItem,
     isActing,
     refresh,
-  } = useKdsView({ stationId, pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
+  } = useKdsView({ stationId, pollIntervalMs: PAUSED_INTERVAL });
 
   // Sort tickets by priority (higher first), then by elapsed time (longer first)
   const sortedTickets = useMemo(() => {
@@ -79,7 +96,10 @@ export default function KdsContent() {
         case 'p':
         case 'P':
           e.preventDefault();
-          setIsPaused((prev) => !prev);
+          setIsPaused((prev) => {
+            if (prev) refresh(); // immediate fetch on unpause
+            return !prev;
+          });
           break;
         case 'Escape':
           e.preventDefault();
@@ -174,7 +194,11 @@ export default function KdsContent() {
           </button>
 
           {/* Pause/resume polling */}
-          <button type="button" onClick={() => setIsPaused(!isPaused)}
+          <button type="button" onClick={() => {
+              const resuming = isPaused;
+              setIsPaused(!isPaused);
+              if (resuming) refresh();
+            }}
             className="p-1.5 rounded transition-colors"
             style={{
               backgroundColor: isPaused ? 'rgba(239,68,68,0.2)' : 'transparent',

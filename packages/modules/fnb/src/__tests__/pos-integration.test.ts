@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { STATUS_ORDER } from '../commands/auto-progress-table-status';
 import { HOST_EVENTS } from '../events/host-events';
 

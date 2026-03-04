@@ -50,7 +50,7 @@ export async function addTabItems(
       throw new AppError('TAB_NOT_FOUND', `Tab ${input.tabId} not found`, 404);
     }
     const tab = tabArr[0]!;
-    if (!['open', 'sent_to_kitchen'].includes(tab.status as string)) {
+    if (!['open', 'ordering', 'sent_to_kitchen'].includes(tab.status as string)) {
       throw new AppError(
         'TAB_NOT_WRITABLE',
         `Tab is ${tab.status as string}, cannot add items`,

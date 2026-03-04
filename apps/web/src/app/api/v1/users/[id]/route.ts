@@ -37,7 +37,7 @@ export const GET = withMiddleware(
     const user = await getUserById({ tenantId: ctx.tenantId, userId });
     return NextResponse.json({ data: user });
   },
-  { permission: 'users.view' },
+  { entitlement: 'platform_core', permission: 'users.view' },
 );
 
 export const PATCH = withMiddleware(
@@ -81,5 +81,5 @@ export const PATCH = withMiddleware(
     await auditLog(ctx, 'user.update', 'user', userId, computeChanges(before, after));
     return NextResponse.json({ data: result });
   },
-  { permission: 'users.manage' },
+  { entitlement: 'platform_core', permission: 'users.manage' },
 );
