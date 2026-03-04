@@ -31,15 +31,15 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       throw new ValidationError('Order must have at least one line item');
     }
 
-    const lineIds = lines.map((l: any) => l.id);
-    let lineTaxes: any[] = [];
+    const lineIds = lines.map((l) => l.id);
+    let lineTaxes: (typeof orderLineTaxes.$inferSelect)[] = [];
     if (lineIds.length > 0) {
-      lineTaxes = await (tx as any).select().from(orderLineTaxes)
+      lineTaxes = await tx.select().from(orderLineTaxes)
         .where(inArray(orderLineTaxes.orderLineId, lineIds));
     }
 
     const receiptSnapshot = {
-      lines: lines.map((l: any) => ({
+      lines: lines.map((l) => ({
         id: l.id,
         name: l.catalogItemName,
         sku: l.catalogItemSku,
@@ -50,14 +50,14 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
         lineTotal: l.lineTotal,
         modifiers: l.modifiers,
         taxes: lineTaxes
-          .filter((t: any) => t.orderLineId === l.id)
-          .map((t: any) => ({ name: t.taxName, rate: Number(t.rateDecimal), amount: t.amount })),
+          .filter((t) => t.orderLineId === l.id)
+          .map((t) => ({ name: t.taxName, rate: Number(t.rateDecimal), amount: t.amount })),
       })),
-      charges: charges.map((c: any) => ({
+      charges: charges.map((c) => ({
         name: c.name,
         amount: c.amount,
       })),
-      discounts: discounts.map((d: any) => ({
+      discounts: discounts.map((d) => ({
         type: d.type,
         amount: d.amount,
         reason: d.reason,
@@ -70,7 +70,7 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
     };
 
     const now = new Date();
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       status: 'placed',
       placedAt: now,
       receiptSnapshot,
@@ -83,8 +83,8 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'placeOrder', { orderId });
 
     // Resolve category names + modifier groups in parallel (both are independent reporting enrichments)
-    const subDeptIds = [...new Set(lines.map((l: any) => l.subDepartmentId).filter(Boolean))] as string[];
-    const catalogItemIds = [...new Set(lines.map((l: any) => l.catalogItemId).filter(Boolean))] as string[];
+    const subDeptIds = [...new Set(lines.map((l) => l.subDepartmentId).filter(Boolean))] as string[];
+    const catalogItemIds = [...new Set(lines.map((l) => l.catalogItemId).filter(Boolean))] as string[];
     const categoryNameMap = new Map<string, string>();
     let assignedGroupsMap = new Map<string, string[]>();
     const modGroupMetaMap = new Map<string, { name: string; isRequired: boolean }>();
@@ -98,10 +98,10 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       // Orders module reads category names here solely to enrich the order.placed event payload
       // for downstream read models (sales history, reporting). No catalog data is mutated.
       subDeptIds.length > 0
-        ? (tx as any).select({ id: catalogCategories.id, name: catalogCategories.name })
+        ? tx.select({ id: catalogCategories.id, name: catalogCategories.name })
             .from(catalogCategories)
             .where(inArray(catalogCategories.id, subDeptIds))
-            .then((cats: any[]) => { for (const c of cats) categoryNameMap.set(c.id, c.name); })
+            .then((cats) => { for (const c of cats) categoryNameMap.set(c.id, c.name); })
         : Promise.resolve(),
       // Read-through: denormalized from catalogModifierGroups table (owned by catalog module).
       // Modifier group metadata is fetched here for reporting enrichment in the event payload only.
@@ -113,7 +113,7 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
               assignedGroupsMap = await catalogApi.getAssignedModifierGroupIds(ctx.tenantId, catalogItemIds);
               const allGroupIds = [...new Set(Array.from(assignedGroupsMap.values()).flat())];
               if (allGroupIds.length > 0) {
-                const groups = await (tx as any).select({
+                const groups = await tx.select({
                   id: catalogModifierGroups.id,
                   name: catalogModifierGroups.name,
                   isRequired: catalogModifierGroups.isRequired,
@@ -130,10 +130,10 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       // downstream consumers (e.g. sales history, CRM read models) receive a denormalized name
       // without needing a secondary lookup. No customer data is mutated.
       order.customerId
-        ? (tx as any).select({ displayName: customers.displayName })
+        ? tx.select({ displayName: customers.displayName })
             .from(customers)
             .where(eq(customers.id, order.customerId))
-            .then((rows: any[]) => { if (rows[0]) resolvedCustomerName = rows[0].displayName; })
+            .then((rows) => { if (rows[0]) resolvedCustomerName = rows[0].displayName; })
         : Promise.resolve(),
     ]);
 
@@ -156,7 +156,7 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       tableNumber: (order.metadata as Record<string, unknown> | null)?.tableNumber ?? null,
       employeeId: ctx.user.id,
       employeeName: ctx.user.name ?? ctx.user.email ?? null,
-      lines: lines.map((l: any) => ({
+      lines: lines.map((l) => ({
         catalogItemId: l.catalogItemId,
         catalogItemName: l.catalogItemName ?? 'Unknown',
         categoryName: l.subDepartmentId ? (categoryNameMap.get(l.subDepartmentId) ?? null) : null,
@@ -166,7 +166,14 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
         lineTax: l.lineTax ?? 0,
         lineTotal: l.lineTotal ?? 0,
         packageComponents: l.packageComponents ?? null,
-        modifiers: (l.modifiers ?? []).map((m: any) => ({
+        modifiers: ((l.modifiers ?? []) as Array<{
+          modifierId: string;
+          modifierGroupId?: string | null;
+          name: string;
+          priceAdjustment?: number;
+          instruction?: string | null;
+          isDefault?: boolean;
+        }>).map((m) => ({
           modifierId: m.modifierId,
           modifierGroupId: m.modifierGroupId ?? null,
           name: m.name,

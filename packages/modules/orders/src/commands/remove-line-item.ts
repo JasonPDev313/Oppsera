@@ -17,11 +17,11 @@ export async function removeLineItem(ctx: RequestContext, orderId: string, input
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'removeLineItem');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
     await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
     // Find the line
-    const [line] = await (tx as any).select().from(orderLines)
+    const [line] = await tx.select().from(orderLines)
       .where(and(eq(orderLines.id, input.lineItemId), eq(orderLines.orderId, orderId)))
       .limit(1);
 
@@ -30,30 +30,30 @@ export async function removeLineItem(ctx: RequestContext, orderId: string, input
     }
 
     // Delete tax rows for this line
-    await (tx as any).delete(orderLineTaxes).where(eq(orderLineTaxes.orderLineId, input.lineItemId));
+    await tx.delete(orderLineTaxes).where(eq(orderLineTaxes.orderLineId, input.lineItemId));
 
     // Delete the line
-    await (tx as any).delete(orderLines).where(eq(orderLines.id, input.lineItemId));
+    await tx.delete(orderLines).where(eq(orderLines.id, input.lineItemId));
 
     // Recalculate totals
     const [allLines, allCharges, allDiscounts] = await Promise.all([
-      (tx as any).select({
+      tx.select({
         lineSubtotal: orderLines.lineSubtotal,
         lineTax: orderLines.lineTax,
         lineTotal: orderLines.lineTotal,
       }).from(orderLines).where(eq(orderLines.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderCharges.amount,
         taxAmount: orderCharges.taxAmount,
       }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderDiscounts.amount,
       }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
     ]);
 
     const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
 
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       ...totals,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),

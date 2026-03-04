@@ -16,12 +16,12 @@ export async function reopenOrder(ctx: RequestContext, orderId: string, input: R
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'reopenOrder');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
 
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, ['voided']);
 
     const now = new Date();
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       status: 'open',
       voidedAt: null,
       voidReason: null,

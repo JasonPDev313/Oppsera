@@ -22,17 +22,17 @@ export async function setServiceChargeExempt(
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'setServiceChargeExempt',
     );
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
 
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
     if (input.serviceChargeExempt) {
       // Remove all service charges when exempt
-      await (tx as any).delete(orderCharges)
+      await tx.delete(orderCharges)
         .where(eq(orderCharges.orderId, orderId));
     }
 
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       serviceChargeExempt: input.serviceChargeExempt,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),

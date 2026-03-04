@@ -81,7 +81,7 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
       checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'addLineItem'),
       fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open'),
     ]);
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
 
     const unitPrice = input.priceOverride ? input.priceOverride.unitPrice : posItem.unitPriceCents;
     const lineSubtotal = Math.round(Number(input.qty) * unitPrice);
@@ -97,13 +97,13 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
     });
 
     // Get next sort order
-    const sortResult = await (tx as any)
+    const sortResult = await tx
       .select({ maxSort: max(orderLines.sortOrder) })
       .from(orderLines)
       .where(eq(orderLines.orderId, orderId));
     const nextSort = ((sortResult[0]?.maxSort as number | null) ?? -1) + 1;
 
-    const [line] = await (tx as any).insert(orderLines).values({
+    const [line] = await tx.insert(orderLines).values({
       tenantId: ctx.tenantId,
       locationId: ctx.locationId!,
       orderId,
@@ -135,7 +135,7 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
 
     // Insert tax breakdown rows
     if (taxResult.breakdown.length > 0) {
-      await (tx as any).insert(orderLineTaxes).values(
+      await tx.insert(orderLineTaxes).values(
         taxResult.breakdown.map((b) => ({
           tenantId: ctx.tenantId,
           orderLineId: line!.id,
@@ -149,16 +149,16 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
 
     // Recalculate order totals
     const [allLines, allCharges, allDiscounts] = await Promise.all([
-      (tx as any).select({
+      tx.select({
         lineSubtotal: orderLines.lineSubtotal,
         lineTax: orderLines.lineTax,
         lineTotal: orderLines.lineTotal,
       }).from(orderLines).where(eq(orderLines.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderCharges.amount,
         taxAmount: orderCharges.taxAmount,
       }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderDiscounts.amount,
       }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
     ]);
@@ -166,7 +166,7 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
     const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
 
     // Combined UPDATE: set totals + increment version in a single DB round-trip
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       ...totals,
       version: sql`version + 1`,
       updatedBy: ctx.user.id,

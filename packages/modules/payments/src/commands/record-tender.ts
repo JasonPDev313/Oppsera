@@ -46,7 +46,7 @@ export async function recordTender(
       input.clientRequestId,
       'recordTender',
     );
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
     // 1. Fetch order -- must be 'placed'
     const order = await fetchOrderForMutation(
       tx,
@@ -71,7 +71,7 @@ export async function recordTender(
 
     // 3. Calculate remaining balance — fetch tenders + reversals in parallel
     const [existingTendersRows, existingReversals] = await Promise.all([
-      (tx as any)
+      tx
         .select()
         .from(tenders)
         .where(
@@ -81,7 +81,7 @@ export async function recordTender(
             eq(tenders.status, 'captured'),
           ),
         ),
-      (tx as any)
+      tx
         .select()
         .from(tenderReversals)
         .where(
@@ -92,14 +92,14 @@ export async function recordTender(
         ),
     ]);
     const reversedIds = new Set(
-      (existingReversals as any[]).map((r: any) => r.originalTenderId),
+      existingReversals.map((r) => r.originalTenderId),
     );
-    const activeTenders = (existingTendersRows as any[]).filter(
-      (t: any) => !reversedIds.has(t.id),
+    const activeTenders = existingTendersRows.filter(
+      (t) => !reversedIds.has(t.id),
     );
 
     const totalTendered = activeTenders.reduce(
-      (sum: number, t: any) => sum + (t.amount as number),
+      (sum, t) => sum + t.amount,
       0,
     );
     const remaining = order.total - totalTendered;
@@ -116,7 +116,7 @@ export async function recordTender(
     const isFullyPaid = newTotalTendered >= order.total;
 
     // 5. Insert tender row
-    const [created] = await (tx as any)
+    const [created] = await tx
       .insert(tenders)
       .values({
         tenantId: ctx.tenantId,
@@ -145,34 +145,34 @@ export async function recordTender(
     const tender = created!;
 
     // 6. Fetch order lines for GL entry
-    const lines = await (tx as any)
+    const lines = await tx
       .select()
       .from(orderLines)
       .where(eq(orderLines.orderId, orderId));
-    const orderLinesForGL: OrderLineForGL[] = (lines as any[]).map(
-      (l: any) => ({
+    const orderLinesForGL: OrderLineForGL[] = lines.map(
+      (l) => ({
         departmentId: null, // V1: all revenue to single account
-        lineGross: l.lineTotal as number,
-        lineTax: l.lineTax as number,
-        lineNet: (l.lineTotal as number) - (l.lineTax as number),
+        lineGross: l.lineTotal,
+        lineTax: l.lineTax,
+        lineNet: l.lineTotal - l.lineTax,
       }),
     );
 
     // Build enriched lines for accounting event (V2 adapter)
-    const enrichedLines = (lines as any[]).map((l: any) => ({
-      catalogItemId: l.catalogItemId as string,
-      catalogItemName: l.catalogItemName as string,
-      subDepartmentId: (l.subDepartmentId as string) ?? null,
+    const enrichedLines = lines.map((l) => ({
+      catalogItemId: l.catalogItemId,
+      catalogItemName: l.catalogItemName,
+      subDepartmentId: l.subDepartmentId ?? null,
       qty: Number(l.qty),
-      extendedPriceCents: l.lineSubtotal as number,
-      taxGroupId: (l.taxGroupId as string) ?? null,
-      taxAmountCents: l.lineTax as number,
-      costCents: (l.costPrice as number) ?? null,
+      extendedPriceCents: l.lineSubtotal,
+      taxGroupId: l.taxGroupId ?? null,
+      taxAmountCents: l.lineTax,
+      costCents: l.costPrice ?? null,
       packageComponents: l.packageComponents ?? null,
     }));
 
     // 6b. Build discount breakdown by classification for per-classification GL posting
-    const discountRows = await (tx as any)
+    const discountRows = await tx
       .select({
         classification: orderDiscounts.discountClassification,
         amount: orderDiscounts.amount,
@@ -181,7 +181,7 @@ export async function recordTender(
       .where(eq(orderDiscounts.orderId, orderId));
 
     const discountBreakdownMap = new Map<string, number>();
-    for (const row of discountRows as { classification: string | null; amount: number }[]) {
+    for (const row of discountRows) {
       const key = row.classification ?? 'manual_discount';
       discountBreakdownMap.set(key, (discountBreakdownMap.get(key) ?? 0) + row.amount);
     }
@@ -190,14 +190,13 @@ export async function recordTender(
     );
 
     // 6c. Compute price override loss total from order lines
-    const priceOverrideLossRows = await (tx as any)
+    const priceOverrideLossRows = await tx
       .select({
         total: sql<number>`COALESCE(SUM(price_override_discount_cents), 0)::int`,
       })
       .from(orderLines)
       .where(eq(orderLines.orderId, orderId));
-    const priceOverrideLossRowsArr = Array.from(priceOverrideLossRows as Iterable<Record<string, unknown>>);
-    const priceOverrideLossCents = (priceOverrideLossRowsArr[0]?.total as number | undefined) ?? 0;
+    const priceOverrideLossCents = priceOverrideLossRows[0]?.total ?? 0;
 
     // 7. Generate legacy GL journal entry (gated behind enableLegacyGlPosting)
     // The new GL pipeline posts via the POS adapter event consumer on tender.recorded.v1.
@@ -238,7 +237,7 @@ export async function recordTender(
       allocationSnapshot = journalResult.allocationSnapshot;
 
       // 8. Store allocation snapshot on tender
-      await (tx as any)
+      await tx
         .update(tenders)
         .set({
           allocationSnapshot,
@@ -249,7 +248,7 @@ export async function recordTender(
     // 9. If fully paid, update order status
     if (isFullyPaid) {
       const now = new Date();
-      await (tx as any)
+      await tx
         .update(orders)
         .set({
           status: 'paid',

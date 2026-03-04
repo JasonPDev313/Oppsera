@@ -17,21 +17,21 @@ export async function setTaxExempt(ctx: RequestContext, orderId: string, input: 
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'setTaxExempt');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
     // Get all lines, charges, discounts
     const [allLines, allCharges, allDiscounts] = await Promise.all([
-      (tx as any).select({
+      tx.select({
         lineSubtotal: orderLines.lineSubtotal,
         lineTax: orderLines.lineTax,
         lineTotal: orderLines.lineTotal,
       }).from(orderLines).where(eq(orderLines.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderCharges.amount,
         taxAmount: orderCharges.taxAmount,
       }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderDiscounts.amount,
       }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
     ]);
@@ -39,12 +39,12 @@ export async function setTaxExempt(ctx: RequestContext, orderId: string, input: 
     // Recalculate totals — if tax exempt, zero out all taxes
     let totals;
     if (input.taxExempt) {
-      const zeroTaxLines = allLines.map((l: any) => ({
+      const zeroTaxLines = allLines.map((l) => ({
         lineSubtotal: l.lineSubtotal,
         lineTax: 0,
         lineTotal: l.lineSubtotal,
       }));
-      const zeroTaxCharges = allCharges.map((c: any) => ({
+      const zeroTaxCharges = allCharges.map((c) => ({
         amount: c.amount,
         taxAmount: 0,
       }));
@@ -54,7 +54,7 @@ export async function setTaxExempt(ctx: RequestContext, orderId: string, input: 
       totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
     }
 
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       taxExempt: input.taxExempt,
       taxExemptReason: input.taxExempt ? (input.taxExemptReason ?? null) : null,
       ...totals,

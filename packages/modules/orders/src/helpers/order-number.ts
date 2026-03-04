@@ -6,7 +6,7 @@ export async function getNextOrderNumber(
   tenantId: string,
   locationId: string,
 ): Promise<string> {
-  const result = await (tx as any).execute(sql`
+  const result = await tx.execute(sql`
     INSERT INTO order_counters (tenant_id, location_id, last_number)
     VALUES (${tenantId}, ${locationId}, 1)
     ON CONFLICT (tenant_id, location_id)

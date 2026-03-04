@@ -138,7 +138,7 @@ export async function addLineItemsBatch(
     }
 
     // Get current max sort order (single query)
-    const sortResult = await (tx as any)
+    const sortResult = await tx
       .select({ maxSort: max(orderLines.sortOrder) })
       .from(orderLines)
       .where(eq(orderLines.orderId, orderId));
@@ -166,7 +166,7 @@ export async function addLineItemsBatch(
         })),
       });
 
-      const [line] = await (tx as any).insert(orderLines).values({
+      const [line] = await tx.insert(orderLines).values({
         tenantId: ctx.tenantId,
         locationId: ctx.locationId!,
         orderId,
@@ -195,7 +195,7 @@ export async function addLineItemsBatch(
 
       // Tax breakdown rows
       if (taxResult.breakdown.length > 0) {
-        await (tx as any).insert(orderLineTaxes).values(
+        await tx.insert(orderLineTaxes).values(
           taxResult.breakdown.map((b) => ({
             tenantId: ctx.tenantId,
             orderLineId: line!.id,
@@ -227,16 +227,16 @@ export async function addLineItemsBatch(
 
     // ONE total recalculation for the entire batch
     const [allLines, allCharges, allDiscounts] = await Promise.all([
-      (tx as any).select({
+      tx.select({
         lineSubtotal: orderLines.lineSubtotal,
         lineTax: orderLines.lineTax,
         lineTotal: orderLines.lineTotal,
       }).from(orderLines).where(eq(orderLines.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderCharges.amount,
         taxAmount: orderCharges.taxAmount,
       }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderDiscounts.amount,
       }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
     ]);
@@ -244,7 +244,7 @@ export async function addLineItemsBatch(
     const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
 
     // ONE version increment + totals update
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       ...totals,
       version: sql`version + 1`,
       updatedBy: ctx.user.id,

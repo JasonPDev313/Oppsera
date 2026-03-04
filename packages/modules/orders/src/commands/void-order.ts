@@ -16,11 +16,11 @@ export async function voidOrder(ctx: RequestContext, orderId: string, input: Voi
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'voidOrder');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, ['open', 'placed']);
 
     const now = new Date();
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       status: 'voided',
       voidedAt: now,
       voidReason: input.reason,
@@ -34,7 +34,7 @@ export async function voidOrder(ctx: RequestContext, orderId: string, input: Voi
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'voidOrder', { orderId });
 
     // Fetch order lines for modifier void tracking
-    const lines = await (tx as any).select().from(orderLines).where(eq(orderLines.orderId, orderId));
+    const lines = await tx.select().from(orderLines).where(eq(orderLines.orderId, orderId));
 
     const event = buildEventFromContext(ctx, 'order.voided.v1', {
       orderId,
@@ -45,10 +45,15 @@ export async function voidOrder(ctx: RequestContext, orderId: string, input: Voi
       businessDate: order.businessDate,
       total: order.total,
       customerId: order.customerId ?? null,
-      lines: lines.map((l: any) => ({
+      lines: lines.map((l) => ({
         catalogItemId: l.catalogItemId,
         qty: Number(l.qty),
-        modifiers: (l.modifiers ?? []).map((m: any) => ({
+        modifiers: ((l.modifiers ?? []) as Array<{
+          modifierId: string;
+          modifierGroupId?: string | null;
+          name: string;
+          priceAdjustment?: number;
+        }>).map((m) => ({
           modifierId: m.modifierId,
           modifierGroupId: m.modifierGroupId ?? null,
           name: m.name,

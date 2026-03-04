@@ -17,10 +17,10 @@ export async function removeServiceCharge(ctx: RequestContext, orderId: string, 
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'removeServiceCharge');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
     await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
-    const [charge] = await (tx as any).select().from(orderCharges)
+    const [charge] = await tx.select().from(orderCharges)
       .where(and(eq(orderCharges.id, input.chargeId), eq(orderCharges.orderId, orderId)))
       .limit(1);
 
@@ -28,27 +28,27 @@ export async function removeServiceCharge(ctx: RequestContext, orderId: string, 
       throw new NotFoundError('Service charge', input.chargeId);
     }
 
-    await (tx as any).delete(orderCharges).where(eq(orderCharges.id, input.chargeId));
+    await tx.delete(orderCharges).where(eq(orderCharges.id, input.chargeId));
 
     // Recalculate totals
     const [allLines, allCharges, allDiscounts] = await Promise.all([
-      (tx as any).select({
+      tx.select({
         lineSubtotal: orderLines.lineSubtotal,
         lineTax: orderLines.lineTax,
         lineTotal: orderLines.lineTotal,
       }).from(orderLines).where(eq(orderLines.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderCharges.amount,
         taxAmount: orderCharges.taxAmount,
       }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderDiscounts.amount,
       }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
     ]);
 
     const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
 
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       ...totals,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),

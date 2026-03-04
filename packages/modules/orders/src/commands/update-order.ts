@@ -12,7 +12,7 @@ export async function updateOrder(ctx: RequestContext, orderId: string, input: U
   const result = await publishWithOutbox(ctx, async (tx) => {
     if (input.clientRequestId) {
       const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'updateOrder');
-      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
     }
 
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
@@ -33,7 +33,7 @@ export async function updateOrder(ctx: RequestContext, orderId: string, input: U
       changes.metadata = { from: order.metadata, to: input.metadata };
     }
 
-    await (tx as any).update(orders).set(updates).where(eq(orders.id, orderId));
+    await tx.update(orders).set(updates).where(eq(orders.id, orderId));
     await incrementVersion(tx, orderId, ctx.tenantId);
 
     if (input.clientRequestId) {

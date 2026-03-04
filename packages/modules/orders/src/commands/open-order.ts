@@ -17,7 +17,7 @@ export async function openOrder(ctx: RequestContext, input: OpenOrderInput) {
 
   const order = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'openOrder');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
     const orderNumber = await getNextOrderNumber(tx, ctx.tenantId, ctx.locationId!);
 
     const [created] = await tx.insert(orders).values({

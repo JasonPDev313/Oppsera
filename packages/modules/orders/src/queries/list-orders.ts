@@ -128,7 +128,7 @@ export async function listOrders(input: ListOrdersInput): Promise<ListOrdersResu
     const tenderMap = new Map<string, { paymentType: string | null; tipTotal: number }>();
 
     if (orderIds.length > 0) {
-      const tenderAggs = await (tx as any)
+      const tenderAggs = await tx
         .select({
           orderId: tenders.orderId,
           paymentType: sql<string | null>`(array_agg(${tenders.tenderType} order by ${tenders.createdAt} asc))[1]`,
@@ -144,10 +144,10 @@ export async function listOrders(input: ListOrdersInput): Promise<ListOrdersResu
         )
         .groupBy(tenders.orderId);
 
-      for (const agg of tenderAggs as any[]) {
+      for (const agg of tenderAggs) {
         tenderMap.set(agg.orderId as string, {
-          paymentType: agg.paymentType as string | null,
-          tipTotal: (agg.tipTotal as number) ?? 0,
+          paymentType: agg.paymentType,
+          tipTotal: agg.tipTotal ?? 0,
         });
       }
     }

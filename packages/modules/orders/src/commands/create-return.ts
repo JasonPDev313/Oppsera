@@ -122,7 +122,7 @@ export async function createReturn(
     await tx.insert(orders).values({
       id: returnOrderId,
       tenantId: ctx.tenantId,
-      locationId: ctx.locationId,
+      locationId: ctx.locationId!,
       orderNumber,
       status: 'paid', // return orders are immediately "paid" (negative amount)
       source: 'pos',

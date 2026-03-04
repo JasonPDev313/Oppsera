@@ -41,10 +41,10 @@ export async function adjustTip(
       input.clientRequestId,
       'adjustTip',
     );
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
 
     // 1. Fetch the tender
-    const [tender] = await (tx as any)
+    const [tender] = await tx
       .select()
       .from(tenders)
       .where(
@@ -63,7 +63,7 @@ export async function adjustTip(
     }
 
     // 2. Check not reversed
-    const existingReversals = await (tx as any)
+    const existingReversals = await tx
       .select()
       .from(tenderReversals)
       .where(
@@ -73,7 +73,7 @@ export async function adjustTip(
         ),
       );
 
-    if ((existingReversals as any[]).length > 0) {
+    if (existingReversals.length > 0) {
       throw new ValidationError('Cannot adjust tip on a reversed tender');
     }
 
@@ -93,13 +93,13 @@ export async function adjustTip(
     }
 
     // 4. Update tip on tender
-    await (tx as any)
+    await tx
       .update(tenders)
       .set({ tipAmount: input.newTipAmount })
       .where(eq(tenders.id, tenderId));
 
     // 5. Create adjustment GL journal entry for the tip delta
-    const debitAccount = getDebitAccountForTenderType(tender.tenderType as string);
+    const debitAccount = getDebitAccountForTenderType(tender.tenderType);
     const entries = delta > 0
       ? [
           // Tip increase: debit cash/card, credit tips payable
@@ -112,7 +112,7 @@ export async function adjustTip(
           { accountCode: debitAccount.code, accountName: debitAccount.name, debit: 0, credit: -delta },
         ];
 
-    await (tx as any).insert(paymentJournalEntries).values({
+    await tx.insert(paymentJournalEntries).values({
       tenantId: ctx.tenantId,
       locationId: ctx.locationId,
       referenceType: 'tender',

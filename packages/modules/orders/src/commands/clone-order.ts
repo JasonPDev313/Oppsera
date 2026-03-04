@@ -18,10 +18,10 @@ export async function cloneOrder(ctx: RequestContext, sourceOrderId: string, inp
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'cloneOrder');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
 
     // Fetch source order
-    const [source] = await (tx as any)
+    const [source] = await tx
       .select()
       .from(orders)
       .where(and(eq(orders.id, sourceOrderId), eq(orders.tenantId, ctx.tenantId)));
@@ -30,7 +30,7 @@ export async function cloneOrder(ctx: RequestContext, sourceOrderId: string, inp
     }
 
     // Fetch source lines
-    const sourceLines = await (tx as any)
+    const sourceLines = await tx
       .select()
       .from(orderLines)
       .where(and(eq(orderLines.orderId, sourceOrderId), eq(orderLines.tenantId, ctx.tenantId)));
@@ -61,8 +61,8 @@ export async function cloneOrder(ctx: RequestContext, sourceOrderId: string, inp
 
     // Copy lines
     if (sourceLines.length > 0) {
-      await (tx as any).insert(orderLines).values(
-        sourceLines.map((line: any, idx: number) => ({
+      await tx.insert(orderLines).values(
+        sourceLines.map((line, idx: number) => ({
           tenantId: ctx.tenantId,
           locationId: ctx.locationId!,
           orderId: created!.id,

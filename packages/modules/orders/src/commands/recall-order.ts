@@ -16,7 +16,7 @@ export async function recallOrder(ctx: RequestContext, orderId: string, input: R
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'recallOrder');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
 
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
@@ -25,7 +25,7 @@ export async function recallOrder(ctx: RequestContext, orderId: string, input: R
     }
 
     const now = new Date();
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       heldAt: null,
       heldBy: null,
       updatedBy: ctx.user.id,
