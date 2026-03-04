@@ -57,8 +57,11 @@ export async function handleFnbDiscountComp(
       ON CONFLICT (tenant_id, location_id, business_date)
       DO UPDATE SET
         total_discounts = rm_fnb_discount_comp_analysis.total_discounts + EXCLUDED.total_discounts,
+        discount_by_type = COALESCE(rm_fnb_discount_comp_analysis.discount_by_type, '{}'::jsonb) || COALESCE(EXCLUDED.discount_by_type, '{}'::jsonb),
         total_comps = rm_fnb_discount_comp_analysis.total_comps + EXCLUDED.total_comps,
+        comp_by_reason = COALESCE(rm_fnb_discount_comp_analysis.comp_by_reason, '{}'::jsonb) || COALESCE(EXCLUDED.comp_by_reason, '{}'::jsonb),
         void_count = rm_fnb_discount_comp_analysis.void_count + EXCLUDED.void_count,
+        void_by_reason = COALESCE(rm_fnb_discount_comp_analysis.void_by_reason, '{}'::jsonb) || COALESCE(EXCLUDED.void_by_reason, '{}'::jsonb),
         updated_at = NOW()
     `);
   });

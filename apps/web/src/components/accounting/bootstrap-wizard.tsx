@@ -125,9 +125,10 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
           queryClient.refetchQueries({ queryKey: ['accounting-settings'] }),
           queryClient.refetchQueries({ queryKey: ['gl-accounts'] }),
         ]);
-      } catch {
+      } catch (err) {
         // Full settings fetch may fail due to schema mismatch — that's OK,
         // the bootstrap-status endpoint confirms bootstrap succeeded.
+        console.error('[accounting] refetch failed:', err);
       }
 
       toast.success(`Accounting setup complete! ${res.data.accountCount} accounts created.`);

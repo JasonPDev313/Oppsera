@@ -4,6 +4,7 @@ import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError, generateUlid } from '@oppsera/shared';
 import { orders, orderLines } from '@oppsera/db';
+import type { InferSelectModel } from 'drizzle-orm';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import type { CreateReturnInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
@@ -20,10 +21,10 @@ export async function createReturn(
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createReturn');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
 
     // 1. Fetch original order — must be paid
-    const [originalOrder] = await (tx as any)
+    const [originalOrder] = await tx
       .select()
       .from(orders)
       .where(
@@ -45,7 +46,7 @@ export async function createReturn(
 
     // 2. Fetch original lines matching the return request
     const originalLineIds = input.returnLines.map(rl => rl.originalLineId);
-    const originalLines = await (tx as any)
+    const originalLines = await tx
       .select()
       .from(orderLines)
       .where(
@@ -57,7 +58,7 @@ export async function createReturn(
       );
 
     if (originalLines.length !== originalLineIds.length) {
-      const foundIds = new Set((originalLines as any[]).map((l: any) => l.id));
+      const foundIds = new Set(originalLines.map((l) => l.id));
       const missingIds = originalLineIds.filter(id => !foundIds.has(id));
       throw new AppError(
         'LINE_NOT_FOUND',
@@ -66,10 +67,11 @@ export async function createReturn(
       );
     }
 
-    const originalLineMap = new Map((originalLines as any[]).map((l: any) => [l.id, l]));
+    type OrderLine = InferSelectModel<typeof orderLines>;
+    const originalLineMap = new Map(originalLines.map((l) => [l.id, l] as [string, OrderLine]));
 
     // 3. Fetch previously-returned quantities for these lines (sum across all prior returns)
-    const priorReturnLines = await (tx as any)
+    const priorReturnLines = await tx
       .select({
         originalLineId: orderLines.originalLineId,
         returnedQty: sql<string>`COALESCE(SUM(ABS(${orderLines.qty}::numeric)), 0)`,
@@ -86,7 +88,7 @@ export async function createReturn(
       .groupBy(orderLines.originalLineId);
 
     const priorReturnMap = new Map(
-      (priorReturnLines as any[]).map((r: any) => [r.originalLineId, Number(r.returnedQty)]),
+      priorReturnLines.map((r) => [r.originalLineId, Number(r.returnedQty ?? 0)] as [string | null, number]),
     );
 
     // 4. Validate return quantities against remaining returnable qty
@@ -104,7 +106,7 @@ export async function createReturn(
     }
 
     // 5. Determine return type (full only if returning all remaining for all lines)
-    const isFullReturn = input.returnLines.length === (originalLines as any[]).length
+    const isFullReturn = input.returnLines.length === originalLines.length
       && input.returnLines.every(rl => {
         const orig = originalLineMap.get(rl.originalLineId)!;
         const alreadyReturned = priorReturnMap.get(rl.originalLineId) ?? 0;
@@ -117,7 +119,7 @@ export async function createReturn(
     const businessDate = now.toISOString().slice(0, 10);
 
     const returnOrderId = generateUlid();
-    await (tx as any).insert(orders).values({
+    await tx.insert(orders).values({
       id: returnOrderId,
       tenantId: ctx.tenantId,
       locationId: ctx.locationId,
@@ -148,7 +150,7 @@ export async function createReturn(
       returnedTax: number;
       returnedTotal: number;
       subDepartmentId: string | null;
-      packageComponents: any;
+      packageComponents: unknown;
     }> = [];
 
     for (const returnLine of input.returnLines) {
@@ -165,7 +167,7 @@ export async function createReturn(
       returnTax += lineTax;
 
       const lineId = generateUlid();
-      await (tx as any).insert(orderLines).values({
+      await tx.insert(orderLines).values({
         id: lineId,
         tenantId: ctx.tenantId,
         locationId: ctx.locationId,
@@ -201,7 +203,7 @@ export async function createReturn(
     const returnTotal = returnSubtotal + returnTax;
 
     // 7. Update return order totals
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       subtotal: returnSubtotal,
       taxTotal: returnTax,
       total: returnTotal,

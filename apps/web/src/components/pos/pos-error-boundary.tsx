@@ -35,7 +35,7 @@ export class POSErrorBoundary extends Component<Props, State> {
     this.setState({ crashCount: nextCrashCount });
 
     // Log enough context to diagnose in production
-    // eslint-disable-next-line no-console
+     
     console.error(
       `[POSErrorBoundary] ${this.props.mode} crash #${nextCrashCount}:`,
       error.message,

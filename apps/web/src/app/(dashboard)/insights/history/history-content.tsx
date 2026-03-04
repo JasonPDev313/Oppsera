@@ -1,31 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { History, MessageSquare, ExternalLink, Download, Star } from 'lucide-react';
+import { History, MessageSquare, ExternalLink, Star, Eye, EyeOff } from 'lucide-react';
 import { useSessionHistory, formatRelativeTime } from '@/hooks/use-session-history';
 import type { SessionSummary } from '@/hooks/use-session-history';
+import type { LoadedTurn } from '@/hooks/use-semantic-chat';
 import { apiFetch } from '@/lib/api-client';
-import { exportSessionAsTxt } from '@/lib/export-chat';
+import { ConversationToolbar } from '@/components/insights/ConversationToolbar';
+import { SessionPreview } from '@/components/insights/SessionPreview';
+import type { ExportableTurn } from '@/lib/export-chat';
 
+// ── Helpers ──────────────────────────────────────────────────────
 
-// ── Types ──────────────────────────────────────────────────────────
-
-interface SessionDetailTurn {
-  id: string;
-  turnNumber: number;
-  userMessage: string;
-  narrative: string | null;
-  wasClarification: boolean;
-  clarificationMessage: string | null;
-  createdAt: string;
-}
-
-interface SessionDetailResponse {
-  data: {
-    session: { id: string; startedAt: string };
-    turns: SessionDetailTurn[];
-  };
+function loadedTurnsToExportable(turns: LoadedTurn[]): ExportableTurn[] {
+  return turns.map((t) => ({
+    userMessage: t.userMessage,
+    narrative: t.narrative,
+    wasClarification: t.wasClarification,
+    clarificationMessage: t.clarificationMessage,
+    compiledSql: t.compiledSql,
+    resultSample: t.resultSample,
+    rowCount: t.rowCount,
+    createdAt: t.createdAt,
+  }));
 }
 
 // ── HistoryContent ─────────────────────────────────────────────────
@@ -33,26 +31,44 @@ interface SessionDetailResponse {
 export default function HistoryContent({ embedded }: { embedded?: boolean }) {
   const router = useRouter();
   const { sessions, isLoading, isLoadingMore, error, hasMore, loadMore } = useSessionHistory({ limit: 20 });
-  const [exportingId, setExportingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [previewCache, setPreviewCache] = useState<Record<string, LoadedTurn[]>>({});
+  const [loadingPreviewId, setLoadingPreviewId] = useState<string | null>(null);
 
   const handleOpen = (sessionId: string) => {
     router.push(`/insights?session=${sessionId}`);
   };
 
-  const handleExport = async (session: SessionSummary) => {
-    setExportingId(session.id);
-    try {
-      const res = await apiFetch<SessionDetailResponse>(
-        `/api/v1/semantic/sessions/${session.id}`,
-      );
-      const title = session.firstMessage ?? 'AI Insights Conversation';
-      exportSessionAsTxt(title, session.startedAt, res.data.turns);
-    } catch {
-      // Silently fail — user will notice the download didn't happen
-    } finally {
-      setExportingId(null);
+  const handleTogglePreview = useCallback(async (session: SessionSummary) => {
+    // Collapse if already expanded
+    if (expandedId === session.id) {
+      setExpandedId(null);
+      return;
     }
-  };
+
+    // If already cached, just expand
+    if (previewCache[session.id]) {
+      setExpandedId(session.id);
+      return;
+    }
+
+    // Fetch turns
+    setLoadingPreviewId(session.id);
+    try {
+      const res = await apiFetch<{
+        data: {
+          session: { id: string; startedAt: string };
+          turns: LoadedTurn[];
+        };
+      }>(`/api/v1/semantic/sessions/${session.id}`);
+      setPreviewCache((prev) => ({ ...prev, [session.id]: res.data.turns }));
+      setExpandedId(session.id);
+    } catch {
+      // Silently fail
+    } finally {
+      setLoadingPreviewId(null);
+    }
+  }, [expandedId, previewCache]);
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleString([], {
@@ -112,62 +128,95 @@ export default function HistoryContent({ embedded }: { embedded?: boolean }) {
       {/* Session list */}
       {!isLoading && sessions.length > 0 && (
         <div className="space-y-2">
-          {sessions.map((session) => (
-            <div
-              key={session.id}
-              className="rounded-xl border border-border bg-card px-4 py-3"
-            >
-              <div className="flex items-start gap-3">
-                <MessageSquare className="h-4 w-4 text-primary shrink-0 mt-1" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground line-clamp-2">
-                    {session.firstMessage
-                      ? truncate(session.firstMessage, 80)
-                      : 'Untitled conversation'}
-                  </p>
-                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                    <span className="text-xs text-muted-foreground">
-                      {formatDate(session.startedAt)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatRelativeTime(session.startedAt)}
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-xs text-foreground bg-muted px-2 py-0.5 rounded-full">
-                      <MessageSquare className="h-3 w-3" />
-                      {session.messageCount} {session.messageCount === 1 ? 'message' : 'messages'}
-                    </span>
-                    {session.avgUserRating != null && (
-                      <span className="inline-flex items-center gap-0.5 text-xs text-amber-500">
-                        <Star className="h-3 w-3 fill-current" />
-                        {session.avgUserRating.toFixed(1)}
-                      </span>
-                    )}
+          {sessions.map((session) => {
+            const isExpanded = expandedId === session.id;
+            const cachedTurns = previewCache[session.id];
+            const isLoadingThis = loadingPreviewId === session.id;
+
+            return (
+              <div
+                key={session.id}
+                className="rounded-xl border border-border bg-card overflow-hidden"
+              >
+                <div className="px-4 py-3">
+                  <div className="flex items-start gap-3">
+                    <MessageSquare className="h-4 w-4 text-primary shrink-0 mt-1" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground line-clamp-2">
+                        {session.firstMessage
+                          ? truncate(session.firstMessage, 80)
+                          : 'Untitled conversation'}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(session.startedAt)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatRelativeTime(session.startedAt)}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-xs text-foreground bg-muted px-2 py-0.5 rounded-full">
+                          <MessageSquare className="h-3 w-3" />
+                          {session.messageCount} {session.messageCount === 1 ? 'message' : 'messages'}
+                        </span>
+                        {session.avgUserRating != null && (
+                          <span className="inline-flex items-center gap-0.5 text-xs text-amber-500">
+                            <Star className="h-3 w-3 fill-current" />
+                            {session.avgUserRating.toFixed(1)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Preview toggle */}
+                      <button
+                        onClick={() => handleTogglePreview(session)}
+                        disabled={isLoadingThis}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
+                        title={isExpanded ? 'Hide preview' : 'Preview conversation'}
+                      >
+                        {isLoadingThis ? (
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-border border-t-primary" />
+                        ) : isExpanded ? (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5" />
+                        )}
+                        {isExpanded ? 'Hide' : 'Preview'}
+                      </button>
+
+                      {/* Open */}
+                      <button
+                        onClick={() => handleOpen(session.id)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary hover:bg-accent rounded-lg transition-colors"
+                        title="Open conversation"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Open
+                      </button>
+
+                      {/* Export/Print/Copy toolbar */}
+                      {cachedTurns && (
+                        <ConversationToolbar
+                          title={session.firstMessage ?? 'AI Insights Conversation'}
+                          startedAt={session.startedAt}
+                          turns={loadedTurnsToExportable(cachedTurns)}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => handleOpen(session.id)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary hover:bg-accent rounded-lg transition-colors"
-                    title="Open conversation"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Open
-                  </button>
-                  <button
-                    onClick={() => handleExport(session)}
-                    disabled={exportingId === session.id}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
-                    title="Export as .txt"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Export
-                  </button>
-                </div>
+                {/* Inline preview */}
+                {isExpanded && cachedTurns && (
+                  <div className="border-t border-border px-4 bg-background/50">
+                    <SessionPreview turns={cachedTurns} />
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Load more */}
           {hasMore && (

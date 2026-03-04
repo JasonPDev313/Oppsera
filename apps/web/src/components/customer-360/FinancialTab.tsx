@@ -1029,6 +1029,11 @@ export default function FinancialTab({
   const [transferAmountStr, setTransferAmountStr] = useState('');
   const [transferReason, setTransferReason] = useState('');
 
+  // Hold dialog state (simplified inline)
+  const [holdOpen, setHoldOpen] = useState(false);
+  const [holdAccountId, setHoldAccountId] = useState('');
+  const [holdReason, setHoldReason] = useState('');
+
   const accounts = accountsHook.data?.accounts ?? [];
   const totalBalanceCents = accountsHook.data?.totalBalanceCents ?? 0;
 
@@ -1046,12 +1051,21 @@ export default function FinancialTab({
     setTransferOpen(true);
   }
 
-  async function handleHold(accountId: string) {
-    const reason = window.prompt('Reason for hold:');
-    if (!reason?.trim()) return;
+  function handleHold(accountId: string) {
+    setHoldAccountId(accountId);
+    setHoldReason('');
+    setHoldOpen(true);
+  }
+
+  async function handleHoldSubmit() {
+    if (!holdReason.trim()) {
+      toast.error('Reason is required to place a hold');
+      return;
+    }
     try {
-      await mutations.placeHold(customerId, accountId, { reason: reason.trim() });
+      await mutations.placeHold(customerId, holdAccountId, { reason: holdReason.trim() });
       toast.success('Account placed on hold');
+      setHoldOpen(false);
       accountsHook.mutate();
     } catch {
       toast.error('Failed to place hold on account');
@@ -1239,6 +1253,56 @@ export default function FinancialTab({
               <button
                 type="button"
                 onClick={() => setTransferOpen(false)}
+                disabled={mutations.isLoading}
+                className="rounded border border-input px-4 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hold Form (collapsible) */}
+      {holdOpen && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Pause className="h-4 w-4 text-muted-foreground" />
+              Place Account on Hold
+            </h4>
+            <button
+              type="button"
+              onClick={() => setHoldOpen(false)}
+              className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+            >
+              <ChevronUp className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="space-y-3">
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              Reason <span className="text-red-500">*</span>
+              <input
+                type="text"
+                value={holdReason}
+                onChange={(e) => setHoldReason(e.target.value)}
+                placeholder="Reason for placing account on hold"
+                className="rounded border border-input bg-surface px-2 py-1.5 text-sm"
+                autoFocus
+              />
+            </label>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleHoldSubmit}
+                disabled={mutations.isLoading}
+                className="rounded bg-amber-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-50"
+              >
+                {mutations.isLoading ? 'Placing Hold...' : 'Place Hold'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setHoldOpen(false)}
                 disabled={mutations.isLoading}
                 className="rounded border border-input px-4 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
               >

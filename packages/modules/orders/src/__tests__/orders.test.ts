@@ -25,7 +25,9 @@ function setupDefaultMocks() {
   mockInsert.mockReturnValue({
     values: vi.fn().mockReturnValue({
       returning: vi.fn().mockResolvedValue([]),
-      onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+      onConflictDoNothing: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([{ id: 'ULID_TEST_001' }]),
+      }),
     }),
   });
 
@@ -249,6 +251,11 @@ vi.mock('@oppsera/shared', () => ({
 
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: mockAuditLog,
+}));
+
+vi.mock('../helpers/idempotency', () => ({
+  checkIdempotency: vi.fn().mockResolvedValue({ isDuplicate: false }),
+  saveIdempotencyKey: vi.fn(),
 }));
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
@@ -839,13 +846,11 @@ describe('Orders Module', () => {
 
     it('returns cached result on duplicate clientRequestId', async () => {
       const ctx = makeCtx();
-      // checkIdempotency now runs inside the transaction via tx.select().from().where()
-      mockSelectReturns([{
-        tenantId: TENANT_A,
-        clientRequestId: 'req_dup',
-        resultPayload: { id: 'cached_order' },
-        expiresAt: new Date(Date.now() + 86400000),
-      }]);
+      const { checkIdempotency } = await import('../helpers/idempotency');
+      (checkIdempotency as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        isDuplicate: true,
+        originalResult: { id: 'cached_order' },
+      });
 
       const result = await openOrder(ctx, { clientRequestId: 'req_dup' }) as any;
       expect(result).toEqual({ id: 'cached_order' });
@@ -1003,7 +1008,6 @@ describe('Orders Module', () => {
   describe('removeLineItem', () => {
     it('removes line and recalculates', async () => {
       const ctx = makeCtx();
-      mockSelectReturns([]); // checkIdempotency — no duplicate
       mockExecute.mockResolvedValueOnce([mockOrderDbRow]); // fetch order
       mockSelectReturns([
         {
@@ -1125,7 +1129,6 @@ describe('Orders Module', () => {
   describe('removeServiceCharge', () => {
     it('removes charge and recalculates', async () => {
       const ctx = makeCtx();
-      mockSelectReturns([]); // checkIdempotency — no duplicate
       mockExecute.mockResolvedValueOnce([mockOrderDbRow]);
       mockSelectReturns([
         { id: 'chg_01', orderId: ORDER_ID, name: 'Fee', amount: 500 },
@@ -1196,7 +1199,6 @@ describe('Orders Module', () => {
   describe('placeOrder', () => {
     it('places order with receipt snapshot', async () => {
       const ctx = makeCtx();
-      mockSelectReturns([]); // checkIdempotency — no duplicate
       const openOrderRow = {
         ...mockOrderDbRow,
         subtotal: 1200,

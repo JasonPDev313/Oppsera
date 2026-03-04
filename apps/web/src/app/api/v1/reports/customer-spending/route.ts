@@ -13,7 +13,7 @@ export const GET = withMiddleware(
     const sortBy = (url.searchParams.get('sortBy') as 'totalSpend' | 'customerName') ?? undefined;
     const sortDir = (url.searchParams.get('sortDir') as 'asc' | 'desc') ?? undefined;
     const limitParam = url.searchParams.get('limit');
-    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined;
 
     if (!dateFrom || !dateTo) {
       return NextResponse.json(

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
-  Sparkles, Trash2, ToggleLeft, ToggleRight, Download, History,
+  Sparkles, Trash2, ToggleLeft, ToggleRight, History,
   PanelRightOpen, PanelRightClose, BarChart3, Wrench, CalendarDays, Globe, Sliders,
   Layers, ChevronDown, X,
 } from 'lucide-react';
@@ -16,7 +16,8 @@ import { ChatHistorySidebar } from '@/components/insights/ChatHistorySidebar';
 import { NotificationBell } from '@/components/insights/NotificationBell';
 import { VoiceInput } from '@/components/insights/VoiceInput';
 import { apiFetch } from '@/lib/api-client';
-import { exportSessionAsTxt } from '@/lib/export-chat';
+import { chatMessagesToExportTurns } from '@/lib/export-chat';
+import { ConversationToolbar } from '@/components/insights/ConversationToolbar';
 import { useEntitlements } from '@/hooks/use-entitlements';
 
 // ── Suggested questions ───────────────────────────────────────────
@@ -245,22 +246,13 @@ export default function InsightsContent() {
               <span className="hidden sm:inline">Debug</span>
             </button>
 
-            {/* Export current session */}
-            {loadedTurns && !isEmpty && (
-              <button
-                onClick={() => {
-                  exportSessionAsTxt(
-                    messages[0]?.content ?? 'AI Insights',
-                    loadedSessionDate ?? new Date().toISOString(),
-                    loadedTurns,
-                  );
-                }}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                title="Export conversation as .txt"
-              >
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Export</span>
-              </button>
+            {/* Export / Print / Copy toolbar */}
+            {!isEmpty && (
+              <ConversationToolbar
+                title={messages[0]?.content ?? 'AI Insights'}
+                startedAt={loadedSessionDate ?? new Date().toISOString()}
+                turns={loadedTurns ?? chatMessagesToExportTurns(messages)}
+              />
             )}
 
             {/* Clear conversation */}

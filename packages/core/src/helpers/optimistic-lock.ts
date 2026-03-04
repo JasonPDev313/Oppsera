@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { orders } from '@oppsera/db';
 import type { Database } from '@oppsera/db';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
@@ -88,8 +88,9 @@ export async function fetchOrderForMutation(
 export async function incrementVersion(
   tx: Database,
   orderId: string,
+  tenantId: string,
 ): Promise<void> {
   await (tx as any).update(orders)
     .set({ version: sql`version + 1`, updatedAt: new Date() })
-    .where(eq(orders.id, orderId));
+    .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)));
 }

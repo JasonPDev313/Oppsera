@@ -14,7 +14,7 @@ export const GET = withMiddleware(
     const channelId = segments[segments.length - 2]!;
 
     const limitStr = url.searchParams.get('limit');
-    const limit = limitStr ? parseInt(limitStr, 10) : 50;
+    const limit = limitStr ? Math.min(parseInt(limitStr, 10), 100) : 50;
 
     const data = await listChannelSyncLog(ctx.tenantId, channelId, limit);
     return NextResponse.json({ data });

@@ -291,7 +291,7 @@ export default function OrdersPage() {
   const clearSources = useCallback(() => setSelectedSources(new Set()), []);
 
   // ── Data ────────────────────────────────────────────────────
-  const { items, summary, isLoading, isLoadingMore, hasMore, loadMore, refetch } =
+  const { items, summary, isLoading, isLoadingMore, hasMore, loadMore, refetch, error } =
     useSalesHistory({
       sources: selectedSources.size > 0 ? Array.from(selectedSources) : undefined,
       dateFrom: dateFrom || undefined,
@@ -724,6 +724,14 @@ export default function OrdersPage() {
     },
     [router],
   );
+
+  if (error) {
+    return (
+      <div className="p-6 text-center">
+        <p className="text-sm text-red-400">Failed to load sales history. Please try again.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

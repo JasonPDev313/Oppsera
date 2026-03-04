@@ -2,6 +2,7 @@ import { registerContracts } from '@oppsera/core/events/contracts';
 import {
   InventoryReceivedDataSchema,
   InventoryAdjustedDataSchema,
+  InventoryTransferredDataSchema,
   InventoryLowStockDataSchema,
   InventoryNegativeDataSchema,
   OrderPlacedDataSchema,
@@ -16,6 +17,7 @@ registerContracts({
   emits: [
     { eventType: 'inventory.received.v1', dataSchema: InventoryReceivedDataSchema },
     { eventType: 'inventory.adjusted.v1', dataSchema: InventoryAdjustedDataSchema },
+    { eventType: 'inventory.transferred.v1', dataSchema: InventoryTransferredDataSchema },
     { eventType: 'inventory.low_stock.v1', dataSchema: InventoryLowStockDataSchema },
     { eventType: 'inventory.negative.v1', dataSchema: InventoryNegativeDataSchema },
   ],

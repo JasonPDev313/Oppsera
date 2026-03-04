@@ -460,8 +460,9 @@ export type FnbRoutingRuleType = (typeof ROUTING_RULE_TYPES)[number];
 
 export const createKitchenTicketSchema = z.object({
   ...idempotencyMixin,
-  tabId: z.string().min(1),
+  tabId: z.string().min(1).optional(), // optional for retail orders (no tab)
   orderId: z.string().min(1),
+  businessDate: z.string().optional(), // required when tabId is absent (retail)
   courseNumber: z.number().int().min(1).optional(),
   // Routing context — optional, used by auto-routing engine when stationId is not set per item
   orderType: z.string().optional(),   // dine_in | takeout | delivery | bar

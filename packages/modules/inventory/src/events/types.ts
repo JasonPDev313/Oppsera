@@ -21,6 +21,19 @@ export const InventoryAdjustedDataSchema = z.object({
   movementId: z.string(),
 });
 
+export const InventoryTransferredDataSchema = z.object({
+  catalogItemId: z.string(),
+  batchId: z.string(),
+  fromLocationId: z.string(),
+  toLocationId: z.string(),
+  sourceInventoryItemId: z.string(),
+  destInventoryItemId: z.string(),
+  quantity: z.number(),
+  sourceMovementId: z.string(),
+  destMovementId: z.string(),
+  reason: z.string().nullable(),
+});
+
 export const InventoryLowStockDataSchema = z.object({
   inventoryItemId: z.string(),
   catalogItemId: z.string(),

@@ -22,7 +22,7 @@ export const GET = withMiddleware(
       payPeriod,
       appointmentId,
       cursor,
-      limit: limitParam ? parseInt(limitParam, 10) : undefined,
+      limit: limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined,
     });
 
     return NextResponse.json({

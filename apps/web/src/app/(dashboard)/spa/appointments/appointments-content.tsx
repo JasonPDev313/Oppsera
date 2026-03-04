@@ -209,6 +209,7 @@ export default function AppointmentsContent() {
     items,
     meta,
     isLoading,
+    error,
   } = useSpaAppointments({
     status: statusFilter || undefined,
     startDate: dateFrom || undefined,
@@ -407,6 +408,14 @@ export default function AppointmentsContent() {
     },
     [router],
   );
+
+  if (error) {
+    return (
+      <div className="p-6 text-center">
+        <p className="text-sm text-red-400">Failed to load appointments. Please try again.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

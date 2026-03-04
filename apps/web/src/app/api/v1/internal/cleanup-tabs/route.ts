@@ -11,7 +11,7 @@ import { sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   // ── Auth: Vercel Cron secret ────────────────────────────────────────
 
   const cronSecret = process.env.CRON_SECRET;

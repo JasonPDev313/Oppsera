@@ -21,7 +21,7 @@ export const GET = withMiddleware(
       customerId,
       status: searchParams.get('status') ?? undefined,
       cursor: searchParams.get('cursor') ?? undefined,
-      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : undefined,
+      limit: searchParams.get('limit') ? Math.min(parseInt(searchParams.get('limit')!, 10), 100) : undefined,
     });
 
     return NextResponse.json({

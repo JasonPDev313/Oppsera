@@ -28,7 +28,7 @@ export function assertValidated<T>(
     throw new ValidationError(
       message,
       parsed.error.issues.map((i) => ({
-        field: i.path.join('.'),
+        field: i.path.length > 0 ? i.path.join('.') : '_root',
         message: i.message,
       })),
     );

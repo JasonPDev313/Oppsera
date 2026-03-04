@@ -29,7 +29,14 @@ export async function createAutoGratuityRule(
           RETURNING *`,
     );
 
-    const row = created as Record<string, unknown>;
+    const raw = created as Record<string, unknown>;
+
+    // Drizzle returns NUMERIC columns as strings — convert to numbers for callers
+    const row = {
+      ...raw,
+      partySizeThreshold: raw.party_size_threshold != null ? Number(raw.party_size_threshold) : null,
+      gratuityPercentage: raw.gratuity_percentage != null ? Number(raw.gratuity_percentage) : null,
+    };
 
     if (input.clientRequestId) {
       await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createAutoGratuityRule', row);

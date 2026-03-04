@@ -91,7 +91,7 @@ export async function voidJournalEntry(
         tenantId: ctx.tenantId,
         journalNumber: reversalNumber,
         sourceModule: entry.sourceModule,
-        sourceReferenceId: null, // reversal has no sourceReferenceId
+        sourceReferenceId: entryId, // links reversal to the original entry for audit trail
         businessDate: entry.businessDate,
         postingPeriod: entry.postingPeriod,
         currency: entry.currency,

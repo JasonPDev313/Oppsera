@@ -12,6 +12,26 @@ import { generateUlid } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 
+// ── Shared Helper ────────────────────────────────────────────────
+
+/**
+ * Fetches the house account receivable GL account ID from membership
+ * accounting settings. Returns null if not configured or on error.
+ * Used by all three AR event handlers to avoid duplicate queries.
+ */
+async function fetchHouseAccountReceivableId(tenantId: string): Promise<string | null> {
+  try {
+    const [mbrSettings] = await db
+      .select({ defaultHouseAccountReceivableAccountId: membershipAccountingSettings.defaultHouseAccountReceivableAccountId })
+      .from(membershipAccountingSettings)
+      .where(eq(membershipAccountingSettings.tenantId, tenantId))
+      .limit(1);
+    return mbrSettings?.defaultHouseAccountReceivableAccountId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ── handleOrderPlaced ────────────────────────────────────────────
 /**
  * Consumes `order.placed.v1`.
@@ -198,15 +218,7 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
       const settings = await postingApi.getSettings(event.tenantId);
 
       // House account-specific receivable — falls back to general AR control
-      let houseAccountReceivableId: string | null = null;
-      try {
-        const [mbrSettings] = await db
-          .select({ defaultHouseAccountReceivableAccountId: membershipAccountingSettings.defaultHouseAccountReceivableAccountId })
-          .from(membershipAccountingSettings)
-          .where(eq(membershipAccountingSettings.tenantId, event.tenantId))
-          .limit(1);
-        houseAccountReceivableId = mbrSettings?.defaultHouseAccountReceivableAccountId ?? null;
-      } catch { /* best-effort — fall back to AR control */ }
+      const houseAccountReceivableId = await fetchHouseAccountReceivableId(event.tenantId);
 
       const arAccountId = houseAccountReceivableId
         ?? settings.defaultARControlAccountId
@@ -415,15 +427,7 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
       const revenueAccountId = settings.defaultUncategorizedRevenueAccountId;
 
       // House account-specific receivable — falls back to general AR control
-      let houseAccountReceivableId2: string | null = null;
-      try {
-        const [mbrSettings] = await db
-          .select({ defaultHouseAccountReceivableAccountId: membershipAccountingSettings.defaultHouseAccountReceivableAccountId })
-          .from(membershipAccountingSettings)
-          .where(eq(membershipAccountingSettings.tenantId, event.tenantId))
-          .limit(1);
-        houseAccountReceivableId2 = mbrSettings?.defaultHouseAccountReceivableAccountId ?? null;
-      } catch { /* best-effort */ }
+      const houseAccountReceivableId2 = await fetchHouseAccountReceivableId(event.tenantId);
 
       const arAccountId = houseAccountReceivableId2
         ?? settings.defaultARControlAccountId
@@ -690,15 +694,7 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
         ?? settings.defaultUncategorizedRevenueAccountId;
 
       // House account-specific receivable — falls back to general AR control
-      let houseAccountReceivableId3: string | null = null;
-      try {
-        const [mbrSettings] = await db
-          .select({ defaultHouseAccountReceivableAccountId: membershipAccountingSettings.defaultHouseAccountReceivableAccountId })
-          .from(membershipAccountingSettings)
-          .where(eq(membershipAccountingSettings.tenantId, event.tenantId))
-          .limit(1);
-        houseAccountReceivableId3 = mbrSettings?.defaultHouseAccountReceivableAccountId ?? null;
-      } catch { /* best-effort */ }
+      const houseAccountReceivableId3 = await fetchHouseAccountReceivableId(event.tenantId);
 
       const arAccountId = houseAccountReceivableId3
         ?? settings.defaultARControlAccountId

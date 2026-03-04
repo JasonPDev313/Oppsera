@@ -11,7 +11,7 @@ export function useMutation<TInput, TResult>(
   const { toast } = useToast();
 
   const mutate = useCallback(
-    async (input: TInput): Promise<TResult | null> => {
+    async (input: TInput): Promise<TResult | undefined> => {
       setIsLoading(true);
       setError(null);
       try {
@@ -21,7 +21,10 @@ export function useMutation<TInput, TResult>(
         const e = err instanceof Error ? err : new Error('An error occurred');
         setError(e);
         toast.error(e.message);
-        return null;
+        // Return undefined (not null) so callers can distinguish a real null/empty
+        // response from an error condition. All existing callers use `if (result)`
+        // which remains falsy for both undefined and null.
+        return undefined;
       } finally {
         setIsLoading(false);
       }

@@ -3,7 +3,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError, ConflictError } from '@oppsera/shared';
-import { tenders, tenderReversals, paymentJournalEntries } from '@oppsera/db';
+import { tenders, tenderReversals, paymentJournalEntries, orders } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import type { ReverseTenderInput } from '../validation';
 import {
@@ -169,7 +169,6 @@ export async function reverseTender(
 
     // 6. If this was a full reversal, check if order needs status change
     // Recalculate remaining balance
-    const { orders } = await import('@oppsera/db');
     const [order] = await (tx as any)
       .select()
       .from(orders)
@@ -226,7 +225,7 @@ export async function reverseTender(
       }
     }
 
-    await incrementVersion(tx, tender.orderId);
+    await incrementVersion(tx, tender.orderId, ctx.tenantId);
 
     await saveIdempotencyKey(
       tx,

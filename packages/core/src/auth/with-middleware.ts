@@ -194,6 +194,7 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
     const startTime = Date.now();
     let _trackTenantId = '';
     let _trackUserId = '';
+    let _trackStatusCode = 0;
     try {
       // Global timeout — caps the entire middleware+handler chain.
       // Prevents a single stuck DB query from holding a Vercel function slot indefinitely.
@@ -205,18 +206,21 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
         MIDDLEWARE_TIMEOUT_MS,
         'middleware chain',
       );
+      _trackStatusCode = result.status;
       return result;
     } catch (error) {
       // Middleware timeout → 504 Gateway Timeout
       if (error instanceof Error && error.message.includes('timed out')) {
         const duration = Date.now() - startTime;
         console.error(`[middleware] Request timed out after ${duration}ms: ${request.method} ${new URL(request.url).pathname}`);
+        _trackStatusCode = 504;
         return NextResponse.json(
           { error: { code: 'GATEWAY_TIMEOUT', message: 'Request timed out. Please retry.' } },
           { status: 504 },
         );
       }
       if (error instanceof AppError) {
+        _trackStatusCode = error.statusCode;
         return NextResponse.json(
           { error: { code: error.code, message: error.message, details: error.details } },
           { status: error.statusCode },
@@ -236,6 +240,7 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
             ? 'Database schema mismatch — run pending migrations.'
             : 'An unexpected error occurred';
 
+      _trackStatusCode = 500;
       return NextResponse.json(
         { error: { code: isDbSchemaError ? 'SCHEMA_MISMATCH' : 'INTERNAL_ERROR', message: userMsg } },
         { status: 500 },
@@ -260,7 +265,7 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
             moduleKey: resolveModuleKey(_ent, _perm),
             workflowKey: _perm || '',
             method: _method,
-            statusCode: 0, // we don't have the response here since it's in finally
+            statusCode: _trackStatusCode,
             durationMs: _duration,
             timestamp: _ts,
           });
@@ -366,6 +371,13 @@ async function _executeMiddleware(
           // Read active role from header (set by frontend when user selects a role)
           const activeRoleId = request.headers.get('x-role-id') || undefined;
           if (activeRoleId) {
+            const VALID_ROLES = ['owner', 'manager', 'supervisor', 'cashier', 'server', 'staff'];
+            if (!VALID_ROLES.includes(activeRoleId)) {
+              return NextResponse.json(
+                { error: { code: 'INVALID_ROLE_ID', message: 'Invalid x-role-id header value' } },
+                { status: 400 },
+              );
+            }
             ctx.activeRoleId = activeRoleId;
           }
 

@@ -196,7 +196,8 @@ export async function recordTender(
       })
       .from(orderLines)
       .where(eq(orderLines.orderId, orderId));
-    const priceOverrideLossCents = (priceOverrideLossRows as any[])[0]?.total ?? 0;
+    const priceOverrideLossRowsArr = Array.from(priceOverrideLossRows as Iterable<Record<string, unknown>>);
+    const priceOverrideLossCents = (priceOverrideLossRowsArr[0]?.total as number | undefined) ?? 0;
 
     // 7. Generate legacy GL journal entry (gated behind enableLegacyGlPosting)
     // The new GL pipeline posts via the POS adapter event consumer on tender.recorded.v1.
@@ -259,7 +260,7 @@ export async function recordTender(
         .where(eq(orders.id, orderId));
     }
 
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
     await saveIdempotencyKey(
       tx,
       ctx.tenantId,

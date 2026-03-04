@@ -84,7 +84,7 @@ export async function completePaymentSession(
       tabId,
       orderId: session.order_id as string,
       locationId,
-      totalTendersCents: Number(session.paid_amount_cents),
+      totalTendersCents: Number(session.paid_amount_cents ?? 0),
       changeCents: input.changeCents ?? 0,
     };
 

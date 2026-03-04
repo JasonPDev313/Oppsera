@@ -32,7 +32,7 @@ export async function recallOrder(ctx: RequestContext, orderId: string, input: R
       updatedAt: now,
     }).where(eq(orders.id, orderId));
 
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'recallOrder', { orderId });
 

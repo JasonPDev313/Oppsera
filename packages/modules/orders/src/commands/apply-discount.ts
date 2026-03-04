@@ -17,7 +17,7 @@ export async function applyDiscount(ctx: RequestContext, orderId: string, input:
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'applyDiscount');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
     let amount: number;
@@ -27,7 +27,7 @@ export async function applyDiscount(ctx: RequestContext, orderId: string, input:
       amount = Math.round(input.value * 100); // convert dollars to cents
     }
 
-    const [discount] = await (tx as any).insert(orderDiscounts).values({
+    const [discount] = await tx.insert(orderDiscounts).values({
       tenantId: ctx.tenantId,
       orderId,
       type: input.type,
@@ -40,29 +40,29 @@ export async function applyDiscount(ctx: RequestContext, orderId: string, input:
 
     // Recalculate totals
     const [allLines, allCharges, allDiscounts] = await Promise.all([
-      (tx as any).select({
+      tx.select({
         lineSubtotal: orderLines.lineSubtotal,
         lineTax: orderLines.lineTax,
         lineTotal: orderLines.lineTotal,
       }).from(orderLines).where(eq(orderLines.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderCharges.amount,
         taxAmount: orderCharges.taxAmount,
       }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderDiscounts.amount,
       }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
     ]);
 
     const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
 
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       ...totals,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),
     }).where(eq(orders.id, orderId));
 
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'applyDiscount', { discountId: discount!.id });
 

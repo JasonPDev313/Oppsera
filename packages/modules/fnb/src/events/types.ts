@@ -559,6 +559,11 @@ export interface TipDeclaredPayload {
   meetsMinimumThreshold: boolean;
 }
 
+export interface TipPoolDistributionEntry {
+  staffId: string;
+  amountCents: number;
+}
+
 export interface TipPoolDistributedPayload {
   distributionId: string;
   poolId: string;
@@ -566,6 +571,7 @@ export interface TipPoolDistributedPayload {
   businessDate: string;
   totalPoolAmountCents: number;
   participantCount: number;
+  distributions?: TipPoolDistributionEntry[];
 }
 
 export interface TipOutRecordedPayload {

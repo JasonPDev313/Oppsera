@@ -32,7 +32,7 @@ export async function mergeCustomers(ctx: RequestContext, input: MergeCustomersI
     const updates: Record<string, unknown> = {
       updatedAt: new Date(),
       totalVisits: primary.totalVisits + duplicate.totalVisits,
-      totalSpend: Number(primary.totalSpend) + Number(duplicate.totalSpend),
+      totalSpend: (Number(primary.totalSpend) + Number(duplicate.totalSpend)).toFixed(2),
     };
 
     for (const field of ['email', 'phone', 'firstName', 'lastName', 'organizationName', 'notes'] as const) {

@@ -261,7 +261,7 @@ export async function placeAndRecordTender(
     }
 
     // Single incrementVersion (covers both place + tender version bump)
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, tenderInput.clientRequestId, 'placeAndPay', {
       tenderId: tender.id,

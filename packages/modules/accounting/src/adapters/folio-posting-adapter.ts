@@ -94,109 +94,109 @@ export async function handleFolioChargeForAccounting(event: EventEnvelope): Prom
 
     const accountingApi = getAccountingPostingApi();
 
-  // Resolve guest ledger control account
-  const guestLedgerAccountId = await resolveGuestLedgerAccount(tenantId);
-  if (!guestLedgerAccountId) {
-    await logUnmappedEvent(db, tenantId, {
-      eventType: 'pms.folio.charge_posted.v1',
-      sourceModule: 'pms',
-      sourceReferenceId: data.entryId,
-      entityType: 'pms_guest_ledger',
-      entityId: 'settings',
-      reason: 'Missing PMS Guest Ledger control account in accounting settings',
-    });
-    return;
-  }
-
-  // Resolve the entry type → GL account
-  const mappedAccountId = await resolveFolioEntryTypeAccount(tenantId, data.entryType);
-  if (!mappedAccountId) {
-    await logUnmappedEvent(db, tenantId, {
-      eventType: 'pms.folio.charge_posted.v1',
-      sourceModule: 'pms',
-      sourceReferenceId: data.entryId,
-      entityType: 'folio_entry_type',
-      entityId: data.entryType,
-      reason: `Missing GL mapping for PMS folio entry type: ${data.entryType}`,
-    });
-    return;
-  }
-
-  // Build GL lines based on entry type
-  const amountDollars = Math.abs(data.amountCents / 100).toFixed(2);
-  const isNegative = data.amountCents < 0;
-
-  const glLines: Array<{
-    accountId: string;
-    debitAmount: string;
-    creditAmount: string;
-    memo?: string;
-  }> = [];
-
-  switch (data.entryType) {
-    case 'ROOM_CHARGE':
-    case 'TAX':
-    case 'FEE': {
-      // Charge to guest: Debit Guest Ledger, Credit Revenue/Tax account
-      if (isNegative) {
-        // Negative charge = credit memo / reversal
-        glLines.push({ accountId: mappedAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `PMS ${data.entryType} reversal` });
-        glLines.push({ accountId: guestLedgerAccountId, debitAmount: '0', creditAmount: amountDollars, memo: `Guest Ledger - ${data.entryType} reversal` });
-      } else {
-        glLines.push({ accountId: guestLedgerAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `Guest Ledger - ${data.entryType}` });
-        glLines.push({ accountId: mappedAccountId, debitAmount: '0', creditAmount: amountDollars, memo: `PMS ${data.entryType}` });
-      }
-      break;
+    // Resolve guest ledger control account
+    const guestLedgerAccountId = await resolveGuestLedgerAccount(tenantId);
+    if (!guestLedgerAccountId) {
+      await logUnmappedEvent(db, tenantId, {
+        eventType: 'pms.folio.charge_posted.v1',
+        sourceModule: 'pms',
+        sourceReferenceId: data.entryId,
+        entityType: 'pms_guest_ledger',
+        entityId: 'settings',
+        reason: 'Missing PMS Guest Ledger control account in accounting settings',
+      });
+      return;
     }
-    case 'PAYMENT': {
-      // Guest payment: Debit Cash/Bank, Credit Guest Ledger
-      glLines.push({ accountId: mappedAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `PMS Payment received` });
-      glLines.push({ accountId: guestLedgerAccountId, debitAmount: '0', creditAmount: amountDollars, memo: `Guest Ledger - payment` });
-      break;
-    }
-    case 'REFUND': {
-      // Guest refund: Debit Guest Ledger, Credit Cash/Bank
-      glLines.push({ accountId: guestLedgerAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `Guest Ledger - refund` });
-      glLines.push({ accountId: mappedAccountId, debitAmount: '0', creditAmount: amountDollars, memo: `PMS Refund issued` });
-      break;
-    }
-    case 'ADJUSTMENT': {
-      // Adjustment: direction depends on sign
-      if (isNegative) {
-        // Negative adjustment = credit to guest
-        glLines.push({ accountId: mappedAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `PMS Adjustment (credit)` });
-        glLines.push({ accountId: guestLedgerAccountId, debitAmount: '0', creditAmount: amountDollars, memo: `Guest Ledger - adjustment credit` });
-      } else {
-        glLines.push({ accountId: guestLedgerAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `Guest Ledger - adjustment` });
-        glLines.push({ accountId: mappedAccountId, debitAmount: '0', creditAmount: amountDollars, memo: `PMS Adjustment (debit)` });
-      }
-      break;
-    }
-    default: {
+
+    // Resolve the entry type → GL account
+    const mappedAccountId = await resolveFolioEntryTypeAccount(tenantId, data.entryType);
+    if (!mappedAccountId) {
       await logUnmappedEvent(db, tenantId, {
         eventType: 'pms.folio.charge_posted.v1',
         sourceModule: 'pms',
         sourceReferenceId: data.entryId,
         entityType: 'folio_entry_type',
         entityId: data.entryType,
-        reason: `Unknown PMS folio entry type: ${data.entryType}`,
+        reason: `Missing GL mapping for PMS folio entry type: ${data.entryType}`,
       });
       return;
     }
-  }
 
-  // Build synthetic context for GL posting
-  const ctx = {
-    tenantId,
-    user: { id: 'system', email: 'system@oppsera.io', name: 'System', tenantId, tenantStatus: 'active', membershipStatus: 'active' },
-    requestId: `pms-gl-${data.entryId}`,
-    isPlatformAdmin: false,
-  } as RequestContext;
+    // Build GL lines based on entry type
+    const amountDollars = Math.abs(data.amountCents / 100).toFixed(2);
+    const isNegative = data.amountCents < 0;
 
-  // Determine business date from event timestamp
-  const businessDate = event.occurredAt
-    ? new Date(event.occurredAt as string).toISOString().slice(0, 10)
-    : new Date().toISOString().slice(0, 10);
+    const glLines: Array<{
+      accountId: string;
+      debitAmount: string;
+      creditAmount: string;
+      memo?: string;
+    }> = [];
+
+    switch (data.entryType) {
+      case 'ROOM_CHARGE':
+      case 'TAX':
+      case 'FEE': {
+        // Charge to guest: Debit Guest Ledger, Credit Revenue/Tax account
+        if (isNegative) {
+          // Negative charge = credit memo / reversal
+          glLines.push({ accountId: mappedAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `PMS ${data.entryType} reversal` });
+          glLines.push({ accountId: guestLedgerAccountId, debitAmount: '0', creditAmount: amountDollars, memo: `Guest Ledger - ${data.entryType} reversal` });
+        } else {
+          glLines.push({ accountId: guestLedgerAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `Guest Ledger - ${data.entryType}` });
+          glLines.push({ accountId: mappedAccountId, debitAmount: '0', creditAmount: amountDollars, memo: `PMS ${data.entryType}` });
+        }
+        break;
+      }
+      case 'PAYMENT': {
+        // Guest payment: Debit Cash/Bank, Credit Guest Ledger
+        glLines.push({ accountId: mappedAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `PMS Payment received` });
+        glLines.push({ accountId: guestLedgerAccountId, debitAmount: '0', creditAmount: amountDollars, memo: `Guest Ledger - payment` });
+        break;
+      }
+      case 'REFUND': {
+        // Guest refund: Debit Guest Ledger, Credit Cash/Bank
+        glLines.push({ accountId: guestLedgerAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `Guest Ledger - refund` });
+        glLines.push({ accountId: mappedAccountId, debitAmount: '0', creditAmount: amountDollars, memo: `PMS Refund issued` });
+        break;
+      }
+      case 'ADJUSTMENT': {
+        // Adjustment: direction depends on sign
+        if (isNegative) {
+          // Negative adjustment = credit to guest
+          glLines.push({ accountId: mappedAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `PMS Adjustment (credit)` });
+          glLines.push({ accountId: guestLedgerAccountId, debitAmount: '0', creditAmount: amountDollars, memo: `Guest Ledger - adjustment credit` });
+        } else {
+          glLines.push({ accountId: guestLedgerAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `Guest Ledger - adjustment` });
+          glLines.push({ accountId: mappedAccountId, debitAmount: '0', creditAmount: amountDollars, memo: `PMS Adjustment (debit)` });
+        }
+        break;
+      }
+      default: {
+        await logUnmappedEvent(db, tenantId, {
+          eventType: 'pms.folio.charge_posted.v1',
+          sourceModule: 'pms',
+          sourceReferenceId: data.entryId,
+          entityType: 'folio_entry_type',
+          entityId: data.entryType,
+          reason: `Unknown PMS folio entry type: ${data.entryType}`,
+        });
+        return;
+      }
+    }
+
+    // Build synthetic context for GL posting
+    const ctx = {
+      tenantId,
+      user: { id: 'system', email: 'system@oppsera.io', name: 'System', tenantId, tenantStatus: 'active', membershipStatus: 'active' },
+      requestId: `pms-gl-${data.entryId}`,
+      isPlatformAdmin: false,
+    } as RequestContext;
+
+    // Determine business date from event timestamp
+    const businessDate = event.occurredAt
+      ? new Date(event.occurredAt as string).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
 
     await accountingApi.postEntry(ctx, {
       businessDate,

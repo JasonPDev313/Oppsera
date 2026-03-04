@@ -72,10 +72,10 @@ export async function getCashFlowSimplified(input: GetCashFlowInput): Promise<Ca
     const changeInAP = Math.round((await getBalanceChange(apAccountId as string | null)) * 100) / 100;
     const changeInAR = Math.round((await getBalanceChange(arAccountId as string | null)) * 100) / 100;
 
-    // Operating cash flow = Net Income + Change in AP + Change in AR
-    // Note: getBalanceChange returns (credits - debits). For AP (credit-normal), a positive
-    // change means AP increased (cash conserved = positive). For AR (debit-normal), a negative
-    // change means AR increased (cash NOT collected = negative). Adding both is correct.
+    // Indirect method: OCF = Net Income + ΔAP + ΔAR
+    // getBalanceChange returns (credits − debits), so the sign is already correct:
+    //   AP (credit-normal): increase → positive → cash conserved → add
+    //   AR (debit-normal):  increase → negative → cash uncollected → add (reduces OCF)
     const netOperatingCashFlow = Math.round((netIncome + changeInAP + changeInAR) * 100) / 100;
 
     return {

@@ -193,7 +193,7 @@ export async function handleDepositAuthorizedForAccounting(event: EventEnvelope)
       entityType: 'posting_error',
       entityId: data.transactionId,
       reason: `GL posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    }).catch(() => {});
+    }).catch((err) => console.error('[deposit-posting-adapter] GL posting failed:', err));
   }
 }
 
@@ -298,6 +298,6 @@ export async function handleDepositCapturedForAccounting(event: EventEnvelope): 
       entityType: 'posting_error',
       entityId: data.transactionId,
       reason: `GL posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    }).catch(() => {});
+    }).catch((err) => console.error('[deposit-posting-adapter] GL posting failed:', err));
   }
 }

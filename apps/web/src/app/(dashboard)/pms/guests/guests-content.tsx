@@ -73,7 +73,7 @@ export default function GuestsContent() {
         if (!cancelled) setError('Failed to load properties');
       });
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line
+  }, []);  
 
   // Debounced search
   const handleSearchChange = useCallback((value: string) => {
@@ -124,7 +124,7 @@ export default function GuestsContent() {
     setCursor(null);
     setHasMore(false);
     fetchGuests(false);
-  }, [propertyId, searchTerm]); // eslint-disable-line
+  }, [propertyId, searchTerm]);  
 
   const loadMore = useCallback(() => {
     if (hasMore && !isLoading) {

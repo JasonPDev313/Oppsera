@@ -96,6 +96,10 @@ export async function calculateAppointmentCommissions(
         id: spaAppointmentItems.id,
         serviceId: spaAppointmentItems.serviceId,
         finalPriceCents: spaAppointmentItems.finalPriceCents,
+        addonId: spaAppointmentItems.addonId,
+        // tipCents and addonPriceCents are not separate columns in the schema.
+        // Tip data would need to come from the linked order (via appointment.orderId).
+        // Addon price is not tracked separately from the item's finalPriceCents.
       })
       .from(spaAppointmentItems)
       .where(
@@ -142,7 +146,11 @@ export async function calculateAppointmentCommissions(
       priority: r.priority,
     }));
 
-    // Map appointment items to the engine's item format
+    // Map appointment items to the engine's item format.
+    // addonPriceCents: the schema does not store a separate addon price column —
+    //   addon pricing is embedded in finalPriceCents. Kept as 0 until schema is extended.
+    // tipCents: tip data is not stored on appointment items or the appointment itself;
+    //   it would need to be read from the linked order. Kept as 0 until schema is extended.
     const engineItems = items.map((item) => ({
       serviceId: item.serviceId,
       serviceCategory: 'default' as const,
@@ -163,11 +171,11 @@ export async function calculateAppointmentCommissions(
     );
 
     // Batch insert results into the ledger (one row per lineItem)
-    const ledgerRows = summary.lineItems.map((lineItem, idx) => ({
+    const ledgerRows = summary.lineItems.map((lineItem) => ({
       tenantId: ctx.tenantId,
       providerId: appointment.providerId!,
       appointmentId: input.appointmentId,
-      appointmentItemId: items[idx]?.id ?? null,
+      appointmentItemId: items[lineItem.sourceItemIndex]?.id ?? null,
       orderId: input.orderId ?? null,
       ruleId: lineItem.ruleId,
       commissionType: lineItem.commissionType,

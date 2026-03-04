@@ -29,7 +29,7 @@ export async function voidOrder(ctx: RequestContext, orderId: string, input: Voi
       updatedAt: now,
     }).where(eq(orders.id, orderId));
 
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'voidOrder', { orderId });
 

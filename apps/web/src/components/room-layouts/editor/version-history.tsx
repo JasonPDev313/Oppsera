@@ -58,7 +58,7 @@ export function VersionHistory({ roomId, open, onClose, onRevert }: VersionHisto
       setCursor(null);
       fetchVersions(true);
     }
-  }, [open]); // eslint-disable-line
+  }, [open]);  
 
   const handleRevertConfirm = () => {
     if (confirmRevert) {

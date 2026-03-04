@@ -59,6 +59,7 @@ export interface CommissionResult {
   rateApplied: number; // effective percentage applied
   resolutionLevel: number; // 1-6, which priority level matched
   resolutionDescription: string;
+  sourceItemIndex: number; // index of the originating item in the input array
 }
 
 export interface CommissionSummary {
@@ -292,7 +293,9 @@ export function computeAppointmentCommissions(
 ): CommissionSummary {
   const lineItems: CommissionResult[] = [];
 
-  for (const item of items) {
+  for (let itemIdx = 0; itemIdx < items.length; itemIdx++) {
+    const item = items[itemIdx]!;
+
     // Service commission
     if (item.priceCents > 0) {
       const result = resolveAndCalculate(rules, {
@@ -303,7 +306,7 @@ export function computeAppointmentCommissions(
         baseAmountCents: item.priceCents,
         appointmentDate,
       });
-      if (result) lineItems.push(result);
+      if (result) lineItems.push({ ...result, sourceItemIndex: itemIdx });
     }
 
     // Addon commission
@@ -317,7 +320,7 @@ export function computeAppointmentCommissions(
         baseAmountCents: addonCents,
         appointmentDate,
       });
-      if (result) lineItems.push(result);
+      if (result) lineItems.push({ ...result, sourceItemIndex: itemIdx });
     }
 
     // Tip commission
@@ -331,7 +334,7 @@ export function computeAppointmentCommissions(
         baseAmountCents: tipCents,
         appointmentDate,
       });
-      if (result) lineItems.push(result);
+      if (result) lineItems.push({ ...result, sourceItemIndex: itemIdx });
     }
   }
 
@@ -420,5 +423,6 @@ function resolveAndCalculate(
     rateApplied,
     resolutionLevel,
     resolutionDescription: getResolutionDescription(resolutionLevel),
+    sourceItemIndex: -1, // overridden by computeAppointmentCommissions
   };
 }

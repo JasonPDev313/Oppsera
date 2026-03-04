@@ -1,8 +1,22 @@
+import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
-import type { GolfFolioPostedData } from '../events';
+
+const GolfFolioPostedSchema = z.object({
+  folioId: z.string(),
+  courseId: z.string(),
+  customerId: z.string().optional(),
+  reservationId: z.string().optional(),
+  greenFee: z.coerce.number().optional(),
+  cartFee: z.coerce.number().optional(),
+  rangeFee: z.coerce.number().optional(),
+  foodBev: z.coerce.number().optional(),
+  proShop: z.coerce.number().optional(),
+  tax: z.coerce.number().optional(),
+  total: z.coerce.number().optional(),
+});
 
 const CONSUMER_NAME = 'golf-reporting.folioPosted';
 
@@ -17,7 +31,12 @@ const CONSUMER_NAME = 'golf-reporting.folioPosted';
  * 5. If customerId: UPSERT rm_golf_customer_play (totalRevenue += deltaTotal)
  */
 export async function handleFolioPosted(event: EventEnvelope): Promise<void> {
-  const data = event.data as unknown as GolfFolioPostedData;
+  const parsed = GolfFolioPostedSchema.safeParse(event.data);
+  if (!parsed.success) {
+    console.error(`[golf-reporting] Invalid golf.folio.posted.v1 payload:`, parsed.error.flatten());
+    return;
+  }
+  const data = parsed.data;
 
   // Skip if no reservation link — can't attribute revenue to a tee time
   if (!data.reservationId) return;

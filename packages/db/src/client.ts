@@ -116,6 +116,7 @@ export async function withTenant<T>(
       // instead of waiting indefinitely and holding a pool connection.
       await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`);
       await tx.execute(sql`SET LOCAL lock_timeout = '5s'`);
+      await tx.execute(sql`SET LOCAL statement_timeout = '30s'`);
       return callback(tx as unknown as Database);
     }),
   );

@@ -78,26 +78,38 @@ export async function createAppointment(ctx: RequestContext, input: CreateAppoin
       .map((item) => item.resourceId)
       .filter((id): id is string => !!id);
 
-    // Use appointment-level provider for conflict check, or fall back to first item's provider
-    const primaryProviderId = parsed.providerId ?? parsed.items[0]?.providerId;
+    // Collect ALL unique provider IDs across the appointment-level provider and every item's
+    // provider. Previously only the primary provider was checked, allowing all secondary/item
+    // providers to be double-booked silently. Each provider must pass a full conflict check.
+    const allProviderIds = [
+      ...(parsed.providerId ? [parsed.providerId] : []),
+      ...parsed.items.map((item) => item.providerId).filter((id): id is string => !!id),
+    ];
+    const uniqueProviderIds = [...new Set(allProviderIds)];
 
-    if (primaryProviderId) {
-      const conflicts = await detectConflicts({
-        tenantId: ctx.tenantId,
-        providerId: primaryProviderId,
-        startTime,
-        endTime,
-        locationId: parsed.locationId,
-        customerId: parsed.customerId,
-        resourceIds: parsed.resourceId
-          ? [parsed.resourceId, ...itemResourceIds]
-          : itemResourceIds,
-      });
+    if (uniqueProviderIds.length > 0) {
+      // Check all providers in parallel — fail fast if any provider has a conflict.
+      const allConflictResults = await Promise.all(
+        uniqueProviderIds.map((providerId) =>
+          detectConflicts({
+            tenantId: ctx.tenantId,
+            providerId,
+            startTime,
+            endTime,
+            locationId: parsed.locationId,
+            customerId: parsed.customerId,
+            resourceIds: parsed.resourceId
+              ? [parsed.resourceId, ...itemResourceIds]
+              : itemResourceIds,
+          }),
+        ),
+      );
 
-      if (conflicts.hasConflicts) {
+      const allConflicts = allConflictResults.flatMap((r) => r.conflicts);
+      if (allConflicts.length > 0) {
         throw new AppError(
           'SCHEDULING_CONFLICT',
-          `Scheduling conflicts detected: ${conflicts.conflicts.map((c) => c.description).join('; ')}`,
+          `Scheduling conflicts detected: ${allConflicts.map((c) => c.description).join('; ')}`,
           409,
         );
       }
@@ -185,6 +197,13 @@ export async function createAppointment(ctx: RequestContext, input: CreateAppoin
       endAt: parsed.endAt,
       bookingSource: parsed.bookingSource,
       itemCount: insertedItems.length,
+      serviceItems: insertedItems.map((item) => ({
+        id: item.id,
+        serviceId: item.serviceId,
+        providerId: item.providerId,
+        priceCents: item.priceCents,
+        finalPriceCents: item.finalPriceCents,
+      })),
     });
 
     return { result: { ...created!, items: insertedItems }, events: [event] };

@@ -24,7 +24,7 @@ export const GET = withMiddleware(
         tenantId: ctx.tenantId,
         startDate,
         endDate,
-        limit: limitParam ? parseInt(limitParam, 10) : undefined,
+        limit: limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined,
         sortBy: sortBy ?? undefined,
       });
 

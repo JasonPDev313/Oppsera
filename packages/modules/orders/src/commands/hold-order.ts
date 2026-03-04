@@ -16,19 +16,19 @@ export async function holdOrder(ctx: RequestContext, orderId: string, input: Hol
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'holdOrder');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
 
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
     const now = new Date();
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       heldAt: now,
       heldBy: ctx.user.id,
       updatedBy: ctx.user.id,
       updatedAt: now,
     }).where(eq(orders.id, orderId));
 
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'holdOrder', { orderId });
 

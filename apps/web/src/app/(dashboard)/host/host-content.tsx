@@ -2,7 +2,7 @@
 
 import '@/styles/fnb-design-tokens.css';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuthContext } from '@/components/auth-provider';
 import { useFnbRealtime, type ChannelName } from '@/hooks/use-fnb-realtime';
 import {
@@ -164,6 +164,43 @@ function HostContentInner() {
   });
 
   const { advanceRotation, isActing } = useSectionActions();
+
+  // ── Waitlist config (slug + branding for QR flyer) ──
+  const [waitlistQr, setWaitlistQr] = useState<{
+    slug: string;
+    branding: {
+      logoUrl: string | null;
+      primaryColor: string;
+      secondaryColor: string;
+      accentColor: string;
+      fontFamily: string;
+      welcomeHeadline: string;
+      footerText: string | null;
+    };
+  } | null>(null);
+
+  useEffect(() => {
+    if (!locationId) return;
+    fetch('/api/v1/fnb/host/waitlist-config')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!json?.data) return;
+        const d = json.data;
+        setWaitlistQr({
+          slug: d.slugOverride || tenant?.slug || 'waitlist',
+          branding: {
+            logoUrl: d.branding?.logoUrl ?? null,
+            primaryColor: d.branding?.primaryColor ?? '#6366f1',
+            secondaryColor: d.branding?.secondaryColor ?? '#3b82f6',
+            accentColor: d.branding?.accentColor ?? '#22c55e',
+            fontFamily: d.branding?.fontFamily ?? 'Inter',
+            welcomeHeadline: d.branding?.welcomeHeadline ?? 'Join Our Waitlist',
+            footerText: d.branding?.footerText ?? null,
+          },
+        });
+      })
+      .catch(() => {});
+  }, [locationId, tenant?.slug]);
 
   // ── Sync all rooms ────────────────────────────────
   const handleSyncTables = useCallback(async () => {
@@ -893,8 +930,9 @@ function HostContentInner() {
       <QrCodeDisplay
         open={showQrCode}
         onClose={() => setShowQrCode(false)}
-        locationId={locationId}
         venueName={locations[0]?.name ?? 'Venue'}
+        slug={waitlistQr?.slug || tenant?.slug || 'waitlist'}
+        branding={waitlistQr?.branding}
       />
 
       {/* Host Settings Slide-Out */}

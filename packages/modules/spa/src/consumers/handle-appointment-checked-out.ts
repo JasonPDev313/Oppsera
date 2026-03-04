@@ -61,17 +61,18 @@ export async function handleSpaAppointmentCheckedOut(event: EventEnvelope): Prom
     await (tx as any).execute(sql`
       INSERT INTO rm_spa_daily_operations (
         id, tenant_id, location_id, business_date,
-        retail_revenue, rebooking_rate,
+        retail_revenue, rebooking_rate, completed_count,
         created_at, updated_at
       )
       VALUES (
         ${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate},
-        ${retailRevenue}, ${data.didRebook ? 100 : 0},
+        ${retailRevenue}, ${data.didRebook ? 100 : 0}, ${1},
         NOW(), NOW()
       )
       ON CONFLICT (tenant_id, location_id, business_date)
       DO UPDATE SET
         retail_revenue = rm_spa_daily_operations.retail_revenue + ${retailRevenue},
+        completed_count = rm_spa_daily_operations.completed_count + 1,
         rebooking_rate = CASE
           WHEN rm_spa_daily_operations.completed_count > 0
           THEN ((rm_spa_daily_operations.rebooking_rate * rm_spa_daily_operations.completed_count) + ${data.didRebook ? 100 : 0}) / (rm_spa_daily_operations.completed_count + 1)
@@ -84,16 +85,17 @@ export async function handleSpaAppointmentCheckedOut(event: EventEnvelope): Prom
     await (tx as any).execute(sql`
       INSERT INTO rm_spa_provider_metrics (
         id, tenant_id, provider_id, business_date,
-        rebooking_rate, new_client_count,
+        rebooking_rate, new_client_count, completed_count,
         created_at, updated_at
       )
       VALUES (
         ${generateUlid()}, ${event.tenantId}, ${data.providerId}, ${businessDate},
-        ${data.didRebook ? 100 : 0}, ${data.isNewClient ? 1 : 0},
+        ${data.didRebook ? 100 : 0}, ${data.isNewClient ? 1 : 0}, ${1},
         NOW(), NOW()
       )
       ON CONFLICT (tenant_id, provider_id, business_date)
       DO UPDATE SET
+        completed_count = rm_spa_provider_metrics.completed_count + 1,
         rebooking_rate = CASE
           WHEN rm_spa_provider_metrics.completed_count > 0
           THEN ((rm_spa_provider_metrics.rebooking_rate * rm_spa_provider_metrics.completed_count) + ${data.didRebook ? 100 : 0}) / (rm_spa_provider_metrics.completed_count + 1)

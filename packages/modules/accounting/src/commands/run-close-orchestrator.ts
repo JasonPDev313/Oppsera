@@ -68,8 +68,9 @@ const AUTO_EXECUTABLE_STEPS: Record<string, {
                 AND status = 'draft'
             `);
             posted++;
-          } catch {
+          } catch (err) {
             // Continue on individual failures
+            console.error('[run-close-orchestrator] Error:', err);
           }
         }
         return posted;

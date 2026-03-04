@@ -62,7 +62,7 @@ export async function setTaxExempt(ctx: RequestContext, orderId: string, input: 
       updatedAt: new Date(),
     }).where(eq(orders.id, orderId));
 
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'setTaxExempt', { taxExempt: input.taxExempt });
 
     const event = buildEventFromContext(ctx, 'order.tax_exempt_changed.v1', {

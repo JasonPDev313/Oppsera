@@ -285,8 +285,9 @@ export class SupabaseAuthAdapter implements AuthAdapter {
       if (token) {
         await this.supabase.auth.admin.signOut(token, 'local');
       }
-    } catch {
-      // Best-effort — swallow errors
+    } catch (err) {
+      // Best-effort — log but do not rethrow so the client session is cleared regardless
+      console.error('[signOut] Error:', err);
     }
   }
 

@@ -16,18 +16,18 @@ export async function deleteOrder(ctx: RequestContext, orderId: string, input: D
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'deleteOrder');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
 
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, ['open', 'voided']);
 
     const now = new Date();
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       status: 'deleted',
       updatedBy: ctx.user.id,
       updatedAt: now,
     }).where(eq(orders.id, orderId));
 
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'deleteOrder', { orderId });
 

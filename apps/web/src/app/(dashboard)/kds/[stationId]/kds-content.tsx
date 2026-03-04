@@ -8,18 +8,22 @@ import { useKdsView } from '@/hooks/use-fnb-kitchen';
 import { StationHeader } from '@/components/fnb/kitchen/StationHeader';
 import { TicketCard } from '@/components/fnb/kitchen/TicketCard';
 import { AllDaySummary } from '@/components/fnb/kitchen/AllDaySummary';
-// KDS_PRIORITY_LEVELS available from @oppsera/shared for level display names
+import { ItemSummaryPanel, ItemSummaryToggle } from '@/components/fnb/kitchen/ItemSummaryPanel';
+import { KitchenBehindBanner } from '@/components/fnb/kitchen/KitchenBehindBanner';
 import {
   ArrowLeft, LayoutGrid, LayoutList, SplitSquareHorizontal,
   Keyboard as KeyboardIcon, Hand, Pause, Play,
+  Minimize2, Maximize2,
 } from 'lucide-react';
 
 type ViewMode = 'ticket_rail' | 'grid' | 'split';
+type Density = 'compact' | 'standard' | 'comfortable';
 
 // Effectively infinite interval to stop polling when paused
 const PAUSED_INTERVAL = 999_999_999;
 
 const KDS_REALTIME_CHANNELS: ChannelName[] = ['kds', 'expo'];
+
 
 export default function KdsContent() {
   const params = useParams();
@@ -29,15 +33,13 @@ export default function KdsContent() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>('ticket_rail');
+  const [density, setDensity] = useState<Density>('standard');
   const [inputMode, setInputMode] = useState<'touch' | 'bump_bar'>('touch');
   const [focusedTicketIdx, setFocusedTicketIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
 
-  // ── KDS Realtime — subscribe to Supabase broadcasts ──────
-  // Handles both realtime WebSocket notifications and polling fallback.
-  // useKdsView's internal polling is disabled (PAUSED_INTERVAL) to avoid
-  // double-polling — useFnbRealtime fires notifyChannel('kds') which
-  // triggers useKdsView's onChannelRefresh listener.
+  // ── KDS Realtime ──────────────────────────────────────────────
   useFnbRealtime({
     channels: KDS_REALTIME_CHANNELS,
     tenantId: tenant?.id ?? '',
@@ -65,41 +67,64 @@ export default function KdsContent() {
     });
   }, [kdsView?.tickets]);
 
-  // Keyboard handler for bump bar mode
+  // ── Keyboard handler ──────────────────────────────────────────
   useEffect(() => {
-    if (inputMode !== 'bump_bar') return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isActing) return;
 
+      // Density shortcuts (always active)
+      if (e.key === '1') { setDensity('compact'); return; }
+      if (e.key === '2') { setDensity('standard'); return; }
+      if (e.key === '3') { setDensity('comfortable'); return; }
+
+      // View mode shortcuts
+      if (e.key === 'g' || e.key === 'G') { setViewMode('grid'); return; }
+
+      // Bump bar navigation
+      if (inputMode === 'bump_bar') {
+        switch (e.key) {
+          case 'ArrowRight':
+            e.preventDefault();
+            setFocusedTicketIdx((prev) => Math.min(prev + 1, sortedTickets.length - 1));
+            break;
+          case 'ArrowLeft':
+            e.preventDefault();
+            setFocusedTicketIdx((prev) => Math.max(prev - 1, 0));
+            break;
+          case 'Enter':
+          case ' ':
+            e.preventDefault();
+            if (sortedTickets[focusedTicketIdx]) {
+              bumpTicket(sortedTickets[focusedTicketIdx].ticketId);
+            }
+            break;
+        }
+      }
+
+      // Global shortcuts
       switch (e.key) {
-        case 'ArrowRight':
-          e.preventDefault();
-          setFocusedTicketIdx((prev) => Math.min(prev + 1, sortedTickets.length - 1));
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          setFocusedTicketIdx((prev) => Math.max(prev - 1, 0));
-          break;
-        case 'Enter':
-        case ' ':
-          e.preventDefault();
-          if (sortedTickets[focusedTicketIdx]) {
-            bumpTicket(sortedTickets[focusedTicketIdx].ticketId);
-          }
-          break;
         case 'r':
         case 'R':
-          e.preventDefault();
-          refresh();
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            if (inputMode !== 'bump_bar') setViewMode('ticket_rail');
+            else refresh();
+          }
           break;
         case 'p':
         case 'P':
           e.preventDefault();
           setIsPaused((prev) => {
-            if (prev) refresh(); // immediate fetch on unpause
+            if (prev) refresh();
             return !prev;
           });
+          break;
+        case 's':
+        case 'S':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            setShowSummary((prev) => !prev);
+          }
           break;
         case 'Escape':
           e.preventDefault();
@@ -120,6 +145,7 @@ export default function KdsContent() {
     if (card) card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   }, [focusedTicketIdx, inputMode]);
 
+  // ── Loading / Error states ────────────────────────────────────
   if (isLoading && !kdsView) {
     return (
       <div className="flex h-screen items-center justify-center" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
@@ -182,6 +208,23 @@ export default function KdsContent() {
 
           <div className="w-px h-5 mx-1" style={{ backgroundColor: 'rgba(148, 163, 184, 0.15)' }} />
 
+          {/* Density toggle */}
+          <button type="button"
+            onClick={() => setDensity((d) => d === 'compact' ? 'standard' : d === 'standard' ? 'comfortable' : 'compact')}
+            className="px-2 py-1 rounded text-[10px] font-medium transition-colors"
+            style={{
+              backgroundColor: 'rgba(148, 163, 184, 0.08)',
+              color: 'var(--fnb-text-muted)',
+            }}
+            title="Cycle density (1/2/3)">
+            {density === 'compact' ? <Minimize2 className="h-3.5 w-3.5" /> : density === 'comfortable' ? <Maximize2 className="h-3.5 w-3.5" /> : <LayoutList className="h-3.5 w-3.5" />}
+          </button>
+
+          <div className="w-px h-5 mx-1" style={{ backgroundColor: 'rgba(148, 163, 184, 0.15)' }} />
+
+          {/* Item summary toggle */}
+          <ItemSummaryToggle onClick={() => setShowSummary(!showSummary)} isOpen={showSummary} />
+
           {/* Input mode toggle */}
           <button type="button" onClick={() => setInputMode(inputMode === 'touch' ? 'bump_bar' : 'touch')}
             className="p-1.5 rounded transition-colors"
@@ -193,7 +236,7 @@ export default function KdsContent() {
             {inputMode === 'bump_bar' ? <KeyboardIcon className="h-4 w-4" /> : <Hand className="h-4 w-4" />}
           </button>
 
-          {/* Pause/resume polling */}
+          {/* Pause/resume */}
           <button type="button" onClick={() => {
               const resuming = isPaused;
               setIsPaused(!isPaused);
@@ -210,144 +253,163 @@ export default function KdsContent() {
         </div>
       </div>
 
+      {/* Kitchen Behind banner */}
+      <KitchenBehindBanner
+        tickets={sortedTickets}
+        warningThresholdSeconds={kdsView.warningThresholdSeconds}
+        criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
+      />
+
       {/* Bump bar mode indicator */}
       {inputMode === 'bump_bar' && (
         <div className="flex items-center gap-2 px-3 py-1 text-[10px]"
           style={{ backgroundColor: 'rgba(99,102,241,0.1)', color: 'var(--fnb-status-seated)' }}>
           <KeyboardIcon className="h-3 w-3" />
-          Bump Bar Mode — Left/Right Navigate | Enter/Space Bump | R Refresh | P Pause | Esc Back
+          Bump Bar — ←/→ Navigate | Enter Bump | 1/2/3 Density | G Grid | R Rail | S Summary | P Pause | Esc Back
         </div>
       )}
 
-      {/* Ticket area */}
-      <div ref={containerRef} className="flex-1 overflow-auto">
-        {sortedTickets.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <p className="text-lg font-bold" style={{ color: 'var(--fnb-text-muted)' }}>All Clear</p>
-              <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>No active tickets</p>
-            </div>
-          </div>
-        ) : viewMode === 'grid' ? (
-          /* Grid view — wrap in a responsive grid */
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 p-3">
-            {sortedTickets.map((ticket, idx) => (
-              <div key={ticket.ticketId} data-ticket-card
-                style={{
-                  outline: inputMode === 'bump_bar' && idx === focusedTicketIdx
-                    ? '2px solid var(--fnb-status-seated)' : 'none',
-                  borderRadius: '8px',
-                }}>
-                <TicketCard
-                  ticket={ticket}
-                  warningThresholdSeconds={kdsView.warningThresholdSeconds}
-                  criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
-                  onBumpItem={bumpItem}
-                  onBumpTicket={bumpTicket}
-                  disabled={isActing}
-                />
-              </div>
-            ))}
-          </div>
-        ) : viewMode === 'split' ? (
-          /* Split view — active left, recent bumped right */
-          <div className="flex h-full">
-            <div className="flex-1 overflow-x-auto border-r" style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}>
-              <div className="flex gap-3 p-3 h-full items-start">
-                {sortedTickets.map((ticket, idx) => (
-                  <div key={ticket.ticketId} data-ticket-card
-                    style={{
-                      outline: inputMode === 'bump_bar' && idx === focusedTicketIdx
-                        ? '2px solid var(--fnb-status-seated)' : 'none',
-                      borderRadius: '8px',
-                    }}>
-                    <TicketCard
-                      ticket={ticket}
-                      warningThresholdSeconds={kdsView.warningThresholdSeconds}
-                      criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
-                      onBumpItem={bumpItem}
-                      onBumpTicket={bumpTicket}
-                      disabled={isActing}
-                    />
-                  </div>
-                ))}
+      {/* Main content area with optional summary panel */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Ticket area */}
+        <div ref={containerRef} className="flex-1 overflow-auto">
+          {sortedTickets.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <p className="text-lg font-bold" style={{ color: 'var(--fnb-text-muted)' }}>All Clear</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>No active tickets</p>
               </div>
             </div>
-            <div className="w-64 xl:w-80 shrink-0 p-3 overflow-y-auto"
-              style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
-              <p className="text-[10px] uppercase tracking-wider font-semibold mb-2"
-                style={{ color: 'var(--fnb-text-muted)' }}>Recently Completed</p>
-              {(!kdsView.recentlyCompleted || kdsView.recentlyCompleted.length === 0) ? (
-                <p className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>
-                  No completed tickets yet
-                </p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {kdsView.recentlyCompleted.map((ct) => {
-                    const mins = Math.floor(ct.completedSecondsAgo / 60);
-                    const agoLabel = mins < 1 ? 'just now' : mins === 1 ? '1m ago' : `${mins}m ago`;
-                    return (
-                      <div key={ct.ticketId}
-                        className="rounded-lg px-3 py-2"
-                        style={{
-                          backgroundColor: 'var(--fnb-bg-surface)',
-                          border: '1px solid rgba(148, 163, 184, 0.1)',
-                        }}>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold fnb-mono" style={{ color: 'var(--fnb-status-available)' }}>
-                            #{ct.ticketNumber}
-                          </span>
-                          <span className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
-                            {agoLabel}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {ct.tableNumber != null && (
-                            <span className="text-[10px]" style={{ color: 'var(--fnb-text-secondary)' }}>
-                              T{ct.tableNumber}
-                            </span>
-                          )}
-                          <span className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
-                            {ct.itemCount} item{ct.itemCount !== 1 ? 's' : ''}
-                          </span>
-                          {ct.serverName && (
-                            <span className="text-[10px] truncate" style={{ color: 'var(--fnb-text-muted)' }}>
-                              {ct.serverName}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 p-3">
+              {sortedTickets.map((ticket, idx) => (
+                <div key={ticket.ticketId} data-ticket-card
+                  style={{
+                    outline: inputMode === 'bump_bar' && idx === focusedTicketIdx
+                      ? '2px solid var(--fnb-status-seated)' : 'none',
+                    borderRadius: '8px',
+                  }}>
+                  <TicketCard
+                    ticket={ticket}
+                    warningThresholdSeconds={kdsView.warningThresholdSeconds}
+                    criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
+                    onBumpItem={bumpItem}
+                    onBumpTicket={bumpTicket}
+                    disabled={isActing}
+                    density={density}
+                  />
                 </div>
-              )}
+              ))}
             </div>
-          </div>
-        ) : (
-          /* Default ticket rail — horizontal scroll */
-          <div className="flex gap-3 xl:gap-4 p-3 xl:p-4 h-full items-start">
-            {sortedTickets.map((ticket, idx) => (
-              <div key={ticket.ticketId} data-ticket-card
-                style={{
-                  outline: inputMode === 'bump_bar' && idx === focusedTicketIdx
-                    ? '2px solid var(--fnb-status-seated)' : 'none',
-                  borderRadius: '8px',
-                }}>
-                <TicketCard
-                  ticket={ticket}
-                  warningThresholdSeconds={kdsView.warningThresholdSeconds}
-                  criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
-                  onBumpItem={bumpItem}
-                  onBumpTicket={bumpTicket}
-                  disabled={isActing}
-                />
+          ) : viewMode === 'split' ? (
+            <div className="flex h-full">
+              <div className="flex-1 overflow-x-auto border-r" style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}>
+                <div className="flex gap-3 p-3 h-full items-start">
+                  {sortedTickets.map((ticket, idx) => (
+                    <div key={ticket.ticketId} data-ticket-card
+                      style={{
+                        outline: inputMode === 'bump_bar' && idx === focusedTicketIdx
+                          ? '2px solid var(--fnb-status-seated)' : 'none',
+                        borderRadius: '8px',
+                      }}>
+                      <TicketCard
+                        ticket={ticket}
+                        warningThresholdSeconds={kdsView.warningThresholdSeconds}
+                        criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
+                        onBumpItem={bumpItem}
+                        onBumpTicket={bumpTicket}
+                        disabled={isActing}
+                        density={density}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
+              <div className="w-64 xl:w-80 shrink-0 p-3 overflow-y-auto"
+                style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+                <p className="text-[10px] uppercase tracking-wider font-semibold mb-2"
+                  style={{ color: 'var(--fnb-text-muted)' }}>Recently Completed</p>
+                {(!kdsView.recentlyCompleted || kdsView.recentlyCompleted.length === 0) ? (
+                  <p className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>
+                    No completed tickets yet
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {kdsView.recentlyCompleted.map((ct) => {
+                      const mins = Math.floor(ct.completedSecondsAgo / 60);
+                      const agoLabel = mins < 1 ? 'just now' : mins === 1 ? '1m ago' : `${mins}m ago`;
+                      return (
+                        <div key={ct.ticketId}
+                          className="rounded-lg px-3 py-2"
+                          style={{
+                            backgroundColor: 'var(--fnb-bg-surface)',
+                            border: '1px solid rgba(148, 163, 184, 0.1)',
+                          }}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold fnb-mono" style={{ color: 'var(--fnb-status-available)' }}>
+                              #{ct.ticketNumber}
+                            </span>
+                            <span className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
+                              {agoLabel}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {ct.tableNumber != null && (
+                              <span className="text-[10px]" style={{ color: 'var(--fnb-text-secondary)' }}>
+                                T{ct.tableNumber}
+                              </span>
+                            )}
+                            <span className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
+                              {ct.itemCount} item{ct.itemCount !== 1 ? 's' : ''}
+                            </span>
+                            {ct.serverName && (
+                              <span className="text-[10px] truncate" style={{ color: 'var(--fnb-text-muted)' }}>
+                                {ct.serverName}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Default ticket rail — horizontal scroll */
+            <div className="flex gap-3 xl:gap-4 p-3 xl:p-4 h-full items-start">
+              {sortedTickets.map((ticket, idx) => (
+                <div key={ticket.ticketId} data-ticket-card
+                  style={{
+                    outline: inputMode === 'bump_bar' && idx === focusedTicketIdx
+                      ? '2px solid var(--fnb-status-seated)' : 'none',
+                    borderRadius: '8px',
+                  }}>
+                  <TicketCard
+                    ticket={ticket}
+                    warningThresholdSeconds={kdsView.warningThresholdSeconds}
+                    criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
+                    onBumpItem={bumpItem}
+                    onBumpTicket={bumpTicket}
+                    disabled={isActing}
+                    density={density}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Item summary panel (right side) */}
+        {showSummary && (
+          <ItemSummaryPanel
+            tickets={kdsView.tickets}
+            onClose={() => setShowSummary(false)}
+          />
         )}
       </div>
 
-      {/* All day summary */}
+      {/* All day summary (bottom bar) */}
       <AllDaySummary kdsView={kdsView} />
     </div>
   );

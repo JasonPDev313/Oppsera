@@ -30,7 +30,7 @@ export async function reopenOrder(ctx: RequestContext, orderId: string, input: R
       updatedAt: now,
     }).where(eq(orders.id, orderId));
 
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'reopenOrder', { orderId });
 

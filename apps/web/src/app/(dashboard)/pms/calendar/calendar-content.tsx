@@ -135,7 +135,7 @@ export default function CalendarContent() {
         if (!cancelled) setError('Failed to load properties');
       });
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line
+  }, []);  
 
   // ── Fetch grid data (week/14/30) ───────────────────────────────
   const fetchGrid = useCallback(async (silent = false) => {

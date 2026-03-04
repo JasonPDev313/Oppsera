@@ -182,6 +182,7 @@ export { handleCompForAccounting, handleLineVoidForAccounting } from './adapters
 export { handleSpaCheckoutForAccounting } from './adapters/spa-posting-adapter';
 export { handleSpaPackagePurchaseForAccounting, handleSpaPackageRedemptionForAccounting } from './adapters/spa-package-posting-adapter';
 export { handleSpaCommissionPaidForAccounting } from './adapters/spa-commission-posting-adapter';
+export { handleFnbTipPoolDistributedForAccounting } from './adapters/fnb-tip-pool-posting-adapter';
 
 // Queries
 export { getAccountBalances } from './queries/get-account-balances';

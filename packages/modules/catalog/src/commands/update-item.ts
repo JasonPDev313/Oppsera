@@ -150,7 +150,7 @@ export async function updateItem(
     const [updated] = await tx
       .update(catalogItems)
       .set(updates)
-      .where(eq(catalogItems.id, itemId))
+      .where(and(eq(catalogItems.id, itemId), eq(catalogItems.tenantId, ctx.tenantId)))
       .returning();
 
     // Replace modifier groups if provided (with isDefault flag)

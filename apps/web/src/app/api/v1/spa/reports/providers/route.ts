@@ -25,7 +25,7 @@ export const GET = withMiddleware(
         startDate,
         endDate,
         providerId,
-        limit: limitParam ? parseInt(limitParam, 10) : undefined,
+        limit: limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined,
       });
 
       return NextResponse.json({ data: result.items });

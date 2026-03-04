@@ -124,14 +124,18 @@ export async function transferInventory(
       reorderQuantity: sourceItem.reorderQuantity != null ? parseFloat(sourceItem.reorderQuantity) : null,
     });
 
-    // 11. Build primary event (reuse adjusted event type)
-    const event = buildEventFromContext(ctx, 'inventory.adjusted.v1', {
-      inventoryItemId: sourceItem.id,
+    // 11. Build transfer event with both source and destination info
+    const event = buildEventFromContext(ctx, 'inventory.transferred.v1', {
       catalogItemId: input.catalogItemId,
-      locationId: input.fromLocationId,
-      quantityDelta: -input.quantity,
-      reason: input.reason ?? 'Transfer',
-      movementId: sourceMovement.id,
+      batchId,
+      fromLocationId: input.fromLocationId,
+      toLocationId: input.toLocationId,
+      sourceInventoryItemId: sourceItem.id,
+      destInventoryItemId: destItem.id,
+      quantity: input.quantity,
+      sourceMovementId: sourceMovement.id,
+      destMovementId: destMovement.id,
+      reason: input.reason ?? null,
     });
 
     return {

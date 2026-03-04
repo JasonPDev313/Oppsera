@@ -6,8 +6,9 @@ import { useToast } from '@/components/ui/toast';
 import {
   Settings, Palette, Bell, Users, FileText, Clock, Loader2,
   Save, ExternalLink, Copy, Check, ChevronDown, ChevronRight,
-  Plus, Trash2,
+  Plus, Trash2, QrCode,
 } from 'lucide-react';
+import { QrCodeDisplay } from '@/components/fnb/host/QrCodeDisplay';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -195,6 +196,7 @@ export default function WaitlistConfigContent() {
   const [config, setConfig] = useState<WaitlistConfigData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [showQrFlyer, setShowQrFlyer] = useState(false);
 
   // Fetch config
   useEffect(() => {
@@ -445,6 +447,12 @@ export default function WaitlistConfigContent() {
               <ExternalLink className="h-3.5 w-3.5" /> Open Preview
             </a>
 
+            {/* QR Flyer */}
+            <button type="button" onClick={() => setShowQrFlyer(true)}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-indigo-500 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-600 transition-colors w-full">
+              <QrCode className="h-3.5 w-3.5" /> Download QR Flyer
+            </button>
+
             {/* Color Preview */}
             <div>
               <span className="text-xs text-muted-foreground">Color Preview</span>
@@ -462,6 +470,23 @@ export default function WaitlistConfigContent() {
           </div>
         </div>
       </div>
+
+      {/* QR Flyer Dialog */}
+      <QrCodeDisplay
+        open={showQrFlyer}
+        onClose={() => setShowQrFlyer(false)}
+        venueName={config.branding.welcomeHeadline || 'Our Restaurant'}
+        slug={slug}
+        branding={{
+          logoUrl: config.branding.logoUrl,
+          primaryColor: config.branding.primaryColor,
+          secondaryColor: config.branding.secondaryColor,
+          accentColor: config.branding.accentColor,
+          fontFamily: config.branding.fontFamily,
+          welcomeHeadline: config.branding.welcomeHeadline,
+          footerText: config.branding.footerText,
+        }}
+      />
     </div>
   );
 }

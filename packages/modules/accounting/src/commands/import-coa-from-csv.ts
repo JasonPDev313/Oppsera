@@ -88,6 +88,8 @@ export async function importCoaFromCsv(
         continue;
       }
 
+      // Savepoint name uses numeric loop index — safe from injection.
+      // PostgreSQL savepoint names can't be parameterized, so sql.raw() is required.
       const sp = `sp_acct_${i}`;
       try {
         await tx.execute(sql.raw(`SAVEPOINT ${sp}`));

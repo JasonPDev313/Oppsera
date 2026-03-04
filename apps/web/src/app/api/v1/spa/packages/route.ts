@@ -16,7 +16,7 @@ export const GET = withMiddleware(
     const result = await listPackageDefinitions({
       tenantId: ctx.tenantId,
       cursor: searchParams.get('cursor') ?? undefined,
-      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : undefined,
+      limit: searchParams.get('limit') ? Math.min(parseInt(searchParams.get('limit')!, 10), 100) : undefined,
       isActive: searchParams.get('isActive') === 'true' ? true : searchParams.get('isActive') === 'false' ? false : undefined,
       packageType: searchParams.get('packageType') ?? undefined,
     });

@@ -515,6 +515,7 @@ export type { DiscountCompEventData } from './consumers/handle-fnb-discount-comp
 export { handleFnbTicketBumped, handleFnbItemBumped, handleFnbItemVoided } from './consumers/handle-fnb-ticket-bumped';
 export { handleCourseSent } from './consumers/handle-course-sent';
 export type { CourseSentConsumerData } from './consumers/handle-course-sent';
+export { handleOrderPlacedForKds } from './consumers/handle-order-placed-for-kds';
 
 // Helpers — Station Routing
 export { resolveStation } from './helpers/resolve-station';

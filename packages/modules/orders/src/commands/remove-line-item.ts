@@ -59,7 +59,7 @@ export async function removeLineItem(ctx: RequestContext, orderId: string, input
       updatedAt: new Date(),
     }).where(eq(orders.id, orderId));
 
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'removeLineItem', { lineId: input.lineItemId });
 

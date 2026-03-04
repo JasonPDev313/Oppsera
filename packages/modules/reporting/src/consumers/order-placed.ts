@@ -127,7 +127,7 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
           THEN (rm_daily_sales.net_sales + ${net}) / (rm_daily_sales.order_count + 1)
           ELSE 0
         END,
-        total_business_revenue = (rm_daily_sales.net_sales + ${net}) + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue,
+        total_business_revenue = rm_daily_sales.total_business_revenue + EXCLUDED.total_business_revenue,
         updated_at = NOW()
     `);
 

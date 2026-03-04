@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import { Paperclip, Upload, Trash2, FileText, Image, FileSpreadsheet, File } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 interface DocumentAttachment {
   id: string;
@@ -44,6 +45,7 @@ function getFileTypeBadgeColor(fileType: string): string {
 }
 
 export default function DocumentAttachments({ journalEntryId, canManage = false }: DocumentAttachmentsProps) {
+  const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -99,7 +101,7 @@ export default function DocumentAttachments({ journalEntryId, canManage = false 
     if (!file) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be under 10 MB');
+      toast.error('File size must be under 10 MB');
       return;
     }
 

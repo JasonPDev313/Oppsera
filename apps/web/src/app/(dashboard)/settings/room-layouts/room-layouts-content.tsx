@@ -8,9 +8,11 @@ import type { RoomRow } from '@/types/room-layouts';
 import { CreateRoomDialog } from '@/components/room-layouts/dialogs/create-room-dialog';
 import { EditRoomDialog } from '@/components/room-layouts/dialogs/edit-room-dialog';
 import { DuplicateRoomDialog } from '@/components/room-layouts/dialogs/duplicate-room-dialog';
+import { useToast } from '@/components/ui/toast';
 
 export default function RoomLayoutsContent() {
   const router = useRouter();
+  const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -36,23 +38,24 @@ export default function RoomLayoutsContent() {
   }, [mutate, debouncedSearch, showArchived]);
 
   const handleArchive = useCallback(async (roomId: string) => {
+    // TODO: Replace with async confirmation dialog
     if (!confirm('Archive this room? It can be restored later.')) return;
     try {
       await archiveRoomApi(roomId);
       mutate();
     } catch {
-      alert('Failed to archive room');
+      toast.error('Failed to archive room');
     }
-  }, [mutate]);
+  }, [mutate, toast]);
 
   const handleRestore = useCallback(async (roomId: string) => {
     try {
       await unarchiveRoomApi(roomId);
       mutate();
     } catch {
-      alert('Failed to restore room');
+      toast.error('Failed to restore room');
     }
-  }, [mutate]);
+  }, [mutate, toast]);
 
   const getRoomStatus = (room: RoomRow) => {
     if (!room.isActive) return { label: 'Archived', color: 'bg-muted text-muted-foreground' };

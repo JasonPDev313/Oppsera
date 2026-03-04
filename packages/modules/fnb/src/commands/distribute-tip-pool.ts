@@ -5,7 +5,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { FNB_EVENTS } from '../events/types';
-import type { TipPoolDistributedPayload } from '../events/types';
+import type { TipPoolDistributedPayload, TipPoolDistributionEntry } from '../events/types';
 import { TipPoolNotFoundError } from '../errors';
 
 interface DistributionParticipant {
@@ -74,6 +74,11 @@ export async function distributeTipPool(
     );
     const created = Array.from(rows as Iterable<Record<string, unknown>>)[0]!;
 
+    const distributionEntries: TipPoolDistributionEntry[] = distribution.map((d) => ({
+      staffId: d.employeeId,
+      amountCents: d.amountCents,
+    }));
+
     const payload: TipPoolDistributedPayload = {
       distributionId: created.id as string,
       poolId: input.poolId,
@@ -81,6 +86,7 @@ export async function distributeTipPool(
       businessDate: input.businessDate,
       totalPoolAmountCents,
       participantCount: distribution.length,
+      distributions: distributionEntries,
     };
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.TIP_POOL_DISTRIBUTED, payload as unknown as Record<string, unknown>);

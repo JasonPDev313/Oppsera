@@ -87,21 +87,30 @@ export async function createKitchenTicket(
       return { result: idempotencyCheck.originalResult as any, events: [] };
     }
 
-    // Validate tab
-    const [tab] = await (tx as any)
-      .select()
-      .from(fnbTabs)
-      .where(and(
-        eq(fnbTabs.id, input.tabId),
-        eq(fnbTabs.tenantId, ctx.tenantId),
-      ))
-      .limit(1);
-    if (!tab) throw new TabNotFoundError(input.tabId);
+    // Validate tab (when present — retail orders have no tab)
+    let tab: Record<string, unknown> | null = null;
+    if (input.tabId) {
+      const [found] = await (tx as any)
+        .select()
+        .from(fnbTabs)
+        .where(and(
+          eq(fnbTabs.id, input.tabId),
+          eq(fnbTabs.tenantId, ctx.tenantId),
+        ))
+        .limit(1);
+      if (!found) throw new TabNotFoundError(input.tabId);
+      tab = found;
+    }
+
+    const resolvedBusinessDate = tab?.businessDate as string | undefined ?? input.businessDate;
+    if (!resolvedBusinessDate) {
+      throw new Error('businessDate is required when tabId is not provided');
+    }
 
     // Get next ticket number
     const counterResult = await (tx as any).execute(
       sql`INSERT INTO fnb_kitchen_ticket_counters (tenant_id, location_id, business_date, last_number)
-          VALUES (${ctx.tenantId}, ${ctx.locationId}, ${tab.businessDate}, 1)
+          VALUES (${ctx.tenantId}, ${ctx.locationId}, ${resolvedBusinessDate}, 1)
           ON CONFLICT (tenant_id, location_id, business_date)
           DO UPDATE SET last_number = fnb_kitchen_ticket_counters.last_number + 1
           RETURNING last_number`,
@@ -125,14 +134,14 @@ export async function createKitchenTicket(
       .values({
         tenantId: ctx.tenantId,
         locationId: ctx.locationId,
-        tabId: input.tabId,
+        tabId: input.tabId ?? null,
         orderId: input.orderId,
         ticketNumber,
         courseNumber: input.courseNumber ?? null,
         status: 'pending',
-        businessDate: tab.businessDate,
+        businessDate: resolvedBusinessDate,
         sentBy: ctx.user.id,
-        tableNumber: tab.tableId ? undefined : null,
+        tableNumber: tab?.tableId ? undefined : null,
         serverName: undefined,
         priorityLevel: input.priorityLevel ?? 0,
         orderType: input.orderType ?? null,
@@ -178,11 +187,11 @@ export async function createKitchenTicket(
     const event = buildEventFromContext(ctx, FNB_EVENTS.TICKET_CREATED, {
       ticketId: ticket!.id,
       locationId: ctx.locationId,
-      tabId: input.tabId,
+      tabId: input.tabId ?? null,
       orderId: input.orderId,
       ticketNumber,
       itemCount: input.items.length,
-      businessDate: tab.businessDate,
+      businessDate: resolvedBusinessDate,
       priorityLevel: input.priorityLevel ?? 0,
       orderType: input.orderType,
       channel: input.channel,

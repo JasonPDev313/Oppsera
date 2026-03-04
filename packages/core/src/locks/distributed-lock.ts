@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { db, sql } from '@oppsera/db';
 import { guardedQuery } from '@oppsera/db/pool-guard';
 
@@ -125,8 +126,7 @@ export async function cleanExpiredLocks(): Promise<number> {
  * across Vercel instances (there is no stable PID on serverless).
  */
 function generateHolderId(): string {
-  const rand = Math.random().toString(36).slice(2, 8);
-  return `vercel-${rand}-${Date.now()}`;
+  return `vercel-${randomUUID()}-${Date.now()}`;
 }
 
 /**

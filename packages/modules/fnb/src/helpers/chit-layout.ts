@@ -4,6 +4,8 @@
  * No side effects — these functions only produce formatted strings.
  */
 
+import { renderQrText } from './qr-text';
+
 const LINE_WIDTH = 40;
 const SEPARATOR = '─'.repeat(LINE_WIDTH);
 const DOUBLE_SEP = '═'.repeat(LINE_WIDTH);
@@ -245,10 +247,7 @@ export interface GuestCheckWithQRData extends GuestCheckData {
 /**
  * Renders a guest check with optional QR payment section.
  * When guestPayUrl is present, replaces the tip/total-with-tip lines
- * with a QR code placeholder and pay URL.
- * The `[ QR CODE HERE ]` placeholder is replaced by the actual QR image
- * in the print driver. The print job `metadata.qrUrl` tells the driver
- * what to encode.
+ * with a scannable QR code rendered as Unicode half-block characters.
  */
 export function renderGuestCheckWithQRText(data: GuestCheckWithQRData): string {
   if (!data.guestPayUrl) {
@@ -312,7 +311,7 @@ export function renderGuestCheckWithQRText(data: GuestCheckWithQRData): string {
   lines.push(SEPARATOR);
   lines.push(centerText('SCAN TO PAY & TIP'));
   lines.push('');
-  lines.push(centerText('[ QR CODE HERE ]'));
+  lines.push(renderQrText(data.guestPayUrl, LINE_WIDTH));
   lines.push('');
 
   // Short URL for manual entry

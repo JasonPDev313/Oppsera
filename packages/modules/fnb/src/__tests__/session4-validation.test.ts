@@ -111,12 +111,12 @@ describe('Session 4 Validation', () => {
       expect(result.success).toBe(false);
     });
 
-    it('rejects missing tabId', () => {
+    it('accepts missing tabId (optional for retail orders)', () => {
       const result = createKitchenTicketSchema.safeParse({
         orderId: 'order-1',
         items: [validItem],
       });
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
     });
 
     it('rejects missing orderId', () => {

@@ -41,6 +41,7 @@ import { useNavPreferences } from '@/hooks/use-nav-preferences';
 import { useErpConfig } from '@/hooks/use-erp-config';
 import { filterNavByTier } from '@/lib/navigation-filter';
 import { AiAssistantStub } from '@/components/ai-assistant-stub';
+import { useKdsStationsForNav } from '@/hooks/use-kds-stations-nav';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
 
@@ -813,6 +814,17 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     return filterNavByTier(orderedNav, workflowConfigs);
   }, [orderedNav, workflowConfigs, erpConfigLoading]);
 
+  // Inject dynamic KDS station children into navigation
+  const locationId = locations?.[0]?.id;
+  const kdsStationNav = useKdsStationsForNav(locationId);
+  const navWithDynamic = useMemo(() => {
+    if (kdsStationNav.length === 0) return filteredNav;
+    return filteredNav.map((item) => {
+      if (item.dynamicChildren !== 'kds_stations') return item;
+      return { ...item, children: [...kdsStationNav, ...(item.children ?? [])] };
+    });
+  }, [filteredNav, kdsStationNav]);
+
   // Not loading but not authenticated → redirect handled by effect above
   if (!isLoading && (!isAuthenticated || !user || needsOnboarding)) {
     return null;
@@ -869,7 +881,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           onLogout={handleLogout}
           isModuleEnabled={checkModule}
           can={checkPermission}
-          navItems={filteredNav}
+          navItems={navWithDynamic}
         />
       </div>
 
@@ -897,7 +909,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             onLogout={handleLogout}
             isModuleEnabled={checkModule}
             can={checkPermission}
-            navItems={filteredNav}
+            navItems={navWithDynamic}
             collapsed={visuallyCollapsed}
             isPinned={!collapsed}
             onToggleCollapse={toggleCollapse}

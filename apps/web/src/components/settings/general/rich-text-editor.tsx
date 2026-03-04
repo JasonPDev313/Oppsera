@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Bold, Italic, Underline, List, ListOrdered, Link, Heading2, Heading3 } from 'lucide-react';
+import { Bold, Italic, Underline, List, ListOrdered, Link, Heading2, Heading3, Check, X } from 'lucide-react';
 
 /** Strip dangerous HTML tags/attributes to prevent XSS from stored content. */
 function sanitizeHtml(html: string): string {
@@ -54,6 +54,9 @@ export function RichTextEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const [charCount, setCharCount] = useState(0);
   const isInitializedRef = useRef(false);
+  const [linkInputOpen, setLinkInputOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const linkInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editorRef.current && !isInitializedRef.current) {
@@ -77,10 +80,29 @@ export function RichTextEditor({
     handleInput();
   }
 
-  function handleLink() {
-    const url = window.prompt('Enter URL:');
+  function handleLinkButtonClick() {
+    setLinkUrl('');
+    setLinkInputOpen(true);
+    // Focus the input on next tick after render
+    setTimeout(() => linkInputRef.current?.focus(), 0);
+  }
+
+  function handleLinkSubmit() {
+    const url = linkUrl.trim();
     if (url) {
       execCommand('createLink', url);
+    }
+    setLinkInputOpen(false);
+    setLinkUrl('');
+  }
+
+  function handleLinkKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleLinkSubmit();
+    } else if (e.key === 'Escape') {
+      setLinkInputOpen(false);
+      setLinkUrl('');
     }
   }
 
@@ -101,8 +123,40 @@ export function RichTextEditor({
         <ToolbarButton icon={<List className="h-4 w-4" />} onClick={() => execCommand('insertUnorderedList')} title="Bullet list" />
         <ToolbarButton icon={<ListOrdered className="h-4 w-4" />} onClick={() => execCommand('insertOrderedList')} title="Numbered list" />
         <div className="mx-1 h-5 w-px bg-muted" />
-        <ToolbarButton icon={<Link className="h-4 w-4" />} onClick={handleLink} title="Insert link" />
+        <ToolbarButton icon={<Link className="h-4 w-4" />} onClick={handleLinkButtonClick} title="Insert link" />
       </div>
+
+      {/* Inline link URL input */}
+      {linkInputOpen && (
+        <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
+          <Link className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <input
+            ref={linkInputRef}
+            type="url"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            onKeyDown={handleLinkKeyDown}
+            placeholder="https://example.com"
+            className="min-w-0 flex-1 rounded border border-input bg-surface px-2 py-1 text-xs text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleLinkSubmit}
+            title="Insert link"
+            className="rounded p-1 text-green-500 hover:bg-green-500/10"
+          >
+            <Check className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => { setLinkInputOpen(false); setLinkUrl(''); }}
+            title="Cancel"
+            className="rounded p-1 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
       {/* Editor area */}
       <div

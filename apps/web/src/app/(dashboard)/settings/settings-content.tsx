@@ -14,6 +14,7 @@ import { RoleComparisonView } from '@/components/settings/role-comparison';
 import { PERMISSION_GROUPS, getAllGroupPerms, getPermLabel, TOTAL_PERMISSION_COUNT } from '@/components/settings/permission-groups';
 import { useRoles as useRolesQuery, useInvalidateSettingsData } from '@/hooks/use-settings-data';
 import type { RoleListItem } from '@/hooks/use-settings-data';
+import { useToast } from '@/components/ui/toast';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ interface RoleDetail extends Omit<Role, 'userCount'> {
 // ── Roles Tab ────────────────────────────────────────────────────
 
 export function RolesTab({ canManage }: { canManage: boolean }) {
+  const { toast } = useToast();
   const { data: roles = [], isLoading } = useRolesQuery();
   const { invalidateRoles } = useInvalidateSettingsData();
   const [selectedRole, setSelectedRole] = useState<RoleDetail | null>(null);
@@ -60,6 +62,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
 
   const handleDeleteRole = useCallback(
     async (roleId: string) => {
+      // TODO: Replace with async confirmation dialog
       if (!confirm('Are you sure you want to delete this role?')) return;
       try {
         await apiFetch(`/api/v1/roles/${roleId}`, { method: 'DELETE' });
@@ -67,11 +70,11 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
         invalidateRoles();
       } catch (err) {
         if (err instanceof ApiError) {
-          alert(err.message);
+          toast.error(err.message);
         }
       }
     },
-    [invalidateRoles],
+    [invalidateRoles, toast],
   );
 
   const handleDuplicate = useCallback(async (roleId: string) => {
@@ -762,6 +765,7 @@ function ModuleActions({
 }
 
 export function ModulesTab() {
+  const { toast } = useToast();
   const [enablingModule, setEnablingModule] = useState<string | null>(null);
   const [togglingModule, setTogglingModule] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -778,12 +782,12 @@ export function ModulesTab() {
       await refetchEntitlements();
     } catch (err) {
       if (err instanceof ApiError) {
-        alert(err.message);
+        toast.error(err.message);
       }
     } finally {
       setEnablingModule(null);
     }
-  }, [refetchEntitlements]);
+  }, [refetchEntitlements, toast]);
 
   const handleToggleModule = useCallback(async (moduleKey: string, enable: boolean) => {
     setTogglingModule(moduleKey);
@@ -795,12 +799,12 @@ export function ModulesTab() {
       await refetchEntitlements();
     } catch (err) {
       if (err instanceof ApiError) {
-        alert(err.message);
+        toast.error(err.message);
       }
     } finally {
       setTogglingModule(null);
     }
-  }, [refetchEntitlements]);
+  }, [refetchEntitlements, toast]);
 
   return (
     <div>

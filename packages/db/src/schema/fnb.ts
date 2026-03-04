@@ -610,8 +610,7 @@ export const fnbKitchenTickets = pgTable(
       .notNull()
       .references(() => locations.id),
     tabId: text('tab_id')
-      .notNull()
-      .references(() => fnbTabs.id),
+      .references(() => fnbTabs.id), // nullable for retail orders (no tab)
     orderId: text('order_id').notNull(), // FK to orders
     ticketNumber: integer('ticket_number').notNull(),
     courseNumber: integer('course_number'),

@@ -497,7 +497,7 @@ export default function MaintenanceContent() {
         /* silently handle */
       });
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line
+  }, []);  
 
   // ── Load rooms for the create dialog ──────────────────────────────
   useEffect(() => {
@@ -570,7 +570,7 @@ export default function MaintenanceContent() {
     setCursor(null);
     setHasMore(false);
     fetchWorkOrders(false);
-  }, [selectedPropertyId, statusFilter, priorityFilter, categoryFilter, searchTerm]); // eslint-disable-line
+  }, [selectedPropertyId, statusFilter, priorityFilter, categoryFilter, searchTerm]);  
 
   const loadMore = useCallback(() => {
     if (hasMore && !isLoading) {

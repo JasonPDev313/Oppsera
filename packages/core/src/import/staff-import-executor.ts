@@ -125,10 +125,10 @@ async function createUser(
     externalPayrollId: row.externalPayrollId,
     createdByUserId: importedByUserId?.startsWith('admin:') ? null : importedByUserId,
     updatedByUserId: importedByUserId?.startsWith('admin:') ? null : importedByUserId,
-    // POS PINs stored in plaintext on the user row for backward compat
-    // Hashed versions go into user_security
-    posPin: row.posPin,
-    overridePin: row.overridePin,
+    // PINs are ONLY stored hashed in user_security (below).
+    // Never store plaintext PINs in the users table.
+    posPin: null,
+    overridePin: null,
   });
 
   // ── Hash PINs into user_security if provided ──

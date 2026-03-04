@@ -222,30 +222,33 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     // Deduplicate: if a place call is already in-flight, await it
     if (placingPromise.current) return placingPromise.current;
 
-    // Wait for openOrder to finish if we still have a placeholder (id === '')
-    if (!order.id && openOrderPromise.current) {
-      await openOrderPromise.current;
-      order = orderRef.current!;
-    }
-
-    // Still no valid ID — order creation hasn't started or failed
-    if (!order || !order.id) throw new Error('Order is still being created');
-
-    // Already placed (may have resolved after waiting for openOrder)
-    if (order.status === 'placed') return order;
-
-    // Drain ALL pending batch items before placing — ensures every queued
-    // item is on the server with correct totals.
-    await batch.drainBatch();
-    order = orderRef.current!;
-    if (!order || !order.id) throw new Error('Order is still being created');
-    if (order.status === 'placed') return order;
-
-    // Capture as const for the closure
-    const orderToPlace = order;
-
-    const doPlace = async (): Promise<Order> => {
+    // Wrap the entire flow (drain + API call) in a single promise and assign
+    // it to placingPromise BEFORE the first await, closing the TOCTOU window
+    // where rapid clicks could both pass the dedup check above.
+    const fullPlace = async (): Promise<Order> => {
       setIsLoading(true);
+      // Wait for openOrder to finish if we still have a placeholder (id === '')
+      if (!order!.id && openOrderPromise.current) {
+        await openOrderPromise.current;
+        order = orderRef.current!;
+      }
+
+      // Still no valid ID — order creation hasn't started or failed
+      if (!order || !order.id) throw new Error('Order is still being created');
+
+      // Already placed (may have resolved after waiting for openOrder)
+      if (order.status === 'placed') return order;
+
+      // Drain ALL pending batch items before placing — ensures every queued
+      // item is on the server with correct totals.
+      await batch.drainBatch();
+      order = orderRef.current!;
+      if (!order || !order.id) throw new Error('Order is still being created');
+      if (order.status === 'placed') return order;
+
+      // Capture as const for the closure
+      const orderToPlace = order;
+
       try {
         const res = await apiFetch<{ data: Record<string, unknown> }>(`/api/v1/orders/${orderToPlace.id}/place`, {
           method: 'POST',
@@ -278,13 +281,13 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
         }
         await handleMutationError(err);
         throw err;
-      } finally {
-        setIsLoading(false);
-        placingPromise.current = null;
       }
     };
 
-    placingPromise.current = doPlace();
+    placingPromise.current = fullPlace().finally(() => {
+      setIsLoading(false);
+      placingPromise.current = null;
+    });
     return placingPromise.current;
   }, [toast, handleMutationError, batch.drainBatch]);
 

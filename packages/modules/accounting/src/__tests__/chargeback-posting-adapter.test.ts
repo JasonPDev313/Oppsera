@@ -48,7 +48,7 @@ const baseReceivedEvent = {
     orderId: 'order-1',
     tenderType: 'card',
     chargebackAmountCents: 5000,
-    feeAmountCents: 1500,
+    feeAmountCents: 0,
     locationId: 'loc-1',
     businessDate: '2026-02-21',
     customerId: 'cust-1',

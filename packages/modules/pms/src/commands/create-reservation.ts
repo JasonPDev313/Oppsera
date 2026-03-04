@@ -97,7 +97,7 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
             AND rate_plan_id = ${input.ratePlanId}
             AND room_type_id = ${input.roomTypeId}
             AND start_date <= ${input.checkInDate}
-            AND end_date > ${input.checkInDate}
+            AND end_date >= ${input.checkInDate}
           ORDER BY created_at DESC
           LIMIT 1
         `);

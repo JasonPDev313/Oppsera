@@ -17,6 +17,14 @@
     {
       "path": "/api/v1/membership/cron/recognize-revenue",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/v1/internal/cleanup-tabs",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/v1/internal/cleanup-processed-events",
+      "schedule": "0 3 * * *"
     }
   ]
 }

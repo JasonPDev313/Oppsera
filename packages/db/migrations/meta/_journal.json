@@ -1884,6 +1884,20 @@
       "when": 1741843200000,
       "tag": "0268_membership_gl_receivables",
       "breakpoints": true
+    },
+    {
+      "idx": 269,
+      "version": "7",
+      "when": 1741929600000,
+      "tag": "0269_outbox_partial_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 270,
+      "version": "7",
+      "when": 1742016000000,
+      "tag": "0270_kds_retail_order_support",
+      "breakpoints": true
     }
   ]
 }

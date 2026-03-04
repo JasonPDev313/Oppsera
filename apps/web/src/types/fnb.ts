@@ -343,6 +343,12 @@ export interface KdsTicketCard {
   elapsedSeconds: number;
   items: KdsTicketItem[];
   otherStations?: { stationId: string; stationName: string }[];
+  /** Order source — pos, online, kiosk, delivery */
+  orderSource?: string | null;
+  /** Terminal/POS station ID */
+  terminalId?: string | null;
+  /** ISO datetime when the order was placed */
+  orderTimestamp?: string | null;
 }
 
 export interface KdsCompletedTicket {

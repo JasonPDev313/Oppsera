@@ -17,14 +17,14 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'placeOrder');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
     // Fetch lines, charges, discounts in parallel (independent reads)
     const [lines, charges, discounts] = await Promise.all([
-      (tx as any).select().from(orderLines).where(eq(orderLines.orderId, orderId)),
-      (tx as any).select().from(orderCharges).where(eq(orderCharges.orderId, orderId)),
-      (tx as any).select().from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
+      tx.select().from(orderLines).where(eq(orderLines.orderId, orderId)),
+      tx.select().from(orderCharges).where(eq(orderCharges.orderId, orderId)),
+      tx.select().from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
     ]);
 
     if (lines.length === 0) {
@@ -78,7 +78,7 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       updatedAt: now,
     }).where(eq(orders.id, orderId));
 
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'placeOrder', { orderId });
 
@@ -94,14 +94,18 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
 
     // Run all enrichments concurrently
     const [_catResult, _modResult, _custResult] = await Promise.all([
-      // Category name resolution
+      // Read-through: denormalized from catalogCategories table (owned by catalog module).
+      // Orders module reads category names here solely to enrich the order.placed event payload
+      // for downstream read models (sales history, reporting). No catalog data is mutated.
       subDeptIds.length > 0
         ? (tx as any).select({ id: catalogCategories.id, name: catalogCategories.name })
             .from(catalogCategories)
             .where(inArray(catalogCategories.id, subDeptIds))
             .then((cats: any[]) => { for (const c of cats) categoryNameMap.set(c.id, c.name); })
         : Promise.resolve(),
-      // Modifier group resolution (best-effort)
+      // Read-through: denormalized from catalogModifierGroups table (owned by catalog module).
+      // Modifier group metadata is fetched here for reporting enrichment in the event payload only.
+      // The catalog read API is used as an abstraction layer; no catalog data is mutated.
       catalogItemIds.length > 0
         ? (async () => {
             try {
@@ -121,7 +125,10 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
             }
           })()
         : Promise.resolve(),
-      // Customer name resolution (for event payload — consumers use it for read models)
+      // Read-through: denormalized from customers table (owned by customers module).
+      // Customer display name is fetched here to enrich the order.placed event payload so that
+      // downstream consumers (e.g. sales history, CRM read models) receive a denormalized name
+      // without needing a secondary lookup. No customer data is mutated.
       order.customerId
         ? (tx as any).select({ displayName: customers.displayName })
             .from(customers)

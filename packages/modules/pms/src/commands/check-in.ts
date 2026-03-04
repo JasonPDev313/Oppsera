@@ -211,7 +211,7 @@ export async function checkIn(
           .set({
             subtotalCents: folioSubtotal,
             taxCents: folioTax,
-            totalCents: folioSubtotal + folioTax,
+            totalCents: folioSubtotal + folioTax + Number(folio.feeCents ?? 0),
             updatedAt: new Date(),
           })
           .where(and(eq(pmsFolios.id, folio.id), eq(pmsFolios.tenantId, ctx.tenantId)));

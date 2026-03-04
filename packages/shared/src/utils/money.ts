@@ -6,6 +6,14 @@ function toDollars(cents: number): number {
   return cents / 100;
 }
 
+/**
+ * Add two or more dollar amounts together, rounding via integer cent arithmetic
+ * to avoid floating-point drift.
+ *
+ * NOTE: Inputs and output are in **dollars** (e.g., 9.99), NOT cents.
+ * Use this only in the catalog/GL/AP/AR layer. For order totals (cents),
+ * perform integer addition directly.
+ */
 function addMoney(...amounts: number[]): number {
   const totalCents = amounts.reduce((sum, amt) => sum + toCents(amt), 0);
   return toDollars(totalCents);

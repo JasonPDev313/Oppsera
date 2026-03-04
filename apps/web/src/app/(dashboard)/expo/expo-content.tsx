@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useExpoView } from '@/hooks/use-fnb-kitchen';
 import { ExpoHeader } from '@/components/fnb/kitchen/ExpoHeader';
 import { ExpoTicketCard } from '@/components/fnb/kitchen/ExpoTicketCard';
+import { ItemSummaryPanel, ItemSummaryToggle } from '@/components/fnb/kitchen/ItemSummaryPanel';
+import { KitchenMetrics } from '@/components/fnb/kitchen/KitchenMetrics';
+import { KitchenBehindBanner } from '@/components/fnb/kitchen/KitchenBehindBanner';
+import { formatTimer } from '@/components/fnb/kitchen/TimerBar';
 import { apiFetch } from '@/lib/api-client';
 import {
   ArrowLeft, Search, Flame, Pause, Play,
@@ -14,11 +18,8 @@ import {
 type ExpoViewMode = 'rail' | 'grid';
 type ExpoFilter = 'all' | 'ready' | 'in_progress' | 'held' | 'rush';
 
-// Default thresholds for expo (can be overridden per-station)
 const DEFAULT_WARNING_SECONDS = 480;
 const DEFAULT_CRITICAL_SECONDS = 720;
-
-// Effectively infinite interval to stop polling when paused
 const PAUSED_INTERVAL = 999_999_999;
 
 export default function ExpoContent() {
@@ -28,6 +29,7 @@ export default function ExpoContent() {
   const [search, setSearch] = useState('');
   const [isPaused, setIsPaused] = useState(false);
   const [isFiring, setIsFiring] = useState(false);
+  const [showSummary, setShowSummary] = useState(true); // Default open for expo
 
   const {
     expoView,
@@ -38,7 +40,6 @@ export default function ExpoContent() {
     refresh,
   } = useExpoView({ pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
 
-  // Fire a held ticket (send to kitchen)
   const fireTicket = useCallback(async (ticketId: string) => {
     setIsFiring(true);
     try {
@@ -54,7 +55,6 @@ export default function ExpoContent() {
     }
   }, [refresh]);
 
-  // Recall a ready ticket back to kitchen
   const recallTicket = useCallback(async (ticketId: string) => {
     setIsFiring(true);
     try {
@@ -75,7 +75,6 @@ export default function ExpoContent() {
     if (!expoView?.tickets) return [];
     let tickets = [...expoView.tickets];
 
-    // Search filter
     if (search.trim()) {
       const q = search.toLowerCase();
       tickets = tickets.filter((t) => {
@@ -86,7 +85,6 @@ export default function ExpoContent() {
       });
     }
 
-    // Status filter
     if (filter === 'ready') {
       tickets = tickets.filter((t) => t.allItemsReady);
     } else if (filter === 'in_progress') {
@@ -97,7 +95,7 @@ export default function ExpoContent() {
       tickets = tickets.filter((t) => t.priorityLevel >= 5);
     }
 
-    // Sort: ready first, then by priority (high to low), then by elapsed (long to short)
+    // Ready first, then priority, then elapsed
     return tickets.sort((a, b) => {
       if (a.allItemsReady && !b.allItemsReady) return -1;
       if (!a.allItemsReady && b.allItemsReady) return 1;
@@ -106,20 +104,13 @@ export default function ExpoContent() {
     });
   }, [expoView?.tickets, search, filter]);
 
-  // All-day summary: count items across all visible tickets
-  const allDaySummary = useMemo(() => {
-    if (!expoView?.tickets) return [];
-    const itemCounts = new Map<string, { name: string; total: number; ready: number }>();
-    for (const ticket of expoView.tickets) {
-      for (const item of ticket.items) {
-        const key = item.kitchenLabel || item.itemName;
-        const existing = itemCounts.get(key) || { name: key, total: 0, ready: 0 };
-        existing.total += 1;
-        if (item.itemStatus === 'ready' || item.itemStatus === 'served') existing.ready += 1;
-        itemCounts.set(key, existing);
-      }
-    }
-    return Array.from(itemCounts.values()).sort((a, b) => b.total - a.total).slice(0, 20);
+  // Compute metrics
+  const { avgElapsed, overdueCount } = useMemo(() => {
+    if (!expoView?.tickets?.length) return { avgElapsed: 0, overdueCount: 0 };
+    const total = expoView.tickets.reduce((sum, t) => sum + t.elapsedSeconds, 0);
+    const avg = Math.round(total / expoView.tickets.length);
+    const overdue = expoView.tickets.filter((t) => t.elapsedSeconds >= DEFAULT_CRITICAL_SECONDS).length;
+    return { avgElapsed: avg, overdueCount: overdue };
   }, [expoView?.tickets]);
 
   if (isLoading && !expoView) {
@@ -167,25 +158,40 @@ export default function ExpoContent() {
           <ExpoHeader expoView={expoView} />
         </div>
 
-        {/* Toolbar */}
-        <div className="flex items-center gap-1 px-2" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
-          {/* Ready count badge */}
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md mr-1"
+        {/* Metrics bar */}
+        <div className="flex items-center gap-3 px-3" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md"
             style={{ backgroundColor: readyCount > 0 ? 'rgba(34,197,94,0.15)' : 'transparent' }}>
             <Package className="h-3.5 w-3.5" style={{ color: readyCount > 0 ? '#22c55e' : 'var(--fnb-text-muted)' }} />
             <span className="text-xs font-bold" style={{ color: readyCount > 0 ? '#22c55e' : 'var(--fnb-text-muted)' }}>
-              {readyCount}/{totalCount}
+              {readyCount}/{totalCount} Ready
             </span>
           </div>
+          {avgElapsed > 0 && (
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" style={{ color: 'var(--fnb-text-muted)' }} />
+              <span className="text-xs font-bold fnb-mono"
+                style={{ color: avgElapsed > DEFAULT_CRITICAL_SECONDS ? '#ef4444' : avgElapsed > DEFAULT_WARNING_SECONDS ? '#f97316' : 'var(--fnb-text-secondary)' }}>
+                Avg: {formatTimer(avgElapsed)}
+              </span>
+            </div>
+          )}
+          {overdueCount > 0 && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full animate-pulse"
+              style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
+              {overdueCount} Overdue
+            </span>
+          )}
+        </div>
 
-          {/* View mode */}
+        {/* Toolbar */}
+        <div className="flex items-center gap-1 px-2" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
+          <ItemSummaryToggle onClick={() => setShowSummary(!showSummary)} isOpen={showSummary} />
           <button type="button" onClick={() => setViewMode(viewMode === 'rail' ? 'grid' : 'rail')}
             className="p-1.5 rounded transition-colors"
             style={{ color: 'var(--fnb-text-muted)' }}>
             {viewMode === 'grid' ? <LayoutList className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
           </button>
-
-          {/* Pause */}
           <button type="button" onClick={() => setIsPaused(!isPaused)}
             className="p-1.5 rounded transition-colors"
             style={{ backgroundColor: isPaused ? 'rgba(239,68,68,0.2)' : 'transparent', color: isPaused ? '#ef4444' : 'var(--fnb-text-muted)' }}>
@@ -194,13 +200,20 @@ export default function ExpoContent() {
         </div>
       </div>
 
+      {/* Kitchen Behind banner */}
+      <KitchenBehindBanner
+        tickets={expoView.tickets}
+        warningThresholdSeconds={DEFAULT_WARNING_SECONDS}
+        criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
+      />
+
       {/* Search + filter bar */}
       <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ backgroundColor: 'var(--fnb-bg-surface)', borderBottom: '1px solid rgba(148, 163, 184, 0.15)' }}>
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--fnb-text-muted)' }} />
           <input
             type="text"
-            placeholder="Search order# or customer..."
+            placeholder="Search table, server, or customer..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-7 pr-2 py-1 text-xs rounded-md border"
@@ -213,12 +226,12 @@ export default function ExpoContent() {
         </div>
         <div className="flex gap-1">
           {([
-            { key: 'all' as const, label: 'All' },
-            { key: 'ready' as const, label: 'Ready' },
-            { key: 'in_progress' as const, label: 'In Progress' },
-            { key: 'held' as const, label: 'Held' },
-            { key: 'rush' as const, label: 'Rush' },
-          ]).map(({ key, label }) => (
+            { key: 'all' as const, label: 'All', count: totalCount },
+            { key: 'ready' as const, label: 'Ready', count: readyCount },
+            { key: 'in_progress' as const, label: 'In Progress', count: totalCount - readyCount },
+            { key: 'held' as const, label: 'Held', count: null },
+            { key: 'rush' as const, label: 'Rush', count: null },
+          ]).map(({ key, label, count }) => (
             <button key={key} type="button"
               onClick={() => setFilter(key)}
               className="px-2 py-0.5 text-[10px] font-medium rounded-full transition-colors"
@@ -228,66 +241,65 @@ export default function ExpoContent() {
                 border: `1px solid ${filter === key ? 'rgba(99,102,241,0.3)' : 'rgba(148, 163, 184, 0.15)'}`,
               }}>
               {label}
+              {count != null && <span className="ml-1 fnb-mono">{count}</span>}
               {key === 'rush' && <Flame className="h-2.5 w-2.5 inline ml-0.5" />}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Ticket area */}
-      <div className="flex-1 overflow-auto">
-        {filteredTickets.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <p className="text-lg font-bold" style={{ color: 'var(--fnb-text-muted)' }}>
-                {search || filter !== 'all' ? 'No Matching Tickets' : 'All Clear'}
-              </p>
-              <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
-                {search || filter !== 'all' ? 'Try adjusting your filters' : 'No tickets in the pass'}
-              </p>
+      {/* Main content area */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Ticket area */}
+        <div className="flex-1 overflow-auto">
+          {filteredTickets.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <p className="text-lg font-bold" style={{ color: 'var(--fnb-text-muted)' }}>
+                  {search || filter !== 'all' ? 'No Matching Tickets' : 'All Clear'}
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
+                  {search || filter !== 'all' ? 'Try adjusting your filters' : 'No tickets in the pass'}
+                </p>
+              </div>
             </div>
-          </div>
-        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 p-3">
-            {filteredTickets.map((ticket) => (
-              <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
-                warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
-                onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
-                disabled={isActing || isFiring} />
-            ))}
-          </div>
-        ) : (
-          <div className="flex gap-3 p-3 h-full items-start flex-wrap content-start">
-            {filteredTickets.map((ticket) => (
-              <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
-                warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
-                onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
-                disabled={isActing || isFiring} />
-            ))}
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 p-3">
+              {filteredTickets.map((ticket) => (
+                <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
+                  warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
+                  onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
+                  disabled={isActing || isFiring} />
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-3 p-3 h-full items-start flex-wrap content-start">
+              {filteredTickets.map((ticket) => (
+                <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
+                  warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
+                  onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
+                  disabled={isActing || isFiring} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right panel: item summary + metrics */}
+        {showSummary && (
+          <div className="flex flex-col border-l" style={{ borderColor: 'rgba(148, 163, 184, 0.15)', width: '260px', minWidth: '260px' }}>
+            <ItemSummaryPanel
+              tickets={expoView.tickets}
+              onClose={() => setShowSummary(false)}
+            />
+            <KitchenMetrics
+              tickets={expoView.tickets}
+              warningThresholdSeconds={DEFAULT_WARNING_SECONDS}
+              criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
+              totalServedToday={expoView.ticketsAllReady}
+            />
           </div>
         )}
       </div>
-
-      {/* All-day summary bar */}
-      {allDaySummary.length > 0 && (
-        <div className="shrink-0 border-t overflow-x-auto" style={{ backgroundColor: 'var(--fnb-bg-surface)', borderColor: 'rgba(148, 163, 184, 0.15)' }}>
-          <div className="flex items-center gap-1 px-3 py-1.5">
-            <Clock className="h-3 w-3 shrink-0" style={{ color: 'var(--fnb-text-muted)' }} />
-            <span className="text-[9px] font-semibold uppercase tracking-wider shrink-0 mr-2"
-              style={{ color: 'var(--fnb-text-muted)' }}>All Day</span>
-            {allDaySummary.map((item) => (
-              <div key={item.name} className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] shrink-0"
-                style={{
-                  backgroundColor: item.ready === item.total ? 'rgba(34,197,94,0.1)' : 'rgba(148, 163, 184, 0.08)',
-                  color: item.ready === item.total ? '#22c55e' : 'var(--fnb-text-secondary)',
-                }}>
-                <span className="font-medium truncate max-w-20">{item.name}</span>
-                <span className="font-mono">{item.ready}/{item.total}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

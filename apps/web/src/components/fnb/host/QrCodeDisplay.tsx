@@ -1,87 +1,303 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer, Copy, Check, Info } from 'lucide-react';
+import { X, Printer, Copy, Check, Download, Loader2 } from 'lucide-react';
+import QRCode from 'qrcode';
+
+interface QrBranding {
+  logoUrl: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  fontFamily: string;
+  welcomeHeadline: string;
+  footerText: string | null;
+}
 
 interface QrCodeDisplayProps {
   open: boolean;
   onClose: () => void;
-  locationId: string;
   venueName: string;
+  slug: string;
+  branding?: QrBranding | null;
 }
 
-/**
- * Generates a QR code as an SVG string using a simple QR encoding approach.
- * For production, use a proper library like `qrcode`. This is a visual placeholder
- * that renders a styled SVG with the URL text for the host to share.
- */
-function generateQrSvg(url: string, size: number): string {
-  // Simple 21x21 QR-like pattern for visual representation
-  // In production, replace with actual QR encoding via `qrcode` npm package
-  const modules = 21;
-  const cellSize = size / modules;
-  let rects = '';
+const DEFAULT_BRANDING: QrBranding = {
+  logoUrl: null,
+  primaryColor: '#6366f1',
+  secondaryColor: '#3b82f6',
+  accentColor: '#22c55e',
+  fontFamily: 'Inter',
+  welcomeHeadline: 'Join Our Waitlist',
+  footerText: null,
+};
 
-  // Generate a deterministic pattern from the URL
-  let hash = 0;
-  for (let i = 0; i < url.length; i++) {
-    hash = ((hash << 5) - hash + url.charCodeAt(i)) | 0;
-  }
+function buildFlyerHtml(
+  qrDataUrl: string,
+  venueName: string,
+  waitlistUrl: string,
+  b: QrBranding,
+): string {
+  const logoSection = b.logoUrl
+    ? `<img src="${b.logoUrl}" alt="${venueName}" style="max-height:80px;max-width:220px;object-fit:contain;margin-bottom:12px;" crossorigin="anonymous" />`
+    : '';
 
-  // Finder patterns (3 corners)
-  const finderPositions: [number, number][] = [
-    [0, 0],
-    [0, 14],
-    [14, 0],
-  ];
+  const footer = b.footerText || 'Powered by OppsEra';
 
-  for (const [fy, fx] of finderPositions) {
-    for (let dy = 0; dy < 7; dy++) {
-      for (let dx = 0; dx < 7; dx++) {
-        const isOuter = dy === 0 || dy === 6 || dx === 0 || dx === 6;
-        const isInner = dy >= 2 && dy <= 4 && dx >= 2 && dx <= 4;
-        if (isOuter || isInner) {
-          const x = (fx + dx) * cellSize;
-          const y = (fy + dy) * cellSize;
-          rects += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="#000"/>`;
-        }
-      }
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Waitlist QR - ${venueName}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=${b.fontFamily.replace(/ /g, '+')}:wght@400;600;700;800&display=swap');
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page {
+      size: letter;
+      margin: 0;
     }
-  }
 
-  // Data area fill (pseudo-random from hash)
-  for (let row = 0; row < modules; row++) {
-    for (let col = 0; col < modules; col++) {
-      // Skip finder patterns
-      const inFinder =
-        (row < 7 && col < 7) ||
-        (row < 7 && col >= 14) ||
-        (row >= 14 && col < 7);
-      if (inFinder) continue;
-
-      // Pseudo-random based on position + hash
-      const val = ((row * 31 + col * 17 + hash) & 0xff) % 3;
-      if (val === 0) {
-        const x = col * cellSize;
-        const y = row * cellSize;
-        rects += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="#000"/>`;
-      }
+    body {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      font-family: '${b.fontFamily}', 'Inter', system-ui, sans-serif;
+      color: #1a1a2e;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
-  }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><rect width="${size}" height="${size}" fill="#fff"/>${rects}</svg>`;
+    .flyer {
+      width: 7.5in;
+      min-height: 10in;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Top accent bar */
+    .accent-bar {
+      width: 100%;
+      height: 8px;
+      background: linear-gradient(90deg, ${b.primaryColor}, ${b.secondaryColor});
+    }
+
+    /* Decorative corner elements */
+    .corner-decor {
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      opacity: 0.06;
+    }
+    .corner-decor.top-left {
+      top: 20px;
+      left: 20px;
+      border-top: 4px solid ${b.primaryColor};
+      border-left: 4px solid ${b.primaryColor};
+    }
+    .corner-decor.top-right {
+      top: 20px;
+      right: 20px;
+      border-top: 4px solid ${b.primaryColor};
+      border-right: 4px solid ${b.primaryColor};
+    }
+    .corner-decor.bottom-left {
+      bottom: 20px;
+      left: 20px;
+      border-bottom: 4px solid ${b.primaryColor};
+      border-left: 4px solid ${b.primaryColor};
+    }
+    .corner-decor.bottom-right {
+      bottom: 20px;
+      right: 20px;
+      border-bottom: 4px solid ${b.primaryColor};
+      border-right: 4px solid ${b.primaryColor};
+    }
+
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 40px 32px;
+      text-align: center;
+    }
+
+    .logo { margin-bottom: 8px; }
+
+    .venue-name {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #1a1a2e;
+      margin-bottom: 32px;
+    }
+
+    .divider {
+      width: 80px;
+      height: 3px;
+      background: linear-gradient(90deg, ${b.primaryColor}, ${b.secondaryColor});
+      border-radius: 2px;
+      margin-bottom: 32px;
+    }
+
+    .headline {
+      font-size: 22px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: ${b.primaryColor};
+      margin-bottom: 36px;
+    }
+
+    .qr-frame {
+      background: #fff;
+      border: 3px solid #f0f0f5;
+      border-radius: 20px;
+      padding: 20px;
+      margin-bottom: 36px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+
+    .qr-frame img {
+      display: block;
+      width: 280px;
+      height: 280px;
+    }
+
+    .instructions {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #555;
+      max-width: 380px;
+      margin-bottom: 12px;
+    }
+
+    .instructions strong {
+      color: #1a1a2e;
+    }
+
+    .no-app {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: ${b.primaryColor}10;
+      border: 1px solid ${b.primaryColor}25;
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: ${b.primaryColor};
+      margin-bottom: 32px;
+    }
+
+    .url-display {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 11px;
+      color: #999;
+      word-break: break-all;
+      margin-bottom: 32px;
+    }
+
+    .divider-bottom {
+      width: 80px;
+      height: 3px;
+      background: linear-gradient(90deg, ${b.secondaryColor}, ${b.primaryColor});
+      border-radius: 2px;
+      margin-bottom: 16px;
+    }
+
+    .footer {
+      font-size: 12px;
+      color: #aaa;
+      letter-spacing: 0.5px;
+    }
+
+    /* Bottom accent bar */
+    .accent-bar-bottom {
+      width: 100%;
+      height: 8px;
+      background: linear-gradient(90deg, ${b.secondaryColor}, ${b.primaryColor});
+      margin-top: auto;
+    }
+
+    @media print {
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+  <div class="flyer">
+    <div class="accent-bar"></div>
+    <div class="corner-decor top-left"></div>
+    <div class="corner-decor top-right"></div>
+    <div class="corner-decor bottom-left"></div>
+    <div class="corner-decor bottom-right"></div>
+
+    <div class="content">
+      <div class="logo">${logoSection}</div>
+      <div class="venue-name">${venueName}</div>
+      <div class="divider"></div>
+      <div class="headline">Scan to Join Our Waitlist</div>
+      <div class="qr-frame">
+        <img src="${qrDataUrl}" alt="Scan to join waitlist" />
+      </div>
+      <div class="instructions">
+        Point your <strong>phone camera</strong> at the QR code to join our waitlist instantly.
+      </div>
+      <div class="no-app">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        No app needed
+      </div>
+      <div class="url-display">${waitlistUrl}</div>
+      <div class="divider-bottom"></div>
+      <div class="footer">${footer}</div>
+    </div>
+    <div class="accent-bar-bottom"></div>
+  </div>
+  <script>
+    window.onload = function() { window.print(); };
+  </script>
+</body>
+</html>`;
 }
 
 export function QrCodeDisplay({
   open,
   onClose,
-  locationId,
   venueName,
+  slug,
+  branding,
 }: QrCodeDisplayProps) {
-  const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/waitlist/join?location=${locationId}`;
-  const qrSvg = useMemo(() => generateQrSvg(url, 200), [url]);
+  const b = branding ?? DEFAULT_BRANDING;
+  const waitlistUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/waitlist/${slug}`;
+
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Generate real QR code
+  useEffect(() => {
+    if (!open || !waitlistUrl) return;
+    let cancelled = false;
+    QRCode.toDataURL(waitlistUrl, {
+      width: 400,
+      margin: 2,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#000000', light: '#ffffff' },
+    }).then((url) => {
+      if (!cancelled) setQrDataUrl(url);
+    });
+    return () => { cancelled = true; };
+  }, [open, waitlistUrl]);
 
   useEffect(() => {
     if (!copied) return;
@@ -90,30 +306,19 @@ export function QrCodeDisplay({
   }, [copied]);
 
   const handlePrint = () => {
+    if (!qrDataUrl) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Waitlist QR Code - ${venueName}</title>
-          <style>
-            body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: system-ui, sans-serif; }
-            h1 { font-size: 24px; margin-bottom: 8px; }
-            p { font-size: 14px; color: #666; margin-top: 0; }
-            .qr { margin: 24px 0; }
-          </style>
-        </head>
-        <body>
-          <h1>${venueName}</h1>
-          <p>Scan to join the waitlist</p>
-          <div class="qr">${qrSvg}</div>
-          <p style="font-size: 11px; color: #999;">${url}</p>
-          <script>window.print(); window.close();</script>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(buildFlyerHtml(qrDataUrl, venueName, waitlistUrl, b));
     printWindow.document.close();
+  };
+
+  const handleDownloadPng = async () => {
+    if (!qrDataUrl) return;
+    const a = document.createElement('a');
+    a.href = qrDataUrl;
+    a.download = `waitlist-qr-${slug}.png`;
+    a.click();
   };
 
   if (!open) return null;
@@ -129,22 +334,22 @@ export function QrCodeDisplay({
 
       {/* Dialog */}
       <div
-        className="relative rounded-2xl w-full max-w-xs mx-4 overflow-hidden"
-        style={{ backgroundColor: 'var(--fnb-bg-surface)' }}
+        className="relative rounded-2xl w-full max-w-sm mx-4 overflow-hidden"
+        style={{ backgroundColor: 'var(--fnb-bg-surface, hsl(232 25% 13%))' }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between px-5 py-3"
-          style={{ borderBottom: 'var(--fnb-border-subtle)' }}
+          style={{ borderBottom: '1px solid var(--fnb-border-subtle, hsl(232 15% 22%))' }}
         >
-          <h2 className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+          <h2 className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary, #f1f5f9)' }}>
             Waitlist QR Code
           </h2>
           <button
             type="button"
             onClick={onClose}
             className="p-1 rounded-md"
-            style={{ color: 'var(--fnb-text-muted)' }}
+            style={{ color: 'var(--fnb-text-muted, #94a3b8)' }}
           >
             <X size={16} />
           </button>
@@ -152,66 +357,80 @@ export function QrCodeDisplay({
 
         {/* Content */}
         <div className="px-5 py-5 text-center">
-          <p className="text-xs font-semibold mb-1" style={{ color: 'var(--fnb-text-primary)' }}>
+          {/* Logo */}
+          {b.logoUrl && (
+            <img
+              src={b.logoUrl}
+              alt={venueName}
+              className="mx-auto mb-2 max-h-10 max-w-[140px] object-contain"
+            />
+          )}
+
+          <p className="text-sm font-bold mb-0.5" style={{ color: 'var(--fnb-text-primary, #f1f5f9)' }}>
             {venueName}
           </p>
-          <p className="text-[10px] mb-4" style={{ color: 'var(--fnb-text-muted)' }}>
+          <p className="text-[10px] mb-4" style={{ color: 'var(--fnb-text-muted, #94a3b8)' }}>
             Scan to join the waitlist
           </p>
 
           {/* QR Code */}
           <div
             className="inline-block rounded-xl p-3 mb-4"
-            style={{ backgroundColor: '#fff', border: 'var(--fnb-border-subtle)' }}
-            dangerouslySetInnerHTML={{ __html: qrSvg }}
-          />
+            style={{ backgroundColor: '#fff', border: '1px solid var(--fnb-border-subtle, hsl(232 15% 22%))' }}
+          >
+            {qrDataUrl ? (
+              <img src={qrDataUrl} alt="Waitlist QR Code" width={200} height={200} />
+            ) : (
+              <div className="flex items-center justify-center" style={{ width: 200, height: 200 }}>
+                <Loader2 size={24} className="animate-spin" style={{ color: 'var(--fnb-text-muted, #94a3b8)' }} />
+              </div>
+            )}
+          </div>
 
           <p
-            className="text-[9px] break-all mb-4"
-            style={{ color: 'var(--fnb-text-muted)', fontFamily: 'var(--fnb-font-mono)' }}
+            className="text-[9px] break-all mb-4 font-mono"
+            style={{ color: 'var(--fnb-text-muted, #94a3b8)' }}
           >
-            {url}
+            {waitlistUrl}
           </p>
-
-          {/* Instructions */}
-          <div
-            className="flex items-start gap-2 text-left mb-4"
-            style={{
-              padding: '10px 12px',
-              background: 'rgba(99, 102, 241, 0.08)',
-              border: '1px solid rgba(99, 102, 241, 0.2)',
-              borderRadius: '8px',
-            }}
-          >
-            <Info size={14} className="shrink-0 mt-0.5" style={{ color: 'rgba(129, 140, 248, 0.9)' }} />
-            <span className="text-[10px] leading-relaxed" style={{ color: 'var(--fnb-text-secondary)' }}>
-              Print this QR code and display it near your entrance. Guests scan it with their phone camera to join the waitlist automatically.
-            </span>
-          </div>
 
           {/* Actions */}
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={handlePrint}
-              className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold rounded-lg py-2.5 transition-all active:scale-95"
+              onClick={handleDownloadPng}
+              disabled={!qrDataUrl}
+              className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold rounded-lg py-2.5 transition-all active:scale-95 disabled:opacity-40"
               style={{
-                backgroundColor: 'var(--fnb-bg-elevated)',
-                color: 'var(--fnb-text-secondary)',
+                backgroundColor: 'var(--fnb-bg-elevated, hsl(232 20% 18%))',
+                color: 'var(--fnb-text-secondary, #cbd5e1)',
+              }}
+            >
+              <Download size={13} />
+              QR Image
+            </button>
+            <button
+              type="button"
+              onClick={handlePrint}
+              disabled={!qrDataUrl}
+              className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold rounded-lg py-2.5 transition-all active:scale-95 disabled:opacity-40"
+              style={{
+                backgroundColor: 'var(--fnb-bg-elevated, hsl(232 20% 18%))',
+                color: 'var(--fnb-text-secondary, #cbd5e1)',
               }}
             >
               <Printer size={13} />
-              Print
+              Print Flyer
             </button>
             <button
               type="button"
               onClick={() => {
-                navigator.clipboard.writeText(url);
+                navigator.clipboard.writeText(waitlistUrl);
                 setCopied(true);
               }}
               className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold rounded-lg py-2.5 transition-all active:scale-95"
               style={{
-                backgroundColor: copied ? 'var(--fnb-success)' : 'var(--fnb-info)',
+                backgroundColor: copied ? 'var(--fnb-success, #22c55e)' : 'var(--fnb-info, #6366f1)',
                 color: '#fff',
                 transition: 'background-color 200ms ease',
               }}

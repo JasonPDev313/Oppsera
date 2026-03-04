@@ -575,13 +575,13 @@ describe('getCashFlowSimplified', () => {
 
     // Net income = 10000 - 6000 = 4000
     expect(result.operating.netIncome).toBe(4000);
-    // Change in AP = 500 (AP increased — positive for cash)
+    // Change in AP = +500 (AP increased → cash conserved)
     expect(result.operating.changeInAP).toBe(500);
-    // Change in AR = -800 (AR increased — negative for cash from the formula's perspective)
-    // netOperatingCashFlow = 4000 + 500 - (-800) = 5300
+    // Change in AR = -800 (AR increased → cash uncollected)
+    // Indirect method: OCF = 4000 + 500 + (-800) = 3700
     expect(result.operating.changeInAR).toBe(-800);
-    expect(result.operating.netOperatingCashFlow).toBe(5300);
-    expect(result.netCashChange).toBe(5300);
+    expect(result.operating.netOperatingCashFlow).toBe(3700);
+    expect(result.netCashChange).toBe(3700);
   });
 });
 

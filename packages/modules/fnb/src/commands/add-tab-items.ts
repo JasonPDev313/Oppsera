@@ -27,8 +27,9 @@ export async function addTabItems(
     for (let i = 0; i < uniqueItemIds.length; i++) {
       subDeptMap.set(uniqueItemIds[i]!, results[i]?.subDepartmentId ?? null);
     }
-  } catch {
+  } catch (err) {
     // CatalogReadApi may not be initialized — proceed without sub-department IDs
+    console.error('[add-tab-items] CatalogReadApi error:', err);
   }
 
   const result = await publishWithOutbox(ctx, async (tx) => {
@@ -65,7 +66,7 @@ export async function addTabItems(
     );
     const existingCourses = new Set(
       Array.from(courseRows as Iterable<Record<string, unknown>>)
-        .map((c) => Number(c.course_number)),
+        .map((c) => Number(c.course_number ?? 0)),
     );
 
     // Auto-create any courses that don't exist yet

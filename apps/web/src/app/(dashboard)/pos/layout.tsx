@@ -214,7 +214,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (pathname.startsWith('/pos/fnb') && mode !== 'fnb') setMode('fnb');
     else if (pathname.startsWith('/pos/retail') && mode !== 'retail') setMode('retail');
-  }, [pathname]);
+  }, [pathname, mode]);
 
   const isRetail = mode === 'retail';
   const isFnB = mode === 'fnb';

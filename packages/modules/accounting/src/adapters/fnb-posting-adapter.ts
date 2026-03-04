@@ -1,6 +1,7 @@
 import type { EventEnvelope } from '@oppsera/shared';
 import { db, fnbGlAccountMappings, subDepartmentGlDefaults, glJournalEntries } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
@@ -254,7 +255,7 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
       isPlatformAdmin: false,
     } as RequestContext;
 
-    await postingApi.postEntry(syntheticCtx, {
+    const glEntry = await postingApi.postEntry(syntheticCtx, {
       businessDate: data.businessDate,
       sourceModule: 'fnb',
       sourceReferenceId: data.closeBatchId,
@@ -263,6 +264,22 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
       lines: glLines,
       forcePost: true,
     });
+
+    // Write the real GL journal entry ID back to fnb_close_batches so the batch
+    // record points to the actual GL entry rather than the synthetic placeholder.
+    try {
+      await db.execute(
+        sql`UPDATE fnb_close_batches
+            SET gl_journal_entry_id = ${glEntry.id},
+                updated_at = NOW()
+            WHERE tenant_id = ${event.tenantId}
+              AND id = ${data.closeBatchId}`,
+      );
+    } catch (updateErr) {
+      // Non-fatal — the GL entry was posted successfully; the batch column is
+      // best-effort. The real entry can always be looked up by sourceModule+sourceReferenceId.
+      console.warn(`[fnb-gl] Failed to write real gl_journal_entry_id back to batch ${data.closeBatchId}:`, updateErr);
+    }
   } catch (err) {
     // Never block F&B operations
     console.error(`F&B GL posting failed for batch ${data.closeBatchId}:`, err);

@@ -9,8 +9,7 @@ import {
   inventoryItems,
   inventoryMovements,
 } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
-import { getOnHand } from '../../helpers/get-on-hand';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { reverseWeightedAvgCost } from '../../services/costing';
 import type { VoidReceiptInput } from '../../validation/receiving';
 
@@ -51,70 +50,115 @@ export async function voidReceipt(
         ),
       );
 
-    // 3. For each line: insert offsetting movement, recalculate cost
+    // 3. Batch-insert all reversal movements in parallel.
+    //    Each line gets a single offsetting movement (negative qty).
+    //    Promise.all is safe here — all inserts share the same transaction.
+    await Promise.all(
+      lineRows.map((line: any) =>
+        (tx as any)
+          .insert(inventoryMovements)
+          .values({
+            tenantId: ctx.tenantId,
+            locationId: receipt.locationId,
+            inventoryItemId: line.inventoryItemId,
+            movementType: 'void_reversal',
+            quantityDelta: (-Number(line.baseQty)).toString(),
+            unitCost: Number(line.landedUnitCost).toString(),
+            extendedCost: (-Number(line.landedCost)).toString(),
+            referenceType: 'receiving_receipt',
+            referenceId: input.receiptId,
+            reason: `Void receipt ${receipt.receiptNumber}: ${input.reason}`,
+            source: 'manual',
+            businessDate: receipt.receivedDate,
+            employeeId: ctx.user.id,
+            batchId: input.receiptId,
+            metadata: {
+              receiptNumber: receipt.receiptNumber,
+              lineId: line.id,
+              voidReason: input.reason,
+            },
+            createdBy: ctx.user.id,
+          }),
+      ),
+    );
+
+    // 4. Batch-fetch all inventory items touched by this receipt in one query.
+    const itemIds: string[] = Array.from(new Set(lineRows.map((l: any) => String(l.inventoryItemId)) as string[]));
+    const itemRows = await (tx as any)
+      .select()
+      .from(inventoryItems)
+      .where(
+        and(
+          eq(inventoryItems.tenantId, ctx.tenantId),
+          inArray(inventoryItems.id, itemIds),
+        ),
+      );
+    const itemMap = new Map<string, any>(itemRows.map((r: any) => [r.id, r]));
+
+    // 5. Batch-compute on-hand for all affected items in a single aggregation query.
+    //    At this point the reversal movements have already been inserted into this
+    //    transaction, so SUM(quantityDelta) reflects the post-reversal on-hand.
+    const onHandRows = await (tx as any)
+      .select({
+        inventoryItemId: inventoryMovements.inventoryItemId,
+        total: sql<string>`COALESCE(SUM(${inventoryMovements.quantityDelta}), 0)`,
+      })
+      .from(inventoryMovements)
+      .where(
+        and(
+          eq(inventoryMovements.tenantId, ctx.tenantId),
+          inArray(inventoryMovements.inventoryItemId, itemIds),
+        ),
+      )
+      .groupBy(inventoryMovements.inventoryItemId);
+    const onHandMap = new Map<string, number>(
+      Array.from(onHandRows as Iterable<{ inventoryItemId: string; total: string }>).map(
+        (r) => [r.inventoryItemId, parseFloat(r.total)],
+      ),
+    );
+
+    // 6. Build a per-item qty map: sum baseQty for all lines that share the same inventoryItemId.
+    //    A receipt can have multiple lines for the same item (different lots, etc.).
+    const itemBaseQtyMap = new Map<string, number>();
     for (const line of lineRows) {
-      const baseQty = Number(line.baseQty);
-      const landedUnitCost = Number(line.landedUnitCost);
+      const prev = itemBaseQtyMap.get(line.inventoryItemId) ?? 0;
+      itemBaseQtyMap.set(line.inventoryItemId, prev + Number(line.baseQty));
+    }
 
-      // Insert reversal movement (negative qty)
-      await (tx as any)
-        .insert(inventoryMovements)
-        .values({
-          tenantId: ctx.tenantId,
-          locationId: receipt.locationId,
-          inventoryItemId: line.inventoryItemId,
-          movementType: 'void_reversal',
-          quantityDelta: (-baseQty).toString(),
-          unitCost: landedUnitCost.toString(),
-          extendedCost: (-Number(line.landedCost)).toString(),
-          referenceType: 'receiving_receipt',
-          referenceId: input.receiptId,
-          reason: `Void receipt ${receipt.receiptNumber}: ${input.reason}`,
-          source: 'manual',
-          businessDate: receipt.receivedDate,
-          employeeId: ctx.user.id,
-          batchId: input.receiptId,
-          metadata: {
-            receiptNumber: receipt.receiptNumber,
-            lineId: line.id,
-            voidReason: input.reason,
-          },
-          createdBy: ctx.user.id,
-        });
+    // 7. Batch-update all affected inventory items in parallel.
+    //    Compute new cost from post-reversal on-hand, then derive pre-reversal on-hand for the
+    //    weighted_avg formula: onHandBeforeVoid = currentOnHand(post-reversal) + baseQty.
+    await Promise.all(
+      itemIds.map((itemId) => {
+        const item = itemMap.get(itemId);
+        if (!item) return Promise.resolve();
 
-      // Recalculate item cost
-      const itemRows = await (tx as any)
-        .select()
-        .from(inventoryItems)
-        .where(
-          and(
-            eq(inventoryItems.tenantId, ctx.tenantId),
-            eq(inventoryItems.id, line.inventoryItemId),
-          ),
-        );
-      const item = itemRows[0];
-      if (item) {
-        const currentOnHand = await getOnHand(tx, ctx.tenantId, item.id);
+        const currentOnHand = onHandMap.get(itemId) ?? 0; // post-reversal on-hand
         const currentCost = Number(item.currentCost ?? 0);
-        const method = item.costingMethod ?? 'fifo';
+        const method: string = item.costingMethod ?? 'fifo';
+        const baseQty = itemBaseQtyMap.get(itemId) ?? 0;
 
         let newCost = currentCost;
         if (method === 'weighted_avg') {
-          // currentOnHand already reflects the reversal (negative delta already summed)
-          // We need the on-hand BEFORE the reversal to compute reverse correctly
+          // currentOnHand is post-reversal; reverseWeightedAvgCost expects pre-reversal on-hand
           const onHandBeforeVoid = currentOnHand + baseQty;
+          // Use the first matching line's landedUnitCost as the representative unit cost.
+          // For multiple lines of the same item, each line's cost is already reflected in
+          // the movement inserts above; we use the blended avg from the original receive here.
+          const representativeLine = lineRows.find((l: any) => l.inventoryItemId === itemId);
+          const landedUnitCost = representativeLine ? Number(representativeLine.landedUnitCost) : currentCost;
           newCost = reverseWeightedAvgCost(onHandBeforeVoid, currentCost, baseQty, landedUnitCost);
         }
         // For fifo/standard, cost doesn't change on void (fifo layers would need more complex handling)
 
-        await (tx as any)
+        return (tx as any)
           .update(inventoryItems)
           .set({ currentCost: newCost.toString(), updatedAt: new Date() })
-          .where(eq(inventoryItems.id, item.id));
-      }
-    }
+          .where(eq(inventoryItems.id, itemId));
+      }),
+    );
 
-    // 4. Update receipt status
+    // 8. Update receipt status
     const [voidedReceipt] = await (tx as any)
       .update(receivingReceipts)
       .set({
@@ -126,7 +170,7 @@ export async function voidReceipt(
       .where(eq(receivingReceipts.id, input.receiptId))
       .returning();
 
-    // 5. Build voided event
+    // 9. Build voided event
     const event = buildEventFromContext(ctx, 'inventory.receipt.voided.v1', {
       receiptId: input.receiptId,
       receiptNumber: receipt.receiptNumber,

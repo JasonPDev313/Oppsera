@@ -144,7 +144,7 @@ export function useSoftLock({
     return () => {
       stopRenewing();
     };
-  }, [entityId, autoAcquire]); // eslint-disable-line
+  }, [entityId, autoAcquire]);  
 
   // Release on unmount
   useEffect(() => {
@@ -154,7 +154,7 @@ export function useSoftLock({
         apiFetch(`/api/v1/fnb/locks/${myLock.lockId}/release`, { method: 'POST' }).catch(() => {});
       }
     };
-  }, [myLock?.lockId]); // eslint-disable-line
+  }, [myLock?.lockId]);  
 
   return {
     myLock,

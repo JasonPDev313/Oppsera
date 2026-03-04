@@ -65,11 +65,13 @@ export const POST = withMiddleware(
         // If the expression looks like a full SELECT, run it directly.
         // Otherwise wrap it as a column expression against rm_daily_sales.
         const isFullQuery = /^\s*SELECT\b/i.test(rawSql);
+        const cleanedSql = rawSql.replace(/;\s*$/, '');
+        // Wrap raw SQL in a subquery with parameterized LIMIT. RLS is the real guard.
         const query = isFullQuery
-          ? `${rawSql.replace(/;\s*$/, '')} LIMIT ${limit}`
-          : `SELECT ${rawSql} AS result FROM rm_daily_sales WHERE tenant_id = (SELECT current_setting('app.current_tenant_id', true)) LIMIT ${limit}`;
+          ? sql`SELECT * FROM (${sql.raw(cleanedSql)}) AS _q LIMIT ${limit}`
+          : sql`SELECT ${sql.raw(cleanedSql)} AS result FROM rm_daily_sales WHERE tenant_id = (SELECT current_setting('app.current_tenant_id', true)) LIMIT ${limit}`;
 
-        const result = await tx.execute(sql.raw(query));
+        const result = await tx.execute(query);
         return Array.from(result as Iterable<Record<string, unknown>>);
       });
 

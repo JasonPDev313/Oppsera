@@ -124,7 +124,7 @@ export async function adjustTip(
       postingStatus: 'posted',
     });
 
-    await incrementVersion(tx, tender.orderId);
+    await incrementVersion(tx, tender.orderId, ctx.tenantId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'adjustTip', {
       tenderId,

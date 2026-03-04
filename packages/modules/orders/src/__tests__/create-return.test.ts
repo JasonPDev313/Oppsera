@@ -10,6 +10,9 @@ vi.mock('drizzle-orm', () => ({
   eq: vi.fn((_a, _b) => ({ type: 'eq' })),
   and: vi.fn((...args: any[]) => ({ type: 'and', args })),
   inArray: vi.fn((_a, _b) => ({ type: 'inArray' })),
+  sql: Object.assign(vi.fn((...args: unknown[]) => args), {
+    raw: vi.fn((str: string) => str),
+  }),
 }));
 
 vi.mock('@oppsera/shared', () => ({
@@ -136,9 +139,11 @@ describe('createReturn', () => {
       const mockTx = {
         select: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),
+        innerJoin: vi.fn().mockReturnThis(),
         where: vi.fn()
           .mockResolvedValueOnce([originalOrder]) // fetch original order
-          .mockResolvedValueOnce([originalLines[0]]), // fetch matching lines (only line-1 requested)
+          .mockResolvedValueOnce([originalLines[0]]) // fetch matching lines (only line-1 requested)
+          .mockReturnValueOnce({ groupBy: vi.fn().mockResolvedValue([]) }), // prior returns query
         insert: vi.fn().mockReturnThis(),
         values: vi.fn().mockReturnThis(),
         update: vi.fn().mockReturnThis(),
@@ -199,9 +204,11 @@ describe('createReturn', () => {
       const mockTx = {
         select: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),
+        innerJoin: vi.fn().mockReturnThis(),
         where: vi.fn()
           .mockResolvedValueOnce([originalOrder])
-          .mockResolvedValueOnce(originalLines),
+          .mockResolvedValueOnce(originalLines)
+          .mockReturnValueOnce({ groupBy: vi.fn().mockResolvedValue([]) }), // prior returns query
         insert: vi.fn().mockReturnThis(),
         values: vi.fn().mockReturnThis(),
         update: vi.fn().mockReturnThis(),
@@ -254,9 +261,11 @@ describe('createReturn', () => {
       const mockTx = {
         select: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),
+        innerJoin: vi.fn().mockReturnThis(),
         where: vi.fn()
           .mockResolvedValueOnce([originalOrder])
-          .mockResolvedValueOnce(originalLines),
+          .mockResolvedValueOnce(originalLines)
+          .mockReturnValueOnce({ groupBy: vi.fn().mockResolvedValue([]) }), // prior returns query
         insert: vi.fn().mockReturnThis(),
         values: vi.fn().mockReturnThis(),
         returning: vi.fn().mockResolvedValue([{}]),
@@ -271,7 +280,7 @@ describe('createReturn', () => {
           { originalLineId: 'line-1', qty: 5, reason: 'defective' },
         ],
       }),
-    ).rejects.toThrow('exceeds original qty');
+    ).rejects.toThrow('exceeds remaining returnable qty');
   });
 
   it('should reject return on non-paid order', async () => {

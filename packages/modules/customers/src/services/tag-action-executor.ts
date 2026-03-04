@@ -139,9 +139,9 @@ export async function executeTagActions(
           errorMessage: errorMessage ?? null,
           durationMs,
         });
-      } catch {
+      } catch (err) {
         // Audit insert failure should never block — log and continue
-        console.error(`Failed to record tag action execution for action ${action.id}`);
+        console.error(`[tag-action-executor] Failed to record tag action execution for action ${action.id}:`, err);
       }
 
       results.push({
@@ -218,6 +218,7 @@ async function handleLogActivity(
   const metadata = (config.metadata as Record<string, unknown>) ?? {};
 
   await tx.insert(customerActivityLog).values({
+    id: generateUlid(),
     tenantId,
     customerId,
     activityType,

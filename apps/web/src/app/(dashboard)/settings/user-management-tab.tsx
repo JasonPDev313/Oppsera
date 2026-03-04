@@ -7,6 +7,7 @@ import { useUsers, useRoles, useMyLocations, useInvalidateSettingsData } from '@
 import type { ManagedUser, RoleOption } from '@/hooks/use-settings-data';
 import type { PMSProperty } from '@/hooks/use-pms';
 import { LoginHistoryModal } from '@/components/settings/login-history-modal';
+import { useToast } from '@/components/ui/toast';
 
 interface AddUserForm {
   firstName: string;
@@ -87,6 +88,7 @@ const emptyAddForm: AddUserForm = {
 };
 
 export function UserManagementTab({ canManage }: { canManage: boolean }) {
+  const { toast } = useToast();
   const { data: users = [], isLoading: usersLoading } = useUsers();
   const { data: rolesData = [], isLoading: rolesLoading } = useRoles();
   const { data: locations = [], isLoading: locsLoading } = useMyLocations();
@@ -147,7 +149,7 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
       setAddForm(emptyAddForm);
       invalidateUsers();
     } catch (error) {
-      if (error instanceof ApiError) alert(error.message);
+      if (error instanceof ApiError) toast.error(error.message);
     } finally {
       setIsSaving(false);
     }
@@ -165,38 +167,58 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
       setInviteForm({ emailAddress: '', roleId: '', locationIds: [] });
       invalidateUsers();
     } catch (error) {
-      if (error instanceof ApiError) alert(error.message);
+      if (error instanceof ApiError) toast.error(error.message);
     } finally {
       setIsSaving(false);
     }
   }, [inviteForm, invalidateUsers]);
 
   const deactivateUser = useCallback(async (userId: string) => {
-    await apiFetch(`/api/v1/users/${userId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ userStatus: 'inactive' }),
-    });
-    invalidateUsers();
-  }, [invalidateUsers]);
+    try {
+      await apiFetch(`/api/v1/users/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ userStatus: 'inactive' }),
+      });
+      invalidateUsers();
+    } catch (error) {
+      if (error instanceof ApiError) toast.error(error.message);
+      else console.error('Failed to deactivate user:', error);
+    }
+  }, [invalidateUsers, toast]);
 
   const resendInvite = useCallback(async (user: ManagedUser) => {
     const fallbackRoleId = user.roles[0]?.id;
     if (!fallbackRoleId) return;
-    await apiFetch('/api/v1/users/invite', {
-      method: 'POST',
-      body: JSON.stringify({ emailAddress: user.email, roleId: fallbackRoleId }),
-    });
-  }, []);
+    try {
+      await apiFetch('/api/v1/users/invite', {
+        method: 'POST',
+        body: JSON.stringify({ emailAddress: user.email, roleId: fallbackRoleId }),
+      });
+    } catch (error) {
+      if (error instanceof ApiError) toast.error(error.message);
+      else console.error('Failed to resend invite:', error);
+    }
+  }, [toast]);
 
   const resetPassword = useCallback(async (userId: string) => {
-    await apiFetch(`/api/v1/users/${userId}/reset-password`, { method: 'POST' });
-    alert('Password reset email sent');
-  }, []);
+    try {
+      await apiFetch(`/api/v1/users/${userId}/reset-password`, { method: 'POST' });
+      toast.success('Password reset email sent');
+    } catch (error) {
+      if (error instanceof ApiError) toast.error(error.message);
+      else console.error('Failed to reset password:', error);
+    }
+  }, [toast]);
 
   const resetPins = useCallback(async (userId: string) => {
-    await apiFetch(`/api/v1/users/${userId}/reset-pin`, { method: 'POST', body: JSON.stringify({}) });
-    alert('PINs reset');
-  }, []);
+    try {
+      await apiFetch(`/api/v1/users/${userId}/reset-pin`, { method: 'POST', body: JSON.stringify({}) });
+      toast.success('PINs reset');
+    } catch (error) {
+      if (error instanceof ApiError) toast.error(error.message);
+      else console.error('Failed to reset PINs:', error);
+    }
+  }, [toast]);
 
   // ── Edit User ───────────────────────────────────────────────────
   const [showEditModal, setShowEditModal] = useState(false);
@@ -247,11 +269,11 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
 
       setShowEditModal(true);
     } catch (error) {
-      if (error instanceof ApiError) alert(error.message);
+      if (error instanceof ApiError) toast.error(error.message);
     } finally {
       setEditLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   const canSubmitEdit = useMemo(() => {
     if (!editForm.firstName || !editForm.lastName || !editForm.emailAddress || !editForm.userName || !editForm.userRole) {
@@ -298,11 +320,11 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
       setEditDesignations({ housekeeperEnabled: false, housekeeperPropertyId: '', housekeeperExistingRecordId: null });
       invalidateAll();
     } catch (error) {
-      if (error instanceof ApiError) alert(error.message);
+      if (error instanceof ApiError) toast.error(error.message);
     } finally {
       setIsSaving(false);
     }
-  }, [editForm, canSubmitEdit, editUserId, editDesignations, invalidateAll]);
+  }, [editForm, canSubmitEdit, editUserId, editDesignations, invalidateAll, toast]);
 
   if (isLoading) {
     return (

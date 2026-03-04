@@ -49,6 +49,8 @@ export async function checkOut(
     const today = new Date().toISOString().split('T')[0]!;
     let lateCheckOut = false;
     let checkOutDate = current.checkOutDate;
+    // Fetched once when lateCheckOut is true; reused for both charge posting and totals recalculation
+    let property: { taxRatePct?: string | null } | undefined;
 
     if (today > current.checkOutDate) {
       lateCheckOut = true;
@@ -67,14 +69,17 @@ export async function checkOut(
         )
         .limit(1);
 
+      // Fetch property once for both late-checkout charge posting and totals recalculation below
+      const [fetchedProperty] = await tx
+        .select()
+        .from(pmsProperties)
+        .where(
+          and(eq(pmsProperties.id, current.propertyId), eq(pmsProperties.tenantId, ctx.tenantId)),
+        )
+        .limit(1);
+      property = fetchedProperty;
+
       if (folio) {
-        const [property] = await tx
-          .select()
-          .from(pmsProperties)
-          .where(
-            and(eq(pmsProperties.id, current.propertyId), eq(pmsProperties.tenantId, ctx.tenantId)),
-          )
-          .limit(1);
         const taxRatePct = property ? Number(property.taxRatePct ?? 0) : 0;
 
         const originalCheckOut = new Date(current.checkOutDate);
@@ -191,13 +196,7 @@ export async function checkOut(
           (1000 * 60 * 60 * 24),
       );
       subtotalCents = nights * current.nightlyRateCents;
-      const [property] = await tx
-        .select()
-        .from(pmsProperties)
-        .where(
-          and(eq(pmsProperties.id, current.propertyId), eq(pmsProperties.tenantId, ctx.tenantId)),
-        )
-        .limit(1);
+      // Reuse the property already fetched above during the late-checkout block
       const taxRatePct = property ? Number(property.taxRatePct ?? 0) : 0;
       taxCents = Math.round((subtotalCents * taxRatePct) / 100);
       totalCents = subtotalCents + taxCents + current.feeCents;

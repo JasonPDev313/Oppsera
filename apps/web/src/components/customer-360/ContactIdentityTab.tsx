@@ -219,6 +219,7 @@ function EmailSection({ customerId, emails, onRefresh }: {
   }
 
   async function handleRemove(emailId: string) {
+    // TODO: Replace with async confirmation dialog
     if (!window.confirm('Remove this email?')) return;
     try {
       await mutations.removeEmail(customerId, emailId);
@@ -398,6 +399,7 @@ function PhoneSection({ customerId, phones, onRefresh }: {
   }
 
   async function handleRemove(phoneId: string) {
+    // TODO: Replace with async confirmation dialog
     if (!window.confirm('Remove this phone number?')) return;
     try {
       await mutations.removePhone(customerId, phoneId);
@@ -561,6 +563,7 @@ function AddressSection({ customerId, addresses, onRefresh }: {
   }
 
   async function handleRemove(addressId: string) {
+    // TODO: Replace with async confirmation dialog
     if (!window.confirm('Remove this address?')) return;
     try {
       await mutations.removeAddress(customerId, addressId);
@@ -797,6 +800,7 @@ function EmergencyContactsSection({ customerId, contacts, onRefresh }: {
   }
 
   async function handleRemove(contactId: string) {
+    // TODO: Replace with async confirmation dialog
     if (!window.confirm('Remove this emergency contact?')) return;
     try {
       await mutations.removeEmergencyContact(customerId, contactId);

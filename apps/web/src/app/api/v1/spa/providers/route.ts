@@ -21,7 +21,7 @@ export const GET = withMiddleware(
 
     const isActive =
       isActiveParam === 'true' ? true : isActiveParam === 'false' ? false : undefined;
-    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined;
 
     const result = await listProviders({
       tenantId: ctx.tenantId,

@@ -173,6 +173,7 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
 
   // Clear all restrictions in current view
   const handleClearAll = useCallback(async () => {
+    // TODO: Replace with async confirmation dialog
     if (!confirm('Clear all restrictions in the current date range?')) return;
     setSaving(true);
     try {

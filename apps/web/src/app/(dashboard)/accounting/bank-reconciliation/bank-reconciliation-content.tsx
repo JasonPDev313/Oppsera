@@ -9,6 +9,7 @@ import type { BankReconciliationItem } from '@/types/accounting';
 import { useBankReconciliations, useBankReconciliation, useBankReconciliationMutations } from '@/hooks/use-bank-reconciliation';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
+import { useToast } from '@/components/ui/toast';
 
 // ── Bank Account Selector ────────────────────────────────────
 
@@ -46,6 +47,7 @@ function StartReconciliationDialog({
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
+  const { toast } = useToast();
   const { accounts } = useBankAccountOptions();
   const { startReconciliation } = useBankReconciliationMutations();
   const [bankAccountId, setBankAccountId] = useState('');
@@ -63,7 +65,7 @@ function StartReconciliationDialog({
       onCreated(result.id);
       onClose();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to start reconciliation');
+      toast.error(err instanceof Error ? err.message : 'Failed to start reconciliation');
     }
   };
 
@@ -146,6 +148,7 @@ function AddAdjustmentDialog({
   reconciliationId: string;
   onClose: () => void;
 }) {
+  const { toast } = useToast();
   const { addAdjustment } = useBankReconciliationMutations();
   const [itemType, setItemType] = useState<string>('fee');
   const [amount, setAmount] = useState('');
@@ -166,7 +169,7 @@ function AddAdjustmentDialog({
       setDescription('');
       onClose();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to add adjustment');
+      toast.error(err instanceof Error ? err.message : 'Failed to add adjustment');
     }
   };
 
@@ -255,6 +258,7 @@ function ReconciliationWorkspace({
   reconciliationId: string;
   onBack: () => void;
 }) {
+  const { toast } = useToast();
   const { data: recon, isLoading, refetch } = useBankReconciliation(reconciliationId);
   const { clearItems, completeReconciliation } = useBankReconciliationMutations();
   const [showAdjustment, setShowAdjustment] = useState(false);
@@ -267,18 +271,19 @@ function ReconciliationWorkspace({
         cleared: !item.isCleared,
       });
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update item');
+      toast.error(err instanceof Error ? err.message : 'Failed to update item');
     }
-  }, [reconciliationId, clearItems]);
+  }, [reconciliationId, clearItems, toast]);
 
   const handleComplete = useCallback(async () => {
+    // TODO: Replace with async confirmation dialog
     if (!confirm('Complete this reconciliation? This action cannot be undone.')) return;
     try {
       await completeReconciliation.mutateAsync({ reconciliationId });
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to complete');
+      toast.error(err instanceof Error ? err.message : 'Failed to complete');
     }
-  }, [reconciliationId, completeReconciliation]);
+  }, [reconciliationId, completeReconciliation, toast]);
 
   if (isLoading || !recon) {
     return (

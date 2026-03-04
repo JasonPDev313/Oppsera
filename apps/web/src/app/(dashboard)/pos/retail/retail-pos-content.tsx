@@ -1940,7 +1940,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                     <button
                       type="button"
                       onClick={handleSendOrder}
-                      disabled={!hasItems || isOrderPlaced}
+                      disabled={!hasItems || isOrderPlaced || pos.isLoading}
                       className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-base font-semibold transition-colors disabled:cursor-not-allowed ${
                         hasFnbItems && hasItems && !isOrderPlaced
                           ? 'bg-amber-500 text-white hover:bg-amber-600 disabled:bg-amber-300'
@@ -1948,7 +1948,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                       }`}
                     >
                       <Send aria-hidden="true" className="h-4 w-4" />
-                      {isOrderPlaced ? 'Sent' : 'Send'}
+                      {pos.isLoading ? 'Sending…' : isOrderPlaced ? 'Sent' : 'Send'}
                     </button>
                   )}
 

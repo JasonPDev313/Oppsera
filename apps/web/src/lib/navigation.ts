@@ -15,6 +15,7 @@ import {
   CalendarDays,
   FileBarChart,
   LayoutGrid,
+  LayoutList,
   PackageCheck,
   Truck,
   Sparkles,
@@ -77,6 +78,8 @@ export interface NavItem {
   children?: SubNavItem[];
   /** When true, children with `group` fields render as collapsible accordion sections */
   collapsibleGroups?: boolean;
+  /** When set, sidebar injects dynamic children (e.g. KDS stations) before static children */
+  dynamicChildren?: 'kds_stations';
   /** Permission key required to see this item (checked via `can()`) */
   requiredPermission?: string;
   /** ERP workflow module key for tier-based visibility filtering */
@@ -120,10 +123,12 @@ export const navigation: NavItem[] = [
     icon: Monitor,
     moduleKey: 'kds',
     requiredPermission: 'kds.view',
+    /** Dynamic station children are injected at render time by DashboardLayoutInner */
+    dynamicChildren: 'kds_stations' as const,
     children: [
-      { name: 'KDS Stations', href: '/kds', icon: Monitor, requiredPermission: 'kds.view' },
       { name: 'Expo', href: '/expo', icon: PackageCheck, requiredPermission: 'kds.view' },
-      { name: 'KDS Settings', href: '/kds/settings', icon: Settings, requiredPermission: 'kds.settings.manage' },
+      { name: 'All Orders', href: '/kds/all', icon: LayoutList, requiredPermission: 'kds.view' },
+      { name: 'KDS Settings', href: '/kds/settings', icon: Settings, group: 'Config', requiredPermission: 'kds.settings.manage' },
     ],
   },
   {

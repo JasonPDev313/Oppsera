@@ -34,7 +34,7 @@ export async function updateOrder(ctx: RequestContext, orderId: string, input: U
     }
 
     await (tx as any).update(orders).set(updates).where(eq(orders.id, orderId));
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
 
     if (input.clientRequestId) {
       await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'updateOrder', { orderId });

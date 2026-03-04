@@ -1,9 +1,25 @@
+import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
 import { computeBusinessDate } from '../business-date';
-import type { TeeTimeBookedData } from '../events';
+
+const TeeTimeBookedSchema = z.object({
+  teeTimeId: z.string(),
+  courseId: z.string(),
+  startAt: z.string(),
+  players: z.coerce.number().int().min(1),
+  greenFeeCents: z.coerce.number().int(),
+  bookingSource: z.string(),
+  customerId: z.string().optional(),
+  customerName: z.string().optional(),
+  locationId: z.string().optional(),
+  bookingType: z.string().optional(),
+  holes: z.coerce.number().int().optional(),
+  walkingCount: z.coerce.number().int().optional(),
+  ridingCount: z.coerce.number().int().optional(),
+});
 
 const CONSUMER_NAME = 'golf-reporting.teeTimeBooked';
 
@@ -48,7 +64,12 @@ function getLeadTimeBucket(
  * 6. Upsert rm_golf_booking_lead_time
  */
 export async function handleTeeTimeBooked(event: EventEnvelope): Promise<void> {
-  const data = event.data as unknown as TeeTimeBookedData;
+  const parsed = TeeTimeBookedSchema.safeParse(event.data);
+  if (!parsed.success) {
+    console.error(`[golf-reporting] Invalid tee_time.booked.v1 payload:`, parsed.error.flatten());
+    return;
+  }
+  const data = parsed.data;
 
   await withTenant(event.tenantId, async (tx) => {
     // Step 1: Atomic idempotency check

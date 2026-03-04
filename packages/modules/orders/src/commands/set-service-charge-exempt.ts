@@ -38,7 +38,7 @@ export async function setServiceChargeExempt(
       updatedAt: new Date(),
     }).where(eq(orders.id, orderId));
 
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
     await saveIdempotencyKey(
       tx, ctx.tenantId, input.clientRequestId, 'setServiceChargeExempt',
       { serviceChargeExempt: input.serviceChargeExempt },

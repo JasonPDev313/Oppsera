@@ -17,7 +17,7 @@ export async function addServiceCharge(ctx: RequestContext, orderId: string, inp
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'addServiceCharge');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as unknown, events: [] };
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
     // Calculate amount based on calculation type
@@ -30,7 +30,7 @@ export async function addServiceCharge(ctx: RequestContext, orderId: string, inp
       amount = input.value; // fixed amount in cents
     }
 
-    const [charge] = await (tx as any).insert(orderCharges).values({
+    const [charge] = await tx.insert(orderCharges).values({
       tenantId: ctx.tenantId,
       orderId,
       chargeType: input.chargeType,
@@ -45,29 +45,29 @@ export async function addServiceCharge(ctx: RequestContext, orderId: string, inp
 
     // Recalculate totals
     const [allLines, allCharges, allDiscounts] = await Promise.all([
-      (tx as any).select({
+      tx.select({
         lineSubtotal: orderLines.lineSubtotal,
         lineTax: orderLines.lineTax,
         lineTotal: orderLines.lineTotal,
       }).from(orderLines).where(eq(orderLines.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderCharges.amount,
         taxAmount: orderCharges.taxAmount,
       }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
-      (tx as any).select({
+      tx.select({
         amount: orderDiscounts.amount,
       }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
     ]);
 
     const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
 
-    await (tx as any).update(orders).set({
+    await tx.update(orders).set({
       ...totals,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),
     }).where(eq(orders.id, orderId));
 
-    await incrementVersion(tx, orderId);
+    await incrementVersion(tx, orderId, ctx.tenantId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'addServiceCharge', { chargeId: charge!.id });
 

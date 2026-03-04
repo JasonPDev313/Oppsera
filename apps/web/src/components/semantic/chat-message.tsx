@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback, useMemo, memo } from 'react';
-import { ChevronDown, ChevronRight, Database, Zap, AlertCircle, Code2, Info, Search, TrendingUp, GitBranch, Lightbulb, Pin, Check } from 'lucide-react';
+import { useState, useCallback, useMemo, memo, useRef, useEffect } from 'react';
+import { ChevronDown, ChevronRight, ChevronUp, Database, Zap, AlertCircle, Code2, Info, Search, TrendingUp, GitBranch, Lightbulb, Pin, Check, Copy, Download, ArrowUpDown } from 'lucide-react';
 import type { ChatMessage, QueryPlan } from '@/hooks/use-semantic-chat';
 import { FeedbackWidget } from '@/components/insights/FeedbackWidget';
 import { InlineChart } from '@/components/insights/InlineChart';
@@ -9,79 +9,310 @@ import { FollowUpChips } from '@/components/insights/FollowUpChips';
 import { DataQualityBadge } from '@/components/insights/DataQualityBadge';
 import { DataLineagePanel } from '@/components/insights/DataLineagePanel';
 import { apiFetch } from '@/lib/api-client';
+import { inferColumnType, formatCellText, getStatusColor, isDeltaColumn, rowsToCsv, buildDrillPrompt, type ColumnType } from './format-utils';
 
-// ── Simple markdown renderer ──────────────────────────────────────
-// Renders bold, italics, code spans, and block code from LLM narrative.
-// No external dep — covers the subset the narrative generator produces.
+// ── Markdown renderer ─────────────────────────────────────────────
+// Hand-rolled renderer covering the subset the narrative LLM produces.
+// Supports: headings, bullets, ordered lists, blockquotes, links,
+// horizontal rules, markdown tables, bold, italic, code spans, and
+// fenced code blocks. No external dependency.
 
-function renderMarkdown(text: string): React.ReactNode {
-  // Split by newlines, render each line
-  return text.split('\n').map((line, i) => {
-    // Headings: ## or ###
+export function renderMarkdown(text: string): React.ReactNode {
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i]!;
+
+    // ── Fenced code block ```
+    if (line.trimStart().startsWith('```')) {
+      const codeLines: string[] = [];
+      i++; // skip opening fence
+      while (i < lines.length && !lines[i]!.trimStart().startsWith('```')) {
+        codeLines.push(lines[i]!);
+        i++;
+      }
+      i++; // skip closing fence
+      elements.push(
+        <pre key={elements.length} className="bg-muted rounded-md p-3 my-2 overflow-x-auto">
+          <code className="text-xs font-mono text-foreground">{codeLines.join('\n')}</code>
+        </pre>,
+      );
+      continue;
+    }
+
+    // ── Markdown table (| col | col |)
+    if (/^\|(.+)\|/.test(line) && i + 1 < lines.length && /^\|[-:\s|]+\|/.test(lines[i + 1]!)) {
+      const tableRows: string[][] = [];
+      const headerCells = line.split('|').filter((c) => c.trim() !== '').map((c) => c.trim());
+      tableRows.push(headerCells);
+      // Parse alignment row
+      const alignRow = lines[i + 1]!.split('|').filter((c) => c.trim() !== '').map((c) => c.trim());
+      const aligns = alignRow.map((a) => {
+        if (a.startsWith(':') && a.endsWith(':')) return 'center' as const;
+        if (a.endsWith(':')) return 'right' as const;
+        return 'left' as const;
+      });
+      i += 2; // skip header + alignment
+      while (i < lines.length && /^\|(.+)\|/.test(lines[i]!)) {
+        tableRows.push(lines[i]!.split('|').filter((c) => c.trim() !== '').map((c) => c.trim()));
+        i++;
+      }
+      elements.push(
+        <div key={elements.length} className="overflow-x-auto rounded-lg border border-border my-2">
+          <table className="min-w-full text-xs">
+            <thead className="bg-muted/70">
+              <tr>
+                {tableRows[0]!.map((cell, ci) => (
+                  <th key={ci} className="px-3 py-2 font-medium text-muted-foreground whitespace-nowrap" style={{ textAlign: aligns[ci] ?? 'left' }}>
+                    {formatInline(cell)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/50">
+              {tableRows.slice(1).map((row, ri) => (
+                <tr key={ri} className={`hover:bg-accent/50 ${ri % 2 === 1 ? 'bg-muted/20' : ''}`}>
+                  {row.map((cell, ci) => (
+                    <td key={ci} className="px-3 py-2 text-foreground whitespace-nowrap" style={{ textAlign: aligns[ci] ?? 'left' }}>
+                      {formatInline(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+      continue;
+    }
+
+    // ── Horizontal rule
+    if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      elements.push(<hr key={elements.length} className="border-border my-3" />);
+      i++;
+      continue;
+    }
+
+    // ── Headings
+    if (/^####\s+/.test(line)) {
+      elements.push(<h5 key={elements.length} className="text-xs font-semibold mt-3 mb-1 text-foreground uppercase tracking-wide">{formatInline(line.replace(/^####\s+/, ''))}</h5>);
+      i++;
+      continue;
+    }
     if (/^###\s+/.test(line)) {
-      return <h4 key={i} className="text-sm font-semibold mt-3 mb-1 text-foreground">{line.replace(/^###\s+/, '')}</h4>;
+      elements.push(<h4 key={elements.length} className="text-sm font-semibold mt-3 mb-1 text-foreground">{formatInline(line.replace(/^###\s+/, ''))}</h4>);
+      i++;
+      continue;
     }
     if (/^##\s+/.test(line)) {
-      return <h3 key={i} className="text-base font-semibold mt-3 mb-1 text-foreground">{line.replace(/^##\s+/, '')}</h3>;
+      elements.push(<h3 key={elements.length} className="text-base font-semibold mt-3 mb-1 text-foreground">{formatInline(line.replace(/^##\s+/, ''))}</h3>);
+      i++;
+      continue;
     }
-    // Bullet list
+
+    // ── Blockquote (collect consecutive > lines)
+    if (/^>\s?/.test(line)) {
+      const quoteLines: string[] = [];
+      while (i < lines.length && /^>\s?/.test(lines[i]!)) {
+        quoteLines.push(lines[i]!.replace(/^>\s?/, ''));
+        i++;
+      }
+      elements.push(
+        <blockquote key={elements.length} className="border-l-2 border-primary/40 pl-3 my-2 text-sm text-muted-foreground italic">
+          {quoteLines.map((ql, qi) => <p key={qi} className="leading-relaxed">{formatInline(ql)}</p>)}
+        </blockquote>,
+      );
+      continue;
+    }
+
+    // ── Ordered list (collect consecutive numbered lines)
+    if (/^\d+\.\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i]!)) {
+        items.push(lines[i]!.replace(/^\d+\.\s+/, ''));
+        i++;
+      }
+      elements.push(
+        <ol key={elements.length} className="ml-4 list-decimal text-sm space-y-0.5">
+          {items.map((item, ii) => <li key={ii}>{formatInline(item)}</li>)}
+        </ol>,
+      );
+      continue;
+    }
+
+    // ── Unordered list (collect consecutive bullet lines)
     if (/^[-*]\s+/.test(line)) {
-      return <li key={i} className="ml-4 list-disc text-sm">{formatInline(line.replace(/^[-*]\s+/, ''))}</li>;
+      const items: string[] = [];
+      while (i < lines.length && /^[-*]\s+/.test(lines[i]!)) {
+        items.push(lines[i]!.replace(/^[-*]\s+/, ''));
+        i++;
+      }
+      elements.push(
+        <ul key={elements.length} className="ml-4 list-disc text-sm space-y-0.5">
+          {items.map((item, ii) => <li key={ii}>{formatInline(item)}</li>)}
+        </ul>,
+      );
+      continue;
     }
-    // Empty line = paragraph break
+
+    // ── Empty line
     if (line.trim() === '') {
-      return <br key={i} />;
+      elements.push(<br key={elements.length} />);
+      i++;
+      continue;
     }
-    return <p key={i} className="text-sm leading-relaxed">{formatInline(line)}</p>;
-  });
+
+    // ── Default: paragraph
+    elements.push(<p key={elements.length} className="text-sm leading-relaxed">{formatInline(line)}</p>);
+    i++;
+  }
+
+  return elements;
 }
 
-function formatInline(text: string): React.ReactNode {
-  // Bold: **text**
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/);
+// Regex for standalone numbers in narrative: $1,234.56, 85.5%, 1,234, -$50
+const NARRATIVE_NUMBER_RE = /(-?\$[\d,]+(?:\.\d+)?|\d[\d,]*(?:\.\d+)?%?)/g;
+
+function highlightNumbers(text: string, keyPrefix: string): React.ReactNode[] {
+  const parts = text.split(NARRATIVE_NUMBER_RE);
   return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith('`') && part.endsWith('`')) {
-      return <code key={i} className="bg-muted px-1 py-0.5 rounded text-xs font-mono">{part.slice(1, -1)}</code>;
+    if (NARRATIVE_NUMBER_RE.test(part)) {
+      // Reset lastIndex since we're using the same regex
+      NARRATIVE_NUMBER_RE.lastIndex = 0;
+      return (
+        <span key={`${keyPrefix}-n${i}`} className="font-semibold tabular-nums text-foreground">
+          {part}
+        </span>
+      );
     }
     return part;
   });
 }
 
-// ── QueryResultTable ──────────────────────────────────────────────
-
-function formatCellValue(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'object') {
-    // Flatten nested objects/arrays for display instead of [object Object]
-    return JSON.stringify(value);
-  }
-  return String(value);
+function formatInline(text: string): React.ReactNode {
+  // Split on: **bold**, *italic*, `code`, [text](url)
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i}>{highlightNumbers(part.slice(2, -2), `b${i}`)}</strong>;
+    }
+    if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**')) {
+      return <em key={i}>{highlightNumbers(part.slice(1, -1), `i${i}`)}</em>;
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return <code key={i} className="bg-muted px-1 py-0.5 rounded text-xs font-mono">{part.slice(1, -1)}</code>;
+    }
+    // Link: [text](url)
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (linkMatch) {
+      return <a key={i} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80">{linkMatch[1]}</a>;
+    }
+    // Plain text — highlight numbers
+    return <span key={i}>{highlightNumbers(part, `p${i}`)}</span>;
+  });
 }
 
-function QueryResultTable({ rows, rowCount }: { rows: Record<string, unknown>[]; rowCount: number }) {
-  const [expanded, setExpanded] = useState(false);
-  const visibleRows = expanded ? rows : rows.slice(0, 5);
+// ── QueryResultTable ──────────────────────────────────────────────
 
-  // Flatten nested object columns — memoized to avoid recomputation on re-renders.
-  const flattenedRows = useMemo(() => {
-    if (visibleRows.length === 0) return [];
-    return visibleRows.map((row) => {
-      const flat: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(row)) {
-        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-          for (const [subKey, subValue] of Object.entries(value as Record<string, unknown>)) {
-            flat[`${key}_${subKey}`] = subValue;
-          }
-        } else {
-          flat[key] = value;
-        }
+function formatCellValue(value: unknown, colType: ColumnType, colName: string): React.ReactNode {
+  const text = formatCellText(value, colType);
+  if (text === null) {
+    return <span className="text-muted-foreground/50 italic">—</span>;
+  }
+  if (colType === 'status') {
+    return <StatusBadge value={text} />;
+  }
+  // Conditional coloring for delta/change columns
+  if (isDeltaColumn(colName) && (colType === 'number' || colType === 'currency' || colType === 'percent')) {
+    const num = typeof value === 'number' ? value : Number(value);
+    if (!isNaN(num) && num > 0) {
+      return <span className="text-emerald-500">{text}</span>;
+    }
+    if (!isNaN(num) && num < 0) {
+      return <span className="text-red-400">{text}</span>;
+    }
+  }
+  return text;
+}
+
+function StatusBadge({ value }: { value: string }) {
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${getStatusColor(value)}`}>
+      {value.replace(/_/g, ' ')}
+    </span>
+  );
+}
+
+// Flatten nested object columns into flat key-value records.
+function flattenRow(row: Record<string, unknown>): Record<string, unknown> {
+  const flat: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      for (const [subKey, subValue] of Object.entries(value as Record<string, unknown>)) {
+        flat[`${key}_${subKey}`] = subValue;
       }
-      return flat;
+    } else {
+      flat[key] = value;
+    }
+  }
+  return flat;
+}
+
+type SortDir = 'asc' | 'desc' | null;
+
+export function QueryResultTable({
+  rows,
+  rowCount,
+  onDrillDown,
+}: {
+  rows: Record<string, unknown>[];
+  rowCount: number;
+  onDrillDown?: (prompt: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Flatten all rows once (for sorting), then slice for visibility.
+  const allFlattened = useMemo(() => rows.map(flattenRow), [rows]);
+
+  // Infer column types from name + sampled values.
+  const columnTypes = useMemo(() => {
+    if (allFlattened.length === 0) return {} as Record<string, ColumnType>;
+    const sample = allFlattened.slice(0, 20);
+    const cols = Object.keys(sample[0]!);
+    const types: Record<string, ColumnType> = {};
+    for (const col of cols) {
+      types[col] = inferColumnType(col, sample.map((r) => r[col]));
+    }
+    return types;
+  }, [allFlattened]);
+
+  // Sort the flattened rows.
+  const sortedRows = useMemo(() => {
+    if (!sortCol || !sortDir) return allFlattened;
+    const ct = columnTypes[sortCol] ?? 'text';
+    const isNumeric = ct === 'currency' || ct === 'percent' || ct === 'number';
+    return [...allFlattened].sort((a, b) => {
+      const av = a[sortCol];
+      const bv = b[sortCol];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      let cmp: number;
+      if (isNumeric) {
+        cmp = (Number(av) || 0) - (Number(bv) || 0);
+      } else {
+        cmp = String(av).localeCompare(String(bv));
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
     });
-  }, [visibleRows]);
+  }, [allFlattened, sortCol, sortDir, columnTypes]);
+
+  const visibleRows = expanded ? sortedRows : sortedRows.slice(0, 5);
 
   if (rows.length === 0) {
     return (
@@ -89,32 +320,108 @@ function QueryResultTable({ rows, rowCount }: { rows: Record<string, unknown>[];
     );
   }
 
-  const columns = Object.keys(flattenedRows[0]!);
+  const columns = Object.keys(allFlattened[0]!);
+
+  const handleSort = (col: string) => {
+    if (sortCol === col) {
+      // Cycle: asc → desc → none
+      if (sortDir === 'asc') setSortDir('desc');
+      else { setSortCol(null); setSortDir(null); }
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+  };
+
+  const handleCopy = async () => {
+    const csv = rowsToCsv(allFlattened);
+    await navigator.clipboard.writeText(csv);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = () => {
+    const csv = rowsToCsv(allFlattened);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'query-results.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="mt-2">
-      <div className="overflow-x-auto rounded border border-border">
+      {/* Table toolbar */}
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] text-muted-foreground">{rowCount} row{rowCount !== 1 ? 's' : ''}</span>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground rounded transition-colors"
+            title="Copy as CSV"
+          >
+            {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+          <button
+            type="button"
+            onClick={handleDownload}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground rounded transition-colors"
+            title="Download CSV"
+          >
+            <Download className="h-3 w-3" />
+            CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-border">
         <table className="min-w-full text-xs">
-          <thead className="bg-muted">
+          <thead className="bg-muted/70">
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col}
-                  className="px-3 py-2 text-left font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap"
-                >
-                  {col.replace(/_/g, ' ')}
-                </th>
-              ))}
+              {columns.map((col) => {
+                const ct = columnTypes[col] ?? 'text';
+                const isNumeric = ct === 'currency' || ct === 'percent' || ct === 'number';
+                const isSorted = sortCol === col;
+                return (
+                  <th
+                    key={col}
+                    onClick={() => handleSort(col)}
+                    className={`px-3 py-2 font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap text-[10px] cursor-pointer select-none hover:text-foreground transition-colors ${isNumeric ? 'text-right' : 'text-left'}`}
+                  >
+                    <span className="inline-flex items-center gap-0.5">
+                      {col.replace(/_/g, ' ')}
+                      {isSorted && sortDir === 'asc' && <ChevronUp className="h-3 w-3" />}
+                      {isSorted && sortDir === 'desc' && <ChevronDown className="h-3 w-3" />}
+                      {!isSorted && <ArrowUpDown className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100" />}
+                    </span>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
-            {flattenedRows.map((row, i) => (
-              <tr key={i} className="hover:bg-accent">
-                {columns.map((col) => (
-                  <td key={col} className="px-3 py-2 text-foreground whitespace-nowrap">
-                    {formatCellValue(row[col])}
-                  </td>
-                ))}
+          <tbody className="divide-y divide-border/50">
+            {visibleRows.map((row, i) => (
+              <tr key={i} className={`hover:bg-accent/50 transition-colors ${i % 2 === 1 ? 'bg-muted/20' : ''}`}>
+                {columns.map((col) => {
+                  const ct = columnTypes[col] ?? 'text';
+                  const isNumeric = ct === 'currency' || ct === 'percent' || ct === 'number';
+                  const cellText = formatCellText(row[col], ct);
+                  const canDrill = onDrillDown && ct === 'text' && cellText !== null;
+                  return (
+                    <td
+                      key={col}
+                      className={`px-3 py-2 text-foreground whitespace-nowrap ${isNumeric ? 'text-right tabular-nums' : ''} ${canDrill ? 'cursor-pointer hover:text-primary hover:underline underline-offset-2' : ''}`}
+                      onClick={canDrill ? () => onDrillDown(buildDrillPrompt(col, cellText, row)) : undefined}
+                      title={canDrill ? 'Click to explore' : undefined}
+                    >
+                      {formatCellValue(row[col], ct, col)}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -123,7 +430,7 @@ function QueryResultTable({ rows, rowCount }: { rows: Record<string, unknown>[];
       {rowCount > 5 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="mt-1 text-xs text-primary hover:text-primary/80"
+          className="mt-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
         >
           {expanded ? 'Show fewer rows' : `Show all ${rowCount} rows`}
         </button>
@@ -577,10 +884,22 @@ interface ChatMessageBubbleProps {
 
 export const ChatMessageBubble = memo(function ChatMessageBubble({ message, showDebug = false, isStreaming = false, onFollowUpSelect }: ChatMessageBubbleProps) {
   const isUser = message.role === 'user';
+  const elRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  // Entrance animation — fade-in + slide-up on mount
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  const animClass = visible
+    ? 'opacity-100 translate-y-0'
+    : 'opacity-0 translate-y-2';
 
   if (isUser) {
     return (
-      <div className="flex justify-end">
+      <div ref={elRef} className={`flex justify-end transition-all duration-300 ease-out ${animClass}`}>
         <div className="max-w-[80%] bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm">
           {message.content}
         </div>
@@ -590,7 +909,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({ message, show
 
   // Assistant message
   return (
-    <div className="flex justify-start">
+    <div ref={elRef} className={`flex justify-start transition-all duration-300 ease-out ${animClass}`}>
       <div className="max-w-[90%] w-full">
         {/* Sparkle indicator + data quality badge */}
         <div className="flex items-center gap-1.5 mb-1.5 text-primary">
@@ -658,7 +977,11 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({ message, show
 
             {/* Data table (if rows returned and chart type is not table) */}
             {message.rows && message.rows.length > 0 && message.chartConfig?.type !== 'table' && (
-              <QueryResultTable rows={message.rows} rowCount={message.rowCount ?? message.rows.length} />
+              <QueryResultTable
+                rows={message.rows}
+                rowCount={message.rowCount ?? message.rows.length}
+                onDrillDown={onFollowUpSelect}
+              />
             )}
 
             {/* Query transparency — how this was calculated */}

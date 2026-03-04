@@ -73,7 +73,8 @@ const STRICT_MULTIPLIER = 1.3;
 const SUSPICIOUS_UA_PATTERNS = [
   'curl', 'wget', 'python-requests', 'python-urllib', 'httpie',
   'postman', 'insomnia', 'go-http-client', 'java/', 'apache-httpclient',
-  'okhttp', 'node-fetch', 'axios', 'got/',
+  'okhttp', 'got/',
+  // NOTE: node-fetch and axios removed — legitimate first-party clients use these
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────

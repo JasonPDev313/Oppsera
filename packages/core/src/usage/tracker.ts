@@ -40,7 +40,6 @@ interface BucketData {
 /** Active buffer keyed by `tenantId:moduleKey:hourBucket` */
 let buffer = new Map<string, BucketData>();
 
-const FLUSH_INTERVAL_MS = 30_000;
 const MAX_BUFFER_SIZE = 5_000;
 const MAX_UNIQUE_USERS_PER_BUCKET = 500;
 const MAX_WORKFLOWS_PER_BUCKET = 200;
@@ -176,8 +175,7 @@ async function checkTablesExist(): Promise<boolean> {
   }
   _tablesChecked = true;
   if (!_tablesExist) {
-    // Stop the timer — no point retrying every 30s if tables don't exist
-    stopFlushTimer();
+    // Tables don't exist — tracking disabled for this instance
   }
   return _tablesExist;
 }
@@ -468,53 +466,8 @@ function generateId(): string {
   return generateUlid();
 }
 
-// ── Timer Setup ──────────────────────────────────────────────
-// DEPRECATED: The setInterval timer was the root cause of the 2026-03-01
-// production outage. Timer callbacks fire DB queries after Vercel sends
-// the HTTP response. When Vercel freezes the event loop, those DB queries
-// become zombie connections stuck in idle/ClientRead until statement_timeout
-// (30s). With max:2 pool, 2-3 zombies = total pool exhaustion.
-//
-// Flushing now happens via `forceFlush()` called from the drain-outbox cron
-// (every minute), which is request-scoped — DB operations complete BEFORE
-// the response is sent. This is safe on Vercel.
-//
-// startFlushTimer/stopFlushTimer are retained for backward compat but
-// should NOT be called on Vercel serverless.
-
-let _flushTimer: ReturnType<typeof setInterval> | null = null;
 /** Guard against concurrent flush */
 let _flushing = false;
-
-/**
- * @deprecated Do NOT use on Vercel serverless. Use forceFlush() from a
- * request-scoped context (e.g., drain-outbox cron) instead.
- */
-export function startFlushTimer(): void {
-  if (_flushTimer) return;
-  console.warn('[UsageTracker] startFlushTimer() called — this is deprecated on Vercel serverless');
-  _flushTimer = setInterval(async () => {
-    if (_flushing) return;
-    _flushing = true;
-    try {
-      await flushBuffer();
-    } catch (err) {
-      console.error('[UsageTracker] timer flush failed:', err instanceof Error ? err.message : err);
-    } finally {
-      _flushing = false;
-    }
-  }, FLUSH_INTERVAL_MS);
-  if (_flushTimer && typeof _flushTimer === 'object' && 'unref' in _flushTimer) {
-    _flushTimer.unref();
-  }
-}
-
-export function stopFlushTimer(): void {
-  if (_flushTimer) {
-    clearInterval(_flushTimer);
-    _flushTimer = null;
-  }
-}
 
 /**
  * Flush the in-memory usage buffer to the database.

@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { assertImpersonationCanModifyPermissions } from '@oppsera/core/auth/impersonation-safety';
+import {
+  assertImpersonationCanModifyPermissions,
+  assertImpersonationCanDelete,
+} from '@oppsera/core/auth/impersonation-safety';
 import { auditLog, computeChanges } from '@oppsera/core/audit';
 import { ValidationError } from '@oppsera/shared';
 import { getUserById, updateUser } from '@oppsera/core';
@@ -49,6 +52,18 @@ export const PATCH = withMiddleware(
     const before = await getUserById({ tenantId: ctx.tenantId, userId });
     const body = await request.json();
     const parsed = updateBody.safeParse(body);
+
+    // Impersonation safety: block soft-deletes (status → inactive/locked)
+    // even when the caller targets a different user's account.
+    // Mirrors the DELETE guard — impersonating admins must not deactivate records.
+    const inactiveStatuses = ['inactive', 'locked'] as const;
+    if (
+      parsed.success &&
+      parsed.data.userStatus !== undefined &&
+      (inactiveStatuses as readonly string[]).includes(parsed.data.userStatus)
+    ) {
+      assertImpersonationCanDelete(ctx);
+    }
     if (!parsed.success) {
       throw new ValidationError(
         'Validation failed',

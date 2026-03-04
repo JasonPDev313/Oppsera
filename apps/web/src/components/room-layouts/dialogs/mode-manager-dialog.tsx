@@ -68,6 +68,7 @@ export function ModeManagerDialog({
 
   const handleDeleteMode = useCallback(
     async (modeName: string) => {
+      // TODO: Replace with async confirmation dialog
       if (!confirm(`Delete mode "${modeName}"? This will archive all its versions.`)) return;
       try {
         await deleteModeApi(roomId, modeName);

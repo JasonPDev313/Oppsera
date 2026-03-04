@@ -102,6 +102,33 @@ export async function register() {
             },
           });
         });
+        // Inventory transfers emit two on-hand deltas: negative at source, positive at destination
+        bus.subscribe('inventory.transferred.v1', async (event) => {
+          const d = event.data as {
+            sourceInventoryItemId: string;
+            destInventoryItemId: string;
+            fromLocationId: string;
+            toLocationId: string;
+            quantity: number;
+          };
+          await reporting.handleInventoryMovement({
+            ...event,
+            data: {
+              inventoryItemId: d.sourceInventoryItemId,
+              locationId: d.fromLocationId,
+              delta: -d.quantity,
+            },
+          });
+          await reporting.handleInventoryMovement({
+            ...event,
+            eventId: `${event.eventId}:dest`,
+            data: {
+              inventoryItemId: d.destInventoryItemId,
+              locationId: d.toLocationId,
+              delta: d.quantity,
+            },
+          });
+        });
         // Modifier analytics read models (rm_modifier_item_sales, rm_modifier_daypart, rm_modifier_group_attach)
         bus.subscribe('order.placed.v1', (event) =>
           reporting.handleOrderPlacedModifiers({
@@ -157,6 +184,8 @@ export async function register() {
         const fnb = await import('@oppsera/module-fnb');
         bus.subscribe('fnb.course.sent.v1', (event) => fnb.handleCourseSent(event.tenantId, event.data as any));
         bus.subscribe('fnb.course.fired.v1', (event) => fnb.handleCourseSent(event.tenantId, event.data as any));
+        // Retail POS → KDS: create kitchen tickets for food/beverage items on order placed
+        bus.subscribe('order.placed.v1', (event) => fnb.handleOrderPlacedForKds(event));
       }),
     ]);
 
@@ -249,6 +278,8 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('spa.package.purchased.v1', accounting.handleSpaPackagePurchaseForAccounting);
       bus.subscribe('spa.package.redeemed.v1', accounting.handleSpaPackageRedemptionForAccounting);
       bus.subscribe('spa.commission.paid.v1', accounting.handleSpaCommissionPaidForAccounting);
+      // F&B tip pool distribution → GL (Dr Tip Liability / Cr Payroll Clearing or Cash)
+      bus.subscribe('fnb.tip.pool_distributed.v1', accounting.handleFnbTipPoolDistributedForAccounting);
     }),
 
     // Unified revenue ledger consumers (PMS, AR, membership, voucher → rm_revenue_activity + rm_daily_sales)

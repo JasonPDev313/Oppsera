@@ -88,38 +88,35 @@ export async function postJournalEntry(
       })
       .returning();
 
-    // 6. Insert journal lines
+    // 6. Insert journal lines (batch — single round-trip)
     const allLines = [...input.lines];
     if (validated.roundingLine) {
       allLines.push(validated.roundingLine);
     }
 
-    const insertedLines = [];
-    for (let i = 0; i < allLines.length; i++) {
-      const line = allLines[i]!;
-      const [inserted] = await tx
-        .insert(glJournalLines)
-        .values({
-          id: generateUlid(),
-          tenantId: ctx.tenantId,
-          journalEntryId: entryId,
-          accountId: line.accountId,
-          debitAmount: line.debitAmount ?? '0',
-          creditAmount: line.creditAmount ?? '0',
-          locationId: line.locationId ?? null,
-          departmentId: line.departmentId ?? null,
-          customerId: line.customerId ?? null,
-          vendorId: line.vendorId ?? null,
-          profitCenterId: line.profitCenterId ?? null,
-          subDepartmentId: line.subDepartmentId ?? null,
-          terminalId: line.terminalId ?? null,
-          channel: line.channel ?? null,
-          memo: line.memo ?? null,
-          sortOrder: i,
-        })
-        .returning();
-      insertedLines.push(inserted!);
-    }
+    const lineValues = allLines.map((line, i) => ({
+      id: generateUlid(),
+      tenantId: ctx.tenantId,
+      journalEntryId: entryId,
+      accountId: line.accountId,
+      debitAmount: line.debitAmount ?? '0',
+      creditAmount: line.creditAmount ?? '0',
+      locationId: line.locationId ?? null,
+      departmentId: line.departmentId ?? null,
+      customerId: line.customerId ?? null,
+      vendorId: line.vendorId ?? null,
+      profitCenterId: line.profitCenterId ?? null,
+      subDepartmentId: line.subDepartmentId ?? null,
+      terminalId: line.terminalId ?? null,
+      channel: line.channel ?? null,
+      memo: line.memo ?? null,
+      sortOrder: i,
+    }));
+
+    const insertedLines = await tx
+      .insert(glJournalLines)
+      .values(lineValues)
+      .returning();
 
     // 7. Compute total for event
     let totalAmount = 0;

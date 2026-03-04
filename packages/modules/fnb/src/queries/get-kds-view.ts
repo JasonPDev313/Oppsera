@@ -44,6 +44,12 @@ export interface KdsTicketCard {
   elapsedSeconds: number;
   items: KdsTicketItem[];
   otherStations: { stationId: string; stationName: string }[];
+  /** Order source from orders table — pos, online, kiosk, delivery */
+  orderSource: string | null;
+  /** Terminal/POS station ID from orders table */
+  terminalId: string | null;
+  /** ISO datetime when order was placed */
+  orderTimestamp: string | null;
 }
 
 export interface KdsCompletedTicket {
@@ -84,15 +90,19 @@ export async function getKdsView(
     const station = stationArr[0];
 
     // Get active tickets that have items at this station
+    // LEFT JOIN orders to pull source, terminal_id, created_at for the KDS card meta row
     const ticketRows = await tx.execute(
       sql`SELECT DISTINCT kt.id, kt.ticket_number, kt.tab_id, kt.course_number,
                  kt.status, kt.priority_level, kt.is_held, kt.order_type,
                  kt.channel, kt.table_number, kt.server_name, kt.customer_name,
                  kt.sent_at, kt.estimated_pickup_at,
-                 EXTRACT(EPOCH FROM (NOW() - kt.sent_at))::integer AS elapsed_seconds
+                 EXTRACT(EPOCH FROM (NOW() - kt.sent_at))::integer AS elapsed_seconds,
+                 o.source AS order_source, o.terminal_id, o.created_at AS order_timestamp
           FROM fnb_kitchen_tickets kt
           INNER JOIN fnb_kitchen_ticket_items kti
             ON kti.ticket_id = kt.id AND kti.station_id = ${input.stationId}
+          LEFT JOIN orders o
+            ON o.id = kt.order_id AND o.tenant_id = kt.tenant_id
           WHERE kt.tenant_id = ${input.tenantId}
             AND kt.location_id = ${input.locationId}
             AND kt.business_date = ${input.businessDate}
@@ -161,6 +171,9 @@ export async function getKdsView(
         elapsedSeconds: Number(t.elapsed_seconds),
         items,
         otherStations: [],
+        orderSource: (t.order_source as string) ?? null,
+        terminalId: (t.terminal_id as string) ?? null,
+        orderTimestamp: (t.order_timestamp as string) ?? null,
       });
     }
 

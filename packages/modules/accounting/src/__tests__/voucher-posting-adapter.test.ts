@@ -208,7 +208,7 @@ describe('Voucher GL Posting Adapters', () => {
     it('should log unmapped event when revenue account missing', async () => {
       const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
       (getAccountingSettings as any).mockResolvedValueOnce({
-        defaultARControlAccountId: null,
+        defaultUncategorizedRevenueAccountId: null,
       });
 
       const { logUnmappedEvent } = await import('../helpers/resolve-mapping');
@@ -222,7 +222,7 @@ describe('Voucher GL Posting Adapters', () => {
     it('should post balanced GL entry: Dr Liability, Cr Revenue', async () => {
       const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
       (getAccountingSettings as any).mockResolvedValueOnce({
-        defaultARControlAccountId: 'acct-revenue',
+        defaultUncategorizedRevenueAccountId: 'acct-revenue',
       });
 
       await handleVoucherRedemptionForAccounting(baseRedeemEvent as any);

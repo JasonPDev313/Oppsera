@@ -307,6 +307,12 @@
 .fnb-slide-in-bottom { animation: fnb-slide-in-bottom var(--fnb-duration-normal) var(--fnb-ease-out); }
 .fnb-bump-out { animation: fnb-bump-out var(--fnb-duration-normal) var(--fnb-ease-in) forwards; }
 
+/* ── KDS Aging Pulse ────────────────────────────────────────────── */
+@keyframes kds-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 /* ── Utility Classes ──────────────────────────────────────────────── */
 .fnb-mono { font-family: var(--fnb-font-mono); }
 .fnb-touch-min { min-height: var(--fnb-touch-min); min-width: var(--fnb-touch-min); }

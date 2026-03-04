@@ -647,6 +647,7 @@ export default function AppointmentDetailContent() {
       }
 
       if (confirmMessage) {
+        // TODO: Replace with async confirmation dialog
         const confirmed = window.confirm(confirmMessage);
         if (!confirmed) return;
       }

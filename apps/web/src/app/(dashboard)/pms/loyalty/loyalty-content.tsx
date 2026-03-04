@@ -753,7 +753,7 @@ function MembersTab() {
     setCursor(null);
     setHasMore(false);
     fetchMembers(false);
-  }, [searchTerm]); // eslint-disable-line
+  }, [searchTerm]);  
 
   const toggleExpanded = useCallback((id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -1139,7 +1139,7 @@ function MemberTransactions({ memberId }: { memberId: string }) {
 
   useEffect(() => {
     fetchTransactions(false);
-  }, [memberId]); // eslint-disable-line
+  }, [memberId]);  
 
   const typeColors: Record<string, string> = {
     earn: 'success',
@@ -1524,7 +1524,7 @@ function EnrollDialog({
       }
     })();
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line
+  }, []);  
 
   const handleSubmit = useCallback(async () => {
     setFormError(null);

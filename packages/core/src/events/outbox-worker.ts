@@ -146,7 +146,7 @@ export class OutboxWorker {
           UPDATE event_outbox
           SET published_at = NULL
           WHERE published_at IS NOT NULL
-            AND published_at < NOW() - INTERVAL '${sql.raw(String(OutboxWorker.STALE_CLAIM_THRESHOLD_MINUTES))} minutes'
+            AND published_at < NOW() - INTERVAL '10 minutes'
           RETURNING id
         `),
       ) as unknown as Array<{ id: string }>;
