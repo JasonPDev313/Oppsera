@@ -31,12 +31,21 @@ export async function voidCheck(
 
     // Ownership check: verify the current user is the tab's server, or holds the void permission
     const [tab] = await tx
-      .select({ serverUserId: fnbTabs.serverUserId })
+      .select({ serverUserId: fnbTabs.serverUserId, primaryOrderId: fnbTabs.primaryOrderId })
       .from(fnbTabs)
       .where(and(eq(fnbTabs.id, tabId), eq(fnbTabs.tenantId, ctx.tenantId)));
 
     if (!tab) {
       throw new AppError('NOT_FOUND', 'Tab not found', 404);
+    }
+
+    // F7 fix: verify orderId actually belongs to this tab
+    if (tab.primaryOrderId !== input.orderId) {
+      throw new AppError(
+        'INVALID_INPUT',
+        `Order ${input.orderId} does not belong to tab ${tabId}`,
+        400,
+      );
     }
 
     const isTabOwner = tab.serverUserId === ctx.user.id;
@@ -49,13 +58,23 @@ export async function voidCheck(
       );
     }
 
-    // Void the order
-    await tx.execute(
+    // F6 fix: only void orders in voidable states — guard against voiding paid/refunded orders
+    const voidRows = await tx.execute(
       sql`UPDATE orders
           SET status = 'voided', voided_at = NOW(), voided_by = ${ctx.user.id},
               void_reason = ${input.reason}, updated_at = NOW(), version = version + 1
-          WHERE id = ${input.orderId} AND tenant_id = ${ctx.tenantId}`,
+          WHERE id = ${input.orderId} AND tenant_id = ${ctx.tenantId}
+            AND status IN ('draft', 'open', 'placed', 'in_progress')
+          RETURNING id`,
     );
+    const voidArr = Array.from(voidRows as Iterable<Record<string, unknown>>);
+    if (voidArr.length === 0) {
+      throw new AppError(
+        'ORDER_NOT_VOIDABLE',
+        'Order cannot be voided — it may already be paid, voided, or refunded',
+        409,
+      );
+    }
 
     const payload: CheckVoidedPayload = {
       orderId: input.orderId,

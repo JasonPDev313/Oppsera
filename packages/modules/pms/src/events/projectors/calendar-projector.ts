@@ -71,29 +71,20 @@ async function rebuildSegments(
     ids.push(generateUlid());
   }
 
-  // Batch insert all segments in a single statement using generate_series + UNNEST for IDs
-  const idsArray = sql`ARRAY[${sql.join(ids.map(id => sql`${id}`), sql`, `)}]`;
+  // Batch insert all segments using multi-row VALUES (avoids unnest type inference issues)
+  const rows = ids.map((id, i) => {
+    const d = new Date(ciDate);
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0]!;
+    return sql`(${id}, ${tenantId}, ${propertyId}, ${roomId}, ${dateStr}::date, ${reservationId}, ${status}, ${guestName}, ${checkInDate}::date, ${checkOutDate}::date, ${sourceType}, ${colorKey}, NOW())`;
+  });
   await tx.execute(sql`
     INSERT INTO rm_pms_calendar_segments (
       id, tenant_id, property_id, room_id, business_date,
       reservation_id, status, guest_name, check_in_date, check_out_date,
       source_type, color_key, created_at
     )
-    SELECT
-      unnest(${idsArray}),
-      ${tenantId},
-      ${propertyId},
-      ${roomId},
-      d::date,
-      ${reservationId},
-      ${status},
-      ${guestName},
-      ${checkInDate}::date,
-      ${checkOutDate}::date,
-      ${sourceType},
-      ${colorKey},
-      NOW()
-    FROM generate_series(${checkInDate}::date, ${checkOutDate}::date - interval '1 day', '1 day') d
+    VALUES ${sql.join(rows, sql`, `)}
   `);
 }
 

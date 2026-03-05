@@ -59,66 +59,100 @@ export interface AccountingSettings {
  * Fetch accounting settings for a tenant.
  * Returns null if no settings row exists.
  * Used by many commands and queries that need tenant GL configuration.
+ *
+ * Falls back to raw SQL if Drizzle SELECT * fails due to schema/migration
+ * mismatch (e.g., new columns in Drizzle schema that don't exist in the DB yet).
  */
 export async function getAccountingSettings(
   tx: Database,
   tenantId: string,
 ): Promise<AccountingSettings | null> {
-  const [row] = await tx
-    .select()
-    .from(accountingSettings)
-    .where(eq(accountingSettings.tenantId, tenantId))
-    .limit(1);
+  try {
+    const [row] = await tx
+      .select()
+      .from(accountingSettings)
+      .where(eq(accountingSettings.tenantId, tenantId))
+      .limit(1);
 
-  if (!row) {
-    return null;
+    if (!row) {
+      return null;
+    }
+
+    return mapRow(row);
+  } catch (err) {
+    const msg = String((err as Error)?.message ?? '').toLowerCase();
+    if (msg.includes('column') && msg.includes('does not exist')) {
+      // Schema mismatch — Drizzle schema has columns the DB doesn't.
+      // Fall back to raw SQL with only the core columns.
+      return getAccountingSettingsRaw(tx, tenantId);
+    }
+    throw err;
   }
+}
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function mapRow(row: any): AccountingSettings {
   return {
-    tenantId: row.tenantId,
-    baseCurrency: row.baseCurrency,
-    fiscalYearStartMonth: row.fiscalYearStartMonth,
-    autoPostMode: row.autoPostMode,
-    lockPeriodThrough: row.lockPeriodThrough,
-    defaultAPControlAccountId: row.defaultAPControlAccountId,
-    defaultARControlAccountId: row.defaultARControlAccountId,
-    defaultSalesTaxPayableAccountId: row.defaultSalesTaxPayableAccountId,
-    defaultUndepositedFundsAccountId: row.defaultUndepositedFundsAccountId,
-    defaultRetainedEarningsAccountId: row.defaultRetainedEarningsAccountId,
-    defaultRoundingAccountId: row.defaultRoundingAccountId,
-    defaultPmsGuestLedgerAccountId: row.defaultPmsGuestLedgerAccountId ?? null,
-    roundingToleranceCents: row.roundingToleranceCents,
-    enableCogsPosting: row.enableCogsPosting,
-    enableInventoryPosting: row.enableInventoryPosting,
-    postByLocation: row.postByLocation,
-    enableUndepositedFundsWorkflow: row.enableUndepositedFundsWorkflow,
-    enableLegacyGlPosting: row.enableLegacyGlPosting,
-    defaultTipsPayableAccountId: row.defaultTipsPayableAccountId ?? null,
-    defaultServiceChargeRevenueAccountId: row.defaultServiceChargeRevenueAccountId ?? null,
-    defaultCashOverShortAccountId: row.defaultCashOverShortAccountId ?? null,
-    defaultCompExpenseAccountId: row.defaultCompExpenseAccountId ?? null,
-    defaultReturnsAccountId: row.defaultReturnsAccountId ?? null,
-    defaultPayrollClearingAccountId: row.defaultPayrollClearingAccountId ?? null,
-    defaultUncategorizedRevenueAccountId: row.defaultUncategorizedRevenueAccountId ?? null,
-    cogsPostingMode: row.cogsPostingMode,
-    periodicCogsLastCalculatedDate: row.periodicCogsLastCalculatedDate ?? null,
-    periodicCogsMethod: row.periodicCogsMethod ?? null,
-    recognizeBreakageAutomatically: row.recognizeBreakageAutomatically,
-    breakageRecognitionMethod: row.breakageRecognitionMethod,
-    breakageIncomeAccountId: row.breakageIncomeAccountId ?? null,
-    voucherExpiryEnabled: row.voucherExpiryEnabled,
-    enableAutoRemap: row.enableAutoRemap,
-    defaultSurchargeRevenueAccountId: row.defaultSurchargeRevenueAccountId ?? null,
-    defaultAchReceivableAccountId: row.defaultAchReceivableAccountId ?? null,
-    defaultDiscountAccountId: row.defaultDiscountAccountId ?? null,
-    defaultPriceOverrideExpenseAccountId: row.defaultPriceOverrideExpenseAccountId ?? null,
-    autoCloseEnabled: row.autoCloseEnabled,
-    autoCloseTime: row.autoCloseTime ?? '02:00',
-    autoCloseSkipHolidays: row.autoCloseSkipHolidays,
-    dayEndCloseEnabled: row.dayEndCloseEnabled,
-    dayEndCloseTime: row.dayEndCloseTime ?? '23:00',
-    supportedCurrencies: row.supportedCurrencies ?? ['USD'],
+    tenantId: row.tenantId ?? row.tenant_id,
+    baseCurrency: row.baseCurrency ?? row.base_currency ?? 'USD',
+    fiscalYearStartMonth: Number(row.fiscalYearStartMonth ?? row.fiscal_year_start_month ?? 1),
+    autoPostMode: row.autoPostMode ?? row.auto_post_mode ?? 'auto',
+    lockPeriodThrough: row.lockPeriodThrough ?? row.lock_period_through ?? null,
+    defaultAPControlAccountId: row.defaultAPControlAccountId ?? row.default_ap_control_account_id ?? null,
+    defaultARControlAccountId: row.defaultARControlAccountId ?? row.default_ar_control_account_id ?? null,
+    defaultSalesTaxPayableAccountId: row.defaultSalesTaxPayableAccountId ?? row.default_sales_tax_payable_account_id ?? null,
+    defaultUndepositedFundsAccountId: row.defaultUndepositedFundsAccountId ?? row.default_undeposited_funds_account_id ?? null,
+    defaultRetainedEarningsAccountId: row.defaultRetainedEarningsAccountId ?? row.default_retained_earnings_account_id ?? null,
+    defaultRoundingAccountId: row.defaultRoundingAccountId ?? row.default_rounding_account_id ?? null,
+    defaultPmsGuestLedgerAccountId: row.defaultPmsGuestLedgerAccountId ?? row.default_pms_guest_ledger_account_id ?? null,
+    roundingToleranceCents: Number(row.roundingToleranceCents ?? row.rounding_tolerance_cents ?? 5),
+    enableCogsPosting: row.enableCogsPosting ?? row.enable_cogs_posting ?? false,
+    enableInventoryPosting: row.enableInventoryPosting ?? row.enable_inventory_posting ?? false,
+    postByLocation: row.postByLocation ?? row.post_by_location ?? false,
+    enableUndepositedFundsWorkflow: row.enableUndepositedFundsWorkflow ?? row.enable_undeposited_funds_workflow ?? false,
+    enableLegacyGlPosting: row.enableLegacyGlPosting ?? row.enable_legacy_gl_posting ?? false,
+    defaultTipsPayableAccountId: row.defaultTipsPayableAccountId ?? row.default_tips_payable_account_id ?? null,
+    defaultServiceChargeRevenueAccountId: row.defaultServiceChargeRevenueAccountId ?? row.default_service_charge_revenue_account_id ?? null,
+    defaultCashOverShortAccountId: row.defaultCashOverShortAccountId ?? row.default_cash_over_short_account_id ?? null,
+    defaultCompExpenseAccountId: row.defaultCompExpenseAccountId ?? row.default_comp_expense_account_id ?? null,
+    defaultReturnsAccountId: row.defaultReturnsAccountId ?? row.default_returns_account_id ?? null,
+    defaultPayrollClearingAccountId: row.defaultPayrollClearingAccountId ?? row.default_payroll_clearing_account_id ?? null,
+    defaultUncategorizedRevenueAccountId: row.defaultUncategorizedRevenueAccountId ?? row.default_uncategorized_revenue_account_id ?? null,
+    cogsPostingMode: row.cogsPostingMode ?? row.cogs_posting_mode ?? 'disabled',
+    periodicCogsLastCalculatedDate: row.periodicCogsLastCalculatedDate ?? row.periodic_cogs_last_calculated_date ?? null,
+    periodicCogsMethod: row.periodicCogsMethod ?? row.periodic_cogs_method ?? null,
+    recognizeBreakageAutomatically: row.recognizeBreakageAutomatically ?? row.recognize_breakage_automatically ?? false,
+    breakageRecognitionMethod: row.breakageRecognitionMethod ?? row.breakage_recognition_method ?? 'on_expiry',
+    breakageIncomeAccountId: row.breakageIncomeAccountId ?? row.breakage_income_account_id ?? null,
+    voucherExpiryEnabled: row.voucherExpiryEnabled ?? row.voucher_expiry_enabled ?? false,
+    enableAutoRemap: row.enableAutoRemap ?? row.enable_auto_remap ?? false,
+    defaultSurchargeRevenueAccountId: row.defaultSurchargeRevenueAccountId ?? row.default_surcharge_revenue_account_id ?? null,
+    defaultAchReceivableAccountId: row.defaultAchReceivableAccountId ?? row.default_ach_receivable_account_id ?? null,
+    defaultDiscountAccountId: row.defaultDiscountAccountId ?? row.default_discount_account_id ?? null,
+    defaultPriceOverrideExpenseAccountId: row.defaultPriceOverrideExpenseAccountId ?? row.default_price_override_expense_account_id ?? null,
+    autoCloseEnabled: row.autoCloseEnabled ?? row.auto_close_enabled ?? false,
+    autoCloseTime: row.autoCloseTime ?? row.auto_close_time ?? '02:00',
+    autoCloseSkipHolidays: row.autoCloseSkipHolidays ?? row.auto_close_skip_holidays ?? false,
+    dayEndCloseEnabled: row.dayEndCloseEnabled ?? row.day_end_close_enabled ?? false,
+    dayEndCloseTime: row.dayEndCloseTime ?? row.day_end_close_time ?? '23:00',
+    supportedCurrencies: row.supportedCurrencies ?? row.supported_currencies ?? ['USD'],
   };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+/**
+ * Raw SQL fallback for getAccountingSettings.
+ * Only selects columns guaranteed to exist (pre-migration 0238).
+ * New columns from 0238+ default to null/false.
+ */
+async function getAccountingSettingsRaw(
+  tx: Database,
+  tenantId: string,
+): Promise<AccountingSettings | null> {
+  const result = await tx.execute(sql`SELECT * FROM accounting_settings WHERE tenant_id = ${tenantId} LIMIT 1`);
+  const rows = Array.from(result as Iterable<Record<string, unknown>>);
+  if (rows.length === 0) return null;
+  return mapRow(rows[0]);
 }
 
 /**

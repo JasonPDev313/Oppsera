@@ -64,6 +64,12 @@ export async function hostAddToWaitlist(
 
   const result = await publishWithOutbox(ctx, async (tx) => {
 
+    // F12 fix: advisory lock prevents concurrent position collision.
+    // Without it, two simultaneous adds can compute the same MAX(position) + 1.
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtext(${ctx.tenantId} || ':waitlist:' || ${ctx.locationId} || ':' || ${businessDate}))
+    `);
+
     // Calculate next position: MAX(position) + 1 for active entries
     const posRows = await tx.execute(sql`
       SELECT COALESCE(MAX(position), 0) + 1 AS next_pos

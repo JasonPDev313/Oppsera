@@ -3,7 +3,7 @@ import { withTenant } from '@oppsera/db';
 import { orderLines } from '@oppsera/db';
 import type { EventEnvelope } from '@oppsera/shared/types/events';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { resolveStationRouting } from '../services/kds-routing-engine';
+import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from '../commands/create-kitchen-ticket';
 
@@ -14,8 +14,9 @@ const KDS_ITEM_TYPES = ['food', 'beverage'];
  *
  * When a retail order is placed (no FnB tab), this consumer:
  * 1. Fetches order lines filtered to food/beverage
- * 2. Bulk-resolves KDS stations via the routing engine (2 queries)
- * 3. Groups items by station, creates tickets in parallel
+ * 2. Enriches items with catalog hierarchy (categoryId, departmentId) + modifierIds
+ * 3. Bulk-resolves KDS stations via the routing engine
+ * 4. Groups items by station, creates tickets in parallel
  *
  * Idempotent via deterministic clientRequestId per order+station.
  * Never throws — logs errors and continues.
@@ -69,21 +70,32 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
 
     if (!lines.length) return;
 
-    // 2. Bulk-resolve stations — single query for rules + single for fallback
-    //    stations (vs N×3 sequential queries with resolveStation).
-    //    Also doubles as station-existence check: all nulls = no stations.
-    const routableItems: RoutableItem[] = lines.map((line) => ({
+    // 2. Build routable items with modifierIds extracted from JSONB
+    let routableItems: RoutableItem[] = lines.map((line) => ({
       orderLineId: line.id,
       catalogItemId: line.catalogItemId,
       subDepartmentId: line.subDepartmentId ?? null,
+      modifierIds: extractModifierIds(line.modifiers),
     }));
 
+    // 3. Enrich with categoryId + departmentId from catalog hierarchy
+    routableItems = await enrichRoutableItems(event.tenantId, routableItems);
+
+    // 4. Bulk-resolve stations with full context
     const routingResults = await resolveStationRouting(
-      { tenantId: event.tenantId, locationId: data.locationId },
+      { tenantId: event.tenantId, locationId: data.locationId, channel: 'pos' },
       routableItems,
     );
 
-    // 3. Build a line lookup and group routed items by station
+    // Log items that couldn't be routed (no eligible station)
+    const unrouted = routingResults.filter((r) => !r.stationId);
+    if (unrouted.length > 0) {
+      console.warn(
+        `[handleOrderPlacedForKds] ${unrouted.length} item(s) could not be routed to any KDS station for order ${data.orderId}`,
+      );
+    }
+
+    // 5. Build a line lookup and group routed items by station
     const lineMap = new Map(lines.map((l) => [l.id, l]));
 
     const stationGroups = new Map<string, Array<{
@@ -120,7 +132,7 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
 
     if (stationGroups.size === 0) return;
 
-    // 4. Create one ticket per station — parallel since they're independent
+    // 6. Create one ticket per station — parallel since they're independent
     const syntheticCtx = {
       tenantId: event.tenantId,
       locationId: data.locationId,
@@ -155,6 +167,20 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
       `[handleOrderPlacedForKds] Unhandled error for order ${data.orderId}: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
+}
+
+/** Extract modifier IDs from the JSONB modifiers array. */
+function extractModifierIds(modifiers: unknown): string[] {
+  if (!Array.isArray(modifiers)) return [];
+  const ids: string[] = [];
+  for (const mod of modifiers) {
+    if (typeof mod === 'object' && mod !== null) {
+      const m = mod as Record<string, unknown>;
+      const id = m.modifierId as string | undefined;
+      if (id) ids.push(id);
+    }
+  }
+  return ids;
 }
 
 /** Formats the JSONB modifiers array into a human-readable summary string. */

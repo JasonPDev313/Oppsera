@@ -95,36 +95,17 @@ async function recalculateOccupancy(
   const stats = Array.from(dailyStats as Iterable<Record<string, unknown>>);
   if (stats.length === 0) return;
 
-  // 3. Batch upsert all dates in a single statement using UNNEST
-  const ids: string[] = [];
-  const businessDates: string[] = [];
-  const roomsOccupiedArr: number[] = [];
-  const roomsAvailableArr: number[] = [];
-  const occupancyPctArr: string[] = [];
-  const arrivalsArr: number[] = [];
-  const departuresArr: number[] = [];
-
-  for (const row of stats) {
+  // 3. Batch upsert all dates using multi-row VALUES (avoids unnest type inference issues)
+  const valueRows = stats.map((row) => {
     const occupied = Number(row.rooms_occupied ?? 0);
     const available = totalRooms - occupied - oooRooms;
     const pct = totalRooms > 0 ? Math.round((occupied / totalRooms) * 10000) / 100 : 0;
+    const dateStr = String(row.business_date).split('T')[0]!;
+    const arrivals = Number(row.arrivals ?? 0);
+    const departures = Number(row.departures ?? 0);
 
-    ids.push(generateUlid());
-    businessDates.push(String(row.business_date).split('T')[0]!);
-    roomsOccupiedArr.push(occupied);
-    roomsAvailableArr.push(available);
-    occupancyPctArr.push(String(pct));
-    arrivalsArr.push(Number(row.arrivals ?? 0));
-    departuresArr.push(Number(row.departures ?? 0));
-  }
-
-  const idsArray = sql`ARRAY[${sql.join(ids.map(v => sql`${v}`), sql`, `)}]`;
-  const datesArray = sql`ARRAY[${sql.join(businessDates.map(v => sql`${v}::date`), sql`, `)}]`;
-  const occupiedArray = sql`ARRAY[${sql.join(roomsOccupiedArr.map(v => sql`${v}::int`), sql`, `)}]`;
-  const availableArray = sql`ARRAY[${sql.join(roomsAvailableArr.map(v => sql`${v}::int`), sql`, `)}]`;
-  const pctArray = sql`ARRAY[${sql.join(occupancyPctArr.map(v => sql`${v}::numeric`), sql`, `)}]`;
-  const arrivArray = sql`ARRAY[${sql.join(arrivalsArr.map(v => sql`${v}::int`), sql`, `)}]`;
-  const departArray = sql`ARRAY[${sql.join(departuresArr.map(v => sql`${v}::int`), sql`, `)}]`;
+    return sql`(${generateUlid()}, ${tenantId}, ${propertyId}, ${dateStr}::date, ${totalRooms}, ${occupied}, ${available}, ${oooRooms}, ${pct}::numeric, ${arrivals}, ${departures}, NOW(), NOW())`;
+  });
 
   await tx.execute(sql`
     INSERT INTO rm_pms_daily_occupancy (
@@ -132,20 +113,7 @@ async function recalculateOccupancy(
       total_rooms, rooms_occupied, rooms_available, rooms_ooo,
       occupancy_pct, arrivals, departures, created_at, updated_at
     )
-    SELECT
-      unnest(${idsArray}),
-      ${tenantId},
-      ${propertyId},
-      unnest(${datesArray}),
-      ${totalRooms},
-      unnest(${occupiedArray}),
-      unnest(${availableArray}),
-      ${oooRooms},
-      unnest(${pctArray}),
-      unnest(${arrivArray}),
-      unnest(${departArray}),
-      NOW(),
-      NOW()
+    VALUES ${sql.join(valueRows, sql`, `)}
     ON CONFLICT (tenant_id, property_id, business_date)
     DO UPDATE SET
       total_rooms = EXCLUDED.total_rooms,

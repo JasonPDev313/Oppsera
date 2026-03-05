@@ -130,4 +130,13 @@ export default withSentryConfig(withAnalyzer, {
   widenClientFileUpload: true,
   tunnelRoute: '/monitoring',
   silent: !process.env.CI,
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+  release: {
+    create: !!process.env.SENTRY_AUTH_TOKEN,
+  },
+  errorHandler: (err) => {
+    console.warn('[sentry] Source map upload failed (non-fatal):', err.message);
+  },
 });

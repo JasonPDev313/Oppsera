@@ -185,27 +185,41 @@ export async function getKdsView(
       orderTimestamp: (t.order_timestamp as string) ?? null,
     }));
 
-    // Fetch cross-station "Also At" data for all active tickets
+    // Fetch cross-station "Also At" data for all active tickets.
+    // Since each ticket is single-station (consumers group items by station and
+    // create separate tickets), we look up sibling tickets for the same ORDER
+    // at other stations to show cross-station visibility.
     if (ticketCards.length > 0) {
       const ticketIds = ticketCards.map((tc) => tc.ticketId);
       const otherStationRows = await tx.execute(
-        sql`SELECT DISTINCT kti.ticket_id, kti.station_id, ks.display_name AS station_name
-            FROM fnb_kitchen_ticket_items kti
+        sql`SELECT DISTINCT kt_this.id AS ticket_id,
+                   kti_other.station_id, ks.display_name AS station_name
+            FROM fnb_kitchen_tickets kt_this
+            INNER JOIN fnb_kitchen_tickets kt_sibling
+              ON kt_sibling.order_id = kt_this.order_id
+              AND kt_sibling.tenant_id = kt_this.tenant_id
+              AND kt_sibling.id != kt_this.id
+            INNER JOIN fnb_kitchen_ticket_items kti_other
+              ON kti_other.ticket_id = kt_sibling.id
+              AND kti_other.station_id != ${input.stationId}
+              AND kti_other.item_status NOT IN ('served', 'voided')
             INNER JOIN fnb_kitchen_stations ks
-              ON ks.id = kti.station_id AND ks.tenant_id = ${input.tenantId}
-            WHERE kti.ticket_id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})
-              AND kti.station_id != ${input.stationId}
-              AND kti.item_status NOT IN ('served', 'voided')`,
+              ON ks.id = kti_other.station_id AND ks.tenant_id = ${input.tenantId}
+            WHERE kt_this.id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})`,
       );
       const otherStations = Array.from(otherStationRows as Iterable<Record<string, unknown>>);
       const stationsByTicket = new Map<string, { stationId: string; stationName: string }[]>();
       for (const row of otherStations) {
         const tid = row.ticket_id as string;
         if (!stationsByTicket.has(tid)) stationsByTicket.set(tid, []);
-        stationsByTicket.get(tid)!.push({
-          stationId: row.station_id as string,
-          stationName: (row.station_name as string) ?? 'Unknown',
-        });
+        const existing = stationsByTicket.get(tid)!;
+        // Deduplicate by stationId
+        if (!existing.some((s) => s.stationId === (row.station_id as string))) {
+          existing.push({
+            stationId: row.station_id as string,
+            stationName: (row.station_name as string) ?? 'Unknown',
+          });
+        }
       }
       for (const card of ticketCards) {
         card.otherStations = stationsByTicket.get(card.ticketId) ?? [];

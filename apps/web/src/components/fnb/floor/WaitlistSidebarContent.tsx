@@ -5,7 +5,6 @@ import {
   Users,
   Clock,
   Star,
-  ArrowRight,
   Bell,
   X,
   Plus,
@@ -164,7 +163,6 @@ export function WaitlistSidebarContent() {
               <WaitlistMiniCard
                 key={entry.id}
                 entry={entry}
-                onSeat={() => waitlistMut.seatGuest({ id: entry.id, tableId: '' })}
                 onNotify={() => waitlistMut.notifyGuest({ id: entry.id })}
                 onRemove={() => waitlistMut.removeGuest({ id: entry.id })}
               />
@@ -267,9 +265,10 @@ export function WaitlistSidebarContent() {
 
 // ── Mini Waitlist Card ────────────────────────────────────────────
 
+// F14 fix: Removed onSeat — sidebar cannot select a table.
+// Full seating flow (with floor plan table selection) lives in host-content.tsx.
 function WaitlistMiniCard({
   entry,
-  onSeat,
   onNotify,
   onRemove,
 }: {
@@ -282,7 +281,6 @@ function WaitlistMiniCard({
     status: string;
     seatingPreference: string | null;
   };
-  onSeat: () => void;
   onNotify: () => void;
   onRemove: () => void;
 }) {
@@ -337,15 +335,6 @@ function WaitlistMiniCard({
           </span>
         )}
         <div className="flex items-center gap-1 ml-auto">
-          <button
-            type="button"
-            onClick={onSeat}
-            className="flex items-center justify-center rounded h-6 w-6 transition-colors"
-            style={{ backgroundColor: 'rgba(34, 197, 94, 0.12)', color: 'var(--fnb-success)' }}
-            title="Seat"
-          >
-            <ArrowRight size={12} />
-          </button>
           <button
             type="button"
             onClick={onNotify}

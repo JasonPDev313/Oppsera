@@ -1,7 +1,7 @@
-import { db, createAdminClient } from '@oppsera/db';
+import { db } from '@oppsera/db';
 import { platformRestoreOperations } from '@oppsera/db/schema';
 import { sql, eq } from 'drizzle-orm';
-import { createBackup } from './backup-service';
+import { createBackup, getValidatedAdminClient } from './backup-service';
 import { StreamingBackupReader } from './streaming-loader';
 import { getTableDependencyOrder, getSchemaVersion } from './table-discovery';
 import type { BackupManifest, BackupPayload, RestoreValidation, TenantRestoreValidation, RestoreProgress } from './types';
@@ -159,8 +159,11 @@ export async function executeRestore(restoreOpId: string): Promise<void> {
       throw new Error(`Backup incompatible: ${validation.errors.join('; ')}`);
     }
 
+    // Use validated admin client (direct connection) for all restore operations
+    const adminDb = getValidatedAdminClient();
+
     // 4. Determine which tables to restore (only those in both backup AND current DB)
-    const currentTablesResult = await db.execute(sql`
+    const currentTablesResult = await adminDb.execute(sql`
       SELECT table_name
       FROM information_schema.tables
       WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
@@ -173,16 +176,14 @@ export async function executeRestore(restoreOpId: string): Promise<void> {
       (t) => currentTables.has(t) && !EXCLUDED_SYSTEM_TABLES.has(t),
     );
 
-    // 5. Get dependency order
-    const orderedNames = await getTableDependencyOrder(backupTableNames);
+    // 5. Get dependency order — via admin client to avoid Supavisor timeout
+    const orderedNames = await getTableDependencyOrder(backupTableNames, adminDb);
 
     // 6. Atomic restore in a single transaction with RLS bypass
     let tablesRestored = 0;
     let rowsRestored = 0;
 
     try {
-      // Use direct connection (adminDb) — Supavisor pooler blocks SET LOCAL statement_timeout
-      const adminDb = createAdminClient();
       await adminDb.transaction(async (tx) => {
         // Set generous timeouts for restore (large tables take time)
         await tx.execute(sql`SET LOCAL statement_timeout = '300s'`);
@@ -441,8 +442,11 @@ export async function executeTenantRestore(restoreOpId: string): Promise<void> {
       throw new Error(`Backup incompatible: ${validation.errors.join('; ')}`);
     }
 
+    // Use validated admin client (direct connection) for all restore operations
+    const adminDb = getValidatedAdminClient();
+
     // 4. Determine which tables to restore
-    const currentTablesResult = await db.execute(sql`
+    const currentTablesResult = await adminDb.execute(sql`
       SELECT table_name
       FROM information_schema.tables
       WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
@@ -455,16 +459,14 @@ export async function executeTenantRestore(restoreOpId: string): Promise<void> {
       (t) => currentTables.has(t) && !EXCLUDED_SYSTEM_TABLES.has(t),
     );
 
-    // 5. Get dependency order
-    const orderedNames = await getTableDependencyOrder(backupTableNames);
+    // 5. Get dependency order — via admin client to avoid Supavisor timeout
+    const orderedNames = await getTableDependencyOrder(backupTableNames, adminDb);
 
     // 6. Atomic tenant-scoped restore in a single transaction
     let tablesRestored = 0;
     let rowsRestored = 0;
 
     try {
-      // Use direct connection (adminDb) — Supavisor pooler blocks SET LOCAL statement_timeout
-      const adminDb = createAdminClient();
       await adminDb.transaction(async (tx) => {
         await tx.execute(sql`SET LOCAL statement_timeout = '300s'`);
         await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '600s'`);

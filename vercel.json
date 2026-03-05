@@ -25,6 +25,10 @@
     {
       "path": "/api/v1/internal/cleanup-processed-events",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/v1/fnb/cron/auto-close-batches",
+      "schedule": "0 4 * * *"
     }
   ]
 }

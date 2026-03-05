@@ -163,16 +163,26 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
 
       // Only log activity if the customer actually exists (FK guard)
       if (updatedRows.length > 0) {
-        await tx.insert(customerActivityLog).values({
-          id: generateUlid(),
-          tenantId: event.tenantId,
-          customerId,
-          activityType: 'order_placed',
-          title: `Order #${orderNumber} placed`,
-          details: `Total: $${(total / 100).toFixed(2)}`,
-          metadata: { orderId, total },
-          createdBy,
-        });
+        try {
+          await tx.insert(customerActivityLog).values({
+            id: generateUlid(),
+            tenantId: event.tenantId,
+            customerId,
+            activityType: 'order_placed',
+            title: `Order #${orderNumber} placed`,
+            details: `Total: $${(total / 100).toFixed(2)}`,
+            metadata: { orderId, total },
+            createdBy,
+          });
+        } catch (err) {
+          // FK violation = stale customerId — activity log is non-critical, skip
+          const msg = String((err as Error)?.message ?? '');
+          if (msg.includes('foreign key constraint')) {
+            console.warn(`[customers] Activity log skipped for order ${orderId}: customer ${customerId} no longer exists`);
+          } else {
+            throw err;
+          }
+        }
       }
     }
 
@@ -256,16 +266,25 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
             .limit(1);
 
           if (customerExists) {
-            await tx.insert(customerActivityLog).values({
-              id: generateUlid(),
-              tenantId: event.tenantId,
-              customerId: activityCustomerId,
-              activityType: 'billing_charge',
-              title: `House account charged for Order #${orderNumber}`,
-              details: `Charge: ${total}`,
-              metadata: { orderId, billingAccountId, amountCents: total },
-              createdBy,
-            });
+            try {
+              await tx.insert(customerActivityLog).values({
+                id: generateUlid(),
+                tenantId: event.tenantId,
+                customerId: activityCustomerId,
+                activityType: 'billing_charge',
+                title: `House account charged for Order #${orderNumber}`,
+                details: `Charge: ${total}`,
+                metadata: { orderId, billingAccountId, amountCents: total },
+                createdBy,
+              });
+            } catch (err) {
+              const msg = String((err as Error)?.message ?? '');
+              if (msg.includes('foreign key constraint')) {
+                console.warn(`[customers] Activity log skipped for billing charge on order ${orderId}: customer ${activityCustomerId} no longer exists`);
+              } else {
+                throw err;
+              }
+            }
           }
         }
       }
@@ -438,10 +457,9 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
       businessDate,
     };
 
-    // 3. Activity log
-    const activityCustomerId = originalCharge.customerId;
-    if (!activityCustomerId) {
-      // Fall back to billing account's primary customer
+    // 3. Activity log (guard: verify customer exists before FK insert)
+    let resolvedCustomerId = originalCharge.customerId;
+    if (!resolvedCustomerId) {
       const [billingAccount] = await tx
         .select({ primaryCustomerId: billingAccounts.primaryCustomerId })
         .from(billingAccounts)
@@ -452,30 +470,42 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
           ),
         )
         .limit(1);
+      resolvedCustomerId = billingAccount?.primaryCustomerId ?? null;
+    }
 
-      if (billingAccount?.primaryCustomerId) {
-        await tx.insert(customerActivityLog).values({
-          id: generateUlid(),
-          tenantId: event.tenantId,
-          customerId: billingAccount.primaryCustomerId,
-          activityType: 'billing_reversal',
-          title: `House account charge reversed for voided Order #${orderNumber}`,
-          details: reason,
-          metadata: { orderId, billingAccountId: originalCharge.billingAccountId, reversalAmountCents: reversalAmount },
-          createdBy,
-        });
+    if (resolvedCustomerId) {
+      const [customerExists] = await tx
+        .select({ id: customers.id })
+        .from(customers)
+        .where(
+          and(
+            eq(customers.tenantId, event.tenantId),
+            eq(customers.id, resolvedCustomerId),
+          ),
+        )
+        .limit(1);
+
+      if (customerExists) {
+        try {
+          await tx.insert(customerActivityLog).values({
+            id: generateUlid(),
+            tenantId: event.tenantId,
+            customerId: resolvedCustomerId,
+            activityType: 'billing_reversal',
+            title: `House account charge reversed for voided Order #${orderNumber}`,
+            details: reason,
+            metadata: { orderId, billingAccountId: originalCharge.billingAccountId, reversalAmountCents: reversalAmount },
+            createdBy,
+          });
+        } catch (err) {
+          const msg = String((err as Error)?.message ?? '');
+          if (msg.includes('foreign key constraint')) {
+            console.warn(`[customers] Activity log skipped for void on order ${orderId}: customer ${resolvedCustomerId} no longer exists`);
+          } else {
+            throw err;
+          }
+        }
       }
-    } else {
-      await tx.insert(customerActivityLog).values({
-        id: generateUlid(),
-        tenantId: event.tenantId,
-        customerId: activityCustomerId,
-        activityType: 'billing_reversal',
-        title: `House account charge reversed for voided Order #${orderNumber}`,
-        details: reason,
-        metadata: { orderId, billingAccountId: originalCharge.billingAccountId, reversalAmountCents: reversalAmount },
-        createdBy,
-      });
     }
   });
 

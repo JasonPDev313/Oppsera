@@ -96,6 +96,22 @@ export async function seatReservation(
           reservation_id, was_reservation
         ) VALUES ${sql.join(valueFragments, sql`, `)}
       `);
+
+      // F10 fix: update table live status so the floor plan shows 'reserved' → 'seated'.
+      // Uses version-checked UPDATE to prevent overwriting concurrent changes.
+      for (const tableId of tableIds) {
+        await tx.execute(sql`
+          UPDATE fnb_table_live_status
+          SET status = 'seated',
+              party_size = ${adjustedPartySize},
+              seated_at = now(),
+              version = version + 1,
+              updated_at = now()
+          WHERE tenant_id = ${ctx.tenantId}
+            AND table_id = ${tableId}
+            AND status IN ('available', 'reserved')
+        `);
+      }
     }
 
     const event = buildEventFromContext(ctx, 'fnb.reservation.status_changed.v1', {

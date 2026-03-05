@@ -20,8 +20,14 @@ interface PostBatchToGlInput {
 
 export async function postBatchToGl(ctx: RequestContext, input: PostBatchToGlInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
-    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'postBatchToGl');
-    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
+    // F17 fix: guard idempotency — undefined key would match NULL rows or silently skip
+    if (!input.clientRequestId) {
+      console.warn('[postBatchToGl] No clientRequestId provided — retries will not be idempotent');
+    }
+    if (input.clientRequestId) {
+      const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'postBatchToGl');
+      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as Record<string, unknown>, events: [] };
+    }
 
     // Validate close batch exists and is reconciled
     const batchRows = await tx.execute(
@@ -147,7 +153,9 @@ export async function postBatchToGl(ctx: RequestContext, input: PostBatchToGlInp
       lineCount: journalLines.length,
       journalLines,
     };
-    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'postBatchToGl', resultPayload);
+    if (input.clientRequestId) {
+      await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'postBatchToGl', resultPayload);
+    }
 
     return {
       result: {

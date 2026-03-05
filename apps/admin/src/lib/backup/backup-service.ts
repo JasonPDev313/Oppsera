@@ -2,6 +2,7 @@ import { gzip, gunzip } from 'zlib';
 import { promisify } from 'util';
 import { createHash } from 'node:crypto';
 import { db, createAdminClient } from '@oppsera/db';
+import type { Database } from '@oppsera/db';
 import { platformBackups } from '@oppsera/db/schema';
 import { generateUlid } from '@oppsera/shared';
 import { sql, eq } from 'drizzle-orm';
@@ -25,11 +26,53 @@ const gzipAsync = promisify(gzip);
 const BATCH_SIZE = 5000;
 
 /**
+ * Validate that the admin connection is suitable for backup.
+ * Backups require a direct Postgres connection (not Supavisor) because
+ * SET LOCAL statement_timeout is silently ignored by Supavisor transaction-mode pooler.
+ */
+export function getValidatedAdminClient(): Database {
+  const adminUrl = process.env.DATABASE_URL_ADMIN;
+  if (!adminUrl) {
+    throw new Error(
+      'DATABASE_URL_ADMIN is required for backups. ' +
+      'Set it to a direct Postgres connection (port 5432), not Supavisor (port 6543). ' +
+      'Without a direct connection, SET LOCAL statement_timeout is ignored and backups will timeout.',
+    );
+  }
+
+  // Detect Supavisor port — SET LOCAL is silently ignored through port 6543
+  try {
+    const parsed = new URL(adminUrl);
+    if (parsed.port === '6543') {
+      console.error(
+        '[backup] CRITICAL: DATABASE_URL_ADMIN uses port 6543 (Supavisor transaction mode). ' +
+        'SET LOCAL statement_timeout will be IGNORED. Change DATABASE_URL_ADMIN to a direct ' +
+        'Postgres connection (port 5432) or session-mode pooler.',
+      );
+      throw new Error(
+        'DATABASE_URL_ADMIN points to Supavisor (port 6543) which ignores SET LOCAL. ' +
+        'Backups require a direct Postgres connection (port 5432). ' +
+        'In Supabase Dashboard → Settings → Database → Connection string, use the "Direct" URL.',
+      );
+    }
+    console.log(`[backup] Using admin connection on port ${parsed.port || '5432'} (host: ${parsed.hostname})`);
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('port 6543')) throw e;
+    // URL parsing failed — continue and let postgres.js handle it
+  }
+
+  return createAdminClient();
+}
+
+/**
  * Create a full database backup.
  * Exports all public schema tables as compressed JSON.
  * Uses a transaction with RLS bypass to read all tenant data.
  */
 export async function createBackup(input: CreateBackupInput): Promise<CreateBackupResult> {
+  // Validate admin connection FIRST — fail fast before inserting a pending record
+  const adminDb = getValidatedAdminClient();
+
   const backupId = generateUlid();
   const now = new Date();
 
@@ -49,12 +92,12 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
   });
 
   try {
-    // 1. Discover tables
-    const tables = await discoverTables();
+    // 1. Discover tables — use admin client to avoid Supavisor statement timeout
+    const tables = await discoverTables(adminDb);
     const tableNames = tables.map((t) => t.name);
 
-    // 2. Get dependency order
-    const orderedNames = await getTableDependencyOrder(tableNames);
+    // 2. Get dependency order — also via admin client
+    const orderedNames = await getTableDependencyOrder(tableNames, adminDb);
 
     // 3. Export data inside a transaction with RLS bypassed
     //    Tables with FORCE ROW LEVEL SECURITY filter on app.current_tenant_id,
@@ -66,12 +109,6 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
 
     let rlsBypassed = false;
     let rlsBypassMethod: string | null = null;
-
-    // Use the admin client (direct connection, port 5432) for the backup transaction.
-    // The regular `db` goes through Supavisor pooler (port 6543) which blocks
-    // SET LOCAL statement_timeout, causing backups to hit the database-level
-    // default timeout and fail with "canceling statement due to statement timeout".
-    const adminDb = createAdminClient();
 
     await adminDb.transaction(async (tx) => {
       // Extend statement timeout — must be generous for large table exports.

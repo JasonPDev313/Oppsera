@@ -327,11 +327,13 @@ export async function atomicSeatParty(
 
     // ── 12. Update waitlist entry and recompute positions ─────────
     if (input.sourceType === 'waitlist' && input.sourceId) {
+      // F13 fix: lock waitlist entry to prevent concurrent seat race with seatFromWaitlist
       const entryRows = await tx.execute(sql`
         SELECT added_at, created_at, business_date
         FROM fnb_waitlist_entries
         WHERE id = ${input.sourceId}
           AND tenant_id = ${ctx.tenantId}
+        FOR UPDATE
       `);
       const entryArr = Array.from(entryRows as Iterable<Record<string, unknown>>);
       let actualWaitMinutes: number | null = null;

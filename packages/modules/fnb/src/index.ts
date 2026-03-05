@@ -1232,6 +1232,7 @@ export type {
 // Routing Engine
 export {
   resolveStationRouting,
+  enrichRoutableItems,
   getStationPrepTimeForItem,
 } from './services/kds-routing-engine';
 export type {

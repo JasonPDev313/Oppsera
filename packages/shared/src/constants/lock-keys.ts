@@ -34,6 +34,9 @@ export const LOCK_KEYS = {
 
   /** Daily membership dues revenue recognition cron */
   MEMBERSHIP_REVENUE_RECOGNITION: 'membership-revenue-recognition',
+
+  /** F&B daily batch auto-close and GL post cron */
+  FNB_AUTO_CLOSE_BATCHES: 'fnb-auto-close-batches',
 } as const;
 
 export type LockKey = (typeof LOCK_KEYS)[keyof typeof LOCK_KEYS];

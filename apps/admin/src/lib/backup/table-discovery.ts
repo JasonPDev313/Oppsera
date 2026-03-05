@@ -1,4 +1,5 @@
 import { db } from '@oppsera/db';
+import type { Database } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 import type { TableInfo } from './types';
 
@@ -18,9 +19,9 @@ const EXCLUDED_TABLES = new Set([
  * Returns table names with estimated row counts and sizes.
  * Uses a safe size estimation that catches per-table errors.
  */
-export async function discoverTables(): Promise<TableInfo[]> {
+export async function discoverTables(client: Database = db): Promise<TableInfo[]> {
   // Step 1: Get table names + estimated row counts (never fails)
-  const result = await db.execute(sql`
+  const result = await client.execute(sql`
     SELECT
       t.table_name,
       COALESCE(c.reltuples::bigint, 0) AS estimated_row_count
@@ -40,7 +41,7 @@ export async function discoverTables(): Promise<TableInfo[]> {
   // Step 2: Get sizes separately (may fail on some Supabase roles)
   const sizeMap = new Map<string, number>();
   try {
-    const sizeResult = await db.execute(sql`
+    const sizeResult = await client.execute(sql`
       SELECT
         c.relname AS table_name,
         pg_total_relation_size(c.oid)::bigint AS size_bytes
@@ -74,9 +75,9 @@ export async function discoverTables(): Promise<TableInfo[]> {
  * (parents first). This ensures safe INSERT during restore (parents before children)
  * and safe TRUNCATE in reverse (children before parents).
  */
-export async function getTableDependencyOrder(tableNames: string[]): Promise<string[]> {
+export async function getTableDependencyOrder(tableNames: string[], client: Database = db): Promise<string[]> {
   // Query FK relationships
-  const result = await db.execute(sql`
+  const result = await client.execute(sql`
     SELECT
       tc.table_name AS child_table,
       ccu.table_name AS parent_table

@@ -318,7 +318,7 @@ function HostContentInner() {
       if (!seatTarget) return;
       try {
         if (seatTarget.type === 'waitlist') {
-          await waitlistMut.seatGuest({ id: seatTarget.id, tableId });
+          await waitlistMut.seatGuest({ id: seatTarget.id, tableId, partySize: seatTarget.partySize, businessDate: today });
         } else {
           await resMut.checkIn({ id: seatTarget.id, tableId });
         }
@@ -366,7 +366,7 @@ function HostContentInner() {
     setIsAssignSeating(true);
     try {
       if (selectedParty.type === 'waitlist') {
-        await waitlistMut.seatGuest({ id: selectedParty.id, tableId: assignSeatTable.tableId });
+        await waitlistMut.seatGuest({ id: selectedParty.id, tableId: assignSeatTable.tableId, partySize: selectedParty.partySize, businessDate: today });
       } else {
         await resMut.checkIn({ id: selectedParty.id, tableId: assignSeatTable.tableId });
       }

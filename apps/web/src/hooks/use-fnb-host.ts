@@ -546,10 +546,20 @@ export function useWaitlistMutations(locationId: string | null) {
   });
 
   const seatGuest = useMutation({
-    mutationFn: async (input: { id: string; tableId: string; serverUserId?: string }) => {
+    mutationFn: async (input: { id: string; tableId: string; partySize?: number; serverUserId?: string; businessDate?: string }) => {
       const json = await apiFetch<{ data: unknown }>(
-        `/api/v1/fnb/host/waitlist/${input.id}/seat${locParam}`,
-        { method: 'POST', body: JSON.stringify({ tableId: input.tableId, serverUserId: input.serverUserId }) },
+        `/api/v1/fnb/host/seat${locParam}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            tableIds: [input.tableId],
+            partySize: input.partySize ?? 2,
+            sourceType: 'waitlist',
+            sourceId: input.id,
+            serverUserId: input.serverUserId,
+            businessDate: input.businessDate ?? new Date().toISOString().slice(0, 10),
+          }),
+        },
       );
       return json.data;
     },

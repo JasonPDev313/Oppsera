@@ -8,6 +8,9 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { BulkCloseTabsInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 
+/** Order statuses that should be voided when a tab is force-closed by a manager. */
+const VOIDABLE_ORDER_STATUSES = ['draft', 'open', 'placed', 'in_progress'];
+
 const CLOSEABLE_STATUSES = ['open', 'ordering', 'sent_to_kitchen', 'in_progress', 'check_requested', 'paying'];
 
 export interface BulkCloseResult {
@@ -40,7 +43,8 @@ export async function bulkCloseTabs(
     const succeeded: string[] = [];
     const failed: { tabId: string; error: string }[] = [];
 
-    const dirtyTableIds: string[] = [];
+    const dirtyTableIdSet = new Set<string>(); // F18: dedup shared tables
+    const orderIdsToVoid: string[] = []; // F8: collect linked orders
 
     for (const tabId of input.tabIds) {
       const tab = tabs.find((t) => t.id === tabId);
@@ -53,7 +57,21 @@ export async function bulkCloseTabs(
         continue;
       }
       succeeded.push(tabId);
-      if (tab.tableId) dirtyTableIds.push(tab.tableId);
+      if (tab.tableId) dirtyTableIdSet.add(tab.tableId);
+      if (tab.primaryOrderId) orderIdsToVoid.push(tab.primaryOrderId);
+    }
+
+    // F8: Batch void unpaid linked orders so they don't become ghost orders
+    if (orderIdsToVoid.length > 0) {
+      await tx.execute(
+        sql`UPDATE orders
+            SET status = 'voided', voided_at = NOW(), voided_by = ${ctx.user.id},
+                void_reason = ${`Manager bulk close: ${input.reasonCode}`},
+                updated_at = NOW(), version = version + 1
+            WHERE id = ANY(${orderIdsToVoid}::text[])
+              AND tenant_id = ${ctx.tenantId}
+              AND status = ANY(${VOIDABLE_ORDER_STATUSES}::text[])`,
+      );
     }
 
     // Batch close all succeeded tabs in one UPDATE (version = version + 1)
@@ -71,6 +89,7 @@ export async function bulkCloseTabs(
     }
 
     // Batch mark dine-in tables as dirty
+    const dirtyTableIds = [...dirtyTableIdSet];
     if (dirtyTableIds.length > 0) {
       await tx
         .update(fnbTableLiveStatus)

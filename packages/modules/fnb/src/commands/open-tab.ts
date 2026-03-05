@@ -82,19 +82,41 @@ export async function openTab(
         courseStatus: 'unsent',
       });
 
-    // Upsert table live status if dine-in (defensive: creates row if missing)
+    // Update table live status if dine-in — with version guard to prevent silent overwrite (F5 fix)
     if (input.tableId) {
-      await tx.execute(
-        sql`INSERT INTO fnb_table_live_status (tenant_id, table_id, status, current_tab_id, current_server_user_id, party_size, seated_at, updated_at)
-            VALUES (${ctx.tenantId}, ${input.tableId}, 'seated', ${created!.id}, ${input.serverUserId}, ${input.partySize ?? null}, NOW(), NOW())
-            ON CONFLICT (tenant_id, table_id) DO UPDATE SET
-              status = 'seated',
-              current_tab_id = EXCLUDED.current_tab_id,
-              current_server_user_id = EXCLUDED.current_server_user_id,
-              party_size = EXCLUDED.party_size,
-              seated_at = EXCLUDED.seated_at,
-              updated_at = EXCLUDED.updated_at`,
+      const statusRows = await tx.execute(
+        sql`SELECT id, version, status FROM fnb_table_live_status
+            WHERE tenant_id = ${ctx.tenantId} AND table_id = ${input.tableId}
+            FOR UPDATE`,
       );
+      const statusArr = Array.from(statusRows as Iterable<Record<string, unknown>>);
+
+      if (statusArr.length === 0) {
+        // No live status row yet — insert
+        await tx.execute(
+          sql`INSERT INTO fnb_table_live_status (tenant_id, table_id, status, current_tab_id, current_server_user_id, party_size, seated_at, version, updated_at)
+              VALUES (${ctx.tenantId}, ${input.tableId}, 'seated', ${created!.id}, ${input.serverUserId}, ${input.partySize ?? null}, NOW(), 1, NOW())`,
+        );
+      } else {
+        const current = statusArr[0]!;
+        const currentVersion = Number(current.version);
+        const updated = await tx.execute(
+          sql`UPDATE fnb_table_live_status
+              SET status = 'seated',
+                  current_tab_id = ${created!.id},
+                  current_server_user_id = ${input.serverUserId},
+                  party_size = ${input.partySize ?? null},
+                  seated_at = NOW(),
+                  version = ${currentVersion + 1},
+                  updated_at = NOW()
+              WHERE tenant_id = ${ctx.tenantId} AND table_id = ${input.tableId} AND version = ${currentVersion}
+              RETURNING version`,
+        );
+        const updatedArr = Array.from(updated as Iterable<Record<string, unknown>>);
+        if (updatedArr.length === 0) {
+          throw new AppError('TABLE_VERSION_CONFLICT', `Concurrent modification detected on table ${input.tableId}`, 409);
+        }
+      }
     }
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.TAB_OPENED, {

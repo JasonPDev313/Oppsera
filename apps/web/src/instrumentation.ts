@@ -190,7 +190,9 @@ export async function register() {
       importSafe('KDS ticket creation consumers', async () => {
         const fnb = await import('@oppsera/module-fnb');
         bus.subscribe('fnb.course.sent.v1', (event) => fnb.handleCourseSent(event.tenantId, event.data as any), 'kds/course.sent');
-        bus.subscribe('fnb.course.fired.v1', (event) => fnb.handleCourseSent(event.tenantId, event.data as any), 'kds/course.fired');
+        // F11 fix: course.fired should NOT create tickets — only update table status.
+        // Ticket creation is handled by course.sent. Firing = "start cooking" for already-ticketed course.
+        // Table auto-progression for course.fired is handled by fnb_table_status/course.fired consumer.
         // Retail POS → KDS: create kitchen tickets for food/beverage items on order placed
         bus.subscribe('order.placed.v1', (event) => fnb.handleOrderPlacedForKds(event), 'kds/order.placed');
       }),
@@ -309,18 +311,170 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('customer.stored_value.redeemed.v1', reporting.handleStoredValueRedeemed, 'revenue/stored_value.redeemed');
     }),
 
-    // F&B Reporting consumers
+    // F&B Reporting consumers — F3 fix: properly adapt event payloads to consumer types
     importSafe('F&B reporting consumers', async () => {
       const fnb = await import('@oppsera/module-fnb');
+      const { withTenant } = await import('@oppsera/db');
+      const { sql } = await import('drizzle-orm');
+
       bus.subscribe('fnb.tab.closed.v1', (event) => fnb.handleFnbTabClosed(event.tenantId, event.data as any), 'fnb_reporting/tab.closed');
-      bus.subscribe('fnb.kds.ticket_bumped.v1', (event) => fnb.handleFnbTicketBumped(event.tenantId, event.data as any), 'fnb_reporting/kds.ticket_bumped');
-      bus.subscribe('fnb.kds.item_bumped.v1', (event) => fnb.handleFnbItemBumped(event.tenantId, event.data as any), 'fnb_reporting/kds.item_bumped');
-      bus.subscribe('fnb.ticket_item.status_changed.v1', (event) => fnb.handleFnbItemVoided(event.tenantId, event.data as any), 'fnb_reporting/ticket_item.status_changed');
-      bus.subscribe('fnb.payment.check_comped.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as any), 'fnb_reporting/check_comped');
-      bus.subscribe('fnb.payment.check_discounted.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as any), 'fnb_reporting/check_discounted');
-      bus.subscribe('fnb.payment.check_voided.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as any), 'fnb_reporting/check_voided');
+
+      // Ticket bumped: event is thin (ticketId, locationId, tabId) — enrich via DB lookup
+      bus.subscribe('fnb.kds.ticket_bumped.v1', async (event) => {
+        const d = event.data as { ticketId: string; locationId: string; tabId: string };
+        try {
+          await withTenant(event.tenantId, async (tx) => {
+            const rows = await tx.execute(sql`
+              SELECT kt.station_id, kt.created_at, ft.business_date,
+                     (SELECT count(*)::int FROM fnb_kitchen_ticket_items WHERE ticket_id = kt.id) AS item_count
+              FROM fnb_kitchen_tickets kt
+              JOIN fnb_tabs ft ON ft.id = kt.tab_id AND ft.tenant_id = kt.tenant_id
+              WHERE kt.id = ${d.ticketId} AND kt.tenant_id = ${event.tenantId}
+            `);
+            const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+            if (arr.length > 0) {
+              const t = arr[0]!;
+              const createdAt = new Date(String(t.created_at));
+              const ticketTimeSeconds = Math.round((Date.now() - createdAt.getTime()) / 1000);
+              await fnb.handleFnbTicketBumped(event.tenantId, {
+                ticketId: d.ticketId,
+                locationId: d.locationId,
+                stationId: String(t.station_id ?? ''),
+                businessDate: String(t.business_date),
+                ticketTimeSeconds,
+                itemCount: Number(t.item_count ?? 0),
+                thresholdSeconds: 900, // default 15min SLA
+                hour: new Date().getHours(),
+              });
+            }
+          });
+        } catch (e) {
+          console.error('[fnb_reporting] Failed to enrich ticket_bumped event:', e);
+        }
+      }, 'fnb_reporting/kds.ticket_bumped');
+
+      // Item bumped: event has stationId + locationId — only missing businessDate
+      bus.subscribe('fnb.kds.item_bumped.v1', (event) => {
+        const d = event.data as { ticketItemId: string; ticketId: string; stationId: string; locationId: string };
+        return fnb.handleFnbItemBumped(event.tenantId, {
+          locationId: d.locationId,
+          stationId: d.stationId,
+          businessDate: new Date(event.occurredAt).toISOString().slice(0, 10),
+        });
+      }, 'fnb_reporting/kds.item_bumped');
+
+      // Item voided (status_changed): missing stationId — enrich via ticket lookup
+      bus.subscribe('fnb.ticket_item.status_changed.v1', async (event) => {
+        const d = event.data as { ticketItemId: string; ticketId: string; locationId: string; oldStatus: string; newStatus: string };
+        if (d.newStatus !== 'voided') return; // only report actual voids
+        try {
+          let stationId = '';
+          await withTenant(event.tenantId, async (tx) => {
+            const rows = await tx.execute(sql`
+              SELECT station_id FROM fnb_kitchen_tickets
+              WHERE id = ${d.ticketId} AND tenant_id = ${event.tenantId}
+            `);
+            const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+            if (arr.length > 0) stationId = String(arr[0]!.station_id ?? '');
+          });
+          await fnb.handleFnbItemVoided(event.tenantId, {
+            locationId: d.locationId,
+            stationId,
+            businessDate: new Date(event.occurredAt).toISOString().slice(0, 10),
+          });
+        } catch (e) {
+          console.error('[fnb_reporting] Failed to enrich item_voided event:', e);
+        }
+      }, 'fnb_reporting/ticket_item.status_changed');
+
+      // Check comped: map compAmountCents → compCents
+      bus.subscribe('fnb.payment.check_comped.v1', (event) => {
+        const d = event.data as { orderId: string; locationId: string; compAmountCents: number; reason: string };
+        return fnb.handleFnbDiscountComp(event.tenantId, {
+          locationId: d.locationId,
+          businessDate: new Date(event.occurredAt).toISOString().slice(0, 10),
+          grossSalesCents: 0, // not available on comp event — discountPct skipped
+          discountCents: 0,
+          discountType: null,
+          compCents: d.compAmountCents,
+          compReason: d.reason,
+          voidCount: 0,
+          voidReason: null,
+        });
+      }, 'fnb_reporting/check_comped');
+
+      // Check discounted: map discountAmountCents → discountCents
+      bus.subscribe('fnb.payment.check_discounted.v1', (event) => {
+        const d = event.data as { orderId: string; locationId: string; discountAmountCents: number; discountType: string };
+        return fnb.handleFnbDiscountComp(event.tenantId, {
+          locationId: d.locationId,
+          businessDate: new Date(event.occurredAt).toISOString().slice(0, 10),
+          grossSalesCents: 0, // not available — discountPct skipped
+          discountCents: d.discountAmountCents,
+          discountType: d.discountType,
+          compCents: 0,
+          compReason: null,
+          voidCount: 0,
+          voidReason: null,
+        });
+      }, 'fnb_reporting/check_discounted');
+
+      // Check voided: map reason → voidReason, voidCount = 1
+      bus.subscribe('fnb.payment.check_voided.v1', (event) => {
+        const d = event.data as { orderId: string; locationId: string; reason: string };
+        return fnb.handleFnbDiscountComp(event.tenantId, {
+          locationId: d.locationId,
+          businessDate: new Date(event.occurredAt).toISOString().slice(0, 10),
+          grossSalesCents: 0,
+          discountCents: 0,
+          discountType: null,
+          compCents: 0,
+          compReason: null,
+          voidCount: 1,
+          voidReason: d.reason,
+        });
+      }, 'fnb_reporting/check_voided');
       // NOTE: fnb.course.sent.v1 / fnb.course.fired.v1 → KDS ticket creation
       // moved to critical path (above) to avoid cold-start delays.
+    }),
+
+    // F&B Table Auto-Progression consumers (F2 fix — table status follows order lifecycle)
+    // NOTE: All these handlers take a single { tenantId, ...data } object, NOT (tenantId, data).
+    importSafe('F&B table auto-progression consumers', async () => {
+      const fnb = await import('@oppsera/module-fnb');
+      bus.subscribe('fnb.course.sent.v1', (event) => fnb.handleCourseSentForTableStatus({ tenantId: event.tenantId, ...(event.data as any) }), 'fnb_table_status/course.sent');
+      bus.subscribe('fnb.course.fired.v1', (event) => fnb.handleCourseFiredForTableStatus({ tenantId: event.tenantId, ...(event.data as any) }), 'fnb_table_status/course.fired');
+      bus.subscribe('fnb.payment.check_presented.v1', (event) => fnb.handleCheckPresentedForTableStatus({ tenantId: event.tenantId, ...(event.data as any) }), 'fnb_table_status/check_presented');
+      bus.subscribe('fnb.payment.completed.v1', (event) => fnb.handlePaymentCompletedForTableStatus({ tenantId: event.tenantId, ...(event.data as any) }), 'fnb_table_status/payment_completed');
+      bus.subscribe('fnb.tab.closed.v1', (event) => fnb.handleTabClosedForTableStatus({ tenantId: event.tenantId, ...(event.data as any) }), 'fnb_table_status/tab.closed');
+    }),
+
+    // F&B Waitlist Auto-Promotion (F2 fix — notify next guest when table becomes available)
+    importSafe('F&B waitlist auto-promotion consumer', async () => {
+      const fnb = await import('@oppsera/module-fnb');
+      bus.subscribe('fnb.table.status_changed.v1', (event) => fnb.handleTableAvailableForWaitlist({ tenantId: event.tenantId, ...(event.data as any) }), 'fnb_waitlist/table.available');
+    }),
+
+    // F9 fix: GL posting failure consumer — logs error for operational visibility.
+    // Without this, failed GL postings are silently lost.
+    importSafe('F&B GL posting failure consumer', async () => {
+      bus.subscribe('fnb.gl.posting_failed.v1', async (event) => {
+        const d = event.data as { closeBatchId?: string; locationId?: string; error?: string };
+        console.error(
+          `[fnb] GL posting failed for batch ${d.closeBatchId ?? 'unknown'} ` +
+          `at location ${d.locationId ?? 'unknown'}: ${d.error ?? 'no error details'}`,
+          { tenantId: event.tenantId, eventId: event.eventId, data: d },
+        );
+      }, 'fnb_gl/posting_failed');
+    }),
+
+    // F&B Turn-Time Aggregation + Guest Profile + Host Analytics (F2 fix)
+    importSafe('F&B analytics & guest profile consumers', async () => {
+      const fnb = await import('@oppsera/module-fnb');
+      bus.subscribe('fnb.table.status_changed.v1', (event) => fnb.handleTurnCompletedForAggregates({ tenantId: event.tenantId, ...(event.data as any) }), 'fnb_analytics/turn.completed');
+      bus.subscribe('fnb.tab.closed.v1', (event) => fnb.handleGuestProfileUpdate({ tenantId: event.tenantId, ...(event.data as any) }), 'fnb_guest/tab.closed');
+      bus.subscribe('fnb.tab.closed.v1', (event) => fnb.handleTabClosedForHost({ tenantId: event.tenantId, ...(event.data as any) }), 'fnb_host/tab.closed');
+      bus.subscribe('fnb.table.status_changed.v1', (event) => fnb.handleTurnCompletedForHost({ tenantId: event.tenantId, ...(event.data as any) }), 'fnb_host/turn.completed');
     }),
 
     // Golf Reporting consumers
