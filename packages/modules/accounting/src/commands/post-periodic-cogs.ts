@@ -5,7 +5,7 @@ import { AppError } from '@oppsera/shared';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import { resolveSubDepartmentAccounts } from '../helpers/resolve-mapping';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { PostPeriodicCogsInput } from '../validation';
 
 /**
@@ -163,7 +163,7 @@ export async function postPeriodicCogs(
         postedBy: ctx.user.id,
         updatedAt: new Date(),
       })
-      .where(eq(periodicCogsCalculations.id, calc.id));
+      .where(and(eq(periodicCogsCalculations.id, calc.id), eq(periodicCogsCalculations.tenantId, ctx.tenantId)));
 
     // Update last calculated date in settings
     await tx
@@ -174,7 +174,7 @@ export async function postPeriodicCogs(
       })
       .where(eq(accountingSettings.tenantId, ctx.tenantId));
 
-    await auditLog(ctx, 'accounting.cogs.posted', 'periodic_cogs_calculation', calc.id, undefined, {
+    auditLogDeferred(ctx, 'accounting.cogs.posted', 'periodic_cogs_calculation', calc.id, undefined, {
       amountDollars: cogsDollars.toFixed(2),
       periodStart: calc.periodStart,
       periodEnd: calc.periodEnd,

@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { computeChanges } from '@oppsera/core/audit/diff';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
@@ -24,7 +24,7 @@ export async function updateMembershipPlan(ctx: RequestContext, planId: string, 
     if (input.isActive !== undefined) updates.isActive = input.isActive;
 
     const [updated] = await (tx as any).update(membershipPlans).set(updates)
-      .where(eq(membershipPlans.id, planId)).returning();
+      .where(and(eq(membershipPlans.id, planId), eq(membershipPlans.tenantId, ctx.tenantId))).returning();
 
     const changes = computeChanges(existing, updated!);
     const event = buildEventFromContext(ctx, 'membership_plan.updated.v1', { planId, changes });
@@ -32,6 +32,6 @@ export async function updateMembershipPlan(ctx: RequestContext, planId: string, 
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'membership_plan.updated', 'membership_plan', planId);
+  auditLogDeferred(ctx, 'membership_plan.updated', 'membership_plan', planId);
   return result;
 }

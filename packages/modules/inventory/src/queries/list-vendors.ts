@@ -2,6 +2,16 @@ import { eq, and, asc, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { vendors } from '@oppsera/db';
 
+function encodeCursor(...parts: string[]): string {
+  return parts.join('|');
+}
+
+function decodeCursor(cursor: string, expectedParts: number): string[] | null {
+  const parts = cursor.split('|');
+  if (parts.length !== expectedParts) return null; // Legacy fallback
+  return parts;
+}
+
 export interface ListVendorsInput {
   tenantId: string;
   search?: string;
@@ -38,7 +48,19 @@ export async function listVendors(input: ListVendorsInput): Promise<ListVendorsR
   return withTenant(input.tenantId, async (tx) => {
     const conditions = [sql`v.tenant_id = ${input.tenantId}`];
     if (input.isActive !== undefined) conditions.push(sql`v.is_active = ${input.isActive}`);
-    if (input.cursor) conditions.push(sql`v.id < ${input.cursor}`);
+
+    if (input.cursor) {
+      const decoded = decodeCursor(input.cursor, 2);
+      if (decoded) {
+        const [cursorName, cursorId] = decoded as [string, string];
+        // Both name ASC and id ASC — row-value > works
+        conditions.push(sql`(v.name, v.id) > (${cursorName}, ${cursorId})`);
+      } else {
+        // Legacy: cursor was plain id — fall back to id > for ASC sort
+        conditions.push(sql`v.id > ${input.cursor}`);
+      }
+    }
+
     if (input.search) {
       const pattern = `%${input.search}%`;
       conditions.push(sql`(v.name ILIKE ${pattern} OR v.account_number ILIKE ${pattern})`);
@@ -53,29 +75,32 @@ export async function listVendors(input: ListVendorsInput): Promise<ListVendorsR
                v.contact_phone, v.payment_terms, v.is_active, v.created_at
         FROM vendors v
         WHERE ${whereClause}
-        ORDER BY v.name ASC
+        ORDER BY v.name ASC, v.id ASC
         LIMIT ${limit + 1}
       `);
 
-      const allRows = Array.from(rows as Iterable<any>);
+      const allRows = Array.from(rows as Iterable<Record<string, unknown>>);
       const hasMore = allRows.length > limit;
       const items = hasMore ? allRows.slice(0, limit) : allRows;
+      const lastItem = items[items.length - 1];
 
       return {
-        items: items.map((v: any) => ({
-          id: v.id,
-          name: v.name,
-          accountNumber: v.account_number ?? null,
-          contactName: v.contact_name ?? null,
-          contactEmail: v.contact_email ?? null,
-          contactPhone: v.contact_phone ?? null,
-          paymentTerms: v.payment_terms ?? null,
-          isActive: v.is_active,
+        items: items.map((v) => ({
+          id: v.id as string,
+          name: v.name as string,
+          accountNumber: (v.account_number as string) ?? null,
+          contactName: (v.contact_name as string) ?? null,
+          contactEmail: (v.contact_email as string) ?? null,
+          contactPhone: (v.contact_phone as string) ?? null,
+          paymentTerms: (v.payment_terms as string) ?? null,
+          isActive: v.is_active as boolean,
           itemCount: 0,
           lastReceiptDate: null,
-          createdAt: v.created_at instanceof Date ? v.created_at.toISOString() : String(v.created_at),
+          createdAt: v.created_at instanceof Date ? (v.created_at as Date).toISOString() : String(v.created_at),
         })),
-        cursor: hasMore ? items[items.length - 1]!.id : null,
+        cursor: hasMore && lastItem
+          ? encodeCursor(lastItem.name as string, lastItem.id as string)
+          : null,
         hasMore,
       };
     }
@@ -98,29 +123,32 @@ export async function listVendors(input: ListVendorsInput): Promise<ListVendorsR
         WHERE rr.vendor_id = v.id AND rr.tenant_id = v.tenant_id AND rr.status = 'posted'
       ) rc ON true
       WHERE ${whereClause}
-      ORDER BY v.name ASC
+      ORDER BY v.name ASC, v.id ASC
       LIMIT ${limit + 1}
     `);
 
-    const allRows = Array.from(rows as Iterable<any>);
+    const allRows = Array.from(rows as Iterable<Record<string, unknown>>);
     const hasMore = allRows.length > limit;
     const items = hasMore ? allRows.slice(0, limit) : allRows;
+    const lastItem = items[items.length - 1];
 
     return {
-      items: items.map((v: any) => ({
-        id: v.id,
-        name: v.name,
-        accountNumber: v.account_number ?? null,
-        contactName: v.contact_name ?? null,
-        contactEmail: v.contact_email ?? null,
-        contactPhone: v.contact_phone ?? null,
-        paymentTerms: v.payment_terms ?? null,
-        isActive: v.is_active,
+      items: items.map((v) => ({
+        id: v.id as string,
+        name: v.name as string,
+        accountNumber: (v.account_number as string) ?? null,
+        contactName: (v.contact_name as string) ?? null,
+        contactEmail: (v.contact_email as string) ?? null,
+        contactPhone: (v.contact_phone as string) ?? null,
+        paymentTerms: (v.payment_terms as string) ?? null,
+        isActive: v.is_active as boolean,
         itemCount: Number(v.item_count) || 0,
-        lastReceiptDate: v.last_receipt_date ?? null,
-        createdAt: v.created_at instanceof Date ? v.created_at.toISOString() : String(v.created_at),
+        lastReceiptDate: (v.last_receipt_date as string) ?? null,
+        createdAt: v.created_at instanceof Date ? (v.created_at as Date).toISOString() : String(v.created_at),
       })),
-      cursor: hasMore ? items[items.length - 1]!.id : null,
+      cursor: hasMore && lastItem
+        ? encodeCursor(lastItem.name as string, lastItem.id as string)
+        : null,
       hasMore,
     };
   });

@@ -26,6 +26,7 @@ import {
   LayoutGrid,
   Settings,
 } from 'lucide-react';
+import { useProperties } from '@/hooks/use-pms';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import { Badge } from '@/components/ui/badge';
@@ -34,11 +35,6 @@ import { useToast } from '@/components/ui/toast';
 import CleaningTypesTab from './cleaning-types-tab';
 
 // ── Types ────────────────────────────────────────────────────────
-
-interface Property {
-  id: string;
-  name: string;
-}
 
 interface HousekeepingRoom {
   roomId: string;
@@ -1138,7 +1134,7 @@ export default function HousekeepingContent() {
   const isHandheld = useIsHandheld();
 
   // ── Core state ─────────────────────────────────────────────────
-  const [properties, setProperties] = useState<Property[]>([]);
+  const { data: properties } = useProperties();
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [rooms, setRooms] = useState<HousekeepingRoom[]>([]);
@@ -1278,24 +1274,10 @@ export default function HousekeepingContent() {
     return count;
   }, [statusFilter, floorFilter, roomTypeFilter, housekeeperFilter]);
 
-  // ── Load properties ─────────────────────────────────────────────
+  // ── Auto-select first property ────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties');
-        if (cancelled) return;
-        const items = res.data ?? [];
-        setProperties(items);
-        if (items.length > 0 && !selectedPropertyId) {
-          setSelectedPropertyId(items[0]!.id);
-        }
-      } catch {
-        // silently handle
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    if (properties.length > 0 && !selectedPropertyId) setSelectedPropertyId(properties[0]!.id);
+  }, [properties, selectedPropertyId]);
 
   // ── Fetch rooms ─────────────────────────────────────────────────
   const fetchRooms = useCallback(async () => {
@@ -1321,10 +1303,6 @@ export default function HousekeepingContent() {
     }
   }, [selectedPropertyId, statusFilter, today, toast]);
 
-  useEffect(() => {
-    fetchRooms();
-  }, [fetchRooms]);
-
   // ── Fetch assignments ───────────────────────────────────────────
   const fetchAssignments = useCallback(async () => {
     if (!selectedPropertyId) return;
@@ -1339,31 +1317,26 @@ export default function HousekeepingContent() {
     }
   }, [selectedPropertyId, today]);
 
-  useEffect(() => {
-    fetchAssignments();
-  }, [fetchAssignments]);
-
-  // ── Load housekeepers + cleaning types once per property ───────
+  // ── Fetch all property-scoped data in parallel ─────────────────
   useEffect(() => {
     if (!selectedPropertyId) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const qs = buildQueryString({ propertyId: selectedPropertyId });
-        const [hkRes, ctRes] = await Promise.all([
-          apiFetch<{ data: Housekeeper[] }>(`/api/v1/pms/housekeepers${qs}`),
-          apiFetch<{ data: CleaningType[] }>(`/api/v1/pms/housekeeping/cleaning-types${qs}`),
-        ]);
-        if (!cancelled) {
-          setHousekeepers(hkRes.data ?? []);
-          setCleaningTypes(ctRes.data ?? []);
-        }
-      } catch {
-        // non-critical
+    const qs = buildQueryString({ propertyId: selectedPropertyId });
+    Promise.all([
+      fetchRooms(),
+      fetchAssignments(),
+      apiFetch<{ data: Housekeeper[] }>(`/api/v1/pms/housekeepers${qs}`),
+      apiFetch<{ data: CleaningType[] }>(`/api/v1/pms/housekeeping/cleaning-types${qs}`),
+    ]).then(([, , hkRes, ctRes]) => {
+      if (!cancelled) {
+        setHousekeepers(hkRes.data ?? []);
+        setCleaningTypes(ctRes.data ?? []);
       }
-    })();
+    }).catch(() => {
+      // non-critical
+    });
     return () => { cancelled = true; };
-  }, [selectedPropertyId]);
+  }, [fetchRooms, fetchAssignments, selectedPropertyId]);
 
   // ── Auto-refresh every 30s ──────────────────────────────────────
   useEffect(() => {

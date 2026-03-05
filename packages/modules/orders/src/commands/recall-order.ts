@@ -1,10 +1,10 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ConflictError } from '@oppsera/shared';
 import { orders } from '@oppsera/db';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { RecallOrderInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
@@ -30,7 +30,7 @@ export async function recallOrder(ctx: RequestContext, orderId: string, input: R
       heldBy: null,
       updatedBy: ctx.user.id,
       updatedAt: now,
-    }).where(eq(orders.id, orderId));
+    }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
 
     await incrementVersion(tx, orderId, ctx.tenantId);
 
@@ -48,6 +48,6 @@ export async function recallOrder(ctx: RequestContext, orderId: string, input: R
     };
   });
 
-  await auditLog(ctx, 'order.recalled', 'order', orderId);
+  auditLogDeferred(ctx, 'order.recalled', 'order', orderId);
   return result;
 }

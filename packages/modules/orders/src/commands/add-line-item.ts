@@ -1,11 +1,11 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, NotFoundError, computePackageAllocations } from '@oppsera/shared';
 import type { PackageMetadata } from '@oppsera/shared';
 import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes } from '@oppsera/db';
-import { eq, max, sql } from 'drizzle-orm';
+import { and, eq, max, sql } from 'drizzle-orm';
 import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
 import { calculateTaxes } from '@oppsera/core/helpers/tax-calc';
 import type { AddLineItemInput } from '../validation';
@@ -171,7 +171,7 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
       version: sql`version + 1`,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),
-    }).where(eq(orders.id, orderId));
+    }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'addLineItem', { lineId: line!.id });
 
@@ -191,9 +191,6 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
     return { result: { order: { ...order, ...totals, version: order.version + 1 }, line: { ...line!, qty: Number(line!.qty) } }, events: [event] };
   });
 
-  // Fire-and-forget audit log — don't block the API response
-  auditLog(ctx, 'order.line_added', 'order', orderId).catch((e) => {
-    console.error('Audit log failed for order.line_added:', e instanceof Error ? e.message : e);
-  });
+  auditLogDeferred(ctx, 'order.line_added', 'order', orderId);
   return result;
 }

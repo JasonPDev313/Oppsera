@@ -134,10 +134,12 @@ export async function handleChargebackReceivedForAccounting(event: EventEnvelope
       },
     ];
 
-    // Add chargeback processing fee if present
+    // Add chargeback processing fee if present — use the mapping's feeExpenseAccountId
+    // to separate processing fees from the chargeback amount itself
     if ((data.feeAmountCents ?? 0) > 0) {
+      const feeAccountId = paymentMapping?.feeExpenseAccountId ?? expenseAccountId;
       glLines.push({
-        accountId: expenseAccountId,
+        accountId: feeAccountId,
         debitAmount: feeDollars,
         creditAmount: '0',
         locationId: data.locationId,

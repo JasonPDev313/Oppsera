@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { ValidationError, NotFoundError } from '@oppsera/shared';
 import { dashboardDefinitions } from '@oppsera/db';
@@ -54,7 +54,7 @@ export async function saveDashboard(ctx: RequestContext, input: SaveDashboardInp
           isDefault: input.isDefault ?? false,
           updatedAt: new Date(),
         })
-        .where(eq(dashboardDefinitions.id, input.id))
+        .where(and(eq(dashboardDefinitions.id, input.id), eq(dashboardDefinitions.tenantId, ctx.tenantId)))
         .returning();
 
       const event = buildEventFromContext(ctx, 'reporting.dashboard.saved.v1', {
@@ -83,6 +83,6 @@ export async function saveDashboard(ctx: RequestContext, input: SaveDashboardInp
     }
   });
 
-  await auditLog(ctx, 'reporting.dashboard.saved', 'dashboard_definition', result.id);
+  auditLogDeferred(ctx, 'reporting.dashboard.saved', 'dashboard_definition', result.id);
   return result;
 }

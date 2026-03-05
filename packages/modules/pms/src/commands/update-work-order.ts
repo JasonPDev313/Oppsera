@@ -3,7 +3,7 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsWorkOrders } from '@oppsera/db';
@@ -38,13 +38,13 @@ export async function updateWorkOrder(
     await tx
       .update(pmsWorkOrders)
       .set(updates)
-      .where(eq(pmsWorkOrders.id, workOrderId));
+      .where(and(eq(pmsWorkOrders.id, workOrderId), eq(pmsWorkOrders.tenantId, ctx.tenantId)));
 
     await pmsAuditLogEntry(tx, ctx, existing.propertyId, 'work_order', workOrderId, 'updated', updates);
 
     return { result: { id: workOrderId }, events: [] };
   });
 
-  await auditLog(ctx, 'pms.work_order.updated', 'pms_work_order', result.id);
+  auditLogDeferred(ctx, 'pms.work_order.updated', 'pms_work_order', result.id);
   return result;
 }

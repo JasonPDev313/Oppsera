@@ -9,7 +9,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import {
   importJobs,
@@ -152,6 +152,6 @@ export async function executeImport(
     };
   });
 
-  await auditLog(ctx, 'import.job.execution_started', 'import_job', input.importJobId);
+  auditLogDeferred(ctx, 'import.job.execution_started', 'import_job', input.importJobId);
   return result;
 }

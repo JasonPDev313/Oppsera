@@ -93,8 +93,7 @@ export const jobHealth = {
 
   /** Run health check with alerting */
   async runHealthCheck() {
-    const metrics = await this.outboxMetrics();
-    const stale = await this.staleEvents(30);
+    const [metrics, stale] = await Promise.all([this.outboxMetrics(), this.staleEvents(30)]);
 
     const pendingCount = Number(metrics.pending_count ?? 0);
     const oldestAgeSecs = Number(metrics.oldest_pending_age_secs ?? 0);

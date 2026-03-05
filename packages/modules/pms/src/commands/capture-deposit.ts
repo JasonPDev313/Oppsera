@@ -4,7 +4,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
@@ -96,6 +96,6 @@ export async function captureDeposit(ctx: RequestContext, input: CaptureDepositI
     return { result: resultPayload, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.payment.captured', 'pms_payment_transaction', result.id);
+  auditLogDeferred(ctx, 'pms.payment.captured', 'pms_payment_transaction', result.id);
   return result;
 }

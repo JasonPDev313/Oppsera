@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { UpsertItemPrepTimeInput, BulkUpsertItemPrepTimesInput } from '../validation';
@@ -66,7 +66,7 @@ export async function upsertItemPrepTime(
     return { result: saved, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.kds.item_prep_time.upserted', 'fnb_kds_item_prep_times', result.id as string);
+  auditLogDeferred(ctx, 'fnb.kds.item_prep_time.upserted', 'fnb_kds_item_prep_times', result.id as string);
   return result;
 }
 
@@ -138,6 +138,6 @@ export async function bulkUpsertItemPrepTimes(
     return { result: { items: savedItems, count: savedItems.length }, events };
   });
 
-  await auditLog(ctx, 'fnb.kds.item_prep_times.bulk_upserted', 'fnb_kds_item_prep_times', `bulk:${result.count}`);
+  auditLogDeferred(ctx, 'fnb.kds.item_prep_times.bulk_upserted', 'fnb_kds_item_prep_times', `bulk:${result.count}`);
   return result;
 }

@@ -1,4 +1,4 @@
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customerRelationships } from '@oppsera/db';
@@ -21,11 +21,11 @@ export async function updateCustomerRelationship(ctx: RequestContext, input: Upd
     if (input.notes !== undefined) updates.notes = input.notes;
 
     const [updated] = await (tx as any).update(customerRelationships).set(updates)
-      .where(eq(customerRelationships.id, input.relationshipId)).returning();
+      .where(and(eq(customerRelationships.id, input.relationshipId), eq(customerRelationships.tenantId, ctx.tenantId))).returning();
 
     return updated!;
   });
 
-  await auditLog(ctx, 'customer.relationship_updated', 'customer_relationship', input.relationshipId);
+  auditLogDeferred(ctx, 'customer.relationship_updated', 'customer_relationship', input.relationshipId);
   return result;
 }

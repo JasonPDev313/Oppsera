@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { initiationContracts } from '@oppsera/db';
 import { NotFoundError, AppError } from '@oppsera/shared';
@@ -77,6 +77,6 @@ export async function cancelInitiationContract(
     };
   });
 
-  await auditLog(ctx, 'membership.initiation.contract.cancelled', 'initiation_contract', result.contractId);
+  auditLogDeferred(ctx, 'membership.initiation.contract.cancelled', 'initiation_contract', result.contractId);
   return result;
 }

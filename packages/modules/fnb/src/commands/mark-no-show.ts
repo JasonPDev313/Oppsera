@@ -1,7 +1,7 @@
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { sql } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
 import type { MarkNoShowInput } from '../validation-host';
@@ -50,6 +50,6 @@ export async function markNoShow(
     return { result: mapHostReservationRow(updated), events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.reservation.no_show', 'reservation', reservationId);
+  auditLogDeferred(ctx, 'fnb.reservation.no_show', 'reservation', reservationId);
   return result;
 }

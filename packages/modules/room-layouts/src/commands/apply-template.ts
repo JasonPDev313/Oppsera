@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { floorPlanRooms, floorPlanTemplatesV2 } from '../schema';
@@ -53,7 +53,7 @@ export async function applyTemplate(
     snapshotJson: template.snapshotJson as Record<string, unknown>,
   });
 
-  await auditLog(ctx, 'room_layouts.template.applied', 'floor_plan_room', roomId, undefined, {
+  auditLogDeferred(ctx, 'room_layouts.template.applied', 'floor_plan_room', roomId, undefined, {
     templateId,
     templateName: template.name,
   });

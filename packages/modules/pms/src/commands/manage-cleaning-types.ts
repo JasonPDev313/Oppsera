@@ -2,7 +2,7 @@
  * CRUD operations for cleaning types (service levels).
  */
 import { and, eq } from 'drizzle-orm';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
 import { pmsCleaningTypes, pmsProperties } from '@oppsera/db';
@@ -33,7 +33,7 @@ export async function createCleaningType(ctx: RequestContext, input: CreateClean
       updatedAt: now,
     });
 
-    await auditLog(ctx, 'pms.cleaning_type.created', 'pms_cleaning_types', id);
+    auditLogDeferred(ctx, 'pms.cleaning_type.created', 'pms_cleaning_types', id);
     return { id, code: input.code, name: input.name };
   });
 }
@@ -61,9 +61,9 @@ export async function updateCleaningType(
     await tx
       .update(pmsCleaningTypes)
       .set(updates)
-      .where(eq(pmsCleaningTypes.id, cleaningTypeId));
+      .where(and(eq(pmsCleaningTypes.id, cleaningTypeId), eq(pmsCleaningTypes.tenantId, ctx.tenantId)));
 
-    await auditLog(ctx, 'pms.cleaning_type.updated', 'pms_cleaning_types', cleaningTypeId);
+    auditLogDeferred(ctx, 'pms.cleaning_type.updated', 'pms_cleaning_types', cleaningTypeId);
     return { id: cleaningTypeId };
   });
 }

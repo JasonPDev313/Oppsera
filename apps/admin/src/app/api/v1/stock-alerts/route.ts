@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withAdminAuth } from '@/lib/with-admin-auth';
 import { db } from '@oppsera/db';
-import { semanticAlertNotifications, semanticAlertRules } from '@oppsera/db';
+import { semanticAlertNotifications } from '@oppsera/db';
 import { tenants } from '@oppsera/db';
 import { eq, and, gte, desc, sql } from 'drizzle-orm';
 

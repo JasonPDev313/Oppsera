@@ -1,5 +1,5 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
 import { customers, customerIdentifiers, customerActivityLog } from '@oppsera/db';
@@ -45,6 +45,6 @@ export async function addCustomerIdentifier(ctx: RequestContext, input: AddCusto
     return { result: created!, events: [] };
   });
 
-  await auditLog(ctx, 'customer.identifier_added', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.identifier_added', 'customer', input.customerId);
   return result;
 }

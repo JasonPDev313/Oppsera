@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { tags, customerTags } from '@oppsera/db';
@@ -22,7 +22,7 @@ export async function archiveTag(ctx: RequestContext, tagId: string, input: Arch
       archivedReason: input.reason ?? null,
       isActive: false,
       updatedAt: new Date(),
-    }).where(eq(tags.id, tagId)).returning();
+    }).where(and(eq(tags.id, tagId), eq(tags.tenantId, ctx.tenantId))).returning();
 
     // Soft-remove all active customer assignments
     const now = new Date();
@@ -38,7 +38,7 @@ export async function archiveTag(ctx: RequestContext, tagId: string, input: Arch
 
     // Reset customer count
     await (tx as any).update(tags).set({ customerCount: 0 })
-      .where(eq(tags.id, tagId));
+      .where(and(eq(tags.id, tagId), eq(tags.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'customer.tag_definition.archived.v1', {
       tagId,
@@ -48,6 +48,6 @@ export async function archiveTag(ctx: RequestContext, tagId: string, input: Arch
     return { result: archived!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.tag_archived', 'tag', tagId);
+  auditLogDeferred(ctx, 'customer.tag_archived', 'tag', tagId);
   return result;
 }

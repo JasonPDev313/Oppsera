@@ -1,4 +1,4 @@
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customerNotes } from '@oppsera/db';
@@ -20,11 +20,11 @@ export async function updateCustomerNote(ctx: RequestContext, input: UpdateCusto
     if (input.visibility !== undefined) updates.visibility = input.visibility;
 
     const [updated] = await (tx as any).update(customerNotes).set(updates)
-      .where(eq(customerNotes.id, input.noteId)).returning();
+      .where(and(eq(customerNotes.id, input.noteId), eq(customerNotes.tenantId, ctx.tenantId))).returning();
 
     return updated!;
   });
 
-  await auditLog(ctx, 'customer.note_updated', 'customer_note', input.noteId);
+  auditLogDeferred(ctx, 'customer.note_updated', 'customer_note', input.noteId);
   return result;
 }

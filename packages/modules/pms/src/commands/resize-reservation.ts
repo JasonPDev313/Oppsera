@@ -4,7 +4,7 @@
 import { sql, and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError, ValidationError } from '@oppsera/shared';
 import { pmsReservations, pmsRoomBlocks, pmsProperties } from '@oppsera/db';
@@ -210,6 +210,6 @@ export async function resizeReservation(ctx: RequestContext, input: CalendarResi
     return { result: responseData, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.reservation.resized', 'pms_reservation', result.id ?? input.reservationId);
+  auditLogDeferred(ctx, 'pms.reservation.resized', 'pms_reservation', result.id ?? input.reservationId);
   return result;
 }

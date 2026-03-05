@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbTables, fnbTableLiveStatus, floorPlanRooms } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -92,6 +92,6 @@ export async function createTable(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.table.created', 'fnb_tables', result.id);
+  auditLogDeferred(ctx, 'fnb.table.created', 'fnb_tables', result.id);
   return result;
 }

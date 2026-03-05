@@ -1,7 +1,7 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import {
   fnbTables,
@@ -132,7 +132,7 @@ export async function combineTables(
     return { result: group!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.table.combined', 'fnb_table_combine_groups', result.id, undefined, {
+  auditLogDeferred(ctx, 'fnb.table.combined', 'fnb_table_combine_groups', result.id, undefined, {
     tableIds: input.tableIds,
     primaryTableId: input.primaryTableId,
   });

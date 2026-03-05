@@ -1,6 +1,15 @@
-import { eq, and, lt, desc } from 'drizzle-orm';
+import { eq, and, lt, desc, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { minimumPeriodRollups } from '@oppsera/db';
+
+function encodeCursor(leadCol: string, id: string): string {
+  return `${leadCol}|${id}`;
+}
+function decodeCursor(cursor: string): { lead: string; id: string } | null {
+  const sep = cursor.indexOf('|');
+  if (sep === -1) return null;
+  return { lead: cursor.slice(0, sep), id: cursor.slice(sep + 1) };
+}
 
 export interface GetMinimumHistoryInput {
   tenantId: string;
@@ -49,7 +58,12 @@ export async function getMinimumHistory(
     }
 
     if (input.cursor) {
-      conditions.push(lt(minimumPeriodRollups.id, input.cursor));
+      const decoded = decodeCursor(input.cursor);
+      if (decoded) {
+        conditions.push(sql`(${minimumPeriodRollups.periodEnd}, ${minimumPeriodRollups.id}) < (${decoded.lead}, ${decoded.id})`);
+      } else {
+        conditions.push(lt(minimumPeriodRollups.id, input.cursor));
+      }
     }
 
     const rows = await (tx as any)
@@ -110,9 +124,11 @@ export async function getMinimumHistory(
       };
     });
 
+    const lastMapped = hasMore ? mapped[mapped.length - 1]! : null;
+
     return {
       items: mapped,
-      cursor: hasMore ? mapped[mapped.length - 1]!.id : null,
+      cursor: lastMapped ? encodeCursor(lastMapped.periodEnd, lastMapped.id) : null,
       hasMore,
     };
   });

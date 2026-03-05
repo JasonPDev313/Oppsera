@@ -18,7 +18,7 @@ import { processAchReturn } from '../commands/process-ach-return';
 import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition } from '../events/gateway-types';
 import type { PaymentIntentStatus } from '../events/gateway-types';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 
 export interface PollAchFundingInput {
   tenantId: string;
@@ -342,7 +342,7 @@ async function processFundingTransaction(
         return { result: null, events: [event] };
       });
 
-      await auditLog(ctx, 'payment.ach.settled', 'payment_intent', intentId);
+      auditLogDeferred(ctx, 'payment.ach.settled', 'payment_intent', intentId);
       return 'settled';
     }
 
@@ -385,7 +385,7 @@ async function processFundingTransaction(
         return { result: null, events: [event] };
       });
 
-      await auditLog(ctx, 'payment.ach.originated', 'payment_intent', intentId);
+      auditLogDeferred(ctx, 'payment.ach.originated', 'payment_intent', intentId);
       return 'originated';
     }
 

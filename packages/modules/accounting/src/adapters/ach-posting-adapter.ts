@@ -99,6 +99,9 @@ export async function handleAchOriginatedForAccounting(event: EventEnvelope): Pr
   const { tenantId } = event;
   const data = event.data as unknown as AchOriginatedPayload;
 
+  // Zero-amount originations have no GL impact
+  if (!data.amountCents || data.amountCents <= 0) return;
+
   try {
     // Ensure accounting settings exist (auto-bootstrap if needed)
     try { await ensureAccountingSettings(db, tenantId); } catch { /* non-fatal */ }
@@ -138,17 +141,8 @@ export async function handleAchOriginatedForAccounting(event: EventEnvelope): Pr
     const sourceRef = `ach-orig-${data.paymentIntentId}`;
 
     // Revenue credit — for non-POS ACH, use uncategorized revenue as fallback
-    const revenueAccountId =
+    const creditAccountId =
       settings.defaultUncategorizedRevenueAccountId ?? null;
-
-    // Try to resolve ACH payment type mapping for a better revenue target
-    const _achMapping = await resolvePaymentTypeAccounts(db, tenantId, 'ach');
-
-    // If ACH payment type maps to a deposit account that ISN'T the ACH Receivable,
-    // it means the POS adapter may have posted to a different account — use ACH Receivable
-    // regardless for this handler.
-
-    const creditAccountId = revenueAccountId;
     if (!creditAccountId) {
       await logUnmappedEvent(db, tenantId, {
         eventType: 'payment.gateway.ach_originated.v1',
@@ -229,6 +223,9 @@ export async function handleAchOriginatedForAccounting(event: EventEnvelope): Pr
 export async function handleAchSettledForAccounting(event: EventEnvelope): Promise<void> {
   const { tenantId } = event;
   const data = event.data as unknown as AchSettledPayload;
+
+  // Zero-amount settlements have no GL impact
+  if (!data.amountCents || data.amountCents <= 0) return;
 
   try {
     // Ensure accounting settings exist (auto-bootstrap if needed)

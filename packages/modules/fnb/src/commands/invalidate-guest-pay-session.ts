@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { generateUlid } from '@oppsera/shared';
 import { FNB_EVENTS } from '../events/types';
 import type { GuestPaySessionInvalidatedPayload } from '../events/types';
@@ -66,6 +66,6 @@ export async function invalidateGuestPaySession(
     return { result: { sessionId: input.sessionId, status: 'invalidated' }, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.guestpay.session_invalidated', 'guest_pay_sessions', input.sessionId);
+  auditLogDeferred(ctx, 'fnb.guestpay.session_invalidated', 'guest_pay_sessions', input.sessionId);
   return result;
 }

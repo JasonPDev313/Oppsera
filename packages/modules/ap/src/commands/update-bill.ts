@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apBills, apBillLines } from '@oppsera/db';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
@@ -96,7 +96,7 @@ export async function updateBill(
     const [updated] = await tx
       .update(apBills)
       .set(updateSet)
-      .where(eq(apBills.id, billId))
+      .where(and(eq(apBills.id, billId), eq(apBills.tenantId, ctx.tenantId)))
       .returning();
 
     // 5. Fetch updated lines
@@ -111,7 +111,7 @@ export async function updateBill(
     };
   });
 
-  await auditLog(ctx, 'ap.bill.updated', 'ap_bill', result.id);
+  auditLogDeferred(ctx, 'ap.bill.updated', 'ap_bill', result.id);
   return result;
 }
 

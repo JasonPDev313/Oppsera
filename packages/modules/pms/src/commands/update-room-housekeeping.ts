@@ -5,7 +5,7 @@
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsRooms } from '@oppsera/db';
@@ -57,6 +57,6 @@ export async function updateRoomHousekeeping(
     return { result: { roomId, status: input.status }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.room.status_changed', 'pms_room', roomId);
+  auditLogDeferred(ctx, 'pms.room.status_changed', 'pms_room', roomId);
   return result;
 }

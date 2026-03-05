@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth';
 import { publishWithOutbox } from '@oppsera/core/events';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events';
 import { projects } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -39,7 +39,7 @@ export async function archiveProject(
         updatedAt: new Date(),
         version: existing.version + 1,
       })
-      .where(eq(projects.id, projectId))
+      .where(and(eq(projects.id, projectId), eq(projects.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'project_costing.project.archived.v1', {
@@ -50,7 +50,7 @@ export async function archiveProject(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'project_costing.project.archived', 'project', projectId);
+  auditLogDeferred(ctx, 'project_costing.project.archived', 'project', projectId);
   return result;
 }
 
@@ -79,7 +79,7 @@ export async function unarchiveProject(ctx: RequestContext, projectId: string) {
         updatedAt: new Date(),
         version: existing.version + 1,
       })
-      .where(eq(projects.id, projectId))
+      .where(and(eq(projects.id, projectId), eq(projects.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'project_costing.project.unarchived.v1', {
@@ -89,6 +89,6 @@ export async function unarchiveProject(ctx: RequestContext, projectId: string) {
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'project_costing.project.unarchived', 'project', projectId);
+  auditLogDeferred(ctx, 'project_costing.project.unarchived', 'project', projectId);
   return result;
 }

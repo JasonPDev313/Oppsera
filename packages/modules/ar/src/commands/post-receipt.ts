@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -101,7 +101,7 @@ export async function postReceipt(ctx: RequestContext, input: PostReceiptInput) 
         glJournalEntryId: glResult.id,
         updatedAt: new Date(),
       })
-      .where(eq(arReceipts.id, input.receiptId))
+      .where(and(eq(arReceipts.id, input.receiptId), eq(arReceipts.tenantId, ctx.tenantId)))
       .returning();
 
     // Update allocated invoices
@@ -138,7 +138,7 @@ export async function postReceipt(ctx: RequestContext, input: PostReceiptInput) 
             status: newStatus,
             updatedAt: new Date(),
           })
-          .where(eq(arInvoices.id, alloc.invoiceId));
+          .where(and(eq(arInvoices.id, alloc.invoiceId), eq(arInvoices.tenantId, ctx.tenantId)));
       }
     }
 
@@ -153,6 +153,6 @@ export async function postReceipt(ctx: RequestContext, input: PostReceiptInput) 
     return { result: posted!, events: [event] };
   });
 
-  await auditLog(ctx, 'ar.receipt.posted', 'ar_receipt', result.id);
+  auditLogDeferred(ctx, 'ar.receipt.posted', 'ar_receipt', result.id);
   return result;
 }

@@ -8,6 +8,7 @@ export interface PnlAccountLine {
   classificationName: string | null;
   isContraAccount: boolean;
   amount: number;
+  priorAmount?: number;
 }
 
 export interface PnlSection {
@@ -23,6 +24,8 @@ export interface ProfitAndLoss {
   grossRevenue: number;
   contraRevenue: number;
   totalRevenue: number;
+  totalCogs?: number;
+  grossProfit?: number;
   totalExpenses: number;
   netIncome: number;
   comparativePeriod?: { from: string; to: string };
@@ -110,6 +113,7 @@ export async function getProfitAndLoss(input: GetPnlInput): Promise<ProfitAndLos
       const expenseSections = new Map<string, PnlAccountLine[]>();
       let grossRevenue = 0;
       let contraRevenue = 0;
+      let totalCogs = 0;
       let totalExpenses = 0;
 
       for (const row of accountRows) {
@@ -144,6 +148,10 @@ export async function getProfitAndLoss(input: GetPnlInput): Promise<ProfitAndLos
             revenueSections.set(classLabel, arr);
           }
         } else {
+          // COGS accounts are expense accounts classified as "Cost of Goods Sold"
+          if (classLabel === 'Cost of Goods Sold') {
+            totalCogs += rawAmount;
+          }
           totalExpenses += rawAmount;
           const arr = expenseSections.get(classLabel) ?? [];
           arr.push(line);
@@ -153,9 +161,11 @@ export async function getProfitAndLoss(input: GetPnlInput): Promise<ProfitAndLos
 
       grossRevenue = Math.round(grossRevenue * 100) / 100;
       contraRevenue = Math.round(contraRevenue * 100) / 100;
+      totalCogs = Math.round(totalCogs * 100) / 100;
       totalExpenses = Math.round(totalExpenses * 100) / 100;
       // totalRevenue = gross + contra (contra is typically negative)
       const totalRevenue = Math.round((grossRevenue + contraRevenue) * 100) / 100;
+      const grossProfit = Math.round((totalRevenue - totalCogs) * 100) / 100;
 
       const sections: PnlSection[] = [];
 
@@ -191,6 +201,8 @@ export async function getProfitAndLoss(input: GetPnlInput): Promise<ProfitAndLos
         grossRevenue,
         contraRevenue,
         totalRevenue,
+        totalCogs,
+        grossProfit,
         totalExpenses,
         netIncome: Math.round((totalRevenue - totalExpenses) * 100) / 100,
       };
@@ -211,6 +223,8 @@ export async function getProfitAndLoss(input: GetPnlInput): Promise<ProfitAndLos
       grossRevenue: current.grossRevenue,
       contraRevenue: current.contraRevenue,
       totalRevenue: current.totalRevenue,
+      totalCogs: current.totalCogs,
+      grossProfit: current.grossProfit,
       totalExpenses: current.totalExpenses,
       netIncome: current.netIncome,
     };

@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { fixedAssets, withTenant } from '@oppsera/db';
 import { recordDepreciation } from './record-depreciation';
@@ -67,7 +67,7 @@ export async function runMonthlyDepreciation(
     }
   }
 
-  await auditLog(ctx, 'accounting.fixed_asset.monthly_depreciation', 'fixed_asset_batch', input.periodDate);
+  auditLogDeferred(ctx, 'accounting.fixed_asset.monthly_depreciation', 'fixed_asset_batch', input.periodDate);
 
   return { processed, skipped, errors };
 }

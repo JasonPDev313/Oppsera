@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { generateUlid } from '@oppsera/shared';
 import type { ReprintJobInput } from '../validation';
 import { PrintJobNotFoundError } from '../errors';
@@ -64,6 +64,6 @@ export async function reprintJob(
     return { result: reprintResult, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.print_job.reprinted', 'fnb_print_job', result.reprintJobId);
+  auditLogDeferred(ctx, 'fnb.print_job.reprinted', 'fnb_print_job', result.reprintJobId);
   return result;
 }

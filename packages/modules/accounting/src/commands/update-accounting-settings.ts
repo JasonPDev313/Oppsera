@@ -1,6 +1,6 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { accountingSettings, glAccounts } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
@@ -86,6 +86,6 @@ export async function updateAccountingSettings(
     return { result: settings!, events: [] };
   });
 
-  await auditLog(ctx, 'accounting.settings.updated', 'accounting_settings', ctx.tenantId);
+  auditLogDeferred(ctx, 'accounting.settings.updated', 'accounting_settings', ctx.tenantId);
   return result;
 }

@@ -130,11 +130,11 @@ export default function TrialBalanceContent() {
   }, [filtered, showZeroBalances]);
 
   // Totals
-  const totalDebits = rows.reduce((sum, r) => sum + r.debitBalance, 0);
-  const totalCredits = rows.reduce((sum, r) => sum + r.creditBalance, 0);
+  const totalDebits = rows.reduce((sum, r) => sum + r.debitTotal, 0);
+  const totalCredits = rows.reduce((sum, r) => sum + r.creditTotal, 0);
   const variance = Math.abs(totalDebits - totalCredits);
   const isBalanced = variance < 0.01;
-  const accountCount = rows.filter((r) => r.debitBalance > 0 || r.creditBalance > 0).length;
+  const accountCount = rows.filter((r) => r.debitTotal > 0 || r.creditTotal > 0).length;
 
   // Export
   const handleExport = () => {
@@ -350,8 +350,8 @@ export default function TrialBalanceContent() {
               const items = grouped[type];
               if (!items || items.length === 0) return null;
               const isCollapsed = collapsed.has(type);
-              const sectionDebits = items.reduce((s, r) => s + r.debitBalance, 0);
-              const sectionCredits = items.reduce((s, r) => s + r.creditBalance, 0);
+              const sectionDebits = items.reduce((s, r) => s + r.debitTotal, 0);
+              const sectionCredits = items.reduce((s, r) => s + r.creditTotal, 0);
 
               return (
                 <tbody key={type} className="print:break-inside-avoid">
@@ -393,16 +393,16 @@ export default function TrialBalanceContent() {
                           {row.classificationName ?? '—'}
                         </td>
                         <td className="px-4 py-2 text-right text-sm tabular-nums text-foreground">
-                          {row.debitBalance > 0 ? (
+                          {row.debitTotal > 0 ? (
                             <DrillDownAmount onClick={() => setDrillDown({ accountId: row.accountId, accountName: `${row.accountNumber} ${row.accountName}` })}>
-                              {formatAccountingMoney(row.debitBalance)}
+                              {formatAccountingMoney(row.debitTotal)}
                             </DrillDownAmount>
                           ) : ''}
                         </td>
                         <td className="px-4 py-2 text-right text-sm tabular-nums text-foreground">
-                          {row.creditBalance > 0 ? (
+                          {row.creditTotal > 0 ? (
                             <DrillDownAmount onClick={() => setDrillDown({ accountId: row.accountId, accountName: `${row.accountNumber} ${row.accountName}` })}>
-                              {formatAccountingMoney(row.creditBalance)}
+                              {formatAccountingMoney(row.creditTotal)}
                             </DrillDownAmount>
                           ) : ''}
                         </td>
@@ -494,9 +494,9 @@ export default function TrialBalanceContent() {
                           onClick={() => setDrillDown({ accountId: row.accountId, accountName: `${row.accountNumber} ${row.accountName}` })}
                           className="text-sm tabular-nums text-foreground"
                         >
-                          {row.debitBalance > 0
-                            ? formatAccountingMoney(row.debitBalance)
-                            : formatAccountingMoney(row.creditBalance)}
+                          {row.debitTotal > 0
+                            ? formatAccountingMoney(row.debitTotal)
+                            : formatAccountingMoney(row.creditTotal)}
                         </DrillDownAmount>
                       </div>
                     ))}

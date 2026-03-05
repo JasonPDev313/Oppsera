@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { NotFoundError } from '@oppsera/shared';
 import { terminalLocations } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
@@ -42,7 +42,7 @@ export async function updateProfitCenter(
     const [updated] = await tx
       .update(terminalLocations)
       .set(updates)
-      .where(eq(terminalLocations.id, profitCenterId))
+      .where(and(eq(terminalLocations.id, profitCenterId), eq(terminalLocations.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'platform.profit_center.updated.v1', {
@@ -53,6 +53,6 @@ export async function updateProfitCenter(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'platform.profit_center.updated', 'terminal_location', result.id);
+  auditLogDeferred(ctx, 'platform.profit_center.updated', 'terminal_location', result.id);
   return result;
 }

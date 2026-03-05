@@ -8,6 +8,7 @@ import { useAuthContext } from '@/components/auth-provider';
 import { useFnbSettings } from '@/hooks/use-fnb-settings';
 
 const KdsSettingsPanel = dynamic(() => import('@/components/fnb/kds-settings-panel').then((m) => ({ default: m.KdsSettingsPanel })), {
+  ssr: false,
   loading: () => (
     <div className="flex items-center justify-center py-12">
       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

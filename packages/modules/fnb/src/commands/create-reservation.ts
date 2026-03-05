@@ -1,7 +1,7 @@
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { sql } from 'drizzle-orm';
 import type { CreateReservationInput } from '../validation';
 
@@ -53,7 +53,7 @@ export async function createReservation(
     return { result: mapReservationRow(created), events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.reservation.created', 'reservation', result.id);
+  auditLogDeferred(ctx, 'fnb.reservation.created', 'reservation', result.id);
   return result;
 }
 

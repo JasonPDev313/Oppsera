@@ -2,7 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apPayments, apPaymentAllocations, apBills, vendors, bankAccounts } from '@oppsera/db';
@@ -104,7 +104,7 @@ export async function voidPayment(ctx: RequestContext, paymentId: string, reason
             status: restoredStatus,
             updatedAt: new Date(),
           })
-          .where(eq(apBills.id, alloc.billId));
+          .where(and(eq(apBills.id, alloc.billId), eq(apBills.tenantId, ctx.tenantId)));
       }
     }
 
@@ -112,7 +112,7 @@ export async function voidPayment(ctx: RequestContext, paymentId: string, reason
     const [voided] = await tx
       .update(apPayments)
       .set({ status: 'voided', updatedAt: new Date() })
-      .where(eq(apPayments.id, paymentId))
+      .where(and(eq(apPayments.id, paymentId), eq(apPayments.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, AP_EVENTS.PAYMENT_VOIDED, {
@@ -127,6 +127,6 @@ export async function voidPayment(ctx: RequestContext, paymentId: string, reason
     return { result: voided!, events: [event] };
   });
 
-  await auditLog(ctx, 'ap.payment.voided', 'ap_payment', result.id);
+  auditLogDeferred(ctx, 'ap.payment.voided', 'ap_payment', result.id);
   return result;
 }

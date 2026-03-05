@@ -15,7 +15,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import type { EventEnvelope } from '@oppsera/shared';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import {
   catalogItems,
@@ -143,7 +143,7 @@ export async function importInventory(
           errors: validation.errors.map((e) => ({ row: e.row, message: e.message })),
           completedAt: new Date(),
         })
-        .where(eq(catalogImportLogs.id, importLog!.id));
+        .where(and(eq(catalogImportLogs.id, importLog!.id), eq(catalogImportLogs.tenantId, ctx.tenantId)));
 
       const failResult: ImportResult = {
         importLogId: importLog!.id,
@@ -293,7 +293,7 @@ export async function importInventory(
                 updatedBy: ctx.user.id,
                 updatedAt: new Date(),
               })
-              .where(eq(catalogItems.id, existingItemId));
+              .where(and(eq(catalogItems.id, existingItemId), eq(catalogItems.tenantId, ctx.tenantId)));
 
             const [after] = await tx
               .select()
@@ -417,7 +417,7 @@ export async function importInventory(
         errors: itemErrors.length > 0 ? itemErrors : null,
         completedAt: new Date(),
       })
-      .where(eq(catalogImportLogs.id, importLog!.id));
+      .where(and(eq(catalogImportLogs.id, importLog!.id), eq(catalogImportLogs.tenantId, ctx.tenantId)));
 
     const successResult: ImportResult = {
       importLogId: importLog!.id,
@@ -433,7 +433,7 @@ export async function importInventory(
     return { result: successResult, events };
   });
 
-  await auditLog(ctx, 'catalog.import.completed', 'catalog_import_log', result.importLogId);
+  auditLogDeferred(ctx, 'catalog.import.completed', 'catalog_import_log', result.importLogId);
 
   return result;
 }

@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { UpdateRoutingRuleS14Input } from '../validation';
 import { PrintRoutingRuleNotFoundError } from '../errors';
 
@@ -56,6 +56,6 @@ export async function updateRoutingRuleS14(
     };
   });
 
-  await auditLog(ctx, 'fnb.routing_rule.updated', 'fnb_print_routing_rule', result.ruleId);
+  auditLogDeferred(ctx, 'fnb.routing_rule.updated', 'fnb_print_routing_rule', result.ruleId);
   return result;
 }

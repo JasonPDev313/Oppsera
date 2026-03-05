@@ -1,7 +1,7 @@
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { sql } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
 import type { SeatFromWaitlistInput } from '../validation';
@@ -140,6 +140,6 @@ export async function seatFromWaitlist(
     };
   });
 
-  await auditLog(ctx, 'fnb.waitlist.seated', 'waitlist_entry', entryId);
+  auditLogDeferred(ctx, 'fnb.waitlist.seated', 'waitlist_entry', entryId);
   return result;
 }

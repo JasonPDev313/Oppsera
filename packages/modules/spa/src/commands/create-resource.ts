@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -86,6 +86,6 @@ export async function createResource(ctx: RequestContext, input: CreateResourceI
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'spa.resource.created', 'spa_resource', result.id);
+  auditLogDeferred(ctx, 'spa.resource.created', 'spa_resource', result.id);
   return result;
 }

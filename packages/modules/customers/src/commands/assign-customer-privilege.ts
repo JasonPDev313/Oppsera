@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customers, customerPrivileges, customerActivityLog } from '@oppsera/db';
@@ -44,6 +44,6 @@ export async function assignCustomerPrivilege(ctx: RequestContext, input: Assign
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.privilege_assigned', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.privilege_assigned', 'customer', input.customerId);
   return result;
 }

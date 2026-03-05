@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaServices } from '@oppsera/db';
@@ -43,7 +43,7 @@ export async function archiveService(ctx: RequestContext, input: ArchiveServiceI
         isActive: false,
         updatedAt: new Date(),
       })
-      .where(eq(spaServices.id, input.id))
+      .where(and(eq(spaServices.id, input.id), eq(spaServices.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(
@@ -60,7 +60,7 @@ export async function archiveService(ctx: RequestContext, input: ArchiveServiceI
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'spa.service.archived', 'spa_service', result.id);
+  auditLogDeferred(ctx, 'spa.service.archived', 'spa_service', result.id);
 
   return result;
 }

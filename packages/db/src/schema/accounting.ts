@@ -216,6 +216,8 @@ export const accountingSettings = pgTable('accounting_settings', {
   defaultInterestIncomeAccountId: text('default_interest_income_account_id'),
   defaultInterestExpenseAccountId: text('default_interest_expense_account_id'),
   defaultDeliveryCommissionAccountId: text('default_delivery_commission_account_id'),
+  // ── Freight expense GL default (migration 0275) ──
+  defaultFreightExpenseAccountId: text('default_freight_expense_account_id'),
   // ── Multi-currency provisioning (migration 0121) ──
   supportedCurrencies: text('supported_currencies').array().notNull().default(sql`'{USD}'`),
   // ── Auto-close orchestrator (migration 0187) ──

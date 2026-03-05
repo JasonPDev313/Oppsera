@@ -1,9 +1,19 @@
-import { eq, and, lt, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import {
   withTenant,
   spaCommissionLedger,
   spaProviders,
 } from '@oppsera/db';
+
+function encodeCursor(...parts: string[]): string {
+  return parts.join('|');
+}
+
+function decodeCursor(cursor: string, expectedParts: number): string[] | null {
+  const parts = cursor.split('|');
+  if (parts.length !== expectedParts) return null; // Legacy fallback
+  return parts;
+}
 
 export interface ListCommissionLedgerInput {
   tenantId: string;
@@ -42,7 +52,7 @@ export interface ListCommissionLedgerResult {
 /**
  * List commission ledger entries with filters and cursor pagination.
  * LEFT JOINs spaProviders for provider display name.
- * Order by createdAt DESC.
+ * Order by createdAt DESC, id DESC.
  */
 export async function listCommissionLedger(
   input: ListCommissionLedgerInput,
@@ -55,7 +65,18 @@ export async function listCommissionLedger(
     ];
 
     if (input.cursor) {
-      conditions.push(lt(spaCommissionLedger.id, input.cursor));
+      const decoded = decodeCursor(input.cursor, 2);
+      if (decoded) {
+        const [cursorCreatedAt, cursorId] = decoded as [string, string];
+        conditions.push(
+          sql`(${spaCommissionLedger.createdAt}, ${spaCommissionLedger.id}) < (${cursorCreatedAt}::timestamptz, ${cursorId})` as unknown as ReturnType<typeof eq>,
+        );
+      } else {
+        // Legacy: cursor was plain id
+        conditions.push(
+          sql`${spaCommissionLedger.id} < ${input.cursor}` as unknown as ReturnType<typeof eq>,
+        );
+      }
     }
 
     if (input.providerId) {
@@ -95,7 +116,7 @@ export async function listCommissionLedger(
       .from(spaCommissionLedger)
       .leftJoin(spaProviders, eq(spaCommissionLedger.providerId, spaProviders.id))
       .where(and(...conditions))
-      .orderBy(desc(spaCommissionLedger.createdAt))
+      .orderBy(desc(spaCommissionLedger.createdAt), desc(spaCommissionLedger.id))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
@@ -119,9 +140,12 @@ export async function listCommissionLedger(
       createdAt: r.createdAt,
     }));
 
+    const lastItem = sliced[sliced.length - 1];
     return {
       items,
-      cursor: hasMore ? sliced[sliced.length - 1]!.id : null,
+      cursor: hasMore && lastItem
+        ? encodeCursor(lastItem.createdAt.toISOString(), lastItem.id)
+        : null,
       hasMore,
     };
   });

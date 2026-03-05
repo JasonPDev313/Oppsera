@@ -3,7 +3,7 @@ import { randomBytes } from 'crypto';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaAppointments, spaAppointmentItems, spaAppointmentHistory, spaProviders, spaResources } from '@oppsera/db';
@@ -209,7 +209,7 @@ export async function createAppointment(ctx: RequestContext, input: CreateAppoin
     return { result: { ...created!, items: insertedItems }, events: [event] };
   });
 
-  await auditLog(ctx, 'spa.appointment.created', 'spa_appointment', result.id);
+  auditLogDeferred(ctx, 'spa.appointment.created', 'spa_appointment', result.id);
 
   return result;
 }

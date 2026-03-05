@@ -124,7 +124,7 @@ export const POST = withMiddleware(
           sqlExpression,
           updatedAt: new Date(),
         })
-        .where(eq(semanticDimensions.id, existing.id))
+        .where(and(eq(semanticDimensions.id, existing.id), eq(semanticDimensions.tenantId, ctx.tenantId)))
         .returning();
 
       return NextResponse.json({ data: { slug: updated!.slug, updated: true } });

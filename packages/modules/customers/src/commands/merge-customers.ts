@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import {
@@ -43,7 +43,7 @@ export async function mergeCustomers(ctx: RequestContext, input: MergeCustomersI
     }
 
     // Update primary customer
-    await (tx as any).update(customers).set(updates).where(eq(customers.id, input.primaryId));
+    await (tx as any).update(customers).set(updates).where(and(eq(customers.id, input.primaryId), eq(customers.tenantId, ctx.tenantId)));
 
     // Reassign orders referencing duplicate -> primary
     await (tx as any).update(orders).set({ customerId: input.primaryId })
@@ -84,7 +84,7 @@ export async function mergeCustomers(ctx: RequestContext, input: MergeCustomersI
       displayName: `[MERGED] ${duplicate.displayName}`,
       metadata: { mergedInto: input.primaryId, mergedAt: new Date().toISOString() },
       updatedAt: new Date(),
-    }).where(eq(customers.id, input.duplicateId));
+    }).where(and(eq(customers.id, input.duplicateId), eq(customers.tenantId, ctx.tenantId)));
 
     // Activity log on primary
     await (tx as any).insert(customerActivityLog).values({
@@ -105,6 +105,6 @@ export async function mergeCustomers(ctx: RequestContext, input: MergeCustomersI
     return { result: { primaryId: input.primaryId, duplicateId: input.duplicateId, mergedFields }, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.merged', 'customer', input.primaryId);
+  auditLogDeferred(ctx, 'customer.merged', 'customer', input.primaryId);
   return result;
 }

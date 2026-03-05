@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
 import { customers, customerSegments, customerSegmentMemberships } from '@oppsera/db';
@@ -27,7 +27,7 @@ export async function createSegment(ctx: RequestContext, input: CreateSegmentInp
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.segment_created', 'customer_segment', result.id);
+  auditLogDeferred(ctx, 'customer.segment_created', 'customer_segment', result.id);
   return result;
 }
 
@@ -67,7 +67,7 @@ export async function addToSegment(ctx: RequestContext, input: AddToSegmentInput
     await (tx as any).update(customerSegments).set({
       memberCount: sql`${customerSegments.memberCount} + 1`,
       updatedAt: new Date(),
-    }).where(eq(customerSegments.id, input.segmentId));
+    }).where(and(eq(customerSegments.id, input.segmentId), eq(customerSegments.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'customer_segment_member.added.v1', {
       segmentId: input.segmentId,
@@ -78,7 +78,7 @@ export async function addToSegment(ctx: RequestContext, input: AddToSegmentInput
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.segment_member_added', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.segment_member_added', 'customer', input.customerId);
   return result;
 }
 
@@ -98,13 +98,13 @@ export async function removeFromSegment(ctx: RequestContext, input: RemoveFromSe
     // Soft-remove: set removedAt
     const [updated] = await (tx as any).update(customerSegmentMemberships).set({
       removedAt: new Date(),
-    }).where(eq(customerSegmentMemberships.id, membership.id)).returning();
+    }).where(and(eq(customerSegmentMemberships.id, membership.id), eq(customerSegmentMemberships.tenantId, ctx.tenantId))).returning();
 
     // Decrement segment member count
     await (tx as any).update(customerSegments).set({
       memberCount: sql`member_count - 1`,
       updatedAt: new Date(),
-    }).where(eq(customerSegments.id, input.segmentId));
+    }).where(and(eq(customerSegments.id, input.segmentId), eq(customerSegments.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'customer_segment_member.removed.v1', {
       segmentId: input.segmentId,
@@ -115,6 +115,6 @@ export async function removeFromSegment(ctx: RequestContext, input: RemoveFromSe
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.segment_member_removed', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.segment_member_removed', 'customer', input.customerId);
   return result;
 }

@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { CloseBatchNotFoundError, CloseBatchStatusConflictError } from '../errors';
 
 interface RetryBatchPostingInput {
@@ -50,6 +50,6 @@ export async function retryBatchPosting(ctx: RequestContext, input: RetryBatchPo
     };
   });
 
-  await auditLog(ctx, 'fnb.gl_posting.retry_checked', 'close_batch', input.closeBatchId);
+  auditLogDeferred(ctx, 'fnb.gl_posting.retry_checked', 'close_batch', input.closeBatchId);
   return result;
 }

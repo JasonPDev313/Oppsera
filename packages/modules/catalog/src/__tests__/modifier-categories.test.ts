@@ -170,6 +170,7 @@ vi.mock('@oppsera/shared', () => ({
 
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: mockAuditLog,
+  auditLogDeferred: mockAuditLog,
 }));
 
 vi.mock('@oppsera/core/audit/diff', () => ({

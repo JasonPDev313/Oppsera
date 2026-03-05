@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { billingAccounts, arTransactions, statements } from '@oppsera/db';
@@ -72,6 +72,6 @@ export async function generateStatement(ctx: RequestContext, input: GenerateStat
     return { result: stmt!, events: [event] };
   });
 
-  await auditLog(ctx, 'statement.generated', 'statement', result.id);
+  auditLogDeferred(ctx, 'statement.generated', 'statement', result.id);
   return result;
 }

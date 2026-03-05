@@ -314,18 +314,18 @@ export default function RevenueReconciliationTab() {
                     {formatAccountingMoney(pnl.totalRevenue)}
                   </span>
                 </div>
-                {pnl.totalCogs !== 0 && (
+                {(pnl.totalCogs ?? 0) !== 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Less: Cost of Goods Sold</span>
                     <span className="text-sm tabular-nums text-red-500">
-                      ({formatAccountingMoney(Math.abs(pnl.totalCogs))})
+                      ({formatAccountingMoney(Math.abs(pnl.totalCogs ?? 0))})
                     </span>
                   </div>
                 )}
                 <div className="flex items-center justify-between border-t border-border pt-2">
                   <span className="text-sm font-medium text-foreground">Gross Profit</span>
                   <span className="text-sm font-bold tabular-nums text-foreground">
-                    {formatAccountingMoney(pnl.grossProfit)}
+                    {formatAccountingMoney(pnl.grossProfit ?? pnl.totalRevenue)}
                   </span>
                 </div>
                 {pnl.totalExpenses !== 0 && (

@@ -50,6 +50,7 @@ vi.mock('@oppsera/core/events/build-event', () => ({
 
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: vi.fn(),
+  auditLogDeferred: vi.fn(),
 }));
 
 vi.mock('../helpers/generate-journal-number', () => ({

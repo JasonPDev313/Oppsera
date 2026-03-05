@@ -3,7 +3,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { CloseBatchNotFoundError, BatchNotPostedError } from '../errors';
 import { FNB_EVENTS } from '../events/types';
 import type { GlPostingReversedPayload } from '../events/types';
@@ -78,6 +78,6 @@ export async function reverseBatchPosting(ctx: RequestContext, input: ReverseBat
     };
   });
 
-  await auditLog(ctx, 'fnb.gl_posting.reversed', 'close_batch', input.closeBatchId);
+  auditLogDeferred(ctx, 'fnb.gl_posting.reversed', 'close_batch', input.closeBatchId);
   return result;
 }

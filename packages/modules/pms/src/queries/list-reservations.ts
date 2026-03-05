@@ -1,4 +1,4 @@
-import { and, eq, desc, gte, lte } from 'drizzle-orm';
+import { and, eq, desc, gte, lte, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { pmsReservations, pmsRooms, pmsRoomTypes } from '@oppsera/db';
 
@@ -12,6 +12,21 @@ interface ListReservationsInput {
   roomId?: string;
   cursor?: string;
   limit?: number;
+}
+
+/** Encode composite cursor as `checkInDate|id` */
+function encodeCursor(checkInDate: string, id: string): string {
+  return `${checkInDate}|${id}`;
+}
+
+/** Decode composite cursor — falls back to id-only for backwards compatibility */
+function decodeCursor(cursor: string): { cursorDate: string; cursorId: string } | null {
+  const sep = cursor.indexOf('|');
+  if (sep === -1) {
+    // Legacy id-only cursor — still works but less precise
+    return null;
+  }
+  return { cursorDate: cursor.slice(0, sep), cursorId: cursor.slice(sep + 1) };
 }
 
 export async function listReservations(input: ListReservationsInput) {
@@ -39,7 +54,16 @@ export async function listReservations(input: ListReservationsInput) {
       conditions.push(eq(pmsReservations.roomId, input.roomId));
     }
     if (input.cursor) {
-      conditions.push(lte(pmsReservations.id, input.cursor));
+      const decoded = decodeCursor(input.cursor);
+      if (decoded) {
+        // Composite keyset cursor: (check_in_date, id) < (cursorDate, cursorId)
+        conditions.push(
+          sql`(${pmsReservations.checkInDate}, ${pmsReservations.id}) < (${decoded.cursorDate}, ${decoded.cursorId})`,
+        );
+      } else {
+        // Legacy id-only cursor for backwards compatibility
+        conditions.push(sql`${pmsReservations.id} < ${input.cursor}`);
+      }
     }
 
     const rows = await tx
@@ -77,10 +101,11 @@ export async function listReservations(input: ListReservationsInput) {
 
     const hasMore = rows.length > limit;
     const items = hasMore ? rows.slice(0, limit) : rows;
+    const last = items[items.length - 1];
 
     return {
       items,
-      cursor: hasMore ? items[items.length - 1]!.id : null,
+      cursor: hasMore && last ? encodeCursor(String(last.checkInDate), last.id) : null,
       hasMore,
     };
   });

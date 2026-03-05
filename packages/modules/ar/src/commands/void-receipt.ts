@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -50,7 +50,9 @@ export async function voidReceipt(ctx: RequestContext, input: VoidReceiptInput) 
         bankGlAccountId = bank?.glAccountId ?? null;
       }
 
-      if (arControlAccountId && bankGlAccountId) {
+      if (!arControlAccountId || !bankGlAccountId) {
+        console.error(`[ar] CRITICAL: GL reversal skipped for void receipt ${receipt.id} — missing ${!arControlAccountId ? 'AR Control account' : 'bank GL account'} for tenant=${ctx.tenantId}`);
+      } else {
         const glResult = await accountingApi.postEntry(ctx, {
           businessDate: receipt.receiptDate,
           sourceModule: 'ar',
@@ -105,7 +107,7 @@ export async function voidReceipt(ctx: RequestContext, input: VoidReceiptInput) 
             status: restoredStatus,
             updatedAt: new Date(),
           })
-          .where(eq(arInvoices.id, alloc.invoiceId));
+          .where(and(eq(arInvoices.id, alloc.invoiceId), eq(arInvoices.tenantId, ctx.tenantId)));
       }
     }
 
@@ -118,7 +120,7 @@ export async function voidReceipt(ctx: RequestContext, input: VoidReceiptInput) 
         voidReason: input.reason,
         updatedAt: new Date(),
       })
-      .where(eq(arReceipts.id, input.receiptId))
+      .where(and(eq(arReceipts.id, input.receiptId), eq(arReceipts.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, AR_EVENTS.RECEIPT_VOIDED, {
@@ -133,6 +135,6 @@ export async function voidReceipt(ctx: RequestContext, input: VoidReceiptInput) 
     return { result: voidedResult, events: [event] };
   });
 
-  await auditLog(ctx, 'ar.receipt.voided', 'ar_receipt', result.id);
+  auditLogDeferred(ctx, 'ar.receipt.voided', 'ar_receipt', result.id);
   return result;
 }

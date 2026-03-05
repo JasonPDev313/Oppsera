@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { PreauthNotFoundError, PreauthStatusConflictError } from '../errors';
 
@@ -73,6 +73,6 @@ export async function voidPreauth(
     return { result: voidResult, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.preauth.voided', 'fnb_tab_preauths', input.preauthId);
+  auditLogDeferred(ctx, 'fnb.preauth.voided', 'fnb_tab_preauths', input.preauthId);
   return result;
 }

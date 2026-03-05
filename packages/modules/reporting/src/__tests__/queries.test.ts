@@ -415,21 +415,20 @@ describe('getDashboardMetrics', () => {
   });
 
   it('returns aggregated dashboard metrics', async () => {
-    // 1st call: tx.select() — CQRS sales from rmDailySales (orderCount > 0 → no fallback)
-    mockSelectReturns([{
-      netSales: '1500.0000',
-      orderCount: 15,
-      voidCount: 2,
-      pmsRevenue: '0',
-      arRevenue: '0',
-      membershipRevenue: '0',
-      voucherRevenue: '0',
-      totalBusinessRevenue: '0',
+    // 1st call: tx.execute() — sales from rm_revenue_activity (orderCount > 0 → no fallback)
+    mockExecute.mockResolvedValueOnce([{
+      net_sales: '1500.0000',
+      order_count: 15,
+      void_count: 2,
+      pms_revenue: '0',
+      ar_revenue: '0',
+      membership_revenue: '0',
+      voucher_revenue: '0',
     }]);
-    // 2nd call: tx.select() — low stock count (count > 0, no stock fallback)
+    // 2nd call: tx.select() — low stock count from rmInventoryOnHand (count > 0, no stock fallback)
     mockSelectReturns([{ count: 3 }]);
-    // 3rd call: tx.select() — active customers
-    mockSelectReturns([{ count: 42 }]);
+    // 3rd call: tx.execute() — active customers 7d (count > 0, no customer fallback)
+    mockExecute.mockResolvedValueOnce([{ cnt: 42 }]);
 
     const result = await getDashboardMetrics({
       tenantId: TENANT,
@@ -444,30 +443,34 @@ describe('getDashboardMetrics', () => {
   });
 
   it('returns zeros when no data', async () => {
-    // 1st call: tx.select() — CQRS sales from rmDailySales (orderCount=0 → triggers fallback)
-    mockSelectReturns([{
-      netSales: '0',
-      orderCount: 0,
-      voidCount: 0,
-      pmsRevenue: '0',
-      arRevenue: '0',
-      membershipRevenue: '0',
-      voucherRevenue: '0',
-      totalBusinessRevenue: '0',
+    // 1st call: tx.execute() — sales from rm_revenue_activity (order_count=0 → triggers all-time fallback)
+    mockExecute.mockResolvedValueOnce([{
+      net_sales: '0',
+      order_count: 0,
+      void_count: 0,
+      pms_revenue: '0',
+      ar_revenue: '0',
+      membership_revenue: '0',
+      voucher_revenue: '0',
     }]);
-    // 2nd call: tx.execute() — today's orders fallback (order_count=0 → triggers all-time fallback)
-    mockExecute.mockResolvedValueOnce([
-      { net_sales_cents: 0, order_count: 0, void_count: 0 },
-    ]);
-    // 3rd call: tx.execute() — all-time fallback (also order_count=0)
-    mockExecute.mockResolvedValueOnce([
-      { net_sales_cents: 0, order_count: 0, void_count: 0 },
-    ]);
-    // 4th call: tx.select() — stock count (count=0 → triggers stock fallback)
+    // 2nd call: tx.execute() — all-time fallback (also order_count=0)
+    mockExecute.mockResolvedValueOnce([{
+      net_sales: '0',
+      order_count: 0,
+      void_count: 0,
+      pms_revenue: '0',
+      ar_revenue: '0',
+      membership_revenue: '0',
+      voucher_revenue: '0',
+    }]);
+    // 3rd call: tx.select() — stock count from rmInventoryOnHand (count=0 → triggers stock fallback)
     mockSelectReturns([{ count: 0 }]);
-    // 5th call: tx.execute() — stock fallback (default mock returns [] → stays 0)
-    // 6th call: tx.select() — active customers
-    mockSelectReturns([{ count: 0 }]);
+    // 4th call: tx.execute() — stock fallback (returns [] → stays 0)
+    mockExecute.mockResolvedValueOnce([]);
+    // 5th call: tx.execute() — active customers 7d (cnt=0 → triggers all-time customer fallback)
+    mockExecute.mockResolvedValueOnce([{ cnt: 0 }]);
+    // 6th call: tx.execute() — all-time customer fallback (cnt=0)
+    mockExecute.mockResolvedValueOnce([{ cnt: 0 }]);
 
     const result = await getDashboardMetrics({
       tenantId: TENANT,
@@ -482,21 +485,22 @@ describe('getDashboardMetrics', () => {
   });
 
   it('defaults date to today when not provided', async () => {
-    // 1st call: tx.select() — CQRS sales from rmDailySales (orderCount > 0 → no fallback)
-    mockSelectReturns([{
-      netSales: '100.0000',
-      orderCount: 2,
-      voidCount: 0,
-      pmsRevenue: '0',
-      arRevenue: '0',
-      membershipRevenue: '0',
-      voucherRevenue: '0',
-      totalBusinessRevenue: '0',
+    // 1st call: tx.execute() — sales from rm_revenue_activity (orderCount > 0 → no fallback)
+    mockExecute.mockResolvedValueOnce([{
+      net_sales: '100.0000',
+      order_count: 2,
+      void_count: 0,
+      pms_revenue: '0',
+      ar_revenue: '0',
+      membership_revenue: '0',
+      voucher_revenue: '0',
     }]);
-    // 2nd call: tx.select() — stock count (0 → triggers stock fallback via mockExecute default)
+    // 2nd call: tx.select() — stock count (count=0 → triggers stock fallback)
     mockSelectReturns([{ count: 0 }]);
-    // 3rd call: tx.select() — active customers
-    mockSelectReturns([{ count: 0 }]);
+    // 3rd call: tx.execute() — stock fallback (returns [] → stays 0)
+    // (mockExecute default returns [] for unmocked calls)
+    // 4th call: tx.execute() — active customers 7d (cnt=0 → triggers all-time customer fallback)
+    // (mockExecute default returns [] → stays 0)
 
     const result = await getDashboardMetrics({ tenantId: TENANT });
 
@@ -505,21 +509,20 @@ describe('getDashboardMetrics', () => {
   });
 
   it('filters by locationId when provided', async () => {
-    // 1st call: tx.select() — CQRS sales from rmDailySales (orderCount > 0 → no fallback)
-    mockSelectReturns([{
-      netSales: '500.0000',
-      orderCount: 5,
-      voidCount: 1,
-      pmsRevenue: '0',
-      arRevenue: '0',
-      membershipRevenue: '0',
-      voucherRevenue: '0',
-      totalBusinessRevenue: '0',
+    // 1st call: tx.execute() — sales from rm_revenue_activity (orderCount > 0 → no fallback)
+    mockExecute.mockResolvedValueOnce([{
+      net_sales: '500.0000',
+      order_count: 5,
+      void_count: 1,
+      pms_revenue: '0',
+      ar_revenue: '0',
+      membership_revenue: '0',
+      voucher_revenue: '0',
     }]);
-    // 2nd call: tx.select() — stock count (count > 0, no stock fallback)
+    // 2nd call: tx.select() — stock count from rmInventoryOnHand (count > 0, no stock fallback)
     mockSelectReturns([{ count: 1 }]);
-    // 3rd call: tx.select() — active customers
-    mockSelectReturns([{ count: 10 }]);
+    // 3rd call: tx.execute() — active customers 7d (count > 0, no customer fallback)
+    mockExecute.mockResolvedValueOnce([{ cnt: 10 }]);
 
     const result = await getDashboardMetrics({
       tenantId: TENANT,

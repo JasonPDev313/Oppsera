@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { membershipPlans } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
@@ -64,6 +64,6 @@ export async function updateMembershipPlanV2(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'membership.plan.updated', 'membership_plan', result.id);
+  auditLogDeferred(ctx, 'membership.plan.updated', 'membership_plan', result.id);
   return result;
 }

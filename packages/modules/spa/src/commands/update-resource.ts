@@ -1,7 +1,7 @@
 import { eq, and, ne } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError, NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaResources } from '@oppsera/db';
@@ -94,6 +94,6 @@ export async function updateResource(ctx: RequestContext, input: UpdateResourceI
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'spa.resource.updated', 'spa_resource', result.id);
+  auditLogDeferred(ctx, 'spa.resource.updated', 'spa_resource', result.id);
   return result;
 }

@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { CloseBatchNotFoundError, CloseBatchStatusConflictError } from '../errors';
 
 interface BeginServerCheckoutInput {
@@ -86,6 +86,6 @@ export async function beginServerCheckout(ctx: RequestContext, input: BeginServe
     return { result: checkout, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.server_checkout.started', 'server_checkout', (result as Record<string, unknown>).id as string);
+  auditLogDeferred(ctx, 'fnb.server_checkout.started', 'server_checkout', (result as Record<string, unknown>).id as string);
   return result;
 }

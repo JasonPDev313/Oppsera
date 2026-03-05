@@ -3,7 +3,7 @@ import { AppError, generateUlid } from '@oppsera/shared';
 import { orderLines, orderDiscounts, orders, compEvents } from '@oppsera/db';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '../../helpers/idempotency';
 import type { RequestContext } from '../../auth/context';
 import type { CompOrderLineInput } from '../validation';
@@ -155,6 +155,6 @@ export async function compOrderLine(
     return { result: mapCompRow(compRow!), events: [event] };
   });
 
-  await auditLog(ctx, 'order.line.comped', 'comp_event', result.id);
+  auditLogDeferred(ctx, 'order.line.comped', 'comp_event', result.id);
   return result;
 }

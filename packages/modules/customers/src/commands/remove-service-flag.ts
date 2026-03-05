@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customerServiceFlags, customerActivityLog } from '@oppsera/db';
@@ -38,6 +38,6 @@ export async function removeServiceFlag(ctx: RequestContext, input: RemoveServic
     return { result: flag, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.service_flag_removed', 'customer', result.customerId);
+  auditLogDeferred(ctx, 'customer.service_flag_removed', 'customer', result.customerId);
   return result;
 }

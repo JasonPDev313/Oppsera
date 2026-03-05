@@ -1,7 +1,7 @@
 import type { RequestContext } from '@oppsera/core/auth';
 import { publishWithOutbox } from '@oppsera/core/events';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events';
 import { expenses } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
@@ -74,6 +74,6 @@ export async function createExpense(ctx: RequestContext, input: CreateExpenseInp
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'expense.created', 'expense', result.id);
+  auditLogDeferred(ctx, 'expense.created', 'expense', result.id);
   return result;
 }

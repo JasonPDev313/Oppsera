@@ -108,6 +108,7 @@ export async function getBalanceSheet(input: GetBalanceSheetInput): Promise<Bala
         AND je.business_date >= ${fyStartDate}
         AND je.business_date <= ${input.asOfDate}
         AND a.account_type IN ('revenue', 'expense')
+        ${locationFilter}
     `);
     const incArr = Array.from(incomeRows as Iterable<Record<string, unknown>>);
     const totalRevenue = incArr.length > 0 ? Number(incArr[0]!.total_revenue) : 0;

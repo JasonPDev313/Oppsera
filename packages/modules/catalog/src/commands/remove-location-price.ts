@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { catalogLocationPrices } from '../schema';
 import type { RemoveLocationPriceInput } from '../validation';
@@ -40,7 +40,7 @@ export async function removeLocationPrice(
     return { result: undefined, events: [event] };
   });
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     'catalog.location_price.removed',
     'catalog_location_price',

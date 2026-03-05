@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customers, customerPreferences, customerServiceFlags, customerActivityLog } from '@oppsera/db';
@@ -34,7 +34,7 @@ export async function setCustomerPreference(ctx: RequestContext, input: SetCusto
         confidence: input.confidence ?? null,
         updatedAt: new Date(),
         updatedBy: ctx.user.id,
-      }).where(eq(customerPreferences.id, existing.id)).returning();
+      }).where(and(eq(customerPreferences.id, existing.id), eq(customerPreferences.tenantId, ctx.tenantId))).returning();
       upserted = updated!;
     } else {
       // Insert new preference
@@ -65,7 +65,7 @@ export async function setCustomerPreference(ctx: RequestContext, input: SetCusto
         await (tx as any).update(customerServiceFlags).set({
           severity: 'warning',
           notes: `${input.key}: ${input.value}`,
-        }).where(eq(customerServiceFlags.id, existingFlag.id));
+        }).where(and(eq(customerServiceFlags.id, existingFlag.id), eq(customerServiceFlags.tenantId, ctx.tenantId)));
       } else {
         await (tx as any).insert(customerServiceFlags).values({
           tenantId: ctx.tenantId,
@@ -100,6 +100,6 @@ export async function setCustomerPreference(ctx: RequestContext, input: SetCusto
     return { result: upserted, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.preference_set', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.preference_set', 'customer', input.customerId);
   return result;
 }

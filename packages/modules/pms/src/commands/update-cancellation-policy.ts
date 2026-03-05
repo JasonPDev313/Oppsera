@@ -3,7 +3,7 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsCancellationPolicies } from '@oppsera/db';
@@ -65,6 +65,6 @@ export async function updateCancellationPolicy(
     return { result: { id: policyId }, events: [] };
   });
 
-  await auditLog(ctx, 'pms.cancellation_policy.updated', 'pms_cancellation_policy', policyId);
+  auditLogDeferred(ctx, 'pms.cancellation_policy.updated', 'pms_cancellation_policy', policyId);
   return result;
 }

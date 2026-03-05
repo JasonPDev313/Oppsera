@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth';
 import { publishWithOutbox } from '@oppsera/core/events';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events';
 import { expensePolicies } from '@oppsera/db';
 import type { z } from 'zod';
@@ -51,6 +51,6 @@ export async function createExpensePolicy(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'expense.policy.created', 'expense_policy', result.id);
+  auditLogDeferred(ctx, 'expense.policy.created', 'expense_policy', result.id);
   return result;
 }

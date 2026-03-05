@@ -17,3 +17,5 @@ export { handleChargebackResolved } from './chargeback-resolved';
 export { handleFnbTenderApplied } from './fnb-tender-applied';
 export { handleStoredValueRedeemed } from './stored-value-redeemed';
 export { handleGuestPaySucceeded } from './guest-pay-succeeded';
+export { handleTenderReversed } from './tender-reversed';
+export { handleSpaCompletedRevenue, handleSpaCheckedOutRevenue } from './spa-completed';

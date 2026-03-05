@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth';
 import { publishWithOutbox } from '@oppsera/core/events';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events';
 import { projects } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -50,7 +50,7 @@ export async function updateProject(
     const [updated] = await tx
       .update(projects)
       .set(updates)
-      .where(eq(projects.id, projectId))
+      .where(and(eq(projects.id, projectId), eq(projects.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'project_costing.project.updated.v1', {
@@ -61,6 +61,6 @@ export async function updateProject(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'project_costing.project.updated', 'project', projectId);
+  auditLogDeferred(ctx, 'project_costing.project.updated', 'project', projectId);
   return result;
 }

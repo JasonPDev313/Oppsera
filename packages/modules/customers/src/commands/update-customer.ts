@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { computeChanges } from '@oppsera/core/audit/diff';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
@@ -64,7 +64,7 @@ export async function updateCustomer(ctx: RequestContext, customerId: string, in
     }
 
     const [updated] = await (tx as any).update(customers).set(updates)
-      .where(eq(customers.id, customerId)).returning();
+      .where(and(eq(customers.id, customerId), eq(customers.tenantId, ctx.tenantId))).returning();
 
     const changes = computeChanges(existing, updated!);
 
@@ -76,6 +76,6 @@ export async function updateCustomer(ctx: RequestContext, customerId: string, in
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.updated', 'customer', customerId);
+  auditLogDeferred(ctx, 'customer.updated', 'customer', customerId);
   return result;
 }

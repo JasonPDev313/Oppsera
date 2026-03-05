@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { customerMemberships, membershipPlans, customerActivityLog } from '@oppsera/db';
@@ -64,7 +64,7 @@ export async function updateMembershipStatus(ctx: RequestContext, input: UpdateM
     }
 
     const [updated] = await (tx as any).update(customerMemberships).set(updates)
-      .where(eq(customerMemberships.id, input.membershipId)).returning();
+      .where(and(eq(customerMemberships.id, input.membershipId), eq(customerMemberships.tenantId, ctx.tenantId))).returning();
 
     // Activity log
     const activityType = input.action === 'cancel' ? 'membership_canceled' : 'system';
@@ -89,6 +89,6 @@ export async function updateMembershipStatus(ctx: RequestContext, input: UpdateM
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'membership.status_updated', 'membership', input.membershipId);
+  auditLogDeferred(ctx, 'membership.status_updated', 'membership', input.membershipId);
   return result;
 }

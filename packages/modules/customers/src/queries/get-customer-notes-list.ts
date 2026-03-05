@@ -1,6 +1,16 @@
-import { eq, and, lt, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { customerNotes } from '@oppsera/db';
+
+function encodeCursor(...parts: string[]): string {
+  return parts.join('|');
+}
+
+function decodeCursor(cursor: string, expectedParts: number): string[] | null {
+  const parts = cursor.split('|');
+  if (parts.length !== expectedParts) return null; // Legacy fallback
+  return parts;
+}
 
 export interface GetCustomerNotesListInput {
   tenantId: string;
@@ -43,19 +53,32 @@ export async function getCustomerNotesList(
     }
 
     if (input.cursor) {
-      conditions.push(lt(customerNotes.id, input.cursor));
+      const decoded = decodeCursor(input.cursor, 3);
+      if (decoded) {
+        const [cursorPinned, cursorCreatedAt, cursorId] = decoded as [string, string, string];
+        // All three sorts are DESC — cast boolean to int for row-value comparison
+        conditions.push(
+          sql`(${customerNotes.isPinned}::int, ${customerNotes.createdAt}, ${customerNotes.id}) < (${parseInt(cursorPinned, 10)}::int, ${cursorCreatedAt}::timestamptz, ${cursorId})` as unknown as ReturnType<typeof eq>,
+        );
+      } else {
+        // Legacy: cursor was plain id
+        conditions.push(
+          sql`${customerNotes.id} < ${input.cursor}` as unknown as ReturnType<typeof eq>,
+        );
+      }
     }
 
-    // Pinned notes first, then by createdAt DESC
+    // Pinned notes first, then by createdAt DESC, then id DESC
     const rows = await tx
       .select()
       .from(customerNotes)
       .where(and(...conditions))
-      .orderBy(desc(customerNotes.isPinned), desc(customerNotes.createdAt))
+      .orderBy(desc(customerNotes.isPinned), desc(customerNotes.createdAt), desc(customerNotes.id))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
-    const items: CustomerNoteItem[] = (hasMore ? rows.slice(0, limit) : rows).map((row) => ({
+    const sliced = hasMore ? rows.slice(0, limit) : rows;
+    const items: CustomerNoteItem[] = sliced.map((row) => ({
       id: row.id,
       customerId: row.customerId,
       content: row.content,
@@ -65,7 +88,15 @@ export async function getCustomerNotesList(
       createdBy: row.createdBy,
       updatedAt: row.updatedAt,
     }));
-    const nextCursor = hasMore ? items[items.length - 1]!.id : null;
+
+    const lastItem = sliced[sliced.length - 1];
+    const nextCursor = hasMore && lastItem
+      ? encodeCursor(
+          lastItem.isPinned ? '1' : '0',
+          lastItem.createdAt.toISOString(),
+          lastItem.id,
+        )
+      : null;
 
     return { items, cursor: nextCursor, hasMore };
   });

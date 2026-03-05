@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { paymentIntents, paymentTransactions } from '@oppsera/db';
@@ -209,7 +209,7 @@ export async function authorizePayment(
         errorMessage,
         updatedAt: new Date(),
       })
-      .where(eq(paymentIntents.id, intent!.id))
+      .where(and(eq(paymentIntents.id, intent!.id), eq(paymentIntents.tenantId, ctx.tenantId)))
       .returning();
 
     // 7. Build event
@@ -240,7 +240,7 @@ export async function authorizePayment(
     return { result: mapIntentToResult(updated!, providerRef, interpretation), events: [event] };
   });
 
-  await auditLog(ctx, 'payment.authorized', 'payment_intent', result.id);
+  auditLogDeferred(ctx, 'payment.authorized', 'payment_intent', result.id);
   return result;
 }
 

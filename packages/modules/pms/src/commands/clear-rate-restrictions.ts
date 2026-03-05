@@ -5,7 +5,7 @@
 import { and, eq, gte, lte } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsRateRestrictions, pmsProperties } from '@oppsera/db';
@@ -69,6 +69,6 @@ export async function clearRateRestrictions(ctx: RequestContext, input: ClearRat
     };
   });
 
-  await auditLog(ctx, 'pms.rate_restriction.cleared', 'pms_rate_restriction', input.propertyId);
+  auditLogDeferred(ctx, 'pms.rate_restriction.cleared', 'pms_rate_restriction', input.propertyId);
   return result;
 }

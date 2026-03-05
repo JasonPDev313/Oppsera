@@ -1,7 +1,7 @@
 import { eq, and, isNull, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glTransactionTypeMappings } from '@oppsera/db';
 import { getSystemTransactionType } from '@oppsera/shared';
@@ -85,7 +85,7 @@ export async function deleteTransactionTypeMapping(
   });
 
   if (result.deleted) {
-    await auditLog(
+    auditLogDeferred(
       ctx,
       'accounting.transaction_type_mapping.deleted',
       'gl_transaction_type_mappings',

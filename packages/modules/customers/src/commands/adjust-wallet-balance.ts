@@ -1,7 +1,7 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { customers, customerWalletAccounts, customerActivityLog } from '@oppsera/db';
@@ -37,7 +37,7 @@ export async function adjustWalletBalance(ctx: RequestContext, input: AdjustWall
     const [updated] = await (tx as any).update(customerWalletAccounts).set({
       balanceCents: newBalanceCents,
       updatedAt: new Date(),
-    }).where(eq(customerWalletAccounts.id, input.walletAccountId)).returning();
+    }).where(and(eq(customerWalletAccounts.id, input.walletAccountId), eq(customerWalletAccounts.tenantId, ctx.tenantId))).returning();
 
     // Recompute customers.walletBalanceCents as SUM of all active wallet balances for this customer
     const [sumResult] = await (tx as any).select({
@@ -70,7 +70,7 @@ export async function adjustWalletBalance(ctx: RequestContext, input: AdjustWall
     }
 
     await (tx as any).update(customers).set(customerUpdates)
-      .where(eq(customers.id, wallet.customerId));
+      .where(and(eq(customers.id, wallet.customerId), eq(customers.tenantId, ctx.tenantId)));
 
     // Activity log
     await (tx as any).insert(customerActivityLog).values({
@@ -99,6 +99,6 @@ export async function adjustWalletBalance(ctx: RequestContext, input: AdjustWall
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.wallet_adjusted', 'wallet_account', input.walletAccountId);
+  auditLogDeferred(ctx, 'customer.wallet_adjusted', 'wallet_account', input.walletAccountId);
   return result;
 }

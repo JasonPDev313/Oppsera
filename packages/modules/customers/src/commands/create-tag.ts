@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { ConflictError } from '@oppsera/shared';
 import { tags } from '@oppsera/db';
@@ -45,6 +45,6 @@ export async function createTag(ctx: RequestContext, input: CreateTagInput) {
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.tag_created', 'tag', result.id);
+  auditLogDeferred(ctx, 'customer.tag_created', 'tag', result.id);
   return result;
 }

@@ -118,7 +118,7 @@ export default function PnlContent() {
   );
 
   const grossMarginPct = pnl && pnl.totalRevenue !== 0
-    ? ((pnl.grossProfit / pnl.totalRevenue) * 100).toFixed(1)
+    ? (((pnl.grossProfit ?? pnl.totalRevenue) / pnl.totalRevenue) * 100).toFixed(1)
     : '0.0';
 
   const netMarginPct = pnl && pnl.totalRevenue !== 0
@@ -280,7 +280,7 @@ export default function PnlContent() {
             />
             <KPICard
               label="Gross Profit"
-              value={formatAccountingMoney(pnl.grossProfit)}
+              value={formatAccountingMoney(pnl.grossProfit ?? pnl.totalRevenue)}
               subtitle={`${grossMarginPct}% margin`}
               icon={TrendingUp}
               accent="text-indigo-500"
@@ -469,7 +469,7 @@ export default function PnlContent() {
                       Gross Profit
                     </td>
                     <td className="px-4 py-2.5 text-right text-sm font-semibold tabular-nums text-foreground">
-                      {formatAccountingMoney(pnl.grossProfit)}
+                      {formatAccountingMoney(pnl.grossProfit ?? pnl.totalRevenue)}
                     </td>
                     <td className="px-4 py-2.5 text-right text-sm tabular-nums text-muted-foreground">
                       {grossMarginPct}%
@@ -562,11 +562,11 @@ export default function PnlContent() {
               </div>
               <div className="flex justify-between text-sm text-foreground">
                 <span>Cost of Goods Sold</span>
-                <span className="tabular-nums">{formatAccountingMoney(pnl.totalCogs)}</span>
+                <span className="tabular-nums">{formatAccountingMoney(pnl.totalCogs ?? 0)}</span>
               </div>
               <div className="flex justify-between text-sm font-semibold text-foreground border-t border-border pt-2">
                 <span>Gross Profit</span>
-                <span className="tabular-nums">{formatAccountingMoney(pnl.grossProfit)}</span>
+                <span className="tabular-nums">{formatAccountingMoney(pnl.grossProfit ?? pnl.totalRevenue)}</span>
               </div>
               <div className="flex justify-between text-sm text-foreground">
                 <span>Total Expenses</span>

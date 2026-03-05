@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customers, customerPhones } from '@oppsera/db';
@@ -32,13 +32,13 @@ export async function updateCustomerPhone(ctx: RequestContext, input: UpdateCust
       updates.isPrimary = true;
       const newPhone = (input.phoneE164?.trim() ?? phoneRow.phoneE164);
       await (tx as any).update(customers).set({ phone: newPhone, updatedAt: new Date() })
-        .where(eq(customers.id, phoneRow.customerId));
+        .where(and(eq(customers.id, phoneRow.customerId), eq(customers.tenantId, ctx.tenantId)));
     } else if (input.isPrimary === false) {
       updates.isPrimary = false;
     }
 
     const [updated] = await (tx as any).update(customerPhones).set(updates)
-      .where(eq(customerPhones.id, input.phoneId)).returning();
+      .where(and(eq(customerPhones.id, input.phoneId), eq(customerPhones.tenantId, ctx.tenantId))).returning();
 
     const event = buildEventFromContext(ctx, 'customer.phone.updated.v1', {
       customerId: phoneRow.customerId,
@@ -48,6 +48,6 @@ export async function updateCustomerPhone(ctx: RequestContext, input: UpdateCust
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.phone_updated', 'customer_phone', input.phoneId);
+  auditLogDeferred(ctx, 'customer.phone_updated', 'customer_phone', input.phoneId);
   return result;
 }

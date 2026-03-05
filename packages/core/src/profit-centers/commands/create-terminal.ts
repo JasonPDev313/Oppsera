@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
 import { terminalLocations, terminals } from '@oppsera/db';
 import { sql } from '@oppsera/db';
@@ -72,6 +72,6 @@ export async function createTerminal(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'platform.terminal.created', 'terminal', result.id);
+  auditLogDeferred(ctx, 'platform.terminal.created', 'terminal', result.id);
   return result;
 }

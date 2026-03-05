@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbTabs, fnbTabTransfers, fnbTableLiveStatus } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -150,7 +150,7 @@ export async function transferTab(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.tab.transferred', 'fnb_tabs', tabId, undefined, {
+  auditLogDeferred(ctx, 'fnb.tab.transferred', 'fnb_tabs', tabId, undefined, {
     toServerUserId: input.toServerUserId,
     toTableId: input.toTableId,
   });

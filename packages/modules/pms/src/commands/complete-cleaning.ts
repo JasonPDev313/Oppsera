@@ -4,7 +4,7 @@
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { pmsHousekeepingAssignments, pmsRooms } from '@oppsera/db';
@@ -49,7 +49,7 @@ export async function completeCleaning(
         notes: input.notes ?? existing.notes,
         updatedAt: now,
       })
-      .where(eq(pmsHousekeepingAssignments.id, assignmentId));
+      .where(and(eq(pmsHousekeepingAssignments.id, assignmentId), eq(pmsHousekeepingAssignments.tenantId, ctx.tenantId)));
 
     // Update room clean status
     await tx
@@ -84,6 +84,6 @@ export async function completeCleaning(
     return { result: { id: assignmentId, status: 'completed', durationMinutes }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.housekeeping.completed', 'pms_housekeeping_assignment', assignmentId);
+  auditLogDeferred(ctx, 'pms.housekeeping.completed', 'pms_housekeeping_assignment', assignmentId);
   return result;
 }

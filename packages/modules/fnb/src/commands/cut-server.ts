@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbServerAssignments, fnbShiftExtensions } from '@oppsera/db';
 import { NotFoundError, AppError } from '@oppsera/shared';
@@ -74,6 +74,6 @@ export async function cutServer(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.server.cut', 'fnb_server_assignments', input.assignmentId);
+  auditLogDeferred(ctx, 'fnb.server.cut', 'fnb_server_assignments', input.assignmentId);
   return result;
 }

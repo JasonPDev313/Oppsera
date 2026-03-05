@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customers, customerConsents, customerActivityLog } from '@oppsera/db';
@@ -41,7 +41,7 @@ export async function recordConsent(ctx: RequestContext, input: RecordConsentInp
       }
 
       const [updated] = await (tx as any).update(customerConsents).set(updates)
-        .where(eq(customerConsents.id, existing.id)).returning();
+        .where(and(eq(customerConsents.id, existing.id), eq(customerConsents.tenantId, ctx.tenantId))).returning();
       consent = updated!;
     } else {
       // Insert new consent
@@ -80,6 +80,6 @@ export async function recordConsent(ctx: RequestContext, input: RecordConsentInp
     return { result: consent, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.consent_recorded', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.consent_recorded', 'customer', input.customerId);
   return result;
 }

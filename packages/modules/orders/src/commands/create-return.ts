@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError, generateUlid } from '@oppsera/shared';
 import { orders, orderLines } from '@oppsera/db';
@@ -206,7 +206,7 @@ export async function createReturn(
       subtotal: returnSubtotal,
       taxTotal: returnTax,
       total: returnTotal,
-    }).where(eq(orders.id, returnOrderId));
+    }).where(and(eq(orders.id, returnOrderId), eq(orders.tenantId, ctx.tenantId)));
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createReturn', {
       returnOrderId,
@@ -247,6 +247,6 @@ export async function createReturn(
     };
   });
 
-  await auditLog(ctx, 'order.returned', 'order', originalOrderId);
+  auditLogDeferred(ctx, 'order.returned', 'order', originalOrderId);
   return result;
 }

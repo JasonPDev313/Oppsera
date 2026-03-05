@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { catalogItems, catalogLocationPrices } from '../schema';
@@ -66,7 +66,7 @@ export async function setLocationPrice(
       const [updated] = await tx
         .update(catalogLocationPrices)
         .set({ price: String(input.price) })
-        .where(eq(catalogLocationPrices.id, existing.id))
+        .where(and(eq(catalogLocationPrices.id, existing.id), eq(catalogLocationPrices.tenantId, ctx.tenantId)))
         .returning();
       result = updated!;
     } else {
@@ -93,7 +93,7 @@ export async function setLocationPrice(
     return { result, events: [event] };
   });
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     'catalog.location_price.set',
     'catalog_location_price',

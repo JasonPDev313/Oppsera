@@ -1,7 +1,7 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { catalogItems, taxGroups, catalogItemLocationTaxGroups } from '../schema';
@@ -102,7 +102,7 @@ export async function assignItemTaxGroups(
     };
   });
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     'catalog.item.tax_groups.updated',
     'catalog_item',

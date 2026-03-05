@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { accountingClosePeriods } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
@@ -42,7 +42,7 @@ export async function updateClosePeriod(
       const [updated] = await tx
         .update(accountingClosePeriods)
         .set(updateSet)
-        .where(eq(accountingClosePeriods.id, existing.id))
+        .where(and(eq(accountingClosePeriods.id, existing.id), eq(accountingClosePeriods.tenantId, ctx.tenantId)))
         .returning();
 
       return { result: updated!, events: [] };
@@ -64,6 +64,6 @@ export async function updateClosePeriod(
     return { result: created!, events: [] };
   });
 
-  await auditLog(ctx, 'accounting.close_period.updated', 'accounting_close_period', result.id);
+  auditLogDeferred(ctx, 'accounting.close_period.updated', 'accounting_close_period', result.id);
   return result;
 }

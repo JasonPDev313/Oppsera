@@ -37,7 +37,7 @@ export async function saveDraft(
           totalCapacity,
           updatedAt: new Date(),
         })
-        .where(eq(floorPlanVersions.id, room.draftVersionId))
+        .where(and(eq(floorPlanVersions.id, room.draftVersionId), eq(floorPlanVersions.tenantId, ctx.tenantId)))
         .returning();
       versionRow = updated!;
     } else {
@@ -71,7 +71,7 @@ export async function saveDraft(
       await tx
         .update(floorPlanRooms)
         .set({ draftVersionId: versionRow.id, updatedAt: new Date() })
-        .where(eq(floorPlanRooms.id, roomId));
+        .where(and(eq(floorPlanRooms.id, roomId), eq(floorPlanRooms.tenantId, ctx.tenantId)));
     }
 
     const event = buildEventFromContext(ctx, ROOM_LAYOUT_EVENTS.VERSION_SAVED, {

@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { vendors, itemVendors, inventoryItems } from '@oppsera/db';
@@ -55,7 +55,7 @@ export async function addVendorCatalogItem(
             notes: input.notes ?? existing[0].notes,
             updatedAt: new Date(),
           })
-          .where(eq(itemVendors.id, existing[0].id))
+          .where(and(eq(itemVendors.id, existing[0].id), eq(itemVendors.tenantId, ctx.tenantId)))
           .returning();
 
         // Handle preferred vendor toggle
@@ -73,7 +73,7 @@ export async function addVendorCatalogItem(
           await (tx as any)
             .update(itemVendors)
             .set({ isPreferred: true })
-            .where(eq(itemVendors.id, reactivated.id));
+            .where(and(eq(itemVendors.id, reactivated.id), eq(itemVendors.tenantId, ctx.tenantId)));
         }
 
         const event = buildEventFromContext(ctx, 'inventory.vendor_catalog.reactivated.v1', {
@@ -129,6 +129,6 @@ export async function addVendorCatalogItem(
     return { result: created, events: [event] };
   });
 
-  await auditLog(ctx, 'inventory.vendor_catalog.added', 'item_vendor', result.id);
+  auditLogDeferred(ctx, 'inventory.vendor_catalog.added', 'item_vendor', result.id);
   return result;
 }

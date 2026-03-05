@@ -1,7 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { generateUlid } from '@oppsera/shared';
 import { glRecurringTemplates } from '@oppsera/db';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
@@ -173,7 +173,7 @@ export async function createRecurringTemplate(
     return { result: mapRow(created!), events: [] };
   });
 
-  await auditLog(ctx, 'accounting.recurring_template.created', 'gl_recurring_template', result.id);
+  auditLogDeferred(ctx, 'accounting.recurring_template.created', 'gl_recurring_template', result.id);
   return result;
 }
 
@@ -227,7 +227,7 @@ export async function updateRecurringTemplate(
     return { result: mapRow(updated!), events: [] };
   });
 
-  await auditLog(ctx, 'accounting.recurring_template.updated', 'gl_recurring_template', result.id);
+  auditLogDeferred(ctx, 'accounting.recurring_template.updated', 'gl_recurring_template', result.id);
   return result;
 }
 
@@ -246,7 +246,7 @@ export async function deactivateRecurringTemplate(
     return { result: mapRow(updated), events: [] };
   });
 
-  await auditLog(ctx, 'accounting.recurring_template.deactivated', 'gl_recurring_template', result.id);
+  auditLogDeferred(ctx, 'accounting.recurring_template.deactivated', 'gl_recurring_template', result.id);
   return result;
 }
 
@@ -304,9 +304,9 @@ export async function executeRecurringTemplate(
         isActive: nextDueDate !== null ? template.isActive : false, // auto-deactivate if past end date
         updatedAt: new Date(),
       })
-      .where(eq(glRecurringTemplates.id, template.id));
+      .where(and(eq(glRecurringTemplates.id, template.id), eq(glRecurringTemplates.tenantId, ctx.tenantId)));
 
-    await auditLog(ctx, 'accounting.recurring_template.executed', 'gl_recurring_template', template.id, undefined, {
+    auditLogDeferred(ctx, 'accounting.recurring_template.executed', 'gl_recurring_template', template.id, undefined, {
       postingPeriod,
       journalEntryId: result.id,
     });

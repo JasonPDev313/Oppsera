@@ -1,6 +1,19 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 
+function encodeCursor(lastName: string, firstName: string, id: string): string {
+  return `${lastName}|${firstName}|${id}`;
+}
+
+function decodeCursor(cursor: string): { lastName: string; firstName: string; id: string } | null {
+  const parts = cursor.split('|');
+  if (parts.length === 3) {
+    return { lastName: parts[0]!, firstName: parts[1]!, id: parts[2]! };
+  }
+  // Backwards compatibility: id-only cursor
+  return null;
+}
+
 export interface GuestSearchItem {
   id: string;
   propertyId: string;
@@ -60,7 +73,20 @@ export async function searchGuests(input: SearchGuestsInput): Promise<SearchGues
       conditions.push(sql`g.phone = ${input.phone}`);
     }
     if (input.cursor) {
-      conditions.push(sql`g.id < ${input.cursor}`);
+      const decoded = decodeCursor(input.cursor);
+      if (decoded) {
+        // Composite cursor for (last_name ASC, first_name ASC, id DESC):
+        // advance when last_name > cursor, OR last_name = cursor AND first_name > cursor,
+        // OR last_name = cursor AND first_name = cursor AND id < cursor
+        conditions.push(sql`(
+          g.last_name > ${decoded.lastName}
+          OR (g.last_name = ${decoded.lastName} AND g.first_name > ${decoded.firstName})
+          OR (g.last_name = ${decoded.lastName} AND g.first_name = ${decoded.firstName} AND g.id < ${decoded.id})
+        )`);
+      } else {
+        // Backwards-compatible id-only cursor
+        conditions.push(sql`g.id < ${input.cursor}`);
+      }
     }
 
     const whereClause = sql.join(conditions, sql` AND `);
@@ -100,7 +126,13 @@ export async function searchGuests(input: SearchGuestsInput): Promise<SearchGues
         lastStayDate: r.last_stay_date ? String(r.last_stay_date) : null,
         createdAt: String(r.created_at),
       })),
-      cursor: hasMore ? String(items[items.length - 1]!.id) : null,
+      cursor: hasMore
+        ? encodeCursor(
+            String(items[items.length - 1]!.last_name),
+            String(items[items.length - 1]!.first_name),
+            String(items[items.length - 1]!.id),
+          )
+        : null,
       hasMore,
     };
   });

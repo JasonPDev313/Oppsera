@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { tenantNavPreferences } from '@oppsera/db';
-import { auditLog } from '../audit';
+import { auditLogDeferred } from '../audit/helpers';
 import type { RequestContext } from '../auth/context';
 import type { NavItemPreference, UpdateNavPreferencesInput } from '@oppsera/shared';
 
@@ -44,7 +44,7 @@ export async function saveNavPreferences(
         },
       });
 
-    await auditLog(ctx, 'settings.navigation.updated', 'tenant_nav_preferences', ctx.tenantId);
+    auditLogDeferred(ctx, 'settings.navigation.updated', 'tenant_nav_preferences', ctx.tenantId);
 
     return input.itemOrder;
   });

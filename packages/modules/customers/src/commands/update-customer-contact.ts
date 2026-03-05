@@ -1,4 +1,4 @@
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customers, customerContacts } from '@oppsera/db';
@@ -33,22 +33,22 @@ export async function updateCustomerContact(ctx: RequestContext, input: UpdateCu
     if (input.isVerified !== undefined) updates.isVerified = input.isVerified;
 
     const [updated] = await (tx as any).update(customerContacts).set(updates)
-      .where(eq(customerContacts.id, input.contactId)).returning();
+      .where(and(eq(customerContacts.id, input.contactId), eq(customerContacts.tenantId, ctx.tenantId))).returning();
 
     // If isPrimary changed to true and contactType is email or phone, update the customer record
     if (input.isPrimary === true && existing.contactType === 'email') {
       const emailValue = input.value ?? existing.value;
       await (tx as any).update(customers).set({ email: emailValue, updatedAt: new Date() })
-        .where(eq(customers.id, existing.customerId));
+        .where(and(eq(customers.id, existing.customerId), eq(customers.tenantId, ctx.tenantId)));
     } else if (input.isPrimary === true && existing.contactType === 'phone') {
       const phoneValue = input.value ?? existing.value;
       await (tx as any).update(customers).set({ phone: phoneValue, updatedAt: new Date() })
-        .where(eq(customers.id, existing.customerId));
+        .where(and(eq(customers.id, existing.customerId), eq(customers.tenantId, ctx.tenantId)));
     }
 
     return updated!;
   });
 
-  await auditLog(ctx, 'customer.contact_updated', 'customer_contact', input.contactId);
+  auditLogDeferred(ctx, 'customer.contact_updated', 'customer_contact', input.contactId);
   return result;
 }

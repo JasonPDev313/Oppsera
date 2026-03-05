@@ -2,7 +2,7 @@ import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import {
@@ -225,7 +225,7 @@ export async function calculateAppointmentCommissions(
     };
   });
 
-  await auditLog(ctx, 'spa.commission.calculated', 'spa_appointment', input.appointmentId);
+  auditLogDeferred(ctx, 'spa.commission.calculated', 'spa_appointment', input.appointmentId);
 
   return result;
 }
@@ -319,7 +319,7 @@ export async function approveCommissions(ctx: RequestContext, input: ApproveComm
     };
   });
 
-  await auditLog(ctx, 'spa.commission.approved', 'spa_commission_ledger', input.ids.join(','));
+  auditLogDeferred(ctx, 'spa.commission.approved', 'spa_commission_ledger', input.ids.join(','));
 
   return result;
 }
@@ -420,7 +420,7 @@ export async function payCommissions(ctx: RequestContext, input: PayCommissionsI
     };
   });
 
-  await auditLog(ctx, 'spa.commission.paid', 'spa_commission_ledger', input.ids.join(','));
+  auditLogDeferred(ctx, 'spa.commission.paid', 'spa_commission_ledger', input.ids.join(','));
 
   return result;
 }

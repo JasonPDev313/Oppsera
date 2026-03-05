@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { NotFoundError } from '@oppsera/shared';
 import { terminalLocations, terminals } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
@@ -30,7 +30,7 @@ export async function deactivateProfitCenter(
     const [updated] = await tx
       .update(terminalLocations)
       .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(terminalLocations.id, profitCenterId))
+      .where(and(eq(terminalLocations.id, profitCenterId), eq(terminalLocations.tenantId, ctx.tenantId)))
       .returning();
 
     // Also deactivate all child terminals
@@ -52,6 +52,6 @@ export async function deactivateProfitCenter(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'platform.profit_center.deactivated', 'terminal_location', result.id);
+  auditLogDeferred(ctx, 'platform.profit_center.deactivated', 'terminal_location', result.id);
   return result;
 }

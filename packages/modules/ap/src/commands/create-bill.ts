@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apBills, apBillLines, vendors } from '@oppsera/db';
 import { generateUlid, NotFoundError, ValidationError } from '@oppsera/shared';
@@ -102,7 +102,7 @@ export async function createBill(ctx: RequestContext, input: CreateBillInput) {
     };
   });
 
-  await auditLog(ctx, 'ap.bill.created', 'ap_bill', result.id);
+  auditLogDeferred(ctx, 'ap.bill.created', 'ap_bill', result.id);
   return result;
 }
 

@@ -72,11 +72,11 @@ export async function listGlAccounts(
           a.is_contra_account,
           a.allow_manual_posting,
           a.description,
-          COALESCE(SUM(jl.debit_amount), 0) AS debit_total,
-          COALESCE(SUM(jl.credit_amount), 0) AS credit_total,
+          COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) AS debit_total,
+          COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) AS credit_total,
           CASE WHEN a.normal_balance = 'debit'
-            THEN COALESCE(SUM(jl.debit_amount), 0) - COALESCE(SUM(jl.credit_amount), 0)
-            ELSE COALESCE(SUM(jl.credit_amount), 0) - COALESCE(SUM(jl.debit_amount), 0)
+            THEN COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) - COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0)
+            ELSE COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) - COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0)
           END AS balance
         FROM gl_accounts a
         LEFT JOIN gl_classifications c ON c.id = a.classification_id
@@ -90,6 +90,7 @@ export async function listGlAccounts(
           ${classificationFilter}
           ${isActiveFilter}
           ${isControlFilter}
+          AND (jl.id IS NULL OR je.id IS NOT NULL)
         GROUP BY a.id, a.account_number, a.name, a.account_type, a.normal_balance,
                  a.classification_id, c.name, a.parent_account_id, a.is_active,
                  a.is_control_account, a.control_account_type, a.is_contra_account,

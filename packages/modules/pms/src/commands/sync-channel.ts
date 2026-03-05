@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsChannels, pmsChannelSyncLog } from '@oppsera/db';
@@ -35,7 +35,7 @@ export async function syncChannel(
     await tx
       .update(pmsChannels)
       .set({ syncStatus: 'syncing', updatedAt: new Date() })
-      .where(eq(pmsChannels.id, channelId));
+      .where(and(eq(pmsChannels.id, channelId), eq(pmsChannels.tenantId, ctx.tenantId)));
 
     // Create sync log entry
     const [syncLog] = await tx
@@ -57,7 +57,7 @@ export async function syncChannel(
     await tx
       .update(pmsChannels)
       .set({ syncStatus: 'idle', lastSyncedAt: new Date(), updatedAt: new Date() })
-      .where(eq(pmsChannels.id, channelId));
+      .where(and(eq(pmsChannels.id, channelId), eq(pmsChannels.tenantId, ctx.tenantId)));
 
     await pmsAuditLogEntry(tx, ctx, channel.propertyId, 'channel_sync', syncLog!.id, 'sync_completed');
 
@@ -70,7 +70,7 @@ export async function syncChannel(
     return { result: syncLog!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.channel.sync_completed', 'pms_channel_sync_log', result.id);
+  auditLogDeferred(ctx, 'pms.channel.sync_completed', 'pms_channel_sync_log', result.id);
 
   return result;
 }

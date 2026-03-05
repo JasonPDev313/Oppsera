@@ -54,9 +54,11 @@ function wireChain() {
 
 wireChain();
 
+const mockExecute = vi.fn().mockResolvedValue([]);
+
 vi.mock('@oppsera/db', () => ({
   withTenant: vi.fn((_tenantId: string, fn: (tx: any) => any) =>
-    fn({ select: mockSelect }),
+    fn({ select: mockSelect, execute: mockExecute }),
   ),
   membershipAccounts: {
     id: 'id', tenantId: 'tenant_id', accountNumber: 'account_number',
@@ -70,7 +72,10 @@ vi.mock('@oppsera/db', () => ({
   },
   membershipSubscriptions: {
     id: 'id', tenantId: 'tenant_id', membershipAccountId: 'membership_account_id',
-    status: 'status',
+    status: 'status', planId: 'plan_id',
+  },
+  membershipPlans: {
+    id: 'id', tenantId: 'tenant_id', name: 'name',
   },
   statements: {
     id: 'id', tenantId: 'tenant_id', membershipAccountId: 'membership_account_id',
@@ -82,6 +87,8 @@ vi.mock('@oppsera/db', () => ({
 
 beforeEach(() => {
   mockSelectReturns.mockReset();
+  mockExecute.mockReset();
+  mockExecute.mockResolvedValue([]);
   wireChain();
 });
 

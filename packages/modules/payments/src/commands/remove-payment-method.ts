@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { customerPaymentMethods } from '@oppsera/db';
@@ -69,7 +69,7 @@ export async function removePaymentMethod(
     await tx
       .update(customerPaymentMethods)
       .set({ status: 'deleted', updatedAt: new Date() })
-      .where(eq(customerPaymentMethods.id, method.id));
+      .where(and(eq(customerPaymentMethods.id, method.id), eq(customerPaymentMethods.tenantId, ctx.tenantId)));
 
     // 4. If was default, promote next method
     if (method.isDefault) {
@@ -90,7 +90,7 @@ export async function removePaymentMethod(
         await tx
           .update(customerPaymentMethods)
           .set({ isDefault: true, updatedAt: new Date() })
-          .where(eq(customerPaymentMethods.id, nextMethod.id));
+          .where(and(eq(customerPaymentMethods.id, nextMethod.id), eq(customerPaymentMethods.tenantId, ctx.tenantId)));
       }
     }
 
@@ -105,5 +105,5 @@ export async function removePaymentMethod(
     return { result: undefined, events: [event] };
   });
 
-  await auditLog(ctx, 'payment.method.removed', 'customer_payment_method', input.paymentMethodId);
+  auditLogDeferred(ctx, 'payment.method.removed', 'customer_payment_method', input.paymentMethodId);
 }

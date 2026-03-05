@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { customerPaymentMethods } from '@oppsera/db';
@@ -137,6 +137,6 @@ export async function addPaymentMethod(
     };
   });
 
-  await auditLog(ctx, 'payment.method.added', 'customer_payment_method', result.paymentMethodId);
+  auditLogDeferred(ctx, 'payment.method.added', 'customer_payment_method', result.paymentMethodId);
   return result;
 }

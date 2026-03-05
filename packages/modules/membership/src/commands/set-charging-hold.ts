@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { membershipAccounts, membershipHolds } from '@oppsera/db';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
@@ -73,6 +73,6 @@ export async function setChargingHold(
     return { result: hold!, events: [event] };
   });
 
-  await auditLog(ctx, 'membership.hold.placed', 'membership_hold', result.id);
+  auditLogDeferred(ctx, 'membership.hold.placed', 'membership_hold', result.id);
   return result;
 }

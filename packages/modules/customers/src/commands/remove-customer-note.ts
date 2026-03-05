@@ -1,4 +1,4 @@
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customerNotes, customerActivityLog } from '@oppsera/db';
@@ -32,6 +32,6 @@ export async function removeCustomerNote(ctx: RequestContext, input: RemoveCusto
     return { id: input.noteId, deleted: true };
   });
 
-  await auditLog(ctx, 'customer.note_removed', 'customer_note', input.noteId);
+  auditLogDeferred(ctx, 'customer.note_removed', 'customer_note', input.noteId);
   return result;
 }

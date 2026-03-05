@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { TipPoolNotFoundError } from '../errors';
 
 interface RemovePoolParticipantInput {
@@ -30,6 +30,6 @@ export async function removePoolParticipant(
     return { result: { poolId: input.poolId, roleId: input.roleId, removed: true }, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.tip_pool.participant_removed', 'fnb_tip_pool_participants', input.poolId);
+  auditLogDeferred(ctx, 'fnb.tip_pool.participant_removed', 'fnb_tip_pool_participants', input.poolId);
   return result;
 }

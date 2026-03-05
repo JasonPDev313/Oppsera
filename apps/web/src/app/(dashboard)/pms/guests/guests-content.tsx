@@ -13,6 +13,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
+import { useProperties } from '@/hooks/use-pms';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 
@@ -31,11 +32,6 @@ interface Guest {
   createdAt: string;
 }
 
-interface Property {
-  id: string;
-  name: string;
-}
-
 // ── Component ────────────────────────────────────────────────────
 
 export default function GuestsContent() {
@@ -43,7 +39,7 @@ export default function GuestsContent() {
   useAuthContext();
 
   // Property selection
-  const [properties, setProperties] = useState<Property[]>([]);
+  const { data: properties } = useProperties();
   const [propertyId, setPropertyId] = useState('');
 
   // Search
@@ -58,22 +54,10 @@ export default function GuestsContent() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
 
-  // Load properties
+  // Auto-select first property
   useEffect(() => {
-    let cancelled = false;
-    apiFetch<{ data: Property[] }>('/api/v1/pms/properties')
-      .then((res) => {
-        if (cancelled) return;
-        setProperties(res.data);
-        if (res.data.length > 0 && !propertyId) {
-          setPropertyId(res.data[0]!.id);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError('Failed to load properties');
-      });
-    return () => { cancelled = true; };
-  }, []);  
+    if (properties.length > 0 && !propertyId) setPropertyId(properties[0]!.id);
+  }, [properties, propertyId]);
 
   // Debounced search
   const handleSearchChange = useCallback((value: string) => {

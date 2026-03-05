@@ -29,6 +29,22 @@ export const GET = withMiddleware(
       comparativeTo: url.searchParams.get('comparativeTo') ?? undefined,
     });
 
+    // Merge comparativeSections into main sections as priorAmount on each account
+    // so the frontend can show current vs prior side-by-side
+    if (report.comparativeSections) {
+      const priorByAccountId = new Map<string, number>();
+      for (const section of report.comparativeSections) {
+        for (const acct of section.accounts) {
+          priorByAccountId.set(acct.accountId, acct.amount);
+        }
+      }
+      for (const section of report.sections) {
+        for (const acct of section.accounts) {
+          acct.priorAmount = priorByAccountId.get(acct.accountId) ?? 0;
+        }
+      }
+    }
+
     return NextResponse.json({ data: report });
   },
   { entitlement: 'accounting', permission: 'accounting.view' },

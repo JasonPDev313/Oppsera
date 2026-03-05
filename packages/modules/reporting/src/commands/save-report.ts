@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { ValidationError, NotFoundError } from '@oppsera/shared';
 import { reportDefinitions, reportingFieldCatalog } from '@oppsera/db';
@@ -124,7 +124,7 @@ export async function saveReport(ctx: RequestContext, input: SaveReportInput) {
           definition: input.definition,
           updatedAt: new Date(),
         })
-        .where(eq(reportDefinitions.id, input.id))
+        .where(and(eq(reportDefinitions.id, input.id), eq(reportDefinitions.tenantId, ctx.tenantId)))
         .returning();
 
       const event = buildEventFromContext(ctx, 'reporting.report.saved.v1', {
@@ -155,6 +155,6 @@ export async function saveReport(ctx: RequestContext, input: SaveReportInput) {
     }
   });
 
-  await auditLog(ctx, 'reporting.report.saved', 'report_definition', result.id);
+  auditLogDeferred(ctx, 'reporting.report.saved', 'report_definition', result.id);
   return result;
 }

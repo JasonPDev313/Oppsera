@@ -25,8 +25,8 @@ export async function getCashFlowSimplified(input: GetCashFlowInput): Promise<Ca
     // 1. Net income for period
     const incomeRows = await tx.execute(sql`
       SELECT
-        COALESCE(SUM(CASE WHEN a.account_type = 'revenue' THEN jl.credit_amount - jl.debit_amount ELSE 0 END), 0) AS revenue,
-        COALESCE(SUM(CASE WHEN a.account_type = 'expense' THEN jl.debit_amount - jl.credit_amount ELSE 0 END), 0) AS expenses
+        COALESCE(SUM(CASE WHEN a.account_type = 'revenue' THEN (jl.credit_amount - jl.debit_amount) * COALESCE(je.exchange_rate, 1) ELSE 0 END), 0) AS revenue,
+        COALESCE(SUM(CASE WHEN a.account_type = 'expense' THEN (jl.debit_amount - jl.credit_amount) * COALESCE(je.exchange_rate, 1) ELSE 0 END), 0) AS expenses
       FROM gl_journal_lines jl
       JOIN gl_journal_entries je ON je.id = jl.journal_entry_id
       JOIN gl_accounts a ON a.id = jl.account_id

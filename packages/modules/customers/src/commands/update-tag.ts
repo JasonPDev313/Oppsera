@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { tags } from '@oppsera/db';
@@ -25,7 +25,7 @@ export async function updateTag(ctx: RequestContext, tagId: string, input: Updat
     if (input.metadata !== undefined) updates.metadata = input.metadata;
 
     const [updated] = await (tx as any).update(tags).set(updates)
-      .where(eq(tags.id, tagId)).returning();
+      .where(and(eq(tags.id, tagId), eq(tags.tenantId, ctx.tenantId))).returning();
 
     const event = buildEventFromContext(ctx, 'customer.tag_definition.updated.v1', {
       tagId,
@@ -35,6 +35,6 @@ export async function updateTag(ctx: RequestContext, tagId: string, input: Updat
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.tag_updated', 'tag', tagId);
+  auditLogDeferred(ctx, 'customer.tag_updated', 'tag', tagId);
   return result;
 }

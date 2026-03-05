@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glClassifications } from '@oppsera/db';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
@@ -60,7 +60,7 @@ export async function updateGlClassification(
     const [updated] = await tx
       .update(glClassifications)
       .set(updateValues)
-      .where(eq(glClassifications.id, classificationId))
+      .where(and(eq(glClassifications.id, classificationId), eq(glClassifications.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'accounting.classification.updated.v1', {
@@ -71,6 +71,6 @@ export async function updateGlClassification(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.classification.updated', 'gl_classification', result.id);
+  auditLogDeferred(ctx, 'accounting.classification.updated', 'gl_classification', result.id);
   return result;
 }

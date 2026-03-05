@@ -65,6 +65,7 @@ vi.mock('@oppsera/core/events/build-event', () => ({
 
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: mockAuditLog,
+  auditLogDeferred: vi.fn(),
 }));
 
 vi.mock('@oppsera/core/helpers/accounting-posting-api', () => ({

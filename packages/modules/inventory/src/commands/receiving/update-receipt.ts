@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import {
@@ -60,7 +60,7 @@ export async function updateDraftReceipt(
     const [updated] = await (tx as any)
       .update(receivingReceipts)
       .set(updates)
-      .where(eq(receivingReceipts.id, input.receiptId))
+      .where(and(eq(receivingReceipts.id, input.receiptId), eq(receivingReceipts.tenantId, ctx.tenantId)))
       .returning();
 
     // If shipping or freight mode changed, rerun allocation on existing lines
@@ -110,7 +110,7 @@ export async function updateDraftReceipt(
               landedUnitCost: c.landedUnitCost.toString(),
               updatedAt: new Date(),
             })
-            .where(eq(receivingReceiptLines.id, c.id));
+            .where(and(eq(receivingReceiptLines.id, c.id), eq(receivingReceiptLines.tenantId, ctx.tenantId)));
         }
 
         // Update header totals
@@ -119,7 +119,7 @@ export async function updateDraftReceipt(
         await (tx as any)
           .update(receivingReceipts)
           .set({ subtotal: subtotal.toString(), total: total.toString() })
-          .where(eq(receivingReceipts.id, input.receiptId));
+          .where(and(eq(receivingReceipts.id, input.receiptId), eq(receivingReceipts.tenantId, ctx.tenantId)));
       }
     }
 
@@ -131,7 +131,7 @@ export async function updateDraftReceipt(
     return { result: updated, events: [event] };
   });
 
-  await auditLog(ctx, 'inventory.receipt.updated', 'receiving_receipt', input.receiptId);
+  auditLogDeferred(ctx, 'inventory.receipt.updated', 'receiving_receipt', input.receiptId);
   return result;
 }
 

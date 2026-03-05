@@ -96,6 +96,7 @@ export interface AccountingSettings {
   defaultCompExpenseAccountId: string | null;
   defaultReturnsAccountId: string | null;
   defaultPayrollClearingAccountId: string | null;
+  defaultFreightExpenseAccountId: string | null;
   // Multi-currency (ACCT-CLOSE-06)
   supportedCurrencies: string[];
   // Breakage income policy (ACCT-CLOSE-02)
@@ -271,20 +272,24 @@ export interface FinancialStatementLine {
 }
 
 export interface ProfitAndLoss {
-  periodStart: string;
-  periodEnd: string;
+  period: { from: string; to: string };
+  locationId: string | null;
   sections: FinancialStatementSection[];
   totalRevenue: number;
   grossRevenue: number;
   contraRevenue: number;
-  totalCogs: number;
-  grossProfit: number;
+  totalCogs?: number;
+  grossProfit?: number;
   totalExpenses: number;
   netIncome: number;
+  comparativePeriod?: { from: string; to: string };
+  comparativeSections?: FinancialStatementSection[];
+  comparativeNetIncome?: number;
 }
 
 export interface BalanceSheet {
   asOfDate: string;
+  locationId: string | null;
   assets: FinancialStatementSection[];
   liabilities: FinancialStatementSection[];
   equity: FinancialStatementSection[];
@@ -292,6 +297,7 @@ export interface BalanceSheet {
   totalLiabilities: number;
   totalEquity: number;
   isBalanced: boolean;
+  currentYearNetIncome: number;
 }
 
 export interface CashFlowStatement {
@@ -475,8 +481,10 @@ export interface TrialBalanceRow {
   accountName: string;
   accountType: AccountType;
   classificationName: string | null;
-  debitBalance: number;
-  creditBalance: number;
+  normalBalance: string;
+  debitTotal: number;
+  creditTotal: number;
+  netBalance: number;
 }
 
 export interface GLDetailRow {

@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { pmsGuestPortalSessions, pmsReservations, pmsGuests } from '@oppsera/db';
@@ -37,7 +37,7 @@ export async function completePreCheckin(
       await tx
         .update(pmsGuestPortalSessions)
         .set({ status: 'expired', updatedAt: new Date() })
-        .where(eq(pmsGuestPortalSessions.id, session.id));
+        .where(and(eq(pmsGuestPortalSessions.id, session.id), eq(pmsGuestPortalSessions.tenantId, ctx.tenantId)));
       throw new AppError('SESSION_EXPIRED', 'Guest portal session has expired', 410);
     }
 
@@ -83,7 +83,7 @@ export async function completePreCheckin(
         roomPreferenceJson,
         updatedAt: new Date(),
       })
-      .where(eq(pmsGuestPortalSessions.id, session.id))
+      .where(and(eq(pmsGuestPortalSessions.id, session.id), eq(pmsGuestPortalSessions.tenantId, ctx.tenantId)))
       .returning();
 
     await pmsAuditLogEntry(
@@ -100,7 +100,7 @@ export async function completePreCheckin(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.guest_portal.pre_checkin_completed', 'pms_guest_portal_session', result.id);
+  auditLogDeferred(ctx, 'pms.guest_portal.pre_checkin_completed', 'pms_guest_portal_session', result.id);
 
   return result;
 }

@@ -503,14 +503,15 @@ describe('handleOrderVoided', () => {
     });
 
     mockIdempotencyNew();
-    mockSelectReturns([{ timezone: 'America/New_York' }]);
+    mockUpsert(); // rm_revenue_activity lookup (returns [] → no original business_date found)
+    mockSelectReturns([{ timezone: 'America/New_York' }]); // location fallback
     mockUpsert(); // daily sales
-    mockUpsert(); // revenue activity
+    mockUpsert(); // revenue activity upsert
 
     await handleOrderVoided(event as any);
 
-    // idempotency + daily sales + revenue activity = 3 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(3);
+    // idempotency + rm_revenue_activity lookup + daily sales + revenue activity upsert = 4 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(4);
   });
 
   it('decreases netSales by void amount', async () => {
@@ -525,15 +526,16 @@ describe('handleOrderVoided', () => {
     });
 
     mockIdempotencyNew();
-    mockSelectReturns([{ timezone: 'America/New_York' }]);
+    mockUpsert(); // rm_revenue_activity lookup (returns [] → no original business_date found)
+    mockSelectReturns([{ timezone: 'America/New_York' }]); // location fallback
     mockUpsert(); // daily sales
-    mockUpsert(); // revenue activity
+    mockUpsert(); // revenue activity upsert
 
     await handleOrderVoided(event as any);
 
     // SQL includes: net_sales = rm_daily_sales.net_sales - ${voidAmount}
-    // idempotency + daily sales + revenue activity = 3 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(3);
+    // idempotency + rm_revenue_activity lookup + daily sales + revenue activity upsert = 4 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(4);
   });
 
   it('does NOT change orderCount (voids keep original count)', async () => {
@@ -548,16 +550,17 @@ describe('handleOrderVoided', () => {
     });
 
     mockIdempotencyNew();
-    mockSelectReturns([{ timezone: 'America/New_York' }]);
+    mockUpsert(); // rm_revenue_activity lookup (returns [] → no original business_date found)
+    mockSelectReturns([{ timezone: 'America/New_York' }]); // location fallback
     mockUpsert(); // daily sales
-    mockUpsert(); // revenue activity
+    mockUpsert(); // revenue activity upsert
 
     await handleOrderVoided(event as any);
 
     // Verify SQL was executed — the SQL template does NOT include order_count in the UPDATE SET
     // (it uses rm_daily_sales.order_count in avgOrderValue calculation without incrementing)
-    // idempotency + daily sales + revenue activity = 3 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(3);
+    // idempotency + rm_revenue_activity lookup + daily sales + revenue activity upsert = 4 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(4);
   });
 
   it('recomputes avgOrderValue with adjusted netSales and same orderCount', async () => {
@@ -572,16 +575,17 @@ describe('handleOrderVoided', () => {
     });
 
     mockIdempotencyNew();
-    mockSelectReturns([{ timezone: 'America/New_York' }]);
+    mockUpsert(); // rm_revenue_activity lookup (returns [] → no original business_date found)
+    mockSelectReturns([{ timezone: 'America/New_York' }]); // location fallback
     mockUpsert(); // daily sales
-    mockUpsert(); // revenue activity
+    mockUpsert(); // revenue activity upsert
 
     await handleOrderVoided(event as any);
 
     // SQL includes: avg_order_value = CASE WHEN rm_daily_sales.order_count > 0
     //   THEN (rm_daily_sales.net_sales - $voidAmount) / rm_daily_sales.order_count ELSE 0 END
-    // idempotency + daily sales + revenue activity = 3 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(3);
+    // idempotency + rm_revenue_activity lookup + daily sales + revenue activity upsert = 4 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(4);
   });
 
   it('increments quantityVoided on rm_item_sales per line', async () => {
@@ -592,23 +596,25 @@ describe('handleOrderVoided', () => {
         locationId: LOCATION,
         total: 5000,
         lines: [
-          { catalogItemId: 'item_1', qty: 2, lineTotal: 3000 },
-          { catalogItemId: 'item_2', qty: 1, lineTotal: 2000 },
+          // Include catalogItemName so needsLookup=false (no order_lines DB fetch)
+          { catalogItemId: 'item_1', catalogItemName: 'Burger', qty: 2, lineTotal: 3000 },
+          { catalogItemId: 'item_2', catalogItemName: 'Fries', qty: 1, lineTotal: 2000 },
         ],
       },
     });
 
     mockIdempotencyNew();
-    mockSelectReturns([{ timezone: 'America/New_York' }]);
+    mockUpsert(); // rm_revenue_activity lookup (returns [] → no original business_date found)
+    mockSelectReturns([{ timezone: 'America/New_York' }]); // location fallback
     mockUpsert(); // daily sales
-    mockUpsert(); // revenue activity
+    mockUpsert(); // revenue activity upsert
     mockUpsert(); // item 1
     mockUpsert(); // item 2
 
     await handleOrderVoided(event as any);
 
-    // idempotency + daily sales + revenue activity + 2 item sales = 5 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(5);
+    // idempotency + rm_revenue_activity lookup + daily sales + revenue activity upsert + 2 item sales = 6 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(6);
   });
 });
 

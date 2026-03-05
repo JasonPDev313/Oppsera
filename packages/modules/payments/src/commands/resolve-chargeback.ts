@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { chargebacks, tenders } from '@oppsera/db';
@@ -73,7 +73,7 @@ export async function resolveChargeback(
         resolvedBy: ctx.user.id,
         updatedAt: now,
       })
-      .where(eq(chargebacks.id, input.chargebackId));
+      .where(and(eq(chargebacks.id, input.chargebackId), eq(chargebacks.tenantId, ctx.tenantId)));
 
     // 6. Emit event
     const event = buildEventFromContext(ctx, 'chargeback.resolved.v1', {
@@ -102,6 +102,6 @@ export async function resolveChargeback(
     };
   });
 
-  await auditLog(ctx, `chargeback.${input.resolution}`, 'chargeback', result.chargebackId);
+  auditLogDeferred(ctx, `chargeback.${input.resolution}`, 'chargeback', result.chargebackId);
   return result;
 }

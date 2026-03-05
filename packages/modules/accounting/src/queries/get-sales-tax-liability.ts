@@ -33,8 +33,8 @@ export async function getSalesTaxLiability(input: GetSalesTaxLiabilityInput): Pr
         tgd.tax_group_id,
         tgd.tax_payable_account_id,
         a.name AS account_name,
-        COALESCE(SUM(jl.credit_amount), 0) AS total_credits,
-        COALESCE(SUM(jl.debit_amount), 0) AS total_debits
+        COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) AS total_credits,
+        COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) AS total_debits
       FROM tax_group_gl_defaults tgd
       JOIN gl_accounts a ON a.id = tgd.tax_payable_account_id
       LEFT JOIN gl_journal_lines jl ON jl.account_id = tgd.tax_payable_account_id

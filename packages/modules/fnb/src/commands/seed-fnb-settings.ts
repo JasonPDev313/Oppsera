@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { generateUlid } from '@oppsera/shared';
 import { FNB_SETTINGS_DEFAULTS } from '../helpers/fnb-settings-defaults';
 import { FNB_SETTINGS_MODULE_KEYS } from '../validation';
@@ -65,6 +65,6 @@ export async function seedFnbSettings(
     };
   });
 
-  await auditLog(ctx, 'fnb.settings.seeded', 'fnb_settings', 'all');
+  auditLogDeferred(ctx, 'fnb.settings.seeded', 'fnb_settings', 'all');
   return result;
 }

@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
 import { customers, customerEmails, customerActivityLog } from '@oppsera/db';
@@ -48,13 +48,13 @@ export async function updateCustomerEmail(ctx: RequestContext, input: UpdateCust
       // Update customer primary email field
       const newEmail = input.email?.trim() ?? emailRow.email;
       await (tx as any).update(customers).set({ email: newEmail, updatedAt: new Date() })
-        .where(eq(customers.id, emailRow.customerId));
+        .where(and(eq(customers.id, emailRow.customerId), eq(customers.tenantId, ctx.tenantId)));
     } else if (input.isPrimary === false) {
       updates.isPrimary = false;
     }
 
     const [updated] = await (tx as any).update(customerEmails).set(updates)
-      .where(eq(customerEmails.id, input.emailId)).returning();
+      .where(and(eq(customerEmails.id, input.emailId), eq(customerEmails.tenantId, ctx.tenantId))).returning();
 
     // Activity log
     await (tx as any).insert(customerActivityLog).values({
@@ -74,6 +74,6 @@ export async function updateCustomerEmail(ctx: RequestContext, input: UpdateCust
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.email_updated', 'customer_email', input.emailId);
+  auditLogDeferred(ctx, 'customer.email_updated', 'customer_email', input.emailId);
   return result;
 }

@@ -1,7 +1,7 @@
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { fixedAssets, fixedAssetDepreciation } from '@oppsera/db';
@@ -203,7 +203,7 @@ export async function recordDepreciation(ctx: RequestContext, input: RecordDepre
       await tx
         .update(fixedAssets)
         .set({ status: 'fully_depreciated', updatedAt: new Date() })
-        .where(eq(fixedAssets.id, input.assetId));
+        .where(and(eq(fixedAssets.id, input.assetId), eq(fixedAssets.tenantId, ctx.tenantId)));
     }
 
     const event = buildEventFromContext(ctx, ACCOUNTING_EVENTS.FIXED_ASSET_DEPRECIATED, {
@@ -220,6 +220,6 @@ export async function recordDepreciation(ctx: RequestContext, input: RecordDepre
     return { result: record!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.fixed_asset.depreciated', 'fixed_asset', input.assetId);
+  auditLogDeferred(ctx, 'accounting.fixed_asset.depreciated', 'fixed_asset', input.assetId);
   return result;
 }

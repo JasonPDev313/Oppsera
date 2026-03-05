@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { floorPlanRooms, floorPlanVersions } from '../schema';
@@ -79,7 +79,7 @@ export async function duplicateRoom(
         await tx
           .update(floorPlanRooms)
           .set({ draftVersionId: draftVersion!.id })
-          .where(eq(floorPlanRooms.id, created!.id));
+          .where(and(eq(floorPlanRooms.id, created!.id), eq(floorPlanRooms.tenantId, ctx.tenantId)));
       }
     }
 
@@ -96,7 +96,7 @@ export async function duplicateRoom(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'room_layouts.room.duplicated', 'floor_plan_room', room.id, undefined, {
+  auditLogDeferred(ctx, 'room_layouts.room.duplicated', 'floor_plan_room', room.id, undefined, {
     sourceRoomId,
   });
   return room;

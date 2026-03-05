@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { billingAccounts, arTransactions, customerActivityLog } from '@oppsera/db';
@@ -60,13 +60,13 @@ export async function transferBetweenAccounts(ctx: RequestContext, input: Transf
     await (tx as any).update(billingAccounts).set({
       currentBalanceCents: newFromBalance,
       updatedAt: new Date(),
-    }).where(eq(billingAccounts.id, input.fromAccountId));
+    }).where(and(eq(billingAccounts.id, input.fromAccountId), eq(billingAccounts.tenantId, ctx.tenantId)));
 
     const newToBalance = Number(toAccount.currentBalanceCents) + input.amountCents;
     await (tx as any).update(billingAccounts).set({
       currentBalanceCents: newToBalance,
       updatedAt: new Date(),
-    }).where(eq(billingAccounts.id, input.toAccountId));
+    }).where(and(eq(billingAccounts.id, input.toAccountId), eq(billingAccounts.tenantId, ctx.tenantId)));
 
     // Activity log
     await (tx as any).insert(customerActivityLog).values({
@@ -113,6 +113,6 @@ export async function transferBetweenAccounts(ctx: RequestContext, input: Transf
     };
   });
 
-  await auditLog(ctx, 'customer.account_transfer', 'billing_account', input.fromAccountId);
+  auditLogDeferred(ctx, 'customer.account_transfer', 'billing_account', input.fromAccountId);
   return result;
 }

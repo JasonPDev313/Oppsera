@@ -4,7 +4,7 @@ import { glJournalEntries } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { EventEnvelope } from '@oppsera/shared';
 import { generateUlid } from '@oppsera/shared';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { getReconciliationReadApi } from '@oppsera/core/helpers/reconciliation-read-api';
 import { voidJournalEntry } from './void-journal-entry';
 import { handleTenderForAccounting } from '../adapters/pos-posting-adapter';
@@ -143,7 +143,7 @@ export async function remapGlForTender(
   const resolvedCount = (resolveResult as any)?.count ?? 0;
 
   // 7. Audit log
-  await auditLog(ctx, 'accounting.gl.remapped', 'tender', tenderId);
+  auditLogDeferred(ctx, 'accounting.gl.remapped', 'tender', tenderId);
 
   return {
     tenderId,

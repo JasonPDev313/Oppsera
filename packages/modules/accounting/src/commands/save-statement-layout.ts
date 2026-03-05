@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { financialStatementLayouts } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
@@ -64,6 +64,6 @@ export async function saveStatementLayout(
     return { result: created!, events: [] };
   });
 
-  await auditLog(ctx, 'accounting.statement_layout.saved', 'financial_statement_layout', result.id);
+  auditLogDeferred(ctx, 'accounting.statement_layout.saved', 'financial_statement_layout', result.id);
   return result;
 }

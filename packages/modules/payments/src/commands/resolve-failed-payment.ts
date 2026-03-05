@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
 import { paymentIntents } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
-import { publishWithOutbox, buildEventFromContext, auditLog } from '@oppsera/core';
+import { publishWithOutbox, buildEventFromContext } from '@oppsera/core';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core';
 
 // ── Validation ────────────────────────────────────────────────
@@ -98,7 +99,7 @@ export async function resolveFailedPayment(
     };
   });
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     `payment.intent.${parsed.resolution}`,
     'payment_intent',

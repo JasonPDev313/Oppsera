@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 
 interface RecordCashPaidOutInput {
@@ -41,6 +41,6 @@ export async function recordCashPaidOut(ctx: RequestContext, input: RecordCashPa
     return { result: paidOut, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.cash_paid_out.recorded', 'cash_paid_out', (result as Record<string, unknown>).id as string);
+  auditLogDeferred(ctx, 'fnb.cash_paid_out.recorded', 'cash_paid_out', (result as Record<string, unknown>).id as string);
   return result;
 }

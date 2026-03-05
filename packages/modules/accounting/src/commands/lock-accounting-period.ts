@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { accountingSettings } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -56,7 +56,7 @@ export async function lockAccountingPeriod(
     return { result: settings!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.period.locked', 'accounting_settings', ctx.tenantId, {
+  auditLogDeferred(ctx, 'accounting.period.locked', 'accounting_settings', ctx.tenantId, {
     period: { old: null, new: period },
   });
   return result;

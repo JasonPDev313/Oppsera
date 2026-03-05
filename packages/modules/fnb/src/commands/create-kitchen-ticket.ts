@@ -1,7 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbKitchenTickets, fnbKitchenTicketItems, fnbTabs } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -195,7 +195,7 @@ export async function createKitchenTicket(
     return { result: ticket!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.ticket.created', 'fnb_kitchen_tickets', result.id, undefined, {
+  auditLogDeferred(ctx, 'fnb.ticket.created', 'fnb_kitchen_tickets', result.id, undefined, {
     tabId: input.tabId,
     itemCount: input.items.length,
     routedItemCount: routingResults.filter((r) => r.stationId !== null).length,

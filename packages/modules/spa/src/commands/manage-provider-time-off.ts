@@ -1,6 +1,6 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaProviders, spaProviderTimeOff } from '@oppsera/db';
@@ -81,7 +81,7 @@ export async function createProviderTimeOff(
     return { result: created!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.provider.time_off_created', 'spa_provider_time_off', result.id);
+  auditLogDeferred(ctx, 'spa.provider.time_off_created', 'spa_provider_time_off', result.id);
   return result;
 }
 
@@ -127,6 +127,6 @@ export async function cancelProviderTimeOff(
     return { result: existing, events: [] };
   });
 
-  await auditLog(ctx, 'spa.provider.time_off_canceled', 'spa_provider_time_off', result.id);
+  auditLogDeferred(ctx, 'spa.provider.time_off_canceled', 'spa_provider_time_off', result.id);
   return result;
 }

@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbKitchenTicketItems, fnbKitchenTickets } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -79,6 +79,6 @@ export async function bumpItem(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.kds.item_bumped', 'fnb_kitchen_ticket_items', input.ticketItemId);
+  auditLogDeferred(ctx, 'fnb.kds.item_bumped', 'fnb_kitchen_ticket_items', input.ticketItemId);
   return result;
 }

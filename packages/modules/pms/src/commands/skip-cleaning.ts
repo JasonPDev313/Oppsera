@@ -4,7 +4,7 @@
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { pmsHousekeepingAssignments } from '@oppsera/db';
@@ -37,7 +37,7 @@ export async function skipCleaning(ctx: RequestContext, assignmentId: string, re
         notes: reason ?? null,
         updatedAt: now,
       })
-      .where(eq(pmsHousekeepingAssignments.id, assignmentId));
+      .where(and(eq(pmsHousekeepingAssignments.id, assignmentId), eq(pmsHousekeepingAssignments.tenantId, ctx.tenantId)));
 
     await pmsAuditLogEntry(tx, ctx, existing.propertyId, 'housekeeping_assignment', assignmentId, 'skipped', {
       status: { before: existing.status, after: 'skipped' },
@@ -56,6 +56,6 @@ export async function skipCleaning(ctx: RequestContext, assignmentId: string, re
     return { result: { id: assignmentId, status: 'skipped' }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.housekeeping.skipped', 'pms_housekeeping_assignment', assignmentId);
+  auditLogDeferred(ctx, 'pms.housekeeping.skipped', 'pms_housekeeping_assignment', assignmentId);
   return result;
 }

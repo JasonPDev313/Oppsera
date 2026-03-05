@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { generateUlid } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -79,6 +79,6 @@ export async function upsertPerformanceTarget(
     return { result: saved, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.kds.performance_target.upserted', 'fnb_kds_performance_targets', result.id as string);
+  auditLogDeferred(ctx, 'fnb.kds.performance_target.upserted', 'fnb_kds_performance_targets', result.id as string);
   return result;
 }

@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { membershipPlans } from '@oppsera/db';
 import type { CreateMembershipPlanInput } from '../validation';
@@ -28,6 +28,6 @@ export async function createMembershipPlan(ctx: RequestContext, input: CreateMem
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'membership_plan.created', 'membership_plan', result.id);
+  auditLogDeferred(ctx, 'membership_plan.created', 'membership_plan', result.id);
   return result;
 }

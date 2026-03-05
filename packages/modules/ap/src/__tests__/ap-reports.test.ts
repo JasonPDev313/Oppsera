@@ -393,7 +393,8 @@ describe('AP Report Queries', () => {
 
       expect(result.entries).toHaveLength(2);
       expect(result.hasMore).toBe(true);
-      expect(result.cursor).toBe('entry-1');
+      // cursor is base64url("entryDate|id") — last visible entry is entry-1 on 2026-02-01
+      expect(result.cursor).toBe(Buffer.from('2026-02-01|entry-1').toString('base64url'));
     });
   });
 });

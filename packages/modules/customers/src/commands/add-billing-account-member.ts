@@ -1,4 +1,4 @@
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ConflictError, ValidationError } from '@oppsera/shared';
 import { customers, billingAccounts, billingAccountMembers } from '@oppsera/db';
@@ -43,6 +43,6 @@ export async function addBillingAccountMember(ctx: RequestContext, input: AddBil
     return member!;
   });
 
-  await auditLog(ctx, 'billing_account.member_added', 'billing_account', input.billingAccountId);
+  auditLogDeferred(ctx, 'billing_account.member_added', 'billing_account', input.billingAccountId);
   return result;
 }

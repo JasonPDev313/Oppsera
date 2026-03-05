@@ -57,7 +57,7 @@ export async function reconcileSubledger(
           : sql``;
 
       const properRows = await tx.execute(sql`
-        SELECT COALESCE(SUM(jl.debit_amount), 0) AS proper_total
+        SELECT COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) AS proper_total
         FROM gl_journal_lines jl
         JOIN gl_journal_entries je ON je.id = jl.journal_entry_id
         WHERE je.tenant_id = ${input.tenantId}
@@ -130,11 +130,11 @@ export async function reconcileSubledger(
       SELECT
         a.name AS account_name,
         a.normal_balance,
-        COALESCE(SUM(jl.debit_amount), 0) AS debit_total,
-        COALESCE(SUM(jl.credit_amount), 0) AS credit_total,
+        COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) AS debit_total,
+        COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) AS credit_total,
         CASE WHEN a.normal_balance = 'debit'
-          THEN COALESCE(SUM(jl.debit_amount), 0) - COALESCE(SUM(jl.credit_amount), 0)
-          ELSE COALESCE(SUM(jl.credit_amount), 0) - COALESCE(SUM(jl.debit_amount), 0)
+          THEN COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) - COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0)
+          ELSE COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) - COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0)
         END AS balance
       FROM gl_accounts a
       LEFT JOIN gl_journal_lines jl ON jl.account_id = a.id

@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { pmsLoyaltyPrograms, pmsLoyaltyMembers, pmsGuests } from '@oppsera/db';
@@ -84,6 +84,6 @@ export async function enrollLoyaltyGuest(
     return { result: member!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.loyalty_member.enrolled', 'pms_loyalty_member', result.id);
+  auditLogDeferred(ctx, 'pms.loyalty_member.enrolled', 'pms_loyalty_member', result.id);
   return result;
 }

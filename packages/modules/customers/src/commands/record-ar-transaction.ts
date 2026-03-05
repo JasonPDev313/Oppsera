@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { billingAccounts, arTransactions, customerActivityLog } from '@oppsera/db';
@@ -56,7 +56,7 @@ export async function recordArTransaction(ctx: RequestContext, input: RecordArTr
     await (tx as any).update(billingAccounts).set({
       currentBalanceCents: newBalance,
       updatedAt: new Date(),
-    }).where(eq(billingAccounts.id, input.billingAccountId));
+    }).where(and(eq(billingAccounts.id, input.billingAccountId), eq(billingAccounts.tenantId, ctx.tenantId)));
 
     // Activity log on primary customer
     await (tx as any).insert(customerActivityLog).values({
@@ -116,7 +116,7 @@ export async function recordArTransaction(ctx: RequestContext, input: RecordArTr
           await tx
             .update(arTransactions)
             .set({ glJournalEntryId: glResult.id })
-            .where(eq(arTransactions.id, result.id));
+            .where(and(eq(arTransactions.id, result.id), eq(arTransactions.tenantId, ctx.tenantId)));
         });
       } catch { /* non-fatal */ }
     }
@@ -125,7 +125,7 @@ export async function recordArTransaction(ctx: RequestContext, input: RecordArTr
     console.error(`[ar-gl] GL posting failed for AR transaction ${result.id}:`, error);
   }
 
-  await auditLog(ctx, `ar.${input.type}.created`, 'ar_transaction', result.id);
+  auditLogDeferred(ctx, `ar.${input.type}.created`, 'ar_transaction', result.id);
   return result;
 }
 

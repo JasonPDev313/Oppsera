@@ -159,8 +159,10 @@ export function useTrialBalance(params: TrialBalanceParams = {}) {
           accountName: a.accountName,
           accountType: a.accountType as TrialBalanceRow['accountType'],
           classificationName: a.classificationName,
-          debitBalance: a.debitTotal,
-          creditBalance: a.creditTotal,
+          normalBalance: a.normalBalance,
+          debitTotal: a.debitTotal,
+          creditTotal: a.creditTotal,
+          netBalance: a.netBalance,
         })),
       );
     },

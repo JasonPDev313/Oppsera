@@ -80,7 +80,7 @@ export async function expireVouchers(
       await db.update(vouchers).set({
         redemptionStatus: 'expired',
         updatedAt: now,
-      }).where(eq(vouchers.id, voucher.id));
+      }).where(and(eq(vouchers.id, voucher.id), eq(vouchers.tenantId, voucher.tenantId)));
 
       // 2. Create expiration income record
       const expirationId = generateUlid();

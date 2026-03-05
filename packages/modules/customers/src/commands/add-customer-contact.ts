@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
 import { customers, customerContacts, customerActivityLog } from '@oppsera/db';
@@ -51,10 +51,10 @@ export async function addCustomerContact(ctx: RequestContext, input: AddCustomer
     // If isPrimary and contactType is email or phone, update the customer record
     if (input.isPrimary && input.contactType === 'email') {
       await (tx as any).update(customers).set({ email: input.value, updatedAt: new Date() })
-        .where(eq(customers.id, input.customerId));
+        .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, ctx.tenantId)));
     } else if (input.isPrimary && input.contactType === 'phone') {
       await (tx as any).update(customers).set({ phone: input.value, updatedAt: new Date() })
-        .where(eq(customers.id, input.customerId));
+        .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, ctx.tenantId)));
     }
 
     // Activity log
@@ -78,6 +78,6 @@ export async function addCustomerContact(ctx: RequestContext, input: AddCustomer
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.contact_added', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.contact_added', 'customer', input.customerId);
   return result;
 }

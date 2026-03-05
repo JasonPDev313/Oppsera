@@ -3,7 +3,7 @@ import { AppError } from '@oppsera/shared';
 import { orderLines, orders } from '@oppsera/db';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '../../helpers/idempotency';
 import type { RequestContext } from '../../auth/context';
 import type { VoidOrderLineInput } from '../validation';
@@ -148,6 +148,6 @@ export async function voidOrderLine(
     return { result: voidResult, events: [event] };
   });
 
-  await auditLog(ctx, 'order.line.voided', 'order_line', input.orderLineId);
+  auditLogDeferred(ctx, 'order.line.voided', 'order_line', input.orderLineId);
   return result;
 }

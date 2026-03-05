@@ -1,10 +1,10 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { orders } from '@oppsera/db';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { DeleteOrderInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
@@ -25,7 +25,7 @@ export async function deleteOrder(ctx: RequestContext, orderId: string, input: D
       status: 'deleted',
       updatedBy: ctx.user.id,
       updatedAt: now,
-    }).where(eq(orders.id, orderId));
+    }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
 
     await incrementVersion(tx, orderId, ctx.tenantId);
 
@@ -42,6 +42,6 @@ export async function deleteOrder(ctx: RequestContext, orderId: string, input: D
     };
   });
 
-  await auditLog(ctx, 'order.deleted', 'order', orderId);
+  auditLogDeferred(ctx, 'order.deleted', 'order', orderId);
   return result;
 }

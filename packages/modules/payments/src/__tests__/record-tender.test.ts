@@ -75,6 +75,7 @@ vi.mock('@oppsera/core/events/build-event', () => ({
 
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: mocks.auditLog,
+  auditLogDeferred: mocks.auditLog,
 }));
 
 vi.mock('@oppsera/core/helpers/idempotency', () => ({

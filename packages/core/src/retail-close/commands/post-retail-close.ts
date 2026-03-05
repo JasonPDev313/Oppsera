@@ -3,7 +3,7 @@ import { AppError } from '@oppsera/shared';
 import { retailCloseBatches, accountingSettings } from '@oppsera/db';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { getAccountingPostingApi } from '../../helpers/accounting-posting-api';
 import type { RequestContext } from '../../auth/context';
 import type { PostRetailCloseInput } from '../validation';
@@ -252,6 +252,6 @@ export async function postRetailClose(
     return { result: mapRow(updated!), events: [event] };
   });
 
-  await auditLog(ctx, 'retail.close.posted', 'retail_close_batch', result.id);
+  auditLogDeferred(ctx, 'retail.close.posted', 'retail_close_batch', result.id);
   return result;
 }

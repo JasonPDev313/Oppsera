@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError, ConflictError } from '@oppsera/shared';
 import { tenders, tenderReversals, orderLines, orderDiscounts, orders } from '@oppsera/db';
@@ -247,7 +247,7 @@ export async function recordTender(
         .set({
           allocationSnapshot,
         })
-        .where(eq(tenders.id, tender.id));
+        .where(and(eq(tenders.id, tender.id), eq(tenders.tenantId, ctx.tenantId)));
     }
 
     // 9. If fully paid, update order status
@@ -261,7 +261,7 @@ export async function recordTender(
           updatedBy: ctx.user.id,
           updatedAt: now,
         })
-        .where(eq(orders.id, orderId));
+        .where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
     }
 
     await incrementVersion(tx, orderId, ctx.tenantId);
@@ -327,10 +327,6 @@ export async function recordTender(
     };
   });
 
-  try {
-    await auditLog(ctx, 'tender.recorded', 'order', orderId);
-  } catch (e) {
-    console.error('Audit log failed for tender.recorded:', e instanceof Error ? e.message : e);
-  }
+  auditLogDeferred(ctx, 'tender.recorded', 'order', orderId);
   return result;
 }

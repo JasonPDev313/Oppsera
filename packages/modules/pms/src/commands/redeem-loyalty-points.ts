@@ -1,7 +1,7 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { NotFoundError, AppError } from '@oppsera/shared';
@@ -53,7 +53,7 @@ export async function redeemLoyaltyPoints(
     await tx
       .update(pmsLoyaltyMembers)
       .set({ pointsBalance: newBalance })
-      .where(eq(pmsLoyaltyMembers.id, input.memberId));
+      .where(and(eq(pmsLoyaltyMembers.id, input.memberId), eq(pmsLoyaltyMembers.tenantId, ctx.tenantId)));
 
     const [transaction] = await tx
       .insert(pmsLoyaltyTransactions)
@@ -86,6 +86,6 @@ export async function redeemLoyaltyPoints(
     return { result: resultPayload, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.loyalty.points_redeemed', 'pms_loyalty_transaction', result.transactionId);
+  auditLogDeferred(ctx, 'pms.loyalty.points_redeemed', 'pms_loyalty_transaction', result.transactionId);
   return result;
 }

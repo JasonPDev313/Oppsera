@@ -1,7 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glAccounts } from '@oppsera/db';
 import { NotFoundError, ConflictError, AppError } from '@oppsera/shared';
@@ -107,14 +107,14 @@ export async function updateGlAccount(
         await tx
           .update(glAccounts)
           .set({ depth: descDepth, path: descPath })
-          .where(eq(glAccounts.id, desc.id));
+          .where(and(eq(glAccounts.id, desc.id), eq(glAccounts.tenantId, ctx.tenantId)));
       }
     }
 
     const [updated] = await tx
       .update(glAccounts)
       .set(updateValues)
-      .where(eq(glAccounts.id, accountId))
+      .where(and(eq(glAccounts.id, accountId), eq(glAccounts.tenantId, ctx.tenantId)))
       .returning();
 
     // Log field-level changes
@@ -140,6 +140,6 @@ export async function updateGlAccount(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.account.updated', 'gl_account', result.id);
+  auditLogDeferred(ctx, 'accounting.account.updated', 'gl_account', result.id);
   return result;
 }

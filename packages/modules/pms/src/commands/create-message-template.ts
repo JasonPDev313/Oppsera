@@ -3,7 +3,7 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
 import { pmsMessageTemplates, pmsProperties } from '@oppsera/db';
@@ -39,6 +39,6 @@ export async function createMessageTemplate(ctx: RequestContext, input: CreateMe
     return { result: { id }, events: [] };
   });
 
-  await auditLog(ctx, 'pms.message_template.created', 'pms_message_template', result.id);
+  auditLogDeferred(ctx, 'pms.message_template.created', 'pms_message_template', result.id);
   return result;
 }

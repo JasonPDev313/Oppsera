@@ -1,10 +1,10 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes } from '@oppsera/db';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { SetTaxExemptInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
@@ -62,7 +62,7 @@ export async function setTaxExempt(ctx: RequestContext, orderId: string, input: 
         await tx.update(orderLines).set({
           lineTax: 0,
           lineTotal: sql`line_subtotal`,
-        }).where(eq(orderLines.orderId, orderId));
+        }).where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId)));
       }
     } else {
       // Restore original taxes from the orderLineTaxes breakdown rows
@@ -87,7 +87,7 @@ export async function setTaxExempt(ctx: RequestContext, orderId: string, input: 
         await tx.update(orderLines).set({
           lineTax: restoredTax,
           lineTotal: line.lineSubtotal + restoredTax,
-        }).where(eq(orderLines.id, line.id));
+        }).where(and(eq(orderLines.id, line.id), eq(orderLines.tenantId, ctx.tenantId)));
       }
 
       // Recalculate totals using restored per-line tax values
@@ -108,7 +108,7 @@ export async function setTaxExempt(ctx: RequestContext, orderId: string, input: 
       ...totals,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),
-    }).where(eq(orders.id, orderId));
+    }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
 
     await incrementVersion(tx, orderId, ctx.tenantId);
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'setTaxExempt', { taxExempt: input.taxExempt });
@@ -130,6 +130,6 @@ export async function setTaxExempt(ctx: RequestContext, orderId: string, input: 
     };
   });
 
-  await auditLog(ctx, 'order.tax_exempt_changed', 'order', orderId);
+  auditLogDeferred(ctx, 'order.tax_exempt_changed', 'order', orderId);
   return result;
 }

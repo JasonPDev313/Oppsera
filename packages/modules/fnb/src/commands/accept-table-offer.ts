@@ -11,7 +11,7 @@
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { sql } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
@@ -410,7 +410,7 @@ export async function acceptTableOffer(
     return { result: commandResult, events };
   });
 
-  await auditLog(ctx, 'fnb.waitlist.offer_accepted', 'waitlist_entry', input.waitlistEntryId);
+  auditLogDeferred(ctx, 'fnb.waitlist.offer_accepted', 'waitlist_entry', input.waitlistEntryId);
 
   return result;
 }

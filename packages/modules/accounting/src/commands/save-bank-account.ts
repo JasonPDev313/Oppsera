@@ -1,7 +1,7 @@
 import { eq, and, ne } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glAccounts, bankAccounts } from '@oppsera/db';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
@@ -74,7 +74,7 @@ export async function saveBankAccount(
           isDefault: input.isDefault ?? false,
           updatedAt: new Date(),
         })
-        .where(eq(bankAccounts.id, input.id!))
+        .where(and(eq(bankAccounts.id, input.id!), eq(bankAccounts.tenantId, ctx.tenantId)))
         .returning();
     } else {
       // Create new
@@ -107,6 +107,6 @@ export async function saveBankAccount(
   });
 
   const action = input.id ? 'accounting.bank_account.updated' : 'accounting.bank_account.created';
-  await auditLog(ctx, action, 'bank_account', result.id);
+  auditLogDeferred(ctx, action, 'bank_account', result.id);
   return result;
 }

@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { tags, customerTags, tagAuditLog } from '@oppsera/db';
@@ -31,13 +31,13 @@ export async function removeTagFromCustomer(
       removedAt: new Date(),
       removedBy: ctx.user.id,
       removedReason: input.reason ?? null,
-    }).where(eq(customerTags.id, assignment.id)).returning();
+    }).where(and(eq(customerTags.id, assignment.id), eq(customerTags.tenantId, ctx.tenantId))).returning();
 
     // Decrement tag customer_count
     await (tx as any).update(tags).set({
       customerCount: sql`customer_count - 1`,
       updatedAt: new Date(),
-    }).where(eq(tags.id, tagId));
+    }).where(and(eq(tags.id, tagId), eq(tags.tenantId, ctx.tenantId)));
 
     // Insert audit log entry
     await (tx as any).insert(tagAuditLog).values({
@@ -63,6 +63,6 @@ export async function removeTagFromCustomer(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.tag_removed', 'customer', customerId);
+  auditLogDeferred(ctx, 'customer.tag_removed', 'customer', customerId);
   return result;
 }

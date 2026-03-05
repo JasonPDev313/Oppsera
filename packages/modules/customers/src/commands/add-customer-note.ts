@@ -1,4 +1,4 @@
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customers, customerActivityLog } from '@oppsera/db';
@@ -25,6 +25,6 @@ export async function addCustomerNote(ctx: RequestContext, input: AddCustomerNot
     return entry!;
   });
 
-  await auditLog(ctx, 'customer.note_added', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.note_added', 'customer', input.customerId);
   return result;
 }

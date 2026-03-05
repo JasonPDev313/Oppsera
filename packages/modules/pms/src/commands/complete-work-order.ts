@@ -4,7 +4,7 @@
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { pmsWorkOrders } from '@oppsera/db';
@@ -40,7 +40,7 @@ export async function completeWorkOrder(
         partsCostCents: input.partsCostCents ?? null,
         updatedAt: now,
       })
-      .where(eq(pmsWorkOrders.id, workOrderId));
+      .where(and(eq(pmsWorkOrders.id, workOrderId), eq(pmsWorkOrders.tenantId, ctx.tenantId)));
 
     await pmsAuditLogEntry(tx, ctx, existing.propertyId, 'work_order', workOrderId, 'completed', {
       status: { before: existing.status, after: 'completed' },
@@ -62,6 +62,6 @@ export async function completeWorkOrder(
     return { result: { id: workOrderId, status: 'completed' }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.work_order.completed', 'pms_work_order', result.id);
+  auditLogDeferred(ctx, 'pms.work_order.completed', 'pms_work_order', result.id);
   return result;
 }

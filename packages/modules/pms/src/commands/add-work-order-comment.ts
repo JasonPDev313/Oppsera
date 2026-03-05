@@ -3,7 +3,7 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
 import { pmsWorkOrders, pmsWorkOrderComments } from '@oppsera/db';
@@ -39,6 +39,6 @@ export async function addWorkOrderComment(
     return { result: { id }, events: [] };
   });
 
-  await auditLog(ctx, 'pms.work_order_comment.created', 'pms_work_order_comment', result.id);
+  auditLogDeferred(ctx, 'pms.work_order_comment.created', 'pms_work_order_comment', result.id);
   return result;
 }

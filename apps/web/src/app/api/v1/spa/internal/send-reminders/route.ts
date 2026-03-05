@@ -165,7 +165,7 @@ export async function GET(request: Request) {
             await tx
               .update(spaAppointments)
               .set({ reminderEmailSentAt: new Date() })
-              .where(eq(spaAppointments.id, appt.id));
+              .where(and(eq(spaAppointments.id, appt.id), eq(spaAppointments.tenantId, appt.tenantId)));
           });
 
           results.sent++;

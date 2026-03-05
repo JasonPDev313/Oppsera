@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, NotFoundError } from '@oppsera/shared';
 import { orders, orderLines, orderCharges, orderDiscounts } from '@oppsera/db';
@@ -52,7 +52,7 @@ export async function removeServiceCharge(ctx: RequestContext, orderId: string, 
       ...totals,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),
-    }).where(eq(orders.id, orderId));
+    }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
 
     await incrementVersion(tx, orderId, ctx.tenantId);
 
@@ -68,6 +68,6 @@ export async function removeServiceCharge(ctx: RequestContext, orderId: string, 
     return { result: { orderId, chargeId: input.chargeId }, events: [event] };
   });
 
-  await auditLog(ctx, 'order.service_charge_removed', 'order', orderId);
+  auditLogDeferred(ctx, 'order.service_charge_removed', 'order', orderId);
   return result;
 }

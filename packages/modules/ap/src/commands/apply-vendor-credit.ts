@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apBills } from '@oppsera/db';
@@ -71,7 +71,7 @@ export async function applyVendorCredit(ctx: RequestContext, input: ApplyVendorC
     await tx
       .update(apBills)
       .set({ amountPaid: newPaid, balanceDue: newBalance, status: newStatus, updatedAt: new Date() })
-      .where(eq(apBills.id, input.targetBillId));
+      .where(and(eq(apBills.id, input.targetBillId), eq(apBills.tenantId, ctx.tenantId)));
 
     // 5. Update credit bill balance (increase toward 0)
     const newCreditBalance = (Number(credit.balanceDue) + applyAmount).toFixed(2); // e.g. -100 + 50 = -50
@@ -80,7 +80,7 @@ export async function applyVendorCredit(ctx: RequestContext, input: ApplyVendorC
     await tx
       .update(apBills)
       .set({ balanceDue: newCreditBalance, status: creditStatus, updatedAt: new Date() })
-      .where(eq(apBills.id, input.creditBillId));
+      .where(and(eq(apBills.id, input.creditBillId), eq(apBills.tenantId, ctx.tenantId)));
 
     const applyResult = {
       creditBillId: input.creditBillId,
@@ -96,6 +96,6 @@ export async function applyVendorCredit(ctx: RequestContext, input: ApplyVendorC
     };
   });
 
-  await auditLog(ctx, 'ap.credit.applied', 'ap_bill', input.targetBillId);
+  auditLogDeferred(ctx, 'ap.credit.applied', 'ap_bill', input.targetBillId);
   return result;
 }

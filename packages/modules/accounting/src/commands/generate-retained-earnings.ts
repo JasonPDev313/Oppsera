@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glJournalEntries, glJournalLines, glAccounts } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
@@ -299,6 +299,6 @@ export async function generateRetainedEarnings(
     };
   });
 
-  await auditLog(ctx, 'accounting.retained_earnings.generated', 'gl_journal_entry', result.id);
+  auditLogDeferred(ctx, 'accounting.retained_earnings.generated', 'gl_journal_entry', result.id);
   return result;
 }

@@ -1,7 +1,7 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { ConflictError, NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { taxGroups, taxGroupRates, taxRates } from '../schema';
@@ -88,6 +88,6 @@ export async function createTaxGroup(ctx: RequestContext, input: CreateTaxGroupI
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'tax.group.created', 'tax_group', group.id);
+  auditLogDeferred(ctx, 'tax.group.created', 'tax_group', group.id);
   return group;
 }

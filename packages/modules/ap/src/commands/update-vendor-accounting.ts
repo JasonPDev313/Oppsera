@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { vendors, glAccounts } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
@@ -79,7 +79,7 @@ export async function updateVendorAccounting(
     const [updated] = await tx
       .update(vendors)
       .set(updateSet)
-      .where(eq(vendors.id, vendorId))
+      .where(and(eq(vendors.id, vendorId), eq(vendors.tenantId, ctx.tenantId)))
       .returning();
 
     return {
@@ -88,6 +88,6 @@ export async function updateVendorAccounting(
     };
   });
 
-  await auditLog(ctx, 'ap.vendor.accounting_updated', 'vendor', result.id);
+  auditLogDeferred(ctx, 'ap.vendor.accounting_updated', 'vendor', result.id);
   return result;
 }

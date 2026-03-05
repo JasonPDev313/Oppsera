@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
 import { tags } from '@oppsera/db';
@@ -29,7 +29,7 @@ export async function unarchiveTag(ctx: RequestContext, tagId: string) {
       archivedReason: null,
       isActive: true,
       updatedAt: new Date(),
-    }).where(eq(tags.id, tagId)).returning();
+    }).where(and(eq(tags.id, tagId), eq(tags.tenantId, ctx.tenantId))).returning();
 
     const event = buildEventFromContext(ctx, 'customer.tag_definition.unarchived.v1', {
       tagId,
@@ -39,6 +39,6 @@ export async function unarchiveTag(ctx: RequestContext, tagId: string) {
     return { result: unarchived!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.tag_unarchived', 'tag', tagId);
+  auditLogDeferred(ctx, 'customer.tag_unarchived', 'tag', tagId);
   return result;
 }

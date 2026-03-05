@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { budgets } from '@oppsera/db';
 import { ACCOUNTING_EVENTS } from '../events/types';
@@ -30,7 +30,7 @@ export async function approveBudget(ctx: RequestContext, budgetId: string) {
         approvedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(budgets.id, budgetId))
+      .where(and(eq(budgets.id, budgetId), eq(budgets.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, ACCOUNTING_EVENTS.BUDGET_APPROVED, {
@@ -40,6 +40,6 @@ export async function approveBudget(ctx: RequestContext, budgetId: string) {
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.budget.approved', 'budget', result.id);
+  auditLogDeferred(ctx, 'accounting.budget.approved', 'budget', result.id);
   return result;
 }

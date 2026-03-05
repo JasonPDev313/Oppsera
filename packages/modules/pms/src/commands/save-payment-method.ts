@@ -4,7 +4,7 @@
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
 import { pmsPaymentMethods, pmsGuests } from '@oppsera/db';
@@ -66,6 +66,6 @@ export async function savePaymentMethod(ctx: RequestContext, input: SavePaymentM
     return { result: { id }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.payment_method.saved', 'pms_payment_method', result.id);
+  auditLogDeferred(ctx, 'pms.payment_method.saved', 'pms_payment_method', result.id);
   return result;
 }

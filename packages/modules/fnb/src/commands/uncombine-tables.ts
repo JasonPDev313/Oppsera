@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import {
   fnbTableLiveStatus,
@@ -75,7 +75,7 @@ export async function uncombineTables(
     return { result: uncombineResult, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.table.uncombined', 'fnb_table_combine_groups', input.combineGroupId);
+  auditLogDeferred(ctx, 'fnb.table.uncombined', 'fnb_table_combine_groups', input.combineGroupId);
 
   return result;
 }

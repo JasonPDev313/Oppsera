@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { tenantBusinessInfo, tenantContentBlocks } from '@oppsera/db';
-import { auditLog } from '../audit';
+import { auditLogDeferred } from '../audit/helpers';
 import type { RequestContext } from '../auth/context';
 import type {
   UpdateBusinessInfoInput,
@@ -266,7 +266,7 @@ export async function updateBusinessInfo(
         set: { ...setValues, updatedAt: now },
       });
 
-    await auditLog(ctx, 'settings.business_info.updated', 'tenant_business_info', ctx.tenantId);
+    auditLogDeferred(ctx, 'settings.business_info.updated', 'tenant_business_info', ctx.tenantId);
 
     // Re-read and return
     const rows = await tx
@@ -305,7 +305,7 @@ export async function updateContentBlock(
         },
       });
 
-    await auditLog(ctx, `settings.content.${blockKey}.updated`, 'tenant_content_blocks', ctx.tenantId);
+    auditLogDeferred(ctx, `settings.content.${blockKey}.updated`, 'tenant_content_blocks', ctx.tenantId);
 
     return {
       blockKey,

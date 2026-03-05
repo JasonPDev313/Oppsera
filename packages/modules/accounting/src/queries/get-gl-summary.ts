@@ -63,8 +63,8 @@ export async function getGlSummary(
         AND a.is_active = true
         AND (jl.id IS NULL OR je.id IS NOT NULL)
       GROUP BY a.classification_id, c.name, a.account_type, a.normal_balance
-      HAVING COALESCE(SUM(jl.debit_amount), 0) != 0
-          OR COALESCE(SUM(jl.credit_amount), 0) != 0
+      HAVING COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0
+          OR COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0
       ORDER BY a.account_type, c.name
     `);
 

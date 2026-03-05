@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { floorPlanTemplatesV2 } from '../schema';
@@ -17,12 +17,12 @@ export async function deleteTemplate(ctx: RequestContext, templateId: string) {
     const [updated] = await tx
       .update(floorPlanTemplatesV2)
       .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(floorPlanTemplatesV2.id, templateId))
+      .where(and(eq(floorPlanTemplatesV2.id, templateId), eq(floorPlanTemplatesV2.tenantId, ctx.tenantId)))
       .returning();
 
     return { result: updated!, events: [] };
   });
 
-  await auditLog(ctx, 'room_layouts.template.deleted', 'floor_plan_template', template.id);
+  auditLogDeferred(ctx, 'room_layouts.template.deleted', 'floor_plan_template', template.id);
   return template;
 }

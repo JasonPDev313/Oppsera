@@ -3,7 +3,7 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsPaymentMethods, pmsGuests } from '@oppsera/db';
@@ -46,6 +46,6 @@ export async function removePaymentMethod(ctx: RequestContext, paymentMethodId: 
     return { result: { id: paymentMethodId }, events: [] };
   });
 
-  await auditLog(ctx, 'pms.payment_method.removed', 'pms_payment_method', paymentMethodId);
+  auditLogDeferred(ctx, 'pms.payment_method.removed', 'pms_payment_method', paymentMethodId);
   return result;
 }

@@ -52,6 +52,7 @@ vi.mock('@oppsera/core', () => ({
     id: 'event-1',
   })),
   auditLog: vi.fn(),
+  auditLogDeferred: vi.fn(),
 }));
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
@@ -68,6 +69,7 @@ vi.mock('@oppsera/core/events/build-event', () => ({
 
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: vi.fn(),
+  auditLogDeferred: vi.fn(),
 }));
 
 // Mock the provider resolver

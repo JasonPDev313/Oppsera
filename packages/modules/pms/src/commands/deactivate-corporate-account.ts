@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsCorporateAccounts } from '@oppsera/db';
@@ -50,7 +50,7 @@ export async function deactivateCorporateAccount(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.corporate_account.deactivated', 'pms_corporate_account', accountId);
+  auditLogDeferred(ctx, 'pms.corporate_account.deactivated', 'pms_corporate_account', accountId);
 
   return result;
 }

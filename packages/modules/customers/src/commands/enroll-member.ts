@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { customers, membershipPlans, customerMemberships, billingAccounts, billingAccountMembers, customerActivityLog } from '@oppsera/db';
@@ -85,6 +85,6 @@ export async function enrollMember(ctx: RequestContext, input: EnrollMemberInput
     return { result: membership!, events: [event] };
   });
 
-  await auditLog(ctx, 'membership.created', 'membership', result.id);
+  auditLogDeferred(ctx, 'membership.created', 'membership', result.id);
   return result;
 }

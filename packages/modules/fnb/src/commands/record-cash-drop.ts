@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 
 interface RecordCashDropInput {
@@ -40,6 +40,6 @@ export async function recordCashDrop(ctx: RequestContext, input: RecordCashDropI
     return { result: drop, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.cash_drop.recorded', 'cash_drop', (result as Record<string, unknown>).id as string);
+  auditLogDeferred(ctx, 'fnb.cash_drop.recorded', 'cash_drop', (result as Record<string, unknown>).id as string);
   return result;
 }

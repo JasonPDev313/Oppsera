@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { fnbTableStatusHistory } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { UpdateTableStatusInput } from '../validation';
@@ -144,7 +144,7 @@ export async function updateTableStatus(
     };
   });
 
-  await auditLog(ctx, 'fnb.table.status_changed', 'fnb_table_live_status', tableId, {
+  auditLogDeferred(ctx, 'fnb.table.status_changed', 'fnb_table_live_status', tableId, {
     status: { old: result.oldStatus, new: result.newStatus },
   });
 

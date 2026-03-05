@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { storedValueInstruments, storedValueTransactions, customerActivityLog } from '@oppsera/db';
@@ -67,13 +67,13 @@ export async function transferStoredValue(ctx: RequestContext, input: TransferSt
       currentBalanceCents: newSourceBalance,
       status: newSourceStatus,
       updatedAt: new Date(),
-    }).where(eq(storedValueInstruments.id, input.sourceInstrumentId));
+    }).where(and(eq(storedValueInstruments.id, input.sourceInstrumentId), eq(storedValueInstruments.tenantId, ctx.tenantId)));
 
     // Update target instrument
     await (tx as any).update(storedValueInstruments).set({
       currentBalanceCents: newTargetBalance,
       updatedAt: new Date(),
-    }).where(eq(storedValueInstruments.id, input.targetInstrumentId));
+    }).where(and(eq(storedValueInstruments.id, input.targetInstrumentId), eq(storedValueInstruments.tenantId, ctx.tenantId)));
 
     // Create transfer_out transaction on source (append-only)
     await (tx as any).insert(storedValueTransactions).values({
@@ -166,6 +166,6 @@ export async function transferStoredValue(ctx: RequestContext, input: TransferSt
     };
   });
 
-  await auditLog(ctx, 'customer.stored_value.transferred', 'stored_value_instrument', input.sourceInstrumentId);
+  auditLogDeferred(ctx, 'customer.stored_value.transferred', 'stored_value_instrument', input.sourceInstrumentId);
   return result;
 }

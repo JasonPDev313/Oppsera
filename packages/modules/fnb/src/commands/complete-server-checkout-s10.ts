@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { ServerCheckoutNotFoundError } from '../errors';
 import { FNB_EVENTS } from '../events/types';
 import type { ServerCheckedOutPayload } from '../events/types';
@@ -66,6 +66,6 @@ export async function completeServerCheckoutS10(ctx: RequestContext, input: Comp
     return { result: updated, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.server_checkout.completed', 'server_checkout', (result as Record<string, unknown>).id as string);
+  auditLogDeferred(ctx, 'fnb.server_checkout.completed', 'server_checkout', (result as Record<string, unknown>).id as string);
   return result;
 }

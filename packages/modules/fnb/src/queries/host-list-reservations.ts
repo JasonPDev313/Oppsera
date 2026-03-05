@@ -2,6 +2,22 @@ import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import type { HostListReservationsFilterInput } from '../validation-host';
 
+function encodeCursor(reservationTime: string, id: string): string {
+  return `${reservationTime}|${id}`;
+}
+
+function decodeCursor(cursor: string): { reservationTime: string; id: string } | null {
+  const pipeIndex = cursor.lastIndexOf('|');
+  if (pipeIndex > 0) {
+    return {
+      reservationTime: cursor.slice(0, pipeIndex),
+      id: cursor.slice(pipeIndex + 1),
+    };
+  }
+  // Backwards compatibility: id-only cursor
+  return null;
+}
+
 export interface HostReservationListItem {
   id: string;
   guestName: string;
@@ -57,7 +73,18 @@ export async function hostListReservations(
       conditions.push(sql`r.guest_name ILIKE ${'%' + input.search + '%'}`);
     }
     if (input.cursor) {
-      conditions.push(sql`r.id < ${input.cursor}`);
+      const decoded = decodeCursor(input.cursor);
+      if (decoded) {
+        // Composite cursor for (reservation_time ASC, id DESC):
+        // advance when reservation_time > cursor, OR reservation_time = cursor AND id < cursor
+        conditions.push(sql`(
+          r.reservation_time > ${decoded.reservationTime}
+          OR (r.reservation_time = ${decoded.reservationTime} AND r.id < ${decoded.id})
+        )`);
+      } else {
+        // Backwards-compatible id-only cursor
+        conditions.push(sql`r.id < ${input.cursor}`);
+      }
     }
 
     const whereClause = sql.join(conditions, sql` AND `);
@@ -100,7 +127,12 @@ export async function hostListReservations(
 
     return {
       items: items.map(mapReservationListItem),
-      cursor: hasMore ? String(items[items.length - 1]!.id) : null,
+      cursor: hasMore
+        ? encodeCursor(
+            String(items[items.length - 1]!.reservation_time),
+            String(items[items.length - 1]!.id),
+          )
+        : null,
       hasMore,
     };
   });

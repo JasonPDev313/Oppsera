@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, generateUlid } from '@oppsera/shared';
 import { vouchers, voucherTypes, voucherLedgerEntries, voucherDeposits } from '@oppsera/db';
@@ -137,6 +137,6 @@ export async function purchaseVoucher(
     };
   });
 
-  await auditLog(ctx, 'voucher.purchased', 'voucher', result.voucherId);
+  auditLogDeferred(ctx, 'voucher.purchased', 'voucher', result.voucherId);
   return result;
 }

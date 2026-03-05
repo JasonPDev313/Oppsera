@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import {
@@ -225,7 +225,7 @@ export async function recognizeMembershipRevenue(
     }
   }
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     'membership.dues.revenue_recognized',
     'membership_dues_recognition_schedule',

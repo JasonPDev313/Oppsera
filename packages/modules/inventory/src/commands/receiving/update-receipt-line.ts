@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import {
@@ -63,7 +63,7 @@ export async function updateReceiptLine(
     await (tx as any)
       .update(receivingReceiptLines)
       .set(updates)
-      .where(eq(receivingReceiptLines.id, input.lineId));
+      .where(and(eq(receivingReceiptLines.id, input.lineId), eq(receivingReceiptLines.tenantId, ctx.tenantId)));
 
     // 4. Reload ALL lines for this receipt and recompute
     const allLineRows = await (tx as any)
@@ -105,7 +105,7 @@ export async function updateReceiptLine(
           landedUnitCost: c.landedUnitCost.toString(),
           updatedAt: new Date(),
         })
-        .where(eq(receivingReceiptLines.id, c.id));
+        .where(and(eq(receivingReceiptLines.id, c.id), eq(receivingReceiptLines.tenantId, ctx.tenantId)));
     }
 
     const taxAmt = Number(receipt.taxAmount);
@@ -113,7 +113,7 @@ export async function updateReceiptLine(
     await (tx as any)
       .update(receivingReceipts)
       .set({ subtotal: subtotal.toString(), total: total.toString(), updatedAt: new Date() })
-      .where(eq(receivingReceipts.id, line.receiptId));
+      .where(and(eq(receivingReceipts.id, line.receiptId), eq(receivingReceipts.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'inventory.receipt.line_updated.v1', {
       receiptId: line.receiptId,
@@ -124,7 +124,7 @@ export async function updateReceiptLine(
     return { result: allLineRows.find((l: any) => l.id === input.lineId), events: [event] };
   });
 
-  await auditLog(ctx, 'inventory.receipt.line_updated', 'receiving_receipt_line', input.lineId);
+  auditLogDeferred(ctx, 'inventory.receipt.line_updated', 'receiving_receipt_line', input.lineId);
   return result;
 }
 

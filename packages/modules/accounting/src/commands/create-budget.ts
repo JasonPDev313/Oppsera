@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { budgets } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
@@ -56,6 +56,6 @@ export async function createBudget(ctx: RequestContext, input: CreateBudgetInput
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.budget.created', 'budget', result.id);
+  auditLogDeferred(ctx, 'accounting.budget.created', 'budget', result.id);
   return result;
 }

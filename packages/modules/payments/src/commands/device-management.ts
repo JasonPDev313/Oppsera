@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, generateUlid } from '@oppsera/shared';
 import { terminalDeviceAssignments } from '@oppsera/db';
@@ -81,7 +81,7 @@ export async function assignDevice(ctx: RequestContext, input: AssignDeviceInput
     return { result: { id, terminalId: input.terminalId, hsn: input.hsn }, events: [event] };
   });
 
-  await auditLog(ctx, 'payments.device.assigned', 'terminal_device_assignment', result.id);
+  auditLogDeferred(ctx, 'payments.device.assigned', 'terminal_device_assignment', result.id);
   return result;
 }
 
@@ -133,7 +133,7 @@ export async function updateDeviceAssignment(ctx: RequestContext, input: UpdateD
     await tx
       .update(terminalDeviceAssignments)
       .set(updates)
-      .where(eq(terminalDeviceAssignments.id, input.id));
+      .where(and(eq(terminalDeviceAssignments.id, input.id), eq(terminalDeviceAssignments.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'payments.device.updated.v1', {
       deviceAssignmentId: input.id,
@@ -144,7 +144,7 @@ export async function updateDeviceAssignment(ctx: RequestContext, input: UpdateD
     return { result: { id: input.id }, events: [event] };
   });
 
-  await auditLog(ctx, 'payments.device.updated', 'terminal_device_assignment', result.id);
+  auditLogDeferred(ctx, 'payments.device.updated', 'terminal_device_assignment', result.id);
   return result;
 }
 
@@ -171,7 +171,7 @@ export async function removeDeviceAssignment(ctx: RequestContext, input: RemoveD
     await tx
       .update(terminalDeviceAssignments)
       .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(terminalDeviceAssignments.id, input.id));
+      .where(and(eq(terminalDeviceAssignments.id, input.id), eq(terminalDeviceAssignments.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'payments.device.removed.v1', {
       deviceAssignmentId: input.id,
@@ -182,6 +182,6 @@ export async function removeDeviceAssignment(ctx: RequestContext, input: RemoveD
     return { result: { id: input.id }, events: [event] };
   });
 
-  await auditLog(ctx, 'payments.device.removed', 'terminal_device_assignment', result.id);
+  auditLogDeferred(ctx, 'payments.device.removed', 'terminal_device_assignment', result.id);
   return result;
 }

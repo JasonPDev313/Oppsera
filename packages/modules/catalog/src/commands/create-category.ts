@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { catalogCategories } from '../schema';
@@ -77,7 +77,7 @@ export async function createCategory(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'catalog.category.created', 'catalog_category', category.id);
+  auditLogDeferred(ctx, 'catalog.category.created', 'catalog_category', category.id);
 
   return category;
 }

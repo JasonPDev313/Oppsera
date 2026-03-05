@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apPayments, apPaymentAllocations, apBills } from '@oppsera/db';
 import { NotFoundError, ValidationError, AppError } from '@oppsera/shared';
@@ -85,6 +85,6 @@ export async function allocatePayment(
     return { result: payment, events: [] };
   });
 
-  await auditLog(ctx, 'ap.payment.reallocated', 'ap_payment', result.id);
+  auditLogDeferred(ctx, 'ap.payment.reallocated', 'ap_payment', result.id);
   return result;
 }

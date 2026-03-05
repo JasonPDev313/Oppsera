@@ -14,6 +14,7 @@ import { apiFetch } from '@/lib/api-client';
 import type { BreakageRecognitionMethod } from '@/types/accounting';
 
 const CurrencySettingsTab = dynamic(() => import('@/components/accounting/currency-settings-tab'), {
+  ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-lg bg-muted" />,
 });
 

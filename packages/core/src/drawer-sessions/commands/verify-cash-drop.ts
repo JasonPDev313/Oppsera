@@ -1,5 +1,5 @@
 import type { RequestContext } from '../../auth/context';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { drawerSessionEvents } from '@oppsera/db';
 import { withTenant } from '@oppsera/db';
@@ -12,7 +12,7 @@ export async function verifyCashDrop(
   ctx: RequestContext,
   input: VerifyCashDropInput,
 ): Promise<DrawerSessionEvent> {
-  return withTenant(ctx.tenantId, async (tx) => {
+  const result = await withTenant(ctx.tenantId, async (tx) => {
     const [row] = await tx
       .select()
       .from(drawerSessionEvents)
@@ -53,13 +53,15 @@ export async function verifyCashDrop(
       .where(eq(drawerSessionEvents.id, input.eventId))
       .returning();
 
-    await auditLog(ctx, 'drawer.cash_drop.verified', 'drawer_session_event', input.eventId, undefined, {
-      amountCents: row.amountCents,
-      bagId: row.bagId,
-      sealNumber: row.sealNumber,
-      verifiedBy: ctx.user.id,
-    });
-
-    return mapEventRow(updated!);
+    return { event: mapEventRow(updated!), row };
   });
+
+  auditLogDeferred(ctx, 'drawer.cash_drop.verified', 'drawer_session_event', input.eventId, undefined, {
+    amountCents: result.row.amountCents,
+    bagId: result.row.bagId,
+    sealNumber: result.row.sealNumber,
+    verifiedBy: ctx.user.id,
+  });
+
+  return result.event;
 }

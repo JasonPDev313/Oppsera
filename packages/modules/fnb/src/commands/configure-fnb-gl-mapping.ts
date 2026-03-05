@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 
 interface ConfigureFnbGlMappingInput {
   locationId: string;
@@ -47,6 +47,6 @@ export async function configureFnbGlMapping(ctx: RequestContext, input: Configur
     return { result: mapping, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.gl_mapping.configured', 'gl_mapping', (result as Record<string, unknown>).id as string);
+  auditLogDeferred(ctx, 'fnb.gl_mapping.configured', 'gl_mapping', (result as Record<string, unknown>).id as string);
   return result;
 }

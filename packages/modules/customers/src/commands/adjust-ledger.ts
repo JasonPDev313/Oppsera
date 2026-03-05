@@ -1,7 +1,7 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { billingAccounts, arTransactions, customerActivityLog } from '@oppsera/db';
@@ -53,7 +53,7 @@ export async function adjustLedger(ctx: RequestContext, input: AdjustLedgerInput
     await (tx as any).update(billingAccounts).set({
       currentBalanceCents: newBalance,
       updatedAt: new Date(),
-    }).where(eq(billingAccounts.id, input.billingAccountId));
+    }).where(and(eq(billingAccounts.id, input.billingAccountId), eq(billingAccounts.tenantId, ctx.tenantId)));
 
     // Activity log
     await (tx as any).insert(customerActivityLog).values({
@@ -111,6 +111,6 @@ export async function adjustLedger(ctx: RequestContext, input: AdjustLedgerInput
     return { result: resultData, events: [event] };
   });
 
-  await auditLog(ctx, `customer.ledger_${input.type}`, 'ar_transaction', result.id);
+  auditLogDeferred(ctx, `customer.ledger_${input.type}`, 'ar_transaction', result.id);
   return result;
 }

@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { arReceipts, arReceiptAllocations, arInvoices } from '@oppsera/db';
@@ -84,6 +84,6 @@ export async function createReceipt(ctx: RequestContext, input: CreateReceiptInp
     return { result: receipt!, events: [] };
   });
 
-  await auditLog(ctx, 'ar.receipt.created', 'ar_receipt', result.id);
+  auditLogDeferred(ctx, 'ar.receipt.created', 'ar_receipt', result.id);
   return result;
 }

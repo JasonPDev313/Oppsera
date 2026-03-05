@@ -8,7 +8,7 @@
  * - recomputeHierarchyFields: batch recompute depth + path for all accounts
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { Database } from '@oppsera/db';
 import { glAccounts } from '@oppsera/db';
 
@@ -127,7 +127,7 @@ export async function recomputeHierarchyFields(
     await tx
       .update(glAccounts)
       .set({ depth, path })
-      .where(eq(glAccounts.id, acct.id));
+      .where(and(eq(glAccounts.id, acct.id), eq(glAccounts.tenantId, tenantId)));
 
     updated++;
   }

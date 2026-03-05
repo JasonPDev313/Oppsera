@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { billingAccounts, arTransactions, arAllocations, statements, customerActivityLog } from '@oppsera/db';
@@ -74,7 +74,7 @@ export async function recordArPayment(ctx: RequestContext, input: RecordArPaymen
     await (tx as any).update(billingAccounts).set({
       currentBalanceCents: newBalance,
       updatedAt: new Date(),
-    }).where(eq(billingAccounts.id, input.billingAccountId));
+    }).where(and(eq(billingAccounts.id, input.billingAccountId), eq(billingAccounts.tenantId, ctx.tenantId)));
 
     // Check if any open statements can be marked 'paid'
     const openStatements = await (tx as any).select().from(statements)
@@ -86,7 +86,7 @@ export async function recordArPayment(ctx: RequestContext, input: RecordArPaymen
     for (const stmt of openStatements) {
       if (newBalance <= 0) {
         await (tx as any).update(statements).set({ status: 'paid' })
-          .where(eq(statements.id, stmt.id));
+          .where(and(eq(statements.id, stmt.id), eq(statements.tenantId, ctx.tenantId)));
       }
     }
 
@@ -143,7 +143,7 @@ export async function recordArPayment(ctx: RequestContext, input: RecordArPaymen
           await tx
             .update(arTransactions)
             .set({ glJournalEntryId: glResult.id })
-            .where(eq(arTransactions.id, result.id));
+            .where(and(eq(arTransactions.id, result.id), eq(arTransactions.tenantId, ctx.tenantId)));
         });
       } catch { /* non-fatal */ }
     } else {
@@ -154,6 +154,6 @@ export async function recordArPayment(ctx: RequestContext, input: RecordArPaymen
     console.error(`[ar-gl] GL posting failed for AR payment ${result.id}:`, error);
   }
 
-  await auditLog(ctx, 'ar.payment.created', 'ar_transaction', result.id);
+  auditLogDeferred(ctx, 'ar.payment.created', 'ar_transaction', result.id);
   return result;
 }

@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { fixedAssets } from '@oppsera/db';
 import { ACCOUNTING_EVENTS } from '../events/types';
@@ -56,7 +56,7 @@ export async function updateFixedAsset(ctx: RequestContext, input: UpdateFixedAs
     const [updated] = await tx
       .update(fixedAssets)
       .set(updates)
-      .where(eq(fixedAssets.id, input.assetId))
+      .where(and(eq(fixedAssets.id, input.assetId), eq(fixedAssets.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, ACCOUNTING_EVENTS.FIXED_ASSET_UPDATED, {
@@ -66,6 +66,6 @@ export async function updateFixedAsset(ctx: RequestContext, input: UpdateFixedAs
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.fixed_asset.updated', 'fixed_asset', result.id);
+  auditLogDeferred(ctx, 'accounting.fixed_asset.updated', 'fixed_asset', result.id);
   return result;
 }

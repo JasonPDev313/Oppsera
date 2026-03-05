@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -42,7 +42,7 @@ export async function publishVersion(
       await tx
         .update(floorPlanVersions)
         .set({ status: 'archived', updatedAt: now })
-        .where(eq(floorPlanVersions.id, room.currentVersionId));
+        .where(and(eq(floorPlanVersions.id, room.currentVersionId), eq(floorPlanVersions.tenantId, ctx.tenantId)));
     }
 
     // Publish the draft
@@ -55,7 +55,7 @@ export async function publishVersion(
         publishNote: input.publishNote ?? null,
         updatedAt: now,
       })
-      .where(eq(floorPlanVersions.id, draft.id))
+      .where(and(eq(floorPlanVersions.id, draft.id), eq(floorPlanVersions.tenantId, ctx.tenantId)))
       .returning();
 
     // Compute capacity from snapshot
@@ -70,7 +70,7 @@ export async function publishVersion(
         capacity: totalCapacity,
         updatedAt: now,
       })
-      .where(eq(floorPlanRooms.id, roomId));
+      .where(and(eq(floorPlanRooms.id, roomId), eq(floorPlanRooms.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, ROOM_LAYOUT_EVENTS.VERSION_PUBLISHED, {
       versionId: published!.id,
@@ -86,6 +86,6 @@ export async function publishVersion(
     return { result: published!, events: [event] };
   });
 
-  await auditLog(ctx, 'room_layouts.version.published', 'floor_plan_version', version.id);
+  auditLogDeferred(ctx, 'room_layouts.version.published', 'floor_plan_version', version.id);
   return version;
 }

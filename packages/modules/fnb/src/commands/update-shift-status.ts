@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { fnbShiftExtensions } from '@oppsera/db';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -70,6 +70,6 @@ export async function updateShiftStatus(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.shift.status_changed', 'fnb_shift_extensions', shiftExtensionId);
+  auditLogDeferred(ctx, 'fnb.shift.status_changed', 'fnb_shift_extensions', shiftExtensionId);
   return result;
 }

@@ -51,7 +51,7 @@ export const PATCH = withMiddleware(
       const [result] = await tx
         .update(taxCategories)
         .set(updates)
-        .where(eq(taxCategories.id, taxCategoryId))
+        .where(and(eq(taxCategories.id, taxCategoryId), eq(taxCategories.tenantId, ctx.tenantId)))
         .returning();
 
       return result!;

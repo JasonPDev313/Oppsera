@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { generateUlid, NotFoundError, AppError } from '@oppsera/shared';
 import { terminalLocations, locations } from '@oppsera/db';
 import { sql } from '@oppsera/db';
@@ -75,6 +75,6 @@ export async function createProfitCenter(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'platform.profit_center.created', 'terminal_location', result.id);
+  auditLogDeferred(ctx, 'platform.profit_center.created', 'terminal_location', result.id);
   return result;
 }

@@ -1,5 +1,5 @@
 import { eq, and, lte } from 'drizzle-orm';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { membershipDuesRecognitionSchedule, withTenant } from '@oppsera/db';
 import { recognizeMembershipRevenue } from './recognize-membership-revenue';
@@ -69,7 +69,7 @@ export async function runMembershipRevenueRecognition(
     }
   }
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     'membership.dues.recognition_batch',
     'membership_dues_recognition_schedule',

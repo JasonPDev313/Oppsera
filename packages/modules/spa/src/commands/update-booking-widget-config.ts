@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaBookingWidgetConfig } from '@oppsera/db';
 import type { z } from 'zod';
@@ -76,7 +76,7 @@ export async function updateBookingWidgetConfig(ctx: RequestContext, input: Upda
           ...updateFields,
           updatedAt: new Date(),
         })
-        .where(eq(spaBookingWidgetConfig.id, existing.id))
+        .where(and(eq(spaBookingWidgetConfig.id, existing.id), eq(spaBookingWidgetConfig.tenantId, ctx.tenantId)))
         .returning();
     } else {
       [config] = await tx
@@ -96,6 +96,6 @@ export async function updateBookingWidgetConfig(ctx: RequestContext, input: Upda
     return { result: config!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.booking_widget_config.updated', 'spa_booking_widget_config', result.id);
+  auditLogDeferred(ctx, 'spa.booking_widget_config.updated', 'spa_booking_widget_config', result.id);
   return result;
 }

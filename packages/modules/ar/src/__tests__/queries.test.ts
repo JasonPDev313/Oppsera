@@ -228,7 +228,10 @@ describe('getOpenInvoices', () => {
 
     expect(result.items).toHaveLength(25);
     expect(result.hasMore).toBe(true);
-    expect(result.cursor).toBe('inv-25');
+    // Cursor is now a base64url-encoded composite "dueDate|id"
+    // The 25th item has due_date='2026-03-01' and id='inv-25'
+    // Buffer.from('2026-03-01|inv-25').toString('base64url') === 'MjAyNi0wMy0wMXxpbnYtMjU'
+    expect(result.cursor).toBe('MjAyNi0wMy0wMXxpbnYtMjU');
   });
 
   it('should return empty list when no open invoices', async () => {

@@ -1,7 +1,7 @@
 import type { RequestContext } from '@oppsera/core/auth';
 import { publishWithOutbox } from '@oppsera/core/events';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events';
 import { projects } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
@@ -70,6 +70,6 @@ export async function createProject(ctx: RequestContext, input: CreateProjectInp
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'project_costing.project.created', 'project', result.id);
+  auditLogDeferred(ctx, 'project_costing.project.created', 'project', result.id);
   return result;
 }

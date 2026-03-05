@@ -1,7 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsGroups } from '@oppsera/db';
@@ -65,7 +65,7 @@ export async function releaseGroupBlocks(ctx: RequestContext, groupId: string) {
     return { result: { groupId, totalRoomsBlocked: computedTotal }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.group.blocks_released', 'pms_group', groupId);
+  auditLogDeferred(ctx, 'pms.group.blocks_released', 'pms_group', groupId);
 
   return result;
 }

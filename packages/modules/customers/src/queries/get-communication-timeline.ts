@@ -1,6 +1,16 @@
-import { eq, and, lt, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { customerCommunications } from '@oppsera/db';
+
+function encodeCursor(...parts: string[]): string {
+  return parts.join('|');
+}
+
+function decodeCursor(cursor: string, expectedParts: number): string[] | null {
+  const parts = cursor.split('|');
+  if (parts.length !== expectedParts) return null; // Legacy fallback
+  return parts;
+}
 
 export interface GetCommunicationTimelineInput {
   tenantId: string;
@@ -52,18 +62,30 @@ export async function getCommunicationTimeline(
     }
 
     if (input.cursor) {
-      conditions.push(lt(customerCommunications.id, input.cursor));
+      const decoded = decodeCursor(input.cursor, 2);
+      if (decoded) {
+        const [cursorCreatedAt, cursorId] = decoded as [string, string];
+        conditions.push(
+          sql`(${customerCommunications.createdAt}, ${customerCommunications.id}) < (${cursorCreatedAt}::timestamptz, ${cursorId})` as unknown as ReturnType<typeof eq>,
+        );
+      } else {
+        // Legacy: cursor was plain id
+        conditions.push(
+          sql`${customerCommunications.id} < ${input.cursor}` as unknown as ReturnType<typeof eq>,
+        );
+      }
     }
 
     const rows = await tx
       .select()
       .from(customerCommunications)
       .where(and(...conditions))
-      .orderBy(desc(customerCommunications.createdAt))
+      .orderBy(desc(customerCommunications.createdAt), desc(customerCommunications.id))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
-    const items: CommunicationTimelineItem[] = (hasMore ? rows.slice(0, limit) : rows).map((row) => ({
+    const sliced = hasMore ? rows.slice(0, limit) : rows;
+    const items: CommunicationTimelineItem[] = sliced.map((row) => ({
       id: row.id,
       customerId: row.customerId,
       channel: row.channel,
@@ -77,7 +99,11 @@ export async function getCommunicationTimeline(
       createdAt: row.createdAt,
       createdBy: row.createdBy,
     }));
-    const nextCursor = hasMore ? items[items.length - 1]!.id : null;
+
+    const lastItem = sliced[sliced.length - 1];
+    const nextCursor = hasMore && lastItem
+      ? encodeCursor(lastItem.createdAt.toISOString(), lastItem.id)
+      : null;
 
     return { items, cursor: nextCursor, hasMore };
   });

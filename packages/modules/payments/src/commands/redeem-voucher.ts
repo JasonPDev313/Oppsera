@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError, generateUlid } from '@oppsera/shared';
 import { vouchers, voucherTypes, voucherLedgerEntries } from '@oppsera/db';
@@ -89,7 +89,7 @@ export async function redeemVoucher(
       redeemedAmountCents: newRedeemedAmount,
       redemptionStatus: newStatus,
       updatedAt: now,
-    }).where(eq(vouchers.id, input.voucherId));
+    }).where(and(eq(vouchers.id, input.voucherId), eq(vouchers.tenantId, ctx.tenantId)));
 
     // 6. Create ledger entry (redemption = negative amount)
     const ledgerEntryId = generateUlid();
@@ -143,6 +143,6 @@ export async function redeemVoucher(
     };
   });
 
-  await auditLog(ctx, 'voucher.redeemed', 'voucher', input.voucherId);
+  auditLogDeferred(ctx, 'voucher.redeemed', 'voucher', input.voucherId);
   return result;
 }

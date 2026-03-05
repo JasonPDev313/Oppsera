@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { membershipAccounts, membershipBillingItems } from '@oppsera/db';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
@@ -65,6 +65,6 @@ export async function addBillingItem(
     return { result: billingItem!, events: [event] };
   });
 
-  await auditLog(ctx, 'membership.billing_item.added', 'membership_billing_item', result.id);
+  auditLogDeferred(ctx, 'membership.billing_item.added', 'membership_billing_item', result.id);
   return result;
 }

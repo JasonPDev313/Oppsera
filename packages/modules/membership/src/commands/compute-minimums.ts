@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { minimumSpendRules, minimumPeriodRollups } from '@oppsera/db';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
@@ -176,6 +176,6 @@ export async function computeMinimums(
     };
   });
 
-  await auditLog(ctx, 'membership.minimums.computed', 'minimum_period_rollup', result.rollupId);
+  auditLogDeferred(ctx, 'membership.minimums.computed', 'minimum_period_rollup', result.rollupId);
   return result;
 }

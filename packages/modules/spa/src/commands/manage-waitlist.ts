@@ -2,7 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaWaitlist, spaServices, spaAppointments } from '@oppsera/db';
@@ -80,7 +80,7 @@ export async function addToWaitlist(ctx: RequestContext, input: AddToWaitlistInp
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'spa.waitlist.added', 'spa_waitlist', result.id);
+  auditLogDeferred(ctx, 'spa.waitlist.added', 'spa_waitlist', result.id);
 
   return result;
 }
@@ -123,7 +123,7 @@ export async function removeFromWaitlist(ctx: RequestContext, input: { id: strin
     return { result: updated!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.waitlist.removed', 'spa_waitlist', result.id);
+  auditLogDeferred(ctx, 'spa.waitlist.removed', 'spa_waitlist', result.id);
 
   return result;
 }
@@ -193,7 +193,7 @@ export async function offerWaitlistSlot(ctx: RequestContext, input: { id: string
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'spa.waitlist.offered', 'spa_waitlist', result.id);
+  auditLogDeferred(ctx, 'spa.waitlist.offered', 'spa_waitlist', result.id);
 
   return result;
 }
@@ -236,7 +236,7 @@ export async function acceptWaitlistOffer(ctx: RequestContext, input: { id: stri
     return { result: updated!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.waitlist.accepted', 'spa_waitlist', result.id);
+  auditLogDeferred(ctx, 'spa.waitlist.accepted', 'spa_waitlist', result.id);
 
   return result;
 }
@@ -280,7 +280,7 @@ export async function declineWaitlistOffer(ctx: RequestContext, input: { id: str
     return { result: updated!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.waitlist.declined', 'spa_waitlist', result.id);
+  auditLogDeferred(ctx, 'spa.waitlist.declined', 'spa_waitlist', result.id);
 
   return result;
 }

@@ -120,8 +120,25 @@ export async function handleSpaCheckoutForAccounting(event: EventEnvelope): Prom
     }> = [];
 
     const netRevenueCents = data.totalCents - data.taxCents - data.tipCents;
-    const revenueDollars = (netRevenueCents / 100).toFixed(2);
     const totalDollars = (data.totalCents / 100).toFixed(2);
+
+    // Guard: negative netRevenueCents means tax+tip exceeds total — would create unbalanced entry
+    if (netRevenueCents < 0) {
+      console.error(`[spa-gl] CRITICAL: negative netRevenueCents (${netRevenueCents}) for appointment=${data.appointmentId}. total=${data.totalCents} tax=${data.taxCents} tip=${data.tipCents}`);
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'spa.appointment.checked_out.v1',
+          sourceModule: 'spa',
+          sourceReferenceId: data.appointmentId,
+          entityType: 'gl_balance_error',
+          entityId: data.appointmentId,
+          reason: `Spa checkout GL entry skipped — negative net revenue: total=${data.totalCents} tax=${data.taxCents} tip=${data.tipCents}. Tax+tip exceeds total.`,
+        });
+      } catch { /* best-effort */ }
+      return;
+    }
+
+    const revenueDollars = (netRevenueCents / 100).toFixed(2);
 
     // Debit: Cash / Undeposited Funds (full amount including tax and tip)
     lines.push({

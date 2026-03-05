@@ -16,7 +16,7 @@ export const GET = withMiddleware(
       .filter((i) => i.isTrackable)
       .map((i) => i.id);
 
-    let onHandByCatalogItemId: Record<string, number> = {};
+    const onHandByCatalogItemId: Record<string, number> = {};
     if (trackableIds.length > 0) {
       try {
         const onHandRows = await withTenant(ctx.tenantId, async (tx) => {

@@ -133,8 +133,8 @@ describe('AR Invoice Voided Pipeline', () => {
     );
 
     expect(mockWithTenant).toHaveBeenCalledWith(TENANT, expect.any(Function));
-    // Idempotency + location select + UPDATE rm_revenue_activity + UPSERT rm_daily_sales = 3 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(3);
+    // Idempotency + rm_revenue_activity lookup + UPDATE rm_revenue_activity + UPSERT rm_daily_sales = 4 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(4);
   });
 
   it('handles totalAmount as number (not just string)', async () => {

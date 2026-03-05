@@ -1,7 +1,7 @@
 import { sql, eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import {
@@ -214,7 +214,7 @@ export async function runAutoAssignment(
       await tx
         .update(pmsReservations)
         .set({ roomId: best.roomId, updatedAt: new Date() })
-        .where(eq(pmsReservations.id, reservation.id));
+        .where(and(eq(pmsReservations.id, reservation.id), eq(pmsReservations.tenantId, ctx.tenantId)));
 
       assignedRoomIds.add(best.roomId);
 
@@ -245,7 +245,7 @@ export async function runAutoAssignment(
     return { result: assignments, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.auto_assignment.run', 'pms_property', input.propertyId);
+  auditLogDeferred(ctx, 'pms.auto_assignment.run', 'pms_property', input.propertyId);
 
   return results;
 }

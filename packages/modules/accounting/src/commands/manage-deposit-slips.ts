@@ -2,7 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { depositSlips, bankAccounts } from '@oppsera/db';
 import { AppError, generateUlid } from '@oppsera/shared';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { DenominationBreakdown } from '@oppsera/core/drawer-sessions/types';
@@ -84,7 +84,7 @@ export async function createDepositSlip(
   ctx: RequestContext,
   input: CreateDepositSlipInput,
 ): Promise<DepositSlip> {
-  return withTenant(ctx.tenantId, async (tx) => {
+  const result = await withTenant(ctx.tenantId, async (tx) => {
     const id = generateUlid();
     const [created] = await tx
       .insert(depositSlips)
@@ -102,21 +102,23 @@ export async function createDepositSlip(
       })
       .returning();
 
-    await auditLog(ctx, 'accounting.deposit.created', 'deposit_slip', created!.id, undefined, {
-      amountCents: input.totalAmountCents,
-      businessDate: input.businessDate,
-      locationId: input.locationId,
-    });
-
     return mapRow(created!);
   });
+
+  auditLogDeferred(ctx, 'accounting.deposit.created', 'deposit_slip', result.id, undefined, {
+    amountCents: input.totalAmountCents,
+    businessDate: input.businessDate,
+    locationId: input.locationId,
+  });
+
+  return result;
 }
 
 export async function prepareDepositSlip(
   ctx: RequestContext,
   input: PrepareDepositSlipInput,
 ): Promise<DepositSlip> {
-  return withTenant(ctx.tenantId, async (tx) => {
+  const result = await withTenant(ctx.tenantId, async (tx) => {
     const [row] = await tx
       .select()
       .from(depositSlips)
@@ -139,24 +141,26 @@ export async function prepareDepositSlip(
         preparedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(depositSlips.id, input.depositSlipId))
+      .where(and(eq(depositSlips.id, input.depositSlipId), eq(depositSlips.tenantId, ctx.tenantId)))
       .returning();
 
-    await auditLog(ctx, 'accounting.deposit.prepared', 'deposit_slip', input.depositSlipId, undefined, {
-      amountCents: input.totalAmountCents,
-      businessDate: row.businessDate,
-      slipNumber: input.slipNumber,
-    });
-
-    return mapRow(updated!);
+    return { mapped: mapRow(updated!), businessDate: row.businessDate };
   });
+
+  auditLogDeferred(ctx, 'accounting.deposit.prepared', 'deposit_slip', input.depositSlipId, undefined, {
+    amountCents: input.totalAmountCents,
+    businessDate: result.businessDate,
+    slipNumber: input.slipNumber,
+  });
+
+  return result.mapped;
 }
 
 export async function markDeposited(
   ctx: RequestContext,
   depositSlipId: string,
 ): Promise<DepositSlip> {
-  return withTenant(ctx.tenantId, async (tx) => {
+  const txResult = await withTenant(ctx.tenantId, async (tx) => {
     const [row] = await tx
       .select()
       .from(depositSlips)
@@ -256,24 +260,26 @@ export async function markDeposited(
         glJournalEntryId,
         updatedAt: new Date(),
       })
-      .where(eq(depositSlips.id, depositSlipId))
+      .where(and(eq(depositSlips.id, depositSlipId), eq(depositSlips.tenantId, ctx.tenantId)))
       .returning();
 
-    await auditLog(ctx, 'accounting.deposit.deposited', 'deposit_slip', depositSlipId, undefined, {
-      amountCents: row.totalAmountCents,
-      businessDate: row.businessDate,
-      glJournalEntryId,
-    });
-
-    return mapRow(updated!);
+    return { mapped: mapRow(updated!), amountCents: row.totalAmountCents, businessDate: row.businessDate, glJournalEntryId };
   });
+
+  auditLogDeferred(ctx, 'accounting.deposit.deposited', 'deposit_slip', depositSlipId, undefined, {
+    amountCents: txResult.amountCents,
+    businessDate: txResult.businessDate,
+    glJournalEntryId: txResult.glJournalEntryId,
+  });
+
+  return txResult.mapped;
 }
 
 export async function reconcileDeposit(
   ctx: RequestContext,
   depositSlipId: string,
 ): Promise<DepositSlip> {
-  return withTenant(ctx.tenantId, async (tx) => {
+  const txResult = await withTenant(ctx.tenantId, async (tx) => {
     const [row] = await tx
       .select()
       .from(depositSlips)
@@ -293,14 +299,16 @@ export async function reconcileDeposit(
         reconciledBy: ctx.user.id,
         updatedAt: new Date(),
       })
-      .where(eq(depositSlips.id, depositSlipId))
+      .where(and(eq(depositSlips.id, depositSlipId), eq(depositSlips.tenantId, ctx.tenantId)))
       .returning();
 
-    await auditLog(ctx, 'accounting.deposit.reconciled', 'deposit_slip', depositSlipId, undefined, {
-      amountCents: row.totalAmountCents,
-      businessDate: row.businessDate,
-    });
-
-    return mapRow(updated!);
+    return { mapped: mapRow(updated!), amountCents: row.totalAmountCents, businessDate: row.businessDate };
   });
+
+  auditLogDeferred(ctx, 'accounting.deposit.reconciled', 'deposit_slip', depositSlipId, undefined, {
+    amountCents: txResult.amountCents,
+    businessDate: txResult.businessDate,
+  });
+
+  return txResult.mapped;
 }

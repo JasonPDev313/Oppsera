@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, generateUlid } from '@oppsera/shared';
 import { pmsRoomAssignmentPreferences, pmsProperties } from '@oppsera/db';
@@ -71,7 +71,7 @@ export async function updateRoomAssignmentPreferences(
     return { result: { propertyId: input.propertyId, count: rows.length }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.room_assignment_preferences.updated', 'pms_room_assignment_preferences', input.propertyId);
+  auditLogDeferred(ctx, 'pms.room_assignment_preferences.updated', 'pms_room_assignment_preferences', input.propertyId);
 
   return result;
 }

@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { pmsRatePlans, pmsRoomTypes, pmsRatePlanPrices } from '@oppsera/db';
@@ -87,7 +87,7 @@ export async function setRatePlanPrices(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.rate_plan.prices_set', 'pms_rate_plan_price', result.id);
+  auditLogDeferred(ctx, 'pms.rate_plan.prices_set', 'pms_rate_plan_price', result.id);
 
   return result;
 }

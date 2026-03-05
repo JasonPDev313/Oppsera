@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { generateUlid } from '@oppsera/shared';
 import type { CreateRoutingRuleS14Input } from '../validation';
 
@@ -45,6 +45,6 @@ export async function createRoutingRuleS14(
     };
   });
 
-  await auditLog(ctx, 'fnb.routing_rule.created', 'fnb_print_routing_rule', result.ruleId);
+  auditLogDeferred(ctx, 'fnb.routing_rule.created', 'fnb_print_routing_rule', result.ruleId);
   return result;
 }

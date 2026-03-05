@@ -1,7 +1,7 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glAccounts, discountGlMappings } from '@oppsera/db';
 import { NotFoundError, DISCOUNT_CLASSIFICATION_KEYS } from '@oppsera/shared';
@@ -91,7 +91,7 @@ export async function saveDiscountGlMapping(
     return { result: mapping!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.discount_gl_mapping.saved', 'discount_gl_mappings', `${input.subDepartmentId}:${input.classification}`);
+  auditLogDeferred(ctx, 'accounting.discount_gl_mapping.saved', 'discount_gl_mappings', `${input.subDepartmentId}:${input.classification}`);
   return result;
 }
 
@@ -180,6 +180,6 @@ export async function saveDiscountGlMappingsBatch(
     return { result: results, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.discount_gl_mappings.batch_saved', 'discount_gl_mappings', `batch:${input.mappings.length}`);
+  auditLogDeferred(ctx, 'accounting.discount_gl_mappings.batch_saved', 'discount_gl_mappings', `batch:${input.mappings.length}`);
   return result;
 }

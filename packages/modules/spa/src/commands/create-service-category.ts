@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaServiceCategories } from '@oppsera/db';
@@ -61,7 +61,7 @@ export async function createServiceCategory(ctx: RequestContext, input: CreateSe
     return { result: created!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.service_category.created', 'spa_service_category', result.id);
+  auditLogDeferred(ctx, 'spa.service_category.created', 'spa_service_category', result.id);
 
   return result;
 }

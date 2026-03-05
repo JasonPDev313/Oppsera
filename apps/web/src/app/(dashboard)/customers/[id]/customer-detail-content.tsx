@@ -35,55 +35,55 @@ import type { CustomerHeaderData } from '@/types/customer-360';
 // ── Lazy-loaded tab components ──────────────────────────────────────
 const Overview360Tab = dynamic(
   () => import('@/components/customer-360/Overview360Tab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 const ContactIdentityTab = dynamic(
   () => import('@/components/customer-360/ContactIdentityTab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 const FinancialTab = dynamic(
   () => import('@/components/customer-360/FinancialTab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 const ActivityTab = dynamic(
   () => import('@/components/customer-360/ActivityTab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 const CommunicationTab = dynamic(
   () => import('@/components/customer-360/CommunicationTab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 const RelationshipsTab = dynamic(
   () => import('@/components/customer-360/RelationshipsTab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 const DocumentsTab = dynamic(
   () => import('@/components/customer-360/DocumentsTab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 const StoredValueTab = dynamic(
   () => import('@/components/customer-360/StoredValueTab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 const PrivilegesTab = dynamic(
   () => import('@/components/customer-360/PrivilegesTab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 const SettingsTab = dynamic(
   () => import('@/components/customer-360/SettingsTab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 const MembershipTab = dynamic(
   () => import('@/components/customer-360/MembershipTab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 const ReservationsTab = dynamic(
   () => import('@/components/customer-360/ReservationsTab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 const OrdersTab = dynamic(
   () => import('@/components/customer-360/OrdersTab'),
-  { loading: () => <TabSkeleton /> },
+  { ssr: false, loading: () => <TabSkeleton /> },
 );
 
 function TabSkeleton() {

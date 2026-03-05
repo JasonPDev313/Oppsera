@@ -2,7 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apBills, apBillLines, vendors } from '@oppsera/db';
@@ -138,7 +138,7 @@ export async function postBill(ctx: RequestContext, input: PostBillInput) {
         postedBy: ctx.user.id,
         updatedAt: new Date(),
       })
-      .where(eq(apBills.id, input.billId))
+      .where(and(eq(apBills.id, input.billId), eq(apBills.tenantId, ctx.tenantId)))
       .returning();
 
     // 9. Emit bill posted event
@@ -160,6 +160,6 @@ export async function postBill(ctx: RequestContext, input: PostBillInput) {
     };
   });
 
-  await auditLog(ctx, 'ap.bill.posted', 'ap_bill', result.id);
+  auditLogDeferred(ctx, 'ap.bill.posted', 'ap_bill', result.id);
   return result;
 }

@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { paymentIntents, achReturns, tenders } from '@oppsera/db';
@@ -121,7 +121,7 @@ export async function processAchReturn(
         errorMessage: `ACH Return ${input.returnCode}: ${returnReason}`,
         updatedAt: new Date(),
       })
-      .where(eq(paymentIntents.id, input.paymentIntentId));
+      .where(and(eq(paymentIntents.id, input.paymentIntentId), eq(paymentIntents.tenantId, ctx.tenantId)));
 
     // 5. Resolve linked tender for downstream GL reversal
     let tenderId: string | null = null;
@@ -171,6 +171,6 @@ export async function processAchReturn(
     };
   });
 
-  await auditLog(ctx, 'payment.ach_return.processed', 'payment_intent', input.paymentIntentId);
+  auditLogDeferred(ctx, 'payment.ach_return.processed', 'payment_intent', input.paymentIntentId);
   return result;
 }

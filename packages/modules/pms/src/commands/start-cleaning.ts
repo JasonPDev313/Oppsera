@@ -4,7 +4,7 @@
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { pmsHousekeepingAssignments } from '@oppsera/db';
@@ -33,7 +33,7 @@ export async function startCleaning(ctx: RequestContext, assignmentId: string) {
     await tx
       .update(pmsHousekeepingAssignments)
       .set({ status: 'in_progress', startedAt: now, updatedAt: now })
-      .where(eq(pmsHousekeepingAssignments.id, assignmentId));
+      .where(and(eq(pmsHousekeepingAssignments.id, assignmentId), eq(pmsHousekeepingAssignments.tenantId, ctx.tenantId)));
 
     await pmsAuditLogEntry(tx, ctx, existing.propertyId, 'housekeeping_assignment', assignmentId, 'started', {
       status: { before: existing.status, after: 'in_progress' },
@@ -50,6 +50,6 @@ export async function startCleaning(ctx: RequestContext, assignmentId: string) {
     return { result: { id: assignmentId, status: 'in_progress' }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.housekeeping.started', 'pms_housekeeping_assignment', assignmentId);
+  auditLogDeferred(ctx, 'pms.housekeeping.started', 'pms_housekeeping_assignment', assignmentId);
   return result;
 }

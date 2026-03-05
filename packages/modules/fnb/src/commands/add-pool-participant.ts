@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { TipPoolNotFoundError, TipPoolParticipantExistsError } from '../errors';
 
@@ -62,6 +62,6 @@ export async function addPoolParticipant(
     return { result: participantResult, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.tip_pool.participant_added', 'fnb_tip_pool_participants', result.id);
+  auditLogDeferred(ctx, 'fnb.tip_pool.participant_added', 'fnb_tip_pool_participants', result.id);
   return result;
 }

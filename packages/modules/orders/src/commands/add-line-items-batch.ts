@@ -1,11 +1,11 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, NotFoundError, computePackageAllocations } from '@oppsera/shared';
 import type { PackageMetadata } from '@oppsera/shared';
 import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes } from '@oppsera/db';
-import { eq, max, sql } from 'drizzle-orm';
+import { and, eq, max, sql } from 'drizzle-orm';
 import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
 import { calculateTaxes } from '@oppsera/core/helpers/tax-calc';
 import type { AddLineItemInput } from '../validation';
@@ -252,7 +252,7 @@ export async function addLineItemsBatch(
       version: sql`version + 1`,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),
-    }).where(eq(orders.id, orderId));
+    }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
 
     return {
       result: {
@@ -263,10 +263,7 @@ export async function addLineItemsBatch(
     };
   });
 
-  // Fire-and-forget audit log
-  auditLog(ctx, 'order.lines_batch_added', 'order', orderId).catch((e) => {
-    console.error('Audit log failed for order.lines_batch_added:', e instanceof Error ? e.message : e);
-  });
+  auditLogDeferred(ctx, 'order.lines_batch_added', 'order', orderId);
 
   return result;
 }

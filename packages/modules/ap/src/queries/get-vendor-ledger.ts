@@ -1,6 +1,26 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 
+/** Encode a composite cursor as base64url "entryDate|id". */
+function encodeCursor(entryDate: string, id: string): string {
+  return Buffer.from(`${entryDate}|${id}`).toString('base64url');
+}
+
+/** Decode a composite cursor. Returns null for legacy plain-id cursors. */
+function decodeCursor(cursor: string): { entryDate: string; id: string } | null {
+  try {
+    const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+    const pipe = decoded.indexOf('|');
+    if (pipe === -1) return null; // legacy id-only cursor
+    const entryDate = decoded.slice(0, pipe);
+    const id = decoded.slice(pipe + 1);
+    if (!entryDate || !id) return null;
+    return { entryDate, id };
+  } catch {
+    return null;
+  }
+}
+
 export interface GetVendorLedgerInput {
   tenantId: string;
   vendorId: string;
@@ -41,7 +61,17 @@ export async function getVendorLedger(input: GetVendorLedgerInput): Promise<Vend
           ? sql`AND entry_date <= ${input.endDate}`
           : sql``;
 
-    const cursorCondition = input.cursor ? sql`AND id < ${input.cursor}` : sql``;
+    // Composite cursor for ORDER BY entry_date DESC, id DESC (both DESC — row-value comparison)
+    let cursorCondition = sql``;
+    if (input.cursor) {
+      const parsed = decodeCursor(input.cursor);
+      if (parsed) {
+        cursorCondition = sql`AND (entry_date, id) < (${parsed.entryDate}::date, ${parsed.id})`;
+      } else {
+        // Legacy plain-id cursor fallback
+        cursorCondition = sql`AND id < ${input.cursor}`;
+      }
+    }
 
     // Compute opening balance (sum of all entries before startDate)
     let openingBalance = 0;
@@ -121,11 +151,14 @@ export async function getVendorLedger(input: GetVendorLedgerInput): Promise<Vend
     const periodCredits = entries.reduce((s, e) => s + e.credit, 0);
     const closingBalance = openingBalance + periodDebits - periodCredits;
 
+    const lastItem = items[items.length - 1];
     return {
       entries,
       openingBalance,
       closingBalance,
-      cursor: hasMore ? String(items[items.length - 1]!.id) : null,
+      cursor: hasMore && lastItem
+        ? encodeCursor(String(lastItem.entry_date), String(lastItem.id))
+        : null,
       hasMore,
     };
   });

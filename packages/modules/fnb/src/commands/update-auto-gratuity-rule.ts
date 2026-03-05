@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { AutoGratuityRuleNotFoundError } from '../errors';
 import type { UpdateAutoGratuityRuleInput } from '../validation';
@@ -51,6 +51,6 @@ export async function updateAutoGratuityRule(
     return { result: row, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.auto_gratuity_rule.updated', 'fnb_auto_gratuity_rules', ruleId);
+  auditLogDeferred(ctx, 'fnb.auto_gratuity_rule.updated', 'fnb_auto_gratuity_rules', ruleId);
   return result;
 }

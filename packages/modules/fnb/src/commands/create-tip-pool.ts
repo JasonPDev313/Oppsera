@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 
 interface CreateTipPoolInput {
@@ -52,6 +52,6 @@ export async function createTipPool(
     return { result: poolResult, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.tip_pool.created', 'fnb_tip_pools', result.id);
+  auditLogDeferred(ctx, 'fnb.tip_pool.created', 'fnb_tip_pools', result.id);
   return result;
 }

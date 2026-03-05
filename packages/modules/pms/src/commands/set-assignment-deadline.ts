@@ -4,7 +4,7 @@
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { pmsHousekeepingAssignments } from '@oppsera/db';
@@ -46,7 +46,7 @@ export async function setAssignmentDeadline(
         requestedBy: input.requestedBy ?? null,
         updatedAt: now,
       })
-      .where(eq(pmsHousekeepingAssignments.id, assignmentId));
+      .where(and(eq(pmsHousekeepingAssignments.id, assignmentId), eq(pmsHousekeepingAssignments.tenantId, ctx.tenantId)));
 
     await pmsAuditLogEntry(tx, ctx, existing.propertyId, 'housekeeping_assignment', assignmentId, 'deadline_set', {
       dueBy: dueBy.toISOString(),
@@ -69,6 +69,6 @@ export async function setAssignmentDeadline(
     };
   });
 
-  await auditLog(ctx, 'pms.housekeeping.deadline_set', 'pms_housekeeping_assignment', assignmentId);
+  auditLogDeferred(ctx, 'pms.housekeeping.deadline_set', 'pms_housekeeping_assignment', assignmentId);
   return result;
 }

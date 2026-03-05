@@ -1,4 +1,4 @@
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customerPreferences } from '@oppsera/db';
@@ -21,6 +21,6 @@ export async function deleteCustomerPreference(ctx: RequestContext, input: Delet
     return existing!;
   });
 
-  await auditLog(ctx, 'customer.preference_deleted', 'customer_preference', input.preferenceId);
+  auditLogDeferred(ctx, 'customer.preference_deleted', 'customer_preference', input.preferenceId);
   return result;
 }

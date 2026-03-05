@@ -16,6 +16,7 @@ import {
   CalendarDays,
   User,
 } from 'lucide-react';
+import { useProperties } from '@/hooks/use-pms';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import { Badge } from '@/components/ui/badge';
@@ -23,11 +24,6 @@ import { Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
 
 // ── Types ────────────────────────────────────────────────────────
-
-interface Property {
-  id: string;
-  name: string;
-}
 
 interface Room {
   id: string;
@@ -461,7 +457,7 @@ export default function MaintenanceContent() {
   const { toast } = useToast();
 
   // ── State ────────────────────────────────────────────────────────
-  const [properties, setProperties] = useState<Property[]>([]);
+  const { data: properties } = useProperties();
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [rooms, setRooms] = useState<Room[]>([]);
 
@@ -481,23 +477,10 @@ export default function MaintenanceContent() {
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  // ── Load properties ───────────────────────────────────────────────
+  // ── Auto-select first property ────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
-    apiFetch<{ data: Property[] }>('/api/v1/pms/properties')
-      .then((res) => {
-        if (cancelled) return;
-        const items = res.data ?? [];
-        setProperties(items);
-        if (items.length > 0 && !selectedPropertyId) {
-          setSelectedPropertyId(items[0]!.id);
-        }
-      })
-      .catch(() => {
-        /* silently handle */
-      });
-    return () => { cancelled = true; };
-  }, []);  
+    if (properties.length > 0 && !selectedPropertyId) setSelectedPropertyId(properties[0]!.id);
+  }, [properties, selectedPropertyId]);
 
   // ── Load rooms for the create dialog ──────────────────────────────
   useEffect(() => {

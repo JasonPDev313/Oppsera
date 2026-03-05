@@ -29,6 +29,19 @@ interface ListRoomsInput {
   limit?: number;
 }
 
+function encodeCursor(roomNumber: string, id: string): string {
+  return `${roomNumber}|${id}`;
+}
+
+function decodeCursor(cursor: string): { roomNumber: string; id: string } | null {
+  const parts = cursor.split('|');
+  if (parts.length === 2) {
+    return { roomNumber: parts[0]!, id: parts[1]! };
+  }
+  // Backwards compatibility: id-only cursor
+  return null;
+}
+
 export interface ListRoomsResult {
   items: RoomListItem[];
   cursor: string | null;
@@ -54,7 +67,17 @@ export async function listRooms(input: ListRoomsInput): Promise<ListRoomsResult>
       conditions.push(sql`r.is_out_of_order = ${input.isOutOfOrder}`);
     }
     if (input.cursor) {
-      conditions.push(sql`r.id < ${input.cursor}`);
+      const decoded = decodeCursor(input.cursor);
+      if (decoded) {
+        // Composite cursor: (room_number ASC, id DESC) — advance when room_number > cursorRoomNumber
+        // OR room_number = cursorRoomNumber AND id < cursorId
+        conditions.push(
+          sql`(r.room_number > ${decoded.roomNumber} OR (r.room_number = ${decoded.roomNumber} AND r.id < ${decoded.id}))`,
+        );
+      } else {
+        // Backwards-compatible id-only cursor
+        conditions.push(sql`r.id < ${input.cursor}`);
+      }
     }
 
     const whereClause = sql.join(conditions, sql` AND `);
@@ -103,7 +126,12 @@ export async function listRooms(input: ListRoomsInput): Promise<ListRoomsResult>
         roomTypeCode: String(r.room_type_code),
         roomTypeName: String(r.room_type_name),
       })),
-      cursor: hasMore ? String(items[items.length - 1]!.id) : null,
+      cursor: hasMore
+        ? encodeCursor(
+            String(items[items.length - 1]!.room_number),
+            String(items[items.length - 1]!.id),
+          )
+        : null,
       hasMore,
     };
   });

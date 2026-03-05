@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarDays, Loader2 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
+import { useProperties } from '@/hooks/use-pms';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import type {
@@ -31,11 +32,6 @@ import ReservationContextMenu from '@/components/pms/calendar/ReservationContext
 import type { ContextMenuState } from '@/components/pms/calendar/ReservationContextMenu';
 import CreateReservationDialog from '@/components/pms/CreateReservationDialog';
 import ReservationListView from '@/components/pms/ReservationListView';
-
-interface Property {
-  id: string;
-  name: string;
-}
 
 const POS_TERMINAL_KEY = 'pos_terminal_id';
 const PMS_RESERVATION_CATALOG_ITEM_KEY = 'pms:reservation-charge-catalog-item';
@@ -77,10 +73,12 @@ export default function CalendarContent() {
     }
   }, [pageView]);
 
+  // ── Properties (shared hook) ─────────────────────────────────
+  const { data: properties } = useProperties();
+
   // ── State ───────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [viewRange, setViewRange] = useState<ViewRange>(7);
-  const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState('');
   const [weekStart, setWeekStart] = useState<Date>(() => {
     // Quick View (default) anchors on today; Calendar Grid anchors on Monday
@@ -122,20 +120,10 @@ export default function CalendarContent() {
     if (c) setReservationCatalogItemId(c);
   }, []);
 
-  // ── Fetch properties ────────────────────────────────────────────
+  // ── Auto-select first property ────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
-    apiFetch<{ data: Property[] }>('/api/v1/pms/properties')
-      .then((res) => {
-        if (cancelled) return;
-        setProperties(res.data);
-        if (res.data.length > 0 && !propertyId) setPropertyId(res.data[0]!.id);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Failed to load properties');
-      });
-    return () => { cancelled = true; };
-  }, []);  
+    if (properties.length > 0 && !propertyId) setPropertyId(properties[0]!.id);
+  }, [properties, propertyId]);
 
   // ── Fetch grid data (week/14/30) ───────────────────────────────
   const fetchGrid = useCallback(async (silent = false) => {

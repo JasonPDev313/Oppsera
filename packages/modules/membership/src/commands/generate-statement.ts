@@ -1,7 +1,7 @@
 import { eq, and, lte } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { membershipAccounts, statements, statementLines, membershipBillingItems } from '@oppsera/db';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
@@ -185,6 +185,6 @@ export async function generateStatement(
     return { result: stmt!, events: [event] };
   });
 
-  await auditLog(ctx, 'membership.statement.generated', 'statement', result.id);
+  auditLogDeferred(ctx, 'membership.statement.generated', 'statement', result.id);
   return result;
 }

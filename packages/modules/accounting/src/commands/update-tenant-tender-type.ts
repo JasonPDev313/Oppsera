@@ -1,7 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glAccounts, tenantTenderTypes } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
@@ -101,7 +101,7 @@ export async function updateTenantTenderType(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.tender_type.updated', 'tenant_tender_types', tenderTypeId);
+  auditLogDeferred(ctx, 'accounting.tender_type.updated', 'tenant_tender_types', tenderTypeId);
 
   return result;
 }

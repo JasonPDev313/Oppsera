@@ -1,7 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -138,7 +138,7 @@ export async function createTipPayout(
     return { result: payout!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.tip_payout.created', 'tip_payout', result.id);
+  auditLogDeferred(ctx, 'accounting.tip_payout.created', 'tip_payout', result.id);
   return result;
 }
 

@@ -12,10 +12,10 @@
  *   - Change log entries for audit
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import {
   glAccounts,
@@ -159,7 +159,7 @@ export async function executeImport(
           await tx
             .update(glAccounts)
             .set({ parentAccountId: parentId })
-            .where(eq(glAccounts.id, childId));
+            .where(and(eq(glAccounts.id, childId), eq(glAccounts.tenantId, ctx.tenantId)));
           parentsResolved++;
         } catch (err) {
           importErrors.push({
@@ -190,7 +190,7 @@ export async function executeImport(
         status: 'complete',
         completedAt: new Date(),
       })
-      .where(eq(glCoaImportLogs.id, importLogId));
+      .where(and(eq(glCoaImportLogs.id, importLogId), eq(glCoaImportLogs.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'accounting.coa.imported.v1', {
       importLogId,
@@ -216,7 +216,7 @@ export async function executeImport(
     };
   });
 
-  await auditLog(ctx, 'accounting.coa.imported', 'gl_coa_import_log', result.importLogId);
+  auditLogDeferred(ctx, 'accounting.coa.imported', 'gl_coa_import_log', result.importLogId);
 
   return result;
 }

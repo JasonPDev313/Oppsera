@@ -1,10 +1,20 @@
-import { eq, and, lt, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import {
   withTenant,
   spaCommissionRules,
   spaProviders,
   spaServices,
 } from '@oppsera/db';
+
+function encodeCursor(...parts: string[]): string {
+  return parts.join('|');
+}
+
+function decodeCursor(cursor: string, expectedParts: number): string[] | null {
+  const parts = cursor.split('|');
+  if (parts.length !== expectedParts) return null; // Legacy fallback
+  return parts;
+}
 
 export interface ListCommissionRulesInput {
   tenantId: string;
@@ -43,7 +53,7 @@ export interface ListCommissionRulesResult {
 /**
  * List commission rules with filters and cursor pagination.
  * LEFT JOINs spaProviders and spaServices for display names.
- * Order by priority DESC, then createdAt DESC.
+ * Order by priority DESC, createdAt DESC, id DESC.
  */
 export async function listCommissionRules(
   input: ListCommissionRulesInput,
@@ -56,7 +66,19 @@ export async function listCommissionRules(
     ];
 
     if (input.cursor) {
-      conditions.push(lt(spaCommissionRules.id, input.cursor));
+      const decoded = decodeCursor(input.cursor, 3);
+      if (decoded) {
+        const [cursorPriority, cursorCreatedAt, cursorId] = decoded as [string, string, string];
+        // All three sorts are DESC — row-value comparison works
+        conditions.push(
+          sql`(${spaCommissionRules.priority}, ${spaCommissionRules.createdAt}, ${spaCommissionRules.id}) < (${parseInt(cursorPriority, 10)}, ${cursorCreatedAt}::timestamptz, ${cursorId})` as unknown as ReturnType<typeof eq>,
+        );
+      } else {
+        // Legacy: cursor was plain id
+        conditions.push(
+          sql`${spaCommissionRules.id} < ${input.cursor}` as unknown as ReturnType<typeof eq>,
+        );
+      }
     }
 
     if (input.providerId !== undefined) {
@@ -94,7 +116,7 @@ export async function listCommissionRules(
       .leftJoin(spaProviders, eq(spaCommissionRules.providerId, spaProviders.id))
       .leftJoin(spaServices, eq(spaCommissionRules.serviceId, spaServices.id))
       .where(and(...conditions))
-      .orderBy(desc(spaCommissionRules.priority), desc(spaCommissionRules.createdAt))
+      .orderBy(desc(spaCommissionRules.priority), desc(spaCommissionRules.createdAt), desc(spaCommissionRules.id))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
@@ -119,9 +141,12 @@ export async function listCommissionRules(
       createdAt: r.createdAt,
     }));
 
+    const lastItem = sliced[sliced.length - 1];
     return {
       items,
-      cursor: hasMore ? sliced[sliced.length - 1]!.id : null,
+      cursor: hasMore && lastItem
+        ? encodeCursor(String(lastItem.priority), lastItem.createdAt.toISOString(), lastItem.id)
+        : null,
       hasMore,
     };
   });

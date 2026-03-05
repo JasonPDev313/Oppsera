@@ -101,6 +101,7 @@ export async function handleOrderReturned(event: EventEnvelope): Promise<void> {
     `);
 
     // Step 4: Insert rm_revenue_activity with status='returned'
+    // Store as NEGATIVE so sales history SUM(amount_dollars) correctly subtracts returns
     const returnLabel = `Return #${data.returnOrderId.slice(-6)} (of ${data.originalOrderId.slice(-6)})`;
     await (tx as any).execute(sql`
       INSERT INTO rm_revenue_activity (
@@ -111,10 +112,10 @@ export async function handleOrderReturned(event: EventEnvelope): Promise<void> {
       VALUES (
         ${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate},
         ${'pos_order'}, ${'pos_return'}, ${data.returnOrderId}, ${returnLabel},
-        ${returnAmount}, ${'returned'}, ${occurredAt}::timestamptz, NOW()
+        ${-returnAmount}, ${'returned'}, ${occurredAt}::timestamptz, NOW()
       )
       ON CONFLICT (tenant_id, source, source_id) DO UPDATE SET
-        amount_dollars = ${returnAmount},
+        amount_dollars = ${-returnAmount},
         status = ${'returned'},
         occurred_at = ${occurredAt}::timestamptz
     `);

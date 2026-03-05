@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { computeChanges } from '@oppsera/core/audit/diff';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
@@ -32,7 +32,7 @@ export async function updateBillingAccount(ctx: RequestContext, accountId: strin
     if (input.collectionStatus !== undefined) updates.collectionStatus = input.collectionStatus;
 
     const [updated] = await (tx as any).update(billingAccounts).set(updates)
-      .where(eq(billingAccounts.id, accountId)).returning();
+      .where(and(eq(billingAccounts.id, accountId), eq(billingAccounts.tenantId, ctx.tenantId))).returning();
 
     const changes = computeChanges(existing, updated!);
     const event = buildEventFromContext(ctx, 'billing_account.updated.v1', { billingAccountId: accountId, changes });
@@ -40,6 +40,6 @@ export async function updateBillingAccount(ctx: RequestContext, accountId: strin
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'billing_account.updated', 'billing_account', accountId);
+  auditLogDeferred(ctx, 'billing_account.updated', 'billing_account', accountId);
   return result;
 }

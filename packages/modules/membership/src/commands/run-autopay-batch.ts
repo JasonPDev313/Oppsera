@@ -1,7 +1,7 @@
 import { eq, and, lte, isNull, or } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { autopayProfiles, autopayRuns, autopayAttempts } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
@@ -123,6 +123,6 @@ export async function runAutopayBatch(
     };
   });
 
-  await auditLog(ctx, 'membership.autopay.batch.started', 'autopay_run', result.id);
+  auditLogDeferred(ctx, 'membership.autopay.batch.started', 'autopay_run', result.id);
   return result;
 }

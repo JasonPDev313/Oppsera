@@ -1,10 +1,10 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { orders, orderLines, orderCharges, orderDiscounts } from '@oppsera/db';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { SetServiceChargeExemptInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
@@ -56,7 +56,7 @@ export async function setServiceChargeExempt(
       ...totals,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),
-    }).where(eq(orders.id, orderId));
+    }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
 
     await incrementVersion(tx, orderId, ctx.tenantId);
     await saveIdempotencyKey(
@@ -79,6 +79,6 @@ export async function setServiceChargeExempt(
     };
   });
 
-  await auditLog(ctx, 'order.service_charge_exempt_changed', 'order', orderId);
+  auditLogDeferred(ctx, 'order.service_charge_exempt_changed', 'order', orderId);
   return result;
 }

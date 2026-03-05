@@ -46,7 +46,7 @@ export const PATCH = withMiddleware(
       const [result] = await tx
         .update(catalogCategories)
         .set({ ...parsed.data, updatedAt: new Date() })
-        .where(eq(catalogCategories.id, categoryId))
+        .where(and(eq(catalogCategories.id, categoryId), eq(catalogCategories.tenantId, ctx.tenantId)))
         .returning();
 
       return result!;

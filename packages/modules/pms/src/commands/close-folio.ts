@@ -4,7 +4,7 @@
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsFolios } from '@oppsera/db';
@@ -40,6 +40,6 @@ export async function closeFolio(ctx: RequestContext, folioId: string) {
     return { result: { folioId, status: 'CLOSED' }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.folio.closed', 'pms_folio', folioId);
+  auditLogDeferred(ctx, 'pms.folio.closed', 'pms_folio', folioId);
   return result;
 }

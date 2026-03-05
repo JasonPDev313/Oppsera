@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { hasCustomerWriteApi, getCustomerWriteApi } from '@oppsera/core/helpers/customer-write-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
@@ -121,7 +121,7 @@ export async function createGuest(ctx: RequestContext, input: CreateGuestInput) 
   // Only audit log if a new guest was created (events were emitted)
   // For dedup case, skip the top-level audit log since no mutation occurred
   if (isNewGuest) {
-    await auditLog(ctx, 'pms.guest.created', 'pms_guest', result.id);
+    auditLogDeferred(ctx, 'pms.guest.created', 'pms_guest', result.id);
   }
 
   return result;

@@ -1,5 +1,5 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbAllergenDefinitions } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -33,6 +33,6 @@ export async function createAllergen(
     return { result: created!, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.allergen.created', 'fnb_allergen_definitions', result.id);
+  auditLogDeferred(ctx, 'fnb.allergen.created', 'fnb_allergen_definitions', result.id);
   return result;
 }

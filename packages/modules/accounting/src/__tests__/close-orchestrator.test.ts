@@ -28,6 +28,7 @@ vi.mock('@oppsera/core/erp', () => ({
 
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: mockAuditLog,
+  auditLogDeferred: mockAuditLog,
 }));
 
 vi.mock('../queries/get-close-checklist', () => ({

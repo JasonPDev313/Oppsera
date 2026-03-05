@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customerEmergencyContacts } from '@oppsera/db';
@@ -24,6 +24,6 @@ export async function removeEmergencyContact(ctx: RequestContext, input: RemoveE
     return { result: { id: input.contactId, deleted: true }, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.emergency_contact_removed', 'customer_emergency_contact', input.contactId);
+  auditLogDeferred(ctx, 'customer.emergency_contact_removed', 'customer_emergency_contact', input.contactId);
   return result;
 }

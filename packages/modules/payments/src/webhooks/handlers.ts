@@ -10,7 +10,7 @@ import { generateUlid } from '@oppsera/shared';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { extractCardLast4, detectCardBrand } from '../helpers/amount';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -203,7 +203,7 @@ async function processChargebackEvent(
     return { result: { chargebackId }, events: [event] };
   });
 
-  await auditLog(ctx, 'chargeback.received', 'chargeback', result.chargebackId);
+  auditLogDeferred(ctx, 'chargeback.received', 'chargeback', result.chargebackId);
 
   return {
     processed: true,
@@ -310,7 +310,7 @@ async function processCardUpdateEvent(
       updatedCount++;
     }
 
-    await auditLog(ctx, 'payment.card_updated', 'customer_payment_method', methods[0]!.id);
+    auditLogDeferred(ctx, 'payment.card_updated', 'customer_payment_method', methods[0]!.id);
 
     return {
       processed: true,

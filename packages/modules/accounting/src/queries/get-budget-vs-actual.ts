@@ -88,8 +88,8 @@ export async function getBudgetVsActual(input: {
           jl.account_id,
           SUM(
             CASE
-              WHEN ga2.normal_balance = 'debit' THEN COALESCE(jl.debit_amount, 0) - COALESCE(jl.credit_amount, 0)
-              ELSE COALESCE(jl.credit_amount, 0) - COALESCE(jl.debit_amount, 0)
+              WHEN ga2.normal_balance = 'debit' THEN (COALESCE(jl.debit_amount, 0) - COALESCE(jl.credit_amount, 0)) * COALESCE(je.exchange_rate, 1)
+              ELSE (COALESCE(jl.credit_amount, 0) - COALESCE(jl.debit_amount, 0)) * COALESCE(je.exchange_rate, 1)
             END
           ) AS actual_amount
         FROM gl_journal_lines jl
@@ -99,7 +99,6 @@ export async function getBudgetVsActual(input: {
           AND je.status = 'posted'
           AND je.business_date >= ${input.from}
           AND je.business_date <= ${input.to}
-          AND (jl.id IS NULL OR je.id IS NOT NULL)
         GROUP BY jl.account_id
       ) act ON act.account_id = bl.gl_account_id
       WHERE bl.budget_id = ${input.budgetId}

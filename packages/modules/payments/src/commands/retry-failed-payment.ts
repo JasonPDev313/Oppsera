@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
 import { paymentIntents } from '@oppsera/db';
 import { AppError, generateUlid } from '@oppsera/shared';
-import { auditLog } from '@oppsera/core';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core';
 import { paymentsFacade } from '../facade';
 import type { PaymentIntentResult } from '../types/gateway-results';
@@ -80,7 +80,7 @@ export async function retryFailedPayment(
     },
   });
 
-  await auditLog(ctx, 'payment.intent.retried', 'payment_intent', result.id);
+  auditLogDeferred(ctx, 'payment.intent.retried', 'payment_intent', result.id);
 
   return result;
 }

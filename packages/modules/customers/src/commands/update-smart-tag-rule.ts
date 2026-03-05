@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { smartTagRules } from '@oppsera/db';
@@ -28,7 +28,7 @@ export async function updateSmartTagRule(ctx: RequestContext, ruleId: string, in
     if (input.priority !== undefined) updates.priority = input.priority;
 
     const [updated] = await (tx as any).update(smartTagRules).set(updates)
-      .where(eq(smartTagRules.id, ruleId)).returning();
+      .where(and(eq(smartTagRules.id, ruleId), eq(smartTagRules.tenantId, ctx.tenantId))).returning();
 
     const event = buildEventFromContext(ctx, 'customer.smart_tag_rule.updated.v1', {
       ruleId,
@@ -39,6 +39,6 @@ export async function updateSmartTagRule(ctx: RequestContext, ruleId: string, in
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.smart_tag_rule_updated', 'smart_tag_rule', ruleId);
+  auditLogDeferred(ctx, 'customer.smart_tag_rule_updated', 'smart_tag_rule', ruleId);
   return result;
 }

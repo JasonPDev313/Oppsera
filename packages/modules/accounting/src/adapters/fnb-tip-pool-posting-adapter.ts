@@ -119,13 +119,28 @@ export async function handleFnbTipPoolDistributedForAccounting(event: EventEnvel
       return;
     }
 
-    // Credit side: payroll clearing (if configured), otherwise tip payable (same account — shift liability),
-    // otherwise undeposited funds as last resort
+    // Credit side: payroll clearing (if configured), otherwise undeposited funds as last resort
+    // NOTE: we explicitly skip defaultTipsPayableAccountId in the fallback chain because it
+    // would be the same as debitAccountId, creating a self-canceling Dr/Cr entry.
     const creditAccountId: string | null =
       settings.defaultPayrollClearingAccountId ??
-      settings.defaultTipsPayableAccountId ??
       settings.defaultUndepositedFundsAccountId ??
       null;
+
+    // Guard: self-canceling entry when credit resolves to same account as debit
+    if (creditAccountId && creditAccountId === debitAccountId) {
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'fnb.tip.pool_distributed.v1',
+          sourceModule: 'fnb',
+          sourceReferenceId: data.distributionId,
+          entityType: 'gl_account',
+          entityId: 'payroll_clearing',
+          reason: `Tip pool distribution of $${(data.totalPoolAmountCents / 100).toFixed(2)} skipped — debit and credit accounts are the same (${debitAccountId}). Configure a dedicated Payroll Clearing GL account.`,
+        });
+      } catch { /* best-effort */ }
+      return;
+    }
 
     if (!creditAccountId) {
       try {

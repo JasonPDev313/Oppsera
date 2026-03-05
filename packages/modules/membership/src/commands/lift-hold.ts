@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { membershipAccounts, membershipHolds } from '@oppsera/db';
 import { NotFoundError, AppError } from '@oppsera/shared';
@@ -105,6 +105,6 @@ export async function liftHold(
     };
   });
 
-  await auditLog(ctx, 'membership.hold.lifted', 'membership_hold', result.holdId);
+  auditLogDeferred(ctx, 'membership.hold.lifted', 'membership_hold', result.holdId);
   return result;
 }

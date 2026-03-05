@@ -58,22 +58,37 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
     const rows = Array.from(inserted as Iterable<{ id: string }>);
     if (rows.length === 0) return;
 
-    // Step 2: Look up location timezone
+    // Step 2: Look up original business_date from the revenue activity row
+    // Decrementing today's rm_daily_sales is wrong — we must reverse the ORIGINAL posting date
     const locationId = data.locationId || event.locationId || '';
-    const [location] = await (tx as any)
-      .select({ timezone: locations.timezone })
-      .from(locations)
-      .where(
-        and(
-          eq(locations.tenantId, event.tenantId),
-          eq(locations.id, locationId),
-        ),
-      )
-      .limit(1);
+    const origActivity = await (tx as any).execute(sql`
+      SELECT business_date FROM rm_revenue_activity
+      WHERE tenant_id = ${event.tenantId}
+        AND source = 'pos_order'
+        AND source_id = ${data.orderId}
+      LIMIT 1
+    `);
+    const origRows = Array.from(origActivity as Iterable<Record<string, unknown>>);
 
-    const timezone = location?.timezone ?? 'America/New_York';
     const occurredAt = data.occurredAt || event.occurredAt;
-    const businessDate = computeBusinessDate(occurredAt, timezone);
+    let businessDate: string;
+    if (origRows.length > 0 && origRows[0]!.business_date) {
+      businessDate = String(origRows[0]!.business_date).slice(0, 10);
+    } else {
+      // Fallback: compute from event time (best effort)
+      const [location] = await (tx as any)
+        .select({ timezone: locations.timezone })
+        .from(locations)
+        .where(
+          and(
+            eq(locations.tenantId, event.tenantId),
+            eq(locations.id, locationId),
+          ),
+        )
+        .limit(1);
+      const timezone = location?.timezone ?? 'America/New_York';
+      businessDate = computeBusinessDate(occurredAt, timezone);
+    }
 
     // Step 3: Upsert rm_daily_sales — voids don't decrement orderCount
     // Event payloads send amounts in cents (INTEGER from orders table).
@@ -119,7 +134,7 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
     // Step 4: Upsert rm_item_sales per voided line (if lines present in payload)
     if (data.lines) {
       // Batch-resolve item names and categories from order_lines if not in event payload
-      let orderLineMap = new Map<string, { name: string; category: string | null }>();
+      const orderLineMap = new Map<string, { name: string; category: string | null }>();
       const needsLookup = data.lines.some((l) => !l.catalogItemName);
       if (needsLookup) {
         const olRows = await (tx as any).execute(sql`

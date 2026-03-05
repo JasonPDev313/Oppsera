@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbTabs, fnbTabCourses, fnbTableStatusHistory, fnbTableTurnLog } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -439,7 +439,7 @@ export async function atomicSeatParty(
   });
 
   // ── Audit log (after transaction) ───────────────────────────────
-  await auditLog(ctx, 'fnb.party.seated', 'fnb_tabs', result.tabId);
+  auditLogDeferred(ctx, 'fnb.party.seated', 'fnb_tabs', result.tabId);
 
   return result;
 }

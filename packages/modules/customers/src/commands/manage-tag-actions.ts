@@ -126,7 +126,7 @@ export async function updateTagAction(
     const [updated] = await tx
       .update(tagActions)
       .set(updates)
-      .where(eq(tagActions.id, actionId))
+      .where(and(eq(tagActions.id, actionId), eq(tagActions.tenantId, tenantId)))
       .returning();
 
     return updated!;

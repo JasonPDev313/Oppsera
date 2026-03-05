@@ -1,7 +1,7 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaAppointments, spaAppointmentItems, spaAppointmentHistory } from '@oppsera/db';
@@ -202,7 +202,7 @@ export async function bulkUpdateAppointments(ctx: RequestContext, input: BulkUpd
     return { result: bulkResult, events };
   });
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     `spa.appointment.bulk_${input.targetStatus}`,
     'spa_appointment_bulk',

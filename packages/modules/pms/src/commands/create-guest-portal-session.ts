@@ -2,7 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { randomBytes } from 'node:crypto';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsGuestPortalSessions, pmsReservations } from '@oppsera/db';
@@ -75,7 +75,7 @@ export async function createGuestPortalSession(
     return { result: session!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.guest_portal_session.created', 'pms_guest_portal_session', result.id);
+  auditLogDeferred(ctx, 'pms.guest_portal_session.created', 'pms_guest_portal_session', result.id);
 
   return result;
 }

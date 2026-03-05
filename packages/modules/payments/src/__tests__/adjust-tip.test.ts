@@ -38,7 +38,7 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({ publishWithOutbox: mocks.publishWithOutbox }));
 vi.mock('@oppsera/core/events/build-event', () => ({ buildEventFromContext: mocks.buildEventFromContext }));
-vi.mock('@oppsera/core/audit/helpers', () => ({ auditLog: mocks.auditLog }));
+vi.mock('@oppsera/core/audit/helpers', () => ({ auditLog: mocks.auditLog, auditLogDeferred: mocks.auditLog }));
 vi.mock('@oppsera/core/helpers/idempotency', () => ({ checkIdempotency: mocks.checkIdempotency, saveIdempotencyKey: mocks.saveIdempotencyKey }));
 vi.mock('@oppsera/core/helpers/optimistic-lock', () => ({ incrementVersion: mocks.incrementVersion }));
 vi.mock('../helpers/account-mapping', () => ({ getDebitAccountForTenderType: mocks.getDebitAccountForTenderType }));

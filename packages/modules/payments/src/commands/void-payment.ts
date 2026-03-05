@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { paymentIntents, paymentTransactions } from '@oppsera/db';
@@ -124,7 +124,7 @@ export async function voidPayment(
         errorMessage,
         updatedAt: new Date(),
       })
-      .where(eq(paymentIntents.id, intent.id))
+      .where(and(eq(paymentIntents.id, intent.id), eq(paymentIntents.tenantId, ctx.tenantId)))
       .returning();
 
     // 10. Build event
@@ -144,7 +144,7 @@ export async function voidPayment(
     return { result: mapIntentToResult(updated!, interpretation), events: [] };
   });
 
-  await auditLog(ctx, 'payment.voided', 'payment_intent', result.id);
+  auditLogDeferred(ctx, 'payment.voided', 'payment_intent', result.id);
   return result;
 }
 

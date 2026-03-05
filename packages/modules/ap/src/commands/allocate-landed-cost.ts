@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apBills, apBillLines, apBillLandedCostAllocations } from '@oppsera/db';
@@ -159,6 +159,6 @@ export async function allocateLandedCost(ctx: RequestContext, input: AllocateLan
     };
   });
 
-  await auditLog(ctx, 'ap.landed_cost.allocated', 'ap_bill', input.billId);
+  auditLogDeferred(ctx, 'ap.landed_cost.allocated', 'ap_bill', input.billId);
   return result;
 }

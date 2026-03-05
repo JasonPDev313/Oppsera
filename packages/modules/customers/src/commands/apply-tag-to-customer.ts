@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
 import { tags, customerTags, customers, tagAuditLog } from '@oppsera/db';
@@ -51,7 +51,7 @@ export async function applyTagToCustomer(
     await (tx as any).update(tags).set({
       customerCount: sql`${tags.customerCount} + 1`,
       updatedAt: new Date(),
-    }).where(eq(tags.id, input.tagId));
+    }).where(and(eq(tags.id, input.tagId), eq(tags.tenantId, ctx.tenantId)));
 
     // Insert audit log entry
     await (tx as any).insert(tagAuditLog).values({
@@ -77,6 +77,6 @@ export async function applyTagToCustomer(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.tag_applied', 'customer', customerId);
+  auditLogDeferred(ctx, 'customer.tag_applied', 'customer', customerId);
   return result;
 }

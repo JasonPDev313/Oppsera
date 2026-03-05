@@ -1,6 +1,26 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 
+/** Encode a composite cursor as base64url "dueDate|id". */
+function encodeCursor(dueDate: string, id: string): string {
+  return Buffer.from(`${dueDate}|${id}`).toString('base64url');
+}
+
+/** Decode a composite cursor. Returns null for legacy plain-id cursors. */
+function decodeCursor(cursor: string): { dueDate: string; id: string } | null {
+  try {
+    const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+    const pipe = decoded.indexOf('|');
+    if (pipe === -1) return null; // legacy id-only cursor
+    const dueDate = decoded.slice(0, pipe);
+    const id = decoded.slice(pipe + 1);
+    if (!dueDate || !id) return null;
+    return { dueDate, id };
+  } catch {
+    return null;
+  }
+}
+
 export interface OpenInvoiceItem {
   id: string;
   customerId: string;
@@ -41,7 +61,16 @@ export async function getOpenInvoices(input: GetOpenInvoicesInput): Promise<GetO
 
     if (input.customerId) conditions.push(sql`i.customer_id = ${input.customerId}`);
     if (input.overdue) conditions.push(sql`i.due_date < CURRENT_DATE`);
-    if (input.cursor) conditions.push(sql`i.id < ${input.cursor}`);
+    if (input.cursor) {
+      const parsed = decodeCursor(input.cursor);
+      if (parsed) {
+        // Composite cursor: ORDER BY due_date ASC, id DESC (mixed directions — use OR expansion)
+        conditions.push(sql`(i.due_date > ${parsed.dueDate} OR (i.due_date = ${parsed.dueDate} AND i.id < ${parsed.id}))`);
+      } else {
+        // Legacy plain-id cursor fallback
+        conditions.push(sql`i.id < ${input.cursor}`);
+      }
+    }
 
     const whereClause = sql.join(conditions, sql` AND `);
 
@@ -76,7 +105,9 @@ export async function getOpenInvoices(input: GetOpenInvoicesInput): Promise<GetO
         status: String(r.status),
         daysOverdue: Number(r.days_overdue ?? 0),
       })),
-      cursor: hasMore ? String(items[items.length - 1]!.id) : null,
+      cursor: hasMore && items[items.length - 1]
+        ? encodeCursor(String(items[items.length - 1]!.due_date), String(items[items.length - 1]!.id))
+        : null,
       hasMore,
     };
   });

@@ -4,7 +4,7 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError, ConflictError } from '@oppsera/shared';
 import { pmsHousekeepers, pmsProperties, users } from '@oppsera/db';
@@ -60,6 +60,6 @@ export async function createHousekeeper(ctx: RequestContext, input: CreateHousek
     return { result: { id }, events: [] };
   });
 
-  await auditLog(ctx, 'pms.housekeeper.created', 'pms_housekeeper', result.id);
+  auditLogDeferred(ctx, 'pms.housekeeper.created', 'pms_housekeeper', result.id);
   return result;
 }

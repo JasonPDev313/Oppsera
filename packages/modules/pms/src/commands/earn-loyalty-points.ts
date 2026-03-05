@@ -1,7 +1,7 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { NotFoundError } from '@oppsera/shared';
@@ -36,7 +36,7 @@ export async function earnLoyaltyPoints(
         pointsBalance: newBalance,
         lifetimePoints: newLifetime,
       })
-      .where(eq(pmsLoyaltyMembers.id, input.memberId));
+      .where(and(eq(pmsLoyaltyMembers.id, input.memberId), eq(pmsLoyaltyMembers.tenantId, ctx.tenantId)));
 
     // Record transaction
     const [transaction] = await tx
@@ -63,6 +63,6 @@ export async function earnLoyaltyPoints(
     return { result: transaction!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.loyalty.points_earned', 'pms_loyalty_transaction', result.id);
+  auditLogDeferred(ctx, 'pms.loyalty.points_earned', 'pms_loyalty_transaction', result.id);
   return result;
 }

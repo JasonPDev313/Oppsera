@@ -1,6 +1,15 @@
-import { eq, and, lt, gte, lte, desc } from 'drizzle-orm';
+import { eq, and, lt, gte, lte, desc, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { users } from '@oppsera/db';
+
+function encodeCursor(leadCol: string, id: string): string {
+  return `${leadCol}|${id}`;
+}
+function decodeCursor(cursor: string): { lead: string; id: string } | null {
+  const sep = cursor.indexOf('|');
+  if (sep === -1) return null;
+  return { lead: cursor.slice(0, sep), id: cursor.slice(sep + 1) };
+}
 import { catalogItemChangeLogs, catalogCategories, taxCategories } from '../schema';
 import type { ChangeLogEntry, FieldChange } from '../services/item-change-log';
 
@@ -33,7 +42,12 @@ export async function getItemChangeLog(
     ];
 
     if (input.cursor) {
-      conditions.push(lt(catalogItemChangeLogs.id, input.cursor));
+      const decoded = decodeCursor(input.cursor);
+      if (decoded) {
+        conditions.push(sql`(${catalogItemChangeLogs.changedAt}, ${catalogItemChangeLogs.id}) < (${decoded.lead}, ${decoded.id})`);
+      } else {
+        conditions.push(lt(catalogItemChangeLogs.id, input.cursor));
+      }
     }
 
     if (input.dateFrom) {
@@ -73,7 +87,10 @@ export async function getItemChangeLog(
 
     const hasMore = rows.length > limit;
     const items = hasMore ? rows.slice(0, limit) : rows;
-    const nextCursor = hasMore ? items[items.length - 1]!.id : null;
+    const lastItem = hasMore ? items[items.length - 1]! : null;
+    const nextCursor = lastItem
+      ? encodeCursor(lastItem.changedAt instanceof Date ? lastItem.changedAt.toISOString() : String(lastItem.changedAt), lastItem.id)
+      : null;
 
     // Collect lookup IDs from fieldChanges for category/taxCategory resolution
     const categoryIds = new Set<string>();

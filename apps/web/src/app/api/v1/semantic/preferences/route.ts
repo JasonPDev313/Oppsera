@@ -131,7 +131,7 @@ export const PATCH = withMiddleware(
       [row] = await db
         .update(semanticUserPreferences)
         .set(updates)
-        .where(eq(semanticUserPreferences.id, existing.id))
+        .where(and(eq(semanticUserPreferences.id, existing.id), eq(semanticUserPreferences.tenantId, ctx.tenantId)))
         .returning();
     } else {
       // Create new preferences record

@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { dashboardDefinitions } from '@oppsera/db';
@@ -20,7 +20,7 @@ export async function deleteDashboard(ctx: RequestContext, dashboardId: string) 
 
     const [updated] = await (tx as any).update(dashboardDefinitions)
       .set({ isArchived: true, updatedAt: new Date() })
-      .where(eq(dashboardDefinitions.id, dashboardId))
+      .where(and(eq(dashboardDefinitions.id, dashboardId), eq(dashboardDefinitions.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'reporting.dashboard.archived.v1', {
@@ -30,6 +30,6 @@ export async function deleteDashboard(ctx: RequestContext, dashboardId: string) 
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'reporting.dashboard.archived', 'dashboard_definition', result.id);
+  auditLogDeferred(ctx, 'reporting.dashboard.archived', 'dashboard_definition', result.id);
   return result;
 }

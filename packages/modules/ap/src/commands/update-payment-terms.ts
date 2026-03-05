@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { paymentTerms } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
@@ -45,7 +45,7 @@ export async function updatePaymentTerms(
     const [updated] = await tx
       .update(paymentTerms)
       .set(updateSet)
-      .where(eq(paymentTerms.id, paymentTermsId))
+      .where(and(eq(paymentTerms.id, paymentTermsId), eq(paymentTerms.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, AP_EVENTS.PAYMENT_TERMS_UPDATED, {
@@ -59,6 +59,6 @@ export async function updatePaymentTerms(
     };
   });
 
-  await auditLog(ctx, 'ap.payment_terms.updated', 'payment_terms', result.id);
+  auditLogDeferred(ctx, 'ap.payment_terms.updated', 'payment_terms', result.id);
   return result;
 }

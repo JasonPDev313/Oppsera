@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { AppError, NotFoundError } from '@oppsera/shared';
 import { registerTabs } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
@@ -91,7 +91,7 @@ export async function updateRegisterTab(
 
   // Audit employee change specifically
   if (input.employeeId !== undefined) {
-    await auditLog(ctx, 'register_tab.updated', 'register_tab', result.id, {
+    auditLogDeferred(ctx, 'register_tab.updated', 'register_tab', result.id, {
       employeeId: { old: null, new: input.employeeId },
       employeeName: { old: null, new: input.employeeName ?? null },
     });

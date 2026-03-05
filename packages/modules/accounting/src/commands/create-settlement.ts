@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { paymentSettlements, paymentSettlementLines } from '@oppsera/db';
@@ -93,6 +93,6 @@ export async function createSettlement(
     return { result: settlement!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.settlement.created', 'payment_settlement', result.id);
+  auditLogDeferred(ctx, 'accounting.settlement.created', 'payment_settlement', result.id);
   return result;
 }

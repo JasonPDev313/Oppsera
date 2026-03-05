@@ -55,8 +55,8 @@ export async function getDailyReconciliation(input: {
     withTenant(input.tenantId, async (tx) => {
       const glRows = await tx.execute(sql`
         SELECT
-          COALESCE(SUM(jl.debit_amount), 0) AS total_debits,
-          COALESCE(SUM(jl.credit_amount), 0) AS total_credits
+          COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) AS total_debits,
+          COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) AS total_credits
         FROM gl_journal_lines jl
         JOIN gl_journal_entries je ON je.id = jl.journal_entry_id
         WHERE je.tenant_id = ${input.tenantId}

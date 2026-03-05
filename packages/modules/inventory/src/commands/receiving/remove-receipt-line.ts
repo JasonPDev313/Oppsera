@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import {
@@ -95,7 +95,7 @@ export async function removeReceiptLine(
             landedUnitCost: c.landedUnitCost.toString(),
             updatedAt: new Date(),
           })
-          .where(eq(receivingReceiptLines.id, c.id));
+          .where(and(eq(receivingReceiptLines.id, c.id), eq(receivingReceiptLines.tenantId, ctx.tenantId)));
       }
 
       const taxAmt = Number(receipt.taxAmount);
@@ -103,13 +103,13 @@ export async function removeReceiptLine(
       await (tx as any)
         .update(receivingReceipts)
         .set({ subtotal: subtotal.toString(), total: total.toString(), updatedAt: new Date() })
-        .where(eq(receivingReceipts.id, line.receiptId));
+        .where(and(eq(receivingReceipts.id, line.receiptId), eq(receivingReceipts.tenantId, ctx.tenantId)));
     } else {
       // No lines remaining — zero out totals
       await (tx as any)
         .update(receivingReceipts)
         .set({ subtotal: '0', total: '0', updatedAt: new Date() })
-        .where(eq(receivingReceipts.id, line.receiptId));
+        .where(and(eq(receivingReceipts.id, line.receiptId), eq(receivingReceipts.tenantId, ctx.tenantId)));
     }
 
     const event = buildEventFromContext(ctx, 'inventory.receipt.line_removed.v1', {
@@ -121,7 +121,7 @@ export async function removeReceiptLine(
     return { result: { deleted: true, lineId }, events: [event] };
   });
 
-  await auditLog(ctx, 'inventory.receipt.line_removed', 'receiving_receipt_line', lineId);
+  auditLogDeferred(ctx, 'inventory.receipt.line_removed', 'receiving_receipt_line', lineId);
   return result;
 }
 

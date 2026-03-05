@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
 import { pmsRooms, pmsRoomTypes } from '@oppsera/db';
@@ -110,7 +110,7 @@ export async function updateRoom(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.room.updated', 'pms_room', roomId);
+  auditLogDeferred(ctx, 'pms.room.updated', 'pms_room', roomId);
 
   return result;
 }

@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaServiceResourceRequirements, spaServices, spaResources } from '@oppsera/db';
@@ -76,7 +76,7 @@ export async function addResourceRequirement(ctx: RequestContext, input: AddReso
     return { result: created!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.service_resource_requirement.added', 'spa_service_resource_requirement', result.id);
+  auditLogDeferred(ctx, 'spa.service_resource_requirement.added', 'spa_service_resource_requirement', result.id);
 
   return result;
 }
@@ -108,7 +108,7 @@ export async function removeResourceRequirement(ctx: RequestContext, input: Remo
     return { result: existing, events: [] };
   });
 
-  await auditLog(ctx, 'spa.service_resource_requirement.removed', 'spa_service_resource_requirement', result.id);
+  auditLogDeferred(ctx, 'spa.service_resource_requirement.removed', 'spa_service_resource_requirement', result.id);
 
   return result;
 }

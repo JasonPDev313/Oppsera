@@ -1,5 +1,14 @@
-import { eq, and, gte, lte, desc } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, lt, sql } from 'drizzle-orm';
 import { withTenant, spaDailyOperations } from '@oppsera/db';
+
+function encodeCursor(leadCol: string, id: string): string {
+  return `${leadCol}|${id}`;
+}
+function decodeCursor(cursor: string): { lead: string; id: string } | null {
+  const sep = cursor.indexOf('|');
+  if (sep === -1) return null;
+  return { lead: cursor.slice(0, sep), id: cursor.slice(sep + 1) };
+}
 
 export interface DailyOperationsRow {
   id: string;
@@ -83,7 +92,12 @@ export async function listDailyOperations(
       conditions.push(eq(spaDailyOperations.locationId, input.locationId));
     }
     if (input.cursor) {
-      conditions.push(lte(spaDailyOperations.id, input.cursor));
+      const decoded = decodeCursor(input.cursor);
+      if (decoded) {
+        conditions.push(sql`(${spaDailyOperations.businessDate}, ${spaDailyOperations.id}) < (${decoded.lead}, ${decoded.id})`);
+      } else {
+        conditions.push(lt(spaDailyOperations.id, input.cursor));
+      }
     }
 
     const where = and(...conditions);
@@ -99,9 +113,11 @@ export async function listDailyOperations(
     const items = hasMore ? rows.slice(0, limit) : rows;
     const mappedItems = items.map(mapRow);
 
+    const lastItem = hasMore ? mappedItems[mappedItems.length - 1]! : null;
+
     return {
       items: mappedItems,
-      cursor: hasMore ? mappedItems[mappedItems.length - 1]!.id : null,
+      cursor: lastItem ? encodeCursor(lastItem.businessDate, lastItem.id) : null,
       hasMore,
     };
   });

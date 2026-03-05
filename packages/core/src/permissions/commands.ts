@@ -129,7 +129,7 @@ export async function updateRole(input: z.input<typeof updateRoleSchema>) {
     if (description !== undefined) updates.description = description;
 
     if (Object.keys(updates).length > 0) {
-      await tx.update(roles).set(updates).where(eq(roles.id, roleId));
+      await tx.update(roles).set(updates).where(and(eq(roles.id, roleId), eq(roles.tenantId, tenantId)));
     }
 
     // Replace permissions if provided

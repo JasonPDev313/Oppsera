@@ -1,10 +1,10 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError } from '@oppsera/shared';
 import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes, catalogCategories, catalogModifierGroups, customers } from '@oppsera/db';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
 import type { PlaceOrderInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
@@ -76,7 +76,7 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       receiptSnapshot,
       updatedBy: ctx.user.id,
       updatedAt: now,
-    }).where(eq(orders.id, orderId));
+    }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
 
     await incrementVersion(tx, orderId, ctx.tenantId);
 
@@ -192,9 +192,6 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
     return { result: { ...order, status: 'placed', placedAt: now, receiptSnapshot, version: order.version + 1 }, events: [event] };
   });
 
-  // Fire-and-forget — audit log should never block the POS response
-  auditLog(ctx, 'order.placed', 'order', orderId).catch((e) => {
-    console.error('Audit log failed for order.placed:', e instanceof Error ? e.message : e);
-  });
+  auditLogDeferred(ctx, 'order.placed', 'order', orderId);
   return result;
 }

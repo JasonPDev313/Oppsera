@@ -1,6 +1,26 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 
+/** Encode a composite cursor as base64url "dueDate|id". */
+function encodeCursor(dueDate: string, id: string): string {
+  return Buffer.from(`${dueDate}|${id}`).toString('base64url');
+}
+
+/** Decode a composite cursor. Returns null for legacy plain-id cursors. */
+function decodeCursor(cursor: string): { dueDate: string; id: string } | null {
+  try {
+    const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+    const pipe = decoded.indexOf('|');
+    if (pipe === -1) return null; // legacy id-only cursor
+    const dueDate = decoded.slice(0, pipe);
+    const id = decoded.slice(pipe + 1);
+    if (!dueDate || !id) return null;
+    return { dueDate, id };
+  } catch {
+    return null;
+  }
+}
+
 export interface GetOpenBillsInput {
   tenantId: string;
   vendorId?: string;
@@ -35,7 +55,18 @@ export async function getOpenBills(input: GetOpenBillsInput): Promise<GetOpenBil
   return withTenant(input.tenantId, async (tx) => {
     const vendorCondition = input.vendorId ? sql`AND b.vendor_id = ${input.vendorId}` : sql``;
     const locationCondition = input.locationId ? sql`AND b.location_id = ${input.locationId}` : sql``;
-    const cursorCondition = input.cursor ? sql`AND b.id < ${input.cursor}` : sql``;
+
+    // Composite cursor for ORDER BY due_date ASC, id DESC (mixed directions — use OR expansion)
+    let cursorCondition = sql``;
+    if (input.cursor) {
+      const parsed = decodeCursor(input.cursor);
+      if (parsed) {
+        cursorCondition = sql`AND (b.due_date > ${parsed.dueDate} OR (b.due_date = ${parsed.dueDate} AND b.id < ${parsed.id}))`;
+      } else {
+        // Legacy plain-id cursor fallback
+        cursorCondition = sql`AND b.id < ${input.cursor}`;
+      }
+    }
 
     const rows = await tx.execute(sql`
       SELECT
@@ -86,10 +117,13 @@ export async function getOpenBills(input: GetOpenBillsInput): Promise<GetOpenBil
 
     const totalBalance = mappedItems.reduce((s, i) => s + i.balanceDue, 0);
 
+    const lastItem = items[items.length - 1];
     return {
       items: mappedItems,
       totalBalance,
-      cursor: hasMore ? String(items[items.length - 1]!.id) : null,
+      cursor: hasMore && lastItem
+        ? encodeCursor(String(lastItem.due_date), String(lastItem.id))
+        : null,
       hasMore,
     };
   });

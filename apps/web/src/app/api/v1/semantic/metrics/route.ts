@@ -137,7 +137,7 @@ export const POST = withMiddleware(
           dataType,
           updatedAt: new Date(),
         })
-        .where(eq(semanticMetrics.id, existing.id))
+        .where(and(eq(semanticMetrics.id, existing.id), eq(semanticMetrics.tenantId, ctx.tenantId)))
         .returning();
 
       return NextResponse.json({ data: { slug: updated!.slug, updated: true } });

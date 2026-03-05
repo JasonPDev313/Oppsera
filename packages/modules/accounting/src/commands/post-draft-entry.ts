@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glJournalEntries, glJournalLines } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
@@ -57,7 +57,7 @@ export async function postDraftEntry(ctx: RequestContext, entryId: string) {
         status: 'posted',
         postedAt: new Date(),
       })
-      .where(eq(glJournalEntries.id, entryId))
+      .where(and(eq(glJournalEntries.id, entryId), eq(glJournalEntries.tenantId, ctx.tenantId)))
       .returning();
 
     // 5. Compute total
@@ -79,6 +79,6 @@ export async function postDraftEntry(ctx: RequestContext, entryId: string) {
     return { result: { ...updated!, lines }, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.journal.posted', 'gl_journal_entry', result.id);
+  auditLogDeferred(ctx, 'accounting.journal.posted', 'gl_journal_entry', result.id);
   return result;
 }

@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, generateUlid } from '@oppsera/shared';
 import { paymentProviders, paymentProviderCredentials, paymentMerchantAccounts, terminalMerchantAssignments } from '@oppsera/db';
@@ -57,7 +57,7 @@ export async function createProvider(ctx: RequestContext, input: CreateProviderI
     return { result: { id, code: input.code, displayName: input.displayName }, events: [event] };
   });
 
-  await auditLog(ctx, 'payment.provider.created', 'payment_provider', result.id);
+  auditLogDeferred(ctx, 'payment.provider.created', 'payment_provider', result.id);
   return result;
 }
 
@@ -89,7 +89,7 @@ export async function updateProvider(ctx: RequestContext, input: UpdateProviderI
     await tx
       .update(paymentProviders)
       .set(updates)
-      .where(eq(paymentProviders.id, input.providerId));
+      .where(and(eq(paymentProviders.id, input.providerId), eq(paymentProviders.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'payment.provider.updated.v1', {
       providerId: input.providerId,
@@ -98,7 +98,7 @@ export async function updateProvider(ctx: RequestContext, input: UpdateProviderI
     return { result: { id: input.providerId }, events: [event] };
   });
 
-  await auditLog(ctx, 'payment.provider.updated', 'payment_provider', result.id);
+  auditLogDeferred(ctx, 'payment.provider.updated', 'payment_provider', result.id);
   return result;
 }
 
@@ -151,7 +151,7 @@ export async function saveProviderCredentials(ctx: RequestContext, input: SaveCr
           isSandbox: input.isSandbox ?? false,
           updatedAt: new Date(),
         })
-        .where(eq(paymentProviderCredentials.id, existing.id));
+        .where(and(eq(paymentProviderCredentials.id, existing.id), eq(paymentProviderCredentials.tenantId, ctx.tenantId)));
     } else {
       credId = generateUlid();
       await tx.insert(paymentProviderCredentials).values({
@@ -175,7 +175,7 @@ export async function saveProviderCredentials(ctx: RequestContext, input: SaveCr
   });
 
   // Audit without logging credential values
-  await auditLog(ctx, 'payment.credentials.saved', 'payment_provider_credentials', result.credentialId);
+  auditLogDeferred(ctx, 'payment.credentials.saved', 'payment_provider_credentials', result.credentialId);
   return result;
 }
 
@@ -244,7 +244,7 @@ export async function createMerchantAccount(ctx: RequestContext, input: CreateMe
     return { result: { id, merchantId: input.merchantId, displayName: input.displayName }, events: [event] };
   });
 
-  await auditLog(ctx, 'payment.merchant_account.created', 'payment_merchant_account', result.id);
+  auditLogDeferred(ctx, 'payment.merchant_account.created', 'payment_merchant_account', result.id);
   return result;
 }
 
@@ -300,12 +300,12 @@ export async function updateMerchantAccount(ctx: RequestContext, input: UpdateMe
     await tx
       .update(paymentMerchantAccounts)
       .set(updates)
-      .where(eq(paymentMerchantAccounts.id, input.merchantAccountId));
+      .where(and(eq(paymentMerchantAccounts.id, input.merchantAccountId), eq(paymentMerchantAccounts.tenantId, ctx.tenantId)));
 
     return { result: { id: input.merchantAccountId }, events: [] };
   });
 
-  await auditLog(ctx, 'payment.merchant_account.updated', 'payment_merchant_account', result.id);
+  auditLogDeferred(ctx, 'payment.merchant_account.updated', 'payment_merchant_account', result.id);
   return result;
 }
 
@@ -353,7 +353,7 @@ export async function assignTerminalMerchant(ctx: RequestContext, input: AssignT
           isActive: true,
           updatedAt: new Date(),
         })
-        .where(eq(terminalMerchantAssignments.id, existing.id));
+        .where(and(eq(terminalMerchantAssignments.id, existing.id), eq(terminalMerchantAssignments.tenantId, ctx.tenantId)));
     } else {
       assignmentId = generateUlid();
       await tx.insert(terminalMerchantAssignments).values({
@@ -368,7 +368,7 @@ export async function assignTerminalMerchant(ctx: RequestContext, input: AssignT
     return { result: { id: assignmentId }, events: [] };
   });
 
-  await auditLog(ctx, 'payment.terminal_assignment.updated', 'terminal_merchant_assignment', result.id);
+  auditLogDeferred(ctx, 'payment.terminal_assignment.updated', 'terminal_merchant_assignment', result.id);
   return result;
 }
 
@@ -404,11 +404,11 @@ export async function updateMerchantAccountAch(ctx: RequestContext, input: Updat
     await tx
       .update(paymentMerchantAccounts)
       .set(updates)
-      .where(eq(paymentMerchantAccounts.id, input.merchantAccountId));
+      .where(and(eq(paymentMerchantAccounts.id, input.merchantAccountId), eq(paymentMerchantAccounts.tenantId, ctx.tenantId)));
 
     return { result: { id: input.merchantAccountId }, events: [] };
   });
 
-  await auditLog(ctx, 'payment.merchant_account.ach_updated', 'payment_merchant_account', result.id);
+  auditLogDeferred(ctx, 'payment.merchant_account.ach_updated', 'payment_merchant_account', result.id);
   return result;
 }

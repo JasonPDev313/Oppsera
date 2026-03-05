@@ -1,7 +1,7 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { db, glAccounts, taxGroupGlDefaults } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
@@ -90,7 +90,7 @@ export async function saveTaxGroupDefaults(
     return { result: defaults!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.tax_group_defaults.saved', 'tax_group_gl_defaults', taxGroupId);
+  auditLogDeferred(ctx, 'accounting.tax_group_defaults.saved', 'tax_group_gl_defaults', taxGroupId);
 
   // Auto-remap eligible tenders if enabled (never throws)
   const autoRemap = await tryAutoRemap(ctx);

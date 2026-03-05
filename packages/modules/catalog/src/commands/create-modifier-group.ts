@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { catalogModifierGroups, catalogModifiers, catalogModifierGroupCategories } from '../schema';
@@ -75,7 +75,7 @@ export async function createModifierGroup(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     'catalog.modifier_group.created',
     'catalog_modifier_group',

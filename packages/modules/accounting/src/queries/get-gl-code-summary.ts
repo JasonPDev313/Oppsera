@@ -57,8 +57,8 @@ export async function getGlCodeSummary(
           jl.memo AS line_memo,
           je.memo AS entry_memo,
           jl.sub_department_id,
-          CAST(jl.debit_amount AS NUMERIC) AS debit_amt,
-          CAST(jl.credit_amount AS NUMERIC) AS credit_amt,
+          CAST(jl.debit_amount AS NUMERIC) * COALESCE(je.exchange_rate, 1) AS debit_amt,
+          CAST(jl.credit_amount AS NUMERIC) * COALESCE(je.exchange_rate, 1) AS credit_amt,
           -- Resolve category hierarchy for display
           cat.name AS cat_name,
           parent_cat.name AS parent_cat_name

@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaServiceAddons, spaServiceAddonLinks, spaServices } from '@oppsera/db';
@@ -49,7 +49,7 @@ export async function createServiceAddon(ctx: RequestContext, input: CreateAddon
     return { result: created!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.service_addon.created', 'spa_service_addon', result.id);
+  auditLogDeferred(ctx, 'spa.service_addon.created', 'spa_service_addon', result.id);
 
   return result;
 }
@@ -114,7 +114,7 @@ export async function linkAddonToService(ctx: RequestContext, input: LinkAddonTo
           isDefault: parsed.isDefault,
           priceOverride: parsed.priceOverride ?? null,
         })
-        .where(eq(spaServiceAddonLinks.id, existingLink.id))
+        .where(and(eq(spaServiceAddonLinks.id, existingLink.id), eq(spaServiceAddonLinks.tenantId, ctx.tenantId)))
         .returning();
 
       return { result: updated!, events: [] };
@@ -134,7 +134,7 @@ export async function linkAddonToService(ctx: RequestContext, input: LinkAddonTo
     return { result: created!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.service_addon.linked', 'spa_service_addon_link', result.id);
+  auditLogDeferred(ctx, 'spa.service_addon.linked', 'spa_service_addon_link', result.id);
 
   return result;
 }
@@ -171,7 +171,7 @@ export async function unlinkAddonFromService(
     return { result: link, events: [] };
   });
 
-  await auditLog(ctx, 'spa.service_addon.unlinked', 'spa_service_addon_link', result.id);
+  auditLogDeferred(ctx, 'spa.service_addon.unlinked', 'spa_service_addon_link', result.id);
 
   return result;
 }

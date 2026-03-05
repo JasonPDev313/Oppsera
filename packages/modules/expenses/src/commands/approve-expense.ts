@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth';
 import { publishWithOutbox } from '@oppsera/core/events';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events';
 import { expenses } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -35,7 +35,7 @@ export async function approveExpense(ctx: RequestContext, expenseId: string) {
         updatedAt: now,
         version: existing.version + 1,
       })
-      .where(eq(expenses.id, expenseId))
+      .where(and(eq(expenses.id, expenseId), eq(expenses.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'expense.approved.v1', {
@@ -48,6 +48,6 @@ export async function approveExpense(ctx: RequestContext, expenseId: string) {
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'expense.approved', 'expense', expenseId);
+  auditLogDeferred(ctx, 'expense.approved', 'expense', expenseId);
   return result;
 }

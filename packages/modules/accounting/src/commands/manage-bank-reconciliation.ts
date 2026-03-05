@@ -1,7 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { generateUlid } from '@oppsera/shared';
 import { bankAccounts, bankReconciliations, bankReconciliationItems } from '@oppsera/db';
 import type {
@@ -196,7 +196,7 @@ export async function startBankReconciliation(
     };
   });
 
-  await auditLog(ctx, 'accounting.bank_reconciliation.started', 'bank_reconciliation', result.id);
+  auditLogDeferred(ctx, 'accounting.bank_reconciliation.started', 'bank_reconciliation', result.id);
   return result;
 }
 
@@ -406,7 +406,7 @@ export async function completeBankReconciliation(
         notes: input.notes ?? recon.notes,
         updatedAt: now,
       })
-      .where(eq(bankReconciliations.id, input.reconciliationId))
+      .where(and(eq(bankReconciliations.id, input.reconciliationId), eq(bankReconciliations.tenantId, ctx.tenantId)))
       .returning();
 
     // Update bank account last reconciled date
@@ -416,7 +416,7 @@ export async function completeBankReconciliation(
         lastReconciledDate: recon.statementDate,
         updatedAt: now,
       })
-      .where(eq(bankAccounts.id, recon.bankAccountId));
+      .where(and(eq(bankAccounts.id, recon.bankAccountId), eq(bankAccounts.tenantId, ctx.tenantId)));
 
     return {
       result: {
@@ -444,7 +444,7 @@ export async function completeBankReconciliation(
     };
   });
 
-  await auditLog(ctx, 'accounting.bank_reconciliation.completed', 'bank_reconciliation', result.id);
+  auditLogDeferred(ctx, 'accounting.bank_reconciliation.completed', 'bank_reconciliation', result.id);
   return result;
 }
 
@@ -497,5 +497,5 @@ async function recomputeReconciliationBalances(
       difference: difference.toFixed(2),
       updatedAt: new Date(),
     })
-    .where(eq(bankReconciliations.id, reconciliationId));
+    .where(and(eq(bankReconciliations.id, reconciliationId), eq(bankReconciliations.tenantId, tenantId)));
 }

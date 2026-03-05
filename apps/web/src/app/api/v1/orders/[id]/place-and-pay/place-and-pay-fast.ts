@@ -149,7 +149,7 @@ export async function placeAndRecordTender(
         receiptSnapshot,
         updatedBy: ctx.user.id,
         updatedAt: now,
-      }).where(eq(orders.id, orderId));
+      }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
 
       placedLines = lines;
     } else {
@@ -262,7 +262,7 @@ export async function placeAndRecordTender(
         paidAt: now,
         updatedBy: ctx.user.id,
         updatedAt: now,
-      }).where(eq(orders.id, orderId));
+      }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
     }
 
     // Single incrementVersion (covers both place + tender version bump)
@@ -425,7 +425,7 @@ export async function placeAndRecordTender(
             );
             await glTx.update(tenders).set({
               allocationSnapshot: journalResult.allocationSnapshot,
-            }).where(eq(tenders.id, legacyGlData!.tenderId));
+            }).where(and(eq(tenders.id, legacyGlData!.tenderId), eq(tenders.tenantId, legacyGlData!.tenantId)));
           }).catch((err) => {
             console.error(`Legacy GL failed for tender in order ${orderId}:`, err instanceof Error ? err.message : err);
           })

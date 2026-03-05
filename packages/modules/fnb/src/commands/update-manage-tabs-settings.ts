@@ -1,7 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { fnbManageTabsSettings } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { ManageTabsSettingsInput } from '../validation';
@@ -60,7 +60,7 @@ export async function updateManageTabsSettings(
     return { result: settings!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.manage_tabs.settings_updated', 'fnb_manage_tabs_settings', result.id, undefined, {
+  auditLogDeferred(ctx, 'fnb.manage_tabs.settings_updated', 'fnb_manage_tabs_settings', result.id, undefined, {
     locationId,
     changes: input,
   });

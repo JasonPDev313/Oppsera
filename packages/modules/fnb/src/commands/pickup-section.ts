@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbServerAssignments } from '@oppsera/db';
 import { NotFoundError, AppError } from '@oppsera/shared';
@@ -76,7 +76,7 @@ export async function pickupSection(
     return { result: newAssignment!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.section.picked_up', 'fnb_server_assignments', result.id, undefined, {
+  auditLogDeferred(ctx, 'fnb.section.picked_up', 'fnb_server_assignments', result.id, undefined, {
     originalAssignmentId: input.assignmentId,
     newServerUserId: input.newServerUserId,
   });

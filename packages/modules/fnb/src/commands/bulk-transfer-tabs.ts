@@ -1,7 +1,7 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbTabs, fnbTabTransfers, fnbManagerOverrides } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -127,7 +127,7 @@ export async function bulkTransferTabs(
     return { result: bulkResult, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.tabs.bulk_transferred', 'fnb_manager_overrides', result.overrideId, undefined, {
+  auditLogDeferred(ctx, 'fnb.tabs.bulk_transferred', 'fnb_manager_overrides', result.overrideId, undefined, {
     tabCount: input.tabIds.length,
     succeeded: result.succeeded.length,
     failed: result.failed.length,

@@ -16,11 +16,13 @@ const {
   mockTransaction: vi.fn(),
 }));
 
-// Default insert chain: insert().values().returning() or .onConflictDoNothing()
+// Default insert chain: insert().values().returning() or .onConflictDoNothing().returning()
 mockInsert.mockReturnValue({
   values: vi.fn().mockReturnValue({
     returning: vi.fn().mockResolvedValue([]),
-    onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+    onConflictDoNothing: vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue([{ id: 'claimed-1' }]),
+    }),
   }),
 });
 
@@ -262,7 +264,9 @@ describe('DrizzleOutboxWriter', () => {
     mockInsert.mockReturnValue({
       values: vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([]),
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+        onConflictDoNothing: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: 'claimed-1' }]),
+        }),
       }),
     });
   });
@@ -309,7 +313,9 @@ describe('publishWithOutbox', () => {
     mockInsert.mockReturnValue({
       values: vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([]),
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+        onConflictDoNothing: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: 'claimed-1' }]),
+        }),
       }),
     });
   });
@@ -387,7 +393,9 @@ describe('InMemoryEventBus', () => {
     mockInsert.mockReturnValue({
       values: vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([]),
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+        onConflictDoNothing: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: 'claimed-1' }]),
+        }),
       }),
     });
   });
@@ -449,11 +457,12 @@ describe('InMemoryEventBus', () => {
     await bus.publish(event);
     expect(handler).toHaveBeenCalledTimes(1);
 
-    // Second publish: simulate already processed (select returns a row)
-    mockSelect.mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue([{ id: 'pe_01', eventId: event.eventId, consumerName: 'test' }]),
+    // Second publish: simulate already claimed (onConflictDoNothing returns empty)
+    mockInsert.mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([]),
+        onConflictDoNothing: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([]),
         }),
       }),
     });
@@ -541,7 +550,9 @@ describe('OutboxWorker', () => {
     mockInsert.mockReturnValue({
       values: vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([]),
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+        onConflictDoNothing: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: 'claimed-1' }]),
+        }),
       }),
     });
 
@@ -613,7 +624,9 @@ describe('Full round trip', () => {
     mockInsert.mockReturnValue({
       values: vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([]),
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+        onConflictDoNothing: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: 'claimed-1' }]),
+        }),
       }),
     });
 

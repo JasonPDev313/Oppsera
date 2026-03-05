@@ -154,6 +154,7 @@ vi.mock('@oppsera/core/events/build-event', () => ({
 const mockAuditLog = vi.fn();
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: (...args: any[]) => mockAuditLog(...args),
+  auditLogDeferred: vi.fn(),
 }));
 
 vi.mock('@oppsera/shared', () => ({

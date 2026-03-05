@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customers, customerCommunications, customerActivityLog } from '@oppsera/db';
@@ -49,6 +49,6 @@ export async function logCustomerCommunication(ctx: RequestContext, input: LogCu
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.communication_logged', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.communication_logged', 'customer', input.customerId);
   return result;
 }

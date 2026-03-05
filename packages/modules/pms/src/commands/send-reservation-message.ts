@@ -5,7 +5,7 @@
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError, AppError } from '@oppsera/shared';
 import {
@@ -160,6 +160,6 @@ export async function sendReservationMessage(ctx: RequestContext, input: SendRes
     return { result: { id: logId, status }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.message.sent', 'pms_message_log', result.id);
+  auditLogDeferred(ctx, 'pms.message.sent', 'pms_message_log', result.id);
   return result;
 }

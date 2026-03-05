@@ -1,7 +1,7 @@
 import { eq, and, desc } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { fixedAssets, fixedAssetDepreciation } from '@oppsera/db';
@@ -175,7 +175,7 @@ export async function disposeFixedAsset(ctx: RequestContext, input: DisposeFixed
         disposalGlAccountId: disposalAccountId,
         updatedAt: new Date(),
       })
-      .where(eq(fixedAssets.id, input.assetId))
+      .where(and(eq(fixedAssets.id, input.assetId), eq(fixedAssets.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, ACCOUNTING_EVENTS.FIXED_ASSET_DISPOSED, {
@@ -192,6 +192,6 @@ export async function disposeFixedAsset(ctx: RequestContext, input: DisposeFixed
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.fixed_asset.disposed', 'fixed_asset', result.id);
+  auditLogDeferred(ctx, 'accounting.fixed_asset.disposed', 'fixed_asset', result.id);
   return result;
 }

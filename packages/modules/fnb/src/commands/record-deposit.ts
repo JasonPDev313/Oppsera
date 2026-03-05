@@ -3,7 +3,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { CloseBatchNotFoundError } from '../errors';
 import { FNB_EVENTS } from '../events/types';
 import type { DepositRecordedPayload } from '../events/types';
@@ -66,6 +66,6 @@ export async function recordDeposit(ctx: RequestContext, input: RecordDepositInp
     return { result: deposit, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.deposit.recorded', 'deposit_slip', (result as Record<string, unknown>).id as string);
+  auditLogDeferred(ctx, 'fnb.deposit.recorded', 'deposit_slip', (result as Record<string, unknown>).id as string);
   return result;
 }

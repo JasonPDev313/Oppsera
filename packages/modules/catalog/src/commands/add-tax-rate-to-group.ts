@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { taxGroups, taxGroupRates, taxRates } from '../schema';
@@ -57,5 +57,5 @@ export async function addTaxRateToGroup(
     return { result: undefined, events: [event] };
   });
 
-  await auditLog(ctx, 'tax.group.rate_added', 'tax_group', input.taxGroupId);
+  auditLogDeferred(ctx, 'tax.group.rate_added', 'tax_group', input.taxGroupId);
 }

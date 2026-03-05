@@ -7,7 +7,7 @@
 
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import {
   customers,
@@ -214,7 +214,7 @@ export async function bulkImportCustomers(
         status: errorRows === mappedRows.length ? 'failed' : errorRows > 0 ? 'complete_with_errors' : 'completed',
         completedAt: new Date(),
       })
-      .where(eq(customerImportLogs.id, importLogId));
+      .where(and(eq(customerImportLogs.id, importLogId), eq(customerImportLogs.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'customers.bulk_imported.v1', {
       importLogId,
@@ -240,7 +240,7 @@ export async function bulkImportCustomers(
     };
   });
 
-  await auditLog(ctx, 'customers.bulk_imported', 'customer_import_log', result.importLogId);
+  auditLogDeferred(ctx, 'customers.bulk_imported', 'customer_import_log', result.importLogId);
 
   return result;
 }
@@ -381,7 +381,7 @@ async function updateExistingCustomer(
       if (addr.country) addrUpdates.country = addr.country;
       if (Object.keys(addrUpdates).length > 0) {
         await tx.update(customerAddresses).set(addrUpdates)
-          .where(eq(customerAddresses.id, existing.id));
+          .where(and(eq(customerAddresses.id, existing.id), eq(customerAddresses.tenantId, tenantId)));
       }
     } else {
       await tx.insert(customerAddresses).values({

@@ -5,6 +5,16 @@ import type { listTasksSchema } from '../validation';
 
 type ListTasksInput = z.input<typeof listTasksSchema>;
 
+function encodeCursor(...parts: string[]): string {
+  return parts.join('|');
+}
+
+function decodeCursor(cursor: string, expectedParts: number): string[] | null {
+  const parts = cursor.split('|');
+  if (parts.length !== expectedParts) return null; // Legacy fallback
+  return parts;
+}
+
 export async function listTasks(input: ListTasksInput) {
   const { tenantId, projectId, status, cursor, limit = 50 } = input;
 
@@ -19,7 +29,17 @@ export async function listTasks(input: ListTasksInput) {
     }
 
     if (cursor) {
-      conditions.push(sql`t.id < ${cursor}`);
+      const decoded = decodeCursor(cursor, 3);
+      if (decoded) {
+        const [cursorSortOrder, cursorTaskNumber, cursorId] = decoded as [string, string, string];
+        // All three sorts are ASC — row-value > works
+        conditions.push(
+          sql`(t.sort_order, t.task_number, t.id) > (${parseInt(cursorSortOrder, 10)}, ${cursorTaskNumber}, ${cursorId})`,
+        );
+      } else {
+        // Legacy: cursor was plain id (was using id < incorrectly for ASC — fix to id >)
+        conditions.push(sql`t.id > ${cursor}`);
+      }
     }
 
     const whereClause = conditions.reduce((a, b) => sql`${a} AND ${b}`);
@@ -63,13 +83,14 @@ export async function listTasks(input: ListTasksInput) {
       FROM project_tasks t
       LEFT JOIN gl_accounts ga ON ga.id = t.gl_expense_account_id
       WHERE ${whereClause}
-      ORDER BY t.sort_order ASC, t.task_number ASC
+      ORDER BY t.sort_order ASC, t.task_number ASC, t.id ASC
       LIMIT ${limit + 1}
     `);
 
     const items = Array.from(rows as Iterable<typeof rows[number]>);
     const hasMore = items.length > limit;
     const result = hasMore ? items.slice(0, limit) : items;
+    const lastItem = result[result.length - 1];
 
     return {
       items: result.map((r) => ({
@@ -87,7 +108,9 @@ export async function listTasks(input: ListTasksInput) {
         updatedAt: r.updated_at,
         actualCost: r.actual_cost ? Number(r.actual_cost) : null,
       })),
-      cursor: hasMore ? result[result.length - 1]!.id : null,
+      cursor: hasMore && lastItem
+        ? encodeCursor(String(lastItem.sort_order), lastItem.task_number, lastItem.id)
+        : null,
       hasMore,
     };
   });

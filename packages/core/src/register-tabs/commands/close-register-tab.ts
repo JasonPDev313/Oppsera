@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { AppError, NotFoundError } from '@oppsera/shared';
 import { registerTabs } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
@@ -75,7 +75,7 @@ export async function closeRegisterTab(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'register_tab.closed', 'register_tab', result.id);
+  auditLogDeferred(ctx, 'register_tab.closed', 'register_tab', result.id);
 
   return result as RegisterTabRow;
 }

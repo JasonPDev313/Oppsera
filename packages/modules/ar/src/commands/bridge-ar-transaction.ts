@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { arInvoices, arReceipts } from '@oppsera/db';
@@ -96,6 +96,6 @@ export async function bridgeArTransaction(ctx: RequestContext, input: BridgeArTr
     throw new AppError('UNSUPPORTED_TX_TYPE', `Unsupported AR transaction type: ${txType}`, 400);
   });
 
-  await auditLog(ctx, 'ar.transaction.bridged', 'ar_transaction', input.arTransactionId);
+  auditLogDeferred(ctx, 'ar.transaction.bridged', 'ar_transaction', input.arTransactionId);
   return result;
 }

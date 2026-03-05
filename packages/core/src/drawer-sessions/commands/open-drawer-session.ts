@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { generateUlid, AppError } from '@oppsera/shared';
 import { drawerSessions } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
@@ -104,6 +104,6 @@ export async function openDrawerSession(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'drawer.session.opened', 'drawer_session', result.id);
+  auditLogDeferred(ctx, 'drawer.session.opened', 'drawer_session', result.id);
   return mapRow(result);
 }

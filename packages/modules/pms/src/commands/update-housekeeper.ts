@@ -3,7 +3,7 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsHousekeepers } from '@oppsera/db';
@@ -31,13 +31,13 @@ export async function updateHousekeeper(
     await tx
       .update(pmsHousekeepers)
       .set(updates)
-      .where(eq(pmsHousekeepers.id, housekeeperId));
+      .where(and(eq(pmsHousekeepers.id, housekeeperId), eq(pmsHousekeepers.tenantId, ctx.tenantId)));
 
     await pmsAuditLogEntry(tx, ctx, existing.propertyId, 'housekeeper', housekeeperId, 'updated', updates);
 
     return { result: { id: housekeeperId }, events: [] };
   });
 
-  await auditLog(ctx, 'pms.housekeeper.updated', 'pms_housekeeper', result.id);
+  auditLogDeferred(ctx, 'pms.housekeeper.updated', 'pms_housekeeper', result.id);
   return result;
 }

@@ -2,7 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { checkIdempotency } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaAppointments, spaAppointmentItems, spaAppointmentHistory } from '@oppsera/db';
@@ -137,7 +137,7 @@ export async function rescheduleAppointment(ctx: RequestContext, input: Reschedu
           resourceId: parsed.newResourceId ?? item.resourceId,
           updatedAt: new Date(),
         })
-        .where(eq(spaAppointmentItems.id, item.id));
+        .where(and(eq(spaAppointmentItems.id, item.id), eq(spaAppointmentItems.tenantId, ctx.tenantId)));
     }
 
     // Record history
@@ -171,7 +171,7 @@ export async function rescheduleAppointment(ctx: RequestContext, input: Reschedu
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'spa.appointment.rescheduled', 'spa_appointment', result.id);
+  auditLogDeferred(ctx, 'spa.appointment.rescheduled', 'spa_appointment', result.id);
 
   return result;
 }

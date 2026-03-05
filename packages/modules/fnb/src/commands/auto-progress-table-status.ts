@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { fnbTableStatusHistory } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { HOST_EVENTS } from '../events/host-events';
@@ -236,7 +236,7 @@ export async function autoProgressTableStatus(
     return null;
   }
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     'fnb.table.auto_progressed',
     'fnb_table_live_status',

@@ -1,5 +1,15 @@
-import { eq, and, lt, ilike, or, desc, asc, isNull, isNotNull } from 'drizzle-orm';
+import { eq, and, ilike, or, desc, asc, isNull, isNotNull, sql } from 'drizzle-orm';
 import { withTenant, spaServices, spaServiceCategories } from '@oppsera/db';
+
+function encodeCursor(...parts: string[]): string {
+  return parts.join('|');
+}
+
+function decodeCursor(cursor: string, expectedParts: number): string[] | null {
+  const parts = cursor.split('|');
+  if (parts.length !== expectedParts) return null; // Legacy fallback
+  return parts;
+}
 
 export interface ListServicesInput {
   tenantId: string;
@@ -47,7 +57,7 @@ export interface ListServicesResult {
  * Returns paginated services with cursor pagination.
  * Filters by category, status (active = archivedAt IS NULL), search (name ILIKE).
  * Includes category name via LEFT JOIN.
- * Order by sortOrder ASC, then createdAt DESC.
+ * Order by sortOrder ASC, createdAt DESC, id DESC.
  */
 export async function listServices(input: ListServicesInput): Promise<ListServicesResult> {
   const limit = Math.min(input.limit ?? 50, 100);
@@ -56,7 +66,20 @@ export async function listServices(input: ListServicesInput): Promise<ListServic
     const conditions = [eq(spaServices.tenantId, input.tenantId)];
 
     if (input.cursor) {
-      conditions.push(lt(spaServices.id, input.cursor));
+      const decoded = decodeCursor(input.cursor, 3);
+      if (decoded) {
+        const [cursorSortOrder, cursorCreatedAt, cursorId] = decoded as [string, string, string];
+        // Mixed direction: sortOrder ASC, createdAt DESC, id DESC
+        // OR expansion: (sort_order > cursorSO) OR (sort_order = cursorSO AND (created_at, id) < (cursorCA, cursorId))
+        conditions.push(
+          sql`(${spaServices.sortOrder} > ${parseInt(cursorSortOrder, 10)} OR (${spaServices.sortOrder} = ${parseInt(cursorSortOrder, 10)} AND (${spaServices.createdAt}, ${spaServices.id}) < (${cursorCreatedAt}::timestamptz, ${cursorId})))` as unknown as ReturnType<typeof eq>,
+        );
+      } else {
+        // Legacy: cursor was plain id
+        conditions.push(
+          sql`${spaServices.id} < ${input.cursor}` as unknown as ReturnType<typeof eq>,
+        );
+      }
     }
 
     if (input.categoryId) {
@@ -111,12 +134,15 @@ export async function listServices(input: ListServicesInput): Promise<ListServic
       .from(spaServices)
       .leftJoin(spaServiceCategories, eq(spaServices.categoryId, spaServiceCategories.id))
       .where(and(...conditions))
-      .orderBy(asc(spaServices.sortOrder), desc(spaServices.createdAt))
+      .orderBy(asc(spaServices.sortOrder), desc(spaServices.createdAt), desc(spaServices.id))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
     const sliced = hasMore ? rows.slice(0, limit) : rows;
-    const nextCursor = hasMore ? sliced[sliced.length - 1]!.id : null;
+    const lastItem = sliced[sliced.length - 1];
+    const nextCursor = hasMore && lastItem
+      ? encodeCursor(String(lastItem.sortOrder), lastItem.createdAt.toISOString(), lastItem.id)
+      : null;
 
     const items: ServiceListRow[] = sliced.map((r) => ({
       id: r.id,

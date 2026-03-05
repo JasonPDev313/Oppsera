@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { NotFoundError } from '@oppsera/shared';
 import { terminals } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
@@ -29,7 +29,7 @@ export async function deactivateTerminal(
     const [updated] = await tx
       .update(terminals)
       .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(terminals.id, terminalId))
+      .where(and(eq(terminals.id, terminalId), eq(terminals.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'platform.terminal.deactivated.v1', {
@@ -39,6 +39,6 @@ export async function deactivateTerminal(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'platform.terminal.deactivated', 'terminal', result.id);
+  auditLogDeferred(ctx, 'platform.terminal.deactivated', 'terminal', result.id);
   return result;
 }

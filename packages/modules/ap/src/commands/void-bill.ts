@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -143,7 +143,7 @@ export async function voidBill(ctx: RequestContext, input: VoidBillInput) {
         voidReason: input.reason,
         updatedAt: new Date(),
       })
-      .where(eq(apBills.id, input.billId))
+      .where(and(eq(apBills.id, input.billId), eq(apBills.tenantId, ctx.tenantId)))
       .returning();
 
     // 5. Emit void event
@@ -164,6 +164,6 @@ export async function voidBill(ctx: RequestContext, input: VoidBillInput) {
     };
   });
 
-  await auditLog(ctx, 'ap.bill.voided', 'ap_bill', result.id);
+  auditLogDeferred(ctx, 'ap.bill.voided', 'ap_bill', result.id);
   return result;
 }

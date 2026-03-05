@@ -1,7 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbPacingRules } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -123,7 +123,7 @@ export async function upsertPacingRule(
     return { result: rule, events: [event] };
   });
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     'fnb.pacing.rule_upserted',
     'fnb_pacing_rules',

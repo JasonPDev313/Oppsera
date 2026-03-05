@@ -1,7 +1,7 @@
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { withTenant } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
@@ -129,6 +129,6 @@ export async function notifyWaitlistParty(
     }
   }
 
-  await auditLog(ctx, 'fnb.waitlist.notified', 'waitlist_entry', entryId);
+  auditLogDeferred(ctx, 'fnb.waitlist.notified', 'waitlist_entry', entryId);
   return result;
 }

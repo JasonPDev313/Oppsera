@@ -213,6 +213,23 @@ export async function handleInitiationContractForAccounting(event: EventEnvelope
       });
     }
 
+    // Validate debit/credit balance before posting
+    const totalDebits = lines.reduce((s, l) => s + Number(l.debitAmount), 0);
+    const totalCredits = lines.reduce((s, l) => s + Number(l.creditAmount), 0);
+    if (Math.abs(totalDebits - totalCredits) > 0.01) {
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'membership.initiation.contract.created.v1',
+          sourceModule: 'membership',
+          sourceReferenceId: data.contractId,
+          entityType: 'gl_balance_error',
+          entityId: data.contractId,
+          reason: `Initiation contract GL entry unbalanced: debits=$${totalDebits.toFixed(2)} credits=$${totalCredits.toFixed(2)}. initiationFeeCents=${data.initiationFeeCents} vs financedPrincipal=${data.financedPrincipalCents}+downPayment=${data.downPaymentCents}.`,
+        });
+      } catch { /* best-effort */ }
+      return;
+    }
+
     await postingApi.postEntry(ctx, {
       businessDate: new Date().toISOString().split('T')[0]!,
       sourceModule: 'membership',

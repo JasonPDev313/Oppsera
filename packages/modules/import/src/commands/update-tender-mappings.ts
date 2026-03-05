@@ -4,7 +4,7 @@
 
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { importJobs, importTenderMappings } from '@oppsera/db';
 
@@ -49,6 +49,6 @@ export async function updateTenderMappings(
     return { result: { updated: input.mappings.length }, events: [] };
   });
 
-  await auditLog(ctx, 'import.tender_mappings.updated', 'import_job', input.importJobId);
+  auditLogDeferred(ctx, 'import.tender_mappings.updated', 'import_job', input.importJobId);
   return result;
 }

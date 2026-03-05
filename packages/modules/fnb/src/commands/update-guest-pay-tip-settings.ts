@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { generateUlid } from '@oppsera/shared';
 import { FNB_EVENTS } from '../events/types';
 import type { UpdateGuestPayTipSettingsInput } from '../validation';
@@ -99,6 +99,6 @@ export async function updateGuestPayTipSettings(
     return { result: { locationId: input.locationId, updated: changedKeys }, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.guestpay.tip_settings_updated', 'guest_pay_tip_settings', input.locationId);
+  auditLogDeferred(ctx, 'fnb.guestpay.tip_settings_updated', 'guest_pay_tip_settings', input.locationId);
   return result;
 }

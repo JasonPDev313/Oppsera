@@ -1,6 +1,6 @@
 import { sql, eq, and } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { fnbKdsAlertProfiles } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { UpdateAlertProfileInput } from '../validation';
@@ -61,6 +61,6 @@ export async function updateAlertProfile(
     return updated!;
   });
 
-  await auditLog(ctx, 'fnb.kds.alert_profile.updated', 'fnb_kds_alert_profiles', result.id);
+  auditLogDeferred(ctx, 'fnb.kds.alert_profile.updated', 'fnb_kds_alert_profiles', result.id);
   return result;
 }

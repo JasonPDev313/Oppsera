@@ -1,7 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError, ValidationError } from '@oppsera/shared';
 import {
@@ -282,7 +282,7 @@ export async function pickUpGroupRoom(ctx: RequestContext, input: PickUpGroupRoo
     return { result: { ...reservation!, folioId }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.group.room_picked_up', 'pms_group', input.groupId);
+  auditLogDeferred(ctx, 'pms.group.room_picked_up', 'pms_group', input.groupId);
 
   return result;
 }

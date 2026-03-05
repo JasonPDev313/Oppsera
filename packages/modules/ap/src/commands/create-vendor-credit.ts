@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -120,7 +120,7 @@ export async function createVendorCredit(ctx: RequestContext, input: CreateVendo
     await tx
       .update(apBills)
       .set({ glJournalEntryId: glResult.id })
-      .where(eq(apBills.id, billId));
+      .where(and(eq(apBills.id, billId), eq(apBills.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, AP_EVENTS.BILL_POSTED, {
       billId,
@@ -136,6 +136,6 @@ export async function createVendorCredit(ctx: RequestContext, input: CreateVendo
     return { result: creditResult, events: [event] };
   });
 
-  await auditLog(ctx, 'ap.vendor_credit.created', 'ap_bill', result.id);
+  auditLogDeferred(ctx, 'ap.vendor_credit.created', 'ap_bill', result.id);
   return result;
 }

@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { computeChanges } from '@oppsera/core/audit/diff';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -67,7 +67,7 @@ export async function updateModifierGroupCategory(
     const [updated] = await tx
       .update(catalogModifierGroupCategories)
       .set(updates)
-      .where(eq(catalogModifierGroupCategories.id, categoryId))
+      .where(and(eq(catalogModifierGroupCategories.id, categoryId), eq(catalogModifierGroupCategories.tenantId, ctx.tenantId)))
       .returning();
 
     const detectedChanges = computeChanges(
@@ -84,7 +84,7 @@ export async function updateModifierGroupCategory(
     return { result: { category: updated!, changes: detectedChanges }, events: [event] };
   });
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     'catalog.modifier_group_category.updated',
     'catalog_modifier_group_category',

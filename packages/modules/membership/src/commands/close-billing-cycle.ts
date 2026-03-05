@@ -1,7 +1,7 @@
 import { eq, and, lte } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { membershipSubscriptions, membershipPlans, membershipAccounts, customers } from '@oppsera/db';
 import type { CloseBillingCycleInput } from '../validation';
@@ -165,6 +165,6 @@ export async function closeBillingCycle(
     return { result: summary, events };
   });
 
-  await auditLog(ctx, 'membership.billing_cycle.closed', 'membership', input.cycleDate);
+  auditLogDeferred(ctx, 'membership.billing_cycle.closed', 'membership', input.cycleDate);
   return result;
 }

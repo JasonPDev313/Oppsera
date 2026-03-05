@@ -5,7 +5,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
 import { pmsProperties } from '@oppsera/db';
@@ -65,6 +65,6 @@ export async function assignHousekeeping(ctx: RequestContext, input: AssignHouse
     return { result: { assignmentCount: input.assignments.length }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.housekeeping.assigned', 'pms_housekeeping_assignment', input.propertyId);
+  auditLogDeferred(ctx, 'pms.housekeeping.assigned', 'pms_housekeeping_assignment', input.propertyId);
   return result;
 }

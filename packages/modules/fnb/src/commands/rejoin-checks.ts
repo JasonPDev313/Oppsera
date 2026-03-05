@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { TabNotFoundError, TabVersionConflictError, SplitNotAllowedError } from '../errors';
 import type { RejoinChecksInput } from '../validation';
@@ -67,6 +67,6 @@ export async function rejoinChecks(
     return { result: rejoined, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.tab.rejoined', 'fnb_tabs', input.tabId);
+  auditLogDeferred(ctx, 'fnb.tab.rejoined', 'fnb_tabs', input.tabId);
   return result;
 }

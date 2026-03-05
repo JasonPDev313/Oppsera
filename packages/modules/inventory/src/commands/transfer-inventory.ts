@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError, generateUlid } from '@oppsera/shared';
 import { inventoryMovements } from '@oppsera/db';
@@ -150,6 +150,6 @@ export async function transferInventory(
     };
   });
 
-  await auditLog(ctx, 'inventory.transferred', 'inventory_item', result.sourceMovement.inventoryItemId);
+  auditLogDeferred(ctx, 'inventory.transferred', 'inventory_item', result.sourceMovement.inventoryItemId);
   return result;
 }

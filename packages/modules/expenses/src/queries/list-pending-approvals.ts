@@ -3,6 +3,22 @@ import { withTenant } from '@oppsera/db';
 import type { z } from 'zod';
 import type { pendingApprovalsSchema } from '../validation';
 
+function encodeCursor(submittedAt: string, id: string): string {
+  return `${submittedAt}|${id}`;
+}
+
+function decodeCursor(cursor: string): { submittedAt: string; id: string } | null {
+  const pipeIndex = cursor.lastIndexOf('|');
+  if (pipeIndex > 0) {
+    return {
+      submittedAt: cursor.slice(0, pipeIndex),
+      id: cursor.slice(pipeIndex + 1),
+    };
+  }
+  // Backwards compatibility: id-only cursor
+  return null;
+}
+
 type PendingApprovalsInput = z.input<typeof pendingApprovalsSchema>;
 
 export async function listPendingApprovals(input: PendingApprovalsInput) {
@@ -19,7 +35,18 @@ export async function listPendingApprovals(input: PendingApprovalsInput) {
     }
 
     if (cursor) {
-      conditions.push(sql`e.id < ${cursor}`);
+      const decoded = decodeCursor(cursor);
+      if (decoded) {
+        // Composite cursor for (submitted_at ASC, id DESC):
+        // advance when submitted_at > cursor, OR submitted_at = cursor AND id < cursor
+        conditions.push(sql`(
+          e.submitted_at > ${decoded.submittedAt}
+          OR (e.submitted_at = ${decoded.submittedAt} AND e.id < ${decoded.id})
+        )`);
+      } else {
+        // Backwards-compatible id-only cursor
+        conditions.push(sql`e.id < ${cursor}`);
+      }
     }
 
     const whereClause = conditions.reduce((a, b) => sql`${a} AND ${b}`);
@@ -90,7 +117,12 @@ export async function listPendingApprovals(input: PendingApprovalsInput) {
         createdAt: r.created_at,
         policyName: r.policy_name ?? null,
       })),
-      cursor: hasMore ? result[result.length - 1]!.id : null,
+      cursor: hasMore
+        ? encodeCursor(
+            result[result.length - 1]!.submitted_at ?? result[result.length - 1]!.id,
+            result[result.length - 1]!.id,
+          )
+        : null,
       hasMore,
     };
   });

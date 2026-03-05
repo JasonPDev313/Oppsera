@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbTabs, fnbTabCourses } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -135,7 +135,7 @@ export async function openTab(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.tab.opened', 'fnb_tabs', result.id, undefined, {
+  auditLogDeferred(ctx, 'fnb.tab.opened', 'fnb_tabs', result.id, undefined, {
     tabNumber: result.tabNumber,
     tableId: input.tableId,
     serverUserId: input.serverUserId,

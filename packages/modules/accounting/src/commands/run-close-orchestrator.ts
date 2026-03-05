@@ -4,7 +4,7 @@ import { erpCloseOrchestratorRuns } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import { getWorkflowConfig } from '@oppsera/core/erp';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { getCloseChecklist } from '../queries/get-close-checklist';
 
 export interface StepResult {
@@ -256,7 +256,7 @@ export async function runCloseOrchestrator(
     `);
   });
 
-  await auditLog(ctx, 'accounting.close_orchestrator.run', 'erp_close_orchestrator_run', runId);
+  auditLogDeferred(ctx, 'accounting.close_orchestrator.run', 'erp_close_orchestrator_run', runId);
 
   return {
     runId,

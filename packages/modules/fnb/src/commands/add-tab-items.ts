@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
 import { fnbTabItems, fnbTabCourses } from '@oppsera/db';
@@ -140,7 +140,7 @@ export async function addTabItems(
     return { result: insertedItems, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.tab.items_added', 'fnb_tabs', input.tabId, undefined, {
+  auditLogDeferred(ctx, 'fnb.tab.items_added', 'fnb_tabs', input.tabId, undefined, {
     itemCount: result.length,
   });
 

@@ -1,7 +1,7 @@
 import { eq, and, count } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth';
 import { publishWithOutbox } from '@oppsera/core/events';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events';
 import { projects, projectTasks } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -63,6 +63,6 @@ export async function createTask(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'project_costing.task.created', 'project_task', result.id);
+  auditLogDeferred(ctx, 'project_costing.task.created', 'project_task', result.id);
   return result;
 }

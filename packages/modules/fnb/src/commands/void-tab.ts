@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbTabs, fnbTableLiveStatus } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -92,7 +92,7 @@ export async function voidTab(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.tab.voided', 'fnb_tabs', tabId, undefined, {
+  auditLogDeferred(ctx, 'fnb.tab.voided', 'fnb_tabs', tabId, undefined, {
     reason: input.reason,
   });
 

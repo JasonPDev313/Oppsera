@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth';
 import { publishWithOutbox } from '@oppsera/core/events';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events';
 import { projectTasks } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -27,7 +27,7 @@ export async function closeTask(ctx: RequestContext, taskId: string) {
         status: 'closed',
         updatedAt: new Date(),
       })
-      .where(eq(projectTasks.id, taskId))
+      .where(and(eq(projectTasks.id, taskId), eq(projectTasks.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'project_costing.task.closed.v1', {
@@ -38,6 +38,6 @@ export async function closeTask(ctx: RequestContext, taskId: string) {
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'project_costing.task.closed', 'project_task', taskId);
+  auditLogDeferred(ctx, 'project_costing.task.closed', 'project_task', taskId);
   return result;
 }

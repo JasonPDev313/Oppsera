@@ -2,6 +2,15 @@ import { eq, and, lt, desc, gte, lte, sql, isNotNull } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { orders, customers } from '@oppsera/db';
 
+function encodeCursor(leadCol: string, id: string): string {
+  return `${leadCol}|${id}`;
+}
+function decodeCursor(cursor: string): { lead: string; id: string } | null {
+  const sep = cursor.indexOf('|');
+  if (sep === -1) return null;
+  return { lead: cursor.slice(0, sep), id: cursor.slice(sep + 1) };
+}
+
 export interface ListHeldOrdersInput {
   tenantId: string;
   locationId: string;
@@ -41,7 +50,12 @@ export async function listHeldOrders(input: ListHeldOrdersInput): Promise<ListHe
     ];
 
     if (input.cursor) {
-      conditions.push(lt(orders.id, input.cursor));
+      const decoded = decodeCursor(input.cursor);
+      if (decoded) {
+        conditions.push(sql`(${orders.heldAt}, ${orders.id}) < (${decoded.lead}, ${decoded.id})`);
+      } else {
+        conditions.push(lt(orders.id, input.cursor));
+      }
     }
 
     if (input.employeeId) {
@@ -84,7 +98,10 @@ export async function listHeldOrders(input: ListHeldOrdersInput): Promise<ListHe
 
     const hasMore = rows.length > limit;
     const items = hasMore ? rows.slice(0, limit) : rows;
-    const nextCursor = hasMore ? items[items.length - 1]!.id : null;
+    const lastItem = hasMore ? items[items.length - 1]! : null;
+    const nextCursor = lastItem
+      ? encodeCursor(lastItem.heldAt instanceof Date ? lastItem.heldAt.toISOString() : String(lastItem.heldAt), lastItem.id)
+      : null;
 
     const result: HeldOrderRow[] = items.map((row) => ({
       id: row.id,

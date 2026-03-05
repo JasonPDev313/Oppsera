@@ -71,8 +71,20 @@ export async function handleCompForAccounting(event: EventEnvelope): Promise<voi
       ?? settings.defaultUncategorizedRevenueAccountId;
     const revenueAccountId: string | null = settings.defaultUncategorizedRevenueAccountId;
 
-    // Try sub-department-specific comp account (NOTE: the comp event doesn't carry subDepartmentId
-    // directly, so we use the default. For richer resolution, the event payload would need enrichment.)
+    // Guard: self-canceling entry when comp expense falls back to same revenue account
+    if (compExpenseAccountId && revenueAccountId && compExpenseAccountId === revenueAccountId) {
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'order.line.comped.v1',
+          sourceModule: 'pos',
+          sourceReferenceId: data.compEventId,
+          entityType: 'gl_account',
+          entityId: 'comp_expense',
+          reason: `Comp of $${(data.amountCents / 100).toFixed(2)} skipped — comp expense account and revenue account are the same (${compExpenseAccountId}). Configure a dedicated Comp Expense GL account.`,
+        });
+      } catch { /* best-effort */ }
+      return;
+    }
 
     if (!compExpenseAccountId || !revenueAccountId) {
       try {
@@ -177,6 +189,21 @@ export async function handleLineVoidForAccounting(event: EventEnvelope): Promise
         ?? settings.defaultUncategorizedRevenueAccountId;
       const inventoryAccountId = (settings as Record<string, any>).defaultInventoryAssetAccountId
         ?? settings.defaultUncategorizedRevenueAccountId;
+
+      // Guard: self-canceling entry when both resolve to same fallback account
+      if (wasteAccountId && inventoryAccountId && wasteAccountId === inventoryAccountId) {
+        try {
+          await logUnmappedEvent(db, event.tenantId, {
+            eventType: 'order.line.voided.v1',
+            sourceModule: 'pos',
+            sourceReferenceId: `${data.orderId}-${data.orderLineId}`,
+            entityType: 'gl_account',
+            entityId: 'waste_expense',
+            reason: `Waste void of $${(data.voidedAmountCents / 100).toFixed(2)} skipped — waste expense and inventory accounts are the same (${wasteAccountId}). Configure dedicated Waste Expense and Inventory Asset GL accounts.`,
+          });
+        } catch { /* best-effort */ }
+        return;
+      }
 
       if (wasteAccountId && inventoryAccountId) {
         const amountDollars = (data.voidedAmountCents / 100).toFixed(2);

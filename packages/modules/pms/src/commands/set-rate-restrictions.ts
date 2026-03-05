@@ -5,7 +5,7 @@
 import { sql, and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
 import { pmsProperties } from '@oppsera/db';
@@ -78,6 +78,6 @@ export async function setRateRestrictions(ctx: RequestContext, input: SetRateRes
     };
   });
 
-  await auditLog(ctx, 'pms.rate_restriction.set', 'pms_rate_restriction', input.propertyId);
+  auditLogDeferred(ctx, 'pms.rate_restriction.set', 'pms_rate_restriction', input.propertyId);
   return result;
 }

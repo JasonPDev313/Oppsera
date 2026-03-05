@@ -3,7 +3,7 @@ import { AppError } from '@oppsera/shared';
 import { retailCloseBatches } from '@oppsera/db';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import type { RequestContext } from '../../auth/context';
 import type { ReconcileRetailCloseInput } from '../validation';
 import type { RetailCloseBatch, TenderBreakdownEntry, DepartmentSalesEntry, TaxGroupEntry } from '../types';
@@ -110,6 +110,6 @@ export async function reconcileRetailClose(
     return { result: mapRow(updated!), events: [event] };
   });
 
-  await auditLog(ctx, 'retail.close.reconciled', 'retail_close_batch', result.id);
+  auditLogDeferred(ctx, 'retail.close.reconciled', 'retail_close_batch', result.id);
   return result;
 }

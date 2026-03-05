@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customers, customerDocuments, customerActivityLog } from '@oppsera/db';
@@ -34,7 +34,7 @@ export async function uploadCustomerFile(ctx: RequestContext, input: UploadCusto
     if (input.documentType === 'photo') {
       const profileImageUrl = `/storage/${input.storageKey}`;
       await (tx as any).update(customers).set({ profileImageUrl, updatedAt: new Date() })
-        .where(eq(customers.id, input.customerId));
+        .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, ctx.tenantId)));
     }
 
     // Activity log
@@ -65,6 +65,6 @@ export async function uploadCustomerFile(ctx: RequestContext, input: UploadCusto
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.file_uploaded', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.file_uploaded', 'customer', input.customerId);
   return result;
 }

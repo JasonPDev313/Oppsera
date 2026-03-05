@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -80,6 +80,6 @@ export async function voidSettlement(
     };
   });
 
-  await auditLog(ctx, 'accounting.settlement.voided', 'payment_settlement', input.settlementId);
+  auditLogDeferred(ctx, 'accounting.settlement.voided', 'payment_settlement', input.settlementId);
   return result;
 }

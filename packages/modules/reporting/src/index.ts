@@ -42,6 +42,7 @@ export {
   handleFnbTenderApplied,
   handleStoredValueRedeemed,
   handleGuestPaySucceeded,
+  handleTenderReversed,
 } from './consumers';
 
 // ── Query Services ────────────────────────────────────────────

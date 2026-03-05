@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { paymentTerms } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
@@ -37,6 +37,6 @@ export async function createPaymentTerms(
     };
   });
 
-  await auditLog(ctx, 'ap.payment_terms.created', 'payment_terms', result.id);
+  auditLogDeferred(ctx, 'ap.payment_terms.created', 'payment_terms', result.id);
   return result;
 }

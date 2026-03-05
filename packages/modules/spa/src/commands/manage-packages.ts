@@ -2,7 +2,7 @@ import { eq, and, lte } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { withTenant, spaPackageDefinitions, spaPackageBalances, spaPackageRedemptions } from '@oppsera/db';
@@ -97,7 +97,7 @@ export async function purchasePackage(ctx: RequestContext, input: PurchasePackag
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'spa.package.sold', 'spa_package_balance', result.id);
+  auditLogDeferred(ctx, 'spa.package.sold', 'spa_package_balance', result.id);
 
   return result;
 }
@@ -234,7 +234,7 @@ export async function redeemPackageSession(ctx: RequestContext, input: RedeemPac
     return { result: { balance: updated!, redemption: redemption! }, events: [event] };
   });
 
-  await auditLog(ctx, 'spa.package.redeemed', 'spa_package_balance', result.balance.id);
+  auditLogDeferred(ctx, 'spa.package.redeemed', 'spa_package_balance', result.balance.id);
 
   return result;
 }
@@ -326,7 +326,7 @@ export async function voidPackageRedemption(ctx: RequestContext, input: VoidPack
     return { result: { balance: updated!, redemption: { ...redemption, voided: true } }, events: [] };
   });
 
-  await auditLog(ctx, 'spa.package.redemption_voided', 'spa_package_redemption', input.redemptionId);
+  auditLogDeferred(ctx, 'spa.package.redemption_voided', 'spa_package_redemption', input.redemptionId);
 
   return result;
 }
@@ -420,7 +420,7 @@ export async function freezePackage(ctx: RequestContext, input: FreezePackageInp
     return { result: updated!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.package.frozen', 'spa_package_balance', result.id);
+  auditLogDeferred(ctx, 'spa.package.frozen', 'spa_package_balance', result.id);
 
   return result;
 }
@@ -477,7 +477,7 @@ export async function unfreezePackage(ctx: RequestContext, input: UnfreezePackag
     return { result: updated!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.package.unfrozen', 'spa_package_balance', result.id);
+  auditLogDeferred(ctx, 'spa.package.unfrozen', 'spa_package_balance', result.id);
 
   return result;
 }
@@ -555,7 +555,7 @@ export async function transferPackage(ctx: RequestContext, input: TransferPackag
     return { result: { ...updated!, fromCustomerId }, events: [] };
   });
 
-  await auditLog(ctx, 'spa.package.transferred', 'spa_package_balance', result.id);
+  auditLogDeferred(ctx, 'spa.package.transferred', 'spa_package_balance', result.id);
 
   return result;
 }

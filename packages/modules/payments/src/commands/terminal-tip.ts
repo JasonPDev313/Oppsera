@@ -1,4 +1,4 @@
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { resolveTerminalContext } from '../helpers/resolve-terminal-context';
@@ -53,7 +53,7 @@ export async function terminalTip(
   });
 
   // 4. Audit
-  await auditLog(ctx, 'payments.terminal_tip', 'terminal', input.terminalId);
+  auditLogDeferred(ctx, 'payments.terminal_tip', 'terminal', input.terminalId);
 
   return {
     tipAmountCents: dollarsToCents(tipResponse.tipAmount),

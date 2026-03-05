@@ -38,11 +38,12 @@ vi.mock('@oppsera/db', () => ({
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((a, b) => ({ type: 'eq', a, b })),
   and: vi.fn((...args: unknown[]) => ({ type: 'and', args })),
+  inArray: vi.fn((col, vals) => ({ type: 'inArray', col, vals })),
 }));
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({ publishWithOutbox: mocks.publishWithOutbox }));
 vi.mock('@oppsera/core/events/build-event', () => ({ buildEventFromContext: mocks.buildEventFromContext }));
-vi.mock('@oppsera/core/audit/helpers', () => ({ auditLog: mocks.auditLog }));
+vi.mock('@oppsera/core/audit/helpers', () => ({ auditLog: mocks.auditLog, auditLogDeferred: mocks.auditLog }));
 vi.mock('@oppsera/core/helpers/idempotency', () => ({ checkIdempotency: mocks.checkIdempotency, saveIdempotencyKey: mocks.saveIdempotencyKey }));
 vi.mock('@oppsera/core/helpers/optimistic-lock', () => ({ incrementVersion: mocks.incrementVersion }));
 

@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { tags, smartTagRules } from '@oppsera/db';
@@ -46,6 +46,6 @@ export async function createSmartTagRule(ctx: RequestContext, input: CreateSmart
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.smart_tag_rule_created', 'smart_tag_rule', result.id);
+  auditLogDeferred(ctx, 'customer.smart_tag_rule_created', 'smart_tag_rule', result.id);
   return result;
 }

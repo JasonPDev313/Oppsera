@@ -4,7 +4,7 @@
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
 import { pmsWorkOrders, pmsProperties } from '@oppsera/db';
@@ -56,6 +56,6 @@ export async function createWorkOrder(ctx: RequestContext, input: CreateWorkOrde
     return { result: { id }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.work_order.created', 'pms_work_order', result.id);
+  auditLogDeferred(ctx, 'pms.work_order.created', 'pms_work_order', result.id);
   return result;
 }

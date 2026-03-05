@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbTables, fnbTableLiveStatus, floorPlanRooms, floorPlanVersions } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -206,7 +206,7 @@ export async function syncTablesFromFloorPlan(
     return { result: syncResult, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.tables.synced_from_floor_plan', 'floor_plan_rooms', input.roomId, undefined, {
+  auditLogDeferred(ctx, 'fnb.tables.synced_from_floor_plan', 'floor_plan_rooms', input.roomId, undefined, {
     tablesCreated: result.tablesCreated,
     tablesUpdated: result.tablesUpdated,
     tablesDeactivated: result.tablesDeactivated,

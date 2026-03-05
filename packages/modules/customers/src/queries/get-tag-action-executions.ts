@@ -5,9 +5,19 @@
  * customer, tag, status, and date range. Cursor-paginated.
  */
 
-import { eq, and, desc, lte, gte, gt } from 'drizzle-orm';
+import { eq, and, desc, lte, gte, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { tagActionExecutions, tagActions } from '@oppsera/db';
+
+function encodeCursor(...parts: string[]): string {
+  return parts.join('|');
+}
+
+function decodeCursor(cursor: string, expectedParts: number): string[] | null {
+  const parts = cursor.split('|');
+  if (parts.length !== expectedParts) return null; // Legacy fallback
+  return parts;
+}
 
 export interface GetTagActionExecutionsInput {
   tenantId: string;
@@ -45,7 +55,7 @@ export async function getTagActionExecutions(
   const limit = Math.min(input.limit ?? 50, 200);
 
   return withTenant(input.tenantId, async (tx) => {
-    const conditions: any[] = [
+    const conditions: unknown[] = [
       eq(tagActionExecutions.tenantId, input.tenantId),
     ];
 
@@ -66,7 +76,18 @@ export async function getTagActionExecutions(
     }
 
     if (input.cursor) {
-      conditions.push(gt(tagActionExecutions.id, input.cursor));
+      const decoded = decodeCursor(input.cursor, 2);
+      if (decoded) {
+        const [cursorExecutedAt, cursorId] = decoded as [string, string];
+        conditions.push(
+          sql`(${tagActionExecutions.executedAt}, ${tagActionExecutions.id}) < (${cursorExecutedAt}::timestamptz, ${cursorId})`,
+        );
+      } else {
+        // Legacy: cursor was plain id (was using gt incorrectly — fall back to lt for DESC)
+        conditions.push(
+          sql`${tagActionExecutions.id} < ${input.cursor}`,
+        );
+      }
     }
 
     // If tagId is specified, filter to actions belonging to that tag
@@ -87,8 +108,8 @@ export async function getTagActionExecutions(
         })
         .from(tagActionExecutions)
         .innerJoin(tagActions, eq(tagActions.id, tagActionExecutions.tagActionId))
-        .where(and(...conditions, eq(tagActions.tagId, input.tagId)))
-        .orderBy(desc(tagActionExecutions.executedAt))
+        .where(and(...(conditions as Parameters<typeof and>), eq(tagActions.tagId, input.tagId)))
+        .orderBy(desc(tagActionExecutions.executedAt), desc(tagActionExecutions.id))
         .limit(limit + 1);
     } else {
       query = tx
@@ -106,8 +127,8 @@ export async function getTagActionExecutions(
         })
         .from(tagActionExecutions)
         .innerJoin(tagActions, eq(tagActions.id, tagActionExecutions.tagActionId))
-        .where(and(...conditions))
-        .orderBy(desc(tagActionExecutions.executedAt))
+        .where(and(...(conditions as Parameters<typeof and>)))
+        .orderBy(desc(tagActionExecutions.executedAt), desc(tagActionExecutions.id))
         .limit(limit + 1);
     }
 
@@ -115,8 +136,9 @@ export async function getTagActionExecutions(
     const hasMore = rows.length > limit;
     const items = hasMore ? rows.slice(0, limit) : rows;
 
+    const lastItem = items[items.length - 1];
     return {
-      items: items.map((r: any) => ({
+      items: items.map((r) => ({
         id: r.id,
         tagActionId: r.tagActionId,
         actionType: r.actionType ?? 'unknown',
@@ -128,7 +150,14 @@ export async function getTagActionExecutions(
         durationMs: r.durationMs ?? null,
         executedAt: r.executedAt instanceof Date ? r.executedAt.toISOString() : String(r.executedAt),
       })),
-      cursor: hasMore ? items[items.length - 1]?.id ?? null : null,
+      cursor: hasMore && lastItem
+        ? encodeCursor(
+            lastItem.executedAt instanceof Date
+              ? lastItem.executedAt.toISOString()
+              : String(lastItem.executedAt),
+            lastItem.id,
+          )
+        : null,
       hasMore,
     };
   });

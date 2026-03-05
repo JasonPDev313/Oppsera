@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glJournalEntries, glJournalLines } from '@oppsera/db';
@@ -78,7 +78,7 @@ export async function voidJournalEntry(
         voidedAt: new Date(),
         voidReason: reason,
       })
-      .where(eq(glJournalEntries.id, entryId));
+      .where(and(eq(glJournalEntries.id, entryId), eq(glJournalEntries.tenantId, ctx.tenantId)));
 
     // 4. Create reversal entry (debits↔credits swapped)
     const reversalNumber = await generateJournalNumber(tx, ctx.tenantId);
@@ -146,6 +146,6 @@ export async function voidJournalEntry(
     };
   });
 
-  await auditLog(ctx, 'accounting.journal.voided', 'gl_journal_entry', entryId);
+  auditLogDeferred(ctx, 'accounting.journal.voided', 'gl_journal_entry', entryId);
   return result;
 }

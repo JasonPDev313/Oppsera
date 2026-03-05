@@ -2,7 +2,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaAppointments, spaAppointmentItems, spaAppointmentHistory, spaProviders, spaResources } from '@oppsera/db';
@@ -273,7 +273,7 @@ export async function createRecurringAppointment(ctx: RequestContext, input: Cre
     return { result: resultPayload, events };
   });
 
-  await auditLog(ctx, 'spa.appointment.recurring_created', 'spa_appointment_series', result.totalCreated?.toString() ?? '0');
+  auditLogDeferred(ctx, 'spa.appointment.recurring_created', 'spa_appointment_series', result.totalCreated?.toString() ?? '0');
 
   return result;
 }

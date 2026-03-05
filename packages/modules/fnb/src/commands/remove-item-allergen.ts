@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbItemAllergens } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -32,6 +32,6 @@ export async function removeItemAllergen(
     return { result: { removed: deleted.length > 0 }, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.allergen.removed', 'fnb_item_allergens', input.catalogItemId);
+  auditLogDeferred(ctx, 'fnb.allergen.removed', 'fnb_item_allergens', input.catalogItemId);
   return result;
 }

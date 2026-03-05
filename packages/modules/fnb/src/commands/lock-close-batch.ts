@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { CloseBatchNotFoundError, CloseBatchStatusConflictError } from '../errors';
 
 interface LockCloseBatchInput {
@@ -34,6 +34,6 @@ export async function lockCloseBatch(ctx: RequestContext, input: LockCloseBatchI
     return { result: updated, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.close_batch.locked', 'close_batch', input.closeBatchId);
+  auditLogDeferred(ctx, 'fnb.close_batch.locked', 'close_batch', input.closeBatchId);
   return result;
 }

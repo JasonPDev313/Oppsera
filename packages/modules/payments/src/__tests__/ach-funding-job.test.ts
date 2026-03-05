@@ -150,6 +150,7 @@ vi.mock('@oppsera/core/events/build-event', () => ({
 
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: vi.fn(),
+  auditLogDeferred: vi.fn(),
 }));
 
 vi.mock('@oppsera/shared', () => ({
@@ -180,7 +181,7 @@ import { pollAchFunding } from '../jobs/poll-ach-funding';
 import { providerRegistry } from '../providers/registry';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 
 // ── Test Fixtures ───────────────────────────────────────────
 
@@ -769,7 +770,7 @@ describe('pollAchFunding', () => {
           providerRef: 'ref-1',
         }),
       );
-      expect(auditLog).toHaveBeenCalledWith(
+      expect(auditLogDeferred).toHaveBeenCalledWith(
         baseCtx,
         'payment.ach.settled',
         'payment_intent',
@@ -944,7 +945,7 @@ describe('pollAchFunding', () => {
           bankLast4: '7890',
         }),
       );
-      expect(auditLog).toHaveBeenCalledWith(
+      expect(auditLogDeferred).toHaveBeenCalledWith(
         baseCtx,
         'payment.ach.originated',
         'payment_intent',

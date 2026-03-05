@@ -1,6 +1,16 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { currencyExchangeRates } from '@oppsera/db';
+
+function encodeCursor(...parts: string[]): string {
+  return parts.join('|');
+}
+
+function decodeCursor(cursor: string, expectedParts: number): string[] | null {
+  const parts = cursor.split('|');
+  if (parts.length !== expectedParts) return null; // Legacy fallback
+  return parts;
+}
 
 export interface ExchangeRateListItem {
   id: string;
@@ -45,6 +55,21 @@ export async function listExchangeRates(
       conditions.push(eq(currencyExchangeRates.toCurrency, input.toCurrency));
     }
 
+    if (input.cursor) {
+      const decoded = decodeCursor(input.cursor, 2);
+      if (decoded) {
+        const [cursorDate, cursorId] = decoded as [string, string];
+        conditions.push(
+          sql`(${currencyExchangeRates.effectiveDate}, ${currencyExchangeRates.id}) < (${cursorDate}::date, ${cursorId})` as unknown as ReturnType<typeof eq>,
+        );
+      } else {
+        // Legacy: cursor was plain id
+        conditions.push(
+          sql`${currencyExchangeRates.id} < ${input.cursor}` as unknown as ReturnType<typeof eq>,
+        );
+      }
+    }
+
     const rows = await tx
       .select({
         id: currencyExchangeRates.id,
@@ -63,6 +88,7 @@ export async function listExchangeRates(
 
     const hasMore = rows.length > limit;
     const items = hasMore ? rows.slice(0, limit) : rows;
+    const lastItem = items[items.length - 1];
 
     return {
       items: items.map((row) => ({
@@ -75,7 +101,9 @@ export async function listExchangeRates(
         createdAt: row.createdAt,
         createdBy: row.createdBy,
       })),
-      cursor: hasMore ? items[items.length - 1]!.id : null,
+      cursor: hasMore && lastItem
+        ? encodeCursor(lastItem.effectiveDate, lastItem.id)
+        : null,
       hasMore,
     };
   });

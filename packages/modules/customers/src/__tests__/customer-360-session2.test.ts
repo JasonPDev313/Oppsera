@@ -112,6 +112,7 @@ vi.mock('@oppsera/core/events/build-event', () => ({
 }));
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: mockAuditLog,
+  auditLogDeferred: mockAuditLog,
 }));
 vi.mock('@oppsera/core/audit/diff', () => ({
   computeChanges: vi.fn(() => ({})),
@@ -1353,7 +1354,7 @@ describe('Customer 360 — Session 2: Customer Financial Engine', () => {
 
       expect(result.entries).toHaveLength(50);
       expect(result.hasMore).toBe(true);
-      expect(result.cursor).toBe('AUDIT_049');
+      expect(result.cursor).toBe('2026-02-20T10:49:00.000Z|AUDIT_049');
     });
   });
 });

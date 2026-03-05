@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customerAlerts, customerActivityLog } from '@oppsera/db';
@@ -20,7 +20,7 @@ export async function dismissAlert(ctx: RequestContext, input: DismissAlertInput
       isActive: false,
       dismissedAt: new Date(),
       dismissedBy: ctx.user.id,
-    }).where(eq(customerAlerts.id, input.alertId)).returning();
+    }).where(and(eq(customerAlerts.id, input.alertId), eq(customerAlerts.tenantId, ctx.tenantId))).returning();
 
     // Activity log
     await (tx as any).insert(customerActivityLog).values({
@@ -41,6 +41,6 @@ export async function dismissAlert(ctx: RequestContext, input: DismissAlertInput
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.alert_dismissed', 'customer', result.customerId);
+  auditLogDeferred(ctx, 'customer.alert_dismissed', 'customer', result.customerId);
   return result;
 }

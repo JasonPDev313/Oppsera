@@ -47,6 +47,6 @@ export function setAuditLogger(logger: AuditLogger): void {
 // ── Re-exports ───────────────────────────────────────────────────
 
 export { DrizzleAuditLogger } from './audit-logger';
-export { auditLog, auditLogSystem } from './helpers';
+export { auditLog, auditLogDeferred, auditLogSystem } from './helpers';
 export { computeChanges } from './diff';
 export { pruneAuditLog } from './retention';

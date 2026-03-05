@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError, generateUlid } from '@oppsera/shared';
 import {
@@ -226,7 +226,7 @@ export async function addReceiptLine(
           landedUnitCost: c.landedUnitCost.toString(),
           updatedAt: new Date(),
         })
-        .where(eq(receivingReceiptLines.id, c.id));
+        .where(and(eq(receivingReceiptLines.id, c.id), eq(receivingReceiptLines.tenantId, ctx.tenantId)));
     }
 
     // 9. Update header totals
@@ -239,7 +239,7 @@ export async function addReceiptLine(
         total: total.toString(),
         updatedAt: new Date(),
       })
-      .where(eq(receivingReceipts.id, input.receiptId));
+      .where(and(eq(receivingReceipts.id, input.receiptId), eq(receivingReceipts.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'inventory.receipt.line_added.v1', {
       receiptId: input.receiptId,
@@ -252,7 +252,7 @@ export async function addReceiptLine(
     return { result: newLine, events: [event] };
   });
 
-  await auditLog(ctx, 'inventory.receipt.line_added', 'receiving_receipt', input.receiptId);
+  auditLogDeferred(ctx, 'inventory.receipt.line_added', 'receiving_receipt', input.receiptId);
   return result;
 }
 

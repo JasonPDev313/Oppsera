@@ -2,7 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth';
 import { publishWithOutbox } from '@oppsera/core/events';
 import { getAccountingPostingApi } from '@oppsera/core/helpers';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events';
 import { expenses } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -67,7 +67,7 @@ export async function voidExpense(ctx: RequestContext, input: VoidExpenseInput) 
         updatedAt: now,
         version: existing.version + 1,
       })
-      .where(eq(expenses.id, expenseId))
+      .where(and(eq(expenses.id, expenseId), eq(expenses.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'expense.voided.v1', {
@@ -81,6 +81,6 @@ export async function voidExpense(ctx: RequestContext, input: VoidExpenseInput) 
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'expense.voided', 'expense', expenseId);
+  auditLogDeferred(ctx, 'expense.voided', 'expense', expenseId);
   return result;
 }

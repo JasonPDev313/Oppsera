@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { computeChanges } from '@oppsera/core/audit/diff';
 import { NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -37,7 +37,7 @@ export async function updateTaxRate(
     const [result] = await tx
       .update(taxRates)
       .set(updates)
-      .where(eq(taxRates.id, taxRateId))
+      .where(and(eq(taxRates.id, taxRateId), eq(taxRates.tenantId, ctx.tenantId)))
       .returning();
 
     const changes = computeChanges(existing, result!, ['updatedAt', 'updatedBy']);
@@ -50,6 +50,6 @@ export async function updateTaxRate(
     return { result: result!, events: [event] };
   });
 
-  await auditLog(ctx, 'tax.rate.updated', 'tax_rate', taxRateId);
+  auditLogDeferred(ctx, 'tax.rate.updated', 'tax_rate', taxRateId);
   return updated;
 }

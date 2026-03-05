@@ -46,22 +46,40 @@ export async function handleArInvoiceVoided(event: EventEnvelope): Promise<void>
     const rows = Array.from(inserted as Iterable<{ id: string }>);
     if (rows.length === 0) return;
 
-    // Step 2: Look up location timezone
-    const locationId = event.locationId || '';
-    const [location] = await (tx as any)
-      .select({ timezone: locations.timezone })
-      .from(locations)
-      .where(
-        and(
-          eq(locations.tenantId, event.tenantId),
-          eq(locations.id, locationId),
-        ),
-      )
-      .limit(1);
+    // Step 2: Look up original business_date and location_id from the revenue activity row
+    // Decrementing today's rm_daily_sales is wrong — we must reverse the ORIGINAL posting date
+    const origActivity = await (tx as any).execute(sql`
+      SELECT business_date, location_id FROM rm_revenue_activity
+      WHERE tenant_id = ${event.tenantId}
+        AND source = 'ar_invoice'
+        AND source_id = ${data.invoiceId}
+      LIMIT 1
+    `);
+    const origRows = Array.from(origActivity as Iterable<Record<string, unknown>>);
 
-    const timezone = location?.timezone ?? 'America/New_York';
-    const occurredAt = event.occurredAt;
-    const businessDate = computeBusinessDate(occurredAt, timezone);
+    let businessDate: string;
+    // Use original location_id from the revenue activity row when available
+    const locationId = (origRows.length > 0 && origRows[0]!.location_id)
+      ? String(origRows[0]!.location_id)
+      : (event.locationId || '');
+    if (origRows.length > 0 && origRows[0]!.business_date) {
+      // Use the original posting's business date
+      businessDate = String(origRows[0]!.business_date).slice(0, 10);
+    } else {
+      // Fallback: compute from event time (best effort)
+      const [location] = await (tx as any)
+        .select({ timezone: locations.timezone })
+        .from(locations)
+        .where(
+          and(
+            eq(locations.tenantId, event.tenantId),
+            eq(locations.id, locationId),
+          ),
+        )
+        .limit(1);
+      const timezone = location?.timezone ?? 'America/New_York';
+      businessDate = computeBusinessDate(event.occurredAt, timezone);
+    }
 
     // AR uses NUMERIC dollars (string or number), not cents
     const amountDollars = Number(data.totalAmount) || 0;
@@ -69,8 +87,7 @@ export async function handleArInvoiceVoided(event: EventEnvelope): Promise<void>
     // Step 3: Update rm_revenue_activity status to 'voided'
     await (tx as any).execute(sql`
       UPDATE rm_revenue_activity
-      SET status = 'voided',
-          occurred_at = ${occurredAt}::timestamptz
+      SET status = 'voided'
       WHERE tenant_id = ${event.tenantId}
         AND source = 'ar_invoice'
         AND source_id = ${data.invoiceId}

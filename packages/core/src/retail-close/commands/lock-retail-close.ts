@@ -3,7 +3,7 @@ import { AppError } from '@oppsera/shared';
 import { retailCloseBatches } from '@oppsera/db';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import type { RequestContext } from '../../auth/context';
 import type { LockRetailCloseInput } from '../validation';
 import type { RetailCloseBatch, TenderBreakdownEntry, DepartmentSalesEntry, TaxGroupEntry } from '../types';
@@ -102,6 +102,6 @@ export async function lockRetailClose(
     return { result: mapRow(updated!), events: [event] };
   });
 
-  await auditLog(ctx, 'retail.close.locked', 'retail_close_batch', result.id);
+  auditLogDeferred(ctx, 'retail.close.locked', 'retail_close_batch', result.id);
   return result;
 }

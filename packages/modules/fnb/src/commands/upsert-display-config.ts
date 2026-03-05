@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbStationDisplayConfigs, fnbKitchenStations } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -82,6 +82,6 @@ export async function upsertDisplayConfig(
     return { result: saved!, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.display_config.upserted', 'fnb_station_display_configs', result.id);
+  auditLogDeferred(ctx, 'fnb.display_config.upserted', 'fnb_station_display_configs', result.id);
   return result;
 }

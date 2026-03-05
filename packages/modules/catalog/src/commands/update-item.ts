@@ -1,7 +1,7 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { computeChanges } from '@oppsera/core/audit/diff';
 import { NotFoundError, ConflictError, AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -218,7 +218,7 @@ export async function updateItem(
     return { result: { item: updated!, changes: detectedChanges }, events: [event] };
   });
 
-  await auditLog(ctx, 'catalog.item.updated', 'catalog_item', itemId, changes);
+  auditLogDeferred(ctx, 'catalog.item.updated', 'catalog_item', itemId, changes);
 
   return item;
 }

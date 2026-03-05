@@ -1,5 +1,5 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { customerPaymentMethods, achMicroDeposits } from '@oppsera/db';
@@ -43,12 +43,12 @@ export async function verifyMicroDeposits(
       await tx
         .update(achMicroDeposits)
         .set({ status: 'expired' })
-        .where(eq(achMicroDeposits.id, deposit.id));
+        .where(and(eq(achMicroDeposits.id, deposit.id), eq(achMicroDeposits.tenantId, ctx.tenantId)));
 
       await tx
         .update(customerPaymentMethods)
         .set({ verificationStatus: 'failed', updatedAt: new Date() })
-        .where(eq(customerPaymentMethods.id, input.paymentMethodId));
+        .where(and(eq(customerPaymentMethods.id, input.paymentMethodId), eq(customerPaymentMethods.tenantId, ctx.tenantId)));
 
       throw new AppError('VERIFICATION_EXPIRED', 'Micro-deposit verification has expired', 410);
     }
@@ -66,7 +66,7 @@ export async function verifyMicroDeposits(
           status: 'verified',
           attempts: deposit.attempts + 1,
         })
-        .where(eq(achMicroDeposits.id, deposit.id));
+        .where(and(eq(achMicroDeposits.id, deposit.id), eq(achMicroDeposits.tenantId, ctx.tenantId)));
 
       await tx
         .update(customerPaymentMethods)
@@ -75,7 +75,7 @@ export async function verifyMicroDeposits(
           verificationAttempts: deposit.attempts + 1,
           updatedAt: new Date(),
         })
-        .where(eq(customerPaymentMethods.id, input.paymentMethodId));
+        .where(and(eq(customerPaymentMethods.id, input.paymentMethodId), eq(customerPaymentMethods.tenantId, ctx.tenantId)));
 
       return {
         result: { verified: true, remainingAttempts: 0 } satisfies VerifyMicroDepositsResult,
@@ -93,7 +93,7 @@ export async function verifyMicroDeposits(
         status: maxExceeded ? 'failed' : 'pending',
         attempts: newAttempts,
       })
-      .where(eq(achMicroDeposits.id, deposit.id));
+      .where(and(eq(achMicroDeposits.id, deposit.id), eq(achMicroDeposits.tenantId, ctx.tenantId)));
 
     if (maxExceeded) {
       await tx
@@ -103,7 +103,7 @@ export async function verifyMicroDeposits(
           verificationAttempts: newAttempts,
           updatedAt: new Date(),
         })
-        .where(eq(customerPaymentMethods.id, input.paymentMethodId));
+        .where(and(eq(customerPaymentMethods.id, input.paymentMethodId), eq(customerPaymentMethods.tenantId, ctx.tenantId)));
     } else {
       await tx
         .update(customerPaymentMethods)
@@ -111,7 +111,7 @@ export async function verifyMicroDeposits(
           verificationAttempts: newAttempts,
           updatedAt: new Date(),
         })
-        .where(eq(customerPaymentMethods.id, input.paymentMethodId));
+        .where(and(eq(customerPaymentMethods.id, input.paymentMethodId), eq(customerPaymentMethods.tenantId, ctx.tenantId)));
     }
 
     return {
@@ -123,6 +123,6 @@ export async function verifyMicroDeposits(
     };
   });
 
-  await auditLog(ctx, 'payment.micro_deposit.verified', 'customer_payment_method', input.paymentMethodId);
+  auditLogDeferred(ctx, 'payment.micro_deposit.verified', 'customer_payment_method', input.paymentMethodId);
   return result as VerifyMicroDepositsResult;
 }

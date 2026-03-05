@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import {
@@ -173,7 +173,7 @@ export async function voidReceipt(
         return (tx as any)
           .update(inventoryItems)
           .set({ currentCost: newCost.toString(), updatedAt: new Date() })
-          .where(eq(inventoryItems.id, itemId));
+          .where(and(eq(inventoryItems.id, itemId), eq(inventoryItems.tenantId, ctx.tenantId)));
       }),
     );
 
@@ -186,7 +186,7 @@ export async function voidReceipt(
         voidedBy: ctx.user.id,
         updatedAt: new Date(),
       })
-      .where(eq(receivingReceipts.id, input.receiptId))
+      .where(and(eq(receivingReceipts.id, input.receiptId), eq(receivingReceipts.tenantId, ctx.tenantId)))
       .returning();
 
     // 9. Build voided event
@@ -202,6 +202,6 @@ export async function voidReceipt(
     return { result: voidedReceipt, events: [event] };
   });
 
-  await auditLog(ctx, 'inventory.receipt.voided', 'receiving_receipt', input.receiptId);
+  auditLogDeferred(ctx, 'inventory.receipt.voided', 'receiving_receipt', input.receiptId);
   return result;
 }

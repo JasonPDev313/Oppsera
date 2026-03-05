@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { generateUlid } from '@oppsera/shared';
 import { generateLookupCode } from '../helpers/lookup-code';
@@ -253,6 +253,6 @@ export async function createGuestPaySession(
     };
   });
 
-  await auditLog(ctx, 'fnb.guestpay.session_created', 'guest_pay_sessions', result.sessionId);
+  auditLogDeferred(ctx, 'fnb.guestpay.session_created', 'guest_pay_sessions', result.sessionId);
   return result;
 }

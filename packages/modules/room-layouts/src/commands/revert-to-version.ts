@@ -1,7 +1,7 @@
 import { eq, and, desc } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { floorPlanRooms, floorPlanVersions } from '../schema';
@@ -65,7 +65,7 @@ export async function revertToVersion(
     await tx
       .update(floorPlanRooms)
       .set({ draftVersionId: created!.id, updatedAt: new Date() })
-      .where(eq(floorPlanRooms.id, roomId));
+      .where(and(eq(floorPlanRooms.id, roomId), eq(floorPlanRooms.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, ROOM_LAYOUT_EVENTS.VERSION_REVERTED, {
       versionId: created!.id,
@@ -77,6 +77,6 @@ export async function revertToVersion(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'room_layouts.version.reverted', 'floor_plan_version', version.id);
+  auditLogDeferred(ctx, 'room_layouts.version.reverted', 'floor_plan_version', version.id);
   return version;
 }

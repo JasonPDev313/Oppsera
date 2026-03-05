@@ -3,7 +3,7 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
 import { pmsDepositPolicies, pmsProperties } from '@oppsera/db';
@@ -55,6 +55,6 @@ export async function createDepositPolicy(ctx: RequestContext, input: CreateDepo
     return { result: { id }, events: [] };
   });
 
-  await auditLog(ctx, 'pms.deposit_policy.created', 'pms_deposit_policy', result.id);
+  auditLogDeferred(ctx, 'pms.deposit_policy.created', 'pms_deposit_policy', result.id);
   return result;
 }

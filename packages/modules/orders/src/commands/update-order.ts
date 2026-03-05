@@ -1,7 +1,7 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { orders } from '@oppsera/db';
 import type { UpdateOrderInput } from '../validation';
@@ -33,7 +33,7 @@ export async function updateOrder(ctx: RequestContext, orderId: string, input: U
       changes.metadata = { from: order.metadata, to: input.metadata };
     }
 
-    await tx.update(orders).set(updates).where(eq(orders.id, orderId));
+    await tx.update(orders).set(updates).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
     await incrementVersion(tx, orderId, ctx.tenantId);
 
     if (input.clientRequestId) {
@@ -48,6 +48,6 @@ export async function updateOrder(ctx: RequestContext, orderId: string, input: U
     return { result: { orderId }, events: [event] };
   });
 
-  await auditLog(ctx, 'order.updated', 'order', orderId);
+  auditLogDeferred(ctx, 'order.updated', 'order', orderId);
   return result;
 }

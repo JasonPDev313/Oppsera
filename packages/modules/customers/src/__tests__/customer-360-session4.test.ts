@@ -112,6 +112,7 @@ vi.mock('@oppsera/core/events/build-event', () => ({
 }));
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: mockAuditLog,
+  auditLogDeferred: mockAuditLog,
 }));
 vi.mock('@oppsera/core/audit/diff', () => ({
   computeChanges: vi.fn(() => ({})),

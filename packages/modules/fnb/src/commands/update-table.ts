@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { fnbTables } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { UpdateTableInput } from '../validation';
@@ -80,6 +80,6 @@ export async function updateTable(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.table.updated', 'fnb_tables', tableId);
+  auditLogDeferred(ctx, 'fnb.table.updated', 'fnb_tables', tableId);
   return result;
 }

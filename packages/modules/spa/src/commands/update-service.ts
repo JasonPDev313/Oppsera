@@ -1,7 +1,7 @@
 import { eq, and, isNull } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaServices, spaServiceCategories } from '@oppsera/db';
@@ -104,7 +104,7 @@ export async function updateService(ctx: RequestContext, input: UpdateServiceInp
     const [updated] = await tx
       .update(spaServices)
       .set(updateSet)
-      .where(eq(spaServices.id, parsed.id))
+      .where(and(eq(spaServices.id, parsed.id), eq(spaServices.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(
@@ -123,7 +123,7 @@ export async function updateService(ctx: RequestContext, input: UpdateServiceInp
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'spa.service.updated', 'spa_service', result.id);
+  auditLogDeferred(ctx, 'spa.service.updated', 'spa_service', result.id);
 
   return result;
 }

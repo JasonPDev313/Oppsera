@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaServiceCategories } from '@oppsera/db';
@@ -81,14 +81,14 @@ export async function updateServiceCategory(ctx: RequestContext, input: UpdateSe
     const [updated] = await tx
       .update(spaServiceCategories)
       .set(updateSet)
-      .where(eq(spaServiceCategories.id, parsed.id))
+      .where(and(eq(spaServiceCategories.id, parsed.id), eq(spaServiceCategories.tenantId, ctx.tenantId)))
       .returning();
 
     // Categories are config — no domain events emitted
     return { result: updated!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.service_category.updated', 'spa_service_category', result.id);
+  auditLogDeferred(ctx, 'spa.service_category.updated', 'spa_service_category', result.id);
 
   return result;
 }

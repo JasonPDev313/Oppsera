@@ -1,4 +1,4 @@
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { customerPaymentMethods } from '@oppsera/db';
@@ -55,8 +55,8 @@ export async function setDefaultPaymentMethod(
     await tx
       .update(customerPaymentMethods)
       .set({ isDefault: true, updatedAt: new Date() })
-      .where(eq(customerPaymentMethods.id, input.paymentMethodId));
+      .where(and(eq(customerPaymentMethods.id, input.paymentMethodId), eq(customerPaymentMethods.tenantId, ctx.tenantId)));
   });
 
-  await auditLog(ctx, 'payment.method.default_set', 'customer_payment_method', input.paymentMethodId);
+  auditLogDeferred(ctx, 'payment.method.default_set', 'customer_payment_method', input.paymentMethodId);
 }

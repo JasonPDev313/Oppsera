@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbSections, fnbServerAssignments } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
@@ -58,7 +58,7 @@ export async function assignServerToSection(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.server.assigned', 'fnb_server_assignments', result.id, undefined, {
+  auditLogDeferred(ctx, 'fnb.server.assigned', 'fnb_server_assignments', result.id, undefined, {
     sectionId: input.sectionId,
     serverUserId: input.serverUserId,
   });

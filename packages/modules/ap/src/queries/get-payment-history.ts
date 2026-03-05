@@ -1,6 +1,26 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 
+/** Encode a composite cursor as base64url "paymentDate|id". */
+function encodeCursor(paymentDate: string, id: string): string {
+  return Buffer.from(`${paymentDate}|${id}`).toString('base64url');
+}
+
+/** Decode a composite cursor. Returns null for legacy plain-id cursors. */
+function decodeCursor(cursor: string): { paymentDate: string; id: string } | null {
+  try {
+    const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+    const pipe = decoded.indexOf('|');
+    if (pipe === -1) return null; // legacy id-only cursor
+    const paymentDate = decoded.slice(0, pipe);
+    const id = decoded.slice(pipe + 1);
+    if (!paymentDate || !id) return null;
+    return { paymentDate, id };
+  } catch {
+    return null;
+  }
+}
+
 export interface GetPaymentHistoryInput {
   tenantId: string;
   vendorId?: string;
@@ -47,7 +67,16 @@ export async function getPaymentHistory(input: GetPaymentHistoryInput): Promise<
     if (input.endDate) conditions.push(sql`p.payment_date <= ${input.endDate}`);
     if (input.paymentMethod) conditions.push(sql`p.payment_method = ${input.paymentMethod}`);
     if (input.status) conditions.push(sql`p.status = ${input.status}`);
-    if (input.cursor) conditions.push(sql`p.id < ${input.cursor}`);
+    if (input.cursor) {
+      const parsed = decodeCursor(input.cursor);
+      if (parsed) {
+        // Both DESC — use row-value comparison: (payment_date, id) < (cursorDate, cursorId)
+        conditions.push(sql`(p.payment_date, p.id) < (${parsed.paymentDate}::date, ${parsed.id})`);
+      } else {
+        // Legacy plain-id cursor fallback
+        conditions.push(sql`p.id < ${input.cursor}`);
+      }
+    }
 
     const whereClause = conditions.reduce(
       (acc, cond, i) => (i === 0 ? sql`WHERE ${cond}` : sql`${acc} AND ${cond}`),
@@ -109,9 +138,12 @@ export async function getPaymentHistory(input: GetPaymentHistoryInput): Promise<
       });
     }
 
+    const lastPayment = paymentItems[paymentItems.length - 1];
     return {
       items,
-      cursor: hasMore ? String(paymentItems[paymentItems.length - 1]!.id) : null,
+      cursor: hasMore && lastPayment
+        ? encodeCursor(String(lastPayment.payment_date), String(lastPayment.id))
+        : null,
       hasMore,
     };
   });

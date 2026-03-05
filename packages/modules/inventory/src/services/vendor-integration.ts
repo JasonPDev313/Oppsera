@@ -91,7 +91,7 @@ export async function updateVendorItemCostAfterReceipt(
         vendorCost: costStr,
         updatedAt: now,
       })
-      .where(eq(itemVendors.id, existing[0].id));
+      .where(and(eq(itemVendors.id, existing[0].id), eq(itemVendors.tenantId, tenantId)));
   } else {
     // Auto-create new mapping
     await tx

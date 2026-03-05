@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { customerVisits } from '@oppsera/db';
@@ -24,7 +24,7 @@ export async function checkOutVisit(ctx: RequestContext, input: CheckOutVisitInp
     const [updated] = await (tx as any).update(customerVisits).set({
       checkOutAt: new Date(),
       durationMinutes,
-    }).where(eq(customerVisits.id, input.visitId)).returning();
+    }).where(and(eq(customerVisits.id, input.visitId), eq(customerVisits.tenantId, ctx.tenantId))).returning();
 
     const event = buildEventFromContext(ctx, 'customer_visit.checked_out.v1', {
       visitId: input.visitId,
@@ -35,6 +35,6 @@ export async function checkOutVisit(ctx: RequestContext, input: CheckOutVisitInp
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.visit_checked_out', 'customer_visit', input.visitId);
+  auditLogDeferred(ctx, 'customer.visit_checked_out', 'customer_visit', input.visitId);
   return result;
 }

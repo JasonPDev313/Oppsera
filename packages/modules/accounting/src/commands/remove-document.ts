@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glDocumentAttachments } from '@oppsera/db';
 import { withTenant } from '@oppsera/db';
@@ -23,6 +23,6 @@ export async function removeDocument(ctx: RequestContext, documentId: string) {
     return deleted;
   });
 
-  await auditLog(ctx, 'accounting.document.removed', 'gl_document_attachment', result.id);
+  auditLogDeferred(ctx, 'accounting.document.removed', 'gl_document_attachment', result.id);
   return result;
 }

@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     .set({
       viewCount: sql`${semanticEmbedTokens.viewCount} + 1`,
     })
-    .where(eq(semanticEmbedTokens.id, embedToken.id));
+    .where(and(eq(semanticEmbedTokens.id, embedToken.id), eq(semanticEmbedTokens.tenantId, embedToken.tenantId)));
 
   // Fetch current metric data based on widget config
   const metricData = await fetchMetricDataForWidget(

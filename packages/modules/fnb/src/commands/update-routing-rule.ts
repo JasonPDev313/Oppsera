@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbKitchenRoutingRules } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -51,6 +51,6 @@ export async function updateRoutingRule(
     return { result: updated!, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.routing_rule.updated', 'fnb_kitchen_routing_rules', ruleId);
+  auditLogDeferred(ctx, 'fnb.routing_rule.updated', 'fnb_kitchen_routing_rules', ruleId);
   return result;
 }

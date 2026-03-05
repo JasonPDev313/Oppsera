@@ -1,7 +1,7 @@
 import { eq, and, sql, ne } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaAppointments, spaAppointmentItems, spaAppointmentHistory } from '@oppsera/db';
@@ -100,7 +100,7 @@ export async function removeAppointmentService(ctx: RequestContext, input: Remov
         status: 'canceled',
         updatedAt: now,
       })
-      .where(eq(spaAppointmentItems.id, input.itemId));
+      .where(and(eq(spaAppointmentItems.id, input.itemId), eq(spaAppointmentItems.tenantId, ctx.tenantId)));
 
     // Recalculate appointment end time from remaining active items
     const [maxEnd] = await tx
@@ -164,7 +164,7 @@ export async function removeAppointmentService(ctx: RequestContext, input: Remov
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'spa.appointment.service_removed', 'spa_appointment', result.id);
+  auditLogDeferred(ctx, 'spa.appointment.service_removed', 'spa_appointment', result.id);
 
   return result;
 }

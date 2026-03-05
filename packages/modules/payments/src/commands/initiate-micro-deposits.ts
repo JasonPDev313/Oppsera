@@ -1,5 +1,5 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { customerPaymentMethods, achMicroDeposits } from '@oppsera/db';
@@ -121,7 +121,7 @@ export async function initiateMicroDeposits(
         verificationStatus: 'pending_micro',
         updatedAt: new Date(),
       })
-      .where(eq(customerPaymentMethods.id, paymentMethodId));
+      .where(and(eq(customerPaymentMethods.id, paymentMethodId), eq(customerPaymentMethods.tenantId, ctx.tenantId)));
 
     return {
       result: {
@@ -133,6 +133,6 @@ export async function initiateMicroDeposits(
     };
   });
 
-  await auditLog(ctx, 'payment.micro_deposit.initiated', 'customer_payment_method', paymentMethodId);
+  auditLogDeferred(ctx, 'payment.micro_deposit.initiated', 'customer_payment_method', paymentMethodId);
   return result;
 }

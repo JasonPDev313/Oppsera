@@ -1,7 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaAppointments, spaAppointmentItems, spaAppointmentHistory } from '@oppsera/db';
@@ -175,7 +175,7 @@ export async function addAppointmentService(ctx: RequestContext, input: AddAppoi
     return { result: { ...updated!, addedItem: newItem! }, events: [event] };
   });
 
-  await auditLog(ctx, 'spa.appointment.service_added', 'spa_appointment', result.id);
+  auditLogDeferred(ctx, 'spa.appointment.service_added', 'spa_appointment', result.id);
 
   return result;
 }

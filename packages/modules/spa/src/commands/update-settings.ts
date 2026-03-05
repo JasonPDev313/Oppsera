@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaSettings } from '@oppsera/db';
 import type { z } from 'zod';
@@ -66,7 +66,7 @@ export async function updateSpaSettings(ctx: RequestContext, input: UpdateSettin
           ...updateFields,
           updatedAt: new Date(),
         })
-        .where(eq(spaSettings.id, existing.id))
+        .where(and(eq(spaSettings.id, existing.id), eq(spaSettings.tenantId, ctx.tenantId)))
         .returning();
     } else {
       // Insert new settings row
@@ -83,6 +83,6 @@ export async function updateSpaSettings(ctx: RequestContext, input: UpdateSettin
     return { result: settings!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.settings.updated', 'spa_settings', result.id);
+  auditLogDeferred(ctx, 'spa.settings.updated', 'spa_settings', result.id);
   return result;
 }

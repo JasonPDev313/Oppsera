@@ -5,7 +5,7 @@
 import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import {
   importJobs,
@@ -165,6 +165,6 @@ export async function createImportJob(
     return { result: job!, events: [event] };
   });
 
-  await auditLog(ctx, 'import.job.created', 'import_job', result.id);
+  auditLogDeferred(ctx, 'import.job.created', 'import_job', result.id);
   return result;
 }

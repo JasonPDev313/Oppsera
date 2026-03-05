@@ -5,7 +5,7 @@
 import { and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { generateUlid, NotFoundError, ValidationError } from '@oppsera/shared';
@@ -137,6 +137,6 @@ export async function chargeCard(ctx: RequestContext, input: ChargeCardInput) {
     return { result: resultPayload, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.payment.charged', 'pms_payment_transaction', result.id);
+  auditLogDeferred(ctx, 'pms.payment.charged', 'pms_payment_transaction', result.id);
   return result;
 }

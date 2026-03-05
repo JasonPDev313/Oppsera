@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, generateUlid } from '@oppsera/shared';
 import { surchargeSettings } from '@oppsera/db';
@@ -122,7 +122,7 @@ export async function saveSurchargeSettings(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'payments.surcharge.saved', 'surcharge_settings', result.id);
+  auditLogDeferred(ctx, 'payments.surcharge.saved', 'surcharge_settings', result.id);
   return result;
 }
 
@@ -161,6 +161,6 @@ export async function deleteSurchargeSettings(
     return { result: { id: input.id, deleted: true }, events: [event] };
   });
 
-  await auditLog(ctx, 'payments.surcharge.deleted', 'surcharge_settings', input.id);
+  auditLogDeferred(ctx, 'payments.surcharge.deleted', 'surcharge_settings', input.id);
   return result;
 }

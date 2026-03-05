@@ -1,7 +1,7 @@
 import { eq, and, isNull } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbEightySixLog } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -68,6 +68,6 @@ export async function eightySixItem(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.86.item_eighty_sixed', 'fnb_eighty_six_log', result.id);
+  auditLogDeferred(ctx, 'fnb.86.item_eighty_sixed', 'fnb_eighty_six_log', result.id);
   return result;
 }

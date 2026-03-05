@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { sql } from 'drizzle-orm';
@@ -213,6 +213,6 @@ export async function createBillFromReceipt(
     };
   });
 
-  await auditLog(ctx, 'ap.bill.created_from_receipt', 'ap_bill', result.id);
+  auditLogDeferred(ctx, 'ap.bill.created_from_receipt', 'ap_bill', result.id);
   return result;
 }

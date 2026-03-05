@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glClassifications } from '@oppsera/db';
 import { generateUlid, ConflictError } from '@oppsera/shared';
@@ -50,6 +50,6 @@ export async function createGlClassification(
     return { result: classification!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.classification.created', 'gl_classification', result.id);
+  auditLogDeferred(ctx, 'accounting.classification.created', 'gl_classification', result.id);
   return result;
 }

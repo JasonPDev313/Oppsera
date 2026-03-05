@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { NotFoundError } from '@oppsera/shared';
 import { terminals } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
@@ -38,7 +38,7 @@ export async function updateTerminal(
     const [updated] = await tx
       .update(terminals)
       .set(updates)
-      .where(eq(terminals.id, terminalId))
+      .where(and(eq(terminals.id, terminalId), eq(terminals.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'platform.terminal.updated.v1', {
@@ -49,6 +49,6 @@ export async function updateTerminal(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'platform.terminal.updated', 'terminal', result.id);
+  auditLogDeferred(ctx, 'platform.terminal.updated', 'terminal', result.id);
   return result;
 }

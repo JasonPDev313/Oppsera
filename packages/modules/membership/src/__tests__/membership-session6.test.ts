@@ -177,6 +177,7 @@ vi.mock('@oppsera/core/events/build-event', () => ({
 const mockAuditLog = vi.fn();
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: (...args: any[]) => mockAuditLog(...args),
+  auditLogDeferred: (...args: any[]) => mockAuditLog(...args),
 }));
 
 vi.mock('@oppsera/core/auth/context', () => ({
@@ -715,11 +716,15 @@ describe('Session 6 — closeBillingCycle', () => {
     mockSelectReturns.mockReturnValueOnce([plan]);
     // 3rd select: account for sub1 (select.from.where.limit)
     mockSelectReturns.mockReturnValueOnce([makeAccountRow()]);
+    // 4th select: customer for sub1 (account.customerId = 'cust_001', select.from.where.limit)
+    mockSelectReturns.mockReturnValueOnce([{ displayName: 'Customer One' }]);
     // sub1 update — no consumption
-    // 4th select: plan for sub2 (select.from.where.limit)
+    // 5th select: plan for sub2 (select.from.where.limit)
     mockSelectReturns.mockReturnValueOnce([plan]);
-    // 5th select: account for sub2 (select.from.where.limit)
+    // 6th select: account for sub2 (select.from.where.limit)
     mockSelectReturns.mockReturnValueOnce([makeAccountRow({ id: 'acct_002', customerId: 'cust_002' })]);
+    // 7th select: customer for sub2 (account.customerId = 'cust_002', select.from.where.limit)
+    mockSelectReturns.mockReturnValueOnce([{ displayName: 'Customer Two' }]);
     // sub2 update — no consumption
 
     const result = await closeBillingCycle(makeCtx(), {

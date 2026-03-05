@@ -30,8 +30,13 @@ vi.mock('@oppsera/core/events/build-event', () => ({
   buildEventFromContext: vi.fn((_ctx, type, payload) => ({ type, payload })),
 }));
 
+const { mockAuditLog } = vi.hoisted(() => ({
+  mockAuditLog: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('@oppsera/core/audit/helpers', () => ({
-  auditLog: vi.fn().mockResolvedValue(undefined),
+  auditLog: mockAuditLog,
+  auditLogDeferred: mockAuditLog,
 }));
 
 vi.mock('@oppsera/core/helpers/idempotency', () => ({

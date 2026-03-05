@@ -1,4 +1,5 @@
 import type { RequestContext } from '../auth/context';
+import { deferWork } from '../auth/context';
 import { getAuditLogger } from './index';
 
 /**
@@ -28,6 +29,23 @@ export async function auditLog(
       ...metadata,
     },
   });
+}
+
+/**
+ * Deferred variant of auditLog — enqueues the audit write to run AFTER the
+ * HTTP response is sent (via next/server after()). Use this in commands that
+ * call auditLog after publishWithOutbox to avoid blocking the response with
+ * an extra DB round-trip.
+ */
+export function auditLogDeferred(
+  ctx: RequestContext,
+  action: string,
+  entityType: string,
+  entityId: string,
+  changes?: Record<string, { old: unknown; new: unknown }>,
+  metadata?: Record<string, unknown>,
+): void {
+  deferWork(ctx, () => auditLog(ctx, action, entityType, entityId, changes, metadata));
 }
 
 /**

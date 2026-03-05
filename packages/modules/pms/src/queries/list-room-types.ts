@@ -1,6 +1,16 @@
-import { eq, and, lt, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { pmsRoomTypes } from '@oppsera/db';
+
+function encodeCursor(...parts: string[]): string {
+  return parts.join('|');
+}
+
+function decodeCursor(cursor: string, expectedParts: number): string[] | null {
+  const parts = cursor.split('|');
+  if (parts.length !== expectedParts) return null; // Legacy fallback
+  return parts;
+}
 
 export interface RoomTypeListItem {
   id: string;
@@ -42,7 +52,20 @@ export async function listRoomTypes(input: ListRoomTypesInput): Promise<ListRoom
     ];
 
     if (input.cursor) {
-      conditions.push(lt(pmsRoomTypes.id, input.cursor));
+      const decoded = decodeCursor(input.cursor, 2);
+      if (decoded) {
+        const [cursorSortOrder, cursorId] = decoded as [string, string];
+        // Mixed direction: sortOrder ASC, id DESC
+        // OR expansion: (sort_order > cursorSO) OR (sort_order = cursorSO AND id < cursorId)
+        conditions.push(
+          sql`(${pmsRoomTypes.sortOrder} > ${parseInt(cursorSortOrder, 10)} OR (${pmsRoomTypes.sortOrder} = ${parseInt(cursorSortOrder, 10)} AND ${pmsRoomTypes.id} < ${cursorId}))` as unknown as ReturnType<typeof eq>,
+        );
+      } else {
+        // Legacy: cursor was plain id
+        conditions.push(
+          sql`${pmsRoomTypes.id} < ${input.cursor}` as unknown as ReturnType<typeof eq>,
+        );
+      }
     }
 
     const rows = await tx
@@ -54,6 +77,7 @@ export async function listRoomTypes(input: ListRoomTypesInput): Promise<ListRoom
 
     const hasMore = rows.length > limit;
     const items = hasMore ? rows.slice(0, limit) : rows;
+    const lastItem = items[items.length - 1];
 
     return {
       items: items.map((r) => ({
@@ -72,7 +96,9 @@ export async function listRoomTypes(input: ListRoomTypesInput): Promise<ListRoom
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
       })),
-      cursor: hasMore ? items[items.length - 1]!.id : null,
+      cursor: hasMore && lastItem
+        ? encodeCursor(String(lastItem.sortOrder), lastItem.id)
+        : null,
       hasMore,
     };
   });

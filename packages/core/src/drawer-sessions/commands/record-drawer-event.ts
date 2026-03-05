@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { generateUlid, NotFoundError, AppError } from '@oppsera/shared';
 import { drawerSessions, drawerSessionEvents } from '@oppsera/db';
 import { sql } from '@oppsera/db';
@@ -104,7 +104,7 @@ export async function recordDrawerEvent(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'drawer.event.recorded', 'drawer_session_event', result.id, undefined, {
+  auditLogDeferred(ctx, 'drawer.event.recorded', 'drawer_session_event', result.id, undefined, {
     amountCents: input.amountCents ?? 0,
     eventType: input.eventType,
     bagId: input.bagId,

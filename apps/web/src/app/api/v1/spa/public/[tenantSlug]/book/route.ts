@@ -13,7 +13,7 @@ import { generateUlid, buildGoogleCalendarUrl, buildOutlookCalendarUrl } from '@
 import { checkRateLimit, getRateLimitKey, rateLimitHeaders, RATE_LIMITS } from '@oppsera/core/security';
 import { sendSpaConfirmationEmail } from '@oppsera/core/email/spa-email-service';
 import { withTenant, spaAppointments } from '@oppsera/db';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 // ── Management Token ──────────────────────────────────────────────
 // 8-char base64url token for guest appointment management (same pattern as guest waitlist)
@@ -31,7 +31,7 @@ async function updateAppointment(
   await withTenant(tenantId, async (tx) => {
     await tx.update(spaAppointments)
       .set(fields)
-      .where(eq(spaAppointments.id, appointmentId));
+      .where(and(eq(spaAppointments.id, appointmentId), eq(spaAppointments.tenantId, tenantId)));
   });
 }
 

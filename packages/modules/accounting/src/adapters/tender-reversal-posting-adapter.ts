@@ -1,4 +1,5 @@
-import { db } from '@oppsera/db';
+import { db, glJournalEntries, glJournalLines } from '@oppsera/db';
+import { eq, and } from 'drizzle-orm';
 import type { EventEnvelope } from '@oppsera/shared';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
@@ -58,10 +59,68 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
       return;
     }
 
-    // Revenue account (debit side — returning revenue)
+    // Try to look up the original tender GL entry and reverse its specific accounts
+    // instead of posting a generic Dr UncategorizedRevenue / Cr Payment entry
+    const origSourceRef = `tender-${data.originalTenderId}`;
+    const origEntries = await db
+      .select({ id: glJournalEntries.id })
+      .from(glJournalEntries)
+      .where(
+        and(
+          eq(glJournalEntries.tenantId, event.tenantId),
+          eq(glJournalEntries.sourceModule, 'pos'),
+          eq(glJournalEntries.sourceReferenceId, origSourceRef),
+          eq(glJournalEntries.status, 'posted'),
+        ),
+      )
+      .limit(1);
+
+    const amountDollars = (data.amount / 100).toFixed(2);
+    const postingApi = getAccountingPostingApi();
+    const ctx = {
+      tenantId: event.tenantId,
+      user: { id: 'system', email: '' },
+      requestId: `tender-reversal-gl-${data.reversalId}`,
+    } as any;
+
+    if (origEntries.length > 0) {
+      // Reverse the original GL entry's lines with swapped debit/credit
+      const origLines = await db
+        .select({
+          accountId: glJournalLines.accountId,
+          debitAmount: glJournalLines.debitAmount,
+          creditAmount: glJournalLines.creditAmount,
+          locationId: glJournalLines.locationId,
+          customerId: glJournalLines.customerId,
+        })
+        .from(glJournalLines)
+        .where(eq(glJournalLines.journalEntryId, origEntries[0]!.id));
+
+      if (origLines.length > 0) {
+        const reversalLines = origLines.map((line) => ({
+          accountId: line.accountId,
+          debitAmount: String(Number(line.creditAmount ?? 0).toFixed(2)),
+          creditAmount: String(Number(line.debitAmount ?? 0).toFixed(2)),
+          locationId: line.locationId ?? undefined,
+          customerId: line.customerId ?? undefined,
+          memo: `Reversal of tender ${data.originalTenderId}`,
+        }));
+
+        await postingApi.postEntry(ctx, {
+          businessDate: new Date().toISOString().split('T')[0]!,
+          sourceModule: 'payments',
+          sourceReferenceId: `reversal-${data.reversalId}`,
+          memo: `Tender reversal: $${amountDollars} (${data.reversalType}) — order ${data.orderId}`,
+          lines: reversalLines,
+          forcePost: true,
+        });
+        return;
+      }
+    }
+
+    // Fallback: generic reversal when original GL entry not found
     const revenueAccountId = settings.defaultUncategorizedRevenueAccountId;
 
-    // Payment account (credit side — returning money to customer)
     let paymentAccountId: string | null = null;
     try {
       const paymentAccounts = await resolvePaymentTypeAccounts(
@@ -72,7 +131,6 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
       paymentAccountId = paymentAccounts?.depositAccountId ?? paymentAccounts?.clearingAccountId ?? null;
     } catch { /* best-effort */ }
 
-    // Fallback to undeposited funds
     if (!paymentAccountId) {
       paymentAccountId = settings.defaultUndepositedFundsAccountId
         ?? settings.defaultUncategorizedRevenueAccountId;
@@ -86,43 +144,48 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
           sourceReferenceId: data.reversalId,
           entityType: 'gl_account',
           entityId: !revenueAccountId ? 'revenue' : 'payment',
-          reason: `Tender reversal of $${(data.amount / 100).toFixed(2)} (${data.reversalType}) has no ${!revenueAccountId ? 'revenue' : 'payment'} GL account configured.`,
+          reason: `Tender reversal of $${amountDollars} (${data.reversalType}) has no ${!revenueAccountId ? 'revenue' : 'payment'} GL account configured.`,
         });
       } catch { /* best-effort */ }
       return;
     }
 
-    const amountDollars = (data.amount / 100).toFixed(2);
+    // Self-canceling guard
+    if (revenueAccountId === paymentAccountId) {
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'tender.reversed.v1',
+          sourceModule: 'payments',
+          sourceReferenceId: data.reversalId,
+          entityType: 'gl_self_cancel',
+          entityId: revenueAccountId,
+          reason: `Tender reversal skipped — revenue and payment accounts resolve to the same GL account (${revenueAccountId})`,
+        });
+      } catch { /* best-effort */ }
+      return;
+    }
 
-    const postingApi = getAccountingPostingApi();
-    await postingApi.postEntry(
-      {
-        tenantId: event.tenantId,
-        user: { id: 'system', email: '' },
-        requestId: `tender-reversal-gl-${data.reversalId}`,
-      } as any,
-      {
-        businessDate: new Date().toISOString().split('T')[0]!,
-        sourceModule: 'payments',
-        sourceReferenceId: `reversal-${data.reversalId}`,
-        memo: `Tender reversal: $${amountDollars} (${data.reversalType}) — order ${data.orderId}`,
-        lines: [
-          {
-            accountId: revenueAccountId,
-            debitAmount: amountDollars,
-            creditAmount: '0',
-            memo: `Revenue reversal — ${data.reversalType}`,
-          },
-          {
-            accountId: paymentAccountId,
-            debitAmount: '0',
-            creditAmount: amountDollars,
-            memo: `Refund via ${data.refundMethod}`,
-          },
-        ],
-        forcePost: true,
-      },
-    );
+    await postingApi.postEntry(ctx, {
+      businessDate: new Date().toISOString().split('T')[0]!,
+      sourceModule: 'payments',
+      sourceReferenceId: `reversal-${data.reversalId}`,
+      memo: `Tender reversal: $${amountDollars} (${data.reversalType}) — order ${data.orderId}`,
+      lines: [
+        {
+          accountId: revenueAccountId,
+          debitAmount: amountDollars,
+          creditAmount: '0',
+          memo: `Revenue reversal — ${data.reversalType}`,
+        },
+        {
+          accountId: paymentAccountId,
+          debitAmount: '0',
+          creditAmount: amountDollars,
+          memo: `Refund via ${data.refundMethod}`,
+        },
+      ],
+      forcePost: true,
+    });
   } catch (error) {
     // GL failures NEVER block tender operations
     console.error(`[tender-reversal-gl] GL posting failed for reversal ${data.reversalId}:`, error);

@@ -76,6 +76,7 @@ export async function register() {
         bus.subscribe('order.voided.v1', reporting.handleOrderVoided, 'reporting/order.voided');
         bus.subscribe('order.returned.v1', reporting.handleOrderReturned, 'reporting/order.returned');
         bus.subscribe('tender.recorded.v1', reporting.handleTenderRecorded, 'reporting/tender.recorded');
+        bus.subscribe('tender.reversed.v1', reporting.handleTenderReversed, 'reporting/tender.reversed');
         // Wire actual inventory events to populate rm_inventory_on_hand read model.
         // The commands emit inventory.received.v1 and inventory.adjusted.v1 — adapt their payloads
         // to the shape handleInventoryMovement expects.

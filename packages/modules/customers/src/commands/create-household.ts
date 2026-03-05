@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customers, customerHouseholds, customerHouseholdMembers, customerActivityLog } from '@oppsera/db';
@@ -53,6 +53,6 @@ export async function createHousehold(ctx: RequestContext, input: CreateHousehol
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.household_created', 'customer', input.primaryCustomerId);
+  auditLogDeferred(ctx, 'customer.household_created', 'customer', input.primaryCustomerId);
   return result;
 }

@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import {
@@ -329,7 +329,7 @@ export async function postReceipt(
         postedBy: ctx.user.id,
         updatedAt: new Date(),
       })
-      .where(eq(receivingReceipts.id, input.receiptId))
+      .where(and(eq(receivingReceipts.id, input.receiptId), eq(receivingReceipts.tenantId, ctx.tenantId)))
       .returning();
 
     // 11. Build posted event
@@ -349,6 +349,6 @@ export async function postReceipt(
     return { result: postedReceipt, events: [postedEvent, ...allEvents] };
   });
 
-  await auditLog(ctx, 'inventory.receipt.posted', 'receiving_receipt', input.receiptId);
+  auditLogDeferred(ctx, 'inventory.receipt.posted', 'receiving_receipt', input.receiptId);
   return result;
 }

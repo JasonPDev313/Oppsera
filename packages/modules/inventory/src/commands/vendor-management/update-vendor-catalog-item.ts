@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { itemVendors } from '@oppsera/db';
@@ -48,7 +48,7 @@ export async function updateVendorCatalogItem(
     const [updated] = await (tx as any)
       .update(itemVendors)
       .set(updates)
-      .where(eq(itemVendors.id, input.itemVendorId))
+      .where(and(eq(itemVendors.id, input.itemVendorId), eq(itemVendors.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'inventory.vendor_catalog.updated.v1', {
@@ -60,6 +60,6 @@ export async function updateVendorCatalogItem(
     return { result: updated, events: [event] };
   });
 
-  await auditLog(ctx, 'inventory.vendor_catalog.updated', 'item_vendor', input.itemVendorId);
+  auditLogDeferred(ctx, 'inventory.vendor_catalog.updated', 'item_vendor', input.itemVendorId);
   return result;
 }

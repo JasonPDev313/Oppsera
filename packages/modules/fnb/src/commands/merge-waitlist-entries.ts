@@ -1,7 +1,7 @@
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { sql } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
 
@@ -85,6 +85,6 @@ export async function mergeWaitlistEntries(
     };
   });
 
-  await auditLog(ctx, 'fnb.waitlist.merged', 'waitlist_entry', primaryId);
+  auditLogDeferred(ctx, 'fnb.waitlist.merged', 'waitlist_entry', primaryId);
   return result;
 }

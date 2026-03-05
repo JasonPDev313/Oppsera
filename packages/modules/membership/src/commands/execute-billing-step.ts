@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { billingCycleRuns } from '@oppsera/db';
 import { NotFoundError, AppError } from '@oppsera/shared';
@@ -101,6 +101,6 @@ export async function executeBillingStep(
     };
   });
 
-  await auditLog(ctx, 'membership.billing_cycle.step.executed', 'billing_cycle_run', result.runId);
+  auditLogDeferred(ctx, 'membership.billing_cycle.step.executed', 'billing_cycle_run', result.runId);
   return result;
 }

@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { computeChanges } from '@oppsera/core/audit/diff';
 import { NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -63,7 +63,7 @@ export async function updateModifierGroup(
     const [updated] = await tx
       .update(catalogModifierGroups)
       .set(updates)
-      .where(eq(catalogModifierGroups.id, modifierGroupId))
+      .where(and(eq(catalogModifierGroups.id, modifierGroupId), eq(catalogModifierGroups.tenantId, ctx.tenantId)))
       .returning();
 
     // Handle modifiers if provided
@@ -81,7 +81,7 @@ export async function updateModifierGroup(
           await tx
             .update(catalogModifiers)
             .set({ isActive: false })
-            .where(eq(catalogModifiers.id, em.id));
+            .where(and(eq(catalogModifiers.id, em.id), eq(catalogModifiers.tenantId, ctx.tenantId)));
         }
       }
 
@@ -104,7 +104,7 @@ export async function updateModifierGroup(
           await tx
             .update(catalogModifiers)
             .set(modValues)
-            .where(eq(catalogModifiers.id, mod.id));
+            .where(and(eq(catalogModifiers.id, mod.id), eq(catalogModifiers.tenantId, ctx.tenantId)));
         } else {
           await tx.insert(catalogModifiers).values({
             tenantId: ctx.tenantId,
@@ -142,7 +142,7 @@ export async function updateModifierGroup(
     };
   });
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     'catalog.modifier_group.updated',
     'catalog_modifier_group',

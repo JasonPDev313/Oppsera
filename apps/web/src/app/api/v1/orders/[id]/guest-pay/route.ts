@@ -6,7 +6,7 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { generateUlid } from '@oppsera/shared';
 
 function generateLookupCode(): string {
@@ -221,7 +221,7 @@ export const POST = withMiddleware(
       return { result: sessionResult, events };
     });
 
-    try { await auditLog(ctx, 'guest_pay.session_created', 'guest_pay_sessions', result.sessionId as string); } catch { /* non-fatal */ }
+    auditLogDeferred(ctx, 'guest_pay.session_created', 'guest_pay_sessions', result.sessionId as string);
     return NextResponse.json({ data: result }, { status: 201 });
   },
   { entitlement: 'orders', permission: 'orders.create', writeAccess: true },

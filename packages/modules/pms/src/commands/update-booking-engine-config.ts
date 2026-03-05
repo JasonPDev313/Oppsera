@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsBookingEngineConfig, pmsProperties } from '@oppsera/db';
@@ -90,7 +90,7 @@ export async function updateBookingEngineConfig(
     return { result: config, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.booking_engine.config_updated', 'pms_booking_engine_config', result.id);
+  auditLogDeferred(ctx, 'pms.booking_engine.config_updated', 'pms_booking_engine_config', result.id);
 
   return result;
 }

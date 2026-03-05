@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { pendingBreakageReview } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -138,13 +138,13 @@ export async function reviewBreakage(
         glJournalEntryId,
         updatedAt: now,
       })
-      .where(eq(pendingBreakageReview.id, item.id))
+      .where(and(eq(pendingBreakageReview.id, item.id), eq(pendingBreakageReview.tenantId, ctx.tenantId)))
       .returning();
 
     return { result: mapRow(updated!), events: [] };
   });
 
-  await auditLog(ctx, `accounting.breakage.${input.action}d`, 'pending_breakage_review', input.reviewItemId, undefined, {
+  auditLogDeferred(ctx, `accounting.breakage.${input.action}d`, 'pending_breakage_review', input.reviewItemId, undefined, {
     amountCents: result.amountCents,
     voucherNumber: result.voucherNumber,
     action: input.action,

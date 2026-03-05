@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { membershipAccounts, membershipAuthorizedUsers } from '@oppsera/db';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
@@ -57,6 +57,6 @@ export async function addAuthorizedUser(
     return { result: authorizedUser!, events: [event] };
   });
 
-  await auditLog(ctx, 'membership.authorized_user.added', 'membership_authorized_user', result.id);
+  auditLogDeferred(ctx, 'membership.authorized_user.added', 'membership_authorized_user', result.id);
   return result;
 }

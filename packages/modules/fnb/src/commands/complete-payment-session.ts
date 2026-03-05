@@ -2,7 +2,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbTableLiveStatus } from '@oppsera/db';
 import { FNB_EVENTS } from '../events/types';
@@ -97,6 +97,6 @@ export async function completePaymentSession(
     return { result: updatedRow, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.payment_session.completed', 'fnb_payment_sessions', input.sessionId);
+  auditLogDeferred(ctx, 'fnb.payment_session.completed', 'fnb_payment_sessions', input.sessionId);
   return result;
 }

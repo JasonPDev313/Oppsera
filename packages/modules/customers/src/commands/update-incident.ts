@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customerIncidents } from '@oppsera/db';
@@ -31,7 +31,7 @@ export async function updateIncident(ctx: RequestContext, input: UpdateIncidentI
     }
 
     const [updated] = await (tx as any).update(customerIncidents).set(updates)
-      .where(eq(customerIncidents.id, input.incidentId)).returning();
+      .where(and(eq(customerIncidents.id, input.incidentId), eq(customerIncidents.tenantId, ctx.tenantId))).returning();
 
     const event = buildEventFromContext(ctx, 'customer_incident.updated.v1', {
       incidentId: input.incidentId,
@@ -43,6 +43,6 @@ export async function updateIncident(ctx: RequestContext, input: UpdateIncidentI
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.incident_updated', 'customer_incident', input.incidentId);
+  auditLogDeferred(ctx, 'customer.incident_updated', 'customer_incident', input.incidentId);
   return result;
 }

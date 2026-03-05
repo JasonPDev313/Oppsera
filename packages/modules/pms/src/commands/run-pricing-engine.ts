@@ -1,7 +1,7 @@
 import { sql, eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, generateUlid } from '@oppsera/shared';
 import { pmsPricingRules, pmsProperties, pmsRoomTypes } from '@oppsera/db';
@@ -163,7 +163,7 @@ export async function runPricingEngine(ctx: RequestContext, input: RunPricingEng
     return { result: { totalDatesProcessed, totalAdjusted }, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.pricing_engine.run', 'pms_property', input.propertyId);
+  auditLogDeferred(ctx, 'pms.pricing_engine.run', 'pms_property', input.propertyId);
 
   return result;
 }

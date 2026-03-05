@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsRatePackages, pmsRatePlans } from '@oppsera/db';
@@ -97,7 +97,7 @@ export async function updateRatePackage(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.rate_package.updated', 'pms_rate_package', ratePackageId);
+  auditLogDeferred(ctx, 'pms.rate_package.updated', 'pms_rate_package', ratePackageId);
 
   return result;
 }

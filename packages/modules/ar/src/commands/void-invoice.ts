@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -54,7 +54,9 @@ export async function voidInvoice(ctx: RequestContext, input: VoidInvoiceInput) 
       const settings = await accountingApi.getSettings(ctx.tenantId);
       const arControlAccountId = settings.defaultARControlAccountId;
 
-      if (arControlAccountId) {
+      if (!arControlAccountId) {
+        console.error(`[ar] CRITICAL: AR Control account not configured for tenant=${ctx.tenantId} — GL reversal for void invoice ${invoice.id} skipped`);
+      } else {
         const reversedGlLines: Array<{
           accountId: string;
           debitAmount?: string;
@@ -125,7 +127,7 @@ export async function voidInvoice(ctx: RequestContext, input: VoidInvoiceInput) 
         voidReason: input.reason,
         updatedAt: new Date(),
       })
-      .where(eq(arInvoices.id, input.invoiceId))
+      .where(and(eq(arInvoices.id, input.invoiceId), eq(arInvoices.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, AR_EVENTS.INVOICE_VOIDED, {
@@ -141,6 +143,6 @@ export async function voidInvoice(ctx: RequestContext, input: VoidInvoiceInput) 
     return { result: voidedResult, events: [event] };
   });
 
-  await auditLog(ctx, 'ar.invoice.voided', 'ar_invoice', result.id);
+  auditLogDeferred(ctx, 'ar.invoice.voided', 'ar_invoice', result.id);
   return result;
 }

@@ -1,7 +1,7 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { billingCycleRuns, membershipSubscriptions } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
@@ -70,6 +70,6 @@ export async function previewBillingCycle(
     return { result: run!, events: [event] };
   });
 
-  await auditLog(ctx, 'membership.billing_cycle.preview.created', 'billing_cycle_run', result.id);
+  auditLogDeferred(ctx, 'membership.billing_cycle.preview.created', 'billing_cycle_run', result.id);
   return result;
 }

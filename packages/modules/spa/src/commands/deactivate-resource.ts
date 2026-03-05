@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaResources } from '@oppsera/db';
@@ -53,6 +53,6 @@ export async function deactivateResource(ctx: RequestContext, resourceId: string
     return { result: updated!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.resource.deactivated', 'spa_resource', result.id);
+  auditLogDeferred(ctx, 'spa.resource.deactivated', 'spa_resource', result.id);
   return result;
 }

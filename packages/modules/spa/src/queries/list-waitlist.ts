@@ -1,4 +1,4 @@
-import { eq, and, lt, desc } from 'drizzle-orm';
+import { eq, and, lt, desc, sql } from 'drizzle-orm';
 import {
   withTenant,
   spaWaitlist,
@@ -6,6 +6,22 @@ import {
   spaProviders,
   customers,
 } from '@oppsera/db';
+
+function encodeCursor(priority: number, createdAt: Date, id: string): string {
+  return `${priority}|${createdAt.toISOString()}|${id}`;
+}
+
+function decodeCursor(cursor: string): { priority: number; createdAt: string; id: string } | null {
+  const parts = cursor.split('|');
+  if (parts.length === 3) {
+    const priority = Number(parts[0]);
+    if (!isNaN(priority)) {
+      return { priority, createdAt: parts[1]!, id: parts[2]! };
+    }
+  }
+  // Backwards compatibility: id-only cursor
+  return null;
+}
 
 export interface ListWaitlistInput {
   tenantId: string;
@@ -58,7 +74,18 @@ export async function listWaitlist(
     ];
 
     if (input.cursor) {
-      conditions.push(lt(spaWaitlist.id, input.cursor));
+      const decoded = decodeCursor(input.cursor);
+      if (decoded) {
+        // Composite cursor for (priority DESC, createdAt DESC, id DESC):
+        // all columns are DESC so row-value comparison works:
+        // (priority, createdAt, id) < (cursorPriority, cursorCreatedAt, cursorId)
+        conditions.push(
+          sql`(${spaWaitlist.priority}, ${spaWaitlist.createdAt}, ${spaWaitlist.id}) < (${decoded.priority}, ${decoded.createdAt}::timestamptz, ${decoded.id})`,
+        );
+      } else {
+        // Backwards-compatible id-only cursor
+        conditions.push(lt(spaWaitlist.id, input.cursor));
+      }
     }
 
     if (input.status) {
@@ -130,9 +157,10 @@ export async function listWaitlist(
       createdAt: r.createdAt,
     }));
 
+    const last = sliced[sliced.length - 1]!;
     return {
       items,
-      cursor: hasMore ? sliced[sliced.length - 1]!.id : null,
+      cursor: hasMore ? encodeCursor(last.priority, last.createdAt, last.id) : null,
       hasMore,
     };
   });

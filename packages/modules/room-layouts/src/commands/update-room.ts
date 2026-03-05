@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { ConflictError, NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -59,7 +59,7 @@ export async function updateRoom(ctx: RequestContext, roomId: string, input: Upd
     const [updated] = await tx
       .update(floorPlanRooms)
       .set(updates)
-      .where(eq(floorPlanRooms.id, roomId))
+      .where(and(eq(floorPlanRooms.id, roomId), eq(floorPlanRooms.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, ROOM_LAYOUT_EVENTS.ROOM_UPDATED, {
@@ -74,6 +74,6 @@ export async function updateRoom(ctx: RequestContext, roomId: string, input: Upd
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'room_layouts.room.updated', 'floor_plan_room', room.id);
+  auditLogDeferred(ctx, 'room_layouts.room.updated', 'floor_plan_room', room.id);
   return room;
 }

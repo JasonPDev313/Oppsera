@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth';
 import { publishWithOutbox } from '@oppsera/core/events';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events';
 import { expensePolicies } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -63,7 +63,7 @@ export async function updateExpensePolicy(
     const [updated] = await tx
       .update(expensePolicies)
       .set(setValues)
-      .where(eq(expensePolicies.id, policyId))
+      .where(and(eq(expensePolicies.id, policyId), eq(expensePolicies.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'expense.policy.updated.v1', {
@@ -74,6 +74,6 @@ export async function updateExpensePolicy(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'expense.policy.updated', 'expense_policy', policyId);
+  auditLogDeferred(ctx, 'expense.policy.updated', 'expense_policy', policyId);
   return result;
 }

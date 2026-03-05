@@ -1919,6 +1919,20 @@
       "when": 1742275200000,
       "tag": "0273_kds_performance_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 274,
+      "version": "7",
+      "when": 1742361600000,
+      "tag": "0274_pms_calendar_performance",
+      "breakpoints": true
+    },
+    {
+      "idx": 275,
+      "version": "7",
+      "when": 1742448000000,
+      "tag": "0275_accounting_freight_expense_account",
+      "breakpoints": true
     }
   ]
 }

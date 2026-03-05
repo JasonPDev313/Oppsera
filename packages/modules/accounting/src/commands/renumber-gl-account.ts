@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glAccounts } from '@oppsera/db';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
@@ -51,7 +51,7 @@ export async function renumberGlAccount(
         accountNumber: input.newAccountNumber,
         updatedAt: new Date(),
       })
-      .where(eq(glAccounts.id, accountId))
+      .where(and(eq(glAccounts.id, accountId), eq(glAccounts.tenantId, ctx.tenantId)))
       .returning();
 
     // Recompute path for this account + all descendants
@@ -66,7 +66,7 @@ export async function renumberGlAccount(
       await tx
         .update(glAccounts)
         .set({ path })
-        .where(eq(glAccounts.id, acct.id));
+        .where(and(eq(glAccounts.id, acct.id), eq(glAccounts.tenantId, ctx.tenantId)));
     }
 
     // Log change
@@ -87,6 +87,6 @@ export async function renumberGlAccount(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.account.renumbered', 'gl_account', accountId);
+  auditLogDeferred(ctx, 'accounting.account.renumbered', 'gl_account', accountId);
   return result;
 }

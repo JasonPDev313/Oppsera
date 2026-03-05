@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { discountRules } from '@oppsera/db';
@@ -35,7 +35,7 @@ export async function updateDiscountRule(ctx: RequestContext, input: UpdateDisco
     if (input.ruleJson !== undefined) updates.ruleJson = input.ruleJson;
 
     const [updated] = await (tx as any).update(discountRules).set(updates)
-      .where(eq(discountRules.id, input.ruleId)).returning();
+      .where(and(eq(discountRules.id, input.ruleId), eq(discountRules.tenantId, ctx.tenantId))).returning();
 
     const event = buildEventFromContext(ctx, 'customer.discount_rule.updated.v1', {
       ruleId: input.ruleId,
@@ -46,6 +46,6 @@ export async function updateDiscountRule(ctx: RequestContext, input: UpdateDisco
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.discount_rule.updated', 'discount_rule', input.ruleId);
+  auditLogDeferred(ctx, 'customer.discount_rule.updated', 'discount_rule', input.ruleId);
   return result;
 }

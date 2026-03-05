@@ -89,6 +89,7 @@ export {
   getAuditLogger,
   setAuditLogger,
   auditLog,
+  auditLogDeferred,
   auditLogSystem,
   computeChanges,
   pruneAuditLog,

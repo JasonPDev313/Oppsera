@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
 import { customers, customerExternalIds, customerActivityLog } from '@oppsera/db';
@@ -53,6 +53,6 @@ export async function addExternalId(ctx: RequestContext, input: AddExternalIdInp
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.external_id_added', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.external_id_added', 'customer', input.customerId);
   return result;
 }

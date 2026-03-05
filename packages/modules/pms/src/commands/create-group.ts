@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
@@ -121,7 +121,7 @@ export async function createGroup(ctx: RequestContext, input: CreateGroupInput) 
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.group.created', 'pms_group', result.id);
+  auditLogDeferred(ctx, 'pms.group.created', 'pms_group', result.id);
 
   return result;
 }

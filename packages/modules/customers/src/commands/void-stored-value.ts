@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { storedValueInstruments, storedValueTransactions, customerActivityLog } from '@oppsera/db';
@@ -40,7 +40,7 @@ export async function voidStoredValue(ctx: RequestContext, input: VoidStoredValu
       unitsRemaining: remainingUnits != null ? 0 : null,
       status: 'voided',
       updatedAt: new Date(),
-    }).where(eq(storedValueInstruments.id, input.instrumentId)).returning();
+    }).where(and(eq(storedValueInstruments.id, input.instrumentId), eq(storedValueInstruments.tenantId, ctx.tenantId))).returning();
 
     // Create void transaction (append-only, negative of remaining balance)
     await (tx as any).insert(storedValueTransactions).values({
@@ -88,6 +88,6 @@ export async function voidStoredValue(ctx: RequestContext, input: VoidStoredValu
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.stored_value.voided', 'stored_value_instrument', input.instrumentId);
+  auditLogDeferred(ctx, 'customer.stored_value.voided', 'stored_value_instrument', input.instrumentId);
   return result;
 }

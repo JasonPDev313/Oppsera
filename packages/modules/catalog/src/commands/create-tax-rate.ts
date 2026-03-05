@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { ConflictError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { taxRates } from '../schema';
@@ -43,6 +43,6 @@ export async function createTaxRate(ctx: RequestContext, input: CreateTaxRateInp
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'tax.rate.created', 'tax_rate', taxRate.id);
+  auditLogDeferred(ctx, 'tax.rate.created', 'tax_rate', taxRate.id);
   return taxRate;
 }

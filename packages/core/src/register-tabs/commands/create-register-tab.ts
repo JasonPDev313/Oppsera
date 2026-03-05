@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { generateUlid } from '@oppsera/shared';
 import { registerTabs } from '@oppsera/db';
 import type { CreateRegisterTabInput } from '../validation';
@@ -49,7 +49,7 @@ export async function createRegisterTab(
     return { result: row!, events: [event] };
   });
 
-  await auditLog(ctx, 'register_tab.created', 'register_tab', result.id, undefined, {
+  auditLogDeferred(ctx, 'register_tab.created', 'register_tab', result.id, undefined, {
     terminalId: input.terminalId,
     tabNumber: input.tabNumber,
     employeeId: resolvedEmployeeId,

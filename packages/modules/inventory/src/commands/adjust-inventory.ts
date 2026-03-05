@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, NotFoundError, ValidationError } from '@oppsera/shared';
 import type { inventoryItems } from '@oppsera/db';
@@ -109,6 +109,6 @@ export async function adjustInventory(
     };
   });
 
-  await auditLog(ctx, 'inventory.adjusted', 'inventory_item', input.inventoryItemId);
+  auditLogDeferred(ctx, 'inventory.adjusted', 'inventory_item', input.inventoryItemId);
   return result;
 }

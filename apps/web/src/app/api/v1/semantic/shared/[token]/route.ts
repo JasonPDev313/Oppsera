@@ -62,7 +62,7 @@ export const GET = withMiddleware(
       .set({
         viewCount: sql`${semanticSharedInsights.viewCount} + 1`,
       })
-      .where(eq(semanticSharedInsights.id, insight.id));
+      .where(and(eq(semanticSharedInsights.id, insight.id), eq(semanticSharedInsights.tenantId, ctx.tenantId)));
 
     return NextResponse.json({
       data: {

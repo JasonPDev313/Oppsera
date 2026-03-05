@@ -1,7 +1,7 @@
 import { sql, and, eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { pmsReservations, pmsRoomTypes, pmsProperties } from '@oppsera/db';
@@ -121,6 +121,6 @@ export async function updateReservation(
     return { result: updated, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.reservation.updated', 'pms_reservation', result.id);
+  auditLogDeferred(ctx, 'pms.reservation.updated', 'pms_reservation', result.id);
   return result;
 }

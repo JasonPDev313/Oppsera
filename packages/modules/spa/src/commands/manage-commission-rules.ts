@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaCommissionRules, spaProviders, spaServices } from '@oppsera/db';
@@ -96,7 +96,7 @@ export async function createCommissionRule(ctx: RequestContext, input: CreateCom
     return { result: created!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.commission_rule.created', 'spa_commission_rule', result.id);
+  auditLogDeferred(ctx, 'spa.commission_rule.created', 'spa_commission_rule', result.id);
 
   return result;
 }
@@ -188,13 +188,13 @@ export async function updateCommissionRule(ctx: RequestContext, input: UpdateCom
     const [updated] = await tx
       .update(spaCommissionRules)
       .set(updateFields)
-      .where(eq(spaCommissionRules.id, parsed.id))
+      .where(and(eq(spaCommissionRules.id, parsed.id), eq(spaCommissionRules.tenantId, ctx.tenantId)))
       .returning();
 
     return { result: updated!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.commission_rule.updated', 'spa_commission_rule', result.id);
+  auditLogDeferred(ctx, 'spa.commission_rule.updated', 'spa_commission_rule', result.id);
 
   return result;
 }
@@ -230,13 +230,13 @@ export async function deactivateCommissionRule(ctx: RequestContext, input: { id:
     const [deactivated] = await tx
       .update(spaCommissionRules)
       .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(spaCommissionRules.id, input.id))
+      .where(and(eq(spaCommissionRules.id, input.id), eq(spaCommissionRules.tenantId, ctx.tenantId)))
       .returning();
 
     return { result: deactivated!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.commission_rule.deactivated', 'spa_commission_rule', result.id);
+  auditLogDeferred(ctx, 'spa.commission_rule.deactivated', 'spa_commission_rule', result.id);
 
   return result;
 }

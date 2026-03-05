@@ -26,7 +26,7 @@ type Density = 'compact' | 'standard' | 'comfortable';
 const POLL_INTERVAL = 10_000; // 10s for all-stations view
 export default function AllOrdersContent() {
   const router = useRouter();
-  const { tenant, locations, isAuthenticated, isLoading: authLoading } = useAuthContext();
+  const { locations } = useAuthContext();
   const locationId = locations?.[0]?.id;
   const { stations } = useStations({ locationId });
 

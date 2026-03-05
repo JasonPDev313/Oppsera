@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth';
 import { publishWithOutbox } from '@oppsera/core/events';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events';
 import { expenses, expensePolicies } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
@@ -126,12 +126,12 @@ export async function submitExpense(ctx: RequestContext, expenseId: string) {
     const [updated] = await tx
       .update(expenses)
       .set(setValues)
-      .where(eq(expenses.id, expenseId))
+      .where(and(eq(expenses.id, expenseId), eq(expenses.tenantId, ctx.tenantId)))
       .returning();
 
     return { result: updated!, events };
   });
 
-  await auditLog(ctx, 'expense.submitted', 'expense', expenseId);
+  auditLogDeferred(ctx, 'expense.submitted', 'expense', expenseId);
   return result;
 }

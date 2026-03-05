@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { accountingSettings } from '@oppsera/db';
 import { AppError, isValidCurrency } from '@oppsera/shared';
@@ -58,6 +58,6 @@ export async function updateSupportedCurrencies(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.supported_currencies.updated', 'accounting_settings', ctx.tenantId);
+  auditLogDeferred(ctx, 'accounting.supported_currencies.updated', 'accounting_settings', ctx.tenantId);
   return result;
 }

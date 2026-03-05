@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ConflictError } from '@oppsera/shared';
 import { customers } from '@oppsera/db';
@@ -41,7 +41,7 @@ export async function updateCustomerMemberNumber(
         memberNumber: input.memberNumber ?? null,
         updatedAt: new Date(),
       })
-      .where(eq(customers.id, input.customerId))
+      .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, ctx.tenantId)))
       .returning();
 
     const event = buildEventFromContext(ctx, 'customer.member_number.updated.v1', {
@@ -53,6 +53,6 @@ export async function updateCustomerMemberNumber(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.member_number_updated', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.member_number_updated', 'customer', input.customerId);
   return result;
 }

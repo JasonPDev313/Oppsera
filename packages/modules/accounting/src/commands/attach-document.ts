@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glDocumentAttachments, glJournalEntries } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
@@ -51,6 +51,6 @@ export async function attachDocument(ctx: RequestContext, input: AttachDocumentI
     return attachment!;
   });
 
-  await auditLog(ctx, 'accounting.document.attached', 'gl_document_attachment', result.id);
+  auditLogDeferred(ctx, 'accounting.document.attached', 'gl_document_attachment', result.id);
   return result;
 }

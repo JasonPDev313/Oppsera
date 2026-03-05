@@ -386,7 +386,7 @@ export async function inviteUser(input: InviteUserInput): Promise<{ userId: stri
         primaryRoleId: input.roleId,
         updatedByUserId: input.invitedByUserId,
         updatedAt: new Date(),
-      }).where(eq(users.id, userId));
+      }).where(and(eq(users.id, userId), eq(users.tenantId, input.tenantId)));
     }
 
     await setRolesForUser(tx, input.tenantId, userId, input.roleId);
@@ -491,7 +491,7 @@ export async function createUser(input: CreateUserInput): Promise<{ userId: stri
       authProviderId: data.user.id,
       updatedAt: new Date(),
       updatedByUserId: input.createdByUserId,
-    }).where(eq(users.id, userId));
+    }).where(and(eq(users.id, userId), eq(users.tenantId, input.tenantId)));
     return { userId, invited: false as const };
   });
 
@@ -565,7 +565,7 @@ export async function updateUser(input: UpdateUserInput): Promise<{ userId: stri
       updatedByUserId: input.updatedByUserId,
       updatedAt: new Date(),
       ...passwordFields,
-    }).where(eq(users.id, input.userId));
+    }).where(and(eq(users.id, input.userId), eq(users.tenantId, input.tenantId)));
 
     if (input.userStatus) {
       await tx.update(memberships).set({
@@ -610,7 +610,7 @@ export async function resetPassword(input: { tenantId: string; userId: string; a
       passwordResetRequired: true,
       updatedByUserId: input.actorUserId,
       updatedAt: new Date(),
-    }).where(eq(users.id, input.userId));
+    }).where(and(eq(users.id, input.userId), eq(users.tenantId, input.tenantId)));
 
     const invite = await createInviteTx(tx, {
       tenantId: input.tenantId,
@@ -645,7 +645,7 @@ export async function resetPins(input: ResetPinInput): Promise<void> {
     await tx.update(users).set({
       updatedByUserId: input.updatedByUserId,
       updatedAt: new Date(),
-    }).where(eq(users.id, input.userId));
+    }).where(and(eq(users.id, input.userId), eq(users.tenantId, input.tenantId)));
   });
 }
 
@@ -693,7 +693,7 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<{ userId: 
       passwordHash,
       passwordResetRequired: false,
       updatedAt: now,
-    }).where(eq(users.id, user.id));
+    }).where(and(eq(users.id, user.id), eq(users.tenantId, invite.tenantId)));
 
     await tx.update(memberships).set({
       status: 'active',
@@ -701,7 +701,7 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<{ userId: 
 
     await tx.update(userInvites).set({
       consumedAt: now,
-    }).where(eq(userInvites.id, invite.id));
+    }).where(and(eq(userInvites.id, invite.id), eq(userInvites.tenantId, invite.tenantId)));
   });
 
   return { userId: user.id, tenantId: invite.tenantId };

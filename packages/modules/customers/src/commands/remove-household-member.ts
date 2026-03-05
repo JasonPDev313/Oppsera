@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customerHouseholdMembers } from '@oppsera/db';
@@ -23,7 +23,7 @@ export async function removeHouseholdMember(ctx: RequestContext, input: RemoveHo
     // Soft-remove: set leftAt
     const [updated] = await (tx as any).update(customerHouseholdMembers).set({
       leftAt: new Date(),
-    }).where(eq(customerHouseholdMembers.id, membership.id)).returning();
+    }).where(and(eq(customerHouseholdMembers.id, membership.id), eq(customerHouseholdMembers.tenantId, ctx.tenantId))).returning();
 
     const event = buildEventFromContext(ctx, 'customer_household_member.removed.v1', {
       householdId: input.householdId,
@@ -34,6 +34,6 @@ export async function removeHouseholdMember(ctx: RequestContext, input: RemoveHo
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.household_member_removed', 'customer', input.customerId);
+  auditLogDeferred(ctx, 'customer.household_member_removed', 'customer', input.customerId);
   return result;
 }

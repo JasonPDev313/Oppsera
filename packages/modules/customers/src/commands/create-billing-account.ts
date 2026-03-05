@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { customers, billingAccounts, billingAccountMembers } from '@oppsera/db';
@@ -51,6 +51,6 @@ export async function createBillingAccount(ctx: RequestContext, input: CreateBil
     return { result: account!, events: [event] };
   });
 
-  await auditLog(ctx, 'billing_account.created', 'billing_account', result.id);
+  auditLogDeferred(ctx, 'billing_account.created', 'billing_account', result.id);
   return result;
 }

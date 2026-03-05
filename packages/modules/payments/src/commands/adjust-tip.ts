@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError } from '@oppsera/shared';
 import { tenders, tenderReversals, paymentJournalEntries, paymentIntents } from '@oppsera/db';
@@ -174,6 +174,6 @@ export async function adjustTip(
     };
   });
 
-  await auditLog(ctx, 'tender.tip_adjusted', 'tender', tenderId);
+  auditLogDeferred(ctx, 'tender.tip_adjusted', 'tender', tenderId);
   return result;
 }

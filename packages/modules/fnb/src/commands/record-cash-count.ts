@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { CloseBatchNotFoundError, CloseBatchStatusConflictError } from '../errors';
 
 interface RecordCashCountInput {
@@ -71,6 +71,6 @@ export async function recordCashCount(ctx: RequestContext, input: RecordCashCoun
     return { result: updated, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.cash_count.recorded', 'close_batch', input.closeBatchId);
+  auditLogDeferred(ctx, 'fnb.cash_count.recorded', 'close_batch', input.closeBatchId);
   return result;
 }

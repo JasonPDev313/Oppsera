@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
@@ -97,7 +97,7 @@ export async function createCorporateAccount(ctx: RequestContext, input: CreateC
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.corporate_account.created', 'pms_corporate_account', result.id);
+  auditLogDeferred(ctx, 'pms.corporate_account.created', 'pms_corporate_account', result.id);
 
   return result;
 }

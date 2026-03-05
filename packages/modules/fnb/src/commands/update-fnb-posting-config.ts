@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 
 interface UpdateFnbPostingConfigInput {
   locationId: string;
@@ -39,6 +39,6 @@ export async function updateFnbPostingConfig(ctx: RequestContext, input: UpdateF
     return { result: config, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.posting_config.updated', 'posting_config', input.locationId);
+  auditLogDeferred(ctx, 'fnb.posting_config.updated', 'posting_config', input.locationId);
   return result;
 }

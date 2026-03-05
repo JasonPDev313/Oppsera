@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaPackageDefinitions } from '@oppsera/db';
@@ -59,7 +59,7 @@ export async function createPackageDefinition(ctx: RequestContext, input: Create
     return { result: created!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.package_definition.created', 'spa_package_definition', result.id);
+  auditLogDeferred(ctx, 'spa.package_definition.created', 'spa_package_definition', result.id);
 
   return result;
 }
@@ -114,13 +114,13 @@ export async function updatePackageDefinition(ctx: RequestContext, input: Update
     const [updated] = await tx
       .update(spaPackageDefinitions)
       .set(updateFields)
-      .where(eq(spaPackageDefinitions.id, parsed.id))
+      .where(and(eq(spaPackageDefinitions.id, parsed.id), eq(spaPackageDefinitions.tenantId, ctx.tenantId)))
       .returning();
 
     return { result: updated!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.package_definition.updated', 'spa_package_definition', result.id);
+  auditLogDeferred(ctx, 'spa.package_definition.updated', 'spa_package_definition', result.id);
 
   return result;
 }
@@ -160,13 +160,13 @@ export async function deactivatePackageDefinition(ctx: RequestContext, input: { 
     const [deactivated] = await tx
       .update(spaPackageDefinitions)
       .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(spaPackageDefinitions.id, input.id))
+      .where(and(eq(spaPackageDefinitions.id, input.id), eq(spaPackageDefinitions.tenantId, ctx.tenantId)))
       .returning();
 
     return { result: deactivated!, events: [] };
   });
 
-  await auditLog(ctx, 'spa.package_definition.deactivated', 'spa_package_definition', result.id);
+  auditLogDeferred(ctx, 'spa.package_definition.deactivated', 'spa_package_definition', result.id);
 
   return result;
 }

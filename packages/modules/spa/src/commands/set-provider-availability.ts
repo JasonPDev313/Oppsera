@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaProviders, spaProviderAvailability } from '@oppsera/db';
@@ -84,6 +84,6 @@ export async function setProviderAvailability(
     return { result: { providerId: input.providerId, slotsCount: rows.length }, events: [] };
   });
 
-  await auditLog(ctx, 'spa.provider.availability_set', 'spa_provider', input.providerId);
+  auditLogDeferred(ctx, 'spa.provider.availability_set', 'spa_provider', input.providerId);
   return result;
 }

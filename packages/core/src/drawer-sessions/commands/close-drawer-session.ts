@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { drawerSessions, drawerSessionEvents } from '@oppsera/db';
 import { sql } from '@oppsera/db';
@@ -139,6 +139,6 @@ export async function closeDrawerSession(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'drawer.session.closed', 'drawer_session', result.id);
+  auditLogDeferred(ctx, 'drawer.session.closed', 'drawer_session', result.id);
   return mapRow(result);
 }

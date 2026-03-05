@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbKdsBumpBarProfiles } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -61,6 +61,6 @@ export async function upsertBumpBarProfile(
     return { result: profile!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.kds.bump_bar_profile.upserted', 'fnb_kds_bump_bar_profiles', result.id);
+  auditLogDeferred(ctx, 'fnb.kds.bump_bar_profile.upserted', 'fnb_kds_bump_bar_profiles', result.id);
   return result;
 }

@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbShiftExtensions } from '@oppsera/db';
 import { ConflictError } from '@oppsera/shared';
@@ -57,6 +57,6 @@ export async function createShiftExtension(
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'fnb.shift.created', 'fnb_shift_extensions', result.id);
+  auditLogDeferred(ctx, 'fnb.shift.created', 'fnb_shift_extensions', result.id);
   return result;
 }

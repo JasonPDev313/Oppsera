@@ -1,7 +1,7 @@
 import type { RequestContext } from '../../auth/context';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';
-import { auditLog } from '../../audit/helpers';
+import { auditLogDeferred } from '../../audit/helpers';
 import { AppError, NotFoundError, ConflictError, generateUlid } from '@oppsera/shared';
 import { registerTabs } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
@@ -65,7 +65,7 @@ export async function transferRegisterTab(
         updatedAt: new Date(),
         version: sql`${registerTabs.version} + 1`,
       })
-      .where(eq(registerTabs.id, input.sourceTabId))
+      .where(and(eq(registerTabs.id, input.sourceTabId), eq(registerTabs.tenantId, ctx.tenantId)))
       .returning();
 
     // 3. Find or create target tab on the target terminal
@@ -90,7 +90,7 @@ export async function transferRegisterTab(
           updatedAt: new Date(),
           version: sql`${registerTabs.version} + 1`,
         })
-        .where(eq(registerTabs.id, existingTarget.id))
+        .where(and(eq(registerTabs.id, existingTarget.id), eq(registerTabs.tenantId, ctx.tenantId)))
         .returning();
       targetTab = updated!;
     } else {
@@ -136,7 +136,7 @@ export async function transferRegisterTab(
     };
   });
 
-  await auditLog(ctx, 'register_tab.transferred', 'register_tab', input.sourceTabId, {
+  auditLogDeferred(ctx, 'register_tab.transferred', 'register_tab', input.sourceTabId, {
     terminalId: { old: result.sourceTab.terminalId, new: input.targetTerminalId },
     tabNumber: { old: result.sourceTab.tabNumber, new: input.targetTabNumber },
   }, {

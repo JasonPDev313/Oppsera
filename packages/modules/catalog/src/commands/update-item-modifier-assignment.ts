@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { catalogItemModifierGroups } from '../schema';
@@ -61,7 +61,7 @@ export async function updateItemModifierAssignment(
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(
+  auditLogDeferred(
     ctx,
     'catalog.item_modifier_assignment.updated',
     'catalog_item_modifier_groups',

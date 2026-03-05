@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { pmsLoyaltyPrograms } from '@oppsera/db';
 import type { CreateLoyaltyProgramInput } from '../validation';
@@ -31,6 +31,6 @@ export async function createLoyaltyProgram(
     return { result: program!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.loyalty_program.created', 'pms_loyalty_program', result.id);
+  auditLogDeferred(ctx, 'pms.loyalty_program.created', 'pms_loyalty_program', result.id);
   return result;
 }

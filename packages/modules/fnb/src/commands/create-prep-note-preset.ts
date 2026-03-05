@@ -1,5 +1,5 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbPrepNotePresets } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -33,6 +33,6 @@ export async function createPrepNotePreset(
     return { result: created!, events: [] };
   });
 
-  await auditLog(ctx, 'fnb.prep_note_preset.created', 'fnb_prep_note_presets', result.id);
+  auditLogDeferred(ctx, 'fnb.prep_note_preset.created', 'fnb_prep_note_presets', result.id);
   return result;
 }

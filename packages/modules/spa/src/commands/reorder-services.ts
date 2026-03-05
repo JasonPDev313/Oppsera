@@ -1,6 +1,6 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { spaServices } from '@oppsera/db';
@@ -63,5 +63,5 @@ export async function reorderServices(ctx: RequestContext, input: ReorderService
     return { result: { updated: parsed.items.length }, events: [] };
   });
 
-  await auditLog(ctx, 'spa.services.reordered', 'spa_service', 'batch');
+  auditLogDeferred(ctx, 'spa.services.reordered', 'spa_service', 'batch');
 }

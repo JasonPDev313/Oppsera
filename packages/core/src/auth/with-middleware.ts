@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { AppError, NotFoundError, AuthorizationError, generateUlid } from '@oppsera/shared';
 import { eq, and } from 'drizzle-orm';
@@ -195,20 +195,50 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
     let _trackTenantId = '';
     let _trackUserId = '';
     let _trackStatusCode = 0;
+    let _handlerCtx: RequestContext | null = null;
     try {
       // Global timeout — caps the entire middleware+handler chain.
       // Prevents a single stuck DB query from holding a Vercel function slot indefinitely.
       const result = await withTimeout(
-        _executeMiddleware(request, handler, options, startTime, (tId, uId) => {
+        _executeMiddleware(request, handler, options, startTime, (tId, uId, ctx) => {
           _trackTenantId = tId;
           _trackUserId = uId;
+          _handlerCtx = ctx;
         }),
         MIDDLEWARE_TIMEOUT_MS,
         'middleware chain',
       );
       _trackStatusCode = result.status;
+
+      // Flush deferred work (audit logs, GL, etc.) AFTER the response is sent.
+      // Vercel keeps the function alive until after() callbacks complete.
+      // Note: _handlerCtx is assigned inside the trackIds callback, so TS can't
+      // narrow it — we cast to satisfy control flow analysis.
+      const ctx = _handlerCtx as RequestContext | null;
+      if (ctx && ctx._deferredWork && ctx._deferredWork.length > 0) {
+        const work = ctx._deferredWork;
+        ctx._deferredWork = [];
+        after(async () => {
+          await Promise.all(work.map((fn: () => Promise<void>) => fn().catch((err: unknown) => {
+            console.error('[deferred] Work failed:', err instanceof Error ? err.message : err);
+          })));
+        });
+      }
+
       return result;
     } catch (error) {
+      // Flush deferred work even on error — the transaction already committed,
+      // so audit entries queued before the throw are valid and should still fire.
+      const errCtx = _handlerCtx as RequestContext | null;
+      if (errCtx && errCtx._deferredWork && errCtx._deferredWork.length > 0) {
+        const work = errCtx._deferredWork;
+        errCtx._deferredWork = [];
+        after(async () => {
+          await Promise.all(work.map((fn: () => Promise<void>) => fn().catch((err: unknown) => {
+            console.error('[deferred] Work failed:', err instanceof Error ? err.message : err);
+          })));
+        });
+      }
       // Middleware timeout → 504 Gateway Timeout
       if (error instanceof Error && error.message.includes('timed out')) {
         const duration = Date.now() - startTime;
@@ -294,7 +324,7 @@ async function _executeMiddleware(
   handler: RouteHandler,
   options: MiddlewareOptions | undefined,
   _startTime: number,
-  trackIds: (tenantId: string, userId: string) => void,
+  trackIds: (tenantId: string, userId: string, ctx: RequestContext) => void,
 ): Promise<NextResponse> {
       let response: NextResponse;
       let _requestId = '';
@@ -357,7 +387,7 @@ async function _executeMiddleware(
             isPlatformAdmin: false,
           };
           _requestId = ctx.requestId;
-          trackIds(ctx.tenantId, user.id);
+          trackIds(ctx.tenantId, user.id, ctx);
           response = await requestContext.run(ctx, () => handler(request, ctx));
         } else {
           const ctx = await resolveTenant(user);
@@ -422,7 +452,7 @@ async function _executeMiddleware(
             assertImpersonationCanDelete(ctx);
           }
 
-          trackIds(ctx.tenantId, ctx.user.id);
+          trackIds(ctx.tenantId, ctx.user.id, ctx);
 
           response = await requestContext.run(ctx, () => handler(request, ctx));
 

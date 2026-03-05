@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
 import { billingAccounts, customerActivityLog } from '@oppsera/db';
@@ -44,7 +44,7 @@ export async function updateFinancialAccount(ctx: RequestContext, input: UpdateF
     }
 
     const [updated] = await (tx as any).update(billingAccounts).set(updates)
-      .where(eq(billingAccounts.id, input.accountId)).returning();
+      .where(and(eq(billingAccounts.id, input.accountId), eq(billingAccounts.tenantId, ctx.tenantId))).returning();
 
     // Record audit entry for credit limit changes
     if (input.creditLimitCents !== undefined && input.creditLimitCents !== existing.creditLimitCents) {
@@ -71,6 +71,6 @@ export async function updateFinancialAccount(ctx: RequestContext, input: UpdateF
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'customer.financial_account_updated', 'billing_account', input.accountId);
+  auditLogDeferred(ctx, 'customer.financial_account_updated', 'billing_account', input.accountId);
   return result;
 }

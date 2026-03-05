@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError } from '@oppsera/shared';
 import { tenders, tenderReversals, paymentJournalEntries, orders } from '@oppsera/db';
@@ -173,7 +173,7 @@ export async function reverseTender(
         await tx
           .update(paymentJournalEntries)
           .set({ postingStatus: 'voided' })
-          .where(eq(paymentJournalEntries.id, original.id));
+          .where(and(eq(paymentJournalEntries.id, original.id), eq(paymentJournalEntries.tenantId, ctx.tenantId)));
       }
     }
 
@@ -274,6 +274,6 @@ export async function reverseTender(
     };
   });
 
-  await auditLog(ctx, 'tender.reversed', 'tender', tenderId);
+  auditLogDeferred(ctx, 'tender.reversed', 'tender', tenderId);
   return result;
 }

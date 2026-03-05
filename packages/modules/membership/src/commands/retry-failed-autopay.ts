@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { autopayAttempts } from '@oppsera/db';
 import { generateUlid, NotFoundError, AppError } from '@oppsera/shared';
@@ -114,6 +114,6 @@ export async function retryFailedAutopay(
     }
   });
 
-  await auditLog(ctx, 'membership.autopay.retry', 'autopay_attempt', result.id ?? result.attemptId);
+  auditLogDeferred(ctx, 'membership.autopay.retry', 'autopay_attempt', result.id ?? result.attemptId);
   return result;
 }

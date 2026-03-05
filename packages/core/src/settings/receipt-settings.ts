@@ -8,7 +8,7 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { tenantSettings } from '@oppsera/db';
-import { auditLog } from '../audit';
+import { auditLogDeferred } from '../audit/helpers';
 import type { RequestContext } from '../auth/context';
 import type { ReceiptSettings, UpdateReceiptSettings } from '@oppsera/shared';
 import { receiptSettingsSchema, DEFAULT_RECEIPT_SETTINGS, generateUlid } from '@oppsera/shared';
@@ -94,7 +94,7 @@ export async function saveReceiptSettings(
           DO UPDATE SET value = ${jsonValue}::jsonb, updated_at = NOW()`,
     );
 
-    await auditLog(
+    auditLogDeferred(
       ctx,
       locationId
         ? 'settings.receipts.location.updated'

@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ConflictError, ValidationError } from '@oppsera/shared';
 import { pmsProperties, pmsRoomTypes } from '@oppsera/db';
@@ -84,7 +84,7 @@ export async function createRoomType(ctx: RequestContext, input: CreateRoomTypeI
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'pms.room_type.created', 'pms_room_type', result.id);
+  auditLogDeferred(ctx, 'pms.room_type.created', 'pms_room_type', result.id);
 
   return result;
 }

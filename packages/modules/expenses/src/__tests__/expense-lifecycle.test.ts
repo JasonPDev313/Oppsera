@@ -56,6 +56,7 @@ vi.mock('@oppsera/core/events/build-event', () => ({
 
 vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: vi.fn(),
+  auditLogDeferred: vi.fn(),
 }));
 
 vi.mock('@oppsera/core/helpers/idempotency', () => ({
@@ -269,7 +270,7 @@ import { voidExpense } from '../commands/void-expense';
 import { markReimbursed } from '../commands/mark-reimbursed';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { checkIdempotency } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred as auditLog } from '@oppsera/core/audit/helpers';
 
 // ═══════════════════════════════════════════════════════════════
 // Expense Lifecycle Tests

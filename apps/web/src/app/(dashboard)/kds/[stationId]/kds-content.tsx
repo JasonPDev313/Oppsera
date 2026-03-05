@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuthContext } from '@/components/auth-provider';
+
 import { useKdsView } from '@/hooks/use-fnb-kitchen';
 import { StationHeader } from '@/components/fnb/kitchen/StationHeader';
 import { TicketCard } from '@/components/fnb/kitchen/TicketCard';
@@ -25,7 +25,7 @@ const PAUSED_INTERVAL = 999_999_999;
 export default function KdsContent() {
   const params = useParams();
   const router = useRouter();
-  const { tenant, locations, isAuthenticated, isLoading: authLoading } = useAuthContext();
+
   const stationId = params.stationId as string;
   const containerRef = useRef<HTMLDivElement>(null);
 

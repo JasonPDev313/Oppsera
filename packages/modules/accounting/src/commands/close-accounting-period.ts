@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { accountingClosePeriods, accountingSettings } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
@@ -45,7 +45,7 @@ export async function closeAccountingPeriod(
           notes: input.notes ?? period.notes,
           updatedAt: now,
         })
-        .where(eq(accountingClosePeriods.id, period.id))
+        .where(and(eq(accountingClosePeriods.id, period.id), eq(accountingClosePeriods.tenantId, ctx.tenantId)))
         .returning();
       period = updated!;
     } else {
@@ -81,6 +81,6 @@ export async function closeAccountingPeriod(
     return { result: period!, events: [event] };
   });
 
-  await auditLog(ctx, 'accounting.period.closed', 'accounting_close_period', result.id);
+  auditLogDeferred(ctx, 'accounting.period.closed', 'accounting_close_period', result.id);
   return result;
 }

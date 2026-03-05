@@ -1,5 +1,25 @@
-import { eq, and, lt, asc, desc } from 'drizzle-orm';
+import { eq, and, asc, desc, sql, type SQL } from 'drizzle-orm';
 import { withTenant, spaPackageDefinitions } from '@oppsera/db';
+
+/** Encode a composite cursor as "sortOrder|id". */
+function encodeCursor(sortOrder: number, id: string): string {
+  return Buffer.from(`${sortOrder}|${id}`).toString('base64url');
+}
+
+/** Decode a composite cursor. Returns null for legacy plain-id cursors. */
+function decodeCursor(cursor: string): { sortOrder: number; id: string } | null {
+  try {
+    const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+    const pipe = decoded.indexOf('|');
+    if (pipe === -1) return null; // legacy id-only cursor
+    const sortOrder = parseInt(decoded.slice(0, pipe), 10);
+    const id = decoded.slice(pipe + 1);
+    if (isNaN(sortOrder) || !id) return null;
+    return { sortOrder, id };
+  } catch {
+    return null;
+  }
+}
 
 export interface ListPackageDefinitionsInput {
   tenantId: string;
@@ -43,12 +63,23 @@ export async function listPackageDefinitions(
   const limit = Math.min(input.limit ?? 50, 100);
 
   return withTenant(input.tenantId, async (tx) => {
-    const conditions: ReturnType<typeof eq>[] = [
+    const conditions: SQL[] = [
       eq(spaPackageDefinitions.tenantId, input.tenantId),
     ];
 
     if (input.cursor) {
-      conditions.push(lt(spaPackageDefinitions.id, input.cursor));
+      const parsed = decodeCursor(input.cursor);
+      if (parsed) {
+        // Composite cursor: ORDER BY sortOrder ASC, id DESC
+        // Next page condition: (sortOrder > cursorSortOrder) OR (sortOrder = cursorSortOrder AND id < cursorId)
+        conditions.push(sql`(
+          ${spaPackageDefinitions.sortOrder} > ${parsed.sortOrder}
+          OR (${spaPackageDefinitions.sortOrder} = ${parsed.sortOrder} AND ${spaPackageDefinitions.id} < ${parsed.id})
+        )`);
+      } else {
+        // Legacy plain-id cursor fallback
+        conditions.push(sql`${spaPackageDefinitions.id} < ${input.cursor}`);
+      }
     }
 
     if (input.isActive !== undefined) {
@@ -82,7 +113,10 @@ export async function listPackageDefinitions(
 
     const hasMore = rows.length > limit;
     const sliced = hasMore ? rows.slice(0, limit) : rows;
-    const nextCursor = hasMore ? sliced[sliced.length - 1]!.id : null;
+    const lastRow = sliced[sliced.length - 1];
+    const nextCursor = hasMore && lastRow
+      ? encodeCursor(lastRow.sortOrder, lastRow.id)
+      : null;
 
     const items: PackageDefinitionRow[] = sliced.map((r) => ({
       id: r.id,

@@ -1,6 +1,6 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
 import {
@@ -72,7 +72,7 @@ export async function addReceiptCharge(
     return { result: created, events: [event] };
   });
 
-  await auditLog(ctx, 'inventory.receipt.charge_added', 'receiving_receipt', input.receiptId);
+  auditLogDeferred(ctx, 'inventory.receipt.charge_added', 'receiving_receipt', input.receiptId);
   return result;
 }
 
@@ -110,7 +110,7 @@ export async function updateReceiptCharge(
     const [updated] = await (tx as any)
       .update(receiptCharges)
       .set(updates)
-      .where(eq(receiptCharges.id, input.chargeId))
+      .where(and(eq(receiptCharges.id, input.chargeId), eq(receiptCharges.tenantId, ctx.tenantId)))
       .returning();
 
     // Recompute shippingCost if amount changed
@@ -126,7 +126,7 @@ export async function updateReceiptCharge(
     return { result: updated, events: [event] };
   });
 
-  await auditLog(ctx, 'inventory.receipt.charge_updated', 'receipt_charge', input.chargeId);
+  auditLogDeferred(ctx, 'inventory.receipt.charge_updated', 'receipt_charge', input.chargeId);
   return result;
 }
 
@@ -169,7 +169,7 @@ export async function removeReceiptCharge(
     return { result: { chargeId: input.chargeId, receiptId: charge.receiptId }, events: [event] };
   });
 
-  await auditLog(ctx, 'inventory.receipt.charge_removed', 'receipt_charge', input.chargeId);
+  auditLogDeferred(ctx, 'inventory.receipt.charge_removed', 'receipt_charge', input.chargeId);
   return result;
 }
 
@@ -217,7 +217,7 @@ async function recomputeShippingFromCharges(
   await (tx as any)
     .update(receivingReceipts)
     .set({ shippingCost: chargeTotal.toString(), updatedAt: new Date() })
-    .where(eq(receivingReceipts.id, receiptId));
+    .where(and(eq(receivingReceipts.id, receiptId), eq(receivingReceipts.tenantId, tenantId)));
 
   // If ALLOCATE mode, rerun line allocation
   const freightMode = receipt.freightMode ?? 'allocate';
@@ -262,7 +262,7 @@ async function recomputeShippingFromCharges(
             landedUnitCost: c.landedUnitCost.toString(),
             updatedAt: new Date(),
           })
-          .where(eq(receivingReceiptLines.id, c.id));
+          .where(and(eq(receivingReceiptLines.id, c.id), eq(receivingReceiptLines.tenantId, tenantId)));
       }
 
       // Update header totals
@@ -271,7 +271,7 @@ async function recomputeShippingFromCharges(
       await (tx as any)
         .update(receivingReceipts)
         .set({ subtotal: subtotal.toString(), total: total.toString() })
-        .where(eq(receivingReceipts.id, receiptId));
+        .where(and(eq(receivingReceipts.id, receiptId), eq(receivingReceipts.tenantId, tenantId)));
     }
   }
 }
