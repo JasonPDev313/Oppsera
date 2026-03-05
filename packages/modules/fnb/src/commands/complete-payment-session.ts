@@ -4,6 +4,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
+import { AppError } from '@oppsera/shared';
 import { fnbTableLiveStatus } from '@oppsera/db';
 import { FNB_EVENTS } from '../events/types';
 import type { PaymentCompletedPayload } from '../events/types';
@@ -21,11 +22,12 @@ export async function completePaymentSession(
       if (check.isDuplicate) return { result: check.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    // Fetch session
+    // Lock session row — prevents double-complete race
     const sessions = await tx.execute(
       sql`SELECT id, tab_id, order_id, status, total_amount_cents, paid_amount_cents
           FROM fnb_payment_sessions
-          WHERE id = ${input.sessionId} AND tenant_id = ${ctx.tenantId}`,
+          WHERE id = ${input.sessionId} AND tenant_id = ${ctx.tenantId}
+          FOR UPDATE`,
     );
     const rows = Array.from(sessions as Iterable<Record<string, unknown>>);
     if (rows.length === 0) throw new PaymentSessionNotFoundError(input.sessionId);
@@ -37,23 +39,40 @@ export async function completePaymentSession(
       throw new PaymentSessionStatusConflictError(input.sessionId, status, 'complete');
     }
 
-    // Update session to completed
-    const [updated] = await tx.execute(
+    // Guard: session must be fully paid (paid >= total) before completing
+    const paidCents = Number(session.paid_amount_cents);
+    const totalCents = Number(session.total_amount_cents);
+    if (paidCents < totalCents) {
+      throw new AppError(
+        'SESSION_UNDERPAID',
+        `Cannot complete session: paid ${paidCents} < total ${totalCents}`,
+        400,
+      );
+    }
+
+    // CAS update — only complete if status is still eligible (belt-and-suspenders with FOR UPDATE)
+    const updated = await tx.execute(
       sql`UPDATE fnb_payment_sessions
           SET status = 'completed', remaining_amount_cents = 0,
               completed_at = NOW(), updated_at = NOW()
           WHERE id = ${input.sessionId} AND tenant_id = ${ctx.tenantId}
+            AND status IN ('pending', 'in_progress')
           RETURNING *`,
     );
+    const updatedRows = Array.from(updated as Iterable<Record<string, unknown>>);
+    if (updatedRows.length === 0) {
+      throw new PaymentSessionStatusConflictError(input.sessionId, status, 'complete');
+    }
 
-    const updatedRow = updated as Record<string, unknown>;
+    const updatedRow = updatedRows[0]!;
     const tabId = session.tab_id as string;
 
-    // Close tab
+    // Close tab — only if it's still in 'paying' status
     await tx.execute(
       sql`UPDATE fnb_tabs
           SET status = 'closed', closed_at = NOW(), updated_at = NOW(), version = version + 1
-          WHERE id = ${tabId} AND tenant_id = ${ctx.tenantId}`,
+          WHERE id = ${tabId} AND tenant_id = ${ctx.tenantId}
+            AND status = 'paying'`,
     );
 
     // Clear table live status to 'dirty' (matches close-tab.ts behavior)
@@ -84,7 +103,7 @@ export async function completePaymentSession(
       tabId,
       orderId: session.order_id as string,
       locationId,
-      totalTendersCents: Number(session.paid_amount_cents ?? 0),
+      totalTendersCents: paidCents,
       changeCents: input.changeCents ?? 0,
     };
 

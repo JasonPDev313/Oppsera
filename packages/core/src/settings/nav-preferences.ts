@@ -24,7 +24,7 @@ export async function saveNavPreferences(
   ctx: RequestContext,
   input: UpdateNavPreferencesInput,
 ): Promise<NavItemPreference[]> {
-  return withTenant(ctx.tenantId, async (tx) => {
+  await withTenant(ctx.tenantId, async (tx) => {
     const now = new Date();
 
     await tx
@@ -43,9 +43,9 @@ export async function saveNavPreferences(
           updatedBy: ctx.user.id,
         },
       });
-
-    auditLogDeferred(ctx, 'settings.navigation.updated', 'tenant_nav_preferences', ctx.tenantId);
-
-    return input.itemOrder;
   });
+
+  auditLogDeferred(ctx, 'settings.navigation.updated', 'tenant_nav_preferences', ctx.tenantId);
+
+  return input.itemOrder;
 }

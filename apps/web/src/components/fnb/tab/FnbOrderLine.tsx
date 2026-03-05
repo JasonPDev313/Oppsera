@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback } from 'react';
+import { memo, useRef, useCallback } from 'react';
 import { MessageSquare } from 'lucide-react';
 
 interface FnbOrderLineProps {
@@ -52,7 +52,7 @@ const STATUS_ICONS: Record<string, string> = {
   voided: '\u2715',
 };
 
-export function FnbOrderLine({ seatNumber, itemName, modifiers, specialInstructions, priceCents, qty, status, isUnsent, onTap, onLongPress }: FnbOrderLineProps) {
+export const FnbOrderLine = memo(function FnbOrderLine({ seatNumber, itemName, modifiers, specialInstructions, priceCents, qty, status, isUnsent, onTap, onLongPress }: FnbOrderLineProps) {
   const seatColorVar = `var(--fnb-seat-${Math.min(seatNumber, 9)})`;
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLongPress = useRef(false);
@@ -155,4 +155,4 @@ export function FnbOrderLine({ seatNumber, itemName, modifiers, specialInstructi
       </span>
     </button>
   );
-}
+});

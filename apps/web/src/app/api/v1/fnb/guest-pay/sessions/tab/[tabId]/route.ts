@@ -11,5 +11,5 @@ export const GET = withMiddleware(
     const result = await listGuestPaySessionsForTab(ctx.tenantId, tabId);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.view' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create' },
 );

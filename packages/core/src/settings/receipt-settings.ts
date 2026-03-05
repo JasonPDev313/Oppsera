@@ -78,14 +78,14 @@ export async function saveReceiptSettings(
 ): Promise<ReceiptSettings> {
   const locationId = input.locationId ?? null;
 
-  return withTenant(ctx.tenantId, async (tx) => {
+  const parsed = await withTenant(ctx.tenantId, async (tx) => {
     // Read current settings to merge with partial update
     const current = await getReceiptSettingsRaw(tx, ctx.tenantId, locationId);
     const merged = { ...DEFAULT_RECEIPT_SETTINGS, ...current, ...input.settings };
 
     // Validate the merged result
-    const parsed = receiptSettingsSchema.parse(merged);
-    const jsonValue = JSON.stringify(parsed);
+    const result = receiptSettingsSchema.parse(merged);
+    const jsonValue = JSON.stringify(result);
 
     await tx.execute(
       sql`INSERT INTO tenant_settings (id, tenant_id, location_id, module_key, setting_key, value, created_at, updated_at)
@@ -94,17 +94,19 @@ export async function saveReceiptSettings(
           DO UPDATE SET value = ${jsonValue}::jsonb, updated_at = NOW()`,
     );
 
-    auditLogDeferred(
-      ctx,
-      locationId
-        ? 'settings.receipts.location.updated'
-        : 'settings.receipts.updated',
-      'tenant_settings',
-      ctx.tenantId,
-    );
-
-    return parsed;
+    return result;
   });
+
+  auditLogDeferred(
+    ctx,
+    locationId
+      ? 'settings.receipts.location.updated'
+      : 'settings.receipts.updated',
+    'tenant_settings',
+    ctx.tenantId,
+  );
+
+  return parsed;
 }
 
 // ── Internal helpers ─────────────────────────────────────────────

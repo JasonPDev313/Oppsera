@@ -94,7 +94,9 @@ export default function CustomerDisplayContent() {
                   <p className="text-lg font-medium text-foreground">{line.catalogItemName}</p>
                   {line.modifiers && line.modifiers.length > 0 && (
                     <p className="text-sm text-muted-foreground">
-                      {line.modifiers.map((m: { name: string }) => m.name).join(', ')}
+                      {line.modifiers.map((m: { name: string; priceAdjustment?: number }) =>
+                        m.priceAdjustment ? `${m.name} (+${formatMoney(m.priceAdjustment)})` : m.name,
+                      ).join(', ')}
                     </p>
                   )}
                   {line.specialInstructions && (

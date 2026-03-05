@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useState, useEffect } from 'react';
+import { memo, useCallback, useMemo, useState, useEffect } from 'react';
 import { Search, ChevronRight, X, RefreshCw, AlertCircle, Wrench, LayoutGrid, Star, Clock } from 'lucide-react';
 import type { UseFnbMenuReturn } from '@/hooks/use-fnb-menu';
 import { useFnbMenu } from '@/hooks/use-fnb-menu';
@@ -413,6 +413,7 @@ export const FnbMenuContent = memo(function FnbMenuContent({ menu, menuMode, onI
 }) {
   const { favorites, recents, toggle: toggleFav } = useFnbFavorites();
 
+  // Phase 4: Extract only the two setters needed — stable since they're React state setters
   const handleBreadcrumbNavigate = useCallback((level: string) => {
     if (level === 'department') {
       menu.setActiveSubDepartment(null);
@@ -420,8 +421,9 @@ export const FnbMenuContent = memo(function FnbMenuContent({ menu, menuMode, onI
     } else if (level === 'subDepartment') {
       menu.setActiveCategory(null);
     }
-  }, [menu]);
+  }, [menu.setActiveSubDepartment, menu.setActiveCategory]);
 
+  // Stable callback — receives itemId from tile (no per-tile closure needed)
   const handleItemTap = useCallback((id: string) => {
     const item = menu.items.find((i) => i.id === id);
     if (item) {
@@ -429,6 +431,26 @@ export const FnbMenuContent = memo(function FnbMenuContent({ menu, menuMode, onI
       onItemTap(item.id, item.name, item.unitPriceCents, item.itemType);
     }
   }, [menu.items, onItemTap]);
+
+  // Pre-compute allergen icons per item — stable array refs for memo() on FnbItemTile.
+  // Keys: itemId → string[] of allergen icon emojis. Only recomputes when allergens or items change.
+  const allergenIconsByItemId = useMemo(() => {
+    const iconById = new Map<string, string>();
+    for (const a of menu.allergens) {
+      if (a.icon) iconById.set(a.id, a.icon);
+    }
+    const result = new Map<string, string[]>();
+    for (const item of menu.items) {
+      if (item.allergenIds.length === 0) continue;
+      const icons: string[] = [];
+      for (const aid of item.allergenIds) {
+        const icon = iconById.get(aid);
+        if (icon) icons.push(icon);
+      }
+      if (icons.length > 0) result.set(item.id, icons);
+    }
+    return result;
+  }, [menu.allergens, menu.items]);
 
   // ── Hot Sellers / Favorites + Recent ──────────────────────────
   if (menuMode === 'hot_sellers') {
@@ -462,17 +484,16 @@ export const FnbMenuContent = memo(function FnbMenuContent({ menu, menuMode, onI
               {favoriteItems.map((item) => (
                 <FnbItemTile
                   key={item.id}
+                  itemId={item.id}
                   name={item.name}
                   priceCents={item.unitPriceCents}
                   is86d={item.is86d}
                   isFavorite
-                  onToggleFavorite={() => toggleFav(item.id)}
-                  allergenIcons={item.allergenIds
-                    .map((aid) => menu.allergens.find((a) => a.id === aid)?.icon)
-                    .filter(Boolean) as string[]}
+                  onToggleFavoriteById={toggleFav}
+                  allergenIcons={allergenIconsByItemId.get(item.id)}
                   menuColor={(item.metadata?.menuColor as string) ?? null}
                   hasModifiers={item.modifierGroupIds.length > 0}
-                  onTap={() => handleItemTap(item.id)}
+                  onTapById={handleItemTap}
                 />
               ))}
             </div>
@@ -499,17 +520,16 @@ export const FnbMenuContent = memo(function FnbMenuContent({ menu, menuMode, onI
               {recentItems.map((item) => (
                 <FnbItemTile
                   key={item.id}
+                  itemId={item.id}
                   name={item.name}
                   priceCents={item.unitPriceCents}
                   is86d={item.is86d}
                   isFavorite={favorites.has(item.id)}
-                  onToggleFavorite={() => toggleFav(item.id)}
-                  allergenIcons={item.allergenIds
-                    .map((aid) => menu.allergens.find((a) => a.id === aid)?.icon)
-                    .filter(Boolean) as string[]}
+                  onToggleFavoriteById={toggleFav}
+                  allergenIcons={allergenIconsByItemId.get(item.id)}
                   menuColor={(item.metadata?.menuColor as string) ?? null}
                   hasModifiers={item.modifierGroupIds.length > 0}
-                  onTap={() => handleItemTap(item.id)}
+                  onTapById={handleItemTap}
                 />
               ))}
             </div>
@@ -594,17 +614,16 @@ export const FnbMenuContent = memo(function FnbMenuContent({ menu, menuMode, onI
               {menu.filteredItems.map((item) => (
                 <FnbItemTile
                   key={item.id}
+                  itemId={item.id}
                   name={item.name}
                   priceCents={item.unitPriceCents}
                   is86d={item.is86d}
                   isFavorite={favorites.has(item.id)}
-                  onToggleFavorite={() => toggleFav(item.id)}
-                  allergenIcons={item.allergenIds
-                    .map((aid) => menu.allergens.find((a) => a.id === aid)?.icon)
-                    .filter(Boolean) as string[]}
+                  onToggleFavoriteById={toggleFav}
+                  allergenIcons={allergenIconsByItemId.get(item.id)}
                   menuColor={(item.metadata?.menuColor as string) ?? null}
                   hasModifiers={item.modifierGroupIds.length > 0}
-                  onTap={() => handleItemTap(item.id)}
+                  onTapById={handleItemTap}
                 />
               ))}
             </div>

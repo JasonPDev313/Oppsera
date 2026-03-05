@@ -303,7 +303,7 @@ export const LineItemEditPanel = memo(function LineItemEditPanel({
                 <span>{mod.name}</span>
                 {mod.priceAdjustment !== 0 && (
                   <span className="text-muted-foreground">
-                    +{formatMoney(mod.priceAdjustment)}
+                    {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
                   </span>
                 )}
               </div>

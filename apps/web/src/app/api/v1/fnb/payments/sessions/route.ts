@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { broadcastFnb } from '@oppsera/core/realtime';
-import { ValidationError } from '@oppsera/shared';
+import { ValidationError, AppError } from '@oppsera/shared';
 import {
   startPaymentSession,
   listPaymentSessions,
@@ -29,7 +29,7 @@ export const GET = withMiddleware(
     const result = await listPaymentSessions(parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.view' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create' },
 );
 
 // POST /api/v1/fnb/payments/sessions — start a new payment session
@@ -44,9 +44,13 @@ export const POST = withMiddleware(
       );
     }
 
-    const result = await startPaymentSession(ctx, ctx.locationId ?? '', parsed.data);
+    if (!ctx.locationId) {
+      throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
+    }
+
+    const result = await startPaymentSession(ctx, ctx.locationId, parsed.data);
     broadcastFnb(ctx, 'tabs').catch(() => {});
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage' , writeAccess: true },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create', writeAccess: true },
 );

@@ -17,5 +17,5 @@ export const GET = withMiddleware(
     }
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.view' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create' },
 );

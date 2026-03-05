@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import type { FnbTableWithStatus } from '@/types/fnb';
 import { FNB_TABLE_STATUS_COLORS, FNB_TABLE_STATUS_LABELS } from '@/types/fnb';
 import { Users, Clock, Plus, QrCode, DollarSign } from 'lucide-react';
@@ -98,11 +99,15 @@ export function FnbTableNode({
   const w = Math.max(table.width || MIN_TABLE_SIZE, MIN_TABLE_SIZE) * viewScale;
   const h = Math.max(table.height || MIN_TABLE_SIZE, MIN_TABLE_SIZE) * viewScale;
 
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handlePointerDown = () => {
     if (!onLongPress) return;
-    const timer = setTimeout(() => onLongPress(table.tableId), 500);
-    const up = () => { clearTimeout(timer); window.removeEventListener('pointerup', up); };
-    window.addEventListener('pointerup', up);
+    longPressTimerRef.current = setTimeout(() => onLongPress(table.tableId), 500);
+  };
+
+  const handlePointerUp = () => {
+    if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
   };
 
   return (
@@ -110,6 +115,8 @@ export function FnbTableNode({
       type="button"
       onClick={() => onTap(table.tableId)}
       onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       onContextMenu={(e) => { if (onContextMenu) { e.preventDefault(); onContextMenu(table.tableId); } }}
       className={`
         group absolute flex flex-col items-center justify-center

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 import { usePermissions } from '@/hooks/use-permissions';
 
 interface PermissionsContextValue {
@@ -17,8 +17,9 @@ const PermissionsContext = createContext<PermissionsContextValue>({
 
 export function PermissionsProvider({ children }: { children: React.ReactNode }) {
   const { can, permissions, isLoading } = usePermissions();
+  const value = useMemo(() => ({ can, permissions, isLoading }), [can, permissions, isLoading]);
   return (
-    <PermissionsContext.Provider value={{ can, permissions, isLoading }}>
+    <PermissionsContext.Provider value={value}>
       {children}
     </PermissionsContext.Provider>
   );

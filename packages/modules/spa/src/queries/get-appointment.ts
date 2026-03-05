@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import {
   withTenant,
   spaAppointments,
@@ -9,6 +9,7 @@ import {
   spaIntakeResponses,
   spaClinicalNotes,
   spaAppointmentHistory,
+  customers,
 } from '@oppsera/db';
 
 export interface AppointmentItemDetail {
@@ -127,13 +128,13 @@ export async function getAppointment(input: {
   appointmentId: string;
 }): Promise<AppointmentDetail | null> {
   return withTenant(input.tenantId, async (tx) => {
-    // Fetch the appointment with provider + resource
+    // Fetch the appointment with provider + resource + customer name fallback
     const [appointment] = await tx
       .select({
         id: spaAppointments.id,
         appointmentNumber: spaAppointments.appointmentNumber,
         customerId: spaAppointments.customerId,
-        guestName: spaAppointments.guestName,
+        guestName: sql<string | null>`COALESCE(${spaAppointments.guestName}, ${customers.displayName})`.as('guest_name'),
         guestEmail: spaAppointments.guestEmail,
         guestPhone: spaAppointments.guestPhone,
         locationId: spaAppointments.locationId,
@@ -173,6 +174,7 @@ export async function getAppointment(input: {
         updatedAt: spaAppointments.updatedAt,
       })
       .from(spaAppointments)
+      .leftJoin(customers, eq(spaAppointments.customerId, customers.id))
       .leftJoin(spaProviders, eq(spaAppointments.providerId, spaProviders.id))
       .leftJoin(spaResources, eq(spaAppointments.resourceId, spaResources.id))
       .where(

@@ -5,6 +5,7 @@ import {
   spaAppointmentItems,
   spaServices,
   spaProviders,
+  customers,
 } from '@oppsera/db';
 
 export interface CalendarAppointmentItem {
@@ -82,13 +83,13 @@ export async function getAppointmentsForCalendar(input: {
       );
     }
 
-    // Fetch appointments
+    // Fetch appointments with customer name fallback
     const rows = await tx
       .select({
         id: spaAppointments.id,
         appointmentNumber: spaAppointments.appointmentNumber,
         customerId: spaAppointments.customerId,
-        guestName: spaAppointments.guestName,
+        guestName: sql<string | null>`COALESCE(${spaAppointments.guestName}, ${customers.displayName})`.as('guest_name'),
         providerId: spaAppointments.providerId,
         startAt: spaAppointments.startAt,
         endAt: spaAppointments.endAt,
@@ -97,6 +98,7 @@ export async function getAppointmentsForCalendar(input: {
         orderId: spaAppointments.orderId,
       })
       .from(spaAppointments)
+      .leftJoin(customers, eq(spaAppointments.customerId, customers.id))
       .where(and(...conditions))
       .orderBy(spaAppointments.startAt);
 

@@ -27,5 +27,5 @@ export const POST = withMiddleware(
     broadcastFnb(ctx, 'tabs').catch(() => {});
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage' , writeAccess: true },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.refund', writeAccess: true },
 );

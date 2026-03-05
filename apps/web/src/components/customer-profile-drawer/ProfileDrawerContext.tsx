@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 
 interface ProfileDrawerState {
   isOpen: boolean;
@@ -39,8 +39,10 @@ export function ProfileDrawerProvider({ children }: { children: ReactNode }) {
     setState({ isOpen: false, customerId: null });
   }, []);
 
+  const value = useMemo(() => ({ state, open, close }), [state, open, close]);
+
   return (
-    <ProfileDrawerContext.Provider value={{ state, open, close }}>
+    <ProfileDrawerContext.Provider value={value}>
       {children}
     </ProfileDrawerContext.Provider>
   );

@@ -50,6 +50,7 @@ export const FNB_EVENTS = {
   CHECK_PRESENTED: 'fnb.payment.check_presented.v1',
   PAYMENT_STARTED: 'fnb.payment.started.v1',
   TENDER_APPLIED: 'fnb.payment.tender_applied.v1',
+  TENDER_VOIDED: 'fnb.payment.tender_voided.v1',
   PAYMENT_COMPLETED: 'fnb.payment.completed.v1',
   PAYMENT_FAILED: 'fnb.payment.failed.v1',
   CHECK_COMPED: 'fnb.payment.check_comped.v1',
@@ -298,7 +299,7 @@ export interface TicketCreatedPayload {
   ticketId: string;
   locationId: string;
   tabId: string;
-  orderId: string;
+  orderId: string | null;
   ticketNumber: number;
   itemCount: number;
   businessDate: string;
@@ -441,6 +442,14 @@ export interface TenderAppliedPayload {
   locationId: string;
   amountCents: number;
   tenderType: string;
+}
+
+export interface TenderVoidedPayload {
+  paymentSessionId: string;
+  tabId: string;
+  orderId: string;
+  locationId: string;
+  reversedAmountCents: number;
 }
 
 export interface PaymentCompletedPayload {

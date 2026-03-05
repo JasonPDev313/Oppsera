@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { ChevronLeft, Users, ShoppingCart, QrCode, Copy, XCircle, Sparkles, Hand, UtensilsCrossed, LayoutGrid, Repeat } from 'lucide-react';
 
 // ── Handheld detection hook ─────────────────────────────────────
@@ -221,7 +221,8 @@ function UpsellBanner({ items, onTap: _onTap }: {
   );
 }
 
-export function FnbTabView({ userId: _userId, isActive: _isActive = true, kdsSendEnabled = true }: FnbTabViewProps) {
+export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = true }: FnbTabViewProps) {
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { locations } = useAuthContext();
   const locationId = locations?.[0]?.id;
   const store = useFnbPosStore();
@@ -256,9 +257,14 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true, kdsSen
     }
   }, [notFound, store]);
 
-  const menu = useFnbMenu();
+  const menu = useFnbMenu({ isActive });
 
   const [toastMsg, setToastMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Clear toast timer on unmount to prevent setState on unmounted component
+  useEffect(() => {
+    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
+  }, []);
 
   const guestPay = useFnbGuestPay({
     tabId,
@@ -266,7 +272,8 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true, kdsSen
     onPaymentConfirmed: (session) => {
       const tipLabel = session.tipCents ? ` (tip $${(session.tipCents / 100).toFixed(2)})` : '';
       setToastMsg({ type: 'success', text: `Guest paid $${(session.totalCents / 100).toFixed(2)}${tipLabel}` });
-      setTimeout(() => setToastMsg(null), 5000);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToastMsg(null), 5000);
     },
   });
 
@@ -384,7 +391,8 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true, kdsSen
       // 2. Show success toast with copy link option
       const url = `${window.location.origin}/pay/${session.token}`;
       setToastMsg({ type: 'success', text: 'Check printed with QR code' });
-      setTimeout(() => setToastMsg(null), 4000);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToastMsg(null), 4000);
       // Copy link to clipboard
       navigator.clipboard.writeText(url).catch(() => {});
       // Refresh guest pay state
@@ -392,7 +400,8 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true, kdsSen
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to print check';
       setToastMsg({ type: 'error', text: message });
-      setTimeout(() => setToastMsg(null), 4000);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToastMsg(null), 4000);
     }
   }, [tabId, tab, guestPay]);
 
@@ -850,7 +859,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true, kdsSen
               id: l.catalogItemId ?? '',
               name: l.catalogItemName ?? '',
               priceCents: l.unitPriceCents ?? 0,
-              itemType: 'food',
+              itemType: menu.items.find((m) => m.id === l.catalogItemId)?.itemType ?? 'food',
             }))}
             onTap={() => {}}
           />

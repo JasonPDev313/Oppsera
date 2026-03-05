@@ -24,5 +24,5 @@ export const POST = withMiddleware(
     broadcastFnb(ctx, 'guest_pay', 'tabs').catch(() => {});
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage', writeAccess: true },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create', writeAccess: true },
 );

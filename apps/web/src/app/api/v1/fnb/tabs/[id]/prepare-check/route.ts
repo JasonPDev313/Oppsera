@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { broadcastFnb } from '@oppsera/core/realtime';
+import { AppError } from '@oppsera/shared';
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { getTabDetail, getCheckSummary } from '@oppsera/module-fnb';
@@ -18,6 +19,10 @@ function extractTabId(request: NextRequest): string {
 // then returns the check summary for the payment screen.
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
+    if (!ctx.locationId) {
+      throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
+    }
+
     const tabId = extractTabId(request);
 
     // 1. Fetch full tab detail (includes lines)
@@ -108,10 +113,17 @@ export const POST = withMiddleware(
             WHERE id = ${tabId} AND tenant_id = ${ctx.tenantId}`,
       );
 
+      // 9. Backfill orderId on kitchen tickets created at send time (before order existed)
+      await tx.execute(
+        sql`UPDATE fnb_kitchen_tickets
+            SET order_id = ${order.id}, updated_at = NOW()
+            WHERE tab_id = ${tabId} AND tenant_id = ${ctx.tenantId} AND order_id IS NULL`,
+      );
+
       return order.id;
     });
 
-    // 9. Return check summary
+    // 10. Return check summary
     const check = await getCheckSummary({ tenantId: ctx.tenantId, orderId });
     broadcastFnb(ctx, 'tabs').catch(() => {});
     return NextResponse.json({ data: { orderId, check } });

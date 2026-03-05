@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useCallback } from 'react';
 import { Star } from 'lucide-react';
 import { getContrastTextColor } from '@/lib/contrast';
 
@@ -12,21 +13,22 @@ const TILE_HEIGHTS: Record<TileSize, number> = {
 };
 
 interface FnbItemTileProps {
+  /** Item ID — used for stable onTapById/onToggleFavoriteById callbacks */
+  itemId: string;
   name: string;
   priceCents: number;
   is86d: boolean;
-  onTap: () => void;
+  /** Stable callback — receives itemId, avoids per-tile closure allocation */
+  onTapById: (id: string) => void;
   allergenIcons?: string[];
   menuColor?: string | null;
   imageUrl?: string | null;
   cartQty?: number;
   stockRemaining?: number | null;
   tileSize?: TileSize;
-  /** Whether this item is starred as a favorite */
   isFavorite?: boolean;
-  /** Toggle favorite (called with stopPropagation already handled) */
-  onToggleFavorite?: () => void;
-  /** Show modifier badge indicating item opens modifier drawer */
+  /** Stable callback — receives itemId */
+  onToggleFavoriteById?: (id: string) => void;
   hasModifiers?: boolean;
 }
 
@@ -34,11 +36,12 @@ function formatMoney(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-export function FnbItemTile({
+export const FnbItemTile = memo(function FnbItemTile({
+  itemId,
   name,
   priceCents,
   is86d,
-  onTap,
+  onTapById,
   allergenIcons,
   menuColor,
   imageUrl,
@@ -46,9 +49,26 @@ export function FnbItemTile({
   stockRemaining,
   tileSize = 'standard',
   isFavorite,
-  onToggleFavorite,
+  onToggleFavoriteById,
   hasModifiers,
 }: FnbItemTileProps) {
+  const handleTap = useCallback(() => onTapById(itemId), [onTapById, itemId]);
+
+  const handleToggleFavorite = useCallback(
+    (e: React.MouseEvent | React.KeyboardEvent) => {
+      e.stopPropagation();
+      onToggleFavoriteById?.(itemId);
+    },
+    [onToggleFavoriteById, itemId],
+  );
+
+  const handleFavoriteKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') handleToggleFavorite(e);
+    },
+    [handleToggleFavorite],
+  );
+
   const hasMenuColor = !!menuColor && menuColor !== '#FFFFFF';
   const hasImage = !!imageUrl;
   const textColor = hasImage ? '#ffffff' : hasMenuColor ? getContrastTextColor(menuColor) : null;
@@ -57,9 +77,9 @@ export function FnbItemTile({
   return (
     <button
       type="button"
-      onClick={is86d ? undefined : onTap}
+      onClick={is86d ? undefined : handleTap}
       disabled={is86d}
-      className={`relative flex flex-col items-center justify-center p-2 transition-all disabled:cursor-not-allowed overflow-hidden ${
+      className={`relative flex flex-col items-center justify-center p-2 transition-transform disabled:cursor-not-allowed overflow-hidden ${
         is86d ? 'opacity-40' : 'hover:scale-[1.02] active:scale-[0.98]'
       }`}
       style={{
@@ -157,12 +177,12 @@ export function FnbItemTile({
 
       {/* Top-right badges: favorite star + allergen icons */}
       <div className="absolute top-1 right-1 flex items-center gap-0.5 z-1">
-        {onToggleFavorite && (
+        {onToggleFavoriteById && (
           <span
             role="button"
             tabIndex={-1}
-            onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onToggleFavorite(); } }}
+            onClick={handleToggleFavorite}
+            onKeyDown={handleFavoriteKeyDown}
             className="cursor-pointer transition-transform hover:scale-110"
           >
             <Star
@@ -183,4 +203,4 @@ export function FnbItemTile({
       </div>
     </button>
   );
-}
+});

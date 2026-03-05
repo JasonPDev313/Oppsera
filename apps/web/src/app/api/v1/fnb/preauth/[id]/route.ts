@@ -24,5 +24,5 @@ export const GET = withMiddleware(
     const result = await getTabPreauths(parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.view' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create' },
 );

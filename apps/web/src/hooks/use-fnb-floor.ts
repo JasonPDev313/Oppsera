@@ -72,6 +72,9 @@ interface UseFnbFloorOptions {
   pollIntervalMs?: number;
 }
 
+// Stable empty arrays to avoid new references on every render
+const EMPTY_TABLES: FnbTableWithStatus[] = [];
+
 interface UseFnbFloorReturn {
   data: FloorPlanWithLiveStatus | null;
   tables: FnbTableWithStatus[];
@@ -162,18 +165,23 @@ export function useFnbFloor({ roomId, pollIntervalMs = 20 * 60_000 }: UseFnbFloo
   }, [refresh]);
 
   // Auto-warm tab cache whenever floor plan data refreshes (poll or visibility resume).
-  // Fire-and-forget — warmOpenTabs skips already-cached tabs and deduplicates in-flight.
+  // Guarded by `mounted` flag — if the component unmounts mid-batch, remaining
+  // fetches are skipped (avoids zombie DB connections on Vercel — Gotcha #1).
   useEffect(() => {
     if (!data?.tables) return;
+    let mounted = true;
     const tabIds = data.tables
       .map((t) => t.currentTabId)
       .filter((id): id is string => !!id);
-    if (tabIds.length > 0) warmOpenTabs(tabIds);
+    if (tabIds.length > 0) {
+      warmOpenTabs(tabIds, () => mounted).catch(() => {});
+    }
+    return () => { mounted = false; };
   }, [data]);
 
   return {
     data: data ?? null,
-    tables: data?.tables ?? [],
+    tables: data?.tables ?? EMPTY_TABLES,
     isLoading,
     isFetching,
     error: error ? (error instanceof Error ? error.message : 'Unknown error') : null,
@@ -189,6 +197,8 @@ interface Room {
   slug: string;
   locationId: string;
 }
+
+const EMPTY_ROOMS: Room[] = [];
 
 interface UseFnbRoomsReturn {
   rooms: Room[];
@@ -222,7 +232,7 @@ export function useFnbRooms(): UseFnbRoomsReturn {
   });
 
   return {
-    rooms: data ?? [],
+    rooms: data ?? EMPTY_ROOMS,
     isLoading,
     error: error ? (error instanceof Error ? error.message : 'Unknown error') : null,
   };

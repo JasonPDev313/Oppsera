@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   useEffect,
+  useMemo,
   type ReactNode,
   type MouseEvent,
 } from 'react';
@@ -152,8 +153,10 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener('keydown', handleKey);
   }, [pending, handleStay]);
 
+  const value = useMemo(() => ({ setGuard, guardedClick, guardedNavigate }), [setGuard, guardedClick, guardedNavigate]);
+
   return (
-    <NavigationGuardContext.Provider value={{ setGuard, guardedClick, guardedNavigate }}>
+    <NavigationGuardContext.Provider value={value}>
       {children}
       {pending && typeof document !== 'undefined' && (
         <UnsavedChangesModal

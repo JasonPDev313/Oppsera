@@ -7,6 +7,7 @@ import {
   spaProviders,
   spaProviderAvailability,
   spaProviderTimeOff,
+  customers,
 } from '@oppsera/db';
 
 export interface ScheduleAppointment {
@@ -110,7 +111,7 @@ export async function getProviderSchedule(input: {
           id: spaAppointments.id,
           appointmentNumber: spaAppointments.appointmentNumber,
           customerId: spaAppointments.customerId,
-          guestName: spaAppointments.guestName,
+          guestName: sql<string | null>`COALESCE(${spaAppointments.guestName}, ${customers.displayName})`.as('guest_name'),
           resourceId: spaAppointments.resourceId,
           startAt: spaAppointments.startAt,
           endAt: spaAppointments.endAt,
@@ -118,6 +119,7 @@ export async function getProviderSchedule(input: {
           bookingSource: spaAppointments.bookingSource,
         })
         .from(spaAppointments)
+        .leftJoin(customers, eq(spaAppointments.customerId, customers.id))
         .where(
           and(
             eq(spaAppointments.tenantId, input.tenantId),

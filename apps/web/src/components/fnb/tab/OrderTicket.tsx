@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { List, Layers } from 'lucide-react';
 import type { FnbTabDetail, FnbDraftLine } from '@/types/fnb';
 import { CourseSection } from './CourseSection';
@@ -20,7 +20,7 @@ interface OrderTicketProps {
   kdsSendEnabled?: boolean;
 }
 
-export function OrderTicket({
+export const OrderTicket = memo(function OrderTicket({
   tab,
   activeSeat,
   activeCourse,
@@ -38,61 +38,68 @@ export function OrderTicket({
   const courses = tab.courses ?? [];
   const serverLines = tab.lines ?? [];
 
-  // Filter server lines by active seat
-  const filteredServerLines = activeSeat === 0
-    ? serverLines
-    : serverLines.filter((l) => l.seatNumber === activeSeat);
+  // Memoize line grouping — avoid re-building Maps on every render
+  const { sortedCourses, draftsByCourse, courseStatusMap, hasAnyContent } = useMemo(() => {
+    // Filter server lines by active seat
+    const filteredServerLines = activeSeat === 0
+      ? serverLines
+      : serverLines.filter((l) => l.seatNumber === activeSeat);
 
-  // Filter draft lines by active seat
-  const filteredDrafts = activeSeat === 0
-    ? draftLines
-    : draftLines.filter((d) => d.seatNumber === activeSeat);
+    // Filter draft lines by active seat
+    const filteredDrafts = activeSeat === 0
+      ? draftLines
+      : draftLines.filter((d) => d.seatNumber === activeSeat);
 
-  // Group server lines by course
-  const linesByCourse = new Map<number, typeof filteredServerLines>();
-  for (const line of filteredServerLines) {
-    const cn = line.courseNumber ?? 1;
-    const existing = linesByCourse.get(cn) ?? [];
-    existing.push(line);
-    linesByCourse.set(cn, existing);
-  }
-
-  // Group draft lines by course
-  const draftsByCourse = new Map<number, FnbDraftLine[]>();
-  for (const draft of filteredDrafts) {
-    const cn = draft.courseNumber ?? 1;
-    const existing = draftsByCourse.get(cn) ?? [];
-    existing.push(draft);
-    draftsByCourse.set(cn, existing);
-  }
-
-  // Ensure all courses (server + draft) are represented
-  for (const course of courses) {
-    if (!linesByCourse.has(course.courseNumber)) {
-      linesByCourse.set(course.courseNumber, []);
+    // Group server lines by course
+    const linesByCourse = new Map<number, typeof filteredServerLines>();
+    for (const line of filteredServerLines) {
+      const cn = line.courseNumber ?? 1;
+      const existing = linesByCourse.get(cn) ?? [];
+      existing.push(line);
+      linesByCourse.set(cn, existing);
     }
-  }
-  for (const cn of draftsByCourse.keys()) {
-    if (!linesByCourse.has(cn)) {
-      linesByCourse.set(cn, []);
-    }
-  }
 
-  const sortedCourses = [...linesByCourse.entries()].sort(([a], [b]) => a - b);
+    // Group draft lines by course
+    const dbc = new Map<number, FnbDraftLine[]>();
+    for (const draft of filteredDrafts) {
+      const cn = draft.courseNumber ?? 1;
+      const existing = dbc.get(cn) ?? [];
+      existing.push(draft);
+      dbc.set(cn, existing);
+    }
+
+    // Ensure all courses (server + draft) are represented
+    for (const course of courses) {
+      if (!linesByCourse.has(course.courseNumber)) {
+        linesByCourse.set(course.courseNumber, []);
+      }
+    }
+    for (const cn of dbc.keys()) {
+      if (!linesByCourse.has(cn)) {
+        linesByCourse.set(cn, []);
+      }
+    }
+
+    const sorted = [...linesByCourse.entries()].sort(([a], [b]) => a - b);
+
+    // Build a map of course statuses for "previous course served" detection
+    const csm = new Map<number, string>();
+    for (const c of courses) {
+      csm.set(c.courseNumber, c.courseStatus);
+    }
+
+    return {
+      sortedCourses: sorted,
+      draftsByCourse: dbc,
+      courseStatusMap: csm,
+      hasAnyContent: sorted.length > 0 || filteredDrafts.length > 0,
+    };
+  }, [serverLines, draftLines, activeSeat, courses]);
 
   // In "active" mode, only show the active course
   const displayCourses = viewMode === 'active'
     ? sortedCourses.filter(([cn]) => cn === activeCourse)
     : sortedCourses;
-
-  // Build a map of course statuses for "previous course served" detection
-  const courseStatusMap = new Map<number, string>();
-  for (const c of courses) {
-    courseStatusMap.set(c.courseNumber, c.courseStatus);
-  }
-
-  // Check if there's anything to show
-  const hasAnyContent = sortedCourses.length > 0 || filteredDrafts.length > 0;
 
   if (!hasAnyContent) {
     return (
@@ -167,22 +174,26 @@ export function OrderTicket({
               onFire={kdsSendEnabled ? () => onFireCourse(courseNum) : undefined}
             >
               {/* Server-committed lines */}
-              {courseLines.map((line) => (
+              {courseLines.map((line) => {
+                const mods = (line.modifiers ?? []) as Array<Record<string, unknown>>;
+                const modAdj = mods.reduce((sum, m) => sum + (Number(m?.priceAdjustment) || 0), 0);
+                return (
                 <div key={line.id} className="relative">
                   <FnbOrderLine
                     seatNumber={line.seatNumber ?? 1}
                     itemName={line.catalogItemName ?? 'Unknown'}
-                    modifiers={(line.modifiers ?? []).map((mod) => {
-                      if (typeof mod === 'string') return mod;
-                      const m = mod as Record<string, unknown>;
-                      const name = String(m?.name ?? '');
-                      if (m?.instruction === 'none') return `NO ${name}`;
-                      if (m?.instruction === 'extra') return `EXTRA ${name}`;
-                      if (m?.instruction === 'on_side') return `${name} ON SIDE`;
-                      return name;
+                    modifiers={mods.map((mod) => {
+                      if (typeof mod === 'string') return mod as string;
+                      const name = String(mod?.name ?? '');
+                      const price = Number(mod?.priceAdjustment) || 0;
+                      const suffix = price > 0 ? ` (+$${(price / 100).toFixed(2)})` : '';
+                      if (mod?.instruction === 'none') return `NO ${name}`;
+                      if (mod?.instruction === 'extra') return `EXTRA ${name}${suffix}`;
+                      if (mod?.instruction === 'on_side') return `${name} ON SIDE${suffix}`;
+                      return `${name}${suffix}`;
                     })}
                     specialInstructions={line.specialInstructions}
-                    priceCents={line.unitPriceCents ?? 0}
+                    priceCents={(line.unitPriceCents ?? 0) + modAdj}
                     qty={line.qty ?? 1}
                     status={(line.status as 'draft' | 'sent' | 'fired' | 'served' | 'voided') ?? 'draft'}
                     isUnsent={line.status === 'draft' || line.status === 'unsent'}
@@ -232,9 +243,11 @@ export function OrderTicket({
                     </div>
                   )}
                 </div>
-              ))}
+              )})}
               {/* Local draft lines (not yet persisted) */}
-              {courseDrafts.map((draft) => (
+              {courseDrafts.map((draft) => {
+                const draftModAdj = draft.modifiers.reduce((sum, m) => sum + (m.priceAdjustment || 0), 0);
+                return (
                 <div
                   key={`draft-${draft.localId}`}
                   style={{ opacity: 0.7, borderLeft: '2px dashed var(--fnb-text-muted)', paddingLeft: 4 }}
@@ -243,24 +256,25 @@ export function OrderTicket({
                     seatNumber={draft.seatNumber}
                     itemName={draft.catalogItemName}
                     modifiers={draft.modifiers.map((m) => {
-                      // Format with instruction prefix for proper chip coloring
+                      const price = m.priceAdjustment || 0;
+                      const suffix = price > 0 ? ` (+$${(price / 100).toFixed(2)})` : '';
                       if (m.instruction === 'none') return `NO ${m.name}`;
-                      if (m.instruction === 'extra') return `EXTRA ${m.name}`;
-                      if (m.instruction === 'on_side') return `${m.name} ON SIDE`;
-                      return m.name;
+                      if (m.instruction === 'extra') return `EXTRA ${m.name}${suffix}`;
+                      if (m.instruction === 'on_side') return `${m.name} ON SIDE${suffix}`;
+                      return `${m.name}${suffix}`;
                     })}
                     specialInstructions={draft.specialInstructions}
-                    priceCents={draft.unitPriceCents}
+                    priceCents={draft.unitPriceCents + draftModAdj}
                     qty={draft.qty}
                     status="draft"
                     isUnsent
                   />
                 </div>
-              ))}
+              )})}
             </CourseSection>
           );
         })}
       </div>
     </div>
   );
-}
+});

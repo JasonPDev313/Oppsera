@@ -66,7 +66,8 @@ interface RawPOSItem {
   name: string;
   sku: string | null;
   itemType: string;
-  defaultPrice: string;
+  /** Price in cents (integer). Server converts catalog NUMERIC dollar string → cents. */
+  defaultPriceCents: number;
   metadata: Record<string, unknown> | null;
   categoryId: string | null;
 }
@@ -154,10 +155,11 @@ function findSubDeptId(
   return null;
 }
 
-// ── Module-level menu cache ─────────────────────────────────────
+// ── Module-level menu cache (location-scoped) ──────────────────
 // Survives component re-renders and re-mounts. Same pattern as
 // useFnbFloor's snapshot cache. Prevents refetching catalog on
-// every floor→tab switch.
+// every floor→tab switch. Keyed by locationId so location switches
+// don't serve stale items from the wrong location.
 
 interface MenuCacheEntry {
   categories: FnbMenuCategory[];
@@ -168,25 +170,32 @@ interface MenuCacheEntry {
 }
 
 const MENU_CACHE_TTL_MS = 5 * 60_000; // 5 minutes — fresh enough for a shift
-let _menuCache: MenuCacheEntry | null = null;
+const _menuCacheByLocation = new Map<string, MenuCacheEntry>();
 let _menuFetchPromise: Promise<MenuCacheEntry> | null = null; // dedup in-flight requests
 
-function getMenuCache(): MenuCacheEntry | null {
-  if (!_menuCache) return null;
-  if (Date.now() - _menuCache.ts > MENU_CACHE_TTL_MS) {
-    _menuCache = null;
+function getMenuCache(locationId?: string): MenuCacheEntry | null {
+  const key = locationId ?? '_default';
+  const entry = _menuCacheByLocation.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > MENU_CACHE_TTL_MS) {
+    _menuCacheByLocation.delete(key);
     return null;
   }
-  return _menuCache;
+  return entry;
 }
 
-function setMenuCache(entry: MenuCacheEntry): void {
-  _menuCache = entry;
+function setMenuCache(entry: MenuCacheEntry, locationId?: string): void {
+  const key = locationId ?? '_default';
+  _menuCacheByLocation.set(key, entry);
 }
 
 /** Force-expire the cache (called after 86/restore actions) */
-function invalidateMenuCache(): void {
-  _menuCache = null;
+function invalidateMenuCache(locationId?: string): void {
+  if (locationId) {
+    _menuCacheByLocation.delete(locationId);
+  } else {
+    _menuCacheByLocation.clear();
+  }
   _menuFetchPromise = null;
 }
 
@@ -195,13 +204,14 @@ function invalidateMenuCache(): void {
  * Call during POS setup. Fire-and-forget — errors are silently swallowed.
  */
 export async function warmMenuCache(): Promise<void> {
-  // Skip if already cached and fresh
+  // Skip if already cached and fresh (check default key)
   if (getMenuCache()) return;
   // Reuse in-flight request if one exists
   if (_menuFetchPromise) return;
   try {
-    _menuFetchPromise = fetchAndProcessMenu();
-    const entry = await _menuFetchPromise;
+    const promise = fetchAndProcessMenu();
+    _menuFetchPromise = promise;
+    const entry = await promise;
     setMenuCache(entry);
   } catch {
     // non-critical — cold start will fetch normally
@@ -247,6 +257,8 @@ async function fetchAndProcessMenu(): Promise<MenuCacheEntry> {
       categories: RawPOSCategory[];
       modifierGroups?: RawPOSModifierGroup[];
       itemModifierAssignments?: RawPOSItemModifierAssignment[];
+      eightySixedItemIds?: string[];
+      allergenIdsByItemId?: Record<string, string[]>;
     };
   }>('/api/v1/catalog/pos');
 
@@ -254,6 +266,8 @@ async function fetchAndProcessMenu(): Promise<MenuCacheEntry> {
   const rawCats = catResult.data.categories ?? [];
   const rawModGroups = catResult.data.modifierGroups ?? [];
   const rawAssignments = catResult.data.itemModifierAssignments ?? [];
+  const eightySixedSet = new Set(catResult.data.eightySixedItemIds ?? []);
+  const allergenIdsByItemId = catResult.data.allergenIdsByItemId ?? {};
 
   // Build item → modifier group IDs lookup
   const itemModGroupMap = new Map<string, string[]>();
@@ -318,11 +332,11 @@ async function fetchAndProcessMenu(): Promise<MenuCacheEntry> {
       name: i.name,
       sku: i.sku,
       itemType: i.itemType,
-      unitPriceCents: Math.round(parseFloat(i.defaultPrice || '0') * 100),
+      unitPriceCents: i.defaultPriceCents,
       categoryId: i.categoryId ?? '',
       subDepartmentId: findSubDeptId(i.categoryId, depthMap, catLookup),
-      is86d: false,
-      allergenIds: [] as string[],
+      is86d: eightySixedSet.has(i.id),
+      allergenIds: allergenIdsByItemId[i.id] ?? [],
       metadata: i.metadata,
       modifierGroupIds: itemModGroupMap.get(i.id) ?? [],
     }));
@@ -376,7 +390,9 @@ async function fetchAndProcessMenu(): Promise<MenuCacheEntry> {
   };
 }
 
-export function useFnbMenu(): UseFnbMenuReturn {
+export function useFnbMenu(opts?: { isActive?: boolean }): UseFnbMenuReturn {
+  const isActive = opts?.isActive ?? true;
+
   // Initialize from cache instantly if available
   const cached = getMenuCache();
   const [allCategories, setAllCategories] = useState<FnbMenuCategory[]>(cached?.categories ?? []);
@@ -391,6 +407,11 @@ export function useFnbMenu(): UseFnbMenuReturn {
   const [searchQuery, setSearchQuery] = useState('');
 
   const initialDeptSetRef = useRef(false);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // Auto-select first department from cached data on mount
   useEffect(() => {
@@ -421,6 +442,8 @@ export function useFnbMenu(): UseFnbMenuReturn {
   }, []);
 
   const fetchMenu = useCallback(async (force = false) => {
+    // Hoist so catch block can reference the same promise for identity check
+    let promise: ReturnType<typeof fetchAndProcessMenu> | null = null;
     try {
       // Check cache first (unless forced)
       if (!force) {
@@ -434,19 +457,25 @@ export function useFnbMenu(): UseFnbMenuReturn {
 
       setIsLoading(true);
 
-      // Dedup concurrent fetches (e.g. if multiple hook instances mount)
+      // Dedup concurrent fetches (e.g. if multiple hook instances mount).
+      // Only clear the module-level ref if it still points to OUR promise —
+      // a force-caller may have replaced it while we were awaiting.
       if (!_menuFetchPromise || force) {
         _menuFetchPromise = fetchAndProcessMenu();
       }
-      const entry = await _menuFetchPromise;
-      _menuFetchPromise = null;
+      promise = _menuFetchPromise;
+      const entry = await promise;
+      if (_menuFetchPromise === promise) _menuFetchPromise = null;
 
       setMenuCache(entry);
       applyData(entry);
 
-      // Fire-and-forget allergen fetch (non-blocking — don't delay items)
+      // Background allergen fetch (non-blocking — don't delay items).
+      // Guarded by mountedRef to avoid setting state after unmount and
+      // to prevent zombie DB connections on Vercel (Gotcha #1).
       apiFetch<{ data: AllergenItem[] }>('/api/v1/fnb/menu/allergens')
         .then((res) => {
+          if (!mountedRef.current) return;
           const loaded = res.data ?? [];
           if (loaded.length > 0) {
             setAllergens(loaded);
@@ -457,15 +486,19 @@ export function useFnbMenu(): UseFnbMenuReturn {
         })
         .catch(() => { /* non-critical */ });
     } catch (e) {
-      _menuFetchPromise = null;
+      if (_menuFetchPromise === promise) _menuFetchPromise = null;
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setIsLoading(false);
     }
   }, [applyData]);
 
-  // Initial load: use cache or fetch
+  // Initial load: use cache or fetch (skip when not active)
+  const hasFetchedRef = useRef(false);
   useEffect(() => {
+    if (!isActive) return;
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     const hit = getMenuCache();
     if (hit) {
       // Already initialized from cache in useState — just ensure dept is set
@@ -474,15 +507,20 @@ export function useFnbMenu(): UseFnbMenuReturn {
     } else {
       fetchMenu();
     }
-  }, [fetchMenu, applyData]);
+  }, [isActive, fetchMenu, applyData]);
 
-  // Background refresh every 5 minutes to pick up catalog changes during a shift
+  // Background refresh every 5 minutes to pick up catalog changes during a shift.
+  // Visibility-aware: skip refresh when browser tab is hidden (Vercel gotcha #2 —
+  // hidden tabs still fire setInterval, causing zombie DB connections).
+  // Also gated by isActive so the inactive POS shell doesn't refresh.
   useEffect(() => {
+    if (!isActive) return;
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       fetchMenu(true);
     }, MENU_CACHE_TTL_MS);
     return () => clearInterval(interval);
-  }, [fetchMenu]);
+  }, [isActive, fetchMenu]);
 
   // Derive hierarchy from active selections
   const departments = useMemo(
@@ -611,7 +649,14 @@ export function useFnbMenu(): UseFnbMenuReturn {
     [modGroupLookup],
   );
 
-  return {
+  const refreshFn = useCallback(() => {
+    invalidateMenuCache();
+    return fetchMenu(true);
+  }, [fetchMenu]);
+
+  // Stable return object — prevents defeating memo() on all consumers.
+  // Each value is already individually memoized or a state setter (stable by React guarantee).
+  return useMemo<UseFnbMenuReturn>(() => ({
     departments,
     subDepartments,
     categories: categoriesList,
@@ -632,9 +677,13 @@ export function useFnbMenu(): UseFnbMenuReturn {
     restoreItem: restoreItemFn,
     isLoading,
     error,
-    refresh: useCallback(() => {
-      invalidateMenuCache();
-      return fetchMenu(true);
-    }, [fetchMenu]),
-  };
+    refresh: refreshFn,
+  }), [
+    departments, subDepartments, categoriesList, items, allergens,
+    modifierGroups, getModifierGroupsForItem, activeDepartmentId,
+    activeSubDepartmentId, activeCategoryId, filteredItems, searchQuery,
+    eightySixItemFn, restoreItemFn, isLoading, error, refreshFn,
+    // State setters are stable — included for exhaustive-deps but won't trigger.
+    setActiveDepartment, setActiveSubDepartment, setActiveCategory, setSearchQuery,
+  ]);
 }

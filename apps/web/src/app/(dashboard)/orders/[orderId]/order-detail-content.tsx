@@ -119,8 +119,7 @@ function LineItemsSection({ lines }: { lines: OrderLine[] }) {
                             + {mod.name}
                             {mod.priceAdjustment !== 0 && (
                               <span className="ml-1">
-                                {mod.priceAdjustment > 0 ? '+' : ''}
-                                {formatMoney(mod.priceAdjustment)}
+                                {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
                               </span>
                             )}
                           </div>

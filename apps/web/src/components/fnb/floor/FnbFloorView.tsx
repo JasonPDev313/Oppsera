@@ -109,6 +109,19 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   const [syncFeedback, setSyncFeedback] = useState<'success' | 'error' | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [lockPinModalOpen, setLockPinModalOpen] = useState(false);
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear timers on unmount to prevent setState on unmounted component
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  // Destructure stable callbacks to avoid managerOverride object (new ref each render) in deps
+  const { closePinModal: closeManagerPin, requestOverride } = managerOverride;
 
   // Close portal dialogs when this view becomes inactive (gotcha #109)
   useEffect(() => {
@@ -119,9 +132,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       setActionMenuTable(null);
       setLockPinModalOpen(false);
       store.setMySectionEditing(false);
-      managerOverride.closePinModal();
+      closeManagerPin();
     }
-  }, [isActive, store, managerOverride]);
+  }, [isActive, store, closeManagerPin]);
 
   // Derive locationId from the active room (needed for API calls)
   const locationId = activeRoom?.locationId ?? null;
@@ -194,11 +207,14 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       const { clientWidth, clientHeight } = el;
       if (clientWidth <= 0 || clientHeight <= 0) return;
 
-      setVpSize({ w: clientWidth, h: clientHeight });
+      // Functional setters: return prev reference when unchanged to avoid
+      // infinite re-render loop from ResizeObserver → setState → re-render → resize → …
+      setVpSize(prev =>
+        prev.w === clientWidth && prev.h === clientHeight ? prev : { w: clientWidth, h: clientHeight }
+      );
 
-      // Fit the table cluster to the viewport
       const fitScale = Math.min(clientWidth / contentW, clientHeight / contentH);
-      setViewScale(fitScale);
+      setViewScale(prev => prev === fitScale ? prev : fitScale);
     };
 
     updateScale();
@@ -270,19 +286,28 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
     () => statsTables.filter((t) => !['available', 'dirty', 'blocked'].includes(t.status)).length,
     [statsTables],
   );
+  const openRevenueCents = useMemo(
+    () => statsTables.reduce((sum, t) => sum + (t.checkTotalCents ?? 0), 0),
+    [statsTables],
+  );
+  const avgTurnMinutes = useMemo(
+    () => computeAvgTurnMinutes(statsTables),
+    [statsTables],
+  );
 
   // ── Sync with feedback ─────────────────────────────────────
 
   const handleSync = useCallback(async () => {
     if (!activeRoomId) return;
     setSyncFeedback(null);
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
     try {
       await actions.syncFromFloorPlan(activeRoomId);
       setSyncFeedback('success');
-      setTimeout(() => setSyncFeedback(null), 2000);
+      feedbackTimerRef.current = setTimeout(() => setSyncFeedback(null), 2000);
     } catch {
       setSyncFeedback('error');
-      setTimeout(() => setSyncFeedback(null), 3000);
+      feedbackTimerRef.current = setTimeout(() => setSyncFeedback(null), 3000);
     }
   }, [activeRoomId, actions]);
 
@@ -330,7 +355,8 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       setSeatModalOpen(false);
       const message = err instanceof Error ? err.message : 'Failed to seat guests';
       setToastMessage({ type: 'error', text: message });
-      setTimeout(() => setToastMessage(null), 4000);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToastMessage(null), 4000);
     }
   }, [seatTargetTable, userId, store, locationId]);
 
@@ -369,7 +395,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
     // Check if manager override is required
     if (fnbGeneralSettings?.require_manager_override_for_tab_delete) {
-      const { verified } = await managerOverride.requestOverride('Delete Tab', 'pos_fnb.tabs.manage');
+      const { verified } = await requestOverride('Delete Tab', 'pos_fnb.tabs.manage');
       if (!verified) return;
     }
 
@@ -385,14 +411,16 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       });
 
       setToastMessage({ type: 'success', text: 'Tab deleted' });
-      setTimeout(() => setToastMessage(null), 3000);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToastMessage(null), 3000);
       await refresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to delete tab';
       setToastMessage({ type: 'error', text: message });
-      setTimeout(() => setToastMessage(null), 4000);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToastMessage(null), 4000);
     }
-  }, [actionMenuTable, fnbGeneralSettings, managerOverride, refresh]);
+  }, [actionMenuTable, fnbGeneralSettings, requestOverride, refresh]);
 
   // ── Loading ─────────────────────────────────────────────────
 
@@ -716,8 +744,8 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           seatedCount={seatedCount}
           onNewTab={handleNewTab}
           onRefresh={refresh}
-          openRevenueCents={statsTables.reduce((sum, t) => sum + (t.checkTotalCents ?? 0), 0)}
-          avgTurnMinutes={computeAvgTurnMinutes(statsTables)}
+          openRevenueCents={openRevenueCents}
+          avgTurnMinutes={avgTurnMinutes}
         />
       </div>
 

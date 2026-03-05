@@ -106,7 +106,7 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
                   {mod.name}
                   {mod.priceAdjustment !== 0 && (
                     <span className="ml-1 text-muted-foreground">
-                      +{formatMoney(mod.priceAdjustment)}
+                      {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
                     </span>
                   )}
                 </div>
@@ -235,6 +235,22 @@ function RetailLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
             </p>
           )}
 
+          {/* Modifiers */}
+          {line.modifiers && line.modifiers.length > 0 && (
+            <div className="mt-0.5 space-y-0.5 pl-3">
+              {line.modifiers.map((mod) => (
+                <div key={mod.modifierId} className="text-xs text-muted-foreground">
+                  {mod.name}
+                  {mod.priceAdjustment !== 0 && (
+                    <span className="ml-1">
+                      {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Notes */}
           {line.notes && (
             <p className="mt-0.5 text-xs text-muted-foreground">{line.notes}</p>
@@ -330,6 +346,22 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
           </div>
         )}
 
+        {/* Modifiers */}
+        {line.modifiers && line.modifiers.length > 0 && (
+          <div className="mt-0.5 space-y-0.5 pl-3">
+            {line.modifiers.map((mod) => (
+              <div key={mod.modifierId} className="text-xs text-muted-foreground">
+                {mod.name}
+                {mod.priceAdjustment !== 0 && (
+                  <span className="ml-1">
+                    {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Notes */}
         {line.notes && (
           <p className="mt-0.5 text-xs text-muted-foreground">{line.notes}</p>
@@ -399,6 +431,22 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
               .map((c) => c.itemName)
               .join(', ')}
           </p>
+        )}
+
+        {/* Modifiers */}
+        {line.modifiers && line.modifiers.length > 0 && (
+          <div className="mt-0.5 space-y-0.5 pl-3">
+            {line.modifiers.map((mod) => (
+              <div key={mod.modifierId} className="text-xs text-muted-foreground">
+                {mod.name}
+                {mod.priceAdjustment !== 0 && (
+                  <span className="ml-1">
+                    {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         )}
 
         {/* Notes */}
@@ -577,7 +625,7 @@ function GroupSubRow({
                   <span className="h-1 w-1 rounded-full bg-muted-foreground/50 shrink-0" />
                   <span>{mod.name}</span>
                   {mod.priceAdjustment !== 0 && (
-                    <span>+{formatMoney(mod.priceAdjustment)}</span>
+                    <span>{mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}</span>
                   )}
                 </div>
               ))}

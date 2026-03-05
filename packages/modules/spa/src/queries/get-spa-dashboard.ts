@@ -5,6 +5,7 @@ import {
   spaAppointmentItems,
   spaProviders,
   spaServices,
+  customers,
   rmSpaDailyOperations,
   rmSpaProviderMetrics,
   rmSpaServiceMetrics,
@@ -181,7 +182,7 @@ export async function getSpaDashboard(input: {
         .select({
           id: spaAppointments.id,
           appointmentNumber: spaAppointments.appointmentNumber,
-          guestName: spaAppointments.guestName,
+          guestName: sql<string | null>`COALESCE(${spaAppointments.guestName}, ${customers.displayName})`.as('guest_name'),
           providerId: spaAppointments.providerId,
           providerName: spaProviders.displayName,
           startAt: spaAppointments.startAt,
@@ -189,6 +190,7 @@ export async function getSpaDashboard(input: {
           status: spaAppointments.status,
         })
         .from(spaAppointments)
+        .leftJoin(customers, eq(spaAppointments.customerId, customers.id))
         .leftJoin(spaProviders, eq(spaAppointments.providerId, spaProviders.id))
         .where(
           and(

@@ -9,9 +9,11 @@ import {
   completePaymentSessionSchema,
   failPaymentSession,
   failPaymentSessionSchema,
+  voidLastTender,
+  voidLastTenderSchema,
 } from '@oppsera/module-fnb';
-import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
+import { sql } from 'drizzle-orm';
 
 const ACTIONS: Record<string, true> = {
   complete: true,
@@ -31,6 +33,10 @@ function extractAction(request: NextRequest): string {
 // POST /api/v1/fnb/payments/sessions/:id/:action
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
+    if (!ctx.locationId) {
+      throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
+    }
+
     const action = extractAction(request);
     if (!ACTIONS[action]) {
       return NextResponse.json(
@@ -49,7 +55,7 @@ export const POST = withMiddleware(
             parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
           );
         }
-        const result = await completePaymentSession(ctx, ctx.locationId ?? '', parsed.data);
+        const result = await completePaymentSession(ctx, ctx.locationId, parsed.data);
         broadcastFnb(ctx, 'tabs', 'tables').catch(() => {});
         return NextResponse.json({ data: result });
       }
@@ -63,34 +69,23 @@ export const POST = withMiddleware(
             parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
           );
         }
-        const result = await failPaymentSession(ctx, ctx.locationId ?? '', parsed.data);
+        const result = await failPaymentSession(ctx, ctx.locationId, parsed.data);
         broadcastFnb(ctx, 'tabs').catch(() => {});
         return NextResponse.json({ data: result });
       }
 
       case 'void-last-tender': {
-        const sessionId = extractSessionId(request);
-
-        // Find the session and most recent tender info
-        const sessionData = await withTenant(ctx.tenantId, async (tx) => {
-          const sessions = await tx.execute(
-            sql`SELECT id, status, paid_amount_cents, total_amount_cents
-                FROM fnb_payment_sessions
-                WHERE id = ${sessionId} AND tenant_id = ${ctx.tenantId}`,
+        const rawSessionId = extractSessionId(request);
+        const parsed = voidLastTenderSchema.safeParse({ sessionId: rawSessionId });
+        if (!parsed.success) {
+          throw new ValidationError(
+            'Validation failed',
+            parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
           );
-          const rows = Array.from(sessions as Iterable<Record<string, unknown>>);
-          return rows[0] ?? null;
-        });
-
-        if (!sessionData) {
-          throw new AppError('SESSION_NOT_FOUND', 'Payment session not found', 404);
         }
+        const { sessionId } = parsed.data;
 
-        if (sessionData.status === 'completed') {
-          throw new AppError('SESSION_COMPLETED', 'Cannot void tender on a completed session', 409);
-        }
-
-        // Check if the last tender was a card payment linked to a gateway intent
+        // If gateway is configured, void/refund the last card intent BEFORE updating amounts
         if (hasPaymentsGateway()) {
           const lastIntent = await withTenant(ctx.tenantId, async (tx) => {
             const rows = await tx.execute(
@@ -108,12 +103,10 @@ export const POST = withMiddleware(
           if (lastIntent?.id) {
             const gateway = getPaymentsGatewayApi();
             try {
-              if (lastIntent.status === 'authorized' || lastIntent.status === 'captured') {
-                await gateway.void(ctx, {
-                  paymentIntentId: lastIntent.id as string,
-                  clientRequestId: `void-tender-${sessionId}-${Date.now()}`,
-                });
-              }
+              await gateway.void(ctx, {
+                paymentIntentId: lastIntent.id as string,
+                clientRequestId: `void-tender-${sessionId}-${Date.now()}`,
+              });
             } catch {
               // If void fails (already settled), try refund
               try {
@@ -133,14 +126,10 @@ export const POST = withMiddleware(
           }
         }
 
+        // Now reverse the session amounts (transactional, with FOR UPDATE)
+        const result = await voidLastTender(ctx, ctx.locationId, sessionId);
         broadcastFnb(ctx, 'tabs').catch(() => {});
-        return NextResponse.json({
-          data: {
-            sessionId,
-            status: 'in_progress',
-            message: 'Last tender voided',
-          },
-        });
+        return NextResponse.json({ data: result });
       }
     }
 
@@ -150,5 +139,5 @@ export const POST = withMiddleware(
       { status: 404 },
     );
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage', writeAccess: true },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create', writeAccess: true },
 );

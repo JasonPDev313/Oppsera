@@ -20,11 +20,12 @@ export async function failPaymentSession(
       if (check.isDuplicate) return { result: check.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    // Fetch session
+    // Lock session row — prevents double-fail race
     const sessions = await tx.execute(
       sql`SELECT id, tab_id, order_id, status
           FROM fnb_payment_sessions
-          WHERE id = ${input.sessionId} AND tenant_id = ${ctx.tenantId}`,
+          WHERE id = ${input.sessionId} AND tenant_id = ${ctx.tenantId}
+          FOR UPDATE`,
     );
     const rows = Array.from(sessions as Iterable<Record<string, unknown>>);
     if (rows.length === 0) throw new PaymentSessionNotFoundError(input.sessionId);
@@ -36,19 +37,33 @@ export async function failPaymentSession(
       throw new PaymentSessionStatusConflictError(input.sessionId, status, 'fail');
     }
 
-    // Update session to failed
-    const [updated] = await tx.execute(
+    // CAS update — only fail if status is still eligible
+    const updated = await tx.execute(
       sql`UPDATE fnb_payment_sessions
           SET status = 'failed', updated_at = NOW()
           WHERE id = ${input.sessionId} AND tenant_id = ${ctx.tenantId}
+            AND status IN ('pending', 'in_progress')
           RETURNING *`,
     );
+    const updatedRows = Array.from(updated as Iterable<Record<string, unknown>>);
+    if (updatedRows.length === 0) {
+      throw new PaymentSessionStatusConflictError(input.sessionId, status, 'fail');
+    }
 
-    const updatedRow = updated as Record<string, unknown>;
+    const updatedRow = updatedRows[0]!;
+    const tabId = session.tab_id as string;
+
+    // Revert tab status from 'paying' back to 'open' so it can be re-attempted
+    await tx.execute(
+      sql`UPDATE fnb_tabs
+          SET status = 'open', updated_at = NOW(), version = version + 1
+          WHERE id = ${tabId} AND tenant_id = ${ctx.tenantId}
+            AND status = 'paying'`,
+    );
 
     const payload: PaymentFailedPayload = {
       paymentSessionId: input.sessionId,
-      tabId: session.tab_id as string,
+      tabId,
       orderId: session.order_id as string,
       locationId,
       reason: input.reason,

@@ -106,13 +106,15 @@ export function useEntitlements() {
     };
   }, [entitlements]);
 
-  return {
+  const refetch = useCallback(() => fetchEntitlements(true), [fetchEntitlements]);
+
+  return useMemo(() => ({
     entitlements,
     isModuleEnabled,
     isModuleLocked,
     getAccessMode,
     getLimit,
     isLoading,
-    refetch: () => fetchEntitlements(true),
-  };
+    refetch,
+  }), [entitlements, isModuleEnabled, isModuleLocked, getAccessMode, getLimit, isLoading, refetch]);
 }

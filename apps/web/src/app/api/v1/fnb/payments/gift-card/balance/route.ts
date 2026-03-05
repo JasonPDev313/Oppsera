@@ -27,5 +27,5 @@ export const GET = withMiddleware(
       },
     });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create' },
 );

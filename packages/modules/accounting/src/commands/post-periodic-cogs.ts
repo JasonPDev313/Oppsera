@@ -21,7 +21,7 @@ export async function postPeriodicCogs(
   ctx: RequestContext,
   input: PostPeriodicCogsInput,
 ): Promise<{ id: string; glJournalEntryId: string }> {
-  return withTenant(ctx.tenantId, async (tx) => {
+  const txResult = await withTenant(ctx.tenantId, async (tx) => {
     // Load calculation
     const [calc] = await tx
       .select()
@@ -174,13 +174,15 @@ export async function postPeriodicCogs(
       })
       .where(eq(accountingSettings.tenantId, ctx.tenantId));
 
-    auditLogDeferred(ctx, 'accounting.cogs.posted', 'periodic_cogs_calculation', calc.id, undefined, {
-      amountDollars: cogsDollars.toFixed(2),
-      periodStart: calc.periodStart,
-      periodEnd: calc.periodEnd,
-      glJournalEntryId: entry.id,
-    });
-
-    return { id: calc.id, glJournalEntryId: entry.id };
+    return { id: calc.id, glJournalEntryId: entry.id, _audit: { amountDollars: cogsDollars.toFixed(2), periodStart: calc.periodStart, periodEnd: calc.periodEnd } };
   });
+
+  auditLogDeferred(ctx, 'accounting.cogs.posted', 'periodic_cogs_calculation', txResult.id, undefined, {
+    amountDollars: txResult._audit.amountDollars,
+    periodStart: txResult._audit.periodStart,
+    periodEnd: txResult._audit.periodEnd,
+    glJournalEntryId: txResult.glJournalEntryId,
+  });
+
+  return { id: txResult.id, glJournalEntryId: txResult.glJournalEntryId };
 }

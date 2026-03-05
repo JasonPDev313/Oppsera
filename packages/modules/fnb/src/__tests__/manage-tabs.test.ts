@@ -75,7 +75,7 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { auditLog } from '@oppsera/core/audit/helpers';
+import { auditLogDeferred as auditLog } from '@oppsera/core/audit/helpers';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 
 

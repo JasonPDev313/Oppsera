@@ -611,7 +611,7 @@ export const fnbKitchenTickets = pgTable(
       .references(() => locations.id),
     tabId: text('tab_id')
       .references(() => fnbTabs.id), // nullable for retail orders (no tab)
-    orderId: text('order_id').notNull(), // FK to orders
+    orderId: text('order_id'), // nullable — order may not exist yet at send time (created at prepare-check)
     ticketNumber: integer('ticket_number').notNull(),
     courseNumber: integer('course_number'),
     status: text('status').notNull().default('pending'),

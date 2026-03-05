@@ -149,17 +149,13 @@ export function useSoftLock({
     return () => {
       stopRenewing();
     };
-  }, [entityId, autoAcquire]);  
+  }, [entityId, autoAcquire, acquire, stopRenewing]);
 
-  // Release on unmount
-  useEffect(() => {
-    return () => {
-      if (myLock) {
-        // Fire-and-forget release on unmount
-        apiFetch(`/api/v1/fnb/locks/${myLock.lockId}/release`, { method: 'POST' }).catch(() => {});
-      }
-    };
-  }, [myLock?.lockId]);  
+  // On unmount, let the lock expire naturally (TTL ≤30s).
+  // The stopRenewing() in the autoAcquire cleanup above already stops renewal,
+  // so the server-side TTL will reclaim the lock without a fire-and-forget
+  // apiFetch that would create zombie DB connections on Vercel (Gotcha #1).
+  // For explicit release (e.g. user closes tab view), call release() directly.
 
   return {
     myLock,

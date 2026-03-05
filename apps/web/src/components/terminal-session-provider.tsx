@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   type ReactNode,
 } from 'react';
 import type { TerminalSession } from '@oppsera/core/profit-centers';
@@ -86,8 +87,10 @@ export function TerminalSessionProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem(TERMINAL_CONFIRMED_KEY);
   }, []);
 
+  const value = useMemo(() => ({ session, isLoading, setSession, clearSession }), [session, isLoading, setSession, clearSession]);
+
   return (
-    <TerminalSessionContext.Provider value={{ session, isLoading, setSession, clearSession }}>
+    <TerminalSessionContext.Provider value={value}>
       {children}
     </TerminalSessionContext.Provider>
   );

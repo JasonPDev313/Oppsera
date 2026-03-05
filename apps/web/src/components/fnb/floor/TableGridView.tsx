@@ -39,11 +39,14 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onA
         const elapsed = formatElapsed(table.seatedAt);
         const isSelected = table.tableId === selectedTableId;
 
+        // Long-press via local ref — avoids global window listener leak
+        let lpTimer: ReturnType<typeof setTimeout> | null = null;
         const handlePointerDown = () => {
           if (!onLongPress) return;
-          const timer = setTimeout(() => onLongPress(table.tableId), 500);
-          const up = () => { clearTimeout(timer); window.removeEventListener('pointerup', up); };
-          window.addEventListener('pointerup', up);
+          lpTimer = setTimeout(() => onLongPress(table.tableId), 500);
+        };
+        const handlePointerUp = () => {
+          if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
         };
 
         return (
@@ -52,6 +55,8 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onA
             type="button"
             onClick={() => onTap(table.tableId)}
             onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
             onContextMenu={(e) => { if (onContextMenu) { e.preventDefault(); onContextMenu(table.tableId); } }}
             className={`
               group relative flex flex-col items-center justify-center

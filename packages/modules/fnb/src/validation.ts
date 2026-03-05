@@ -461,7 +461,7 @@ export type FnbRoutingRuleType = (typeof ROUTING_RULE_TYPES)[number];
 export const createKitchenTicketSchema = z.object({
   ...idempotencyMixin,
   tabId: z.string().min(1).optional(), // optional for retail orders (no tab)
-  orderId: z.string().min(1),
+  orderId: z.string().min(1).optional(), // nullable — order may not exist yet at send time
   businessDate: z.string().optional(), // required when tabId is absent (retail)
   courseNumber: z.number().int().min(1).optional(),
   // Routing context — optional, used by auto-routing engine when stationId is not set per item
@@ -936,10 +936,28 @@ export const startPaymentSessionSchema = z.object({
   ...idempotencyMixin,
   tabId: z.string().min(1),
   orderId: z.string().min(1),
-  totalAmountCents: z.number().int().min(0),
+  totalAmountCents: z.number().int().min(1),
 });
 
 export type StartPaymentSessionInput = z.input<typeof startPaymentSessionSchema>;
+
+export const FNB_TENDER_TYPES = ['cash', 'card', 'gift_card', 'house_account'] as const;
+
+export const recordSplitTenderSchema = z.object({
+  ...idempotencyMixin,
+  sessionId: z.string().min(1),
+  tenderId: z.string().min(1),
+  amountCents: z.number().int().min(1),
+  tenderType: z.enum(FNB_TENDER_TYPES),
+});
+
+export type RecordSplitTenderInput = z.input<typeof recordSplitTenderSchema>;
+
+export const voidLastTenderSchema = z.object({
+  sessionId: z.string().min(1),
+});
+
+export type VoidLastTenderInput = z.input<typeof voidLastTenderSchema>;
 
 export const completePaymentSessionSchema = z.object({
   ...idempotencyMixin,

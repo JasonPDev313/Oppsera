@@ -198,9 +198,12 @@ export async function getKdsView(
                    kti_other.station_id, ks.display_name AS station_name
             FROM fnb_kitchen_tickets kt_this
             INNER JOIN fnb_kitchen_tickets kt_sibling
-              ON kt_sibling.order_id = kt_this.order_id
-              AND kt_sibling.tenant_id = kt_this.tenant_id
+              ON kt_sibling.tenant_id = kt_this.tenant_id
               AND kt_sibling.id != kt_this.id
+              AND (
+                (kt_sibling.order_id IS NOT NULL AND kt_sibling.order_id = kt_this.order_id)
+                OR (kt_sibling.tab_id IS NOT NULL AND kt_sibling.tab_id = kt_this.tab_id)
+              )
             INNER JOIN fnb_kitchen_ticket_items kti_other
               ON kti_other.ticket_id = kt_sibling.id
               AND kti_other.station_id != ${input.stationId}

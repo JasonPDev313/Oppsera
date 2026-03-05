@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { apiFetch, ApiError, setTokens, clearTokens, getStoredToken } from '@/lib/api-client';
 import { ALL_TERMINAL_KEYS } from '@/components/terminal-session-provider';
 
@@ -279,7 +279,7 @@ export function useAuth() {
     window.location.href = adminUrl;
   }, []);
 
-  return {
+  return useMemo(() => ({
     user,
     tenant,
     locations,
@@ -294,5 +294,5 @@ export function useAuth() {
     impersonation,
     isImpersonating: !!impersonation,
     exitImpersonation,
-  };
+  }), [user, tenant, locations, login, signup, logout, fetchMe, isLoading, isLoggingOut, impersonation, exitImpersonation]);
 }

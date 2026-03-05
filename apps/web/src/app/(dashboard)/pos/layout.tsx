@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { X, MapPin, Monitor, User, ShoppingCart, UtensilsCrossed, Moon, Sun } from 'lucide-react';
@@ -203,51 +203,39 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
   // ── Theme (follows system-wide dark/light mode) ────────────────
   const { theme, toggleTheme } = useTheme();
 
-  // ── Mode state ─────────────────────────────────────────────────
-  // React state drives the CSS toggle for instant switching.
-  // URL is synced via router.replace (deferred, non-blocking).
-  // Sidebar link clicks update pathname → synced back via useEffect.
-  const [mode, setMode] = useState<'retail' | 'fnb'>(
-    pathname.startsWith('/pos/fnb') ? 'fnb' : 'retail',
-  );
-
-  // Sync mode when pathname changes (e.g., sidebar navigation)
-  useEffect(() => {
-    if (pathname.startsWith('/pos/fnb') && mode !== 'fnb') setMode('fnb');
-    else if (pathname.startsWith('/pos/retail') && mode !== 'retail') setMode('retail');
-  }, [pathname, mode]);
-
+  // ── Mode (derived from pathname — no state, no sync effects) ───
+  const mode = pathname.startsWith('/pos/fnb') ? 'fnb' : 'retail';
   const isRetail = mode === 'retail';
   const isFnB = mode === 'fnb';
 
-  // Instant mode switch — state change is immediate, URL update is deferred.
+  // Instant mode switch — router.replace is client-side only (no network
+  // request), so usePathname updates within the same frame.
   const switchMode = useCallback(
     (newMode: 'retail' | 'fnb') => {
-      if (newMode === mode) return;
-      setMode(newMode);
       router.replace(`/pos/${newMode}`, { scroll: false });
     },
-    [mode, router],
+    [router],
   );
 
   // Lazily mount each POS mode on first visit, keep mounted afterwards
   // so switching back is instant (CSS toggle, no re-mount).
-  const [visited, setVisited] = useState({ retail: isRetail, fnb: isFnB });
-  useEffect(() => {
-    if (isRetail && !visited.retail) setVisited((v) => ({ ...v, retail: true }));
-    if (isFnB && !visited.fnb) setVisited((v) => ({ ...v, fnb: true }));
-  }, [isRetail, isFnB, visited.retail, visited.fnb]);
+  // Ref avoids the setState→effect→setState cascade that caused max-depth errors.
+  const visitedRef = useRef({ retail: isRetail, fnb: isFnB });
+  if (isRetail) visitedRef.current.retail = true;
+  if (isFnB) visitedRef.current.fnb = true;
 
-  // Auth guard
+  // Auth guard — router ref avoids re-running when router identity changes
+  const routerRef = useRef(router);
+  routerRef.current = router;
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace('/login');
+      routerRef.current.replace('/login');
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated]);
 
   const handleExitPOS = useCallback(() => {
-    router.push('/dashboard');
-  }, [router]);
+    routerRef.current.push('/dashboard');
+  }, []);
 
   if (isLoading) {
     return (
@@ -406,14 +394,14 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
           Next.js route transition needed. Each mode loads independently
           and continues running in the background when the other is active. */}
       <div className="relative flex-1 overflow-hidden">
-        {visited.retail && (
+        {visitedRef.current.retail && (
           <div className={`absolute inset-0 ${isRetail ? '' : 'pointer-events-none invisible'}`}>
             <POSErrorBoundary mode="retail">
               <RetailPOSContent isActive={isRetail} />
             </POSErrorBoundary>
           </div>
         )}
-        {visited.fnb && (
+        {visitedRef.current.fnb && (
           <div className={`absolute inset-0 ${isFnB ? '' : 'pointer-events-none invisible'}`}>
             <POSErrorBoundary mode="fnb">
               <FnBPOSContent isActive={isFnB} />

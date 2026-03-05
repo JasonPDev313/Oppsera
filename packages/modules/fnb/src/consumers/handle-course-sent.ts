@@ -97,10 +97,8 @@ export async function handleCourseSent(
       return;
     }
 
-    if (!tab.primaryOrderId) {
-      console.warn(`[handleCourseSent] Tab ${data.tabId} has no primaryOrderId — skipping ticket creation`);
-      return;
-    }
+    // primaryOrderId may be null — the order is created at prepare-check (payment time).
+    // KDS tickets are created regardless; orderId is backfilled when the check is prepared.
 
     const locationId = data.locationId || tab.locationId;
 
@@ -193,7 +191,7 @@ export async function handleCourseSent(
         return createKitchenTicket(syntheticCtx, {
           clientRequestId,
           tabId: data.tabId,
-          orderId: tab.primaryOrderId!,
+          orderId: tab.primaryOrderId ?? undefined,
           courseNumber: data.courseNumber,
           orderType: tab.tabType ?? undefined,
           channel: 'pos',

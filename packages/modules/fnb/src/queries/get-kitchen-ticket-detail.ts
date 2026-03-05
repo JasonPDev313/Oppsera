@@ -41,7 +41,7 @@ export interface KitchenTicketDetail {
   id: string;
   ticketNumber: number;
   tabId: string;
-  orderId: string;
+  orderId: string | null;
   courseNumber: number | null;
   status: string;
   businessDate: string;
@@ -131,7 +131,7 @@ export async function getKitchenTicketDetail(
       id: t.id as string,
       ticketNumber: Number(t.ticket_number),
       tabId: t.tab_id as string,
-      orderId: t.order_id as string,
+      orderId: (t.order_id as string) ?? null,
       courseNumber: t.course_number != null ? Number(t.course_number) : null,
       status: t.status as string,
       businessDate: t.business_date as string,

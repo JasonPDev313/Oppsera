@@ -7,14 +7,7 @@ import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idem
 import { FNB_EVENTS } from '../events/types';
 import type { TenderAppliedPayload } from '../events/types';
 import { PaymentSessionNotFoundError, PaymentSessionStatusConflictError, CheckAlreadyPaidError } from '../errors';
-
-interface RecordSplitTenderInput {
-  clientRequestId?: string;
-  sessionId: string;
-  tenderId: string;
-  amountCents: number;
-  tenderType: string;
-}
+import type { RecordSplitTenderInput } from '../validation';
 
 export async function recordSplitTender(
   ctx: RequestContext,

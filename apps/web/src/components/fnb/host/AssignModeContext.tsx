@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 
 interface AssignParty {
   id: string;
@@ -34,15 +34,15 @@ export function AssignModeProvider({ children }: { children: ReactNode }) {
     setSelectedParty(null);
   }, []);
 
+  const value = useMemo(() => ({
+    selectedParty,
+    assignMode: selectedParty !== null,
+    selectParty,
+    cancelAssign,
+  }), [selectedParty, selectParty, cancelAssign]);
+
   return (
-    <AssignModeCtx.Provider
-      value={{
-        selectedParty,
-        assignMode: selectedParty !== null,
-        selectParty,
-        cancelAssign,
-      }}
-    >
+    <AssignModeCtx.Provider value={value}>
       {children}
     </AssignModeCtx.Provider>
   );

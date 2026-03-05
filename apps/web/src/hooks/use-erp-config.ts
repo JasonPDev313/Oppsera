@@ -79,6 +79,8 @@ export interface CloseOrchestratorRun {
 
 // ── useErpConfig ────────────────────────────────────────────────
 
+const EMPTY_CONFIGS: Record<string, WorkflowConfig> = {};
+
 export function useErpConfig() {
   const result = useQuery({
     queryKey: ['erp-config'],
@@ -90,7 +92,7 @@ export function useErpConfig() {
   });
 
   return {
-    configs: result.data ?? {},
+    configs: result.data ?? EMPTY_CONFIGS,
     isLoading: result.isLoading,
     error: result.error,
     refetch: result.refetch,

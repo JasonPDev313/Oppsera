@@ -243,6 +243,7 @@ export { discountCheck } from './commands/discount-check';
 export { voidCheck } from './commands/void-check';
 export { refundCheck } from './commands/refund-check';
 export { recordSplitTender } from './commands/record-split-tender';
+export { voidLastTender } from './commands/void-last-tender';
 
 // Queries
 export { listAutoGratuityRules } from './queries/list-auto-gratuity-rules';
@@ -630,6 +631,7 @@ export {
   // Session 7
   createAutoGratuityRuleSchema, updateAutoGratuityRuleSchema,
   presentCheckSchema, startPaymentSessionSchema,
+  recordSplitTenderSchema, voidLastTenderSchema,
   completePaymentSessionSchema, failPaymentSessionSchema,
   applySplitStrategySchema, rejoinChecksSchema,
   compItemSchema, discountCheckSchema, voidCheckSchema, refundCheckSchema,

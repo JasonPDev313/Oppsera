@@ -15,6 +15,7 @@ import {
   useEffect,
   useCallback,
   useRef,
+  useMemo,
 } from 'react';
 import { useAuthContext } from '@/components/auth-provider';
 import { ContextMenuPortal } from '@/components/ui/context-menu-portal';
@@ -120,8 +121,10 @@ export function ContextMenuProvider({
     setState((prev) => (prev.isOpen ? { ...prev, isOpen: false } : prev));
   }, []);
 
+  const value = useMemo(() => ({ show, close }), [show, close]);
+
   return (
-    <ContextMenuContext.Provider value={{ show, close }}>
+    <ContextMenuContext.Provider value={value}>
       {children}
       {state.isOpen && (
         <ContextMenuPortal

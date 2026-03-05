@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 
 /** Minimal pre-seed data from POS catalog for instant form rendering */
 export interface ItemPreSeed {
@@ -64,8 +64,10 @@ export function ItemEditDrawerProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, isOpen: false, itemId: null }));
   }, []);
 
+  const value = useMemo(() => ({ state, open, close }), [state, open, close]);
+
   return (
-    <ItemEditDrawerContext.Provider value={{ state, open, close }}>
+    <ItemEditDrawerContext.Provider value={value}>
       {children}
     </ItemEditDrawerContext.Provider>
   );

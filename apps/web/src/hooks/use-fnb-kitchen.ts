@@ -38,6 +38,7 @@ export function useKdsView({
   const [isActing, setIsActing] = useState(false);
   const refreshCounter = useRef(0);
   const fetchingRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const today = businessDate ?? new Date().toISOString().slice(0, 10);
 
@@ -46,11 +47,17 @@ export function useKdsView({
     // Dedup: skip if a fetch is already in-flight (prevents concurrent poll + broadcast fetches)
     if (fetchingRef.current) return;
     fetchingRef.current = true;
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const params = new URLSearchParams({ businessDate: today });
       if (locationId) params.set('locationId', locationId);
       const json = await apiFetch<{ data: KdsView }>(
         `/api/v1/fnb/stations/${stationId}/kds?${params}`,
+        { signal: controller.signal },
       );
       setKdsView(json.data);
       setError(null);
@@ -73,7 +80,10 @@ export function useKdsView({
     setIsLoading(true);
     fetchKds();
     const interval = setInterval(fetchKds, pollIntervalMs);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      abortRef.current?.abort();
+    };
   }, [stationId, fetchKds, pollIntervalMs]);
 
   // Subscribe to realtime broadcast notifications
@@ -175,6 +185,7 @@ export function useExpoView({
   const [error, setError] = useState<string | null>(null);
   const [isActing, setIsActing] = useState(false);
   const fetchingExpoRef = useRef(false);
+  const abortExpoRef = useRef<AbortController | null>(null);
 
   const today = businessDate ?? new Date().toISOString().slice(0, 10);
 
@@ -182,11 +193,17 @@ export function useExpoView({
     // Dedup: skip if a fetch is already in-flight (prevents concurrent poll + broadcast fetches)
     if (fetchingExpoRef.current) return;
     fetchingExpoRef.current = true;
+
+    abortExpoRef.current?.abort();
+    const controller = new AbortController();
+    abortExpoRef.current = controller;
+
     try {
       const params = new URLSearchParams({ businessDate: today });
       if (locationId) params.set('locationId', locationId);
       const json = await apiFetch<{ data: ExpoView }>(
         `/api/v1/fnb/stations/expo?${params}`,
+        { signal: controller.signal },
       );
       setExpoView(json.data);
       setError(null);
@@ -204,7 +221,10 @@ export function useExpoView({
     setIsLoading(true);
     fetchExpo();
     const interval = setInterval(fetchExpo, pollIntervalMs);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      abortExpoRef.current?.abort();
+    };
   }, [fetchExpo, pollIntervalMs]);
 
   // Subscribe to realtime broadcast notifications
@@ -244,19 +264,23 @@ export function useStations({ locationId }: UseStationsOptions) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
     (async () => {
       try {
         const params = locationId ? `?locationId=${locationId}` : '';
         const json = await apiFetch<{ data: FnbStation[] }>(
           `/api/v1/fnb/stations${params}`,
+          { signal: controller.signal },
         );
         setStations(json.data ?? []);
-      } catch {
-        // ignore
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        // ignore other errors
       } finally {
         setIsLoading(false);
       }
     })();
+    return () => controller.abort();
   }, [locationId]);
 
   return { stations, isLoading };

@@ -141,15 +141,12 @@ function getModuleColor(name: string): string {
 }
 
 function useLiveClock(): { time: string; date: string } {
-  const [now, setNow] = useState<Date | null>(null);
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    setNow(new Date());
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-
-  if (!now) return { time: '', date: '' };
 
   return {
     time: now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }),

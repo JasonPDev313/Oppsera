@@ -6,7 +6,7 @@ export interface KitchenTicketListItem {
   id: string;
   ticketNumber: number;
   tabId: string;
-  orderId: string;
+  orderId: string | null;
   courseNumber: number | null;
   status: string;
   businessDate: string;
@@ -70,7 +70,7 @@ export async function listKitchenTickets(
       id: r.id as string,
       ticketNumber: Number(r.ticket_number),
       tabId: r.tab_id as string,
-      orderId: r.order_id as string,
+      orderId: (r.order_id as string) ?? null,
       courseNumber: r.course_number != null ? Number(r.course_number) : null,
       status: r.status as string,
       businessDate: r.business_date as string,

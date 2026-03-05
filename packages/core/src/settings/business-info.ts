@@ -210,7 +210,7 @@ export async function updateBusinessInfo(
   ctx: RequestContext,
   input: UpdateBusinessInfoInput,
 ): Promise<BusinessInfoData> {
-  return withTenant(ctx.tenantId, async (tx) => {
+  const result = await withTenant(ctx.tenantId, async (tx) => {
     const now = new Date();
 
     // Build the set of columns to upsert (only include fields that were actually passed)
@@ -266,8 +266,6 @@ export async function updateBusinessInfo(
         set: { ...setValues, updatedAt: now },
       });
 
-    auditLogDeferred(ctx, 'settings.business_info.updated', 'tenant_business_info', ctx.tenantId);
-
     // Re-read and return
     const rows = await tx
       .select()
@@ -277,6 +275,10 @@ export async function updateBusinessInfo(
 
     return rows.length > 0 ? mapRowToData(rows[0]!) : EMPTY_DATA;
   });
+
+  auditLogDeferred(ctx, 'settings.business_info.updated', 'tenant_business_info', ctx.tenantId);
+
+  return result;
 }
 
 export async function updateContentBlock(
@@ -284,9 +286,9 @@ export async function updateContentBlock(
   blockKey: ContentBlockKey,
   content: string,
 ): Promise<ContentBlockData> {
-  return withTenant(ctx.tenantId, async (tx) => {
-    const now = new Date();
+  const now = new Date();
 
+  await withTenant(ctx.tenantId, async (tx) => {
     await tx
       .insert(tenantContentBlocks)
       .values({
@@ -304,13 +306,13 @@ export async function updateContentBlock(
           updatedAt: now,
         },
       });
-
-    auditLogDeferred(ctx, `settings.content.${blockKey}.updated`, 'tenant_content_blocks', ctx.tenantId);
-
-    return {
-      blockKey,
-      content,
-      updatedAt: now.toISOString(),
-    };
   });
+
+  auditLogDeferred(ctx, `settings.content.${blockKey}.updated`, 'tenant_content_blocks', ctx.tenantId);
+
+  return {
+    blockKey,
+    content,
+    updatedAt: now.toISOString(),
+  };
 }

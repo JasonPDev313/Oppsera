@@ -61,15 +61,19 @@ async function fetchAndCacheTab(tabId: string): Promise<FnbTabDetail | null> {
 /**
  * Pre-warm the tab cache for all open tabs.
  * Call at POS startup with tab IDs extracted from the floor plan.
- * Fire-and-forget — errors are silently swallowed.
- * Skips tabs that are already cached and fresh.
+ * Errors are silently swallowed. Skips tabs that are already cached and fresh.
+ *
+ * @param isMounted Optional guard — checked between batches. If it returns
+ *   false (e.g. component unmounted), remaining batches are skipped to avoid
+ *   zombie DB connections on Vercel (Gotcha #1).
  */
-export async function warmOpenTabs(tabIds: string[]): Promise<void> {
+export async function warmOpenTabs(tabIds: string[], isMounted?: () => boolean): Promise<void> {
   const uncached = tabIds.filter((id) => !getTabSnapshot(id));
   if (uncached.length === 0) return;
   // Fetch all uncached tabs in parallel (max 20 concurrent to avoid flooding)
   const batchSize = 20;
   for (let i = 0; i < uncached.length; i += batchSize) {
+    if (isMounted && !isMounted()) return; // bail if caller unmounted
     const batch = uncached.slice(i, i + batchSize);
     await Promise.all(batch.map((id) => fetchAndCacheTab(id)));
   }
@@ -318,15 +322,25 @@ export function useCheckSummary(tabId: string | null, orderId: string | null): U
   const [summary, setSummary] = useState<CheckSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchSummary = useCallback(async () => {
     if (!tabId || !orderId) return;
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       setIsLoading(true);
-      const json = await apiFetch<{ data: CheckSummary }>(`/api/v1/fnb/tabs/${tabId}/check?orderId=${orderId}`);
+      const json = await apiFetch<{ data: CheckSummary }>(
+        `/api/v1/fnb/tabs/${tabId}/check?orderId=${orderId}`,
+        { signal: controller.signal },
+      );
       setSummary(json.data);
       setError(null);
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return;
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setIsLoading(false);
@@ -335,6 +349,7 @@ export function useCheckSummary(tabId: string | null, orderId: string | null): U
 
   useEffect(() => {
     fetchSummary();
+    return () => abortRef.current?.abort();
   }, [fetchSummary]);
 
   return { summary, isLoading, error, refresh: fetchSummary };

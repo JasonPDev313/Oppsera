@@ -6,6 +6,7 @@ import {
   spaServices,
   spaProviders,
   spaResources,
+  customers,
 } from '@oppsera/db';
 
 export interface ListAppointmentsInput {
@@ -143,17 +144,17 @@ export async function listAppointments(
     if (input.search) {
       const term = `%${input.search}%`;
       conditions.push(
-        sql`(${spaAppointments.appointmentNumber} ILIKE ${term} OR ${spaAppointments.guestName} ILIKE ${term})` as ReturnType<typeof eq>,
+        sql`(${spaAppointments.appointmentNumber} ILIKE ${term} OR ${spaAppointments.guestName} ILIKE ${term} OR ${customers.displayName} ILIKE ${term})` as ReturnType<typeof eq>,
       );
     }
 
-    // Fetch appointments with provider + resource names
+    // Fetch appointments with provider + resource names + customer name fallback
     const rows = await tx
       .select({
         id: spaAppointments.id,
         appointmentNumber: spaAppointments.appointmentNumber,
         customerId: spaAppointments.customerId,
-        guestName: spaAppointments.guestName,
+        guestName: sql<string | null>`COALESCE(${spaAppointments.guestName}, ${customers.displayName})`.as('guest_name'),
         guestEmail: spaAppointments.guestEmail,
         guestPhone: spaAppointments.guestPhone,
         locationId: spaAppointments.locationId,
@@ -175,6 +176,7 @@ export async function listAppointments(
         updatedAt: spaAppointments.updatedAt,
       })
       .from(spaAppointments)
+      .leftJoin(customers, eq(spaAppointments.customerId, customers.id))
       .leftJoin(spaProviders, eq(spaAppointments.providerId, spaProviders.id))
       .leftJoin(spaResources, eq(spaAppointments.resourceId, spaResources.id))
       .where(and(...conditions))

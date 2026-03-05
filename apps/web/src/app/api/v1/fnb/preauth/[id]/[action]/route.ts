@@ -155,5 +155,5 @@ export const POST = withMiddleware(
       { status: 404 },
     );
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage', writeAccess: true },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create', writeAccess: true },
 );

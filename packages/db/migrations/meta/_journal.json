@@ -1933,6 +1933,13 @@
       "when": 1742448000000,
       "tag": "0275_accounting_freight_expense_account",
       "breakpoints": true
+    },
+    {
+      "idx": 276,
+      "version": "7",
+      "when": 1742534400000,
+      "tag": "0276_kds_ticket_nullable_order_id",
+      "breakpoints": true
     }
   ]
 }

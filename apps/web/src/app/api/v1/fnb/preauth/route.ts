@@ -29,7 +29,7 @@ export const GET = withMiddleware(
     const result = await listOpenPreauths(parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.view' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create' },
 );
 
 // POST /api/v1/fnb/preauth — create pre-auth (with gateway authorization when configured)
@@ -84,5 +84,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage', writeAccess: true },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create', writeAccess: true },
 );
