@@ -1,6 +1,6 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { orderLines } from '@oppsera/db';
+import { orderLines, fnbKitchenTicketItems } from '@oppsera/db';
 import type { EventEnvelope } from '@oppsera/shared/types/events';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
@@ -70,8 +70,27 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
 
     if (!lines.length) return;
 
+    // 1b. Filter out lines already sent to KDS via manual send-to-kds flow
+    const lineIds = lines.map((l) => l.id);
+    const existingTicketItems = await withTenant(event.tenantId, (tx) =>
+      tx
+        .select({ orderLineId: fnbKitchenTicketItems.orderLineId })
+        .from(fnbKitchenTicketItems)
+        .where(
+          and(
+            eq(fnbKitchenTicketItems.tenantId, event.tenantId),
+            inArray(fnbKitchenTicketItems.orderLineId, lineIds),
+          ),
+        ),
+    );
+    const alreadySentIds = new Set(
+      (existingTicketItems as Array<{ orderLineId: string }>).map((r) => r.orderLineId),
+    );
+    const filteredLines = lines.filter((l) => !alreadySentIds.has(l.id));
+    if (!filteredLines.length) return;
+
     // 2. Build routable items with modifierIds extracted from JSONB
-    let routableItems: RoutableItem[] = lines.map((line) => ({
+    let routableItems: RoutableItem[] = filteredLines.map((line) => ({
       orderLineId: line.id,
       catalogItemId: line.catalogItemId,
       subDepartmentId: line.subDepartmentId ?? null,
@@ -96,7 +115,7 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
     }
 
     // 5. Build a line lookup and group routed items by station
-    const lineMap = new Map(lines.map((l) => [l.id, l]));
+    const lineMap = new Map(filteredLines.map((l) => [l.id, l]));
 
     const stationGroups = new Map<string, Array<{
       orderLineId: string;

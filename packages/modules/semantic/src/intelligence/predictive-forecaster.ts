@@ -215,7 +215,6 @@ async function fetchLinearRegressionParams(
   slope: number;
   intercept: number;
   correlation: number;
-  residualStdErr: number;
   mean: number;
   n: number;
 } | null> {
@@ -223,11 +222,18 @@ async function fetchLinearRegressionParams(
     ? sql`AND location_id = ${locationId}`
     : sql``;
 
+  // date - date returns integer (days) in PostgreSQL — cast to double precision
+  // directly instead of using EXTRACT(EPOCH FROM ...) which requires an interval.
   const rows = await db.execute(sql`
-    WITH daily_agg AS (
+    SELECT
+      regr_slope(y, x) AS slope,
+      regr_intercept(y, x) AS intercept,
+      corr(y, x) AS correlation,
+      AVG(y) AS mean,
+      COUNT(*) AS n
+    FROM (
       SELECT
-        business_date,
-        EXTRACT(EPOCH FROM (business_date - (CURRENT_DATE - ${historyDays}::int))) / 86400.0 AS x,
+        (business_date - (CURRENT_DATE - ${historyDays}::int))::double precision AS x,
         COALESCE(SUM(CAST(${sql.raw(column)} AS DOUBLE PRECISION)), 0) AS y
       FROM ${sql.raw(table)}
       WHERE tenant_id = ${tenantId}
@@ -235,15 +241,7 @@ async function fetchLinearRegressionParams(
         AND business_date <= CURRENT_DATE
         ${locationFilter}
       GROUP BY business_date
-    )
-    SELECT
-      regr_slope(y, x) AS slope,
-      regr_intercept(y, x) AS intercept,
-      corr(y, x) AS correlation,
-      COALESCE(STDDEV_SAMP(y - (regr_slope(y, x) * x + regr_intercept(y, x))), 0) AS residual_std_err,
-      AVG(y) AS mean,
-      COUNT(*) AS n
-    FROM daily_agg
+    ) daily_agg
   `);
 
   const row = Array.from(rows as Iterable<Record<string, unknown>>)[0];
@@ -259,7 +257,6 @@ async function fetchLinearRegressionParams(
     slope,
     intercept,
     correlation: Number(row.correlation ?? 0),
-    residualStdErr: Number(row.residual_std_err ?? 0),
     mean: Number(row.mean ?? 0),
     n,
   };
@@ -292,7 +289,21 @@ async function forecastLinear(
     };
   }
 
-  const { slope, intercept, correlation, residualStdErr, mean, n } = params;
+  const { slope, intercept, correlation, mean, n } = params;
+
+  // Compute residual standard error in application code to avoid
+  // nested aggregates in SQL (regr_slope inside STDDEV_SAMP is invalid).
+  const today = new Date();
+  const startMs = new Date(today.getFullYear(), today.getMonth(), today.getDate() - historyDays).getTime();
+  let sumSqResiduals = 0;
+  for (const dp of historicalData) {
+    const x = (new Date(dp.date).getTime() - startMs) / 86_400_000;
+    const predicted = slope * x + intercept;
+    sumSqResiduals += (dp.value - predicted) ** 2;
+  }
+  const residualStdErr = historicalData.length > 2
+    ? Math.sqrt(sumSqResiduals / (historicalData.length - 2))
+    : 0;
   const lastDate = historicalData.length > 0
     ? historicalData[historicalData.length - 1]!.date
     : new Date().toISOString().split('T')[0]!;

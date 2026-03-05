@@ -316,7 +316,23 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   const handleSendAll = async () => {
     if (!tab || !tabId) return;
 
-    // 1. Persist any draft lines first
+    // Compute courses to send BEFORE addItems, including any new courses
+    // that draft lines will create. This avoids a stale-closure bug where
+    // tab.courses doesn't include courses created by addItems.
+    const existingCourses = new Map(
+      (tab.courses ?? []).map((c) => [c.courseNumber, c.courseStatus]),
+    );
+    const courseNumbersToSend = new Set<number>();
+    for (const [num, status] of existingCourses) {
+      if (status === 'unsent') courseNumbersToSend.add(num);
+    }
+    for (const d of draftLines) {
+      if (!existingCourses.has(d.courseNumber)) {
+        courseNumbersToSend.add(d.courseNumber);
+      }
+    }
+
+    // 1. Persist any draft lines first (also auto-creates missing courses)
     if (draftLines.length > 0) {
       await addItems(draftLines.map((d) => ({
         catalogItemId: d.catalogItemId,
@@ -331,12 +347,9 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       store.clearDraft(tabId);
     }
 
-    // 2. Send all unsent courses
-    const courses = tab.courses ?? [];
-    for (const course of courses) {
-      if (course.courseStatus === 'unsent') {
-        await sendCourse(course.courseNumber);
-      }
+    // 2. Send all unsent courses (including newly created ones)
+    for (const courseNumber of courseNumbersToSend) {
+      await sendCourse(courseNumber);
     }
   };
 

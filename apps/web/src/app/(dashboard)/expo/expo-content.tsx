@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuthContext } from '@/components/auth-provider';
 import { useExpoView } from '@/hooks/use-fnb-kitchen';
 import { ExpoHeader } from '@/components/fnb/kitchen/ExpoHeader';
 import { ExpoTicketCard } from '@/components/fnb/kitchen/ExpoTicketCard';
@@ -24,6 +25,8 @@ const PAUSED_INTERVAL = 999_999_999;
 
 export default function ExpoContent() {
   const router = useRouter();
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const [viewMode, setViewMode] = useState<ExpoViewMode>('rail');
   const [filter, setFilter] = useState<ExpoFilter>('all');
   const [search, setSearch] = useState('');
@@ -38,7 +41,7 @@ export default function ExpoContent() {
     bumpTicket,
     isActing,
     refresh,
-  } = useExpoView({ pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
+  } = useExpoView({ locationId, pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
 
   const fireTicket = useCallback(async (ticketId: string) => {
     setIsFiring(true);

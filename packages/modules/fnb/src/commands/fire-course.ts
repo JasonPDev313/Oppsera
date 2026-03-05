@@ -49,10 +49,14 @@ export async function fireCourse(
       throw new CourseStatusConflictError(input.courseNumber, course.courseStatus, 'fire');
     }
 
+    const wasPreviouslyUnsent = course.courseStatus === 'unsent';
+
     const [updated] = await tx
       .update(fnbTabCourses)
       .set({
         courseStatus: 'fired',
+        // Backfill sentAt when firing an unsent course directly
+        sentAt: wasPreviouslyUnsent ? new Date() : undefined,
         firedAt: new Date(),
         firedBy: ctx.user.id,
         updatedAt: new Date(),
@@ -60,15 +64,38 @@ export async function fireCourse(
       .where(eq(fnbTabCourses.id, course.id))
       .returning();
 
-    const event = buildEventFromContext(ctx, FNB_EVENTS.COURSE_FIRED, {
+    // Update tab status when firing from unsent (same as sendCourse)
+    if (wasPreviouslyUnsent && ['open', 'ordering'].includes(tab.status)) {
+      await tx
+        .update(fnbTabs)
+        .set({
+          status: 'sent_to_kitchen',
+          version: tab.version + 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(fnbTabs.id, input.tabId));
+    }
+
+    // When firing an unsent course, also emit course.sent so the KDS
+    // consumer creates kitchen tickets. Without this, the course skips
+    // the send step entirely and no KDS tickets are generated.
+    const events = [];
+    if (wasPreviouslyUnsent) {
+      events.push(buildEventFromContext(ctx, FNB_EVENTS.COURSE_SENT, {
+        tabId: input.tabId,
+        locationId: tab.locationId,
+        courseNumber: input.courseNumber,
+      }));
+    }
+    events.push(buildEventFromContext(ctx, FNB_EVENTS.COURSE_FIRED, {
       tabId: input.tabId,
       locationId: tab.locationId,
       courseNumber: input.courseNumber,
-    });
+    }));
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'fireCourse', updated);
 
-    return { result: updated!, events: [event] };
+    return { result: updated!, events };
   });
 
   auditLogDeferred(ctx, 'fnb.course.fired', 'fnb_tab_courses', result.id, undefined, {

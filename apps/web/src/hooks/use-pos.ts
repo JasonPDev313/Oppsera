@@ -139,7 +139,15 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
         }
         return;
       }
+      // Show meaningful error — include API error code when available
+      if (err instanceof ApiError) {
+        const detail = err.code && err.code !== 'INTERNAL_ERROR' ? ` [${err.code}]` : '';
+        toast.error(`${err.message}${detail}`);
+        console.error('[POS mutation error]', { code: err.code, status: err.statusCode, message: err.message, details: err.details });
+        throw err;
+      }
       const e = err instanceof Error ? err : new Error('An error occurred');
+      console.error('[POS mutation error]', e.message, err);
       toast.error(e.message);
       throw e;
     },
@@ -469,6 +477,30 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     return order;
   }, [batch.drainBatch]);
 
+  // ── Send to KDS ──────────────────────────────────────────────────
+  // Sends unsent food/bev items to KDS without placing the order.
+  // Drains pending batch items first so all lines are on the server.
+
+  const sendToKds = useCallback(async (): Promise<{ sentCount: number }> => {
+    const order = await ensureOrderReady();
+    setIsLoading(true);
+    try {
+      const res = await apiFetch<{ data: { sentCount: number } }>(
+        `/api/v1/orders/${order.id}/send-to-kds`,
+        {
+          method: 'POST',
+          headers: locationHeaders,
+        },
+      );
+      return res.data;
+    } catch (err) {
+      await handleMutationError(err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [ensureOrderReady, locationHeaders, handleMutationError]);
+
   return {
     // State — derivedOrder has subtotal/total computed from actual lines (race-safe)
     currentOrder: derivedOrder,
@@ -501,6 +533,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
 
     // Order Lifecycle
     placeOrder,
+    sendToKds,
     voidOrder,
     holdOrder,
     recallOrder,

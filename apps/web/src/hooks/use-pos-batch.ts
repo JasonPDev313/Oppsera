@@ -124,7 +124,12 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
           }
           try {
             order = await d.current.openOrderPromise.current;
-          } catch {
+          } catch (openErr) {
+            const itemNames = items.map((i) => i.input._display?.name ?? i.input.catalogItemId).join(', ');
+            console.error('[POS batch] Failed to create order:', {
+              items: itemNames,
+              error: openErr instanceof Error ? openErr.message : String(openErr),
+            });
             rollBackTempLines(d.current.setCurrentOrder, items.map((i) => i.tempId));
             setPendingItemCount((c) => Math.max(0, c - items.length));
             d.current.toast.error('Failed to create order. Tap an item to retry.');
@@ -182,6 +187,7 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
 
           const updatedOrder = res.data.order;
           const newLines = res.data.lines as OrderLine[];
+          console.log(`[POS batch] ${newLines.length} lines confirmed for order ${updatedOrder.id ?? '(unknown)'}`);
 
           // Replace all temp lines from this batch with real server lines
           d.current.setCurrentOrder((prev) => {
@@ -220,6 +226,20 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
           if (orderGeneration.current === gen) {
             setPendingItemCount((c) => Math.max(0, c - items.length));
           }
+
+          // Log full error details for debugging
+          const itemSummary = items.map((i) => ({
+            catalogItemId: i.input.catalogItemId,
+            name: i.input._display?.name ?? '(unknown)',
+            type: i.input._display?.itemType ?? '(unknown)',
+          }));
+          console.error('[POS batch] Failed to add items:', {
+            orderId: order?.id,
+            items: itemSummary,
+            error: err instanceof ApiError
+              ? { code: err.code, status: err.statusCode, message: err.message, details: err.details }
+              : err instanceof Error ? { message: err.message } : String(err),
+          });
 
           if (err instanceof ApiError && err.statusCode === 404) {
             d.current.onItemNotFoundRef.current?.();

@@ -257,13 +257,14 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
         );
       }
       const rawMsg = error instanceof Error ? error.message : String(error);
-      console.error('Unhandled error in route handler:', rawMsg, error);
+      const reqPath = new URL(request.url).pathname;
+      console.error(`Unhandled error in route handler [${request.method} ${reqPath}]:`, rawMsg, error);
 
       // Report to Sentry so 500s are visible in monitoring
       try {
         const { captureException } = await import('../observability/sentry-context');
         captureException(error, {
-          path: new URL(request.url).pathname,
+          path: reqPath,
           method: request.method,
           tenantId: _trackTenantId || undefined,
         });
@@ -273,18 +274,37 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
 
       // Surface DB schema mismatch errors clearly — most common cause of 500s during development
       const isDbSchemaError = rawMsg.includes('column') || rawMsg.includes('relation') || rawMsg.includes('does not exist');
-      const userMsg =
-        process.env.NODE_ENV === 'development'
-          ? isDbSchemaError
-            ? `Database schema mismatch — run pending migrations (pnpm db:migrate). Detail: ${rawMsg}`
-            : rawMsg
-          : isDbSchemaError
-            ? 'Database schema mismatch — run pending migrations.'
-            : 'An unexpected error occurred';
+      const isTimeoutError = rawMsg.includes('timed out') || rawMsg.includes('timeout') || rawMsg.includes('canceling statement');
+      const isConnectionError = rawMsg.includes('connection') || rawMsg.includes('pool') || rawMsg.includes('ECONNREFUSED');
+
+      let userMsg: string;
+      let errorCode: string;
+      if (process.env.NODE_ENV === 'development') {
+        // Dev: always show the full error for debugging
+        userMsg = isDbSchemaError
+          ? `Database schema mismatch — run pending migrations (pnpm db:migrate). Detail: ${rawMsg}`
+          : rawMsg;
+        errorCode = isDbSchemaError ? 'SCHEMA_MISMATCH' : 'INTERNAL_ERROR';
+      } else {
+        // Production: show a category-specific message so the user knows what went wrong
+        if (isDbSchemaError) {
+          userMsg = 'Database schema mismatch — run pending migrations.';
+          errorCode = 'SCHEMA_MISMATCH';
+        } else if (isTimeoutError) {
+          userMsg = 'Request timed out — please try again.';
+          errorCode = 'TIMEOUT';
+        } else if (isConnectionError) {
+          userMsg = 'Database connection error — please try again in a moment.';
+          errorCode = 'CONNECTION_ERROR';
+        } else {
+          userMsg = `An unexpected error occurred (${error instanceof Error ? error.constructor.name : 'unknown'}). Check server logs for details.`;
+          errorCode = 'INTERNAL_ERROR';
+        }
+      }
 
       _trackStatusCode = 500;
       return NextResponse.json(
-        { error: { code: isDbSchemaError ? 'SCHEMA_MISMATCH' : 'INTERNAL_ERROR', message: userMsg } },
+        { error: { code: errorCode, message: userMsg } },
         { status: 500 },
       );
     } finally {

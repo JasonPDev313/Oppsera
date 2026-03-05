@@ -216,7 +216,7 @@ async function detectDowPatterns(tenantId: string, currentDate: string): Promise
     const rows = await tx
       .select({
         dayOfWeek: sql<string>`EXTRACT(DOW FROM business_date)`,
-        weekOffset: sql<string>`FLOOR(EXTRACT(EPOCH FROM (${currentDate}::date - business_date)) / 86400 / 7)`,
+        weekOffset: sql<string>`FLOOR((${currentDate}::date - business_date) / 7.0)`,
         netSales: sql<string>`COALESCE(SUM(net_sales), 0)`,
         orderCount: sql<string>`COALESCE(SUM(order_count), 0)`,
       })
@@ -228,7 +228,7 @@ async function detectDowPatterns(tenantId: string, currentDate: string): Promise
       ))
       .groupBy(
         sql`EXTRACT(DOW FROM business_date)`,
-        sql`FLOOR(EXTRACT(EPOCH FROM (${currentDate}::date - business_date)) / 86400 / 7)`,
+        sql`FLOOR((${currentDate}::date - business_date) / 7.0)`,
       );
 
     // Group by day of week

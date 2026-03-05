@@ -956,42 +956,51 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
 
   const handleItemTap = useCallback(
     (item: CatalogItemForPOS) => {
-      const typeGroup = item.typeGroup;
-      switch (typeGroup) {
-        case 'fnb': {
-          const meta = item.metadata as FnbMetadata | undefined;
-          const hasModifiers =
-            (meta?.defaultModifierGroupIds && meta.defaultModifierGroupIds.length > 0) ||
-            (meta?.optionalModifierGroupIds && meta.optionalModifierGroupIds.length > 0);
-          const hasFractions = meta?.allowedFractions && meta.allowedFractions.length > 1;
-          if (hasModifiers || hasFractions) {
-            setModifierItem(item);
-          } else {
+      try {
+        const typeGroup = item.typeGroup;
+        switch (typeGroup) {
+          case 'fnb': {
+            const meta = item.metadata as FnbMetadata | undefined;
+            const hasModifiers =
+              (meta?.defaultModifierGroupIds && meta.defaultModifierGroupIds.length > 0) ||
+              (meta?.optionalModifierGroupIds && meta.optionalModifierGroupIds.length > 0);
+            const hasFractions = meta?.allowedFractions && meta.allowedFractions.length > 1;
+            if (hasModifiers || hasFractions) {
+              setModifierItem(item);
+            } else {
+              pos.addItem({ catalogItemId: item.id, qty: 1, _display: displayFor(item) });
+              catalog.addToRecent(item.id);
+            }
+            break;
+          }
+          case 'retail': {
+            const meta = item.metadata as RetailMetadata | undefined;
+            if (meta?.optionSets && meta.optionSets.length > 0) {
+              setOptionItem(item);
+            } else {
+              pos.addItem({ catalogItemId: item.id, qty: 1, _display: displayFor(item) });
+              catalog.addToRecent(item.id);
+            }
+            break;
+          }
+          case 'service':
             pos.addItem({ catalogItemId: item.id, qty: 1, _display: displayFor(item) });
             catalog.addToRecent(item.id);
-          }
-          break;
+            break;
+          case 'package':
+            setPackageItem(item);
+            break;
         }
-        case 'retail': {
-          const meta = item.metadata as RetailMetadata | undefined;
-          if (meta?.optionSets && meta.optionSets.length > 0) {
-            setOptionItem(item);
-          } else {
-            pos.addItem({ catalogItemId: item.id, qty: 1, _display: displayFor(item) });
-            catalog.addToRecent(item.id);
-          }
-          break;
-        }
-        case 'service':
-          pos.addItem({ catalogItemId: item.id, qty: 1, _display: displayFor(item) });
-          catalog.addToRecent(item.id);
-          break;
-        case 'package':
-          setPackageItem(item);
-          break;
+      } catch (err) {
+        console.error('[handleItemTap] Failed to add item:', {
+          id: item.id, name: item.name, type: item.type, typeGroup: item.typeGroup,
+          price: item.price, metadata: item.metadata,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        toast.error(`Failed to add "${item.name}" — check console for details`);
       }
     },
-    [pos, catalog, displayFor],
+    [pos, catalog, displayFor, toast],
   );
 
   // ── Dialog add handlers ─────────────────────────────────────────
@@ -1164,12 +1173,27 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     return lines.some((l) => l.itemType === 'food' || l.itemType === 'beverage');
   }, [pos.currentOrder?.lines]);
 
-  const isOrderPlaced = pos.currentOrder?.status === 'placed';
+  // Track whether all KDS-eligible items have been sent (no new unsent items)
+  const [lastSentLineCount, setLastSentLineCount] = useState(0);
+  const currentOrderId = pos.currentOrder?.id;
+  useEffect(() => { setLastSentLineCount(0); }, [currentOrderId]);
+  const fnbLineCount = useMemo(() => {
+    return (pos.currentOrder?.lines ?? []).filter(
+      (l) => (l.itemType === 'food' || l.itemType === 'beverage') && !l.id.startsWith('temp-'),
+    ).length;
+  }, [pos.currentOrder?.lines]);
+  const allSentToKds = fnbLineCount > 0 && fnbLineCount <= lastSentLineCount;
 
   const handleSendOrder = useCallback(async () => {
     try {
-      await posRef.current.placeOrder();
-      toast.success('Order sent to kitchen');
+      const result = await posRef.current.sendToKds();
+      if (result.sentCount > 0) {
+        toast.success('Order sent to kitchen');
+      } else {
+        toast.info('All items already sent');
+      }
+      // Track total sent so UI can show "Sent" state
+      setLastSentLineCount((prev) => prev + result.sentCount);
     } catch {
       // Error already handled by POS hook
     }
@@ -1940,15 +1964,15 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                     <button
                       type="button"
                       onClick={handleSendOrder}
-                      disabled={!hasItems || isOrderPlaced || pos.isLoading}
+                      disabled={!hasItems || !hasFnbItems || allSentToKds || pos.isLoading}
                       className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-base font-semibold transition-colors disabled:cursor-not-allowed ${
-                        hasFnbItems && hasItems && !isOrderPlaced
+                        hasFnbItems && hasItems && !allSentToKds
                           ? 'bg-amber-500 text-white hover:bg-amber-600 disabled:bg-amber-300'
                           : 'border border-border text-foreground hover:bg-accent disabled:opacity-40'
                       }`}
                     >
                       <Send aria-hidden="true" className="h-4 w-4" />
-                      {pos.isLoading ? 'Sending…' : isOrderPlaced ? 'Sent' : 'Send'}
+                      {pos.isLoading ? 'Sending…' : allSentToKds ? 'Sent' : 'Send'}
                     </button>
                   )}
 

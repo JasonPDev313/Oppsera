@@ -82,7 +82,8 @@ export async function getKdsView(
     // Get station info
     const stationRows = await tx.execute(
       sql`SELECT id, name, display_name, station_type, color,
-                 warning_threshold_seconds, critical_threshold_seconds
+                 warning_threshold_seconds, critical_threshold_seconds,
+                 location_id
           FROM fnb_kitchen_stations
           WHERE id = ${input.stationId} AND tenant_id = ${input.tenantId}
           LIMIT 1`,
@@ -90,6 +91,9 @@ export async function getKdsView(
     const stationArr = Array.from(stationRows as Iterable<Record<string, unknown>>);
     const station = stationArr[0];
     if (!station) throw new StationNotFoundError(input.stationId);
+
+    // Resolve locationId: prefer explicit input, fallback to station's own location_id
+    const resolvedLocationId = input.locationId || (station.location_id as string);
 
     // Get active tickets that have items at this station
     // LEFT JOIN orders to pull source, terminal_id, created_at for the KDS card meta row
@@ -106,7 +110,7 @@ export async function getKdsView(
           LEFT JOIN orders o
             ON o.id = kt.order_id AND o.tenant_id = kt.tenant_id
           WHERE kt.tenant_id = ${input.tenantId}
-            AND kt.location_id = ${input.locationId}
+            AND kt.location_id = ${resolvedLocationId}
             AND kt.business_date = ${input.businessDate}
             AND kt.status IN ('pending', 'in_progress')
             AND kti.item_status NOT IN ('served', 'voided')
@@ -241,7 +245,7 @@ export async function getKdsView(
           INNER JOIN fnb_kitchen_ticket_items kti
             ON kti.ticket_id = kt.id AND kti.station_id = ${input.stationId}
           WHERE kt.tenant_id = ${input.tenantId}
-            AND kt.location_id = ${input.locationId}
+            AND kt.location_id = ${resolvedLocationId}
             AND kt.business_date = ${input.businessDate}
             AND kti.item_status IN ('bumped', 'served')
             AND NOT EXISTS (

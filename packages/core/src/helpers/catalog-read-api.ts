@@ -257,6 +257,11 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
       this.getSubDepartmentForItem(tenantId, itemId),
     ]);
 
+    const unitPriceCents = Math.round(price * 100);
+    if (!Number.isFinite(unitPriceCents)) {
+      console.error(`[getItemForPOS] Non-finite price for item ${itemId} (${item.name}, ${item.itemType}): rawPrice=${price}, cents=${unitPriceCents}`);
+    }
+
     return {
       id: item.id,
       sku: item.sku,
@@ -264,7 +269,7 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
       name: item.name,
       itemType: item.itemType,
       isTrackable: item.isTrackable,
-      unitPriceCents: Math.round(price * 100),
+      unitPriceCents: Number.isFinite(unitPriceCents) ? unitPriceCents : 0,
       taxInfo: {
         ...taxInfo,
         // Item determines how its price is interpreted, not the tax group

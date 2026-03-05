@@ -24,8 +24,21 @@ export const POST = withMiddleware(
       );
     }
 
-    const result = await addLineItemsBatch(ctx, orderId, parsed.data.items);
-    return NextResponse.json({ data: result }, { status: 201 });
+    const itemIds = parsed.data.items.map((i) => i.catalogItemId);
+    console.log(`[POST /orders/${orderId}/lines/batch] Adding ${parsed.data.items.length} items: [${itemIds.join(', ')}]`);
+
+    try {
+      const result = await addLineItemsBatch(ctx, orderId, parsed.data.items);
+      return NextResponse.json({ data: result }, { status: 201 });
+    } catch (err) {
+      console.error(`[POST /orders/${orderId}/lines/batch] Failed:`, {
+        itemIds,
+        tenant: ctx.tenantId,
+        location: ctx.locationId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
   },
   { entitlement: 'orders', permission: 'orders.manage', writeAccess: true },
 );

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
+import { useAuthContext } from '@/components/auth-provider';
 import { useKdsView } from '@/hooks/use-fnb-kitchen';
 import { StationHeader } from '@/components/fnb/kitchen/StationHeader';
 import { TicketCard } from '@/components/fnb/kitchen/TicketCard';
@@ -27,6 +28,8 @@ export default function KdsContent() {
   const router = useRouter();
 
   const stationId = params.stationId as string;
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>('ticket_rail');
@@ -45,7 +48,7 @@ export default function KdsContent() {
     recallItem: _recallItem,
     isActing,
     refresh,
-  } = useKdsView({ stationId, pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
+  } = useKdsView({ stationId, locationId, pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
 
   // Sort tickets by priority (higher first), then by elapsed time (longer first)
   const sortedTickets = useMemo(() => {

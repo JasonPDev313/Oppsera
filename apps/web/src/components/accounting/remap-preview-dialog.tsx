@@ -58,14 +58,18 @@ export function RemapPreviewDialog({
     setStep('preview');
   }, [selected, preview]);
 
+  const [executeError, setExecuteError] = useState<string | null>(null);
+
   const handleExecute = useCallback(async () => {
     const ids = Array.from(selected);
     if (ids.length === 0) return;
     setStep('executing');
+    setExecuteError(null);
     try {
       await execute({ tenderIds: ids, reason: 'Retroactive GL remap — mappings now configured' });
       setStep('done');
-    } catch {
+    } catch (err) {
+      setExecuteError(err instanceof Error ? err.message : 'Remap failed');
       setStep('preview');
     }
   }, [selected, execute]);
@@ -194,6 +198,12 @@ export function RemapPreviewDialog({
           {/* Step 2: Preview GL line comparison */}
           {step === 'preview' && previews.length > 0 && (
             <div className="space-y-6">
+              {executeError && (
+                <div className="flex items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+                  <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
+                  <p className="text-sm text-red-500">{executeError}</p>
+                </div>
+              )}
               {previews.map((p) => (
                 <div key={p.tenderId} className="rounded-lg border border-border">
                   <div className="border-b border-border bg-muted px-4 py-2">

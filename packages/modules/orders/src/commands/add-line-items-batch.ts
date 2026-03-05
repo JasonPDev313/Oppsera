@@ -52,6 +52,8 @@ export async function addLineItemsBatch(
   orderId: string,
   items: AddLineItemInput[],
 ) {
+  const logTag = '[addLineItemsBatch]';
+
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
   }
@@ -60,14 +62,33 @@ export async function addLineItemsBatch(
 
   const catalogApi = getCatalogReadApi();
 
-  const posItems = await Promise.all(
-    items.map(async (item) => {
-      const posItem = await catalogApi.getItemForPOS(ctx.tenantId, ctx.locationId!, item.catalogItemId);
-      if (!posItem) {
-        throw new NotFoundError('Catalog item', item.catalogItemId);
-      }
-      return posItem as PosItemData;
-    }),
+  let posItems: PosItemData[];
+  try {
+    posItems = await Promise.all(
+      items.map(async (item) => {
+        const posItem = await catalogApi.getItemForPOS(ctx.tenantId, ctx.locationId!, item.catalogItemId);
+        if (!posItem) {
+          console.error(`${logTag} Catalog item not found: catalogItemId=${item.catalogItemId}, tenant=${ctx.tenantId}, location=${ctx.locationId}`);
+          throw new NotFoundError('Catalog item', item.catalogItemId);
+        }
+        return posItem as PosItemData;
+      }),
+    );
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    console.error(`${logTag} Phase 1 (catalog lookup) failed for orderId=${orderId}:`, {
+      itemIds: items.map((i) => i.catalogItemId),
+      tenant: ctx.tenantId,
+      location: ctx.locationId,
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    });
+    throw err;
+  }
+
+  // Log resolved items for debugging
+  console.log(`${logTag} Phase 1 resolved ${posItems.length} items for orderId=${orderId}:`,
+    posItems.map((p) => ({ id: p.id, name: p.name, type: p.itemType, priceCents: p.unitPriceCents, taxMode: p.taxInfo.calculationMode, taxRateCount: p.taxInfo.taxRates.length })),
   );
 
   // Resolve package components for all items that need them (parallel)
@@ -115,153 +136,190 @@ export async function addLineItemsBatch(
 
   // ── Phase 2: Single transaction ──────────────────────────────────────
 
-  const result = await publishWithOutbox(ctx, async (tx) => {
-    // One FOR UPDATE lock for the entire batch
-    const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
+  let result;
+  try {
+    result = await publishWithOutbox(ctx, async (tx) => {
+      // One FOR UPDATE lock for the entire batch
+      const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
-    // Parallel idempotency checks (independent reads within tx)
-    const idempotencyChecks = await Promise.all(
-      items.map((item) => checkIdempotency(tx, ctx.tenantId, item.clientRequestId, 'addLineItem')),
-    );
+      // Parallel idempotency checks (independent reads within tx)
+      const idempotencyChecks = await Promise.all(
+        items.map((item) => checkIdempotency(tx, ctx.tenantId, item.clientRequestId, 'addLineItem')),
+      );
 
-    // Separate duplicates from new items (preserve original indices)
-    const newIndices: number[] = [];
-    for (let i = 0; i < items.length; i++) {
-      if (!idempotencyChecks[i]!.isDuplicate) {
-        newIndices.push(i);
+      // Separate duplicates from new items (preserve original indices)
+      const newIndices: number[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (!idempotencyChecks[i]!.isDuplicate) {
+          newIndices.push(i);
+        }
       }
-    }
 
-    if (newIndices.length === 0) {
-      // All items were duplicates
-      return { result: { order, lines: [] as Record<string, unknown>[] }, events: [] };
-    }
+      if (newIndices.length === 0) {
+        // All items were duplicates
+        return { result: { order, lines: [] as Record<string, unknown>[] }, events: [] };
+      }
 
-    // Get current max sort order (single query)
-    const sortResult = await tx
-      .select({ maxSort: max(orderLines.sortOrder) })
-      .from(orderLines)
-      .where(eq(orderLines.orderId, orderId));
-    let nextSort = ((sortResult[0]?.maxSort as number | null) ?? -1) + 1;
+      // Get current max sort order (single query)
+      const sortResult = await tx
+        .select({ maxSort: max(orderLines.sortOrder) })
+        .from(orderLines)
+        .where(eq(orderLines.orderId, orderId));
+      let nextSort = ((sortResult[0]?.maxSort as number | null) ?? -1) + 1;
 
-    // Insert all new lines
-    const createdLines: Record<string, unknown>[] = [];
-    const events: ReturnType<typeof buildEventFromContext>[] = [];
+      // Insert all new lines
+      const createdLines: Record<string, unknown>[] = [];
+      const events: ReturnType<typeof buildEventFromContext>[] = [];
 
-    for (const origIdx of newIndices) {
-      const item = items[origIdx]!;
-      const posItem = posItems[origIdx]!;
-      const components = resolvedComponents[origIdx] ?? null;
+      for (const origIdx of newIndices) {
+        const item = items[origIdx]!;
+        const posItem = posItems[origIdx]!;
+        const components = resolvedComponents[origIdx] ?? null;
 
-      const unitPrice = item.priceOverride ? item.priceOverride.unitPrice : posItem.unitPriceCents;
-      const lineSubtotal = Math.round(Number(item.qty) * unitPrice);
+        const unitPrice = item.priceOverride ? item.priceOverride.unitPrice : posItem.unitPriceCents;
+        const lineSubtotal = Math.round(Number(item.qty) * unitPrice);
 
-      const taxResult = calculateTaxes({
-        lineSubtotal,
-        calculationMode: posItem.taxInfo.calculationMode as 'exclusive' | 'inclusive',
-        taxRates: posItem.taxInfo.taxRates.map((r) => ({
-          taxRateId: r.id,
-          taxName: r.name,
-          rateDecimal: r.rateDecimal,
-        })),
-      });
-
-      const [line] = await tx.insert(orderLines).values({
-        tenantId: ctx.tenantId,
-        locationId: ctx.locationId!,
-        orderId,
-        sortOrder: nextSort++,
-        catalogItemId: item.catalogItemId,
-        catalogItemName: posItem.name,
-        catalogItemSku: posItem.sku,
-        itemType: posItem.itemType,
-        subDepartmentId: posItem.subDepartmentId ?? null,
-        taxGroupId: posItem.taxInfo.taxGroups[0]?.id ?? null,
-        qty: String(item.qty),
-        unitPrice,
-        originalUnitPrice: item.priceOverride ? posItem.unitPriceCents : null,
-        priceOverrideReason: item.priceOverride?.reason ?? null,
-        priceOverriddenBy: item.priceOverride?.approvedBy ?? null,
-        priceOverrideDiscountCents: item.priceOverride
-          ? Math.max(0, Math.round((posItem.unitPriceCents - item.priceOverride.unitPrice) * Number(item.qty)))
-          : 0,
-        lineSubtotal: taxResult.subtotal,
-        lineTax: taxResult.taxTotal,
-        lineTotal: taxResult.total,
-        taxCalculationMode: posItem.taxInfo.calculationMode,
-        modifiers: item.modifiers ?? null,
-        specialInstructions: item.specialInstructions ?? null,
-        selectedOptions: item.selectedOptions ?? null,
-        packageComponents: components,
-        notes: item.notes ?? null,
-      }).returning();
-
-      // Tax breakdown rows
-      if (taxResult.breakdown.length > 0) {
-        await tx.insert(orderLineTaxes).values(
-          taxResult.breakdown.map((b) => ({
-            tenantId: ctx.tenantId,
-            orderLineId: line!.id,
-            taxRateId: b.taxRateId,
-            taxName: b.taxName,
-            rateDecimal: String(b.rateDecimal),
-            amount: b.amount,
+        const taxResult = calculateTaxes({
+          lineSubtotal,
+          calculationMode: posItem.taxInfo.calculationMode as 'exclusive' | 'inclusive',
+          taxRates: posItem.taxInfo.taxRates.map((r) => ({
+            taxRateId: r.id,
+            taxName: r.name,
+            rateDecimal: r.rateDecimal,
           })),
-        );
+        });
+
+        // Sanity check: catch NaN before it reaches the DB
+        if (Number.isNaN(unitPrice) || Number.isNaN(lineSubtotal) || Number.isNaN(taxResult.taxTotal)) {
+          const detail = { catalogItemId: item.catalogItemId, itemType: posItem.itemType, name: posItem.name, unitPrice, lineSubtotal, taxTotal: taxResult.taxTotal, rawPriceCents: posItem.unitPriceCents, qty: item.qty };
+          console.error(`${logTag} NaN detected in line calculation:`, detail);
+          throw new AppError('CALCULATION_ERROR', `Invalid price calculation for item "${posItem.name}" (${posItem.itemType}). unitPrice=${unitPrice}, lineSubtotal=${lineSubtotal}`, 500);
+        }
+
+        try {
+          const [line] = await tx.insert(orderLines).values({
+            tenantId: ctx.tenantId,
+            locationId: ctx.locationId!,
+            orderId,
+            sortOrder: nextSort++,
+            catalogItemId: item.catalogItemId,
+            catalogItemName: posItem.name,
+            catalogItemSku: posItem.sku,
+            itemType: posItem.itemType,
+            subDepartmentId: posItem.subDepartmentId ?? null,
+            taxGroupId: posItem.taxInfo.taxGroups[0]?.id ?? null,
+            qty: String(item.qty),
+            unitPrice,
+            originalUnitPrice: item.priceOverride ? posItem.unitPriceCents : null,
+            priceOverrideReason: item.priceOverride?.reason ?? null,
+            priceOverriddenBy: item.priceOverride?.approvedBy ?? null,
+            priceOverrideDiscountCents: item.priceOverride
+              ? Math.max(0, Math.round((posItem.unitPriceCents - item.priceOverride.unitPrice) * Number(item.qty)))
+              : 0,
+            lineSubtotal: taxResult.subtotal,
+            lineTax: taxResult.taxTotal,
+            lineTotal: taxResult.total,
+            taxCalculationMode: posItem.taxInfo.calculationMode,
+            modifiers: item.modifiers ?? null,
+            specialInstructions: item.specialInstructions ?? null,
+            selectedOptions: item.selectedOptions ?? null,
+            packageComponents: components,
+            notes: item.notes ?? null,
+          }).returning();
+
+          // Tax breakdown rows
+          if (taxResult.breakdown.length > 0) {
+            await tx.insert(orderLineTaxes).values(
+              taxResult.breakdown.map((b) => ({
+                tenantId: ctx.tenantId,
+                orderLineId: line!.id,
+                taxRateId: b.taxRateId,
+                taxName: b.taxName,
+                rateDecimal: String(b.rateDecimal),
+                amount: b.amount,
+              })),
+            );
+          }
+
+          await saveIdempotencyKey(tx, ctx.tenantId, item.clientRequestId, 'addLineItem', { lineId: line!.id });
+
+          createdLines.push({ ...line!, qty: Number(line!.qty) });
+
+          events.push(buildEventFromContext(ctx, 'order.line_added.v1', {
+            orderId,
+            lineId: line!.id,
+            catalogItemId: item.catalogItemId,
+            catalogItemName: posItem.name,
+            itemType: posItem.itemType,
+            qty: item.qty,
+            unitPrice,
+            lineSubtotal: taxResult.subtotal,
+            lineTax: taxResult.taxTotal,
+            lineTotal: taxResult.total,
+          }));
+        } catch (lineErr) {
+          console.error(`${logTag} Failed to insert order line:`, {
+            orderId,
+            catalogItemId: item.catalogItemId,
+            itemType: posItem.itemType,
+            itemName: posItem.name,
+            unitPrice,
+            lineSubtotal,
+            taxResult: { subtotal: taxResult.subtotal, taxTotal: taxResult.taxTotal, total: taxResult.total },
+            qty: item.qty,
+            error: lineErr instanceof Error ? lineErr.message : String(lineErr),
+            stack: lineErr instanceof Error ? lineErr.stack : undefined,
+          });
+          throw lineErr;
+        }
       }
 
-      await saveIdempotencyKey(tx, ctx.tenantId, item.clientRequestId, 'addLineItem', { lineId: line!.id });
+      // ONE total recalculation for the entire batch
+      const [allLines, allCharges, allDiscounts] = await Promise.all([
+        tx.select({
+          lineSubtotal: orderLines.lineSubtotal,
+          lineTax: orderLines.lineTax,
+          lineTotal: orderLines.lineTotal,
+        }).from(orderLines).where(eq(orderLines.orderId, orderId)),
+        tx.select({
+          amount: orderCharges.amount,
+          taxAmount: orderCharges.taxAmount,
+        }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
+        tx.select({
+          amount: orderDiscounts.amount,
+        }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
+      ]);
 
-      createdLines.push({ ...line!, qty: Number(line!.qty) });
+      const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
 
-      events.push(buildEventFromContext(ctx, 'order.line_added.v1', {
-        orderId,
-        lineId: line!.id,
-        catalogItemId: item.catalogItemId,
-        catalogItemName: posItem.name,
-        itemType: posItem.itemType,
-        qty: item.qty,
-        unitPrice,
-        lineSubtotal: taxResult.subtotal,
-        lineTax: taxResult.taxTotal,
-        lineTotal: taxResult.total,
-      }));
+      // ONE version increment + totals update
+      await tx.update(orders).set({
+        ...totals,
+        version: sql`version + 1`,
+        updatedBy: ctx.user.id,
+        updatedAt: new Date(),
+      }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
+
+      return {
+        result: {
+          order: { ...order, ...totals, version: order.version + 1 },
+          lines: createdLines,
+        },
+        events,
+      };
+    });
+  } catch (err) {
+    if (!(err instanceof AppError)) {
+      console.error(`${logTag} Phase 2 (transaction) failed for orderId=${orderId}:`, {
+        itemSummary: posItems.map((p) => ({ id: p.id, name: p.name, type: p.itemType, priceCents: p.unitPriceCents })),
+        tenant: ctx.tenantId,
+        location: ctx.locationId,
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
     }
-
-    // ONE total recalculation for the entire batch
-    const [allLines, allCharges, allDiscounts] = await Promise.all([
-      tx.select({
-        lineSubtotal: orderLines.lineSubtotal,
-        lineTax: orderLines.lineTax,
-        lineTotal: orderLines.lineTotal,
-      }).from(orderLines).where(eq(orderLines.orderId, orderId)),
-      tx.select({
-        amount: orderCharges.amount,
-        taxAmount: orderCharges.taxAmount,
-      }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
-      tx.select({
-        amount: orderDiscounts.amount,
-      }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
-    ]);
-
-    const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
-
-    // ONE version increment + totals update
-    await tx.update(orders).set({
-      ...totals,
-      version: sql`version + 1`,
-      updatedBy: ctx.user.id,
-      updatedAt: new Date(),
-    }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
-
-    return {
-      result: {
-        order: { ...order, ...totals, version: order.version + 1 },
-        lines: createdLines,
-      },
-      events,
-    };
-  });
+    throw err;
+  }
 
   auditLogDeferred(ctx, 'order.lines_batch_added', 'order', orderId);
 

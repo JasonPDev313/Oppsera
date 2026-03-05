@@ -517,6 +517,7 @@ export { handleFnbTicketBumped, handleFnbItemBumped, handleFnbItemVoided } from 
 export { handleCourseSent } from './consumers/handle-course-sent';
 export type { CourseSentConsumerData } from './consumers/handle-course-sent';
 export { handleOrderPlacedForKds } from './consumers/handle-order-placed-for-kds';
+export { sendOrderLinesToKds } from './commands/send-order-lines-to-kds';
 
 // Helpers — Station Routing
 export { resolveStation } from './helpers/resolve-station';
