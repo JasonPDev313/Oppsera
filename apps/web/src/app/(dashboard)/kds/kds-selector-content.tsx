@@ -26,9 +26,9 @@ export default function KdsSelectorContent() {
   const locationId = locations?.[0]?.id;
   const { stations, isLoading } = useStations({ locationId });
 
-  // Show all station types except 'expo' (expo has its own standalone page)
+  // Show active station types except 'expo' (expo has its own standalone page)
   const kdsStations = stations.filter(
-    (s) => s.stationType !== 'expo',
+    (s) => s.isActive && s.stationType !== 'expo',
   );
 
   return (

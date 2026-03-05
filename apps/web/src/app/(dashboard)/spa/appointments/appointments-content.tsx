@@ -24,9 +24,10 @@ import { useSpaAppointments, useSpaProviders } from '@/hooks/use-spa';
 
 interface AppointmentService {
   id: string;
-  name: string;
-  durationMinutes: number;
+  serviceName: string;
   priceCents: number;
+  finalPriceCents: number;
+  status: string;
 }
 
 interface SpaAppointment {
@@ -340,7 +341,7 @@ export default function AppointmentsContent() {
         key: 'services',
         header: 'Service(s)',
         render: (row: AppointmentRow) => {
-          const names = row.services?.map((s: AppointmentService) => s.name) ?? [];
+          const names = row.services?.map((s: AppointmentService) => s.serviceName) ?? [];
           if (names.length === 0) return <span className="text-sm text-muted-foreground">{'\u2014'}</span>;
           return (
             <div className="flex flex-wrap gap-1">
@@ -373,7 +374,7 @@ export default function AppointmentsContent() {
         header: 'Total',
         width: '100px',
         render: (row: AppointmentRow) => {
-          const totalCents = row.services?.reduce((sum: number, s: AppointmentService) => sum + (s.priceCents ?? 0), 0) ?? 0;
+          const totalCents = row.services?.reduce((sum: number, s: AppointmentService) => sum + (s.finalPriceCents ?? 0), 0) ?? 0;
           return (
             <span className="text-sm font-medium tabular-nums text-foreground">
               {totalCents > 0 ? formatMoney(totalCents) : '\u2014'}

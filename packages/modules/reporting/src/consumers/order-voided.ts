@@ -13,6 +13,8 @@ const orderVoidedSchema = z.object({
   total: z.number(),
   lines: z.array(z.object({
     catalogItemId: z.string(),
+    catalogItemName: z.string().optional(),
+    categoryName: z.string().optional(),
     qty: z.number().optional(),
     lineTotal: z.number().optional(),
   })).optional(),
@@ -116,12 +118,29 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
 
     // Step 4: Upsert rm_item_sales per voided line (if lines present in payload)
     if (data.lines) {
+      // Batch-resolve item names and categories from order_lines if not in event payload
+      let orderLineMap = new Map<string, { name: string; category: string | null }>();
+      const needsLookup = data.lines.some((l) => !l.catalogItemName);
+      if (needsLookup) {
+        const olRows = await (tx as any).execute(sql`
+          SELECT ol.catalog_item_id, ol.catalog_item_name, cc.name AS category_name
+          FROM order_lines ol
+          LEFT JOIN catalog_categories cc ON cc.id = ol.sub_department_id
+          WHERE ol.order_id = ${data.orderId} AND ol.tenant_id = ${event.tenantId}
+        `);
+        for (const r of Array.from(olRows as Iterable<{ catalog_item_id: string; catalog_item_name: string; category_name: string | null }>)) {
+          orderLineMap.set(r.catalog_item_id, { name: r.catalog_item_name, category: r.category_name });
+        }
+      }
+
       for (const line of data.lines) {
         const qty = line.qty ?? 1;
         const lineTotal = (line.lineTotal ?? 0) / 100;
+        const itemName = line.catalogItemName ?? orderLineMap.get(line.catalogItemId)?.name ?? 'Voided Item';
+        const categoryName = line.categoryName ?? orderLineMap.get(line.catalogItemId)?.category ?? null;
         await (tx as any).execute(sql`
-          INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, quantity_voided, void_revenue, updated_at)
-          VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${line.catalogItemId}, ${'Voided Item'}, ${qty}, ${lineTotal}, NOW())
+          INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, category_name, quantity_voided, void_revenue, updated_at)
+          VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${line.catalogItemId}, ${itemName}, ${categoryName}, ${qty}, ${lineTotal}, NOW())
           ON CONFLICT (tenant_id, location_id, business_date, catalog_item_id)
           DO UPDATE SET
             quantity_voided = rm_item_sales.quantity_voided + ${qty},

@@ -69,12 +69,14 @@ export async function getExpoView(
     );
     const tickets = Array.from(ticketRows as Iterable<Record<string, unknown>>);
 
-    const expoCards: ExpoTicketCard[] = [];
-    let ticketsAllReady = 0;
+    // Batch-fetch ALL items for ALL tickets in a single query (fixes N+1).
+    // Same pattern used in get-kds-view.ts.
+    const ticketIds = tickets.map((t) => t.id as string);
+    const itemsByTicket = new Map<string, ExpoTicketItem[]>();
 
-    for (const t of tickets) {
-      const itemRows = await tx.execute(
-        sql`SELECT kti.id, kti.item_name, kti.kitchen_label, kti.item_color,
+    if (ticketIds.length > 0) {
+      const allItemRows = await tx.execute(
+        sql`SELECT kti.id, kti.ticket_id, kti.item_name, kti.kitchen_label, kti.item_color,
                    kti.modifier_summary, kti.seat_number,
                    kti.course_name, kti.quantity, kti.item_status,
                    kti.priority_level, kti.estimated_prep_seconds,
@@ -83,32 +85,43 @@ export async function getExpoView(
                    ks.display_name AS station_name
             FROM fnb_kitchen_ticket_items kti
             LEFT JOIN fnb_kitchen_stations ks ON ks.id = kti.station_id
-            WHERE kti.ticket_id = ${t.id as string}
+            WHERE kti.ticket_id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})
               AND kti.item_status != 'voided'
             ORDER BY kti.priority_level DESC NULLS LAST, kti.seat_number NULLS LAST, kti.id ASC`,
       );
-      const items = Array.from(itemRows as Iterable<Record<string, unknown>>).map((r) => ({
-        itemId: r.id as string,
-        itemName: r.item_name as string,
-        kitchenLabel: (r.kitchen_label as string) ?? null,
-        itemColor: (r.item_color as string) ?? null,
-        modifierSummary: (r.modifier_summary as string) ?? null,
-        seatNumber: r.seat_number != null ? Number(r.seat_number) : null,
-        courseName: (r.course_name as string) ?? null,
-        quantity: Number(r.quantity),
-        itemStatus: r.item_status as string,
-        priorityLevel: Number(r.priority_level ?? 0),
-        estimatedPrepSeconds: r.estimated_prep_seconds != null ? Number(r.estimated_prep_seconds) : null,
-        stationId: (r.station_id as string) ?? null,
-        stationName: (r.station_name as string) ?? null,
-        isRush: r.is_rush as boolean,
-        isAllergy: r.is_allergy as boolean,
-        isVip: r.is_vip as boolean,
-      }));
+      for (const r of Array.from(allItemRows as Iterable<Record<string, unknown>>)) {
+        const tId = r.ticket_id as string;
+        const item: ExpoTicketItem = {
+          itemId: r.id as string,
+          itemName: r.item_name as string,
+          kitchenLabel: (r.kitchen_label as string) ?? null,
+          itemColor: (r.item_color as string) ?? null,
+          modifierSummary: (r.modifier_summary as string) ?? null,
+          seatNumber: r.seat_number != null ? Number(r.seat_number) : null,
+          courseName: (r.course_name as string) ?? null,
+          quantity: Number(r.quantity),
+          itemStatus: r.item_status as string,
+          priorityLevel: Number(r.priority_level ?? 0),
+          estimatedPrepSeconds: r.estimated_prep_seconds != null ? Number(r.estimated_prep_seconds) : null,
+          stationId: (r.station_id as string) ?? null,
+          stationName: (r.station_name as string) ?? null,
+          isRush: r.is_rush as boolean,
+          isAllergy: r.is_allergy as boolean,
+          isVip: r.is_vip as boolean,
+        };
+        const arr = itemsByTicket.get(tId) ?? [];
+        arr.push(item);
+        itemsByTicket.set(tId, arr);
+      }
+    }
 
-      const activeItems = items.filter((i) => i.itemStatus !== 'voided');
-      const readyCount = activeItems.filter((i) => i.itemStatus === 'ready' || i.itemStatus === 'served').length;
-      const totalCount = activeItems.length;
+    const expoCards: ExpoTicketCard[] = [];
+    let ticketsAllReady = 0;
+
+    for (const t of tickets) {
+      const items = itemsByTicket.get(t.id as string) ?? [];
+      const readyCount = items.filter((i) => i.itemStatus === 'ready' || i.itemStatus === 'served').length;
+      const totalCount = items.length;
       const allItemsReady = totalCount > 0 && readyCount === totalCount;
 
       if (allItemsReady) ticketsAllReady++;

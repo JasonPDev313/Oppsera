@@ -162,7 +162,7 @@ export async function recordTender(
       .where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId)));
     const orderLinesForGL: OrderLineForGL[] = lines.map(
       (l) => ({
-        departmentId: null, // V1: all revenue to single account
+        departmentId: l.subDepartmentId ?? null,
         lineGross: l.lineTotal,
         lineTax: l.lineTax,
         lineNet: l.lineTotal - l.lineTax,

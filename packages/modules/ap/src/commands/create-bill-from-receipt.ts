@@ -3,6 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
+import { sql } from 'drizzle-orm';
 import {
   apBills,
   apBillLines,
@@ -83,7 +84,23 @@ export async function createBillFromReceipt(
       throw new AppError('EMPTY_RECEIPT', 'Receipt has no lines', 400);
     }
 
-    // 4. Map receipt lines to bill lines
+    // 4. Batch-lookup inventory item names for bill line descriptions
+    const inventoryItemIds = receiptLines
+      .map((rl) => rl.inventoryItemId)
+      .filter((id): id is string => id != null);
+    const itemNameMap = new Map<string, string>();
+    if (inventoryItemIds.length > 0) {
+      const idList = sql.join(inventoryItemIds.map((id) => sql`${id}`), sql`, `);
+      const nameRows = await (tx as unknown as { execute: (q: unknown) => Promise<unknown> }).execute(sql`
+        SELECT id, name FROM inventory_items
+        WHERE tenant_id = ${ctx.tenantId} AND id IN (${idList})
+      `);
+      for (const r of Array.from(nameRows as Iterable<{ id: string; name: string }>)) {
+        itemNameMap.set(r.id, r.name);
+      }
+    }
+
+    // Map receipt lines to bill lines
     const billLines: Array<{
       id: string;
       tenantId: string;
@@ -118,7 +135,7 @@ export async function createBillFromReceipt(
         billId,
         lineType: 'inventory',
         accountId,
-        description: null, // Could be enriched with item name if needed
+        description: (rl.inventoryItemId ? itemNameMap.get(rl.inventoryItemId) : null) ?? null,
         quantity: rl.quantityReceived,
         unitCost: rl.unitCost,
         amount: lineAmount.toFixed(2),

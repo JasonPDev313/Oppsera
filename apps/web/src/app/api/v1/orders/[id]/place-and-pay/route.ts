@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { AppError } from '@oppsera/shared';
@@ -110,7 +110,7 @@ export const POST = withMiddleware(
     const placeParsed = placeOrderSchema.safeParse(placeBody);
 
     // Single-transaction fast path: place + tender atomically
-    const tenderResult = await placeAndRecordTender(
+    const { data, runDeferredWork } = await placeAndRecordTender(
       ctx,
       orderId,
       placeParsed.success ? placeParsed.data : { clientRequestId: crypto.randomUUID() },
@@ -118,7 +118,11 @@ export const POST = withMiddleware(
       { payExact: body.payExact === true },
     );
 
-    return NextResponse.json({ data: tenderResult }, { status: 201 });
+    // GL + audit logs run AFTER the response is sent — Vercel keeps the
+    // function alive until after() callbacks complete (Next.js 15 stable API).
+    after(runDeferredWork);
+
+    return NextResponse.json({ data }, { status: 201 });
   },
   { entitlement: 'payments', permission: 'tenders.create' , writeAccess: true },
 );

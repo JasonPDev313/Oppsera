@@ -8,7 +8,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { CreateKitchenTicketInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { TabNotFoundError } from '../errors';
-import { resolveStationRouting, getStationPrepTimeForItem } from '../services/kds-routing-engine';
+import { resolveStationRouting, getStationPrepTimesForItems } from '../services/kds-routing-engine';
 import type { RoutableItem, RoutingResult } from '../services/kds-routing-engine';
 
 export async function createKitchenTicket(
@@ -54,8 +54,8 @@ export async function createKitchenTicket(
     routingMap.set(r.orderLineId, r);
   }
 
-  // ── Pre-transaction: resolve prep times for routed items ──
-  const prepTimeMap = new Map<string, number>();
+  // ── Pre-transaction: resolve prep times for routed items (batched) ──
+  // Single DB round-trip instead of N individual queries.
   const prepTimeLookups: Array<{ orderLineId: string; catalogItemId: string; stationId: string }> = [];
 
   for (const item of input.items) {
@@ -65,19 +65,7 @@ export async function createKitchenTicket(
     }
   }
 
-  if (prepTimeLookups.length > 0) {
-    const results = await Promise.all(
-      prepTimeLookups.map(async (lookup) => {
-        const seconds = await getStationPrepTimeForItem(ctx.tenantId, lookup.catalogItemId, lookup.stationId);
-        return { orderLineId: lookup.orderLineId, seconds };
-      }),
-    );
-    for (const r of results) {
-      if (r.seconds !== null) {
-        prepTimeMap.set(r.orderLineId, r.seconds);
-      }
-    }
-  }
+  const prepTimeMap = await getStationPrepTimesForItems(ctx.tenantId, prepTimeLookups);
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
@@ -152,36 +140,40 @@ export async function createKitchenTicket(
       })
       .returning();
 
-    // Create ticket items with routing + prep time data
-    for (const item of input.items) {
-      const routing = routingMap.get(item.orderLineId);
-      const resolvedStationId = item.stationId ?? routing?.stationId ?? null;
-      const resolvedRoutingRuleId = routing?.routingRuleId ?? null;
-      const resolvedPrepSeconds = prepTimeMap.get(item.orderLineId) ?? null;
-
+    // Create ticket items — bulk insert (single round-trip instead of N serial inserts)
+    if (input.items.length > 0) {
       await tx
         .insert(fnbKitchenTicketItems)
-        .values({
-          tenantId: ctx.tenantId,
-          ticketId: ticket!.id,
-          orderLineId: item.orderLineId,
-          itemStatus: 'pending',
-          stationId: resolvedStationId,
-          itemName: item.kitchenLabel ?? item.itemName,
-          modifierSummary: item.modifierSummary ?? null,
-          specialInstructions: item.specialInstructions ?? null,
-          seatNumber: item.seatNumber ?? null,
-          courseName: item.courseName ?? null,
-          quantity: String(item.quantity ?? 1),
-          isRush: item.isRush ?? false,
-          isAllergy: item.isAllergy ?? false,
-          isVip: item.isVip ?? false,
-          routingRuleId: resolvedRoutingRuleId,
-          kitchenLabel: item.kitchenLabel ?? null,
-          itemColor: item.itemColor ?? null,
-          priorityLevel: input.priorityLevel ?? 0,
-          estimatedPrepSeconds: resolvedPrepSeconds,
-        });
+        .values(
+          input.items.map((item) => {
+            const routing = routingMap.get(item.orderLineId);
+            const resolvedStationId = item.stationId ?? routing?.stationId ?? null;
+            const resolvedRoutingRuleId = routing?.routingRuleId ?? null;
+            const resolvedPrepSeconds = prepTimeMap.get(item.orderLineId) ?? null;
+
+            return {
+              tenantId: ctx.tenantId,
+              ticketId: ticket!.id,
+              orderLineId: item.orderLineId,
+              itemStatus: 'pending' as const,
+              stationId: resolvedStationId,
+              itemName: item.kitchenLabel ?? item.itemName,
+              modifierSummary: item.modifierSummary ?? null,
+              specialInstructions: item.specialInstructions ?? null,
+              seatNumber: item.seatNumber ?? null,
+              courseName: item.courseName ?? null,
+              quantity: String(item.quantity ?? 1),
+              isRush: item.isRush ?? false,
+              isAllergy: item.isAllergy ?? false,
+              isVip: item.isVip ?? false,
+              routingRuleId: resolvedRoutingRuleId,
+              kitchenLabel: item.kitchenLabel ?? null,
+              itemColor: item.itemColor ?? null,
+              priorityLevel: input.priorityLevel ?? 0,
+              estimatedPrepSeconds: resolvedPrepSeconds,
+            };
+          }),
+        );
     }
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.TICKET_CREATED, {

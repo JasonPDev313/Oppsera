@@ -9,7 +9,7 @@ import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
-import { pmsFolios, pmsFolioEntries } from '@oppsera/db';
+import { pmsFolios, pmsFolioEntries, pmsGuests } from '@oppsera/db';
 import type { PostFolioEntryInput } from '../validation';
 import { PMS_EVENTS } from '../events/types';
 import { pmsAuditLogEntry } from '../helpers/pms-audit';
@@ -50,6 +50,17 @@ export async function postFolioEntry(
       postedBy: ctx.user.id,
     });
 
+    // Look up guest name for reporting enrichment
+    let guestName: string | null = null;
+    if (folio.guestId) {
+      const [guest] = await tx
+        .select({ firstName: pmsGuests.firstName, lastName: pmsGuests.lastName })
+        .from(pmsGuests)
+        .where(and(eq(pmsGuests.id, folio.guestId), eq(pmsGuests.tenantId, ctx.tenantId)))
+        .limit(1);
+      if (guest) guestName = `${guest.firstName} ${guest.lastName}`;
+    }
+
     // Recalculate folio totals
     await recalculateFolioTotals(tx, ctx.tenantId, folioId);
 
@@ -66,6 +77,10 @@ export async function postFolioEntry(
       entryId,
       entryType: input.entryType,
       amountCents: input.amountCents,
+      guestName,
+      locationId: ctx.locationId,
+      description: input.description ?? null,
+      businessDate,
     });
 
     const resultPayload = { entryId, folioId };

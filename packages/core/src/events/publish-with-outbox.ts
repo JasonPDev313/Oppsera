@@ -2,7 +2,7 @@ import type { EventEnvelope } from '@oppsera/shared';
 import { db, sql, guardedQuery } from '@oppsera/db';
 import type { Database } from '@oppsera/db';
 import type { RequestContext } from '../auth/context';
-import { getOutboxWriter } from './index';
+import { getOutboxWriter, getEventBus } from './index';
 
 /**
  * Write events to the outbox within an existing transaction.
@@ -30,12 +30,18 @@ export async function publishWithOutbox<T>(
 ): Promise<T> {
   const outboxWriter = getOutboxWriter();
 
+  // Capture events from inside the transaction so we can dispatch them
+  // immediately after commit (fast path). The outbox remains the durable
+  // backup — the idempotency guard in InMemoryEventBus.dispatchWithRetry
+  // prevents double execution when the outbox worker picks up the same event.
+  let committedEvents: EventEnvelope[] = [];
+
   // Wrap in guardedQuery so the POS hot path gets:
   // - Concurrency limiting (semaphore prevents pool oversubscription)
   // - Circuit breaker (fail-fast for 10s after pool exhaustion errors)
   // - Per-query timeout (15s Promise.race releases semaphore even if connection is stuck)
   // Previously this called db.transaction() directly, completely bypassing pool protection.
-  return guardedQuery('publishWithOutbox', () =>
+  const result = await guardedQuery('publishWithOutbox', () =>
     db.transaction(async (tx) => {
       const txDb = tx as unknown as Database;
 
@@ -58,7 +64,28 @@ export async function publishWithOutbox<T>(
         await outboxWriter.writeEvent(txDb, event);
       }
 
+      committedEvents = events;
       return result;
     }),
   );
+
+  // ── Fast-path dispatch ──────────────────────────────────────────
+  // Transaction committed → events are durable in the outbox.
+  // Dispatch immediately in-process so latency-sensitive consumers
+  // (e.g., KDS ticket creation) fire within milliseconds instead of
+  // waiting up to 5s for the outbox worker poll cycle.
+  // Fire-and-forget: failures are safe — the outbox worker retries.
+  if (committedEvents.length > 0) {
+    const bus = getEventBus();
+    for (const event of committedEvents) {
+      bus.publish(event).catch((err) => {
+        console.error(
+          `[fast-dispatch] post-commit dispatch failed for ${event.eventType} (outbox will retry):`,
+          err instanceof Error ? err.message : err,
+        );
+      });
+    }
+  }
+
+  return result;
 }

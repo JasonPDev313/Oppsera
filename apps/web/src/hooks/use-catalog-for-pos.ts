@@ -42,6 +42,7 @@ interface POSRawCategory {
 interface CachedCatalog {
   items: POSRawItem[];
   categories: POSRawCategory[];
+  onHandByCatalogItemId?: Record<string, number>;
   cachedAt: number;
 }
 
@@ -82,10 +83,11 @@ function saveCachedCatalog(
   locationId: string,
   items: POSRawItem[],
   categories: POSRawCategory[],
+  onHandByCatalogItemId?: Record<string, number>,
 ): void {
   if (typeof window === 'undefined') return;
   try {
-    const cached: CachedCatalog = { items, categories, cachedAt: Date.now() };
+    const cached: CachedCatalog = { items, categories, onHandByCatalogItemId, cachedAt: Date.now() };
     sessionStorage.setItem(`${CACHE_KEY_PREFIX}${locationId}`, JSON.stringify(cached));
   } catch {
     // Storage full — silently ignore
@@ -131,8 +133,10 @@ function buildCategoryMap(categories: POSRawCategory[]): Map<string, CategoryRow
 function convertToPOSItem(
   item: POSRawItem,
   categoryMap: Map<string, CategoryRow>,
+  onHandMap?: Record<string, number>,
 ): CatalogItemForPOS {
   const categoryId = item.categoryId ?? '';
+  const onHand = item.isTrackable && onHandMap ? (onHandMap[item.id] ?? 0) : null;
   return {
     id: item.id,
     name: item.name,
@@ -142,7 +146,7 @@ function convertToPOSItem(
     typeGroup: getItemTypeGroup(item.itemType, item.metadata ?? {}),
     price: item.defaultPriceCents,
     isTrackInventory: item.isTrackable,
-    onHand: null, // V1 — inventory module not wired yet
+    onHand,
     metadata: item.metadata ?? {},
     tax: { calculationMode: item.priceIncludesTax ? 'inclusive' : 'exclusive', taxRates: [] },
     categoryId,
@@ -153,9 +157,10 @@ function convertToPOSItem(
 function processCatalogData(
   rawItems: POSRawItem[],
   rawCategories: POSRawCategory[],
+  onHandMap?: Record<string, number>,
 ): { posItems: CatalogItemForPOS[]; categories: CategoryRow[]; catMap: Map<string, CategoryRow> } {
   const catMap = buildCategoryMap(rawCategories);
-  const posItems = rawItems.map((item) => convertToPOSItem(item, catMap));
+  const posItems = rawItems.map((item) => convertToPOSItem(item, catMap, onHandMap));
   const categories = Array.from(catMap.values());
   return { posItems, categories, catMap };
 }
@@ -206,12 +211,13 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
     if (showLoading) setIsLoading(true);
     try {
       const res = await apiFetch<{
-        data: { items: POSRawItem[]; categories: POSRawCategory[] };
+        data: { items: POSRawItem[]; categories: POSRawCategory[]; onHandByCatalogItemId?: Record<string, number> };
       }>('/api/v1/catalog/pos');
-      saveCachedCatalog(locationId, res.data.items, res.data.categories);
+      saveCachedCatalog(locationId, res.data.items, res.data.categories, res.data.onHandByCatalogItemId);
       const { posItems, categories, catMap } = processCatalogData(
         res.data.items,
         res.data.categories,
+        res.data.onHandByCatalogItemId,
       );
       categoryMapRef.current = catMap;
       setAllCategories(categories);
@@ -242,6 +248,7 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
       const { posItems, categories, catMap } = processCatalogData(
         cached.items,
         cached.categories,
+        cached.onHandByCatalogItemId,
       );
       categoryMapRef.current = catMap;
       setAllCategories(categories);
@@ -564,9 +571,9 @@ export function preloadPOSCatalog(locationId: string): void {
   // Already cached — nothing to do
   if (loadCachedCatalog(locationId)) return;
 
-  apiFetch<{ data: { items: POSRawItem[]; categories: POSRawCategory[] } }>('/api/v1/catalog/pos')
+  apiFetch<{ data: { items: POSRawItem[]; categories: POSRawCategory[]; onHandByCatalogItemId?: Record<string, number> } }>('/api/v1/catalog/pos')
     .then((res) => {
-      saveCachedCatalog(locationId, res.data.items, res.data.categories);
+      saveCachedCatalog(locationId, res.data.items, res.data.categories, res.data.onHandByCatalogItemId);
     })
     .catch(() => {
       // Non-critical — POS will fetch on mount if preload fails

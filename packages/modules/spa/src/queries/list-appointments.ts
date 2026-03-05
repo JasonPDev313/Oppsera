@@ -105,16 +105,26 @@ export async function listAppointments(
     }
 
     if (input.status) {
-      const statuses = input.status.split(',').map((s) => s.trim()).filter(Boolean);
-      if (statuses.length === 1) {
-        conditions.push(eq(spaAppointments.status, statuses[0]!));
-      } else if (statuses.length > 1) {
+      if (input.status === 'upcoming') {
+        // "Upcoming" is a virtual status — active appointments starting now or later
         conditions.push(
-          sql`${spaAppointments.status} IN (${sql.join(
-            statuses.map((s) => sql`${s}`),
-            sql`, `,
-          )})` as ReturnType<typeof eq>,
+          gte(spaAppointments.startAt, new Date()),
         );
+        conditions.push(
+          sql`${spaAppointments.status} IN ('reserved', 'confirmed', 'checked_in')` as ReturnType<typeof eq>,
+        );
+      } else {
+        const statuses = input.status.split(',').map((s) => s.trim()).filter(Boolean);
+        if (statuses.length === 1) {
+          conditions.push(eq(spaAppointments.status, statuses[0]!));
+        } else if (statuses.length > 1) {
+          conditions.push(
+            sql`${spaAppointments.status} IN (${sql.join(
+              statuses.map((s) => sql`${s}`),
+              sql`, `,
+            )})` as ReturnType<typeof eq>,
+          );
+        }
       }
     }
 

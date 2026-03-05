@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Clock, Users, ChevronRight } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
+import { useAuthContext } from '@/components/auth-provider';
 import type { FnbTabListItem } from '@/types/fnb';
 
 function formatElapsed(openedAt: string): string {
@@ -17,15 +18,18 @@ function formatMoney(cents: number): string {
 }
 
 export function OpenTicketsView({ userId: _userId }: { userId: string }) {
+  const { locations } = useAuthContext();
+  const locationId = locations[0]?.id ?? '';
   const [tabs, setTabs] = useState<FnbTabListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigateTo = useFnbPosStore((s) => s.navigateTo);
 
   useEffect(() => {
+    if (!locationId) return;
     let cancelled = false;
     async function load() {
       try {
-        const res = await apiFetch<{ data: FnbTabListItem[] }>('/api/v1/fnb/tabs?status=open');
+        const res = await apiFetch<{ data: FnbTabListItem[] }>(`/api/v1/fnb/tabs?status=open&locationId=${locationId}`);
         if (!cancelled) setTabs(res.data ?? []);
       } catch {
         // Silently handle — list stays empty
@@ -35,7 +39,7 @@ export function OpenTicketsView({ userId: _userId }: { userId: string }) {
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [locationId]);
 
   if (isLoading) {
     return (

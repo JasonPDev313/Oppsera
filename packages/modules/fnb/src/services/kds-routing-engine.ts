@@ -147,7 +147,8 @@ function matchItem(
     for (const rule of candidates) {
       if (!ruleMatchesConditions(rule, context)) continue;
       const station = stationMap.get(rule.stationId);
-      if (station && !stationAcceptsOrder(station, context)) continue;
+      // Skip if station was deleted/inactive or doesn't accept this order
+      if (!station || !stationAcceptsOrder(station, context)) continue;
       return { rule, matchType };
     }
     return null;
@@ -394,7 +395,7 @@ function parseTextArray(value: unknown): string[] {
   return [];
 }
 
-// ── Prep Time Helper ────────────────────────────────────────────
+// ── Prep Time Helpers ───────────────────────────────────────────
 
 /**
  * Look up the estimated prep time (in seconds) for a catalog item at a
@@ -424,5 +425,91 @@ export async function getStationPrepTimeForItem(
 
     if (arr.length === 0) return null;
     return Number(arr[0]!.estimated_prep_seconds);
+  });
+}
+
+export interface PrepTimeLookup {
+  orderLineId: string;
+  catalogItemId: string;
+  stationId: string;
+}
+
+/**
+ * Batched version of getStationPrepTimeForItem — resolves prep times for
+ * multiple (catalogItemId, stationId) pairs in a SINGLE database round-trip.
+ *
+ * Returns a Map of orderLineId → prep seconds. Items with no configured
+ * prep time are omitted from the map.
+ *
+ * Prefers station-specific entries over station-agnostic (station_id IS NULL)
+ * using DISTINCT ON + ORDER BY to pick the best match per catalog item.
+ */
+export async function getStationPrepTimesForItems(
+  tenantId: string,
+  lookups: PrepTimeLookup[],
+): Promise<Map<string, number>> {
+  if (lookups.length === 0) return new Map();
+
+  // Deduplicate by (catalogItemId, stationId) to minimize query size
+  const uniquePairs = new Map<string, { catalogItemId: string; stationId: string }>();
+  for (const l of lookups) {
+    const key = `${l.catalogItemId}:${l.stationId}`;
+    if (!uniquePairs.has(key)) {
+      uniquePairs.set(key, { catalogItemId: l.catalogItemId, stationId: l.stationId });
+    }
+  }
+
+  const catalogItemIds = [...new Set(lookups.map((l) => l.catalogItemId))];
+  const stationIds = [...new Set(lookups.map((l) => l.stationId))];
+
+  return withTenant(tenantId, async (tx) => {
+    // Fetch all matching prep times in one query. The DISTINCT ON picks
+    // the station-specific entry over the global fallback (station_id IS NULL)
+    // per catalog item via ORDER BY CASE.
+    const rows = await tx.execute(
+      sql`SELECT DISTINCT ON (catalog_item_id, COALESCE(matched_station, ''))
+                 catalog_item_id, station_id AS matched_station, estimated_prep_seconds
+          FROM fnb_kds_item_prep_times
+          WHERE tenant_id = ${tenantId}
+            AND catalog_item_id IN (${sql.join(catalogItemIds.map((id) => sql`${id}`), sql`, `)})
+            AND is_active = true
+            AND (station_id IN (${sql.join(stationIds.map((id) => sql`${id}`), sql`, `)}) OR station_id IS NULL)
+          ORDER BY catalog_item_id, COALESCE(matched_station, ''),
+                   CASE WHEN station_id IS NOT NULL THEN 0 ELSE 1 END`,
+    );
+
+    // Build lookup: "catalogItemId:stationId" → prepSeconds
+    // Also store global fallbacks under "catalogItemId:" for items without station-specific times
+    const prepMap = new Map<string, number>();
+    for (const row of Array.from(rows as Iterable<Record<string, unknown>>)) {
+      const catId = row.catalog_item_id as string;
+      const matchedStation = row.matched_station as string | null;
+      const seconds = Number(row.estimated_prep_seconds);
+      if (matchedStation) {
+        prepMap.set(`${catId}:${matchedStation}`, seconds);
+      } else {
+        // Global fallback — only used if no station-specific entry exists
+        const fallbackKey = `${catId}:__fallback__`;
+        if (!prepMap.has(fallbackKey)) {
+          prepMap.set(fallbackKey, seconds);
+        }
+      }
+    }
+
+    // Map back to orderLineId
+    const result = new Map<string, number>();
+    for (const l of lookups) {
+      const specific = prepMap.get(`${l.catalogItemId}:${l.stationId}`);
+      if (specific !== undefined) {
+        result.set(l.orderLineId, specific);
+      } else {
+        const fallback = prepMap.get(`${l.catalogItemId}:__fallback__`);
+        if (fallback !== undefined) {
+          result.set(l.orderLineId, fallback);
+        }
+      }
+    }
+
+    return result;
   });
 }

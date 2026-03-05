@@ -14,6 +14,7 @@ const fnbTenderAppliedSchema = z.object({
   amountCents: z.number(),
   tenderType: z.string(),
   tipAmountCents: z.number().optional(),
+  surchargeAmountCents: z.number().optional(),
 });
 
 const CONSUMER_NAME = 'reporting.fnbTenderApplied';
@@ -75,6 +76,7 @@ export async function handleFnbTenderApplied(event: EventEnvelope): Promise<void
     // Step 3: Compute per-column amounts (cents → dollars)
     const amountDollars = (data.amountCents ?? 0) / 100;
     const tipDollars = (data.tipAmountCents ?? 0) / 100;
+    const surchargeDollars = (data.surchargeAmountCents ?? 0) / 100;
 
     const tenderCash = data.tenderType === 'cash' ? amountDollars : 0;
     const isCard = data.tenderType === 'card' || data.tenderType === 'credit_card' || data.tenderType === 'debit_card';
@@ -89,13 +91,13 @@ export async function handleFnbTenderApplied(event: EventEnvelope): Promise<void
       INSERT INTO rm_daily_sales (
         id, tenant_id, location_id, business_date,
         tender_cash, tender_card, tender_gift_card, tender_house_account,
-        tender_ach, tender_other, tip_total,
+        tender_ach, tender_other, tip_total, surcharge_total,
         updated_at
       )
       VALUES (
         ${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate},
         ${tenderCash}, ${tenderCard}, ${tenderGiftCard}, ${tenderHouseAccount},
-        ${tenderAch}, ${tenderOther}, ${tipDollars},
+        ${tenderAch}, ${tenderOther}, ${tipDollars}, ${surchargeDollars},
         NOW()
       )
       ON CONFLICT (tenant_id, location_id, business_date)
@@ -107,6 +109,7 @@ export async function handleFnbTenderApplied(event: EventEnvelope): Promise<void
         tender_ach = rm_daily_sales.tender_ach + ${tenderAch},
         tender_other = rm_daily_sales.tender_other + ${tenderOther},
         tip_total = rm_daily_sales.tip_total + ${tipDollars},
+        surcharge_total = rm_daily_sales.surcharge_total + ${surchargeDollars},
         updated_at = NOW()
     `);
 

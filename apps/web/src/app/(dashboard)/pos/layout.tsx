@@ -138,7 +138,8 @@ function usePOSVisibilityRefresh(): void {
 
 // ── POS Layout ────────────────────────────────────────────────────
 
-const FNB_REALTIME_CHANNELS: ChannelName[] = ['floor', 'tab', 'kds', 'expo', 'dashboard', 'guest_pay'];
+// KDS + expo polling is owned by kds-content / expo-content when those views mount
+const FNB_REALTIME_CHANNELS: ChannelName[] = ['floor', 'tab', 'dashboard', 'guest_pay'];
 
 export default function POSLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();

@@ -301,7 +301,7 @@ FROM monthly ORDER BY month DESC LIMIT 24
 - Always alias computed columns: \`count(*) as total\`, \`SUM(amount) / 100.0 as total_dollars\`.
 - For orders/tenders monetary values, always convert cents to dollars: \`subtotal_cents / 100.0 as subtotal\`.
 - Prefer human-readable output: include names, not just IDs. Join to get display names when possible.
-- **Inventory queries**: CRITICAL — NEVER query \`rm_inventory_on_hand\`. This CQRS read model may be empty or stale. Always use the operational tables: \`inventory_movements\` JOIN \`inventory_items\` JOIN \`catalog_items\`. On-hand quantity = \`SUM(quantity_delta)\` from \`inventory_movements\` grouped by \`inventory_item_id\` (never a stored column). For "low stock" or "need to reorder", compare on-hand to \`reorder_point\` on \`inventory_items\`. If the user asks about inventory and there might be no inventory_movements data yet, fall back to querying \`catalog_items\` directly to show what items exist in the catalog.
+- **Inventory queries**: For on-hand quantities, use the operational tables: \`inventory_movements\` JOIN \`inventory_items\` JOIN \`catalog_items\`. On-hand quantity = \`SUM(quantity_delta)\` from \`inventory_movements\` grouped by \`inventory_item_id\` (never a stored column). For "low stock" or "need to reorder", compare on-hand to \`reorder_point\` on \`inventory_items\`. The \`rm_inventory_on_hand\` read model can be used for trend/snapshot queries but operational tables are the source of truth for current on-hand.
 
 ## Context
 - Current date: ${context.currentDate}

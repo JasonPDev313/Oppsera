@@ -6,11 +6,10 @@
  * Fetches each station's KDS view and merges/deduplicates by ticketId.
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { useStations } from '@/hooks/use-fnb-kitchen';
-import { useFnbRealtime, type ChannelName } from '@/hooks/use-fnb-realtime';
 import { apiFetch } from '@/lib/api-client';
 import type { KdsView, KdsTicketCard } from '@/types/fnb';
 import { TicketCard } from '@/components/fnb/kitchen/TicketCard';
@@ -24,7 +23,6 @@ import {
 type ViewMode = 'grid' | 'rail';
 type Density = 'compact' | 'standard' | 'comfortable';
 
-const KDS_REALTIME_CHANNELS: ChannelName[] = ['kds', 'expo'];
 const POLL_INTERVAL = 10_000; // 10s for all-stations view
 export default function AllOrdersContent() {
   const router = useRouter();
@@ -38,13 +36,7 @@ export default function AllOrdersContent() {
   const [showSummary, setShowSummary] = useState(false);
   const [allTickets, setAllTickets] = useState<KdsTicketCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  useFnbRealtime({
-    channels: KDS_REALTIME_CHANNELS,
-    tenantId: tenant?.id ?? '',
-    locationId: locationId ?? '',
-    enabled: isAuthenticated && !authLoading && !isPaused,
-  });
+  const fetchingRef = useRef(false);
 
   const activeStations = useMemo(
     () => stations.filter((s) => s.isActive && s.stationType !== 'expo'),
@@ -53,6 +45,8 @@ export default function AllOrdersContent() {
 
   const fetchAll = useCallback(async () => {
     if (!locationId || activeStations.length === 0) return;
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     const today = new Date().toISOString().slice(0, 10);
     try {
       const views = await Promise.all(
@@ -85,6 +79,7 @@ export default function AllOrdersContent() {
     } catch {
       // silent
     } finally {
+      fetchingRef.current = false;
       setIsLoading(false);
     }
   }, [locationId, activeStations]);

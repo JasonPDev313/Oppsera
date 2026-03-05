@@ -555,7 +555,7 @@ export function useSpaCalendar(params: SpaCalendarParams | null) {
 
   const result = useQuery({
     queryKey: ['spa-calendar', queryParams],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const qs = buildQueryString({
         locationId: params!.locationId,
         startDate: params!.startDate,
@@ -563,6 +563,7 @@ export function useSpaCalendar(params: SpaCalendarParams | null) {
       });
       return apiFetch<{ data: SpaCalendarResult }>(
         `/api/v1/spa/appointments/calendar${qs}`,
+        { signal },
       ).then((r) => r.data);
     },
     enabled: !!params?.startDate && !!params?.endDate,

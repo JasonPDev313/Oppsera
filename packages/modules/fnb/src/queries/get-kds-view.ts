@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import type { GetKdsViewInput } from '../validation';
+import { StationNotFoundError } from '../errors';
 
 export interface KdsTicketItem {
   itemId: string;
@@ -88,6 +89,7 @@ export async function getKdsView(
     );
     const stationArr = Array.from(stationRows as Iterable<Record<string, unknown>>);
     const station = stationArr[0];
+    if (!station) throw new StationNotFoundError(input.stationId);
 
     // Get active tickets that have items at this station
     // LEFT JOIN orders to pull source, terminal_id, created_at for the KDS card meta row
@@ -263,11 +265,11 @@ export async function getKdsView(
 
     return {
       stationId: input.stationId,
-      stationName: station ? (station.display_name as string) : input.stationId,
-      stationType: station ? (station.station_type as string) : 'hot',
-      stationColor: station ? (station.color as string) ?? null : null,
-      warningThresholdSeconds: station ? Number(station.warning_threshold_seconds) : 480,
-      criticalThresholdSeconds: station ? Number(station.critical_threshold_seconds) : 720,
+      stationName: (station.display_name as string) ?? (station.name as string),
+      stationType: station.station_type as string,
+      stationColor: (station.color as string) ?? null,
+      warningThresholdSeconds: Number(station.warning_threshold_seconds ?? 480),
+      criticalThresholdSeconds: Number(station.critical_threshold_seconds ?? 720),
       tickets: ticketCards,
       activeTicketCount: ticketCards.length,
       recentlyCompleted,

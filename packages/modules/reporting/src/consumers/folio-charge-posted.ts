@@ -13,6 +13,8 @@ const folioChargePostedSchema = z.object({
   amountCents: z.number(),
   guestName: z.string().optional(),
   locationId: z.string(),
+  description: z.string().optional(),
+  businessDate: z.string().optional(),
   occurredAt: z.string().optional(),
 });
 
@@ -102,8 +104,8 @@ export async function handleFolioChargePosted(event: EventEnvelope): Promise<voi
       )
       VALUES (
         ${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate},
-        ${'pms_folio'}, ${'pms_folio'}, ${data.entryId}, ${sourceLabel}, ${data.guestName ?? null},
-        ${referenceNumber}, ${null},
+        ${'pms_folio'}, ${data.entryType.toLowerCase()}, ${data.entryId}, ${sourceLabel}, ${data.guestName ?? null},
+        ${referenceNumber}, ${null as string | null},
         ${amountDollars}, ${subtotalDollars}, ${taxDollars}, ${serviceChargeFolio},
         ${'completed'}, ${JSON.stringify({ folioId: data.folioId, reservationId: data.reservationId, entryType: data.entryType })},
         ${occurredAt}::timestamptz, NOW()

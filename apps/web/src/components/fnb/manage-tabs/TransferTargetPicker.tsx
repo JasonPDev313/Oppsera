@@ -23,9 +23,7 @@ export function TransferTargetPicker({ locationId, excludeServerIds = [], onSele
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    apiFetch<{ data: ServerOption[] }>('/api/v1/fnb/sections/servers', {
-      headers: locationId ? { 'X-Location-Id': locationId } : undefined,
-    })
+    apiFetch<{ data: ServerOption[] }>(`/api/v1/fnb/sections/servers${locationId ? `?locationId=${locationId}` : ''}`)
       .then((res) => setServers(res.data.filter((s) => !excludeServerIds.includes(s.id))))
       .catch(() => setServers([]))
       .finally(() => setLoading(false));

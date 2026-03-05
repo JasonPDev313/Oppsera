@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
-import { useFnbRealtime, type ChannelName } from '@/hooks/use-fnb-realtime';
 import { useKdsView } from '@/hooks/use-fnb-kitchen';
 import { StationHeader } from '@/components/fnb/kitchen/StationHeader';
 import { TicketCard } from '@/components/fnb/kitchen/TicketCard';
@@ -22,8 +21,6 @@ type Density = 'compact' | 'standard' | 'comfortable';
 // Effectively infinite interval to stop polling when paused
 const PAUSED_INTERVAL = 999_999_999;
 
-const KDS_REALTIME_CHANNELS: ChannelName[] = ['kds', 'expo'];
-
 
 export default function KdsContent() {
   const params = useParams();
@@ -39,14 +36,6 @@ export default function KdsContent() {
   const [isPaused, setIsPaused] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
 
-  // ── KDS Realtime ──────────────────────────────────────────────
-  useFnbRealtime({
-    channels: KDS_REALTIME_CHANNELS,
-    tenantId: tenant?.id ?? '',
-    locationId: locations[0]?.id ?? '',
-    enabled: isAuthenticated && !authLoading && !isPaused,
-  });
-
   const {
     kdsView,
     isLoading,
@@ -56,7 +45,7 @@ export default function KdsContent() {
     recallItem: _recallItem,
     isActing,
     refresh,
-  } = useKdsView({ stationId, pollIntervalMs: PAUSED_INTERVAL });
+  } = useKdsView({ stationId, pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
 
   // Sort tickets by priority (higher first), then by elapsed time (longer first)
   const sortedTickets = useMemo(() => {

@@ -116,11 +116,11 @@ export const POST = withMiddleware(
           AND ta.business_date = oa.business_date
       `);
 
-      // 3. Backfill rm_item_sales from order_lines
+      // 3. Backfill rm_item_sales from order_lines (with category_name from catalog_categories)
       await (tx as any).execute(sql`
         INSERT INTO rm_item_sales (
           id, tenant_id, location_id, business_date,
-          catalog_item_id, catalog_item_name,
+          catalog_item_id, catalog_item_name, category_name,
           quantity_sold, gross_revenue,
           quantity_voided, void_revenue,
           updated_at
@@ -132,6 +132,7 @@ export const POST = withMiddleware(
           o.business_date,
           ol.catalog_item_id,
           max(ol.catalog_item_name),
+          max(cc.name),
           coalesce(sum(ol.qty::numeric) FILTER (WHERE o.status IN ('placed', 'paid')), 0),
           coalesce(sum(ol.line_total) FILTER (WHERE o.status IN ('placed', 'paid')), 0) / 100.0,
           coalesce(sum(ol.qty::numeric) FILTER (WHERE o.status = 'voided'), 0),
@@ -139,6 +140,7 @@ export const POST = withMiddleware(
           NOW()
         FROM order_lines ol
         JOIN orders o ON o.id = ol.order_id
+        LEFT JOIN catalog_categories cc ON cc.id = ol.sub_department_id
         WHERE ol.tenant_id = ${tenantId}
           AND o.status IN ('placed', 'paid', 'voided')
           AND o.business_date IS NOT NULL

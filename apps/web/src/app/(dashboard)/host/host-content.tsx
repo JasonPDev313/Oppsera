@@ -181,7 +181,7 @@ function HostContentInner() {
 
   useEffect(() => {
     if (!locationId) return;
-    fetch('/api/v1/fnb/host/waitlist-config')
+    fetch(`/api/v1/fnb/host/waitlist-config?locationId=${locationId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         if (!json?.data) return;

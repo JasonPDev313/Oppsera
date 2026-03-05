@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, Receipt } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
+import { useAuthContext } from '@/components/auth-provider';
 import type { FnbTabListItem } from '@/types/fnb';
 
 function formatTime(isoString: string): string {
@@ -14,14 +15,17 @@ function formatMoney(cents: number): string {
 }
 
 export function ClosedTicketsView({ userId: _userId }: { userId: string }) {
+  const { locations } = useAuthContext();
+  const locationId = locations[0]?.id ?? '';
   const [tabs, setTabs] = useState<FnbTabListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!locationId) return;
     let cancelled = false;
     async function load() {
       try {
-        const res = await apiFetch<{ data: FnbTabListItem[] }>('/api/v1/fnb/tabs?status=closed');
+        const res = await apiFetch<{ data: FnbTabListItem[] }>(`/api/v1/fnb/tabs?status=closed&locationId=${locationId}`);
         if (!cancelled) setTabs(res.data ?? []);
       } catch {
         // Silently handle
@@ -31,7 +35,7 @@ export function ClosedTicketsView({ userId: _userId }: { userId: string }) {
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [locationId]);
 
   if (isLoading) {
     return (

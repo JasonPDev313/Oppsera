@@ -66,6 +66,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
   const [paymentSuccess, setPaymentSuccess] = useState<RecordTenderResult | null>(null);
 
   const isPlacedRef = useRef(order.status === 'placed');
+  const isSubmittingRef = useRef(false); // ref guard — blocks rapid double-taps faster than state
   const successTimerRef = useRef<ReturnType<typeof setTimeout>>(0 as unknown as ReturnType<typeof setTimeout>);
   const onPaymentCompleteRef = useRef(onPaymentComplete);
   onPaymentCompleteRef.current = onPaymentComplete;
@@ -113,6 +114,8 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
   }, [paymentSuccess]);
 
   const handleSubmit = useCallback(async (overrideCents?: number, opts?: { payExact?: boolean }) => {
+    // Ref-based guard: blocks double-taps that slip through before state updates render
+    if (isSubmittingRef.current) return;
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       toast.error('Offline — payments disabled until connection restored');
       return;
@@ -144,6 +147,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
       toast.error('Order is still being created — please wait');
       return;
     }
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
       const body: Record<string, unknown> = {
@@ -208,6 +212,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         toast.error(err instanceof Error ? err.message : 'Payment failed');
       }
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   }, [amountCents, tipCents, selectedType, checkNumber, cardToken, order, config, shiftId, user, toast, locationHeaders]);

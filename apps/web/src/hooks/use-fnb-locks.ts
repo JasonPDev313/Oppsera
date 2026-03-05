@@ -15,6 +15,8 @@ interface LockInfo {
 interface UseSoftLockOptions {
   entityType: string;
   entityId: string | null;
+  /** Location ID for scoping lock queries */
+  locationId?: string;
   /** Automatically acquire lock on mount */
   autoAcquire?: boolean;
   /** TTL in seconds (default 30) */
@@ -41,6 +43,7 @@ interface UseSoftLockReturn {
 export function useSoftLock({
   entityType,
   entityId,
+  locationId,
   autoAcquire = false,
   ttlSeconds = 30,
   renewIntervalMs = 10000,
@@ -90,8 +93,9 @@ export function useSoftLock({
       // Check if lock is held by another user (409)
       if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 409) {
         try {
+          const locQs = locationId ? `&locationId=${locationId}` : '';
           const lockRes = await apiFetch<{ data: LockInfo[] }>(
-            `/api/v1/fnb/locks?entityType=${entityType}`,
+            `/api/v1/fnb/locks?entityType=${entityType}${locQs}`,
           );
           const existing = lockRes.data.find((l) => l.entityId === entityId);
           if (existing) setOtherLock(existing);
@@ -101,7 +105,7 @@ export function useSoftLock({
       }
       return false;
     }
-  }, [entityType, entityId, ttlSeconds, startRenewing]);
+  }, [entityType, entityId, locationId, ttlSeconds, startRenewing]);
 
   const release = useCallback(async () => {
     if (!myLock) return;
@@ -120,8 +124,9 @@ export function useSoftLock({
     if (!entityId) return;
     try {
       // Use force-release on any lock — pick the first lock ID matching
+      const locQs = locationId ? `&locationId=${locationId}` : '';
       const lockRes = await apiFetch<{ data: LockInfo[] }>(
-        `/api/v1/fnb/locks?entityType=${entityType}`,
+        `/api/v1/fnb/locks?entityType=${entityType}${locQs}`,
       );
       const existing = lockRes.data.find((l) => l.entityId === entityId);
       if (existing) {

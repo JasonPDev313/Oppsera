@@ -8,6 +8,7 @@ import { computeBusinessDate } from '../business-date';
 const membershipChargedSchema = z.object({
   membershipId: z.string(),
   billingAccountId: z.string().optional(),
+  customerId: z.string().optional(),
   amountCents: z.number(),
   customerName: z.string().optional(),
   locationId: z.string(),
@@ -75,17 +76,18 @@ export async function handleMembershipCharged(event: EventEnvelope): Promise<voi
     await (tx as any).execute(sql`
       INSERT INTO rm_revenue_activity (
         id, tenant_id, location_id, business_date,
-        source, source_id, source_label, customer_name,
+        source, source_id, source_label, customer_name, customer_id,
         amount_dollars, status, metadata, occurred_at, created_at
       )
       VALUES (
         ${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate},
-        ${'membership'}, ${data.membershipId}, ${sourceLabel}, ${data.customerName ?? null},
+        ${'membership'}, ${data.membershipId}, ${sourceLabel}, ${data.customerName ?? null}, ${data.customerId ?? null},
         ${amountDollars}, ${'completed'}, ${JSON.stringify({ billingAccountId: data.billingAccountId, billingPeriodStart: data.billingPeriodStart, billingPeriodEnd: data.billingPeriodEnd })},
         ${occurredAt}::timestamptz, NOW()
       )
       ON CONFLICT (tenant_id, source, source_id) DO UPDATE SET
         amount_dollars = ${amountDollars},
+        customer_id = COALESCE(${data.customerId ?? null}, rm_revenue_activity.customer_id),
         status = ${'completed'},
         occurred_at = ${occurredAt}::timestamptz
     `);

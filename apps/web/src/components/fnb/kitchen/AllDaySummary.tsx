@@ -12,7 +12,7 @@ export function AllDaySummary({ kdsView }: AllDaySummaryProps) {
   for (const ticket of kdsView.tickets) {
     for (const item of ticket.items) {
       if (item.itemStatus === 'voided') continue;
-      const key = item.itemName;
+      const key = item.kitchenLabel || item.itemName;
       counts[key] = (counts[key] ?? 0) + item.quantity;
     }
   }

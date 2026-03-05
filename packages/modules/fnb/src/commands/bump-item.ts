@@ -7,7 +7,7 @@ import { fnbKitchenTicketItems, fnbKitchenTickets } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { BumpItemInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
-import { TicketItemNotFoundError } from '../errors';
+import { TicketItemNotFoundError, TicketItemStatusConflictError } from '../errors';
 
 export async function bumpItem(
   ctx: RequestContext,
@@ -31,6 +31,11 @@ export async function bumpItem(
       .limit(1);
     if (!item) throw new TicketItemNotFoundError(input.ticketItemId);
 
+    // Guard: only pending/cooking items can be bumped
+    if (item.itemStatus === 'ready' || item.itemStatus === 'served' || item.itemStatus === 'voided') {
+      throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'bump');
+    }
+
     const now = new Date();
     const updateData: Record<string, unknown> = {
       itemStatus: 'ready',
@@ -46,14 +51,20 @@ export async function bumpItem(
     const [updated] = await tx
       .update(fnbKitchenTicketItems)
       .set(updateData)
-      .where(eq(fnbKitchenTicketItems.id, input.ticketItemId))
+      .where(and(
+        eq(fnbKitchenTicketItems.id, input.ticketItemId),
+        eq(fnbKitchenTicketItems.tenantId, ctx.tenantId),
+      ))
       .returning();
 
     // Look up ticket for locationId
     const [ticket] = await tx
       .select()
       .from(fnbKitchenTickets)
-      .where(eq(fnbKitchenTickets.id, item.ticketId))
+      .where(and(
+        eq(fnbKitchenTickets.id, item.ticketId),
+        eq(fnbKitchenTickets.tenantId, ctx.tenantId),
+      ))
       .limit(1);
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.ITEM_BUMPED, {

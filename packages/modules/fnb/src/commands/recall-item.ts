@@ -7,7 +7,7 @@ import { fnbKitchenTicketItems, fnbKitchenTickets } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { RecallItemInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
-import { TicketItemNotFoundError } from '../errors';
+import { TicketItemNotFoundError, TicketItemStatusConflictError } from '../errors';
 
 export async function recallItem(
   ctx: RequestContext,
@@ -31,7 +31,13 @@ export async function recallItem(
       .limit(1);
     if (!item) throw new TicketItemNotFoundError(input.ticketItemId);
 
+    // Guard: only ready/served items can be recalled
+    if (item.itemStatus !== 'ready' && item.itemStatus !== 'served') {
+      throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'recall');
+    }
+
     // Un-bump: set back to cooking, clear bump attribution
+    const now = new Date();
     const [updated] = await tx
       .update(fnbKitchenTicketItems)
       .set({
@@ -39,16 +45,39 @@ export async function recallItem(
         readyAt: null,
         servedAt: null,
         bumpedBy: null,
-        updatedAt: new Date(),
+        updatedAt: now,
       })
-      .where(eq(fnbKitchenTicketItems.id, input.ticketItemId))
+      .where(and(
+        eq(fnbKitchenTicketItems.id, input.ticketItemId),
+        eq(fnbKitchenTicketItems.tenantId, ctx.tenantId),
+      ))
       .returning();
 
     const [ticket] = await tx
       .select()
       .from(fnbKitchenTickets)
-      .where(eq(fnbKitchenTickets.id, item.ticketId))
+      .where(and(
+        eq(fnbKitchenTickets.id, item.ticketId),
+        eq(fnbKitchenTickets.tenantId, ctx.tenantId),
+      ))
       .limit(1);
+
+    // Revert ticket status if it was served/ready (an item was pulled back)
+    if (ticket && (ticket.status === 'served' || ticket.status === 'ready')) {
+      await tx
+        .update(fnbKitchenTickets)
+        .set({
+          status: 'in_progress',
+          servedAt: null,
+          readyAt: null,
+          version: ticket.version + 1,
+          updatedAt: now,
+        })
+        .where(and(
+          eq(fnbKitchenTickets.id, item.ticketId),
+          eq(fnbKitchenTickets.tenantId, ctx.tenantId),
+        ));
+    }
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.ITEM_RECALLED, {
       ticketItemId: input.ticketItemId,

@@ -88,7 +88,7 @@ export default function ExpoContent() {
     if (filter === 'ready') {
       tickets = tickets.filter((t) => t.allItemsReady);
     } else if (filter === 'in_progress') {
-      tickets = tickets.filter((t) => !t.allItemsReady);
+      tickets = tickets.filter((t) => !t.allItemsReady && t.status !== 'pending');
     } else if (filter === 'held') {
       tickets = tickets.filter((t) => t.status === 'pending');
     } else if (filter === 'rush') {
@@ -273,7 +273,7 @@ export default function ExpoContent() {
               ))}
             </div>
           ) : (
-            <div className="flex gap-3 p-3 h-full items-start flex-wrap content-start">
+            <div className="flex gap-3 p-3 h-full items-start overflow-x-auto">
               {filteredTickets.map((ticket) => (
                 <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
                   warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
@@ -286,7 +286,7 @@ export default function ExpoContent() {
 
         {/* Right panel: item summary + metrics */}
         {showSummary && (
-          <div className="flex flex-col border-l" style={{ borderColor: 'rgba(148, 163, 184, 0.15)', width: '260px', minWidth: '260px' }}>
+          <div className="flex flex-col">
             <ItemSummaryPanel
               tickets={expoView.tickets}
               onClose={() => setShowSummary(false)}

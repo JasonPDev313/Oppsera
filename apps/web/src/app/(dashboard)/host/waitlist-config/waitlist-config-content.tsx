@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useMutation } from '@/hooks/use-mutation';
 import { useToast } from '@/components/ui/toast';
+import { useAuthContext } from '@/components/auth-provider';
 import {
   Settings, Palette, Bell, Users, FileText, Clock, Loader2,
   Save, ExternalLink, Copy, Check, ChevronDown, ChevronRight,
@@ -193,6 +194,8 @@ function TemplateEditor({ value, onChange, label }: { value: string; onChange: (
 
 export default function WaitlistConfigContent() {
   const { toast } = useToast();
+  const { locations } = useAuthContext();
+  const locationId = locations[0]?.id ?? '';
   const [config, setConfig] = useState<WaitlistConfigData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -200,16 +203,17 @@ export default function WaitlistConfigContent() {
 
   // Fetch config
   useEffect(() => {
-    fetch('/api/v1/fnb/host/waitlist-config')
+    if (!locationId) return;
+    fetch(`/api/v1/fnb/host/waitlist-config?locationId=${locationId}`)
       .then((r) => r.ok ? r.json() : null)
       .then((json) => { if (json?.data) setConfig(json.data); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [locationId]);
 
   // Save mutation
   const { mutate: save, isLoading: saving } = useMutation(async (data: WaitlistConfigData) => {
-    const res = await fetch('/api/v1/fnb/host/waitlist-config', {
+    const res = await fetch(`/api/v1/fnb/host/waitlist-config?locationId=${locationId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

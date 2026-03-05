@@ -106,10 +106,18 @@ export async function handleOrderPlacedModifiers(data: OrderPlacedModifierData):
     for (const line of data.lines) {
       const qty = line.qty ?? 1;
 
+      // Build group name lookup from assignedModifierGroupIds
+      const groupNameMap = new Map<string, string | null>();
+      for (const g of line.assignedModifierGroupIds) {
+        groupNameMap.set(g.modifierGroupId, g.groupName);
+      }
+
       // ── 3a: Per-modifier upserts (rm_modifier_item_sales + rm_modifier_daypart)
       for (const mod of line.modifiers) {
         // Skip modifiers without a group ID — ungrouped modifiers are not tracked
         if (!mod.modifierGroupId) continue;
+
+        const groupName = groupNameMap.get(mod.modifierGroupId) ?? null;
 
         // Cents → dollars at the consumer boundary
         const revenueDollars = (mod.priceAdjustmentCents * qty) / 100;
@@ -135,7 +143,7 @@ export async function handleOrderPlacedModifiers(data: OrderPlacedModifierData):
           VALUES (
             ${generateUlid()}, ${tenantId}, ${locationId}, ${businessDate},
             ${mod.modifierId}, ${mod.modifierGroupId}, ${line.catalogItemId},
-            ${mod.name}, ${null}, ${line.catalogItemName},
+            ${mod.name}, ${groupName}, ${line.catalogItemName},
             ${qty}, ${revenueDollars}, ${extraRevenueDollars},
             ${instrNone}, ${instrExtra}, ${instrOnSide}, ${instrDefault},
             NOW(), NOW()
@@ -150,6 +158,7 @@ export async function handleOrderPlacedModifiers(data: OrderPlacedModifierData):
             instruction_on_side   = rm_modifier_item_sales.instruction_on_side + ${instrOnSide},
             instruction_default   = rm_modifier_item_sales.instruction_default + ${instrDefault},
             modifier_name         = ${mod.name},
+            group_name            = COALESCE(${groupName}, rm_modifier_item_sales.group_name),
             catalog_item_name     = ${line.catalogItemName},
             updated_at            = NOW()
         `);
@@ -166,7 +175,7 @@ export async function handleOrderPlacedModifiers(data: OrderPlacedModifierData):
           VALUES (
             ${generateUlid()}, ${tenantId}, ${locationId}, ${businessDate},
             ${mod.modifierId}, ${mod.modifierGroupId}, ${daypart},
-            ${mod.name}, ${null},
+            ${mod.name}, ${groupName},
             ${qty}, ${revenueDollars},
             NOW(), NOW()
           )
@@ -175,6 +184,7 @@ export async function handleOrderPlacedModifiers(data: OrderPlacedModifierData):
             times_selected  = rm_modifier_daypart.times_selected + ${qty},
             revenue_dollars = rm_modifier_daypart.revenue_dollars + ${revenueDollars},
             modifier_name   = ${mod.name},
+            group_name      = COALESCE(${groupName}, rm_modifier_daypart.group_name),
             updated_at      = NOW()
         `);
       }

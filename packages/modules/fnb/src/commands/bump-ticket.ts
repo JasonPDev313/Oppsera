@@ -7,7 +7,7 @@ import { fnbKitchenTickets, fnbKitchenTicketItems } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { BumpTicketInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
-import { TicketNotFoundError, TicketNotReadyError } from '../errors';
+import { TicketNotFoundError, TicketNotReadyError, TicketStatusConflictError, TicketVersionConflictError } from '../errors';
 
 export async function bumpTicket(
   ctx: RequestContext,
@@ -31,12 +31,18 @@ export async function bumpTicket(
       .limit(1);
     if (!ticket) throw new TicketNotFoundError(input.ticketId);
 
+    // Guard: cannot bump an already-served or voided ticket
+    if (ticket.status === 'served' || ticket.status === 'voided') {
+      throw new TicketStatusConflictError(input.ticketId, ticket.status, 'bump');
+    }
+
     // Verify all non-voided items are ready
     const notReadyItems = await tx
       .select()
       .from(fnbKitchenTicketItems)
       .where(and(
         eq(fnbKitchenTicketItems.ticketId, input.ticketId),
+        eq(fnbKitchenTicketItems.tenantId, ctx.tenantId),
         ne(fnbKitchenTicketItems.itemStatus, 'ready'),
         ne(fnbKitchenTicketItems.itemStatus, 'served'),
         ne(fnbKitchenTicketItems.itemStatus, 'voided'),
@@ -47,7 +53,7 @@ export async function bumpTicket(
       throw new TicketNotReadyError(input.ticketId);
     }
 
-    // Bump ticket to served
+    // Bump ticket to served (with optimistic lock)
     const now = new Date();
     const [updated] = await tx
       .update(fnbKitchenTickets)
@@ -58,8 +64,13 @@ export async function bumpTicket(
         version: ticket.version + 1,
         updatedAt: now,
       })
-      .where(eq(fnbKitchenTickets.id, input.ticketId))
+      .where(and(
+        eq(fnbKitchenTickets.id, input.ticketId),
+        eq(fnbKitchenTickets.tenantId, ctx.tenantId),
+        eq(fnbKitchenTickets.version, ticket.version),
+      ))
       .returning();
+    if (!updated) throw new TicketVersionConflictError(input.ticketId);
 
     // Mark all ready items as served
     await tx
@@ -72,6 +83,7 @@ export async function bumpTicket(
       })
       .where(and(
         eq(fnbKitchenTicketItems.ticketId, input.ticketId),
+        eq(fnbKitchenTicketItems.tenantId, ctx.tenantId),
         eq(fnbKitchenTicketItems.itemStatus, 'ready'),
       ));
 

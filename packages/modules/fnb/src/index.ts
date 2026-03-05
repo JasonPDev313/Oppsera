@@ -1234,6 +1234,7 @@ export {
   resolveStationRouting,
   enrichRoutableItems,
   getStationPrepTimeForItem,
+  getStationPrepTimesForItems,
 } from './services/kds-routing-engine';
 export type {
   RoutingContext, RoutableItem, RoutingResult,

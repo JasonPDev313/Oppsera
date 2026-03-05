@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, Users, ShoppingBag, TrendingUp } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
+import { useAuthContext } from '@/components/auth-provider';
 
 interface SalesKpi {
   totalSalesCents: number;
@@ -53,14 +54,17 @@ function KpiCard({
 }
 
 export function SalesSummaryView({ userId: _userId }: { userId: string }) {
+  const { locations } = useAuthContext();
+  const locationId = locations[0]?.id ?? '';
   const [kpi, setKpi] = useState<SalesKpi | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!locationId) return;
     let cancelled = false;
     async function load() {
       try {
-        const res = await apiFetch<{ data: SalesKpi }>('/api/v1/fnb/reports/dashboard');
+        const res = await apiFetch<{ data: SalesKpi }>(`/api/v1/fnb/reports/dashboard?locationId=${locationId}`);
         if (!cancelled) setKpi(res.data);
       } catch {
         // Fallback to zeros
@@ -73,7 +77,7 @@ export function SalesSummaryView({ userId: _userId }: { userId: string }) {
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [locationId]);
 
   if (isLoading) {
     return (

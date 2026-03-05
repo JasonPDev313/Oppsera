@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql, gt, ne } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
@@ -117,6 +117,37 @@ export async function checkoutAppointment(ctx: RequestContext, input: CheckoutAp
       providerId: i.providerId,
     }));
 
+    // Determine isNewClient: customer has no prior completed/checked_out appointments
+    let isNewClient = false;
+    if (updated.customerId) {
+      const priorRows = await (tx as any).execute(sql`
+        SELECT 1 FROM spa_appointments
+        WHERE tenant_id = ${ctx.tenantId}
+          AND customer_id = ${updated.customerId}
+          AND id != ${updated.id}
+          AND status IN ('completed', 'checked_out')
+        LIMIT 1
+      `);
+      const prior = Array.from(priorRows as Iterable<unknown>);
+      isNewClient = prior.length === 0;
+    }
+
+    // Determine didRebook: customer has a future appointment at this location
+    let didRebook = false;
+    if (updated.customerId) {
+      const futureRows = await (tx as any).execute(sql`
+        SELECT 1 FROM spa_appointments
+        WHERE tenant_id = ${ctx.tenantId}
+          AND customer_id = ${updated.customerId}
+          AND id != ${updated.id}
+          AND start_at > ${now}
+          AND status NOT IN ('canceled', 'no_show')
+        LIMIT 1
+      `);
+      const future = Array.from(futureRows as Iterable<unknown>);
+      didRebook = future.length > 0;
+    }
+
     const events = [
       buildEventFromContext(ctx, SPA_EVENTS.APPOINTMENT_CHECKED_OUT, {
         appointmentId: updated.id,
@@ -130,6 +161,9 @@ export async function checkoutAppointment(ctx: RequestContext, input: CheckoutAp
         totalCents,
         taxCents,
         tipCents,
+        retailCents: 0, // Retail products are sold via POS order, not appointment items
+        isNewClient,
+        didRebook,
         serviceItems,
         businessDate: now.toISOString().slice(0, 10),
       }),

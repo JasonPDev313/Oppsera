@@ -211,7 +211,7 @@ export function TicketCard({
           <BumpButton
             onClick={() => onBumpTicket(ticket.ticketId)}
             disabled={disabled || !allReady}
-            variant={allReady ? 'bump' : 'bump'}
+            variant="bump"
             label={allReady ? 'BUMP' : `${readyCount}/${activeCount} READY`}
           />
         </div>

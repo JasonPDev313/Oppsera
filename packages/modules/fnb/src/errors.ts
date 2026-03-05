@@ -150,6 +150,16 @@ export class TicketItemNotFoundError extends AppError {
   }
 }
 
+export class TicketItemStatusConflictError extends AppError {
+  constructor(itemId: string, currentStatus: string, attemptedAction: string) {
+    super(
+      'TICKET_ITEM_STATUS_CONFLICT',
+      `Cannot ${attemptedAction} item ${itemId} in status '${currentStatus}'`,
+      409,
+    );
+  }
+}
+
 export class TicketVersionConflictError extends AppError {
   constructor(ticketId: string) {
     super(

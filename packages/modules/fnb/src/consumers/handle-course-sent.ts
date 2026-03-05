@@ -16,11 +16,11 @@ export interface CourseSentConsumerData {
  * Consumer: handles fnb.course.sent.v1 and fnb.course.fired.v1 events.
  *
  * When a course is sent or fired, this consumer:
- * 1. Fetches the tab + items for that course
+ * 1. Fetches the tab + course name + items in parallel
  * 2. Enriches items with catalog hierarchy + modifierIds
  * 3. Bulk-resolves KDS stations via the routing engine (with conditions)
  * 4. Groups items by station
- * 5. Creates one kitchen ticket per station
+ * 5. Creates one kitchen ticket per station (in parallel)
  *
  * Idempotent via deterministic clientRequestId per tab+course+station.
  * Never throws — logs errors and continues (fire-and-forget consumer pattern).
@@ -30,27 +30,67 @@ export async function handleCourseSent(
   data: CourseSentConsumerData,
 ): Promise<void> {
   try {
-    // 1. Fetch the tab (need orderId + locationId + tabType for order type context)
-    const tabResult = await withTenant(tenantId, (tx) =>
-      tx
-        .select({
-          id: fnbTabs.id,
-          locationId: fnbTabs.locationId,
-          primaryOrderId: fnbTabs.primaryOrderId,
-          businessDate: fnbTabs.businessDate,
-          tableId: fnbTabs.tableId,
-          tabType: fnbTabs.tabType,
-        })
-        .from(fnbTabs)
-        .where(
-          and(
-            eq(fnbTabs.id, data.tabId),
-            eq(fnbTabs.tenantId, tenantId),
+    // 1–3. Fetch tab, course name, and items in PARALLEL — all depend only on
+    // data.tabId / data.courseNumber which are available upfront. Eliminates
+    // 3 sequential withTenant round-trips.
+    const [tabResult, courseResult, items] = await Promise.all([
+      withTenant(tenantId, (tx) =>
+        tx
+          .select({
+            id: fnbTabs.id,
+            locationId: fnbTabs.locationId,
+            primaryOrderId: fnbTabs.primaryOrderId,
+            businessDate: fnbTabs.businessDate,
+            tableId: fnbTabs.tableId,
+            tabType: fnbTabs.tabType,
+          })
+          .from(fnbTabs)
+          .where(
+            and(
+              eq(fnbTabs.id, data.tabId),
+              eq(fnbTabs.tenantId, tenantId),
+            ),
+          )
+          .limit(1),
+      ),
+      withTenant(tenantId, (tx) =>
+        tx
+          .select({ courseName: fnbTabCourses.courseName })
+          .from(fnbTabCourses)
+          .where(
+            and(
+              eq(fnbTabCourses.tabId, data.tabId),
+              eq(fnbTabCourses.courseNumber, data.courseNumber),
+            ),
+          )
+          .limit(1),
+      ),
+      withTenant(tenantId, (tx) =>
+        tx
+          .select({
+            id: fnbTabItems.id,
+            catalogItemId: fnbTabItems.catalogItemId,
+            catalogItemName: fnbTabItems.catalogItemName,
+            seatNumber: fnbTabItems.seatNumber,
+            qty: fnbTabItems.qty,
+            modifiers: fnbTabItems.modifiers,
+            subDepartmentId: fnbTabItems.subDepartmentId,
+            specialInstructions: fnbTabItems.specialInstructions,
+          })
+          .from(fnbTabItems)
+          .where(
+            and(
+              eq(fnbTabItems.tenantId, tenantId),
+              eq(fnbTabItems.tabId, data.tabId),
+              eq(fnbTabItems.courseNumber, data.courseNumber),
+              inArray(fnbTabItems.status, ['draft', 'sent', 'fired']),
+            ),
           ),
-        )
-        .limit(1),
-    );
+      ),
+    ]);
+
     const tab = tabResult[0];
+    const courseName = courseResult[0]?.courseName ?? `Course ${data.courseNumber}`;
 
     if (!tab) {
       console.warn(`[handleCourseSent] Tab not found: ${data.tabId}`);
@@ -63,45 +103,6 @@ export async function handleCourseSent(
     }
 
     const locationId = data.locationId || tab.locationId;
-
-    // 2. Fetch the course record (for courseName)
-    const courseResult = await withTenant(tenantId, (tx) =>
-      tx
-        .select({ courseName: fnbTabCourses.courseName })
-        .from(fnbTabCourses)
-        .where(
-          and(
-            eq(fnbTabCourses.tabId, data.tabId),
-            eq(fnbTabCourses.courseNumber, data.courseNumber),
-          ),
-        )
-        .limit(1),
-    );
-    const courseName = courseResult[0]?.courseName ?? `Course ${data.courseNumber}`;
-
-    // 3. Fetch items for this course (only non-voided items)
-    const items = await withTenant(tenantId, (tx) =>
-      tx
-        .select({
-          id: fnbTabItems.id,
-          catalogItemId: fnbTabItems.catalogItemId,
-          catalogItemName: fnbTabItems.catalogItemName,
-          seatNumber: fnbTabItems.seatNumber,
-          qty: fnbTabItems.qty,
-          modifiers: fnbTabItems.modifiers,
-          subDepartmentId: fnbTabItems.subDepartmentId,
-          specialInstructions: fnbTabItems.specialInstructions,
-        })
-        .from(fnbTabItems)
-        .where(
-          and(
-            eq(fnbTabItems.tenantId, tenantId),
-            eq(fnbTabItems.tabId, data.tabId),
-            eq(fnbTabItems.courseNumber, data.courseNumber),
-            inArray(fnbTabItems.status, ['draft', 'sent', 'fired']),
-          ),
-        ),
-    );
 
     if (!items.length) {
       console.warn(`[handleCourseSent] No items for tab ${data.tabId} course ${data.courseNumber}`);
@@ -175,7 +176,9 @@ export async function handleCourseSent(
       return;
     }
 
-    // 8. Create one kitchen ticket per station
+    // 8. Create one kitchen ticket per station — in PARALLEL.
+    // Each ticket has a deterministic idempotency key (tab+course+station),
+    // so concurrent execution is safe and won't create duplicates.
     const syntheticCtx = {
       tenantId,
       locationId,
@@ -184,26 +187,25 @@ export async function handleCourseSent(
       isPlatformAdmin: false,
     } as unknown as RequestContext;
 
-    for (const [stationId, ticketItems] of stationGroups) {
-      const clientRequestId = `kds-course-${data.tabId}-${data.courseNumber}-${stationId}`;
-
-      try {
-        await createKitchenTicket(syntheticCtx, {
+    await Promise.allSettled(
+      [...stationGroups].map(([stationId, ticketItems]) => {
+        const clientRequestId = `kds-course-${data.tabId}-${data.courseNumber}-${stationId}`;
+        return createKitchenTicket(syntheticCtx, {
           clientRequestId,
           tabId: data.tabId,
-          orderId: tab.primaryOrderId,
+          orderId: tab.primaryOrderId!,
           courseNumber: data.courseNumber,
           orderType: tab.tabType ?? undefined,
           channel: 'pos',
           items: ticketItems,
+        }).catch((err) => {
+          // Log but don't throw — idempotency duplicate is expected on replay
+          console.warn(
+            `[handleCourseSent] Failed to create ticket for station ${stationId}: ${err instanceof Error ? err.message : String(err)}`,
+          );
         });
-      } catch (err) {
-        // Log but don't throw — idempotency duplicate is expected on replay
-        console.warn(
-          `[handleCourseSent] Failed to create ticket for station ${stationId}: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
+      }),
+    );
   } catch (err) {
     // Consumer must never throw
     console.error(

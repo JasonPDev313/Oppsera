@@ -89,19 +89,19 @@ const sql = postgres('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
     const dsCount = await sql`SELECT count(*)::int AS cnt FROM rm_daily_sales WHERE tenant_id = ${tenantId}`;
     console.log('  Inserted rm_daily_sales rows:', dsCount[0].cnt);
 
-    // 3. Backfill rm_item_sales
+    // 3. Backfill rm_item_sales (with category_name from catalog_categories)
     console.log('\n=== Backfilling rm_item_sales ===');
     await sql`
       INSERT INTO rm_item_sales (
         id, tenant_id, location_id, business_date,
-        catalog_item_id, catalog_item_name,
+        catalog_item_id, catalog_item_name, category_name,
         quantity_sold, gross_revenue,
         quantity_voided, void_revenue, updated_at
       )
       SELECT
         gen_random_uuid()::text,
         ol.tenant_id, o.location_id, o.business_date,
-        ol.catalog_item_id, max(ol.catalog_item_name),
+        ol.catalog_item_id, max(ol.catalog_item_name), max(cc.name),
         coalesce(sum(ol.qty::numeric) FILTER (WHERE o.status IN ('placed', 'paid')), 0),
         coalesce(sum(ol.line_total) FILTER (WHERE o.status IN ('placed', 'paid')), 0) / 100.0,
         coalesce(sum(ol.qty::numeric) FILTER (WHERE o.status = 'voided'), 0),
@@ -109,6 +109,7 @@ const sql = postgres('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
         NOW()
       FROM order_lines ol
       JOIN orders o ON o.id = ol.order_id
+      LEFT JOIN catalog_categories cc ON cc.id = ol.sub_department_id
       WHERE ol.tenant_id = ${tenantId}
         AND o.status IN ('placed', 'paid', 'voided')
         AND o.business_date IS NOT NULL

@@ -3,7 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { membershipSubscriptions, membershipPlans, membershipAccounts } from '@oppsera/db';
+import { membershipSubscriptions, membershipPlans, membershipAccounts, customers } from '@oppsera/db';
 import type { CloseBillingCycleInput } from '../validation';
 import { advanceByFrequency } from '../helpers/proration';
 
@@ -90,6 +90,22 @@ export async function closeBillingCycle(
           )
           .limit(1);
 
+        // Look up customer display name for reporting enrichment
+        let customerName: string | null = null;
+        if (account?.customerId) {
+          const [customer] = await (tx as any)
+            .select({ displayName: customers.displayName })
+            .from(customers)
+            .where(
+              and(
+                eq(customers.tenantId, ctx.tenantId),
+                eq(customers.id, account.customerId),
+              ),
+            )
+            .limit(1);
+          customerName = customer?.displayName ?? null;
+        }
+
         const chargeAmountCents = plan.duesAmountCents ?? plan.priceCents;
         const frequency = plan.billingFrequency ?? 'monthly';
         const newNextBillDate = advanceByFrequency(sub.nextBillDate, frequency);
@@ -116,6 +132,7 @@ export async function closeBillingCycle(
           membershipPlanId: plan.id,
           customerId: account?.customerId ?? null,
           billingAccountId: account?.billingAccountId ?? null,
+          customerName,
           amountCents: chargeAmountCents,
           locationId: ctx.locationId,
           businessDate: input.cycleDate,

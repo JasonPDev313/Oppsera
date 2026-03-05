@@ -24,6 +24,7 @@ import {
   orderLineTaxes,
   tenders,
   tenderReversals,
+  catalogCategories,
 } from '@oppsera/db';
 import type { InferSelectModel } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
@@ -42,12 +43,18 @@ type OrderLineTax = InferSelectModel<typeof orderLineTaxes>;
 type Tender = InferSelectModel<typeof tenders>;
 type TenderReversal = InferSelectModel<typeof tenderReversals>;
 
-interface PlaceAndPayResult {
+export interface PlaceAndPayResult {
   tender: Record<string, unknown>;
   changeGiven: number;
   isFullyPaid: boolean;
   remainingBalance: number;
   totalTendered: number;
+}
+
+export interface PlaceAndPayFullResult {
+  data: PlaceAndPayResult;
+  /** Schedule with next/server after() — runs GL + audit logs after response is sent */
+  runDeferredWork: () => Promise<void>;
 }
 
 export async function placeAndRecordTender(
@@ -56,7 +63,7 @@ export async function placeAndRecordTender(
   placeInput: PlaceOrderInput,
   tenderInput: RecordTenderInput,
   options?: { payExact?: boolean },
-): Promise<PlaceAndPayResult> {
+): Promise<PlaceAndPayFullResult> {
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'Location is required', 400);
   }
@@ -67,17 +74,7 @@ export async function placeAndRecordTender(
     throw new ValidationError('amountGiven must be at least 1 cent');
   }
 
-  // Pre-fetch accounting settings OUTSIDE the transaction (read-only, non-critical)
-  let enableLegacyGl = true;
-  try {
-    const accountingApi = getAccountingPostingApi();
-    const acctSettings = await accountingApi.getSettings(ctx.tenantId);
-    enableLegacyGl = acctSettings.enableLegacyGlPosting ?? true;
-  } catch {
-    // AccountingPostingApi not initialized — legacy behavior
-  }
-
-  // Closure variable for post-transaction legacy GL
+  // Closure variable for post-transaction legacy GL (resolved in deferred work)
   let legacyGlData: {
     tenderId: string; tenantId: string; locationId: string; orderId: string;
     tenderType: string; tenderAmount: number; tipAmount: number;
@@ -238,9 +235,8 @@ export async function placeAndRecordTender(
       packageComponents: l.packageComponents ?? null,
     }));
 
-    // Legacy GL is now fire-and-forget AFTER the transaction to reduce lock hold time.
-    // Capture data needed for post-transaction GL via closure.
-    legacyGlData = enableLegacyGl ? {
+    // Capture data for post-transaction GL (runs in deferred work after response).
+    legacyGlData = {
       tenderId: tender.id,
       tenantId: ctx.tenantId,
       locationId: ctx.locationId!,
@@ -256,7 +252,7 @@ export async function placeAndRecordTender(
       total: order.total,
       orderLinesForGL,
       isFullyPaid,
-    } : null;
+    };
 
     // If fully paid, update order status
     if (isFullyPaid) {
@@ -281,8 +277,16 @@ export async function placeAndRecordTender(
     });
 
     // ========== BUILD EVENTS ==========
-    // Category names + modifier groups are optional enrichment — no consumer uses them
-    // for business logic. Skipping saves 2-4 DB round-trips from the locked transaction.
+    // Resolve category names from subDepartmentId for reporting/AI chat enrichment
+    const subDeptIds = [...new Set(placedLines.map((l) => l.subDepartmentId).filter(Boolean))] as string[];
+    const categoryNameMap = new Map<string, string>();
+    if (subDeptIds.length > 0) {
+      const cats = await tx.select({ id: catalogCategories.id, name: catalogCategories.name })
+        .from(catalogCategories)
+        .where(inArray(catalogCategories.id, subDeptIds));
+      for (const c of cats) categoryNameMap.set(c.id, c.name);
+    }
+
     const events = [];
 
     // order.placed event (only if we actually placed it)
@@ -308,7 +312,7 @@ export async function placeAndRecordTender(
         lines: placedLines.map((l) => ({
           catalogItemId: l.catalogItemId,
           catalogItemName: l.catalogItemName ?? 'Unknown',
-          categoryName: null,
+          categoryName: l.subDepartmentId ? (categoryNameMap.get(l.subDepartmentId) ?? null) : null,
           qty: Number(l.qty),
           unitPrice: l.unitPrice ?? 0,
           lineSubtotal: l.lineSubtotal ?? 0,
@@ -380,48 +384,59 @@ export async function placeAndRecordTender(
     };
   });
 
-  // Post-transaction: legacy GL journal entry — MUST await (Vercel freezes event loop after response, §205)
-  if (legacyGlData) {
+  // Deferred work: GL + audit logs run AFTER the response via next/server after().
+  // Vercel keeps the function alive until after() callbacks complete (§205).
+  const runDeferredWork = async () => {
+    // Check accounting settings inside deferred work (not on the hot path)
+    let enableLegacyGl = true;
     try {
-      await withTenant(ctx.tenantId, async (glTx) => {
-        const journalResult = await generateJournalEntry(
-          glTx,
-          {
-            id: legacyGlData!.tenderId,
-            tenantId: legacyGlData!.tenantId,
-            locationId: legacyGlData!.locationId,
-            orderId: legacyGlData!.orderId,
-            tenderType: legacyGlData!.tenderType,
-            amount: legacyGlData!.tenderAmount,
-            tipAmount: legacyGlData!.tipAmount,
-          },
-          {
-            businessDate: legacyGlData!.businessDate,
-            subtotal: legacyGlData!.subtotal,
-            taxTotal: legacyGlData!.taxTotal,
-            serviceChargeTotal: legacyGlData!.serviceChargeTotal,
-            discountTotal: legacyGlData!.discountTotal,
-            total: legacyGlData!.total,
-            lines: legacyGlData!.orderLinesForGL,
-          },
-          legacyGlData!.isFullyPaid,
-        );
-        // Update tender with allocation snapshot (denormalized, non-critical)
-        await glTx.update(tenders).set({
-          allocationSnapshot: journalResult.allocationSnapshot,
-        }).where(eq(tenders.id, legacyGlData!.tenderId));
-      });
-    } catch (err) {
-      // Legacy GL failure never blocks POS — log and continue
-      console.error(`Legacy GL failed for tender in order ${orderId}:`, err instanceof Error ? err.message : err);
+      const accountingApi = getAccountingPostingApi();
+      const acctSettings = await accountingApi.getSettings(ctx.tenantId);
+      enableLegacyGl = acctSettings.enableLegacyGlPosting ?? true;
+    } catch {
+      // AccountingPostingApi not initialized — legacy behavior
     }
-  }
 
-  // Audit logs — awaited with try/catch (non-fatal, but MUST complete before response per §205)
-  try { await auditLog(ctx, 'order.placed', 'order', orderId); }
-  catch (e) { console.error('Audit log failed for order.placed:', e instanceof Error ? e.message : e); }
-  try { await auditLog(ctx, 'tender.recorded', 'order', orderId); }
-  catch (e) { console.error('Audit log failed for tender.recorded:', e instanceof Error ? e.message : e); }
+    await Promise.all([
+      // Legacy GL journal entry
+      legacyGlData && enableLegacyGl
+        ? withTenant(ctx.tenantId, async (glTx) => {
+            const journalResult = await generateJournalEntry(
+              glTx,
+              {
+                id: legacyGlData!.tenderId,
+                tenantId: legacyGlData!.tenantId,
+                locationId: legacyGlData!.locationId,
+                orderId: legacyGlData!.orderId,
+                tenderType: legacyGlData!.tenderType,
+                amount: legacyGlData!.tenderAmount,
+                tipAmount: legacyGlData!.tipAmount,
+              },
+              {
+                businessDate: legacyGlData!.businessDate,
+                subtotal: legacyGlData!.subtotal,
+                taxTotal: legacyGlData!.taxTotal,
+                serviceChargeTotal: legacyGlData!.serviceChargeTotal,
+                discountTotal: legacyGlData!.discountTotal,
+                total: legacyGlData!.total,
+                lines: legacyGlData!.orderLinesForGL,
+              },
+              legacyGlData!.isFullyPaid,
+            );
+            await glTx.update(tenders).set({
+              allocationSnapshot: journalResult.allocationSnapshot,
+            }).where(eq(tenders.id, legacyGlData!.tenderId));
+          }).catch((err) => {
+            console.error(`Legacy GL failed for tender in order ${orderId}:`, err instanceof Error ? err.message : err);
+          })
+        : Promise.resolve(),
+      // Audit logs (non-fatal)
+      auditLog(ctx, 'order.placed', 'order', orderId)
+        .catch((e) => { console.error('Audit log failed for order.placed:', e instanceof Error ? e.message : e); }),
+      auditLog(ctx, 'tender.recorded', 'order', orderId)
+        .catch((e) => { console.error('Audit log failed for tender.recorded:', e instanceof Error ? e.message : e); }),
+    ]);
+  };
 
-  return result;
+  return { data: result, runDeferredWork };
 }
