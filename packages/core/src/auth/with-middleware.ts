@@ -376,10 +376,10 @@ async function _executeMiddleware(
           }
 
           // Read active role from header (set by frontend when user selects a role)
+          // Value is a database ULID (26 alphanumeric chars) from the roles table.
           const activeRoleId = request.headers.get('x-role-id') || undefined;
           if (activeRoleId) {
-            const VALID_ROLES = ['owner', 'manager', 'supervisor', 'cashier', 'server', 'staff'];
-            if (!VALID_ROLES.includes(activeRoleId)) {
+            if (!/^[0-9A-Za-z]{26}$/.test(activeRoleId)) {
               return NextResponse.json(
                 { error: { code: 'INVALID_ROLE_ID', message: 'Invalid x-role-id header value' } },
                 { status: 400 },

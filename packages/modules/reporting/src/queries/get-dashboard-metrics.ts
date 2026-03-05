@@ -1,10 +1,5 @@
-import { eq, and, gte, lte, sql } from 'drizzle-orm';
-import {
-  withTenant,
-  rmInventoryOnHand,
-  rmCustomerActivity,
-  rmDailySales,
-} from '@oppsera/db';
+import { eq, and, sql } from 'drizzle-orm';
+import { withTenant, rmInventoryOnHand } from '@oppsera/db';
 
 export interface GetDashboardMetricsInput {
   tenantId: string;
@@ -34,16 +29,14 @@ export interface DashboardMetrics {
   nonPosRevenue: NonPosRevenue;
 }
 
-const num = (v: string | number | null | undefined): number => Number(v) || 0;
-
 /**
- * Retrieves dashboard summary metrics.
+ * Retrieves dashboard summary metrics from rm_revenue_activity (sales history).
  *
- * Supports date range via fromDate/date params (e.g., last 7 days).
- * Prefers CQRS read models (rm_daily_sales, rm_inventory_on_hand) for speed.
- * Falls back to querying operational tables directly when read models are empty
- * (e.g., after direct seeding that bypassed the event system).
- * Uses rm_daily_sales for non-POS revenue breakdown (PMS, AR, membership, voucher).
+ * Uses rm_revenue_activity as the single source of truth — it is populated by
+ * both event consumers and the seed script, and includes all revenue sources
+ * (POS, PMS, AR, membership, voucher).
+ *
+ * Falls back to all-time aggregation when no data exists in the date range.
  */
 export async function getDashboardMetrics(
   input: GetDashboardMetricsInput,
@@ -53,113 +46,79 @@ export async function getDashboardMetrics(
   const isRange = !!fromDate;
 
   return withTenant(input.tenantId, async (tx) => {
-    // 1. Daily sales metrics — try read model first (fast indexed lookup)
-    const salesConditions = [
-      eq(rmDailySales.tenantId, input.tenantId),
-    ];
-    if (isRange) {
-      salesConditions.push(gte(rmDailySales.businessDate, fromDate));
-      salesConditions.push(lte(rmDailySales.businessDate, today));
-    } else {
-      salesConditions.push(eq(rmDailySales.businessDate, today));
-    }
-    if (input.locationId) {
-      salesConditions.push(eq(rmDailySales.locationId, input.locationId));
-    }
+    const locFilter = input.locationId
+      ? sql` AND location_id = ${input.locationId}`
+      : sql``;
 
-    const [salesRow] = await tx
-      .select({
-        netSales: sql<string>`coalesce(sum(${rmDailySales.netSales}), 0)::numeric(19,4)`,
-        orderCount: sql<number>`coalesce(sum(${rmDailySales.orderCount}), 0)::int`,
-        voidCount: sql<number>`coalesce(sum(${rmDailySales.voidCount}), 0)::int`,
-        pmsRevenue: sql<string>`coalesce(sum(${rmDailySales.pmsRevenue}), 0)`,
-        arRevenue: sql<string>`coalesce(sum(${rmDailySales.arRevenue}), 0)`,
-        membershipRevenue: sql<string>`coalesce(sum(${rmDailySales.membershipRevenue}), 0)`,
-        voucherRevenue: sql<string>`coalesce(sum(${rmDailySales.voucherRevenue}), 0)`,
-        totalBusinessRevenue: sql<string>`coalesce(sum(${rmDailySales.totalBusinessRevenue}), 0)`,
-      })
-      .from(rmDailySales)
-      .where(and(...salesConditions));
+    const dateFilter = isRange
+      ? sql` AND business_date >= ${fromDate} AND business_date <= ${today}`
+      : sql` AND business_date = ${today}`;
 
-    let todaySales = num(salesRow?.netSales);
-    let todayOrders = salesRow?.orderCount ?? 0;
-    let todayVoids = salesRow?.voidCount ?? 0;
+    // 1. Revenue & order metrics from rm_revenue_activity (sales history)
+    const salesResult = await tx.execute(sql`
+      SELECT
+        coalesce(sum(CASE WHEN status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS net_sales,
+        count(CASE WHEN status != 'voided' THEN 1 END)::int AS order_count,
+        count(CASE WHEN status = 'voided' THEN 1 END)::int AS void_count,
+        coalesce(sum(CASE WHEN source = 'pms_folio' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS pms_revenue,
+        coalesce(sum(CASE WHEN source = 'ar_invoice' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS ar_revenue,
+        coalesce(sum(CASE WHEN source = 'membership' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS membership_revenue,
+        coalesce(sum(CASE WHEN source IN ('voucher', 'stored_value') AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS voucher_revenue
+      FROM rm_revenue_activity
+      WHERE tenant_id = ${input.tenantId}
+        ${dateFilter}
+        ${locFilter}
+    `);
+
+    const salesRows = Array.from(salesResult as Iterable<Record<string, unknown>>);
+    const salesRow = salesRows[0];
+
+    let todaySales = Number(salesRow?.net_sales) || 0;
+    let todayOrders = Number(salesRow?.order_count) || 0;
+    let todayVoids = Number(salesRow?.void_count) || 0;
     let period: 'today' | 'range' | 'all' = isRange ? 'range' : 'today';
-    let totalBusinessRevenue = todaySales;
     const nonPosRevenue: NonPosRevenue = {
-      pms: num(salesRow?.pmsRevenue),
-      ar: num(salesRow?.arRevenue),
-      membership: num(salesRow?.membershipRevenue),
-      voucher: num(salesRow?.voucherRevenue),
+      pms: Number(salesRow?.pms_revenue) || 0,
+      ar: Number(salesRow?.ar_revenue) || 0,
+      membership: Number(salesRow?.membership_revenue) || 0,
+      voucher: Number(salesRow?.voucher_revenue) || 0,
     };
-    const rmTotalBizRev = num(salesRow?.totalBusinessRevenue);
-    if (rmTotalBizRev > 0) {
-      totalBusinessRevenue = rmTotalBizRev;
-    }
+    let totalBusinessRevenue = todaySales;
 
-    // Fallback: query operational orders table when read model is empty
+    // Fallback: all-time when no data in the date range
     if (todayOrders === 0) {
-      const locFilter = input.locationId
-        ? sql` AND location_id = ${input.locationId}`
-        : sql``;
-
-      // Try date range or today's business_date (sargable — uses index)
-      const dateFilter = isRange
-        ? sql`AND business_date >= ${fromDate} AND business_date <= ${today}`
-        : sql`AND business_date = ${today}`;
-
-      const [fallbackRow] = await tx.execute(sql`
+      const allTimeResult = await tx.execute(sql`
         SELECT
-          coalesce(sum(CASE WHEN status != 'voided' THEN total ELSE 0 END), 0)::bigint AS net_sales_cents,
-          count(*)::int AS order_count,
-          count(*) FILTER (WHERE status = 'voided')::int AS void_count
-        FROM orders
+          coalesce(sum(CASE WHEN status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS net_sales,
+          count(CASE WHEN status != 'voided' THEN 1 END)::int AS order_count,
+          count(CASE WHEN status = 'voided' THEN 1 END)::int AS void_count,
+          coalesce(sum(CASE WHEN source = 'pms_folio' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS pms_revenue,
+          coalesce(sum(CASE WHEN source = 'ar_invoice' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS ar_revenue,
+          coalesce(sum(CASE WHEN source = 'membership' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS membership_revenue,
+          coalesce(sum(CASE WHEN source IN ('voucher', 'stored_value') AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS voucher_revenue
+        FROM rm_revenue_activity
         WHERE tenant_id = ${input.tenantId}
-          ${dateFilter}
-          AND status IN ('placed', 'paid', 'voided')
           ${locFilter}
       `);
 
-      if (fallbackRow) {
-        const row = fallbackRow as Record<string, unknown>;
-        const fallbackOrders = Number(row.order_count) || 0;
-        if (fallbackOrders > 0) {
-          todaySales = (Number(row.net_sales_cents) || 0) / 100;
-          todayOrders = fallbackOrders;
-          todayVoids = Number(row.void_count) || 0;
-          totalBusinessRevenue = todaySales;
-        }
-      }
+      const allTimeRows = Array.from(allTimeResult as Iterable<Record<string, unknown>>);
+      const allTimeRow = allTimeRows[0];
+      const allTimeOrders = Number(allTimeRow?.order_count) || 0;
 
-      // Final fallback: all orders regardless of date (handles NULL business_date
-      // and seed data with dates from other days)
-      if (todayOrders === 0) {
-        const [allTimeRow] = await tx.execute(sql`
-          SELECT
-            coalesce(sum(CASE WHEN status != 'voided' THEN total ELSE 0 END), 0)::bigint AS net_sales_cents,
-            count(*)::int AS order_count,
-            count(*) FILTER (WHERE status = 'voided')::int AS void_count
-          FROM orders
-          WHERE tenant_id = ${input.tenantId}
-            AND status IN ('placed', 'paid', 'voided')
-            ${locFilter}
-        `);
-
-        if (allTimeRow) {
-          const row = allTimeRow as Record<string, unknown>;
-          const allOrders = Number(row.order_count) || 0;
-          if (allOrders > 0) {
-            todaySales = (Number(row.net_sales_cents) || 0) / 100;
-            todayOrders = allOrders;
-            todayVoids = Number(row.void_count) || 0;
-            period = 'all';
-            totalBusinessRevenue = todaySales;
-          }
-        }
+      if (allTimeOrders > 0) {
+        todaySales = Number(allTimeRow?.net_sales) || 0;
+        todayOrders = allTimeOrders;
+        todayVoids = Number(allTimeRow?.void_count) || 0;
+        nonPosRevenue.pms = Number(allTimeRow?.pms_revenue) || 0;
+        nonPosRevenue.ar = Number(allTimeRow?.ar_revenue) || 0;
+        nonPosRevenue.membership = Number(allTimeRow?.membership_revenue) || 0;
+        nonPosRevenue.voucher = Number(allTimeRow?.voucher_revenue) || 0;
+        totalBusinessRevenue = todaySales;
+        period = 'all';
       }
     }
 
-    // 2. Low stock count — try read model first
+    // 2. Low stock count — read model
     const stockConditions = [
       eq(rmInventoryOnHand.tenantId, input.tenantId),
       eq(rmInventoryOnHand.isBelowThreshold, true),
@@ -183,7 +142,7 @@ export async function getDashboardMetrics(
         ? sql` AND ii.location_id = ${input.locationId}`
         : sql``;
 
-      const [stockFallback] = await tx.execute(sql`
+      const stockFallbackResult = await tx.execute(sql`
         SELECT count(*)::int AS cnt
         FROM inventory_items ii
         WHERE ii.tenant_id = ${input.tenantId}
@@ -198,66 +157,43 @@ export async function getDashboardMetrics(
           ) < ii.reorder_point
       `);
 
-      if (stockFallback) {
-        lowStockCount = Number((stockFallback as Record<string, unknown>).cnt) || 0;
+      const stockFallbackRows = Array.from(stockFallbackResult as Iterable<Record<string, unknown>>);
+      if (stockFallbackRows.length > 0) {
+        lowStockCount = Number(stockFallbackRows[0]!.cnt) || 0;
       }
     }
 
-    // 3. Active customers in last 7 days
+    // 3. Active customers in last 7 days — from rm_revenue_activity
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
 
-    const [customerRow] = await tx
-      .select({
-        count: sql<number>`count(*)::int`,
-      })
-      .from(rmCustomerActivity)
-      .where(
-        and(
-          eq(rmCustomerActivity.tenantId, input.tenantId),
-          gte(rmCustomerActivity.lastVisitAt, sevenDaysAgo),
-        ),
-      );
+    const custResult = await tx.execute(sql`
+      SELECT count(DISTINCT customer_id)::int AS cnt
+      FROM rm_revenue_activity
+      WHERE tenant_id = ${input.tenantId}
+        AND customer_id IS NOT NULL
+        AND status != 'voided'
+        AND business_date >= ${sevenDaysAgoStr}
+        ${locFilter}
+    `);
 
-    let activeCustomers7d = customerRow?.count ?? 0;
+    const custRows = Array.from(custResult as Iterable<Record<string, unknown>>);
+    let activeCustomers7d = Number(custRows[0]?.cnt) || 0;
 
-    // Fallback: count distinct customers from orders table when read model is empty
+    // Fallback: all-time distinct customers if date-filtered is still 0
     if (activeCustomers7d === 0) {
-      const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
-      const custLocFilter = input.locationId
-        ? sql` AND location_id = ${input.locationId}`
-        : sql``;
-
-      const [custFallback] = await tx.execute(sql`
+      const allTimeCustResult = await tx.execute(sql`
         SELECT count(DISTINCT customer_id)::int AS cnt
-        FROM orders
+        FROM rm_revenue_activity
         WHERE tenant_id = ${input.tenantId}
           AND customer_id IS NOT NULL
-          AND status IN ('placed', 'paid')
-          AND created_at >= ${sevenDaysAgoStr}::date
-          ${custLocFilter}
+          AND status != 'voided'
+          ${locFilter}
       `);
 
-      if (custFallback) {
-        const cnt = Number((custFallback as Record<string, unknown>).cnt) || 0;
-        if (cnt > 0) activeCustomers7d = cnt;
-      }
-
-      // Final fallback: all-time distinct customers if date-filtered is still 0
-      if (activeCustomers7d === 0) {
-        const [allTimeCust] = await tx.execute(sql`
-          SELECT count(DISTINCT customer_id)::int AS cnt
-          FROM orders
-          WHERE tenant_id = ${input.tenantId}
-            AND customer_id IS NOT NULL
-            AND status IN ('placed', 'paid')
-            ${custLocFilter}
-        `);
-
-        if (allTimeCust) {
-          activeCustomers7d = Number((allTimeCust as Record<string, unknown>).cnt) || 0;
-        }
-      }
+      const allTimeCustRows = Array.from(allTimeCustResult as Iterable<Record<string, unknown>>);
+      activeCustomers7d = Number(allTimeCustRows[0]?.cnt) || 0;
     }
 
     return {
