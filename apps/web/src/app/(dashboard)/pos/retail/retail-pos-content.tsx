@@ -122,6 +122,7 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-lg bg-surface shadow-xl">
         {/* Header */}
@@ -250,6 +251,7 @@ function EmailQuoteDialog({ open, onClose, orderId, businessName }: EmailQuoteDi
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-sm rounded-lg bg-surface shadow-xl">
         <div className="flex items-center justify-between border-b border-border px-6 pt-6 pb-4">
@@ -267,6 +269,7 @@ function EmailQuoteDialog({ open, onClose, orderId, businessName }: EmailQuoteDi
           <label htmlFor="quote-email" className="mb-1.5 block text-sm font-medium text-foreground">
             Customer email
           </label>
+          {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
           <input
             id="quote-email"
             type="email"
@@ -346,6 +349,7 @@ const CustomItemPortal = memo(function CustomItemPortal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-sm rounded-lg bg-surface shadow-xl">
         {/* Header */}
@@ -379,10 +383,11 @@ const CustomItemPortal = memo(function CustomItemPortal({
             <>
               {/* Item Name */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                <label htmlFor="custom-item-name" className="mb-1 block text-xs font-medium text-muted-foreground">
                   Item Name
                 </label>
                 <input
+                  id="custom-item-name"
                   ref={nameRef}
                   type="text"
                   value={name}
@@ -397,10 +402,11 @@ const CustomItemPortal = memo(function CustomItemPortal({
               {/* Price + Qty row */}
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  <label htmlFor="custom-item-price" className="mb-1 block text-xs font-medium text-muted-foreground">
                     Price ($)
                   </label>
                   <input
+                    id="custom-item-price"
                     type="number"
                     inputMode="decimal"
                     min="0.01"
@@ -414,10 +420,11 @@ const CustomItemPortal = memo(function CustomItemPortal({
                   />
                 </div>
                 <div className="w-24">
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  <label htmlFor="custom-item-qty" className="mb-1 block text-xs font-medium text-muted-foreground">
                     Qty
                   </label>
                   <input
+                    id="custom-item-qty"
                     type="number"
                     inputMode="numeric"
                     min="1"
@@ -506,6 +513,7 @@ const TransactionNotesPortal = memo(function TransactionNotesPortal({
   }, [orderId, notes, onSave]);
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -2222,6 +2230,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       {packageItem !== null && typeof document !== 'undefined' &&
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div className="fixed inset-0 bg-black/50" onClick={() => setPackageItem(null)} />
             <div className="relative w-full max-w-md rounded-lg bg-surface shadow-xl">
               <div className="flex items-center justify-between border-b border-border px-6 pt-6 pb-4">
@@ -2342,6 +2351,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       {showVoidConfirm && typeof document !== 'undefined' &&
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div className="fixed inset-0 bg-black/50" onClick={() => setShowVoidConfirm(false)} />
             <div className="relative w-full max-w-sm rounded-lg bg-surface shadow-xl">
               <div className="border-b border-border px-6 pt-6 pb-4">
@@ -2354,6 +2364,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                 <label htmlFor="void-reason" className="block text-sm font-medium text-foreground">
                   Reason
                 </label>
+                {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
                 <input
                   id="void-reason"
                   type="text"

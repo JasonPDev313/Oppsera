@@ -146,24 +146,24 @@ export async function sendOrderLinesToKds(
 
   if (stationGroups.size === 0) return { sentCount: 0 };
 
-  // 6. Create one ticket per station (parallel)
+  // 6. Create one ticket per station (serial to avoid pool exhaustion)
   // Use line-based idempotency: key includes sorted line IDs so re-sends are safe
-  await Promise.all(
-    Array.from(stationGroups, ([stationId, ticketItems]) => {
-      const sortedLineIds = ticketItems.map((i) => i.orderLineId).sort().join(',');
-      return createKitchenTicket(ctx, {
+  for (const [stationId, ticketItems] of stationGroups) {
+    const sortedLineIds = ticketItems.map((i) => i.orderLineId).sort().join(',');
+    try {
+      await createKitchenTicket(ctx, {
         clientRequestId: `retail-kds-send-${orderId}-${stationId}-${sortedLineIds}`,
         orderId,
         businessDate,
         channel: 'pos',
         items: ticketItems,
-      }).catch((err) => {
-        console.warn(
-          `[sendOrderLinesToKds] Failed to create ticket for station ${stationId}: ${err instanceof Error ? err.message : String(err)}`,
-        );
       });
-    }),
-  );
+    } catch (err) {
+      console.warn(
+        `[sendOrderLinesToKds] Failed to create ticket for station ${stationId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
 
   return { sentCount: newLines.length };
 }

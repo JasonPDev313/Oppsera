@@ -1000,7 +1000,11 @@ function TerminalSessionGate({ children }: { children: React.ReactNode }) {
   // the redirect to /login or /onboard.
   if (authLoading || !isAuthenticated || needsOnboarding) return <>{children}</>;
 
-  if (isLoading) return null;
+  if (isLoading) return (
+    <div className="flex h-screen items-center justify-center bg-background">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-indigo-600" />
+    </div>
+  );
   if (!session && !skipped) return <TerminalSelectionScreen onSkip={handleSkip} />;
   return <>{children}</>;
 }

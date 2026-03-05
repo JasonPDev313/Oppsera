@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { MapPin, Building2, Store, Monitor, Shield, ChevronLeft, Settings, Plus } from 'lucide-react';
 import { useTerminalSelection } from '@/hooks/use-terminal-selection';
@@ -23,12 +23,14 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
 
   // Once roles load and there's only 1 (auto-selected), go straight to terminal phase.
   // Do NOT auto-skip if roles are empty due to an API error — show the error instead.
-  if (!roleSelection.isLoading && !roleSelection.error && !roleSelection.hasMultipleRoles && phase === 'role') {
-    // Auto-selected — move to terminal phase
-    if (roleSelection.selectedRoleId || roleSelection.roles.length === 0) {
-      setPhase('terminal');
+  // Must be in useEffect — calling setState during render causes a re-render loop.
+  useEffect(() => {
+    if (!roleSelection.isLoading && !roleSelection.error && !roleSelection.hasMultipleRoles && phase === 'role') {
+      if (roleSelection.selectedRoleId || roleSelection.roles.length === 0) {
+        setPhase('terminal');
+      }
     }
-  }
+  }, [roleSelection.isLoading, roleSelection.error, roleSelection.hasMultipleRoles, roleSelection.selectedRoleId, roleSelection.roles.length, phase]);
 
   const terminalSelection = useTerminalSelection({
     roleId: roleReady ? roleSelection.selectedRoleId : undefined,

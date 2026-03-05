@@ -481,6 +481,7 @@ function ProgramDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
@@ -505,10 +506,12 @@ function ProgramDialog({
         <div className="space-y-4">
           {/* Name */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="program-name" className="mb-1 block text-sm font-medium text-foreground">
               Name <span className="text-red-500">*</span>
             </label>
+            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
             <input
+              id="program-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -522,10 +525,11 @@ function ProgramDialog({
           {/* Points per dollar */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">
+              <label htmlFor="program-points-per-dollar" className="mb-1 block text-sm font-medium text-foreground">
                 Points per Dollar
               </label>
               <input
+                id="program-points-per-dollar"
                 type="number"
                 step="0.1"
                 min="0"
@@ -535,10 +539,11 @@ function ProgramDialog({
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">
+              <label htmlFor="program-points-per-night" className="mb-1 block text-sm font-medium text-foreground">
                 Points per Night
               </label>
               <input
+                id="program-points-per-night"
                 type="number"
                 step="1"
                 min="0"
@@ -551,10 +556,11 @@ function ProgramDialog({
 
           {/* Redemption value */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="program-redemption-value" className="mb-1 block text-sm font-medium text-foreground">
               Redemption Value ($ per point)
             </label>
             <input
+              id="program-redemption-value"
               type="number"
               step="0.01"
               min="0.01"
@@ -582,7 +588,7 @@ function ProgramDialog({
           {/* Tiers */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Tiers</label>
+              <span className="text-sm font-medium text-foreground">Tiers</span>
               <button
                 type="button"
                 onClick={addTier}
@@ -608,10 +614,11 @@ function ProgramDialog({
                     />
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        <label htmlFor={`tier-min-points-${idx}`} className="text-[10px] uppercase tracking-wide text-muted-foreground">
                           Min Points
                         </label>
                         <input
+                          id={`tier-min-points-${idx}`}
                           type="number"
                           min="0"
                           value={tier.minPoints}
@@ -622,10 +629,11 @@ function ProgramDialog({
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        <label htmlFor={`tier-multiplier-${idx}`} className="text-[10px] uppercase tracking-wide text-muted-foreground">
                           Multiplier
                         </label>
                         <input
+                          id={`tier-multiplier-${idx}`}
                           type="number"
                           step="0.1"
                           min="0.1"
@@ -1044,7 +1052,13 @@ function MemberCard({
 }) {
   return (
     <div className="rounded-lg border border-border p-4">
-      <div className="cursor-pointer" onClick={onToggle}>
+      <div
+        className="cursor-pointer"
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+      >
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-foreground">{member.guestName}</span>
           {isExpanded ? (

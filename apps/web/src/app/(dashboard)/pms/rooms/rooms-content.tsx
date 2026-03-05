@@ -443,6 +443,7 @@ export default function RoomsContent() {
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div
               className="absolute inset-0 bg-black/40"
               onClick={closeDialog}
@@ -469,10 +470,12 @@ export default function RoomsContent() {
               <div className="space-y-4">
                 {/* Room Number */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="create-room-number" className="mb-1 block text-sm font-medium text-foreground">
                     Room Number <span className="text-red-500">*</span>
                   </label>
+                  {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
                   <input
+                    id="create-room-number"
                     type="text"
                     value={formRoomNumber}
                     onChange={(e) => setFormRoomNumber(e.target.value)}
@@ -485,6 +488,7 @@ export default function RoomsContent() {
 
                 {/* Room Type */}
                 <div>
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                   <label className="mb-1 block text-sm font-medium text-foreground">
                     Room Type <span className="text-red-500">*</span>
                   </label>
@@ -512,10 +516,11 @@ export default function RoomsContent() {
 
                 {/* Floor */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="create-room-floor" className="mb-1 block text-sm font-medium text-foreground">
                     Floor
                   </label>
                   <input
+                    id="create-room-floor"
                     type="text"
                     value={formFloor}
                     onChange={(e) => setFormFloor(e.target.value)}
@@ -555,6 +560,7 @@ export default function RoomsContent() {
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div
               className="absolute inset-0 bg-black/40"
               onClick={closeEditDialog}
@@ -581,10 +587,12 @@ export default function RoomsContent() {
               <div className="space-y-4">
                 {/* Room Number */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="edit-room-number" className="mb-1 block text-sm font-medium text-foreground">
                     Room Number <span className="text-red-500">*</span>
                   </label>
+                  {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
                   <input
+                    id="edit-room-number"
                     type="text"
                     value={editRoomNumber}
                     onChange={(e) => setEditRoomNumber(e.target.value)}
@@ -597,6 +605,7 @@ export default function RoomsContent() {
 
                 {/* Room Type */}
                 <div>
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                   <label className="mb-1 block text-sm font-medium text-foreground">
                     Room Type <span className="text-red-500">*</span>
                   </label>
@@ -624,10 +633,11 @@ export default function RoomsContent() {
 
                 {/* Floor */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="edit-room-floor" className="mb-1 block text-sm font-medium text-foreground">
                     Floor
                   </label>
                   <input
+                    id="edit-room-floor"
                     type="text"
                     value={editFloor}
                     onChange={(e) => setEditFloor(e.target.value)}

@@ -145,6 +145,7 @@ function ActionsDropdown({
       </button>
       {open && (
         <>
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-md border border-border bg-surface shadow-lg">
             <button
@@ -256,6 +257,7 @@ function AddAssetDialog({ open, onClose, onSave, isSaving }: AddAssetDialogProps
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
         <div className="p-6 space-y-5">
@@ -271,58 +273,58 @@ function AddAssetDialog({ open, onClose, onSave, isSaving }: AddAssetDialogProps
           {/* Row 1: Asset Number + Name */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Asset Number *</label>
-              <input type="text" value={assetNumber} onChange={(e) => setAssetNumber(e.target.value)} className={inputCls} placeholder="FA-001" />
+              <label htmlFor="asset-number" className={labelCls}>Asset Number *</label>
+              <input id="asset-number" type="text" value={assetNumber} onChange={(e) => setAssetNumber(e.target.value)} className={inputCls} placeholder="FA-001" />
             </div>
             <div>
-              <label className={labelCls}>Name *</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Office Equipment" />
+              <label htmlFor="asset-name" className={labelCls}>Name *</label>
+              <input id="asset-name" type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Office Equipment" />
             </div>
           </div>
 
           {/* Row 2: Description */}
           <div>
-            <label className={labelCls}>Description</label>
-            <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} className={inputCls} placeholder="Optional description" />
+            <label htmlFor="asset-description" className={labelCls}>Description</label>
+            <input id="asset-description" type="text" value={description} onChange={(e) => setDescription(e.target.value)} className={inputCls} placeholder="Optional description" />
           </div>
 
           {/* Row 3: Category + Acquisition Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Category *</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
+              <label htmlFor="asset-category" className={labelCls}>Category *</label>
+              <select id="asset-category" value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
                 {ASSET_CATEGORIES.filter((c) => c.value).map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={labelCls}>Acquisition Date *</label>
-              <input type="date" value={acquisitionDate} onChange={(e) => setAcquisitionDate(e.target.value)} className={inputCls} />
+              <label htmlFor="asset-acquisition-date" className={labelCls}>Acquisition Date *</label>
+              <input id="asset-acquisition-date" type="date" value={acquisitionDate} onChange={(e) => setAcquisitionDate(e.target.value)} className={inputCls} />
             </div>
           </div>
 
           {/* Row 4: Cost + Salvage Value */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Acquisition Cost *</label>
-              <input type="number" step="0.01" min="0" value={acquisitionCost} onChange={(e) => setAcquisitionCost(e.target.value)} className={inputCls} placeholder="0.00" />
+              <label htmlFor="asset-acquisition-cost" className={labelCls}>Acquisition Cost *</label>
+              <input id="asset-acquisition-cost" type="number" step="0.01" min="0" value={acquisitionCost} onChange={(e) => setAcquisitionCost(e.target.value)} className={inputCls} placeholder="0.00" />
             </div>
             <div>
-              <label className={labelCls}>Salvage Value</label>
-              <input type="number" step="0.01" min="0" value={salvageValue} onChange={(e) => setSalvageValue(e.target.value)} className={inputCls} placeholder="0.00" />
+              <label htmlFor="asset-salvage-value" className={labelCls}>Salvage Value</label>
+              <input id="asset-salvage-value" type="number" step="0.01" min="0" value={salvageValue} onChange={(e) => setSalvageValue(e.target.value)} className={inputCls} placeholder="0.00" />
             </div>
           </div>
 
           {/* Row 5: Useful Life + Depreciation Method */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Useful Life (months) *</label>
-              <input type="number" min="1" value={usefulLifeMonths} onChange={(e) => setUsefulLifeMonths(e.target.value)} className={inputCls} placeholder="60" />
+              <label htmlFor="asset-useful-life" className={labelCls}>Useful Life (months) *</label>
+              <input id="asset-useful-life" type="number" min="1" value={usefulLifeMonths} onChange={(e) => setUsefulLifeMonths(e.target.value)} className={inputCls} placeholder="60" />
             </div>
             <div>
-              <label className={labelCls}>Depreciation Method *</label>
-              <select value={depreciationMethod} onChange={(e) => setDepreciationMethod(e.target.value)} className={inputCls}>
+              <label htmlFor="asset-depreciation-method" className={labelCls}>Depreciation Method *</label>
+              <select id="asset-depreciation-method" value={depreciationMethod} onChange={(e) => setDepreciationMethod(e.target.value)} className={inputCls}>
                 {DEPRECIATION_METHODS.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
@@ -332,8 +334,8 @@ function AddAssetDialog({ open, onClose, onSave, isSaving }: AddAssetDialogProps
 
           {/* Row 6: Location */}
           <div>
-            <label className={labelCls}>Location ID</label>
-            <input type="text" value={locationId} onChange={(e) => setLocationId(e.target.value)} className={inputCls} placeholder="Optional location ID" />
+            <label htmlFor="asset-location-id" className={labelCls}>Location ID</label>
+            <input id="asset-location-id" type="text" value={locationId} onChange={(e) => setLocationId(e.target.value)} className={inputCls} placeholder="Optional location ID" />
           </div>
 
           {/* GL Accounts Section */}
@@ -341,28 +343,28 @@ function AddAssetDialog({ open, onClose, onSave, isSaving }: AddAssetDialogProps
             <p className="text-sm font-medium text-muted-foreground">GL Account IDs (optional)</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className={labelCls}>Asset Account</label>
-                <input type="text" value={assetGlAccountId} onChange={(e) => setAssetGlAccountId(e.target.value)} className={inputCls} placeholder="GL account ID" />
+                <label htmlFor="asset-gl-account" className={labelCls}>Asset Account</label>
+                <input id="asset-gl-account" type="text" value={assetGlAccountId} onChange={(e) => setAssetGlAccountId(e.target.value)} className={inputCls} placeholder="GL account ID" />
               </div>
               <div>
-                <label className={labelCls}>Depreciation Expense</label>
-                <input type="text" value={depreciationExpenseGlAccountId} onChange={(e) => setDepreciationExpenseGlAccountId(e.target.value)} className={inputCls} placeholder="GL account ID" />
+                <label htmlFor="asset-depr-expense-gl" className={labelCls}>Depreciation Expense</label>
+                <input id="asset-depr-expense-gl" type="text" value={depreciationExpenseGlAccountId} onChange={(e) => setDepreciationExpenseGlAccountId(e.target.value)} className={inputCls} placeholder="GL account ID" />
               </div>
               <div>
-                <label className={labelCls}>Accumulated Depreciation</label>
-                <input type="text" value={accumulatedDepreciationGlAccountId} onChange={(e) => setAccumulatedDepreciationGlAccountId(e.target.value)} className={inputCls} placeholder="GL account ID" />
+                <label htmlFor="asset-accum-depr-gl" className={labelCls}>Accumulated Depreciation</label>
+                <input id="asset-accum-depr-gl" type="text" value={accumulatedDepreciationGlAccountId} onChange={(e) => setAccumulatedDepreciationGlAccountId(e.target.value)} className={inputCls} placeholder="GL account ID" />
               </div>
               <div>
-                <label className={labelCls}>Disposal Account</label>
-                <input type="text" value={disposalGlAccountId} onChange={(e) => setDisposalGlAccountId(e.target.value)} className={inputCls} placeholder="GL account ID" />
+                <label htmlFor="asset-disposal-gl" className={labelCls}>Disposal Account</label>
+                <input id="asset-disposal-gl" type="text" value={disposalGlAccountId} onChange={(e) => setDisposalGlAccountId(e.target.value)} className={inputCls} placeholder="GL account ID" />
               </div>
             </div>
           </div>
 
           {/* Notes */}
           <div>
-            <label className={labelCls}>Notes</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inputCls} placeholder="Optional notes" />
+            <label htmlFor="asset-notes" className={labelCls}>Notes</label>
+            <textarea id="asset-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inputCls} placeholder="Optional notes" />
           </div>
 
           {/* Actions */}
@@ -410,6 +412,7 @@ function DepreciateDialog({ open, onClose, asset, onSubmit, isSubmitting }: Depr
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
         <h3 className="text-lg font-semibold text-foreground">Record Depreciation</h3>
@@ -425,8 +428,9 @@ function DepreciateDialog({ open, onClose, asset, onSubmit, isSubmitting }: Depr
         )}
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Period Date</label>
+          <label htmlFor="depreciate-period-date" className="block text-sm font-medium text-foreground mb-1">Period Date</label>
           <input
+            id="depreciate-period-date"
             type="date"
             value={periodDate}
             onChange={(e) => setPeriodDate(e.target.value)}
@@ -485,6 +489,7 @@ function DisposeDialog({ open, onClose, asset, onSubmit, isSubmitting }: Dispose
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
         <h3 className="text-lg font-semibold text-foreground">Dispose Asset</h3>
@@ -501,18 +506,18 @@ function DisposeDialog({ open, onClose, asset, onSubmit, isSubmitting }: Dispose
         )}
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Disposal Date *</label>
-          <input type="date" value={disposalDate} onChange={(e) => setDisposalDate(e.target.value)} className={inputCls} />
+          <label htmlFor="dispose-date" className="block text-sm font-medium text-foreground mb-1">Disposal Date *</label>
+          <input id="dispose-date" type="date" value={disposalDate} onChange={(e) => setDisposalDate(e.target.value)} className={inputCls} />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Disposal Proceeds</label>
-          <input type="number" step="0.01" min="0" value={disposalProceeds} onChange={(e) => setDisposalProceeds(e.target.value)} className={inputCls} placeholder="0.00" />
+          <label htmlFor="dispose-proceeds" className="block text-sm font-medium text-foreground mb-1">Disposal Proceeds</label>
+          <input id="dispose-proceeds" type="number" step="0.01" min="0" value={disposalProceeds} onChange={(e) => setDisposalProceeds(e.target.value)} className={inputCls} placeholder="0.00" />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Disposal GL Account ID</label>
-          <input type="text" value={disposalGlAccountId} onChange={(e) => setDisposalGlAccountId(e.target.value)} className={inputCls} placeholder="Optional GL account ID" />
+          <label htmlFor="dispose-gl-account" className="block text-sm font-medium text-foreground mb-1">Disposal GL Account ID</label>
+          <input id="dispose-gl-account" type="text" value={disposalGlAccountId} onChange={(e) => setDisposalGlAccountId(e.target.value)} className={inputCls} placeholder="Optional GL account ID" />
         </div>
 
         <div className="flex justify-end gap-3">

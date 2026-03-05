@@ -542,6 +542,7 @@ function EditHeaderDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
@@ -565,10 +566,12 @@ function EditHeaderDialog({
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="edit-rate-plan-name" className="mb-1 block text-sm font-medium text-foreground">
               Name <span className="text-red-500">*</span>
             </label>
+            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
             <input
+              id="edit-rate-plan-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -578,10 +581,11 @@ function EditHeaderDialog({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="edit-rate-plan-description" className="mb-1 block text-sm font-medium text-foreground">
               Description
             </label>
             <input
+              id="edit-rate-plan-description"
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -590,7 +594,7 @@ function EditHeaderDialog({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="edit-rate-plan-default-rate" className="mb-1 block text-sm font-medium text-foreground">
               Default Nightly Rate ($)
             </label>
             <div className="relative">
@@ -598,6 +602,7 @@ function EditHeaderDialog({
                 $
               </span>
               <input
+                id="edit-rate-plan-default-rate"
                 type="number"
                 value={defaultRateStr}
                 onChange={(e) => setDefaultRateStr(e.target.value)}
@@ -716,6 +721,7 @@ function SetRateDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
@@ -738,10 +744,11 @@ function SetRateDialog({
         <div className="space-y-4">
           {/* Room Type */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="set-rate-room-type" className="mb-1 block text-sm font-medium text-foreground">
               Room Type <span className="text-red-500">*</span>
             </label>
             <Select
+              id="set-rate-room-type"
               options={roomTypeOptions}
               value={roomTypeId}
               onChange={(v) => setRoomTypeId(v as string)}
@@ -753,10 +760,11 @@ function SetRateDialog({
           {/* Date Range */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">
+              <label htmlFor="set-rate-start-date" className="mb-1 block text-sm font-medium text-foreground">
                 Start Date <span className="text-red-500">*</span>
               </label>
               <input
+                id="set-rate-start-date"
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
@@ -764,10 +772,11 @@ function SetRateDialog({
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">
+              <label htmlFor="set-rate-end-date" className="mb-1 block text-sm font-medium text-foreground">
                 End Date <span className="text-red-500">*</span>
               </label>
               <input
+                id="set-rate-end-date"
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -779,14 +788,16 @@ function SetRateDialog({
 
           {/* Nightly Rate */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="set-rate-nightly-rate" className="mb-1 block text-sm font-medium text-foreground">
               Nightly Rate ($) <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                 $
               </span>
+              {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
               <input
+                id="set-rate-nightly-rate"
                 type="number"
                 value={rateStr}
                 onChange={(e) => setRateStr(e.target.value)}

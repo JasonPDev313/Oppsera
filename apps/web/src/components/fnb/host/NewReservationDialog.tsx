@@ -128,6 +128,7 @@ export function NewReservationDialog({
   };
 
   const content = (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       style={{
         position: 'fixed',
@@ -207,10 +208,12 @@ export function NewReservationDialog({
         >
           {/* Guest Name */}
           <div>
-            <label style={labelStyle}>
+            <label htmlFor="reservation-guest-name" style={labelStyle}>
               Guest Name <span style={{ color: 'var(--fnb-danger)' }}>*</span>
             </label>
+            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
             <input
+              id="reservation-guest-name"
               type="text"
               value={guestName}
               onChange={(e) => setGuestName(e.target.value)}
@@ -222,8 +225,9 @@ export function NewReservationDialog({
 
           {/* Phone */}
           <div>
-            <label style={labelStyle}>Phone</label>
+            <label htmlFor="reservation-guest-phone" style={labelStyle}>Phone</label>
             <input
+              id="reservation-guest-phone"
               type="tel"
               value={guestPhone}
               onChange={(e) => setGuestPhone(e.target.value)}
@@ -234,6 +238,7 @@ export function NewReservationDialog({
 
           {/* Party Size */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label style={labelStyle}>Party Size</label>
             <div
               style={{
@@ -296,10 +301,11 @@ export function NewReservationDialog({
           {/* Date + Time row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--fnb-space-3)' }}>
             <div>
-              <label style={labelStyle}>
+              <label htmlFor="reservation-date" style={labelStyle}>
                 Date <span style={{ color: 'var(--fnb-danger)' }}>*</span>
               </label>
               <input
+                id="reservation-date"
                 type="date"
                 value={reservationDate}
                 onChange={(e) => setReservationDate(e.target.value)}
@@ -311,10 +317,11 @@ export function NewReservationDialog({
               />
             </div>
             <div>
-              <label style={labelStyle}>
+              <label htmlFor="reservation-time" style={labelStyle}>
                 Time <span style={{ color: 'var(--fnb-danger)' }}>*</span>
               </label>
               <input
+                id="reservation-time"
                 type="time"
                 value={reservationTime}
                 onChange={(e) => setReservationTime(e.target.value)}
@@ -329,8 +336,9 @@ export function NewReservationDialog({
 
           {/* Duration */}
           <div>
-            <label style={labelStyle}>Duration</label>
+            <label htmlFor="reservation-duration" style={labelStyle}>Duration</label>
             <select
+              id="reservation-duration"
               value={durationMinutes}
               onChange={(e) => setDurationMinutes(Number(e.target.value))}
               style={{
@@ -348,8 +356,9 @@ export function NewReservationDialog({
 
           {/* Seating Preference */}
           <div>
-            <label style={labelStyle}>Seating Preference</label>
+            <label htmlFor="reservation-seating" style={labelStyle}>Seating Preference</label>
             <select
+              id="reservation-seating"
               value={seatingPreference}
               onChange={(e) => setSeatingPreference(e.target.value)}
               style={{
@@ -367,8 +376,9 @@ export function NewReservationDialog({
 
           {/* Occasion */}
           <div>
-            <label style={labelStyle}>Occasion</label>
+            <label htmlFor="reservation-occasion" style={labelStyle}>Occasion</label>
             <select
+              id="reservation-occasion"
               value={occasion}
               onChange={(e) => setOccasion(e.target.value)}
               style={{
@@ -386,8 +396,9 @@ export function NewReservationDialog({
 
           {/* Special Requests */}
           <div>
-            <label style={labelStyle}>Special Requests</label>
+            <label htmlFor="reservation-special-requests" style={labelStyle}>Special Requests</label>
             <textarea
+              id="reservation-special-requests"
               value={specialRequests}
               onChange={(e) => setSpecialRequests(e.target.value)}
               placeholder="Allergies, accessibility needs, high chair, etc."
@@ -451,8 +462,9 @@ export function NewReservationDialog({
 
           {/* Notes */}
           <div>
-            <label style={labelStyle}>Notes</label>
+            <label htmlFor="reservation-notes" style={labelStyle}>Notes</label>
             <textarea
+              id="reservation-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Internal notes..."
