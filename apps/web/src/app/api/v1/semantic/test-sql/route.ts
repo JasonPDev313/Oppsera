@@ -21,6 +21,12 @@ const BLOCKED_PATTERNS = [
   /\bpg_sleep\b/i,
   /\bset_config\b/i,
   /\bcurrent_setting\b/i,
+  /\b(pg_read_file|pg_read_binary_file|pg_ls_dir|lo_import|lo_export)\b/i,
+  /\b(pg_terminate_backend|pg_cancel_backend|pg_reload_conf)\b/i,
+  /\b(EXECUTE|PREPARE|DEALLOCATE|LISTEN|NOTIFY|UNLISTEN)\b/i,
+  /\b(LOAD|DO\s+\$)\b/i,
+  /--/, // SQL line comments (potential injection vector)
+  /\/\*/, // SQL block comments
   /;\s*\S/, // multiple statements
 ];
 
@@ -84,5 +90,5 @@ export const POST = withMiddleware(
       );
     }
   },
-  { entitlement: 'semantic', permission: 'semantic.view', writeAccess: true },
+  { entitlement: 'semantic', permission: 'semantic.view' },
 );

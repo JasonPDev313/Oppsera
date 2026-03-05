@@ -35,12 +35,23 @@ export class POSErrorBoundary extends Component<Props, State> {
     this.setState({ crashCount: nextCrashCount });
 
     // Log enough context to diagnose in production
-     
     console.error(
       `[POSErrorBoundary] ${this.props.mode} crash #${nextCrashCount}:`,
       error.message,
       error.stack,
     );
+
+    // Report to Sentry so POS crashes are visible in monitoring
+    try {
+      import('@sentry/nextjs').then((Sentry) => {
+        Sentry.captureException(error, {
+          tags: { component: 'POSErrorBoundary', mode: this.props.mode },
+          extra: { crashCount: nextCrashCount },
+        });
+      });
+    } catch {
+      // Sentry not loaded — skip
+    }
   }
 
   handleSoftReload = () => {

@@ -12,10 +12,26 @@ import {
 // ── Per-tenant rate limiter (Fix 6: tenant fairness) ────────────
 // Prevents a single tenant from hammering the backfill endpoint.
 // Max 2 calls per 5 minutes per tenant, max 1 concurrent.
+//
+// VERCEL / SERVERLESS LIMITATION:
+// This Map is process-local — each serverless instance maintains its own
+// counters that reset on cold start. A tenant routed to a new instance
+// gets a fresh counter, allowing up to MAX_CALLS_PER_WINDOW again.
+// This is acceptable: backfills are idempotent and GL posting is designed
+// to be re-run without duplication. The limit is a fairness guardrail, not
+// a hard correctness constraint. Under high concurrency, multiple instances
+// could each allow a backfill simultaneously — this is safe because the
+// backfill command uses optimistic locking internally.
+//
+// The `inProgress` flag prevents concurrent backfills on the SAME instance.
+// The try/finally in the handler guarantees the flag is always released,
+// even on timeout or error.
+//
+// Stage 2+: Move state to Redis for cross-instance enforcement.
 const _tenantBackfillState = new Map<string, { lastCalls: number[]; inProgress: boolean }>();
 const RATE_WINDOW_MS = 5 * 60_000;
 const MAX_CALLS_PER_WINDOW = 2;
-// LRU cap — prevent unbounded Map growth
+// LRU cap — prevent unbounded Map growth on long-lived instances
 const MAX_TRACKED_TENANTS = 500;
 
 function checkBackfillRate(tenantId: string): { allowed: boolean; retryAfterMs?: number } {

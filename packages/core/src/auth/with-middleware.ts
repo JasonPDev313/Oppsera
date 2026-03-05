@@ -229,6 +229,18 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
       const rawMsg = error instanceof Error ? error.message : String(error);
       console.error('Unhandled error in route handler:', rawMsg, error);
 
+      // Report to Sentry so 500s are visible in monitoring
+      try {
+        const { captureException } = await import('../observability/sentry-context');
+        captureException(error, {
+          path: new URL(request.url).pathname,
+          method: request.method,
+          tenantId: _trackTenantId || undefined,
+        });
+      } catch {
+        // Sentry not loaded — skip
+      }
+
       // Surface DB schema mismatch errors clearly — most common cause of 500s during development
       const isDbSchemaError = rawMsg.includes('column') || rawMsg.includes('relation') || rawMsg.includes('does not exist');
       const userMsg =
@@ -246,30 +258,25 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
         { status: 500 },
       );
     } finally {
-      // Usage tracking — truly fire-and-forget (no await, never delays response)
+      // Usage tracking — awaited to prevent zombie DB connections on Vercel.
+      // recordUsage is a fast in-memory buffer flush, so this adds minimal latency.
       if (_trackTenantId) {
-        const _tId = _trackTenantId;
-        const _uId = _trackUserId || 'unknown';
-        const _method = request.method;
-        const _duration = Date.now() - startTime;
-        const _ts = Date.now();
-        const _ent = options?.entitlement;
-        const _perm = options?.permission;
-        void Promise.all([
-          import('../usage/tracker'),
-          import('../usage/workflow-registry'),
-        ]).then(([{ recordUsage }, { resolveModuleKey }]) => {
-          recordUsage({
-            tenantId: _tId,
-            userId: _uId,
-            moduleKey: resolveModuleKey(_ent, _perm),
-            workflowKey: _perm || '',
-            method: _method,
+        try {
+          const [{ recordUsage }, { resolveModuleKey }] = await Promise.all([
+            import('../usage/tracker'),
+            import('../usage/workflow-registry'),
+          ]);
+          await recordUsage({
+            tenantId: _trackTenantId,
+            userId: _trackUserId || 'unknown',
+            moduleKey: resolveModuleKey(options?.entitlement, options?.permission),
+            workflowKey: options?.permission || '',
+            method: request.method,
             statusCode: _trackStatusCode,
-            durationMs: _duration,
-            timestamp: _ts,
+            durationMs: Date.now() - startTime,
+            timestamp: Date.now(),
           });
-        }).catch(() => { /* never fail the request */ });
+        } catch { /* never fail the request */ }
       }
     }
   };
@@ -407,7 +414,7 @@ async function _executeMiddleware(
           // ── Step-up auth (after permissions, before handler) ──
           if (options?.stepUp) {
             const { requireStepUp } = await import('../security/step-up-auth');
-            requireStepUp(request, ctx, options.stepUp);
+            await requireStepUp(request, ctx, options.stepUp);
           }
 
           // Impersonation safety: block all DELETE requests during impersonation

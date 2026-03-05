@@ -14,8 +14,14 @@ export const PATCH = withMiddleware(
     if (!lineId) return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Missing line ID' } }, { status: 400 });
 
     const body = await request.json();
-    const input = updateReceiptLineSchema.parse({ ...body, lineId });
-    const result = await updateReceiptLine(ctx, input);
+    const parsed = updateReceiptLineSchema.safeParse({ ...body, lineId });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+        { status: 400 },
+      );
+    }
+    const result = await updateReceiptLine(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
   { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },

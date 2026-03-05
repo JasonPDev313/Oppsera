@@ -36,8 +36,14 @@ export const POST = withMiddleware(
     if (!id) return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Missing vendor ID' } }, { status: 400 });
 
     const body = await request.json();
-    const input = addVendorCatalogItemSchema.parse({ ...body, vendorId: id });
-    const item = await addVendorCatalogItem(ctx, input);
+    const parsed = addVendorCatalogItemSchema.safeParse({ ...body, vendorId: id });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+        { status: 400 },
+      );
+    }
+    const item = await addVendorCatalogItem(ctx, parsed.data);
     return NextResponse.json({ data: item }, { status: 201 });
   },
   { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },

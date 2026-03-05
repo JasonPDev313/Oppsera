@@ -69,6 +69,10 @@ export async function processWebhookEvent(
  * 3. Check idempotency by providerCaseId
  * 4. Create chargeback record via direct insert (matches chargebacks schema)
  * 5. Publish chargeback.received.v1 event for GL posting adapter
+ *
+ * Bug 3 fix: reads are done in a separate withTenant block; mutations use
+ * publishWithOutbox outside the read transaction to prevent nested transactions
+ * and pool exhaustion (Vercel pool max: 2).
  */
 async function processChargebackEvent(
   ctx: RequestContext,
@@ -84,7 +88,8 @@ async function processChargebackEvent(
     return { processed: false, action: 'chargeback_missing_retref' };
   }
 
-  return withTenant(ctx.tenantId, async (tx) => {
+  // Phase 1: read-only lookups in a separate withTenant block (no mutations here)
+  const readResult = await withTenant(ctx.tenantId, async (tx) => {
     // Find the original transaction
     const [txnRow] = await tx
       .select({
@@ -103,11 +108,7 @@ async function processChargebackEvent(
       .limit(1);
 
     if (!txnRow) {
-      return {
-        processed: false,
-        action: 'chargeback_no_matching_transaction',
-        details: { retref },
-      };
+      return { earlyExit: { processed: false, action: 'chargeback_no_matching_transaction', details: { retref } } as WebhookProcessResult };
     }
 
     // Get intent for tender + order linkage
@@ -122,9 +123,11 @@ async function processChargebackEvent(
 
     if (!intent?.tenderId || !intent?.orderId) {
       return {
-        processed: false,
-        action: 'chargeback_no_tender_linkage',
-        details: { retref, paymentIntentId: txnRow.paymentIntentId },
+        earlyExit: {
+          processed: false,
+          action: 'chargeback_no_tender_linkage',
+          details: { retref, paymentIntentId: txnRow.paymentIntentId },
+        } as WebhookProcessResult,
       };
     }
 
@@ -143,60 +146,70 @@ async function processChargebackEvent(
 
       if (existing) {
         return {
-          processed: true,
-          action: 'chargeback_already_exists',
-          details: { chargebackId: existing.id },
+          earlyExit: {
+            processed: true,
+            action: 'chargeback_already_exists',
+            details: { chargebackId: existing.id },
+          } as WebhookProcessResult,
         };
       }
     }
 
-    // Create chargeback record matching the chargebacks schema
-    const chargebackId = generateUlid();
-    const now = new Date();
-    const businessDate = now.toISOString().slice(0, 10);
+    return { tenderId: intent.tenderId!, orderId: intent.orderId! };
+  });
 
-    const result = await publishWithOutbox(ctx, async () => {
-      await tx.insert(chargebacks).values({
-        id: chargebackId,
-        tenantId: ctx.tenantId,
-        locationId: ctx.locationId ?? 'webhook',
-        tenderId: intent.tenderId!,
-        orderId: intent.orderId!,
-        chargebackReason: reason,
-        chargebackAmountCents: amountCents,
-        feeAmountCents: 0,
-        status: 'received',
-        providerCaseId: caseNumber || null,
-        providerRef: retref,
-        businessDate,
-        createdAt: now,
-        updatedAt: now,
-        createdBy: 'system:webhook',
-      });
+  // Handle early exits from the read phase
+  if ('earlyExit' in readResult) {
+    return readResult.earlyExit as WebhookProcessResult;
+  }
 
-      const event = buildEventFromContext(ctx, 'chargeback.received.v1', {
-        chargebackId,
-        tenderId: intent.tenderId,
-        orderId: intent.orderId,
-        tenderType: 'credit_card',
-        chargebackAmountCents: amountCents,
-        feeAmountCents: 0,
-        locationId: ctx.locationId ?? 'webhook',
-        businessDate,
-        chargebackReason: reason,
-      });
+  const { tenderId, orderId } = readResult;
+  const chargebackId = generateUlid();
+  const now = new Date();
+  const businessDate = now.toISOString().slice(0, 10);
 
-      return { result: { chargebackId }, events: [event] };
+  // Phase 2: mutations via publishWithOutbox (outside the read transaction)
+  const result = await publishWithOutbox(ctx, async (tx) => {
+    await tx.insert(chargebacks).values({
+      id: chargebackId,
+      tenantId: ctx.tenantId,
+      locationId: ctx.locationId ?? 'webhook',
+      tenderId,
+      orderId,
+      chargebackReason: reason,
+      chargebackAmountCents: amountCents,
+      feeAmountCents: 0,
+      status: 'received',
+      providerCaseId: caseNumber || null,
+      providerRef: retref,
+      businessDate,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: 'system:webhook',
     });
 
-    await auditLog(ctx, 'chargeback.received', 'chargeback', result.chargebackId);
+    const event = buildEventFromContext(ctx, 'chargeback.received.v1', {
+      chargebackId,
+      tenderId,
+      orderId,
+      tenderType: 'credit_card',
+      chargebackAmountCents: amountCents,
+      feeAmountCents: 0,
+      locationId: ctx.locationId ?? 'webhook',
+      businessDate,
+      chargebackReason: reason,
+    });
 
-    return {
-      processed: true,
-      action: 'chargeback_created',
-      details: { chargebackId, tenderId: intent.tenderId },
-    };
+    return { result: { chargebackId }, events: [event] };
   });
+
+  await auditLog(ctx, 'chargeback.received', 'chargeback', result.chargebackId);
+
+  return {
+    processed: true,
+    action: 'chargeback_created',
+    details: { chargebackId, tenderId },
+  };
 }
 
 // ── Card Update Handler ────────────────────────────────────────────

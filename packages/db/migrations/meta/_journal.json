@@ -1898,6 +1898,20 @@
       "when": 1742016000000,
       "tag": "0270_kds_retail_order_support",
       "breakpoints": true
+    },
+    {
+      "idx": 271,
+      "version": "7",
+      "when": 1742102400000,
+      "tag": "0271_kds_ticket_composite_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 272,
+      "version": "7",
+      "when": 1742188800000,
+      "tag": "0272_membership_recognition_rls",
+      "breakpoints": true
     }
   ]
 }

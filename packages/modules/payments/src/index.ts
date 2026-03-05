@@ -39,8 +39,9 @@ export { recordChargeback, resolveChargeback } from './commands';
 export { authorizePayment, capturePayment, salePayment, voidPayment, refundPayment } from './commands';
 export { tokenizeCard, createPaymentProfile, inquirePaymentIntent } from './commands';
 export { addPaymentMethod, removePaymentMethod, setDefaultPaymentMethod } from './commands';
-export { terminalAuthCard, terminalReadCard, terminalDisplay, terminalCancel } from './commands';
+export { terminalAuthCard, terminalReadCard, terminalDisplay, terminalCancel, terminalTip } from './commands';
 export type { ReadCardResult } from './commands';
+export type { TerminalTipResult } from './commands';
 // ACH commands
 export { tokenizeBankAccount, addBankAccount, initiateMicroDeposits, verifyMicroDeposits, processAchReturn } from './commands';
 export type { BankTokenResult, BankAccountResult, InitiateMicroDepositsResult, VerifyMicroDepositsResult, ProcessAchReturnInput, ProcessAchReturnResult } from './commands';
@@ -176,7 +177,7 @@ export { setDefaultPaymentMethodSchema } from './commands/set-default-payment-me
 export type { SetDefaultPaymentMethodInput } from './commands/set-default-payment-method';
 
 // Helpers
-export { generateJournalEntry } from './helpers';
+export { generateJournalEntry, getDebitAccountForTenderType, getRevenueAccountForDepartment } from './helpers';
 export type {
   TenderForGL,
   OrderForGL,

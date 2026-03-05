@@ -112,11 +112,14 @@ export async function getKdsView(
     );
     const tickets = Array.from(ticketRows as Iterable<Record<string, unknown>>);
 
-    // Get items for all active tickets at this station
-    const ticketCards: KdsTicketCard[] = [];
-    for (const t of tickets) {
-      const itemRows = await tx.execute(
-        sql`SELECT id, order_line_id, item_name, kitchen_label, item_color,
+    // Batch-fetch all items for all active tickets at this station in a single query
+    // (fixes N+1: previously one SELECT per ticket)
+    const ticketIds = tickets.map((t) => t.id as string);
+    const itemsByTicket = new Map<string, KdsTicketItem[]>();
+
+    if (ticketIds.length > 0) {
+      const allItemRows = await tx.execute(
+        sql`SELECT ticket_id, id, order_line_id, item_name, kitchen_label, item_color,
                    modifier_summary, special_instructions,
                    seat_number, course_name, quantity, item_status,
                    priority_level, estimated_prep_seconds, routing_rule_id,
@@ -124,58 +127,63 @@ export async function getKdsView(
                    started_at, ready_at, bumped_by,
                    EXTRACT(EPOCH FROM (NOW() - COALESCE(started_at, created_at)))::integer AS elapsed_seconds
             FROM fnb_kitchen_ticket_items
-            WHERE ticket_id = ${t.id as string}
+            WHERE ticket_id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})
               AND station_id = ${input.stationId}
               AND item_status NOT IN ('served', 'voided')
-            ORDER BY priority_level DESC NULLS LAST, seat_number NULLS LAST, id ASC`,
+            ORDER BY ticket_id, priority_level DESC NULLS LAST, seat_number NULLS LAST, id ASC`,
       );
-      const items = Array.from(itemRows as Iterable<Record<string, unknown>>).map((r) => ({
-        itemId: r.id as string,
-        orderLineId: r.order_line_id as string,
-        itemName: r.item_name as string,
-        kitchenLabel: (r.kitchen_label as string) ?? null,
-        itemColor: (r.item_color as string) ?? null,
-        modifierSummary: (r.modifier_summary as string) ?? null,
-        specialInstructions: (r.special_instructions as string) ?? null,
-        seatNumber: r.seat_number != null ? Number(r.seat_number) : null,
-        courseName: (r.course_name as string) ?? null,
-        quantity: Number(r.quantity),
-        itemStatus: r.item_status as string,
-        priorityLevel: Number(r.priority_level ?? 0),
-        estimatedPrepSeconds: r.estimated_prep_seconds != null ? Number(r.estimated_prep_seconds) : null,
-        routingRuleId: (r.routing_rule_id as string) ?? null,
-        isRush: r.is_rush as boolean,
-        isAllergy: r.is_allergy as boolean,
-        isVip: r.is_vip as boolean,
-        startedAt: (r.started_at as string) ?? null,
-        readyAt: (r.ready_at as string) ?? null,
-        bumpedBy: (r.bumped_by as string) ?? null,
-        elapsedSeconds: Number(r.elapsed_seconds),
-      }));
-
-      ticketCards.push({
-        ticketId: t.id as string,
-        ticketNumber: Number(t.ticket_number),
-        tabId: t.tab_id as string,
-        courseNumber: t.course_number != null ? Number(t.course_number) : null,
-        status: t.status as string,
-        priorityLevel: Number(t.priority_level ?? 0),
-        isHeld: (t.is_held as boolean) ?? false,
-        orderType: (t.order_type as string) ?? null,
-        channel: (t.channel as string) ?? null,
-        tableNumber: t.table_number != null ? Number(t.table_number) : null,
-        serverName: (t.server_name as string) ?? null,
-        customerName: (t.customer_name as string) ?? null,
-        sentAt: t.sent_at as string,
-        estimatedPickupAt: (t.estimated_pickup_at as string) ?? null,
-        elapsedSeconds: Number(t.elapsed_seconds),
-        items,
-        otherStations: [],
-        orderSource: (t.order_source as string) ?? null,
-        terminalId: (t.terminal_id as string) ?? null,
-        orderTimestamp: (t.order_timestamp as string) ?? null,
-      });
+      for (const r of Array.from(allItemRows as Iterable<Record<string, unknown>>)) {
+        const tid = r.ticket_id as string;
+        const item: KdsTicketItem = {
+          itemId: r.id as string,
+          orderLineId: r.order_line_id as string,
+          itemName: r.item_name as string,
+          kitchenLabel: (r.kitchen_label as string) ?? null,
+          itemColor: (r.item_color as string) ?? null,
+          modifierSummary: (r.modifier_summary as string) ?? null,
+          specialInstructions: (r.special_instructions as string) ?? null,
+          seatNumber: r.seat_number != null ? Number(r.seat_number) : null,
+          courseName: (r.course_name as string) ?? null,
+          quantity: Number(r.quantity),
+          itemStatus: r.item_status as string,
+          priorityLevel: Number(r.priority_level ?? 0),
+          estimatedPrepSeconds: r.estimated_prep_seconds != null ? Number(r.estimated_prep_seconds) : null,
+          routingRuleId: (r.routing_rule_id as string) ?? null,
+          isRush: r.is_rush as boolean,
+          isAllergy: r.is_allergy as boolean,
+          isVip: r.is_vip as boolean,
+          startedAt: (r.started_at as string) ?? null,
+          readyAt: (r.ready_at as string) ?? null,
+          bumpedBy: (r.bumped_by as string) ?? null,
+          elapsedSeconds: Number(r.elapsed_seconds),
+        };
+        if (!itemsByTicket.has(tid)) itemsByTicket.set(tid, []);
+        itemsByTicket.get(tid)!.push(item);
+      }
     }
+
+    const ticketCards: KdsTicketCard[] = tickets.map((t) => ({
+      ticketId: t.id as string,
+      ticketNumber: Number(t.ticket_number),
+      tabId: t.tab_id as string,
+      courseNumber: t.course_number != null ? Number(t.course_number) : null,
+      status: t.status as string,
+      priorityLevel: Number(t.priority_level ?? 0),
+      isHeld: (t.is_held as boolean) ?? false,
+      orderType: (t.order_type as string) ?? null,
+      channel: (t.channel as string) ?? null,
+      tableNumber: t.table_number != null ? Number(t.table_number) : null,
+      serverName: (t.server_name as string) ?? null,
+      customerName: (t.customer_name as string) ?? null,
+      sentAt: t.sent_at as string,
+      estimatedPickupAt: (t.estimated_pickup_at as string) ?? null,
+      elapsedSeconds: Number(t.elapsed_seconds),
+      items: itemsByTicket.get(t.id as string) ?? [],
+      otherStations: [],
+      orderSource: (t.order_source as string) ?? null,
+      terminalId: (t.terminal_id as string) ?? null,
+      orderTimestamp: (t.order_timestamp as string) ?? null,
+    }));
 
     // Fetch cross-station "Also At" data for all active tickets
     if (ticketCards.length > 0) {

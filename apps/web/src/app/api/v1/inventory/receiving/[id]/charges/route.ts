@@ -9,8 +9,14 @@ export const POST = withMiddleware(
     if (!id) return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Missing receipt ID' } }, { status: 400 });
 
     const body = await request.json();
-    const input = addReceiptChargeSchema.parse({ ...body, receiptId: id });
-    const charge = await addReceiptCharge(ctx, input);
+    const parsed = addReceiptChargeSchema.safeParse({ ...body, receiptId: id });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+        { status: 400 },
+      );
+    }
+    const charge = await addReceiptCharge(ctx, parsed.data);
     return NextResponse.json({ data: charge }, { status: 201 });
   },
   { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },

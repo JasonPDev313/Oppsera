@@ -23,7 +23,8 @@ interface POSRawItem {
   sku: string | null;
   barcode: string | null;
   itemType: string;
-  defaultPrice: string;
+  /** Price in cents (integer). Server converts catalog NUMERIC dollar string → cents. */
+  defaultPriceCents: number;
   priceIncludesTax: boolean;
   isTrackable: boolean;
   metadata: Record<string, unknown> | null;
@@ -139,7 +140,7 @@ function convertToPOSItem(
     barcode: item.barcode,
     type: item.itemType,
     typeGroup: getItemTypeGroup(item.itemType, item.metadata ?? {}),
-    price: Math.round(parseFloat(item.defaultPrice) * 100),
+    price: item.defaultPriceCents,
     isTrackInventory: item.isTrackable,
     onHand: null, // V1 — inventory module not wired yet
     metadata: item.metadata ?? {},

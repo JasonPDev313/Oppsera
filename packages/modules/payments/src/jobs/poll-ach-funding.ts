@@ -64,7 +64,10 @@ export async function pollAchFunding(
   const dates = buildDateList(input.date, lookbackDays);
   const results: PollAchFundingResult[] = [];
 
-  await withTenant(tenantId, async (tx) => {
+  // Phase 1: Read-only setup queries in a single withTenant transaction.
+  // This avoids nesting publishWithOutbox inside withTenant, which would
+  // cause nested transactions / pool exhaustion (max: 2 on Vercel).
+  const setup = await withTenant(tenantId, async (tx) => {
     // 1. Find active provider
     const [providerRow] = await tx
       .select()
@@ -77,7 +80,7 @@ export async function pollAchFunding(
       )
       .limit(1);
 
-    if (!providerRow) return;
+    if (!providerRow) return null;
 
     // 2. Resolve credentials (tenant-wide)
     const [credsRow] = await tx
@@ -93,7 +96,7 @@ export async function pollAchFunding(
       )
       .limit(1);
 
-    if (!credsRow) return;
+    if (!credsRow) return null;
 
     const credentials = decryptCredentials(credsRow.credentialsEncrypted);
 
@@ -115,24 +118,33 @@ export async function pollAchFunding(
         ),
       );
 
-    if (merchantAccounts.length === 0) return;
+    if (merchantAccounts.length === 0) return null;
 
-    // 4. Poll each MID for each date
-    for (const ma of merchantAccounts) {
-      const provider = providerRegistry.get(providerRow.code, credentials, ma.merchantId);
+    return { providerRow, credentials, merchantAccounts };
+  });
 
-      if (!provider.getFundingStatus) {
-        console.warn(`[ACH Funding] Provider ${providerRow.code} does not support getFundingStatus`);
-        continue;
-      }
+  if (!setup) return results;
 
-      for (const fundingDate of dates) {
-        try {
-          const fundingData = await provider.getFundingStatus(fundingDate, ma.merchantId);
+  const { providerRow, credentials, merchantAccounts } = setup;
 
-          // Idempotency: check if we already processed this batch
-          // Unique key: (tenantId, providerCode, eventId)
-          const batchKey = `ach-funding-${ma.merchantId}-${fundingDate}`;
+  // Phase 2: Process each MID/date outside the outer transaction.
+  // Each processFundingTransaction call now has its own independent
+  // publishWithOutbox transaction, preventing nested tx / pool exhaustion.
+  for (const ma of merchantAccounts) {
+    const provider = providerRegistry.get(providerRow.code, credentials, ma.merchantId);
+
+    if (!provider.getFundingStatus) {
+      console.warn(`[ACH Funding] Provider ${providerRow.code} does not support getFundingStatus`);
+      continue;
+    }
+
+    for (const fundingDate of dates) {
+      try {
+        const fundingData = await provider.getFundingStatus(fundingDate, ma.merchantId);
+
+        // Idempotency: check if we already processed this batch
+        const batchKey = `ach-funding-${ma.merchantId}-${fundingDate}`;
+        const existingBatch = await withTenant(tenantId, async (tx) => {
           const [existing] = await tx
             .select({ id: paymentWebhookEvents.id })
             .from(paymentWebhookEvents)
@@ -144,52 +156,53 @@ export async function pollAchFunding(
               ),
             )
             .limit(1);
+          return existing;
+        });
 
-          if (existing) {
-            // Already processed this date+MID combination
-            continue;
-          }
+        if (existingBatch) {
+          continue;
+        }
 
-          // Process each funding transaction
-          let settledCount = 0;
-          let originatedCount = 0;
-          let returnedCount = 0;
-          let skippedCount = 0;
+        // Process each funding transaction independently
+        let settledCount = 0;
+        let originatedCount = 0;
+        let returnedCount = 0;
+        let skippedCount = 0;
 
-          for (const ftxn of fundingData.fundingTransactions) {
-            try {
-              const processed = await processFundingTransaction(
-                ctx,
-                tx,
-                tenantId,
-                ma.id,
-                ftxn,
-                fundingDate,
-              );
-              switch (processed) {
-                case 'settled':
-                  settledCount++;
-                  break;
-                case 'originated':
-                  originatedCount++;
-                  break;
-                case 'returned':
-                  returnedCount++;
-                  break;
-                case 'skipped':
-                  skippedCount++;
-                  break;
-              }
-            } catch (err) {
-              console.error(
-                `[ACH Funding] Failed to process transaction ${ftxn.providerRef}:`,
-                err,
-              );
-              skippedCount++;
+        for (const ftxn of fundingData.fundingTransactions) {
+          try {
+            const processed = await processFundingTransaction(
+              ctx,
+              tenantId,
+              ma.id,
+              ftxn,
+              fundingDate,
+            );
+            switch (processed) {
+              case 'settled':
+                settledCount++;
+                break;
+              case 'originated':
+                originatedCount++;
+                break;
+              case 'returned':
+                returnedCount++;
+                break;
+              case 'skipped':
+                skippedCount++;
+                break;
             }
+          } catch (err) {
+            console.error(
+              `[ACH Funding] Failed to process transaction ${ftxn.providerRef}:`,
+              err,
+            );
+            skippedCount++;
           }
+        }
 
-          // Mark this batch as processed
+        // Mark this batch as processed (its own transaction)
+        await withTenant(tenantId, async (tx) => {
           await tx.insert(paymentWebhookEvents).values({
             id: generateUlid(),
             tenantId,
@@ -199,26 +212,26 @@ export async function pollAchFunding(
             processedAt: new Date(),
             payload: fundingData.rawResponse,
           });
+        });
 
-          results.push({
-            merchantId: ma.merchantId,
-            date: fundingDate,
-            totalTransactions: fundingData.fundingTransactions.length,
-            settledCount,
-            originatedCount,
-            returnedCount,
-            skippedCount,
-          });
-        } catch (err) {
-          // Best-effort: log and continue to next date/MID
-          console.error(
-            `[ACH Funding] Failed to poll MID ${ma.merchantId} for ${fundingDate}:`,
-            err,
-          );
-        }
+        results.push({
+          merchantId: ma.merchantId,
+          date: fundingDate,
+          totalTransactions: fundingData.fundingTransactions.length,
+          settledCount,
+          originatedCount,
+          returnedCount,
+          skippedCount,
+        });
+      } catch (err) {
+        // Best-effort: log and continue to next date/MID
+        console.error(
+          `[ACH Funding] Failed to poll MID ${ma.merchantId} for ${fundingDate}:`,
+          err,
+        );
       }
     }
-  });
+  }
 
   return results;
 }
@@ -229,49 +242,49 @@ type ProcessResult = 'settled' | 'originated' | 'returned' | 'skipped';
 
 async function processFundingTransaction(
   ctx: RequestContext,
-  tx: Parameters<Parameters<typeof withTenant>[1]>[0],
   tenantId: string,
   merchantAccountId: string,
   ftxn: FundingTransaction,
   fundingDate: string,
 ): Promise<ProcessResult> {
-  // Look up the payment intent by providerRef via payment_transactions
-  const matchRows = await tx
-    .select({
-      intentId: paymentTransactions.paymentIntentId,
-    })
-    .from(paymentTransactions)
-    .where(
-      and(
-        eq(paymentTransactions.tenantId, tenantId),
-        eq(paymentTransactions.providerRef, ftxn.providerRef),
-      ),
-    )
-    .limit(1);
+  // Look up the payment intent by providerRef — read-only query in its own transaction
+  const intentData = await withTenant(tenantId, async (tx) => {
+    const matchRows = await tx
+      .select({
+        intentId: paymentTransactions.paymentIntentId,
+      })
+      .from(paymentTransactions)
+      .where(
+        and(
+          eq(paymentTransactions.tenantId, tenantId),
+          eq(paymentTransactions.providerRef, ftxn.providerRef),
+        ),
+      )
+      .limit(1);
 
-  if (matchRows.length === 0) {
-    // No matching transaction in our system — skip
-    return 'skipped';
-  }
+    if (matchRows.length === 0) return null;
 
-  const intentId = matchRows[0]!.intentId;
+    const intentId = matchRows[0]!.intentId;
 
-  // Load the payment intent
-  const [intent] = await tx
-    .select()
-    .from(paymentIntents)
-    .where(
-      and(
-        eq(paymentIntents.id, intentId),
-        eq(paymentIntents.tenantId, tenantId),
-      ),
-    )
-    .limit(1);
+    const [intent] = await tx
+      .select()
+      .from(paymentIntents)
+      .where(
+        and(
+          eq(paymentIntents.id, intentId),
+          eq(paymentIntents.tenantId, tenantId),
+        ),
+      )
+      .limit(1);
 
-  if (!intent || intent.paymentMethodType !== 'ach') {
-    return 'skipped';
-  }
+    if (!intent || intent.paymentMethodType !== 'ach') return null;
 
+    return { intentId, intent };
+  });
+
+  if (!intentData) return 'skipped';
+
+  const { intentId, intent } = intentData;
   const currentStatus = intent.status as PaymentIntentStatus;
 
   switch (ftxn.fundingStatus) {
@@ -281,7 +294,7 @@ async function processFundingTransaction(
         console.warn(`[ACH Funding] Return without code for ${ftxn.providerRef}`);
         return 'skipped';
       }
-      // Use the processAchReturn command (handles idempotency, events, audit)
+      // processAchReturn uses its own publishWithOutbox — safe outside any outer tx
       await processAchReturn(ctx, {
         paymentIntentId: intentId,
         returnCode: ftxn.achReturnCode,
@@ -294,16 +307,13 @@ async function processFundingTransaction(
     }
 
     case 'settled': {
-      // Only update if not already settled or returned
       if (currentStatus === 'ach_settled' || currentStatus === 'ach_returned') {
         return 'skipped';
       }
 
-      // Validate transition is legal
       try {
         assertIntentTransition(currentStatus, 'ach_settled');
       } catch {
-        // Can't transition — already in a terminal or incompatible state
         return 'skipped';
       }
 
@@ -337,7 +347,6 @@ async function processFundingTransaction(
     }
 
     case 'originated': {
-      // Only update if still pending
       if (currentStatus !== 'ach_pending') {
         return 'skipped';
       }

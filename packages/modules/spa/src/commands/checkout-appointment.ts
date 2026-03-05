@@ -3,7 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { spaAppointments, spaAppointmentHistory } from '@oppsera/db';
+import { spaAppointments, spaAppointmentItems, spaAppointmentHistory, spaServices } from '@oppsera/db';
 import { SPA_EVENTS } from '../events/types';
 import { assertAppointmentTransition } from '../helpers/appointment-transitions';
 import type { AppointmentStatus } from '../helpers/appointment-transitions';
@@ -67,9 +67,18 @@ export async function checkoutAppointment(ctx: RequestContext, input: CheckoutAp
         and(
           eq(spaAppointments.id, input.id),
           eq(spaAppointments.tenantId, ctx.tenantId),
+          eq(spaAppointments.version, existing.version),
         ),
       )
       .returning();
+
+    if (!updated) {
+      throw new AppError(
+        'VERSION_CONFLICT',
+        'Appointment was modified by another session. Please refresh and retry.',
+        409,
+      );
+    }
 
     await tx.insert(spaAppointmentHistory).values({
       tenantId: ctx.tenantId,
@@ -80,27 +89,61 @@ export async function checkoutAppointment(ctx: RequestContext, input: CheckoutAp
       performedBy: ctx.user.id,
     });
 
+    // Fetch appointment items joined with services for financial data needed by GL adapter
+    const items = await tx
+      .select({
+        serviceId: spaAppointmentItems.serviceId,
+        finalPriceCents: spaAppointmentItems.finalPriceCents,
+        providerId: spaAppointmentItems.providerId,
+        serviceName: spaServices.name,
+      })
+      .from(spaAppointmentItems)
+      .innerJoin(spaServices, eq(spaAppointmentItems.serviceId, spaServices.id))
+      .where(
+        and(
+          eq(spaAppointmentItems.tenantId, ctx.tenantId),
+          eq(spaAppointmentItems.appointmentId, input.id),
+        ),
+      );
+
+    const totalCents = items.reduce((sum, i) => sum + i.finalPriceCents, 0);
+    const taxCents = 0; // Tax calculated at payment time, not appointment level
+    const tipCents = 0; // Tips added at payment time
+
+    const serviceItems = items.map((i) => ({
+      serviceId: i.serviceId,
+      serviceName: i.serviceName,
+      priceCents: i.finalPriceCents,
+      providerId: i.providerId,
+    }));
+
     const events = [
       buildEventFromContext(ctx, SPA_EVENTS.APPOINTMENT_CHECKED_OUT, {
-        appointmentId: updated!.id,
-        appointmentNumber: updated!.appointmentNumber,
-        customerId: updated!.customerId,
-        providerId: updated!.providerId,
+        appointmentId: updated.id,
+        appointmentNumber: updated.appointmentNumber,
+        customerId: updated.customerId,
+        providerId: updated.providerId,
         checkedOutAt: now.toISOString(),
-        orderId: updated!.orderId ?? null,
-        locationId: updated!.locationId ?? null,
+        orderId: updated.orderId ?? null,
+        locationId: updated.locationId ?? null,
+        // Financial fields required by spa-posting-adapter
+        totalCents,
+        taxCents,
+        tipCents,
+        serviceItems,
+        businessDate: now.toISOString().slice(0, 10),
       }),
       buildEventFromContext(ctx, SPA_EVENTS.CHECKOUT_READY, {
-        appointmentId: updated!.id,
-        appointmentNumber: updated!.appointmentNumber,
-        customerId: updated!.customerId,
-        locationId: updated!.locationId,
-        orderId: updated!.orderId,
-        pmsFolioId: updated!.pmsFolioId,
+        appointmentId: updated.id,
+        appointmentNumber: updated.appointmentNumber,
+        customerId: updated.customerId,
+        locationId: updated.locationId,
+        orderId: updated.orderId,
+        pmsFolioId: updated.pmsFolioId,
       }),
     ];
 
-    return { result: updated!, events };
+    return { result: updated, events };
   });
 
   await auditLog(ctx, 'spa.appointment.checked_out', 'spa_appointment', result.id);

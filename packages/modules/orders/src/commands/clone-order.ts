@@ -3,8 +3,8 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
-import { orders, orderLines } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import { orders, orderLines, orderLineTaxes } from '@oppsera/db';
+import { eq, and, inArray } from 'drizzle-orm';
 import type { CloneOrderInput } from '../validation';
 import { getNextOrderNumber } from '../helpers/order-number';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
@@ -29,11 +29,18 @@ export async function cloneOrder(ctx: RequestContext, sourceOrderId: string, inp
       throw new AppError('NOT_FOUND', 'Source order not found', 404);
     }
 
-    // Fetch source lines
+    // Fetch source lines and their tax breakdown rows in parallel
     const sourceLines = await tx
       .select()
       .from(orderLines)
       .where(and(eq(orderLines.orderId, sourceOrderId), eq(orderLines.tenantId, ctx.tenantId)));
+
+    const sourceLineTaxes = sourceLines.length > 0
+      ? await tx
+          .select()
+          .from(orderLineTaxes)
+          .where(inArray(orderLineTaxes.orderLineId, sourceLines.map((l) => l.id)))
+      : [];
 
     // Create new order
     const orderNumber = await getNextOrderNumber(tx, ctx.tenantId, ctx.locationId!);
@@ -59,9 +66,10 @@ export async function cloneOrder(ctx: RequestContext, sourceOrderId: string, inp
       updatedBy: ctx.user.id,
     }).returning();
 
-    // Copy lines
+    // Copy lines (returning new IDs so we can remap tax rows)
+    const newLineIdBySourceId = new Map<string, string>();
     if (sourceLines.length > 0) {
-      await tx.insert(orderLines).values(
+      const newLines = await tx.insert(orderLines).values(
         sourceLines.map((line, idx: number) => ({
           tenantId: ctx.tenantId,
           locationId: ctx.locationId!,
@@ -85,7 +93,35 @@ export async function cloneOrder(ctx: RequestContext, sourceOrderId: string, inp
           packageComponents: line.packageComponents,
           notes: line.notes,
         })),
-      );
+      ).returning({ id: orderLines.id });
+
+      // Build source-line-id → new-line-id mapping (insertion order matches sourceLines order)
+      sourceLines.forEach((sourceLine, idx) => {
+        const newLine = newLines[idx];
+        if (newLine) newLineIdBySourceId.set(sourceLine.id, newLine.id);
+      });
+
+      // Copy tax breakdown rows, remapped to new line IDs
+      if (sourceLineTaxes.length > 0) {
+        const taxRowsToInsert = sourceLineTaxes
+          .map((tax) => {
+            const newLineId = newLineIdBySourceId.get(tax.orderLineId);
+            if (!newLineId) return null;
+            return {
+              tenantId: ctx.tenantId,
+              orderLineId: newLineId,
+              taxRateId: tax.taxRateId,
+              taxName: tax.taxName,
+              rateDecimal: tax.rateDecimal,
+              amount: tax.amount,
+            };
+          })
+          .filter((r): r is NonNullable<typeof r> => r !== null);
+
+        if (taxRowsToInsert.length > 0) {
+          await tx.insert(orderLineTaxes).values(taxRowsToInsert);
+        }
+      }
     }
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'cloneOrder', created!);

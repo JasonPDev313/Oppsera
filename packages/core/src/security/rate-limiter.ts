@@ -5,6 +5,24 @@
  * Uses RateLimitStore interface for future Redis swap — create a
  * RedisRateLimitStore implementation and call setRateLimitStore() in
  * instrumentation.ts.
+ *
+ * VERCEL / SERVERLESS LIMITATION:
+ * This rate limiter is process-local (in-memory Map). On Vercel, each serverless
+ * instance has its own separate counter store — there is no shared state across
+ * instances. Consequences:
+ *   - A client routed to a new cold-start instance gets a fresh counter,
+ *     effectively bypassing the rate limit on that instance.
+ *   - Limits are enforced per-instance, not globally. A client hitting 10
+ *     instances can make 10× the allowed requests.
+ *   - The lockout store (_lockoutStore) has the same limitation: lockouts
+ *     set on one instance are invisible to others.
+ *
+ * This is acceptable for Stage 1 (low traffic, rough rate limiting is fine).
+ * It does NOT cause errors — clients are never blocked incorrectly, only
+ * under-blocked. It degrades gracefully to "no rate limiting" on cold starts.
+ *
+ * Stage 2+: Implement RedisRateLimitStore and call setRateLimitStore() in
+ * instrumentation.ts to enforce limits globally across all instances.
  */
 
 // ── Interfaces ──────────────────────────────────────────────────

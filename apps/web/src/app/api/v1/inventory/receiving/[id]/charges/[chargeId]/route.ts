@@ -15,8 +15,14 @@ export const PATCH = withMiddleware(
     if (!chargeId) return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Missing charge ID' } }, { status: 400 });
 
     const body = await request.json();
-    const input = updateReceiptChargeSchema.parse({ ...body, chargeId });
-    const charge = await updateReceiptCharge(ctx, input);
+    const parsed = updateReceiptChargeSchema.safeParse({ ...body, chargeId });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+        { status: 400 },
+      );
+    }
+    const charge = await updateReceiptCharge(ctx, parsed.data);
     return NextResponse.json({ data: charge });
   },
   { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
@@ -28,8 +34,14 @@ export const DELETE = withMiddleware(
     const chargeId = urlParts[1]?.split('?')[0];
     if (!chargeId) return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Missing charge ID' } }, { status: 400 });
 
-    const input = removeReceiptChargeSchema.parse({ chargeId });
-    await removeReceiptCharge(ctx, input);
+    const parsed = removeReceiptChargeSchema.safeParse({ chargeId });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+        { status: 400 },
+      );
+    }
+    await removeReceiptCharge(ctx, parsed.data);
     return NextResponse.json({ data: { chargeId } });
   },
   { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },

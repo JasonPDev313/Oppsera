@@ -4,7 +4,6 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import {
-  db,
   glAccounts,
   glClassifications,
   glCoaImportLogs,
@@ -30,11 +29,14 @@ export async function importCoaFromCsv(
 
   const { parsedAccounts, warnings, stateDetections } = validation;
 
-  // Ensure accounting_settings row exists (safety net for non-bootstrap setup)
-  await ensureAccountingSettings(db, ctx.tenantId);
-
   // 2. Execute import in a single transaction
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Ensure accounting_settings row exists inside the transaction so the settings
+    // check and the import run atomically. Calling this outside the transaction
+    // creates a TOCTOU race where settings could change between the check and the
+    // actual import writes.
+    await ensureAccountingSettings(tx, ctx.tenantId);
+
     // Create import log
     const importLogId = generateUlid();
     await tx.insert(glCoaImportLogs).values({
@@ -149,7 +151,7 @@ export async function importCoaFromCsv(
       .update(glCoaImportLogs)
       .set({
         successRows: successCount,
-        errorRows: skipCount + realErrorCount,
+        errorRows: realErrorCount,
         errors: importErrors.length > 0 ? importErrors : null,
         status: realErrorCount > 0 ? 'complete_with_errors' : 'complete',
         completedAt: new Date(),

@@ -21,6 +21,9 @@ export type {
   MembershipAccountingSettingsData,
 } from './get-membership-accounting-settings';
 
+export { getMembershipSettings } from './get-membership-settings';
+export type { MembershipAccountingSettingsResult } from './get-membership-settings';
+
 export { listSubscriptions } from './list-subscriptions';
 export type {
   ListSubscriptionsInput,

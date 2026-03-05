@@ -6,6 +6,7 @@ import { auditLog } from '@oppsera/core/audit';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { FNB_EVENTS } from '../events/types';
 import type { TipPoolDistributedPayload, TipPoolDistributionEntry } from '../events/types';
+import { AppError } from '@oppsera/shared';
 import { TipPoolNotFoundError } from '../errors';
 
 interface DistributionParticipant {
@@ -43,6 +44,29 @@ export async function distributeTipPool(
 
     const pool = poolRows[0]!;
     const method = pool.distribution_method as string;
+
+    // Validate the caller-supplied totalPoolAmountCents against the actual sum
+    // of tips collected for this pool and business date. This prevents an API
+    // caller from inflating the distribution amount beyond what was collected.
+    const actualTipRows = await tx.execute(
+      sql`SELECT COALESCE(SUM(tip_amount_cents), 0) AS actual_total
+          FROM fnb_tip_declarations
+          WHERE pool_id = ${input.poolId}
+            AND tenant_id = ${ctx.tenantId}
+            AND business_date = ${input.businessDate}`,
+    );
+    const actualTipArr = Array.from(actualTipRows as Iterable<Record<string, unknown>>);
+    const actualTotalCents = Number(actualTipArr[0]?.actual_total ?? 0);
+
+    if (totalPoolAmountCents > actualTotalCents) {
+      throw new AppError(
+        'INVALID_TIP_AMOUNT',
+        `Requested distribution of ${totalPoolAmountCents} cents exceeds the actual ` +
+        `collected tip total of ${actualTotalCents} cents for pool ${input.poolId} ` +
+        `on ${input.businessDate}.`,
+        400,
+      );
+    }
 
     // Fetch participant role points
     const participantRoles = await tx.execute(

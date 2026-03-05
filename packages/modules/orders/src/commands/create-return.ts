@@ -9,6 +9,7 @@ import { eq, and, inArray, sql } from 'drizzle-orm';
 import type { CreateReturnInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { getNextOrderNumber } from '../helpers/order-number';
+import { fetchOrderForMutation } from '../helpers/optimistic-lock';
 
 export async function createReturn(
   ctx: RequestContext,
@@ -25,26 +26,11 @@ export async function createReturn(
       return { result: idempotencyCheck.originalResult as { returnOrderId: string; originalOrderId: string; orderNumber: string; returnType: string; returnTotal: number; lines: unknown[] }, events: [] };
     }
 
-    // 1. Fetch original order — must be paid
-    const [originalOrder] = await tx
-      .select()
-      .from(orders)
-      .where(
-        and(
-          eq(orders.tenantId, ctx.tenantId),
-          eq(orders.id, originalOrderId),
-        ),
-      );
-
-    if (!originalOrder) {
-      throw new AppError('ORDER_NOT_FOUND', `Order ${originalOrderId} not found`, 404);
-    }
-
-    if (originalOrder.status !== 'paid') {
-      throw new ValidationError(
-        `Order is in status '${originalOrder.status}', must be 'paid' to return`,
-      );
-    }
+    // 1. Fetch original order — must be paid.
+    // FOR UPDATE (via fetchOrderForMutation) serializes concurrent returns,
+    // preventing two partial returns from both reading the same priorReturnQty
+    // and exceeding the original quantity.
+    const originalOrder = await fetchOrderForMutation(tx, ctx.tenantId, originalOrderId, 'paid');
 
     // 2. Fetch original lines matching the return request
     const originalLineIds = input.returnLines.map(rl => rl.originalLineId);
@@ -158,11 +144,22 @@ export async function createReturn(
     for (const returnLine of input.returnLines) {
       const orig = originalLineMap.get(returnLine.originalLineId)!;
       const origQty = Number(orig.qty);
-      const ratio = returnLine.qty / origQty;
+
+      // Use per-unit integer arithmetic to avoid rounding drift across multiple partial returns.
+      // Each unit is worth floor(total / origQty), and the first unit absorbs the remainder,
+      // ensuring that returning all origQty units in any combination always sums to orig.lineSubtotal.
+      const unitSubtotal = Math.floor(orig.lineSubtotal / origQty);
+      const subtotalRemainder = orig.lineSubtotal - unitSubtotal * origQty;
+      // The first unit carries the remainder (remainder is always 0 or 1 cent for typical prices)
+      const lineSubtotalAbs = unitSubtotal * returnLine.qty + (returnLine.qty >= 1 ? Math.min(subtotalRemainder, returnLine.qty) : 0);
+
+      const unitTax = Math.floor(orig.lineTax / origQty);
+      const taxRemainder = orig.lineTax - unitTax * origQty;
+      const lineTaxAbs = unitTax * returnLine.qty + (returnLine.qty >= 1 ? Math.min(taxRemainder, returnLine.qty) : 0);
 
       // Proportional amounts (negative for returns)
-      const lineSubtotal = -Math.round(orig.lineSubtotal * ratio);
-      const lineTax = -Math.round(orig.lineTax * ratio);
+      const lineSubtotal = -lineSubtotalAbs;
+      const lineTax = -lineTaxAbs;
       const lineTotal = lineSubtotal + lineTax;
 
       returnSubtotal += lineSubtotal;

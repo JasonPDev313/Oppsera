@@ -12,6 +12,9 @@ export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = extractId(request);
     const result = await getInventoryItem(ctx.tenantId, id);
+    if (!result) {
+      return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Inventory item not found' } }, { status: 404 });
+    }
     return NextResponse.json({ data: result });
   },
   { entitlement: 'inventory', permission: 'inventory.view' },

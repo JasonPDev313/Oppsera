@@ -15,6 +15,8 @@ import {
   OrderDeletedDataSchema,
   OrderHeldDataSchema,
   OrderRecalledDataSchema,
+  OrderReturnedDataSchema,
+  OrderTaxExemptChangedDataSchema,
 } from './types';
 
 registerContracts({
@@ -35,6 +37,8 @@ registerContracts({
     { eventType: 'order.deleted.v1', dataSchema: OrderDeletedDataSchema },
     { eventType: 'order.held.v1', dataSchema: OrderHeldDataSchema },
     { eventType: 'order.recalled.v1', dataSchema: OrderRecalledDataSchema },
+    { eventType: 'order.returned.v1', dataSchema: OrderReturnedDataSchema },
+    { eventType: 'order.tax_exempt_changed.v1', dataSchema: OrderTaxExemptChangedDataSchema },
   ],
   consumes: [],
 });

@@ -1,4 +1,4 @@
-import { eq, and, asc, isNull, inArray } from 'drizzle-orm';
+import { eq, and, asc, isNull, inArray, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import {
   catalogItems,
@@ -15,7 +15,8 @@ export interface POSCatalogItem {
   sku: string | null;
   barcode: string | null;
   itemType: string;
-  defaultPrice: string;
+  /** Price in cents (integer). Converted from the catalog NUMERIC dollar string. */
+  defaultPriceCents: number;
   priceIncludesTax: boolean;
   isTrackable: boolean;
   metadata: Record<string, unknown> | null;
@@ -108,6 +109,7 @@ export async function getCatalogForPOS(
           sku: catalogItems.sku,
           barcode: catalogItems.barcode,
           itemType: catalogItems.itemType,
+          // Raw dollar NUMERIC string — converted to cents below
           defaultPrice: catalogItems.defaultPrice,
           priceIncludesTax: catalogItems.priceIncludesTax,
           isTrackable: catalogItems.isTrackable,
@@ -136,11 +138,18 @@ export async function getCatalogForPOS(
           ),
         )
         .orderBy(asc(catalogCategories.sortOrder), asc(catalogCategories.name)),
-      // Modifier groups
+      // Modifier groups — only return groups that are visible on the 'pos' channel.
+      // Groups with channelVisibility not containing 'pos' are inactive for POS
+      // and must not be sent to the terminal (prevents stale/archived groups showing).
       tx
         .select()
         .from(catalogModifierGroups)
-        .where(eq(catalogModifierGroups.tenantId, tenantId))
+        .where(
+          and(
+            eq(catalogModifierGroups.tenantId, tenantId),
+            sql`${catalogModifierGroups.channelVisibility} @> '["pos"]'::jsonb`,
+          ),
+        )
         .orderBy(asc(catalogModifierGroups.sortOrder), asc(catalogModifierGroups.name)),
       // All modifiers (active only)
       tx
@@ -186,10 +195,12 @@ export async function getCatalogForPOS(
         .orderBy(asc(catalogModifierGroupCategories.sortOrder)),
     ]);
 
-    // Build modifier groups with options, applying channel filter
+    // Build modifier groups with options.
+    // The SQL query already filters by 'pos' channel visibility.
+    // Apply an additional in-memory filter if a more specific channel is requested.
     const modifierGroups: POSModifierGroup[] = groups
       .filter((g) => {
-        if (!options?.channel) return true;
+        if (!options?.channel || options.channel === 'pos') return true;
         const vis = (g.channelVisibility as string[]) ?? [];
         return vis.includes(options.channel);
       })
@@ -222,8 +233,23 @@ export async function getCatalogForPOS(
           })),
       }));
 
+    // Convert catalog dollar strings (NUMERIC) to cents integers for POS.
+    // Catalog stores prices as dollar strings; orders module works in cents.
+    const posItems: POSCatalogItem[] = items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      sku: item.sku,
+      barcode: item.barcode,
+      itemType: item.itemType,
+      defaultPriceCents: Math.round(Number(item.defaultPrice) * 100),
+      priceIncludesTax: item.priceIncludesTax,
+      isTrackable: item.isTrackable,
+      metadata: item.metadata,
+      categoryId: item.categoryId,
+    }));
+
     return {
-      items,
+      items: posItems,
       categories,
       modifierGroups,
       modifierGroupCategories: modGroupCategories,

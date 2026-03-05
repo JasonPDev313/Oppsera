@@ -37,7 +37,7 @@ export const PATCH = withMiddleware(
     const order = await getOrder(ctx.tenantId, orderId);
     return NextResponse.json({ data: order });
   },
-  { entitlement: 'orders', permission: 'orders.create' , writeAccess: true },
+  { entitlement: 'orders', permission: 'orders.update' , writeAccess: true },
 );
 
 // DELETE /api/v1/orders/:id — soft delete order

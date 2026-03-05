@@ -14,8 +14,14 @@ export const PATCH = withMiddleware(
     if (!itemVendorId) return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Missing item vendor ID' } }, { status: 400 });
 
     const body = await request.json();
-    const input = updateVendorCatalogItemSchema.parse({ ...body, itemVendorId });
-    const item = await updateVendorCatalogItem(ctx, input);
+    const parsed = updateVendorCatalogItemSchema.safeParse({ ...body, itemVendorId });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+        { status: 400 },
+      );
+    }
+    const item = await updateVendorCatalogItem(ctx, parsed.data);
     return NextResponse.json({ data: item });
   },
   { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },

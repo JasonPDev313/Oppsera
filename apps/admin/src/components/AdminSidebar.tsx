@@ -101,6 +101,7 @@ const MODULES: NavModule[] = [
     prefix: '/health',
     children: [
       { href: '/health', label: 'System Health', icon: HeartPulse },
+      { href: '/stock-alerts', label: 'Stock Alerts', icon: AlertTriangle },
     ],
   },
   {

@@ -12,8 +12,14 @@ export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = request.url.split('/tender-types/')[1]?.split('?')[0] ?? '';
     const body = await request.json();
-    const input = updateTenantTenderTypeSchema.parse(body);
-    const result = await updateTenantTenderType(ctx, id, input);
+    const parsed = updateTenantTenderTypeSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+        { status: 400 },
+      );
+    }
+    const result = await updateTenantTenderType(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
   { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true },

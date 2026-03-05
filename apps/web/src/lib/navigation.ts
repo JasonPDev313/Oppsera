@@ -53,6 +53,7 @@ import {
   UserCheck,
   ClipboardCheck,
   Monitor,
+  Flag,
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
 
@@ -143,6 +144,7 @@ export const navigation: NavItem[] = [
       { name: 'Taxes', href: '/catalog/taxes', icon: Receipt, requiredPermission: 'catalog.view' },
       { name: 'Modifiers', href: '/catalog/modifiers', icon: Sliders, requiredPermission: 'catalog.view' },
       { name: 'Receiving', href: '/inventory/receiving', icon: PackageCheck, requiredPermission: 'inventory.manage' },
+      { name: 'Stock Alerts', href: '/inventory/stock-alerts', icon: AlertTriangle, requiredPermission: 'inventory.view' },
       { name: 'Vendors', href: '/vendors', icon: Truck, requiredPermission: 'inventory.manage' },
     ],
   },
@@ -171,6 +173,8 @@ export const navigation: NavItem[] = [
       { name: 'Memberships', href: '/customers/memberships', icon: Crown, requiredPermission: 'billing.view' },
       { name: 'Dues & Plans', href: '/membership/plans', icon: CalendarDays, requiredPermission: 'billing.manage' },
       { name: 'Billing', href: '/customers/billing', icon: CreditCard, requiredPermission: 'billing.view' },
+      { name: 'Membership Billing', href: '/membership/billing', icon: DollarSign, requiredPermission: 'billing.manage' },
+      { name: 'Membership Reports', href: '/membership/reports', icon: FileBarChart, requiredPermission: 'billing.view' },
     ],
   },
   {
@@ -196,6 +200,21 @@ export const navigation: NavItem[] = [
     children: [
       { name: 'Chat', href: '/insights', icon: MessageSquare, requiredPermission: 'semantic.query' },
       { name: 'AI Tools', href: '/insights/ai-tools', icon: Wrench, requiredPermission: 'semantic.view' },
+      { name: 'Authoring', href: '/insights/authoring', icon: FileBarChart, requiredPermission: 'semantic.manage' },
+      { name: 'Lenses', href: '/insights/lenses', icon: Sparkles, requiredPermission: 'semantic.view' },
+      { name: 'Reports', href: '/insights/reports', icon: BarChart3, requiredPermission: 'semantic.view' },
+      { name: 'Watchlist', href: '/insights/watchlist', icon: Star, requiredPermission: 'semantic.view' },
+      { name: 'History', href: '/insights/history', icon: Clock, requiredPermission: 'semantic.view' },
+    ],
+  },
+  {
+    name: 'Golf',
+    href: '/golf/analytics',
+    icon: Flag,
+    moduleKey: 'golf',
+    requiredPermission: 'golf.view',
+    children: [
+      { name: 'Analytics', href: '/golf/analytics', icon: BarChart3, requiredPermission: 'golf.view' },
     ],
   },
   {

@@ -3,8 +3,8 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
-import { orders, orderLines, orderCharges, orderDiscounts } from '@oppsera/db';
-import { eq } from 'drizzle-orm';
+import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes } from '@oppsera/db';
+import { eq, inArray, sql } from 'drizzle-orm';
 import type { SetTaxExemptInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
@@ -20,9 +20,10 @@ export async function setTaxExempt(ctx: RequestContext, orderId: string, input: 
     if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
-    // Get all lines, charges, discounts
-    const [allLines, allCharges, allDiscounts] = await Promise.all([
+    // Fetch all lines (need IDs for line-level updates), charges, discounts
+    const [allLinesWithId, allCharges, allDiscounts] = await Promise.all([
       tx.select({
+        id: orderLines.id,
         lineSubtotal: orderLines.lineSubtotal,
         lineTax: orderLines.lineTax,
         lineTotal: orderLines.lineTotal,
@@ -36,7 +37,13 @@ export async function setTaxExempt(ctx: RequestContext, orderId: string, input: 
       }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
     ]);
 
-    // Recalculate totals — if tax exempt, zero out all taxes
+    const allLines = allLinesWithId.map((l) => ({
+      lineSubtotal: l.lineSubtotal,
+      lineTax: l.lineTax,
+      lineTotal: l.lineTotal,
+    }));
+
+    // Recalculate order-level totals — if tax exempt, zero out all taxes
     let totals;
     if (input.taxExempt) {
       const zeroTaxLines = allLines.map((l) => ({
@@ -49,9 +56,50 @@ export async function setTaxExempt(ctx: RequestContext, orderId: string, input: 
         taxAmount: 0,
       }));
       totals = recalculateOrderTotals(zeroTaxLines, zeroTaxCharges, allDiscounts);
+
+      // Zero out each line's tax fields for consistency with order-level totals
+      if (allLinesWithId.length > 0) {
+        await tx.update(orderLines).set({
+          lineTax: 0,
+          lineTotal: sql`line_subtotal`,
+        }).where(eq(orderLines.orderId, orderId));
+      }
     } else {
-      // Restore original taxes
-      totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
+      // Restore original taxes from the orderLineTaxes breakdown rows
+      // Sum tax amounts per line to restore lineTax, then lineTotal = lineSubtotal + lineTax
+      const lineIds = allLinesWithId.map((l) => l.id);
+      const taxSums = lineIds.length > 0
+        ? await tx
+            .select({
+              orderLineId: orderLineTaxes.orderLineId,
+              totalTax: sql<number>`coalesce(sum(${orderLineTaxes.amount}), 0)::int`,
+            })
+            .from(orderLineTaxes)
+            .where(inArray(orderLineTaxes.orderLineId, lineIds))
+            .groupBy(orderLineTaxes.orderLineId)
+        : [];
+
+      const taxByLineId = new Map(taxSums.map((t) => [t.orderLineId, t.totalTax]));
+
+      // Update each line with restored tax values
+      for (const line of allLinesWithId) {
+        const restoredTax = taxByLineId.get(line.id) ?? 0;
+        await tx.update(orderLines).set({
+          lineTax: restoredTax,
+          lineTotal: line.lineSubtotal + restoredTax,
+        }).where(eq(orderLines.id, line.id));
+      }
+
+      // Recalculate totals using restored per-line tax values
+      const restoredLines = allLinesWithId.map((l) => {
+        const restoredTax = taxByLineId.get(l.id) ?? 0;
+        return {
+          lineSubtotal: l.lineSubtotal,
+          lineTax: restoredTax,
+          lineTotal: l.lineSubtotal + restoredTax,
+        };
+      });
+      totals = recalculateOrderTotals(restoredLines, allCharges, allDiscounts);
     }
 
     await tx.update(orders).set({

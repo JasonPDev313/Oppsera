@@ -33,9 +33,19 @@ export async function postBatchToGl(ctx: RequestContext, input: PostBatchToGlInp
     if (batches.length === 0) throw new CloseBatchNotFoundError(input.closeBatchId);
 
     const batch = batches[0]!;
-    if (batch.gl_journal_entry_id) {
+
+    // Distinguish between a real GL journal entry ID (written back by the fnb-posting-adapter
+    // after successful posting) and the synthetic placeholder written by this command before
+    // the async GL posting event is processed. A synthetic placeholder starts with 'fnb-batch-'
+    // and must NOT block a retry — the GL posting may have failed after the placeholder was set.
+    // Only a real GL entry ID (a ULID, NOT starting with 'fnb-batch-') means the batch is
+    // already posted successfully and should not be retried.
+    const glEntryId = batch.gl_journal_entry_id as string | null;
+    const isSyntheticPlaceholder = glEntryId?.startsWith('fnb-batch-') ?? false;
+    if (glEntryId && !isSyntheticPlaceholder) {
       throw new BatchAlreadyPostedError(input.closeBatchId);
     }
+
     if (batch.status !== 'reconciled') {
       throw new CloseBatchStatusConflictError(input.closeBatchId, batch.status as string, 'reconciled');
     }

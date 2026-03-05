@@ -195,7 +195,7 @@ export function useDigestDetail(id: string) {
     setError(null);
     try {
       const res = await apiFetch<{ data: DigestDetail }>(
-        `/api/v1/semantic/digests/${id}/latest`,
+        `/api/v1/semantic/digests/${id}`,
       );
       setDigest(res.data);
     } catch (err) {

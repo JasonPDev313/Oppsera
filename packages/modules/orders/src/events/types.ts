@@ -126,3 +126,28 @@ export const OrderRecalledDataSchema = z.object({
   orderNumber: z.string(),
   recalledBy: z.string(),
 });
+
+export const OrderReturnedDataSchema = z.object({
+  returnOrderId: z.string(),
+  originalOrderId: z.string(),
+  returnType: z.enum(['full', 'partial']),
+  locationId: z.string().nullable().optional(),
+  businessDate: z.string().optional(),
+  customerId: z.string().nullable().optional(),
+  returnTotal: z.number().int(),
+  lines: z.array(z.object({
+    catalogItemId: z.string(),
+    catalogItemName: z.string(),
+    qty: z.number(),
+    returnedSubtotal: z.number().int(),
+    returnedTax: z.number().int(),
+    returnedTotal: z.number().int(),
+    subDepartmentId: z.string().nullable().optional(),
+  })).optional(),
+});
+
+export const OrderTaxExemptChangedDataSchema = z.object({
+  orderId: z.string(),
+  taxExempt: z.boolean(),
+  taxExemptReason: z.string().nullable().optional(),
+});

@@ -191,6 +191,7 @@ export { getJournalEntry } from './queries/get-journal-entry';
 export { listJournalEntries } from './queries/list-journal-entries';
 export { listGlAccounts } from './queries/list-gl-accounts';
 export type { GlAccountListItem } from './queries/list-gl-accounts';
+export { getGlAccount } from './queries/get-gl-account';
 export { getTrialBalance } from './queries/get-trial-balance';
 export type { TrialBalanceAccount, TrialBalanceReport } from './queries/get-trial-balance';
 export { getGlDetailReport } from './queries/get-gl-detail-report';

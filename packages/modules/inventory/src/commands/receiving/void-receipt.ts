@@ -125,6 +125,27 @@ export async function voidReceipt(
       itemBaseQtyMap.set(line.inventoryItemId, prev + Number(line.baseQty));
     }
 
+    // 6b. Pre-compute a quantity-weighted average landed unit cost per item across ALL lines.
+    //     Using only the first line's cost (as in the original code) is wrong when an item
+    //     appears on multiple lines with different unit costs (e.g., different lots).
+    const itemWeightedCostMap = new Map<string, number>();
+    for (const itemId of itemIds) {
+      const linesForItem = lineRows.filter((l: any) => l.inventoryItemId === itemId);
+      const totalQty = linesForItem.reduce((sum: number, l: any) => sum + Number(l.baseQty), 0);
+      if (totalQty === 0) {
+        // Fallback: use cost of any available line (no qty to weight by)
+        const fallback = linesForItem[0];
+        itemWeightedCostMap.set(itemId, fallback ? Number(fallback.landedUnitCost) : 0);
+      } else {
+        // Quantity-weighted average: sum(qty * unitCost) / totalQty
+        const weightedSum = linesForItem.reduce(
+          (sum: number, l: any) => sum + Number(l.baseQty) * Number(l.landedUnitCost),
+          0,
+        );
+        itemWeightedCostMap.set(itemId, weightedSum / totalQty);
+      }
+    }
+
     // 7. Batch-update all affected inventory items in parallel.
     //    Compute new cost from post-reversal on-hand, then derive pre-reversal on-hand for the
     //    weighted_avg formula: onHandBeforeVoid = currentOnHand(post-reversal) + baseQty.
@@ -142,11 +163,9 @@ export async function voidReceipt(
         if (method === 'weighted_avg') {
           // currentOnHand is post-reversal; reverseWeightedAvgCost expects pre-reversal on-hand
           const onHandBeforeVoid = currentOnHand + baseQty;
-          // Use the first matching line's landedUnitCost as the representative unit cost.
-          // For multiple lines of the same item, each line's cost is already reflected in
-          // the movement inserts above; we use the blended avg from the original receive here.
-          const representativeLine = lineRows.find((l: any) => l.inventoryItemId === itemId);
-          const landedUnitCost = representativeLine ? Number(representativeLine.landedUnitCost) : currentCost;
+          // Use the quantity-weighted average unit cost across all lines for this item
+          // (not just the first line) to correctly account for multi-line receipts.
+          const landedUnitCost = itemWeightedCostMap.get(itemId) ?? currentCost;
           newCost = reverseWeightedAvgCost(onHandBeforeVoid, currentCost, baseQty, landedUnitCost);
         }
         // For fifo/standard, cost doesn't change on void (fifo layers would need more complex handling)

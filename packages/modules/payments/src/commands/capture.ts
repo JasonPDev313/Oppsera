@@ -22,21 +22,39 @@ export async function capturePayment(
   }
 
   const result = await publishWithOutbox(ctx, async (tx) => {
-    // 1. Idempotency — check if we already processed this clientRequestId
-    const [existingIntent] = await tx
+    // 1. Idempotency — check if we already processed this clientRequestId for a capture.
+    //    Bug 11 fix: the old check looked up paymentIntents.idempotencyKey which is set at
+    //    intent *creation* time (sale), not at capture time, so it could never match a capture
+    //    clientRequestId and would silently re-execute captures on replay.
+    //    Correct approach: look for an existing capture transaction with this clientRequestId.
+    const [existingCaptureTxn] = await tx
       .select()
-      .from(paymentIntents)
+      .from(paymentTransactions)
       .where(
         and(
-          eq(paymentIntents.tenantId, ctx.tenantId),
-          eq(paymentIntents.idempotencyKey, input.clientRequestId),
+          eq(paymentTransactions.tenantId, ctx.tenantId),
+          eq(paymentTransactions.paymentIntentId, input.paymentIntentId),
+          eq(paymentTransactions.transactionType, 'capture'),
+          eq(paymentTransactions.clientRequestId, input.clientRequestId),
         ),
       )
       .limit(1);
 
-    // If the idempotency key matches the capture target AND it's already captured, return it
-    if (existingIntent && existingIntent.id === input.paymentIntentId && existingIntent.status === 'captured') {
-      return { result: mapIntentToResult(existingIntent, null), events: [] };
+    if (existingCaptureTxn && existingCaptureTxn.responseStatus === 'approved') {
+      // Already processed this exact capture — load current intent and return (idempotent replay)
+      const [currentIntent] = await tx
+        .select()
+        .from(paymentIntents)
+        .where(
+          and(
+            eq(paymentIntents.id, input.paymentIntentId),
+            eq(paymentIntents.tenantId, ctx.tenantId),
+          ),
+        )
+        .limit(1);
+      if (currentIntent) {
+        return { result: mapIntentToResult(currentIntent, null), events: [] };
+      }
     }
 
     // 2. Load payment intent with FOR UPDATE lock (prevents concurrent capture race)

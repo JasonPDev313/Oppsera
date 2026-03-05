@@ -9,9 +9,14 @@ export function centsToDollars(cents: number): string {
 /**
  * Convert dollar string from provider response to cents (integer).
  * CardPointe returns amounts like "100.00".
+ *
+ * Returns 0 for null/undefined/empty/non-numeric input to prevent NaN propagation.
  */
-export function dollarsToCents(dollars: string): number {
-  return Math.round(parseFloat(dollars) * 100);
+export function dollarsToCents(dollars: string | null | undefined): number {
+  if (dollars == null || dollars === '') return 0;
+  const parsed = parseFloat(dollars);
+  if (isNaN(parsed)) return 0;
+  return Math.round(parsed * 100);
 }
 
 /**
@@ -41,16 +46,27 @@ export function extractCardLast4(token: string): string | null {
 /**
  * Detect card brand from BIN (first 6 digits of card number or token).
  * Returns: 'visa', 'mastercard', 'amex', 'discover', or 'unknown'
+ *
+ * Mastercard ranges:
+ *   - Classic: 51–55 (first two digits)
+ *   - 2-series (Bug 7 fix): 2221–2720 (must check actual 4-digit prefix, not just first two)
  */
 export function detectCardBrand(bin: string): string {
   if (!bin || bin.length < 1) return 'unknown';
   const first = bin.charAt(0);
   const first2 = bin.slice(0, 2);
+  const first2Num = parseInt(first2, 10);
   const first4 = bin.slice(0, 4);
+  const first4Num = parseInt(first4.padEnd(4, '0'), 10);
 
   if (first === '4') return 'visa';
   if (first2 === '34' || first2 === '37') return 'amex';
-  if (first === '5' || first2 === '22' || first2 === '23' || first2 === '24' || first2 === '25' || first2 === '26' || first2 === '27') return 'mastercard';
+
+  // Mastercard classic: 51–55
+  if (first2Num >= 51 && first2Num <= 55) return 'mastercard';
+  // Mastercard 2-series: 2221–2720 (requires at least 4 digits to distinguish from Visa/other 2xxx)
+  if (bin.length >= 4 && first4Num >= 2221 && first4Num <= 2720) return 'mastercard';
+
   if (first4 === '6011' || first2 === '65' || first2 === '64') return 'discover';
   return 'unknown';
 }

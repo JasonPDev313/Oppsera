@@ -27,6 +27,9 @@ function getDb(): DrizzleDB {
     //   These timeouts are set at ALTER DATABASE level instead (2026-02-27 outage fix).
     const client = postgres(connectionString, {
       max: parseInt(process.env.DB_POOL_MAX || '2', 10),
+      // prepare MUST default to false for Supavisor (transaction-mode pooler, port 6543).
+      // Prepared statements are connection-specific and break under connection pooling.
+      // Only set DB_PREPARE_STATEMENTS=true when connecting directly to Postgres (no pooler).
       prepare: process.env.DB_PREPARE_STATEMENTS === 'true',
       // Shorter lifetimes = faster zombie cleanup when next request hits a warm instance.
       // Even though these timers freeze with the event loop, they fire when Vercel
@@ -132,6 +135,7 @@ export function createAdminClient() {
     }
     const adminConn = postgres(adminUrl, {
       max: parseInt(process.env.DB_ADMIN_POOL_MAX || '2', 10),
+      // Same prepare default as the main client — false for Supavisor compatibility.
       prepare: process.env.DB_PREPARE_STATEMENTS === 'true',
       idle_timeout: 10,
       max_lifetime: 60,

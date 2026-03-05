@@ -3,13 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { AppError } from '@oppsera/shared';
 import { isEnabled } from '@oppsera/core/config/feature-flags';
-import {
-  resolveTerminalContext,
-  getTerminalSession,
-  CardPointeTerminalClient,
-  terminalTipSchema,
-} from '@oppsera/module-payments';
-import { centsToDollars, dollarsToCents } from '@oppsera/module-payments';
+import { terminalTip, terminalTipSchema } from '@oppsera/module-payments';
 
 /**
  * POST /api/v1/payments/terminal/tip
@@ -23,39 +17,17 @@ export const POST = withMiddleware(
     }
 
     const body = await request.json();
-    const input = terminalTipSchema.parse(body);
-
-    if (!ctx.locationId) {
-      throw new AppError('VALIDATION_ERROR', 'Location context is required for terminal operations', 400);
+    const parsed = terminalTipSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+        { status: 400 },
+      );
     }
-    const termCtx = await resolveTerminalContext(ctx.tenantId, ctx.locationId, input.terminalId);
 
-    const session = await getTerminalSession({
-      tenantId: ctx.tenantId,
-      hsn: termCtx.device.hsn,
-      merchantId: termCtx.merchantId,
-      credentials: termCtx.credentials,
-    });
+    const result = await terminalTip(ctx, parsed.data);
 
-    const client = new CardPointeTerminalClient({
-      site: termCtx.credentials.site,
-      merchantId: termCtx.merchantId,
-      username: termCtx.credentials.username,
-      password: termCtx.credentials.password,
-    });
-
-    const tipResponse = await client.tipPrompt(session.sessionKey, {
-      hsn: termCtx.device.hsn,
-      amount: centsToDollars(input.amountCents),
-      tipOptions: input.tipOptions,
-    });
-
-    return NextResponse.json({
-      data: {
-        tipAmountCents: dollarsToCents(tipResponse.tipAmount),
-        tipAmountDollars: tipResponse.tipAmount,
-      },
-    });
+    return NextResponse.json({ data: result });
   },
   { entitlement: 'payments', permission: 'tenders.create' },
 );

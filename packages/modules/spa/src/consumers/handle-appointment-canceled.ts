@@ -14,7 +14,9 @@ const appointmentCanceledSchema = z.object({
   providerId: z.string(),
   customerId: z.string().optional(),
   businessDate: z.string(),
-  cancelReason: z.string().optional(),
+  // The producer (cancel-appointment.ts) emits this field as `reason`, not `cancelReason`.
+  // Using the correct field name here so cancellation reason is not silently undefined.
+  reason: z.string().optional(),
   serviceItems: z.array(serviceItemSchema).default([]),
 });
 

@@ -182,6 +182,9 @@ export async function addLineItemsBatch(
         originalUnitPrice: item.priceOverride ? posItem.unitPriceCents : null,
         priceOverrideReason: item.priceOverride?.reason ?? null,
         priceOverriddenBy: item.priceOverride?.approvedBy ?? null,
+        priceOverrideDiscountCents: item.priceOverride
+          ? Math.max(0, Math.round((posItem.unitPriceCents - item.priceOverride.unitPrice) * Number(item.qty)))
+          : 0,
         lineSubtotal: taxResult.subtotal,
         lineTax: taxResult.taxTotal,
         lineTotal: taxResult.total,

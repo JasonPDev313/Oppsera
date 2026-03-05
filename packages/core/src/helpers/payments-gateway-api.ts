@@ -57,6 +57,14 @@ export interface GatewayResult {
   cardLast4?: string | null;
   cardBrand?: string | null;
   errorMessage?: string | null;
+  /** Whether the caller should retry the request (transient network/timeout error) */
+  retryable?: boolean;
+  /** User-facing message safe to display in the POS UI */
+  userMessage?: string | null;
+  /** Suggested action for the cashier (e.g., "Try a different card", "Retry") */
+  suggestedAction?: string | null;
+  /** Decline category from the processor (e.g., "insufficient_funds", "do_not_honor") */
+  declineCategory?: string | null;
 }
 
 // ── Interface ───────────────────────────────────────────────────

@@ -24,6 +24,7 @@ export const SPA_EVENTS = {
   // ── Commissions ───────────────────────────────────────────
   COMMISSION_CALCULATED: 'spa.commission.calculated.v1',
   COMMISSION_APPROVED: 'spa.commission.approved.v1',
+  COMMISSION_PAID: 'spa.commission.paid.v1',
 
   // ── Packages ──────────────────────────────────────────────
   PACKAGE_SOLD: 'spa.package.sold.v1',

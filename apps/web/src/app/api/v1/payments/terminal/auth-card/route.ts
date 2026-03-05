@@ -17,9 +17,15 @@ export const POST = withMiddleware(
     }
 
     const body = await request.json();
-    const input = terminalAuthCardSchema.parse(body);
+    const parsed = terminalAuthCardSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+        { status: 400 },
+      );
+    }
 
-    const result = await terminalAuthCard(ctx, input);
+    const result = await terminalAuthCard(ctx, parsed.data);
 
     const status = result.status === 'authorized' || result.status === 'captured' ? 201 : 200;
     return NextResponse.json({ data: result }, { status });

@@ -10,12 +10,12 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 const SpaCommissionPaidPayloadSchema = z.object({
   commissionId: z.string(),
   tenantId: z.string(),
-  locationId: z.string().optional(),
+  locationId: z.string().optional().nullable(),
   providerId: z.string(),
   providerName: z.string(),
   amountCents: z.number(),
   payPeriod: z.string(),
-  payoutMethod: z.enum(['cash', 'payroll', 'check']),
+  payoutMethod: z.enum(['cash', 'payroll', 'check']).optional().default('cash'),
   businessDate: z.string(),
 });
 
@@ -57,8 +57,8 @@ export async function handleSpaCommissionPaidForAccounting(event: EventEnvelope)
   const data = parsed.data;
 
   try {
-    // Zero-amount commissions skip GL
-    if (data.amountCents === 0) return;
+    // Zero or negative-amount commissions skip GL
+    if (data.amountCents <= 0) return;
 
     try { await ensureAccountingSettings(db, event.tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, event.tenantId);
@@ -77,11 +77,12 @@ export async function handleSpaCommissionPaidForAccounting(event: EventEnvelope)
       return;
     }
 
-    // Expense account (debit side) — prefer dedicated commission expense account,
-    // fall back to uncategorized expense. NEVER use a revenue account for commission expense.
+    // Expense account (debit side) — use the comp/commission expense account from
+    // settings, falling back to uncategorized revenue suspense account so GL posting
+    // always succeeds. The fallback is logged as unmapped for tenant remapping.
     const expenseAccountId =
-      (settings as any).defaultCommissionExpenseAccountId ??
-      (settings as any).defaultUncategorizedExpenseAccountId ??
+      settings.defaultCompExpenseAccountId ??
+      settings.defaultUncategorizedRevenueAccountId ??
       null;
     if (!expenseAccountId) {
       try {
@@ -91,7 +92,7 @@ export async function handleSpaCommissionPaidForAccounting(event: EventEnvelope)
           sourceReferenceId: data.commissionId,
           entityType: 'gl_account',
           entityId: 'commission_expense',
-          reason: `Commission payout of $${(data.amountCents / 100).toFixed(2)} to ${data.providerName} skipped — no commission expense or uncategorized expense GL account configured. Configure an expense account in accounting settings.`,
+          reason: `Commission payout of $${(data.amountCents / 100).toFixed(2)} to ${data.providerName} skipped — no commission expense or uncategorized revenue GL account configured. Configure an expense account in accounting settings.`,
         });
       } catch { /* best-effort */ }
       return;
@@ -139,7 +140,7 @@ export async function handleSpaCommissionPaidForAccounting(event: EventEnvelope)
     const amountDollars = (data.amountCents / 100).toFixed(2);
 
     const postingApi = getAccountingPostingApi();
-    const ctx = buildSyntheticCtx(event.tenantId, data.locationId, data.commissionId);
+    const ctx = buildSyntheticCtx(event.tenantId, data.locationId ?? undefined, data.commissionId);
 
     await postingApi.postEntry(ctx, {
       businessDate: data.businessDate,
@@ -152,7 +153,7 @@ export async function handleSpaCommissionPaidForAccounting(event: EventEnvelope)
           accountId: expenseAccountId,
           debitAmount: amountDollars,
           creditAmount: '0',
-          locationId: data.locationId,
+          locationId: data.locationId ?? undefined,
           channel: 'spa',
           memo: `Commission expense — ${data.providerName} (${data.payPeriod})`,
         },
@@ -160,7 +161,7 @@ export async function handleSpaCommissionPaidForAccounting(event: EventEnvelope)
           accountId: creditAccountId,
           debitAmount: '0',
           creditAmount: amountDollars,
-          locationId: data.locationId,
+          locationId: data.locationId ?? undefined,
           channel: 'spa',
           memo: creditMemo,
         },

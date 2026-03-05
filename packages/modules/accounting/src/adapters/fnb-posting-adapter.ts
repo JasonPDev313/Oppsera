@@ -2,7 +2,7 @@ import type { EventEnvelope } from '@oppsera/shared';
 import { db, fnbGlAccountMappings, subDepartmentGlDefaults, glJournalEntries } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
-import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { getAccountingSettings, type AccountingSettings } from '../helpers/get-accounting-settings';
 import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
@@ -185,9 +185,9 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
     // Post-construction balance check — if skipped categories created imbalance,
     // add a remainder line so debits = credits (same pattern as return adapter safety net)
     if (glLines.length >= 2) {
-      const totalDebitsD = glLines.reduce((s, l) => s + Number(l.debitAmount ?? 0), 0);
-      const totalCreditsD = glLines.reduce((s, l) => s + Number(l.creditAmount ?? 0), 0);
-      const diffCents = Math.round((totalDebitsD - totalCreditsD) * 100);
+      const totalDebitsCents = glLines.reduce((s, l) => s + Math.round(Number(l.debitAmount ?? 0) * 100), 0);
+      const totalCreditsCents = glLines.reduce((s, l) => s + Math.round(Number(l.creditAmount ?? 0) * 100), 0);
+      const diffCents = totalDebitsCents - totalCreditsCents;
       if (diffCents !== 0) {
         const fallbackAccountId = settings.defaultUncategorizedRevenueAccountId ?? null;
         if (fallbackAccountId) {
@@ -203,16 +203,22 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
             });
           } else {
             // Credit side is larger — need a debit to balance.
-            // Use rounding/expense account for debit shortfalls rather than revenue.
-            const debitFallbackId = settings.defaultRoundingAccountId ?? fallbackAccountId;
-            glLines.push({
-              accountId: debitFallbackId,
-              debitAmount: (Math.abs(diffCents) / 100).toFixed(2),
-              creditAmount: '0',
-              locationId: data.locationId,
-              channel: 'fnb',
-              memo: 'Balance adjustment — unmapped F&B category offset',
-            });
+            // Use rounding account for debit shortfalls. Never debit a revenue account
+            // (it would understate revenue). If no rounding account, skip the adjustment
+            // and log — the entry will be slightly unbalanced but GL validation catches it.
+            const debitFallbackId = settings.defaultRoundingAccountId;
+            if (debitFallbackId) {
+              glLines.push({
+                accountId: debitFallbackId,
+                debitAmount: (Math.abs(diffCents) / 100).toFixed(2),
+                creditAmount: '0',
+                locationId: data.locationId,
+                channel: 'fnb',
+                memo: 'Balance adjustment — unmapped F&B category offset',
+              });
+            } else {
+              console.warn(`[fnb-posting-adapter] No rounding account configured — skipping $${(Math.abs(diffCents) / 100).toFixed(2)} balance adjustment for close batch ${data.closeBatchId}`);
+            }
           }
           try {
             await logUnmappedEvent(db, event.tenantId, {
@@ -321,7 +327,7 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
 function resolveAccountForCategory(
   category: string,
   mappingLookup: Map<string, Map<string, FnbMappingRow>>,
-  settings: Record<string, any>,
+  settings: AccountingSettings,
 ): string | null {
   // Helper to find mapping by entity type, checking 'default' entity
   const findMapping = (entityType: string): FnbMappingRow | undefined => {

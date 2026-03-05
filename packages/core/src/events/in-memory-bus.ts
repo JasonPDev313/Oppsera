@@ -1,7 +1,6 @@
 import { EventEnvelopeSchema } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
 import { generateUlid } from '@oppsera/shared';
-import { eq, and } from 'drizzle-orm';
 import { db, processedEvents, eventDeadLetters, guardedQuery } from '@oppsera/db';
 import type { EventBus, EventHandler } from './bus';
 
@@ -103,11 +102,24 @@ export class InMemoryEventBus implements EventBus {
     handler: EventHandler,
     consumerName: string,
   ): Promise<void> {
-    const alreadyProcessed = await this.checkProcessed(
-      event.eventId,
-      consumerName,
+    // Atomic claim-before-execute: try to insert into processed_events first.
+    // If another instance already claimed this event, the INSERT returns 0 rows
+    // (onConflictDoNothing) and we skip the handler entirely.
+    // This prevents the check-then-act race where two instances both pass
+    // checkProcessed and both execute the handler (causing duplicate GL entries, etc.).
+    const claimed = await guardedQuery('bus:claimEvent', () =>
+      db
+        .insert(processedEvents)
+        .values({
+          id: generateUlid(),
+          eventId: event.eventId,
+          consumerName,
+          processedAt: new Date(),
+        })
+        .onConflictDoNothing()
+        .returning({ id: processedEvents.id }),
     );
-    if (alreadyProcessed) return;
+    if (claimed.length === 0) return; // already processed by another instance
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
@@ -122,7 +134,6 @@ export class InMemoryEventBus implements EventBus {
         } finally {
           if (timeoutId) clearTimeout(timeoutId);
         }
-        await this.markProcessed(event.eventId, consumerName);
         return;
       } catch (error) {
         console.error(
@@ -192,39 +203,4 @@ export class InMemoryEventBus implements EventBus {
     );
   }
 
-  private async checkProcessed(
-    eventId: string,
-    consumerName: string,
-  ): Promise<boolean> {
-    const result = await guardedQuery('bus:checkProcessed', () =>
-      db
-        .select()
-        .from(processedEvents)
-        .where(
-          and(
-            eq(processedEvents.eventId, eventId),
-            eq(processedEvents.consumerName, consumerName),
-          ),
-        )
-        .limit(1),
-    );
-    return result.length > 0;
-  }
-
-  private async markProcessed(
-    eventId: string,
-    consumerName: string,
-  ): Promise<void> {
-    await guardedQuery('bus:markProcessed', () =>
-      db
-        .insert(processedEvents)
-        .values({
-          id: generateUlid(),
-          eventId,
-          consumerName,
-          processedAt: new Date(),
-        })
-        .onConflictDoNothing(),
-    );
-  }
 }

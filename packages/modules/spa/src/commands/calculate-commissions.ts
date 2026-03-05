@@ -10,6 +10,7 @@ import {
   spaAppointmentItems,
   spaCommissionRules,
   spaCommissionLedger,
+  spaProviders,
 } from '@oppsera/db';
 import { SPA_EVENTS } from '../events/types';
 import {
@@ -335,14 +336,18 @@ export async function payCommissions(ctx: RequestContext, input: PayCommissionsI
   }
 
   const result = await publishWithOutbox(ctx, async (tx) => {
-    // Fetch all entries
+    // Fetch all entries with provider details for per-commission GL events
     const entries = await tx
       .select({
         id: spaCommissionLedger.id,
         status: spaCommissionLedger.status,
         commissionAmountCents: spaCommissionLedger.commissionAmountCents,
+        providerId: spaCommissionLedger.providerId,
+        payPeriod: spaCommissionLedger.payPeriod,
+        providerName: spaProviders.displayName,
       })
       .from(spaCommissionLedger)
+      .innerJoin(spaProviders, eq(spaCommissionLedger.providerId, spaProviders.id))
       .where(
         and(
           eq(spaCommissionLedger.tenantId, ctx.tenantId),
@@ -367,6 +372,7 @@ export async function payCommissions(ctx: RequestContext, input: PayCommissionsI
     }
 
     const now = new Date();
+    const businessDate = now.toISOString().slice(0, 10);
 
     // Batch update status to paid
     await tx
@@ -388,6 +394,21 @@ export async function payCommissions(ctx: RequestContext, input: PayCommissionsI
       0,
     );
 
+    // Emit one event per commission so the GL adapter receives
+    // individual entries with all the data it needs for journal posting.
+    const events = entries.map((entry) =>
+      buildEventFromContext(ctx, SPA_EVENTS.COMMISSION_PAID, {
+        commissionId: entry.id,
+        tenantId: ctx.tenantId,
+        locationId: ctx.locationId,
+        providerId: entry.providerId,
+        providerName: entry.providerName,
+        amountCents: entry.commissionAmountCents,
+        payPeriod: entry.payPeriod ?? businessDate,
+        businessDate,
+      }),
+    );
+
     return {
       result: {
         paidIds: input.ids,
@@ -395,7 +416,7 @@ export async function payCommissions(ctx: RequestContext, input: PayCommissionsI
         count: input.ids.length,
         totalPaidCents,
       },
-      events: [],
+      events,
     };
   });
 

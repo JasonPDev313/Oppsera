@@ -48,11 +48,11 @@ export async function recordShrink(
       );
     }
 
-    // 3. Calculate cost values
+    // 3. Calculate cost values (negative to match the negative quantityDelta)
     const unitCostStr = input.unitCost != null ? input.unitCost.toFixed(2) : null;
     const extendedCostStr =
       input.unitCost != null
-        ? (input.quantity * input.unitCost).toFixed(2)
+        ? (-input.quantity * input.unitCost).toFixed(2)
         : null;
 
     // 4. Insert movement (quantity stored as negative delta)
@@ -92,12 +92,15 @@ export async function recordShrink(
       reorderQuantity: item.reorderQuantity != null ? parseFloat(item.reorderQuantity) : null,
     });
 
-    // 7. Build primary event (reuse adjusted event type)
+    // 7. Build primary event — use inventory.adjusted.v1 (registered contract with consumers)
+    // Include movementType='shrink' and shrinkType for downstream filtering
     const event = buildEventFromContext(ctx, 'inventory.adjusted.v1', {
       inventoryItemId: item.id,
       catalogItemId: item.catalogItemId,
       locationId: ctx.locationId!,
       quantityDelta: -input.quantity,
+      movementType: 'shrink',
+      shrinkType: input.shrinkType,
       reason: input.reason,
       movementId: movement.id,
     });

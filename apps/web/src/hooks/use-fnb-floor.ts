@@ -154,6 +154,13 @@ export function useFnbFloor({ roomId, pollIntervalMs = 20 * 60_000 }: UseFnbFloo
     return () => window.removeEventListener('pos-visibility-resume', handler);
   }, [refresh]);
 
+  // Listen for floor invalidation from tab management (transfers, closes)
+  useEffect(() => {
+    const handler = () => { refresh(); };
+    window.addEventListener('fnb-floor-invalidate', handler);
+    return () => window.removeEventListener('fnb-floor-invalidate', handler);
+  }, [refresh]);
+
   // Auto-warm tab cache whenever floor plan data refreshes (poll or visibility resume).
   // Fire-and-forget — warmOpenTabs skips already-cached tabs and deduplicates in-flight.
   useEffect(() => {

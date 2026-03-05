@@ -145,8 +145,9 @@ export async function generateRetainedEarnings(
       sortOrder: number;
     }> = [];
 
-    let totalClosingDebits = 0;
-    let totalClosingCredits = 0;
+    // Accumulate in integer cents to eliminate floating-point drift across large COAs.
+    let totalClosingDebitsCents = 0;
+    let totalClosingCreditsCents = 0;
     let sortOrder = 0;
 
     for (const acct of acctArr) {
@@ -158,19 +159,20 @@ export async function generateRetainedEarnings(
       if (accountType === 'revenue') {
         // Revenue normally has credit balance (credits > debits). Close by debiting.
         const balance = credits - debits;
-        if (Math.abs(balance) >= 0.01) {
-          if (balance > 0) {
+        const balanceCents = Math.round(balance * 100);
+        if (Math.abs(balanceCents) >= 1) {
+          if (balanceCents > 0) {
             lines.push({
               id: generateUlid(),
               tenantId: ctx.tenantId,
               journalEntryId: entryId,
               accountId,
-              debitAmount: balance.toFixed(2),
+              debitAmount: (balanceCents / 100).toFixed(2),
               creditAmount: '0',
               memo: 'Close revenue to retained earnings',
               sortOrder: sortOrder++,
             });
-            totalClosingDebits += balance;
+            totalClosingDebitsCents += balanceCents;
           } else {
             lines.push({
               id: generateUlid(),
@@ -178,51 +180,52 @@ export async function generateRetainedEarnings(
               journalEntryId: entryId,
               accountId,
               debitAmount: '0',
-              creditAmount: Math.abs(balance).toFixed(2),
+              creditAmount: (Math.abs(balanceCents) / 100).toFixed(2),
               memo: 'Close revenue to retained earnings',
               sortOrder: sortOrder++,
             });
-            totalClosingCredits += Math.abs(balance);
+            totalClosingCreditsCents += Math.abs(balanceCents);
           }
         }
       } else {
         // Expense normally has debit balance (debits > credits). Close by crediting.
         const balance = debits - credits;
-        if (Math.abs(balance) >= 0.01) {
-          if (balance > 0) {
+        const balanceCents = Math.round(balance * 100);
+        if (Math.abs(balanceCents) >= 1) {
+          if (balanceCents > 0) {
             lines.push({
               id: generateUlid(),
               tenantId: ctx.tenantId,
               journalEntryId: entryId,
               accountId,
               debitAmount: '0',
-              creditAmount: balance.toFixed(2),
+              creditAmount: (balanceCents / 100).toFixed(2),
               memo: 'Close expense to retained earnings',
               sortOrder: sortOrder++,
             });
-            totalClosingCredits += balance;
+            totalClosingCreditsCents += balanceCents;
           } else {
             lines.push({
               id: generateUlid(),
               tenantId: ctx.tenantId,
               journalEntryId: entryId,
               accountId,
-              debitAmount: Math.abs(balance).toFixed(2),
+              debitAmount: (Math.abs(balanceCents) / 100).toFixed(2),
               creditAmount: '0',
               memo: 'Close expense to retained earnings',
               sortOrder: sortOrder++,
             });
-            totalClosingDebits += Math.abs(balance);
+            totalClosingDebitsCents += Math.abs(balanceCents);
           }
         }
       }
     }
 
     // 7. Add the retained earnings line to balance the entry
-    // Total debits from closing revenue, total credits from closing expenses.
-    // Net difference goes to RE.
-    const reDiff = Math.round((totalClosingDebits - totalClosingCredits) * 100) / 100;
-    if (reDiff > 0) {
+    // Totals are already in integer cents — no floating-point conversion needed.
+    const reDiffCents = totalClosingDebitsCents - totalClosingCreditsCents;
+
+    if (reDiffCents > 0) {
       // More debits than credits from closing → credit RE (profit)
       lines.push({
         id: generateUlid(),
@@ -230,26 +233,49 @@ export async function generateRetainedEarnings(
         journalEntryId: entryId,
         accountId: input.retainedEarningsAccountId,
         debitAmount: '0',
-        creditAmount: reDiff.toFixed(2),
+        creditAmount: (reDiffCents / 100).toFixed(2),
         memo: 'Net income to retained earnings',
         sortOrder: sortOrder++,
       });
-    } else if (reDiff < 0) {
+    } else if (reDiffCents < 0) {
       // More credits than debits → debit RE (loss)
       lines.push({
         id: generateUlid(),
         tenantId: ctx.tenantId,
         journalEntryId: entryId,
         accountId: input.retainedEarningsAccountId,
-        debitAmount: Math.abs(reDiff).toFixed(2),
+        debitAmount: (Math.abs(reDiffCents) / 100).toFixed(2),
         creditAmount: '0',
         memo: 'Net loss to retained earnings',
         sortOrder: sortOrder++,
       });
     }
+    // If reDiffCents === 0, revenue and expenses net to zero — no RE line needed,
+    // and the entry is already balanced.
 
     if (lines.length > 0) {
       await tx.insert(glJournalLines).values(lines);
+    }
+
+    // Safety check: verify the final entry is balanced before committing.
+    // This guards against any future logic changes that could silently produce
+    // an unbalanced closing entry.
+    {
+      let finalDebitsCents = 0;
+      let finalCreditsCents = 0;
+      for (const line of lines) {
+        finalDebitsCents += Math.round(Number(line.debitAmount) * 100);
+        finalCreditsCents += Math.round(Number(line.creditAmount) * 100);
+      }
+      if (finalDebitsCents !== finalCreditsCents) {
+        throw new AppError(
+          'UNBALANCED_ENTRY',
+          `Retained earnings closing entry is unbalanced: ` +
+          `debits=${(finalDebitsCents / 100).toFixed(2)}, credits=${(finalCreditsCents / 100).toFixed(2)}. ` +
+          `This is a data integrity error — investigate the fiscal year data.`,
+          500,
+        );
+      }
     }
 
     const event = buildEventFromContext(ctx, ACCOUNTING_EVENTS.JOURNAL_POSTED, {

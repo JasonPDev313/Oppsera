@@ -478,7 +478,7 @@ export { METRIC_DEFINITIONS } from './types/smart-tag-conditions';
 
 // Event types + consumers
 export * from './events/types';
-export { handleOrderPlaced, handleOrderVoided, handleTenderRecorded } from './events/consumers';
+export { handleOrderReturned, handleOrderPlaced, handleOrderVoided, handleTenderRecorded } from './events/consumers';
 
 // CSV Import services
 export { parseCsvContent } from './services/csv-import/csv-parser';

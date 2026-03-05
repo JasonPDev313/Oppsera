@@ -198,8 +198,9 @@ export function useAlertNotifications(opts: UseAlertNotificationsOptions = {}) {
 
   const markRead = useCallback(async (notificationId: string): Promise<void> => {
     try {
-      await apiFetch(`/api/v1/semantic/alerts/notifications/${notificationId}/read`, {
-        method: 'POST',
+      await apiFetch(`/api/v1/semantic/alerts/notifications/${notificationId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isRead: true }),
       });
       setNotifications((prev) =>
         prev.map((n) =>
@@ -216,8 +217,9 @@ export function useAlertNotifications(opts: UseAlertNotificationsOptions = {}) {
 
   const markDismissed = useCallback(async (notificationId: string): Promise<void> => {
     try {
-      await apiFetch(`/api/v1/semantic/alerts/notifications/${notificationId}/dismiss`, {
-        method: 'POST',
+      await apiFetch(`/api/v1/semantic/alerts/notifications/${notificationId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isDismissed: true }),
       });
       setNotifications((prev) =>
         prev.map((n) =>

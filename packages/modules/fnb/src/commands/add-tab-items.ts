@@ -84,16 +84,12 @@ export async function addTabItems(
       }
     }
 
-    // Insert all items
-    const insertedItems = [];
-    for (let i = 0; i < input.items.length; i++) {
-      const item = input.items[i]!;
+    // Build all rows and batch-insert in one statement
+    const rowsToInsert = input.items.map((item, i) => {
       const extendedPriceCents = Math.round(item.qty * item.unitPriceCents);
       const id = generateUlid();
-
       const subDepartmentId = subDeptMap.get(item.catalogItemId) ?? null;
-
-      await tx.insert(fnbTabItems).values({
+      return {
         id,
         tenantId: ctx.tenantId,
         tabId: input.tabId,
@@ -107,26 +103,30 @@ export async function addTabItems(
         subDepartmentId,
         modifiers: item.modifiers,
         specialInstructions: item.specialInstructions ?? null,
-        status: 'draft',
+        status: 'draft' as const,
         sortOrder: i,
         createdBy: ctx.user.id,
-      });
+      };
+    });
 
-      insertedItems.push({
-        id,
-        catalogItemId: item.catalogItemId,
-        catalogItemName: item.catalogItemName,
-        seatNumber: item.seatNumber,
-        courseNumber: item.courseNumber,
-        qty: item.qty,
-        unitPriceCents: item.unitPriceCents,
-        extendedPriceCents,
-        subDepartmentId,
-        modifiers: item.modifiers,
-        specialInstructions: item.specialInstructions ?? null,
-        status: 'draft',
-      });
+    if (rowsToInsert.length > 0) {
+      await tx.insert(fnbTabItems).values(rowsToInsert);
     }
+
+    const insertedItems = rowsToInsert.map((row) => ({
+      id: row.id,
+      catalogItemId: row.catalogItemId,
+      catalogItemName: row.catalogItemName,
+      seatNumber: row.seatNumber,
+      courseNumber: row.courseNumber,
+      qty: Number(row.qty),
+      unitPriceCents: row.unitPriceCents,
+      extendedPriceCents: row.extendedPriceCents,
+      subDepartmentId: row.subDepartmentId,
+      modifiers: row.modifiers,
+      specialInstructions: row.specialInstructions,
+      status: 'draft' as const,
+    }));
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.TAB_ITEMS_ADDED, {
       tabId: input.tabId,

@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { auditLog } from '@oppsera/core/audit/helpers';
 import { withTenant, catalogImportLogs } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
@@ -72,9 +73,10 @@ async function handler(req: NextRequest, ctx: RequestContext) {
       // Mark import log as rolled back
       await tx.update(catalogImportLogs).set({
         status: 'rolled_back',
-      }).where(sql`id = ${importLogId}`);
+      }).where(sql`id = ${importLogId} AND tenant_id = ${ctx.tenantId}`);
     });
 
+    await auditLog(ctx, 'catalog.import_rolled_back', 'catalog_import_log', importLogId);
     return NextResponse.json({ data: { success: true, importLogId } });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Rollback failed';

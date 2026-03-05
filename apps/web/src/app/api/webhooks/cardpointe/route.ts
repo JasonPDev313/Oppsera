@@ -44,9 +44,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true, error: 'missing_tenant_id' }, { status: 200 });
   }
 
-  // Get source IP from headers (Vercel sets x-forwarded-for)
+  // Get source IP from headers.
+  // Bug 8 fix: x-forwarded-for can be spoofed by prepending fake IPs — an attacker
+  // can set "x-forwarded-for: <cardpointe-ip>, <real-attacker-ip>" and the first
+  // entry would pass the IP check. On Vercel, use x-real-ip (set by Vercel edge,
+  // not forwarded from the client) as the authoritative source IP. Fall back to
+  // the LAST entry of x-forwarded-for (the one Vercel's edge appended) only when
+  // x-real-ip is absent (e.g. local dev without Vercel edge).
+  const realIp = request.headers.get('x-real-ip');
   const forwarded = request.headers.get('x-forwarded-for');
-  const sourceIp = forwarded ? forwarded.split(',')[0]!.trim() : '127.0.0.1';
+  const sourceIp = realIp?.trim()
+    ?? (forwarded ? forwarded.split(',').at(-1)!.trim() : '127.0.0.1');
 
   // Build headers map for verification
   const headerMap: Record<string, string | undefined> = {};

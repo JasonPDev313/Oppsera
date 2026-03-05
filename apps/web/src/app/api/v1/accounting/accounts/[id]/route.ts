@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
-import { listGlAccounts, updateGlAccount, updateGlAccountSchema } from '@oppsera/module-accounting';
+import { getGlAccount, updateGlAccount, updateGlAccountSchema } from '@oppsera/module-accounting';
 
 function extractId(request: NextRequest): string {
   const url = new URL(request.url);
@@ -15,12 +15,7 @@ export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = extractId(request);
 
-    const result = await listGlAccounts({
-      tenantId: ctx.tenantId,
-      includeBalance: true,
-    });
-
-    const account = result.items.find((a) => a.id === id);
+    const account = await getGlAccount(ctx.tenantId, id);
     if (!account) {
       return NextResponse.json(
         { error: { code: 'NOT_FOUND', message: `GL Account '${id}' not found` } },

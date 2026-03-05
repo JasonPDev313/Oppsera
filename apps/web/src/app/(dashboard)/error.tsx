@@ -13,6 +13,18 @@ export default function DashboardError({
   useEffect(() => {
     // Log the error so it's visible in devtools
     console.error('[DashboardError]', error);
+
+    // Report to Sentry so dashboard errors are visible in monitoring
+    import('@sentry/nextjs')
+      .then((Sentry) => {
+        Sentry.captureException(error, {
+          tags: { component: 'DashboardError' },
+          extra: { digest: error.digest },
+        });
+      })
+      .catch(() => {
+        // Sentry not loaded — skip
+      });
   }, [error]);
 
   return (

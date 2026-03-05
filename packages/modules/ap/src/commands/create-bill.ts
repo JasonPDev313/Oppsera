@@ -35,12 +35,12 @@ export async function createBill(ctx: RequestContext, input: CreateBillInput) {
       ]);
     }
 
-    // 2. Compute total from lines
-    let computedTotal = 0;
+    // 2. Compute total from lines (accumulate in cents to avoid float drift)
+    let computedTotalCents = 0;
     for (const line of input.lines) {
-      computedTotal += Number(line.amount);
+      computedTotalCents += Math.round(Number(line.amount) * 100);
     }
-    const totalAmount = computedTotal.toFixed(2);
+    const totalAmount = (computedTotalCents / 100).toFixed(2);
 
     // 3. Create bill
     const billId = generateUlid();

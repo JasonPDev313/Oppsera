@@ -66,6 +66,10 @@ vi.mock('../helpers/order-number', () => ({
   getNextOrderNumber: vi.fn().mockResolvedValue('RTN-001'),
 }));
 
+vi.mock('../helpers/optimistic-lock', () => ({
+  fetchOrderForMutation: vi.fn(),
+}));
+
 const baseCtx = {
   tenantId: 'tenant-1',
   locationId: 'loc-1',
@@ -135,13 +139,15 @@ describe('createReturn', () => {
       },
     ];
 
+    const { fetchOrderForMutation } = await import('../helpers/optimistic-lock');
+    (fetchOrderForMutation as any).mockResolvedValue(originalOrder);
+
     (publishWithOutbox as any).mockImplementation(async (_ctx: any, fn: any) => {
       const mockTx = {
         select: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),
         innerJoin: vi.fn().mockReturnThis(),
         where: vi.fn()
-          .mockResolvedValueOnce([originalOrder]) // fetch original order
           .mockResolvedValueOnce([originalLines[0]]) // fetch matching lines (only line-1 requested)
           .mockReturnValueOnce({ groupBy: vi.fn().mockResolvedValue([]) }), // prior returns query
         insert: vi.fn().mockReturnThis(),
@@ -201,13 +207,15 @@ describe('createReturn', () => {
       },
     ];
 
+    const { fetchOrderForMutation } = await import('../helpers/optimistic-lock');
+    (fetchOrderForMutation as any).mockResolvedValue(originalOrder);
+
     (publishWithOutbox as any).mockImplementation(async (_ctx: any, fn: any) => {
       const mockTx = {
         select: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),
         innerJoin: vi.fn().mockReturnThis(),
         where: vi.fn()
-          .mockResolvedValueOnce([originalOrder])
           .mockResolvedValueOnce(originalLines)
           .mockReturnValueOnce({ groupBy: vi.fn().mockResolvedValue([]) }), // prior returns query
         insert: vi.fn().mockReturnThis(),
@@ -259,13 +267,15 @@ describe('createReturn', () => {
       },
     ];
 
+    const { fetchOrderForMutation } = await import('../helpers/optimistic-lock');
+    (fetchOrderForMutation as any).mockResolvedValue(originalOrder);
+
     (publishWithOutbox as any).mockImplementation(async (_ctx: any, fn: any) => {
       const mockTx = {
         select: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),
         innerJoin: vi.fn().mockReturnThis(),
         where: vi.fn()
-          .mockResolvedValueOnce([originalOrder])
           .mockResolvedValueOnce(originalLines)
           .mockReturnValueOnce({ groupBy: vi.fn().mockResolvedValue([]) }), // prior returns query
         insert: vi.fn().mockReturnThis(),
@@ -287,17 +297,14 @@ describe('createReturn', () => {
 
   it('should reject return on non-paid order', async () => {
     const { publishWithOutbox } = await import('@oppsera/core/events/publish-with-outbox');
+    const { fetchOrderForMutation } = await import('../helpers/optimistic-lock');
+
+    (fetchOrderForMutation as any).mockRejectedValue(
+      new Error("Order status must be 'paid' to return"),
+    );
 
     (publishWithOutbox as any).mockImplementation(async (_ctx: any, fn: any) => {
-      const mockTx = {
-        select: vi.fn().mockReturnThis(),
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn()
-          .mockResolvedValueOnce([{ id: 'order-1', status: 'open' }]),
-        insert: vi.fn().mockReturnThis(),
-        values: vi.fn().mockReturnThis(),
-        returning: vi.fn().mockResolvedValue([{}]),
-      };
+      const mockTx = {};
       return (await fn(mockTx)).result;
     });
 
@@ -313,16 +320,14 @@ describe('createReturn', () => {
 
   it('should reject return on non-existent order', async () => {
     const { publishWithOutbox } = await import('@oppsera/core/events/publish-with-outbox');
+    const { fetchOrderForMutation } = await import('../helpers/optimistic-lock');
+
+    (fetchOrderForMutation as any).mockRejectedValue(
+      new Error('Order not found: order-1'),
+    );
 
     (publishWithOutbox as any).mockImplementation(async (_ctx: any, fn: any) => {
-      const mockTx = {
-        select: vi.fn().mockReturnThis(),
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValueOnce([]), // no order
-        insert: vi.fn().mockReturnThis(),
-        values: vi.fn().mockReturnThis(),
-        returning: vi.fn().mockResolvedValue([{}]),
-      };
+      const mockTx = {};
       return (await fn(mockTx)).result;
     });
 

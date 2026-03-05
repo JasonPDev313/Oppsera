@@ -80,8 +80,8 @@ export async function getReceivingPurchasesTotals(
       FROM receiving_receipts rr
       WHERE rr.tenant_id = ${tenantId}
         AND rr.status = 'posted'
-        AND rr.receipt_date >= ${periodStart}
-        AND rr.receipt_date <= ${periodEnd}
+        AND rr.received_date >= ${periodStart}
+        AND rr.received_date <= ${periodEnd}
     `);
 
     const arr = Array.from(rows as Iterable<Record<string, unknown>>);

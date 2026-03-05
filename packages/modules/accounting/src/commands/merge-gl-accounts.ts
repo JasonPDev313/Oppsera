@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
@@ -52,7 +52,7 @@ export async function mergeGlAccounts(
       await tx
         .update(glAccounts)
         .set({ parentAccountId: target.id })
-        .where(eq(glAccounts.id, child.id));
+        .where(and(eq(glAccounts.id, child.id), eq(glAccounts.tenantId, ctx.tenantId)));
     }
 
     // 2. Reassign journal lines from source → target
@@ -60,6 +60,7 @@ export async function mergeGlAccounts(
       UPDATE gl_journal_lines
       SET account_id = ${target.id}
       WHERE account_id = ${source.id}
+        AND tenant_id = ${ctx.tenantId}
     `);
 
     // 3. Mark source as merged
@@ -71,7 +72,7 @@ export async function mergeGlAccounts(
         isActive: false,
         updatedAt: new Date(),
       })
-      .where(eq(glAccounts.id, source.id));
+      .where(and(eq(glAccounts.id, source.id), eq(glAccounts.tenantId, ctx.tenantId)));
 
     // 4. Recompute hierarchy for target's subtree
     const updatedAccounts = await tx
@@ -86,7 +87,7 @@ export async function mergeGlAccounts(
       await tx
         .update(glAccounts)
         .set({ depth, path })
-        .where(eq(glAccounts.id, desc.id));
+        .where(and(eq(glAccounts.id, desc.id), eq(glAccounts.tenantId, ctx.tenantId)));
     }
 
     // 5. Log merge for both accounts

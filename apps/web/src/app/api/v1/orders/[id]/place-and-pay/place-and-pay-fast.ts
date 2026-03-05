@@ -25,6 +25,7 @@ import {
   tenders,
   tenderReversals,
 } from '@oppsera/db';
+import type { InferSelectModel } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { eq, and, inArray } from 'drizzle-orm';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
@@ -33,6 +34,13 @@ import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-postin
 import { generateJournalEntry } from '@oppsera/module-payments';
 import type { PlaceOrderInput } from '@oppsera/module-orders';
 import type { RecordTenderInput, OrderLineForGL } from '@oppsera/module-payments';
+
+type OrderLine = InferSelectModel<typeof orderLines>;
+type OrderCharge = InferSelectModel<typeof orderCharges>;
+type OrderDiscount = InferSelectModel<typeof orderDiscounts>;
+type OrderLineTax = InferSelectModel<typeof orderLineTaxes>;
+type Tender = InferSelectModel<typeof tenders>;
+type TenderReversal = InferSelectModel<typeof tenderReversals>;
 
 interface PlaceAndPayResult {
   tender: Record<string, unknown>;
@@ -50,7 +58,7 @@ export async function placeAndRecordTender(
   options?: { payExact?: boolean },
 ): Promise<PlaceAndPayResult> {
   if (!ctx.locationId) {
-    throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
+    throw new AppError('LOCATION_REQUIRED', 'Location is required', 400);
   }
   if (!tenderInput.clientRequestId) {
     throw new ValidationError('clientRequestId is required for tender operations');
@@ -83,6 +91,7 @@ export async function placeAndRecordTender(
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, tenderInput.clientRequestId, 'placeAndPay',
     );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
 
     // --- Single fetchOrderForMutation (accepts 'open' OR 'placed') ---
@@ -90,13 +99,13 @@ export async function placeAndRecordTender(
     const isAlreadyPlaced = order.status === 'placed';
 
     // ========== PLACE ORDER (skip if already placed) ==========
-    let placedLines: any[];
+    let placedLines: OrderLine[];
     if (!isAlreadyPlaced) {
       // Fetch lines, charges, discounts in parallel
       const [lines, charges, discounts] = await Promise.all([
-        (tx as any).select().from(orderLines).where(eq(orderLines.orderId, orderId)),
-        (tx as any).select().from(orderCharges).where(eq(orderCharges.orderId, orderId)),
-        (tx as any).select().from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
+        tx.select().from(orderLines).where(eq(orderLines.orderId, orderId)),
+        tx.select().from(orderCharges).where(eq(orderCharges.orderId, orderId)),
+        tx.select().from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
       ]);
 
       if (lines.length === 0) {
@@ -104,16 +113,16 @@ export async function placeAndRecordTender(
       }
 
       // Fetch line taxes (depends on lineIds)
-      const lineIds = lines.map((l: any) => l.id);
-      let lineTaxes: any[] = [];
+      const lineIds = lines.map((l) => l.id);
+      let lineTaxes: OrderLineTax[] = [];
       if (lineIds.length > 0) {
-        lineTaxes = await (tx as any).select().from(orderLineTaxes)
+        lineTaxes = await tx.select().from(orderLineTaxes)
           .where(inArray(orderLineTaxes.orderLineId, lineIds));
       }
 
       // Build receipt snapshot
       const receiptSnapshot = {
-        lines: lines.map((l: any) => ({
+        lines: lines.map((l) => ({
           id: l.id,
           name: l.catalogItemName,
           sku: l.catalogItemSku,
@@ -124,11 +133,11 @@ export async function placeAndRecordTender(
           lineTotal: l.lineTotal,
           modifiers: l.modifiers,
           taxes: lineTaxes
-            .filter((t: any) => t.orderLineId === l.id)
-            .map((t: any) => ({ name: t.taxName, rate: Number(t.rateDecimal), amount: t.amount })),
+            .filter((t) => t.orderLineId === l.id)
+            .map((t) => ({ name: t.taxName, rate: Number(t.rateDecimal), amount: t.amount })),
         })),
-        charges: charges.map((c: any) => ({ name: c.name, amount: c.amount })),
-        discounts: discounts.map((d: any) => ({ type: d.type, amount: d.amount, reason: d.reason })),
+        charges: (charges as OrderCharge[]).map((c) => ({ name: c.name, amount: c.amount })),
+        discounts: (discounts as OrderDiscount[]).map((d) => ({ type: d.type, amount: d.amount, reason: d.reason })),
         subtotal: order.subtotal,
         taxTotal: order.taxTotal,
         serviceChargeTotal: order.serviceChargeTotal,
@@ -137,7 +146,7 @@ export async function placeAndRecordTender(
       };
 
       const now = new Date();
-      await (tx as any).update(orders).set({
+      await tx.update(orders).set({
         status: 'placed',
         placedAt: now,
         receiptSnapshot,
@@ -148,23 +157,23 @@ export async function placeAndRecordTender(
       placedLines = lines;
     } else {
       // Order already placed — just fetch lines for GL/event enrichment
-      placedLines = await (tx as any).select().from(orderLines).where(eq(orderLines.orderId, orderId));
+      placedLines = await tx.select().from(orderLines).where(eq(orderLines.orderId, orderId));
     }
 
     // ========== RECORD TENDER ==========
     // Fetch existing tenders + reversals in parallel
     const [existingTendersRows, existingReversals] = await Promise.all([
-      (tx as any).select().from(tenders).where(
+      tx.select().from(tenders).where(
         and(eq(tenders.tenantId, ctx.tenantId), eq(tenders.orderId, orderId), eq(tenders.status, 'captured')),
       ),
-      (tx as any).select().from(tenderReversals).where(
+      tx.select().from(tenderReversals).where(
         and(eq(tenderReversals.tenantId, ctx.tenantId), eq(tenderReversals.orderId, orderId)),
       ),
     ]);
 
-    const reversedIds = new Set((existingReversals as any[]).map((r: any) => r.originalTenderId));
-    const activeTenders = (existingTendersRows as any[]).filter((t: any) => !reversedIds.has(t.id));
-    const totalTendered = activeTenders.reduce((sum: number, t: any) => sum + (t.amount as number), 0);
+    const reversedIds = new Set(existingReversals.map((r: TenderReversal) => r.originalTenderId));
+    const activeTenders = existingTendersRows.filter((t: Tender) => !reversedIds.has(t.id));
+    const totalTendered = activeTenders.reduce((sum: number, t: Tender) => sum + t.amount, 0);
     const remaining = order.total - totalTendered;
 
     // Defense-in-depth: reject if order is already fully paid.
@@ -184,9 +193,9 @@ export async function placeAndRecordTender(
     const isFullyPaid = newTotalTendered >= order.total;
 
     // Insert tender row
-    const [created] = await (tx as any).insert(tenders).values({
+    const [created] = await tx.insert(tenders).values({
       tenantId: ctx.tenantId,
-      locationId: ctx.locationId,
+      locationId: ctx.locationId!, // validated non-null at function entry
       orderId,
       tenderType: tenderInput.tenderType,
       tenderSequence,
@@ -209,23 +218,23 @@ export async function placeAndRecordTender(
     const tender = created!;
 
     // Build GL lines from already-fetched order lines (no duplicate fetch!)
-    const orderLinesForGL: OrderLineForGL[] = (placedLines as any[]).map((l: any) => ({
+    const orderLinesForGL: OrderLineForGL[] = placedLines.map((l) => ({
       departmentId: null,
-      lineGross: l.lineTotal as number,
-      lineTax: l.lineTax as number,
-      lineNet: (l.lineTotal as number) - (l.lineTax as number),
+      lineGross: l.lineTotal,
+      lineTax: l.lineTax,
+      lineNet: l.lineTotal - l.lineTax,
     }));
 
     // Enriched lines for the tender event
-    const enrichedLines = (placedLines as any[]).map((l: any) => ({
-      catalogItemId: l.catalogItemId as string,
-      catalogItemName: l.catalogItemName as string,
-      subDepartmentId: (l.subDepartmentId as string) ?? null,
+    const enrichedLines = placedLines.map((l) => ({
+      catalogItemId: l.catalogItemId,
+      catalogItemName: l.catalogItemName,
+      subDepartmentId: l.subDepartmentId ?? null,
       qty: Number(l.qty),
-      extendedPriceCents: l.lineSubtotal as number,
-      taxGroupId: (l.taxGroupId as string) ?? null,
-      taxAmountCents: l.lineTax as number,
-      costCents: (l.costPrice as number) ?? null,
+      extendedPriceCents: l.lineSubtotal,
+      taxGroupId: l.taxGroupId ?? null,
+      taxAmountCents: l.lineTax,
+      costCents: l.costPrice ?? null,
       packageComponents: l.packageComponents ?? null,
     }));
 
@@ -252,7 +261,7 @@ export async function placeAndRecordTender(
     // If fully paid, update order status
     if (isFullyPaid) {
       const now = new Date();
-      await (tx as any).update(orders).set({
+      await tx.update(orders).set({
         status: 'paid',
         paidAt: now,
         updatedBy: ctx.user.id,
@@ -286,11 +295,17 @@ export async function placeAndRecordTender(
         subtotal: order.subtotal,
         taxTotal: order.taxTotal,
         discountTotal: order.discountTotal ?? 0,
+        serviceChargeTotal: order.serviceChargeTotal ?? 0,
         total: order.total,
         lineCount: placedLines.length,
         customerId: order.customerId ?? null,
+        customerName: null,
         billingAccountId: order.billingAccountId ?? null,
-        lines: placedLines.map((l: any) => ({
+        tabName: (order.metadata as Record<string, unknown> | null)?.tabName ?? null,
+        tableNumber: (order.metadata as Record<string, unknown> | null)?.tableNumber ?? null,
+        employeeId: ctx.user.id,
+        employeeName: ctx.user.name ?? ctx.user.email ?? null,
+        lines: placedLines.map((l) => ({
           catalogItemId: l.catalogItemId,
           catalogItemName: l.catalogItemName ?? 'Unknown',
           categoryName: null,
@@ -300,7 +315,14 @@ export async function placeAndRecordTender(
           lineTax: l.lineTax ?? 0,
           lineTotal: l.lineTotal ?? 0,
           packageComponents: l.packageComponents ?? null,
-          modifiers: (l.modifiers ?? []).map((m: any) => ({
+          modifiers: ((l.modifiers ?? []) as Array<{
+            modifierId: string;
+            modifierGroupId?: string;
+            name: string;
+            priceAdjustment?: number;
+            instruction?: string;
+            isDefault?: boolean;
+          }>).map((m) => ({
             modifierId: m.modifierId,
             modifierGroupId: m.modifierGroupId ?? null,
             name: m.name,
@@ -385,7 +407,7 @@ export async function placeAndRecordTender(
           legacyGlData!.isFullyPaid,
         );
         // Update tender with allocation snapshot (denormalized, non-critical)
-        await (glTx as any).update(tenders).set({
+        await glTx.update(tenders).set({
           allocationSnapshot: journalResult.allocationSnapshot,
         }).where(eq(tenders.id, legacyGlData!.tenderId));
       });

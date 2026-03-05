@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ── Hoisted mocks ─────────────────────────────────────────────
 const {
   mockListGlAccounts,
+  mockGetGlAccount,
   mockCreateGlAccount,
   mockUpdateGlAccount,
   mockListJournalEntries,
@@ -21,6 +22,7 @@ const {
   mockWithTenant,
 } = vi.hoisted(() => {
   const mockListGlAccounts = vi.fn();
+  const mockGetGlAccount = vi.fn();
   const mockCreateGlAccount = vi.fn();
   const mockUpdateGlAccount = vi.fn();
   const mockListJournalEntries = vi.fn();
@@ -55,6 +57,7 @@ const {
 
   return {
     mockListGlAccounts,
+    mockGetGlAccount,
     mockCreateGlAccount,
     mockUpdateGlAccount,
     mockListJournalEntries,
@@ -82,6 +85,7 @@ vi.mock('@oppsera/core/auth/with-middleware', () => ({
 
 vi.mock('@oppsera/module-accounting', () => ({
   listGlAccounts: mockListGlAccounts,
+  getGlAccount: mockGetGlAccount,
   createGlAccount: mockCreateGlAccount,
   createGlAccountSchema: {
     safeParse: (data: any) => {
@@ -315,7 +319,7 @@ describe('GET /api/v1/accounting/accounts/:id', () => {
 
   it('returns single account with { data }', async () => {
     const account = { id: 'acct_001', accountNumber: '1000', name: 'Cash', accountType: 'asset' };
-    mockListGlAccounts.mockResolvedValue({ items: [account] });
+    mockGetGlAccount.mockResolvedValue(account);
 
     const res = await accountDetailGET(makeGetRequest(`${BASE}/accounts/acct_001`));
     const body = await res.json();
@@ -325,7 +329,7 @@ describe('GET /api/v1/accounting/accounts/:id', () => {
   });
 
   it('returns 404 when account not found', async () => {
-    mockListGlAccounts.mockResolvedValue({ items: [] });
+    mockGetGlAccount.mockResolvedValue(null);
 
     const res = await accountDetailGET(makeGetRequest(`${BASE}/accounts/acct_missing`));
     const body = await res.json();

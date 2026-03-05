@@ -597,9 +597,9 @@ describe('Inventory Module', () => {
       const item = makeInventoryItem();
       const movement = makeMovement({ movementType: 'adjustment', quantityDelta: '5' });
 
-      // Call 1: lookup inventory item
-      mockSelect.mockImplementationOnce(() => makeSelectChain([item]));
-      // Call 2: getOnHand before => 20
+      // Call 1: lookup inventory item via tx.execute(sql`SELECT ... FOR UPDATE`)
+      mockExecute.mockResolvedValueOnce([item]);
+      // Call 2: getOnHand before => 20 (still uses tx.select())
       mockSelect.mockImplementationOnce(() => makeSelectChain([{ total: '20' }]));
       // Call 3: getOnHand after => 25
       mockSelect.mockImplementationOnce(() => makeSelectChain([{ total: '25' }]));
@@ -628,8 +628,8 @@ describe('Inventory Module', () => {
       const item = makeInventoryItem();
       const movement = makeMovement({ movementType: 'adjustment', quantityDelta: '-3' });
 
-      // Call 1: lookup inventory item
-      mockSelect.mockImplementationOnce(() => makeSelectChain([item]));
+      // Call 1: lookup inventory item via tx.execute(sql`SELECT ... FOR UPDATE`)
+      mockExecute.mockResolvedValueOnce([item]);
       // Call 2: getOnHand before => 20 (will be 20 + (-3) = 17, >= 0, passes check)
       mockSelect.mockImplementationOnce(() => makeSelectChain([{ total: '20' }]));
       // Call 3: getOnHand after => 17
@@ -657,8 +657,8 @@ describe('Inventory Module', () => {
     it('throws when negative adjustment would cause negative stock and allowNegative is false', async () => {
       const item = makeInventoryItem({ allowNegative: false });
 
-      // Call 1: lookup inventory item
-      mockSelect.mockImplementationOnce(() => makeSelectChain([item]));
+      // Call 1: lookup inventory item via tx.execute(sql`SELECT ... FOR UPDATE`)
+      mockExecute.mockResolvedValueOnce([item]);
       // Call 2: getOnHand before => 3 (adjusting by -10 would go to -7)
       mockSelect.mockImplementationOnce(() => makeSelectChain([{ total: '3' }]));
 
@@ -679,8 +679,8 @@ describe('Inventory Module', () => {
       const item = makeInventoryItem({ allowNegative: true });
       const movement = makeMovement({ movementType: 'adjustment', quantityDelta: '-10' });
 
-      // Call 1: lookup inventory item
-      mockSelect.mockImplementationOnce(() => makeSelectChain([item]));
+      // Call 1: lookup inventory item via tx.execute(sql`SELECT ... FOR UPDATE`)
+      mockExecute.mockResolvedValueOnce([item]);
       // Call 2: getOnHand before => 3 (will be 3 + (-10) = -7, but allowNegative is true)
       mockSelect.mockImplementationOnce(() => makeSelectChain([{ total: '3' }]));
       // Call 3: getOnHand after => -7
@@ -933,7 +933,7 @@ describe('Inventory Module', () => {
       const item1 = makeInventoryItem({ id: 'INV_001', name: 'Item 1' });
       const item2 = makeInventoryItem({ id: 'INV_002', name: 'Item 2' });
 
-      // select().from(inventoryItems).where().orderBy().limit() => rows
+      // select() for main query (uses Drizzle query builder)
       mockSelect.mockImplementationOnce(() => makeSelectChain([item1, item2]));
       // execute() for on-hand SUM query => on-hand map
       mockExecute.mockResolvedValueOnce([
@@ -957,7 +957,9 @@ describe('Inventory Module', () => {
       const items = Array.from({ length: 51 }, (_, i) =>
         makeInventoryItem({ id: `INV_${String(i).padStart(3, '0')}` }),
       );
+      // select() for main query returning limit+1 rows
       mockSelect.mockImplementationOnce(() => makeSelectChain(items));
+      // execute() for on-hand SUM query
       mockExecute.mockResolvedValueOnce(
         items.slice(0, 50).map((itm) => ({
           inventory_item_id: itm.id,
@@ -977,7 +979,9 @@ describe('Inventory Module', () => {
 
     it('filters by status and itemType', async () => {
       const item = makeInventoryItem({ status: 'active', itemType: 'retail' });
+      // select() for main query (uses Drizzle query builder)
       mockSelect.mockImplementationOnce(() => makeSelectChain([item]));
+      // execute() for on-hand SUM query
       mockExecute.mockResolvedValueOnce([{ inventory_item_id: 'INV_001', on_hand: '5' }]);
 
       const result = await listInventoryItems({

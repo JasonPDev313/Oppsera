@@ -373,6 +373,10 @@ export function useManageTabs(locationId: string) {
         setUndoSnapshot({ action: 'bulk_transfer', tabIds, preActionTabs, result: res.data, timestamp: Date.now() });
         clearSelection();
         await refreshTabs();
+        // Notify floor plan to refresh table status (transfer changes table assignments)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('fnb-floor-invalidate'));
+        }
         return res.data;
       } finally {
         setIsMutating(false);
@@ -402,6 +406,10 @@ export function useManageTabs(locationId: string) {
         setUndoSnapshot({ action: 'bulk_close', tabIds, preActionTabs, result: res.data, timestamp: Date.now() });
         clearSelection();
         await refreshTabs();
+        // Notify floor plan to refresh table status (close marks tables as dirty)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('fnb-floor-invalidate'));
+        }
         return res.data;
       } finally {
         setIsMutating(false);

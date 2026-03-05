@@ -3,11 +3,12 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
-import { orders, orderCharges } from '@oppsera/db';
+import { orders, orderLines, orderCharges, orderDiscounts } from '@oppsera/db';
 import { eq } from 'drizzle-orm';
 import type { SetServiceChargeExemptInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
+import { recalculateOrderTotals } from '../helpers/order-totals';
 
 export async function setServiceChargeExempt(
   ctx: RequestContext,
@@ -32,8 +33,27 @@ export async function setServiceChargeExempt(
         .where(eq(orderCharges.orderId, orderId));
     }
 
+    // Recalculate order totals after service charge lines may have changed
+    const [allLines, allCharges, allDiscounts] = await Promise.all([
+      tx.select({
+        lineSubtotal: orderLines.lineSubtotal,
+        lineTax: orderLines.lineTax,
+        lineTotal: orderLines.lineTotal,
+      }).from(orderLines).where(eq(orderLines.orderId, orderId)),
+      tx.select({
+        amount: orderCharges.amount,
+        taxAmount: orderCharges.taxAmount,
+      }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
+      tx.select({
+        amount: orderDiscounts.amount,
+      }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
+    ]);
+
+    const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
+
     await tx.update(orders).set({
       serviceChargeExempt: input.serviceChargeExempt,
+      ...totals,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),
     }).where(eq(orders.id, orderId));
@@ -53,6 +73,7 @@ export async function setServiceChargeExempt(
       result: {
         ...order,
         serviceChargeExempt: input.serviceChargeExempt,
+        ...totals,
       },
       events: [event],
     };

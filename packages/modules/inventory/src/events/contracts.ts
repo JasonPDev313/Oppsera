@@ -7,6 +7,7 @@ import {
   InventoryNegativeDataSchema,
   OrderPlacedDataSchema,
   OrderVoidedDataSchema,
+  OrderReturnedDataSchema,
   CatalogItemCreatedDataSchema,
   CatalogItemArchivedDataSchema,
   CatalogItemUnarchivedDataSchema,
@@ -24,6 +25,7 @@ registerContracts({
   consumes: [
     { eventType: 'order.placed.v1', dataSchema: OrderPlacedDataSchema },
     { eventType: 'order.voided.v1', dataSchema: OrderVoidedDataSchema },
+    { eventType: 'order.returned.v1', dataSchema: OrderReturnedDataSchema },
     { eventType: 'catalog.item.created.v1', dataSchema: CatalogItemCreatedDataSchema },
     { eventType: 'catalog.item.archived.v1', dataSchema: CatalogItemArchivedDataSchema },
     { eventType: 'catalog.item.unarchived.v1', dataSchema: CatalogItemUnarchivedDataSchema },

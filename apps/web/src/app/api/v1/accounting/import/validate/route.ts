@@ -5,10 +5,16 @@ import { parseCsvImport, validateCsvPreviewSchema } from '@oppsera/module-accoun
 
 // POST /api/v1/accounting/import/validate — validate CSV without importing
 export const POST = withMiddleware(
-  async (request: NextRequest) => {
+  async (request: NextRequest, _ctx) => {
     const body = await request.json();
-    const input = validateCsvPreviewSchema.parse(body);
-    const result = parseCsvImport(input.csvContent, input.stateName);
+    const parsed = validateCsvPreviewSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+        { status: 400 },
+      );
+    }
+    const result = parseCsvImport(parsed.data.csvContent, parsed.data.stateName);
 
     return NextResponse.json({
       data: {

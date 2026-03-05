@@ -3,8 +3,9 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, NotFoundError, ValidationError } from '@oppsera/shared';
-import { inventoryItems, inventoryMovements } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import type { inventoryItems } from '@oppsera/db';
+import { inventoryMovements } from '@oppsera/db';
+import { sql } from 'drizzle-orm';
 import { getOnHand } from '../helpers/get-on-hand';
 import { checkStockAlerts } from '../helpers/stock-alerts';
 import type { AdjustInventoryInput } from '../validation';
@@ -22,17 +23,18 @@ export async function adjustInventory(
   }
 
   const result = await publishWithOutbox(ctx, async (tx) => {
-    // 1. Look up inventory item and verify tenant/location ownership
-    const items = await (tx as any)
-      .select()
-      .from(inventoryItems)
-      .where(
-        and(
-          eq(inventoryItems.tenantId, ctx.tenantId),
-          eq(inventoryItems.id, input.inventoryItemId),
-          eq(inventoryItems.locationId, ctx.locationId!),
-        ),
-      );
+    // 1. Look up inventory item and verify tenant/location ownership.
+    //    FOR UPDATE serializes concurrent adjustments on the same row so that
+    //    two simultaneous requests cannot both read the same on-hand value and
+    //    both apply their delta (lost update / race condition).
+    const itemRows = await (tx as any).execute(
+      sql`SELECT * FROM inventory_items
+          WHERE tenant_id = ${ctx.tenantId}
+            AND id = ${input.inventoryItemId}
+            AND location_id = ${ctx.locationId!}
+          FOR UPDATE`,
+    );
+    const items = Array.from(itemRows as Iterable<typeof inventoryItems.$inferSelect>);
     const item = items[0];
     if (!item) {
       throw new NotFoundError('Inventory item');

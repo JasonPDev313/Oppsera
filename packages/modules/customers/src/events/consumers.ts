@@ -32,6 +32,69 @@ async function fetchHouseAccountReceivableId(tenantId: string): Promise<string |
   }
 }
 
+// ── handleOrderReturned ──────────────────────────────────────────
+/**
+ * Consumes `order.returned.v1`.
+ *
+ * Decrements customer totalSpend by the return amount and logs activity.
+ * Does NOT touch totalVisits (a return doesn't undo the visit itself).
+ * Does NOT modify AR/GL — that's handled by accounting.handleOrderReturnForAccounting.
+ *
+ * Idempotency: activity log insert uses generateUlid so re-delivery is safe
+ * (duplicate activity entries are harmless).
+ */
+export async function handleOrderReturned(event: EventEnvelope): Promise<void> {
+  const {
+    returnOrderId,
+    originalOrderId,
+    returnTotal,
+    customerId: eventCustomerId,
+  } = event.data as {
+    returnOrderId: string;
+    originalOrderId: string;
+    returnType: 'full' | 'partial';
+    locationId: string;
+    businessDate: string;
+    customerId?: string | null;
+    returnTotal: number; // positive cents (refund value)
+    lines: unknown[];
+  };
+
+  const customerId = eventCustomerId ?? null;
+  if (!customerId || returnTotal <= 0) return;
+
+  const createdBy = event.actorUserId || 'system';
+
+  await withTenant(event.tenantId, async (tx) => {
+    const updatedRows = await tx
+      .update(customers)
+      .set({
+        totalSpend: sql`GREATEST(0, ${customers.totalSpend} - ${returnTotal})`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(customers.tenantId, event.tenantId),
+          eq(customers.id, customerId),
+        ),
+      )
+      .returning({ id: customers.id });
+
+    if (updatedRows.length > 0) {
+      await tx.insert(customerActivityLog).values({
+        id: generateUlid(),
+        tenantId: event.tenantId,
+        customerId,
+        activityType: 'order_returned',
+        title: `Return processed ($${(returnTotal / 100).toFixed(2)})`,
+        details: `Original order: ${originalOrderId}`,
+        metadata: { returnOrderId, originalOrderId, returnTotal },
+        createdBy,
+      });
+    }
+  });
+}
+
 // ── handleOrderPlaced ────────────────────────────────────────────
 /**
  * Consumes `order.placed.v1`.

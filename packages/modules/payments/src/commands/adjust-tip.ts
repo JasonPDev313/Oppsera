@@ -3,7 +3,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError } from '@oppsera/shared';
-import { tenders, tenderReversals, paymentJournalEntries } from '@oppsera/db';
+import { tenders, tenderReversals, paymentJournalEntries, paymentIntents } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import type { AdjustTipInput } from '../validation';
 import {
@@ -96,7 +96,26 @@ export async function adjustTip(
     await tx
       .update(tenders)
       .set({ tipAmount: input.newTipAmount })
-      .where(eq(tenders.id, tenderId));
+      .where(and(eq(tenders.id, tenderId), eq(tenders.tenantId, ctx.tenantId)));
+
+    // Bug 2 fix: keep the linked payment intent's amountCents in sync with the new tip total.
+    // At sale time, amountCents = baseAmount + tipCents (baked in). When the tip is adjusted
+    // the payment intent must reflect the new total so that ACH NACHA reversal amount checks
+    // (which compare refundAmountCents against intent.amountCents) remain correct.
+    if (tender.paymentIntentId) {
+      await tx
+        .update(paymentIntents)
+        .set({
+          amountCents: tender.amount + input.newTipAmount,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(paymentIntents.id, tender.paymentIntentId),
+            eq(paymentIntents.tenantId, ctx.tenantId),
+          ),
+        );
+    }
 
     // 5. Create adjustment GL journal entry for the tip delta
     const debitAccount = getDebitAccountForTenderType(tender.tenderType);

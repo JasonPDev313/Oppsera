@@ -10,6 +10,7 @@ import {
   index,
   primaryKey,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 
 // ── Tenants ──────────────────────────────────────────────────────
@@ -451,7 +452,11 @@ export const eventOutbox = pgTable(
     publishedAt: timestamp('published_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_outbox_unpublished').on(table.publishedAt)],
+  (table) => [
+    index('idx_event_outbox_unpublished')
+      .on(table.createdAt)
+      .where(sql`published_at IS NULL`),
+  ],
 );
 
 // ── Processed Events ─────────────────────────────────────────────

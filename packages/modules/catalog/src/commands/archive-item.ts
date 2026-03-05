@@ -36,7 +36,7 @@ export async function archiveItem(ctx: RequestContext, itemId: string, input: Ar
         updatedBy: ctx.user.id,
         updatedAt: new Date(),
       })
-      .where(eq(catalogItems.id, itemId))
+      .where(and(eq(catalogItems.id, itemId), eq(catalogItems.tenantId, ctx.tenantId)))
       .returning();
 
     await logItemChange(tx, {

@@ -17,9 +17,15 @@ export const POST = withMiddleware(
     }
 
     const body = await request.json();
-    const input = terminalDisplaySchema.parse(body);
+    const parsed = terminalDisplaySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+        { status: 400 },
+      );
+    }
 
-    const result = await terminalDisplay(ctx, input);
+    const result = await terminalDisplay(ctx, parsed.data);
 
     return NextResponse.json({ data: result });
   },

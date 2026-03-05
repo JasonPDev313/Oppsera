@@ -4,6 +4,7 @@ export { getJournalEntry } from './get-journal-entry';
 export { listJournalEntries } from './list-journal-entries';
 export { listGlAccounts } from './list-gl-accounts';
 export type { GlAccountListItem } from './list-gl-accounts';
+export { getGlAccount } from './get-gl-account';
 export { getTrialBalance } from './get-trial-balance';
 export type { TrialBalanceAccount, TrialBalanceReport } from './get-trial-balance';
 export { getGlDetailReport } from './get-gl-detail-report';

@@ -12,7 +12,7 @@ import {
   uoms,
   itemVendors,
 } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { recomputeAllLines, type ReceiptLineInput } from '../../services/receipt-calculator';
 import type { AllocationMethod } from '../../services/shipping-allocation';
 import type { AddReceiptLineInput } from '../../validation/receiving';
@@ -112,15 +112,92 @@ export async function addReceiptLine(
       })
       .returning();
 
-    // 7. Recompute ALL lines (including the new one)
+    // 7. Recompute ALL lines (including the new one).
+    //    Batch-fetch all items and UOM conversions needed for existing lines in two
+    //    queries instead of 2×N individual queries (N+1 fix).
     const allLines = [...existingLines, newLine];
+
+    // Collect the unique inventoryItemIds from existing lines (not the new line — we already
+    // have its factor).
+    const existingLineItemIds: string[] = Array.from(
+      new Set(existingLines.map((l: any) => String(l.inventoryItemId))),
+    );
+
+    // Batch-fetch base units for all existing-line items in one query.
+    const existingItemRows = existingLineItemIds.length > 0
+      ? await (tx as any)
+          .select({ id: inventoryItems.id, baseUnit: inventoryItems.baseUnit })
+          .from(inventoryItems)
+          .where(
+            and(
+              eq(inventoryItems.tenantId, ctx.tenantId),
+              inArray(inventoryItems.id, existingLineItemIds),
+            ),
+          )
+      : [];
+    const itemBaseUnitMap = new Map<string, string>(
+      Array.from(existingItemRows as Iterable<{ id: string; baseUnit: string }>).map(
+        (r) => [r.id, r.baseUnit],
+      ),
+    );
+
+    // Collect UOM codes needed for existing lines that differ from the item's baseUnit.
+    const uomCodesNeeded = new Set<string>();
+    for (const line of existingLines) {
+      const baseUnit = itemBaseUnitMap.get(line.inventoryItemId) ?? '';
+      if (line.uomCode.toLowerCase() !== baseUnit.toLowerCase()) {
+        uomCodesNeeded.add(line.uomCode);
+      }
+    }
+
+    // Batch-fetch UOM ids for needed codes in one query.
+    const uomCodeArr = Array.from(uomCodesNeeded);
+    const uomRows = uomCodeArr.length > 0
+      ? await (tx as any)
+          .select({ id: uoms.id, code: uoms.code })
+          .from(uoms)
+          .where(and(eq(uoms.tenantId, ctx.tenantId), inArray(uoms.code, uomCodeArr)))
+      : [];
+    const uomIdByCode = new Map<string, string>(
+      Array.from(uomRows as Iterable<{ id: string; code: string }>).map((r) => [r.code, r.id]),
+    );
+
+    // Batch-fetch UOM conversions for all (inventoryItemId, fromUomId) pairs in one query.
+    const uomIdArr: string[] = Array.from(new Set(uomRows.map((r: { id: string }) => r.id)));
+    const convRows = existingLineItemIds.length > 0 && uomIdArr.length > 0
+      ? await (tx as any)
+          .select()
+          .from(itemUomConversions)
+          .where(
+            and(
+              eq(itemUomConversions.tenantId, ctx.tenantId),
+              inArray(itemUomConversions.inventoryItemId, existingLineItemIds),
+              inArray(itemUomConversions.fromUomId, uomIdArr),
+            ),
+          )
+      : [];
+    // Key: `${inventoryItemId}:${fromUomId}` → conversionFactor
+    const convMap = new Map<string, number>(
+      Array.from(
+        convRows as Iterable<{ inventoryItemId: string; fromUomId: string; conversionFactor: string }>,
+      ).map((r) => [`${r.inventoryItemId}:${r.fromUomId}`, Number(r.conversionFactor)]),
+    );
+
     const lineInputs: ReceiptLineInput[] = [];
     for (const line of allLines) {
       let factor: number;
       if (line.id === newLine.id) {
+        // New line already resolved its factor before insertion.
         factor = conversionFactor;
       } else {
-        factor = await resolveConversionFactorByItemId(tx, ctx.tenantId, line.inventoryItemId, line.uomCode);
+        // Resolve factor from batched data — no additional DB queries.
+        const baseUnit = itemBaseUnitMap.get(line.inventoryItemId) ?? '';
+        if (line.uomCode.toLowerCase() === baseUnit.toLowerCase()) {
+          factor = 1;
+        } else {
+          const uomId = uomIdByCode.get(line.uomCode);
+          factor = uomId ? (convMap.get(`${line.inventoryItemId}:${uomId}`) ?? 1) : 1;
+        }
       }
       lineInputs.push({
         id: line.id,
@@ -298,23 +375,4 @@ async function resolveConversionFactor(
     );
   const conv = convRows[0];
   return conv ? Number(conv.conversionFactor) : 1;
-}
-
-/**
- * Self-contained conversion factor lookup — looks up item's baseUnit from DB.
- * Used for existing lines where the caller doesn't have the item loaded.
- */
-async function resolveConversionFactorByItemId(
-  tx: any,
-  tenantId: string,
-  inventoryItemId: string,
-  uomCode: string,
-): Promise<number> {
-  const itemRows = await (tx as any)
-    .select({ baseUnit: inventoryItems.baseUnit })
-    .from(inventoryItems)
-    .where(and(eq(inventoryItems.tenantId, tenantId), eq(inventoryItems.id, inventoryItemId)));
-  const item = itemRows[0];
-  if (!item) return 1;
-  return resolveConversionFactor(tx, tenantId, inventoryItemId, uomCode, item.baseUnit);
 }

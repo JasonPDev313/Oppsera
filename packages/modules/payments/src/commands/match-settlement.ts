@@ -61,6 +61,9 @@ export async function matchSettlement(
         id: paymentSettlements.id,
         status: paymentSettlements.status,
         processorName: paymentSettlements.processorName,
+        settlementDate: paymentSettlements.settlementDate,
+        businessDateFrom: paymentSettlements.businessDateFrom,
+        businessDateTo: paymentSettlements.businessDateTo,
       })
       .from(paymentSettlements)
       .where(
@@ -109,15 +112,21 @@ export async function matchSettlement(
 
     // 4. Try to match each unmatched line
     for (const line of unmatchedLines) {
-      // Look for payment_transactions matching amount
+      // Bug 13 fix: match on amount + date range + transaction type to avoid false positives
+      // when multiple transactions share the same amount. Previously only amount was checked.
+      const dateFrom = settlement.businessDateFrom ?? settlement.settlementDate;
+      const dateTo = settlement.businessDateTo ?? settlement.settlementDate;
+
       const candidateRows = await tx.execute(sql`
         SELECT pt.payment_intent_id, pi.tender_id
         FROM payment_transactions pt
         JOIN payment_intents pi ON pi.id = pt.payment_intent_id
         WHERE pt.tenant_id = ${ctx.tenantId}
           AND pt.response_status = 'approved'
+          AND pt.transaction_type IN ('sale', 'capture')
           AND pt.amount_cents = ${line.settledAmountCents}
           AND pi.tender_id IS NOT NULL
+          AND DATE(pt.created_at) BETWEEN ${dateFrom}::date AND ${dateTo}::date
           AND NOT EXISTS (
             SELECT 1 FROM payment_settlement_lines psl
             WHERE psl.tender_id = pi.tender_id

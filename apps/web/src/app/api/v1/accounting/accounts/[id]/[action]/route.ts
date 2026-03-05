@@ -48,17 +48,30 @@ export const POST = withMiddleware(
       }
       case 'merge': {
         const body = await request.json();
-        const input = mergeGlAccountsSchema.parse({
+        const parsed = mergeGlAccountsSchema.safeParse({
           sourceAccountId: id,
           targetAccountId: body.targetAccountId,
+          clientRequestId: body.clientRequestId,
         });
-        const result = await mergeGlAccounts(ctx, input);
+        if (!parsed.success) {
+          return NextResponse.json(
+            { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+            { status: 400 },
+          );
+        }
+        const result = await mergeGlAccounts(ctx, parsed.data);
         return NextResponse.json({ data: result });
       }
       case 'renumber': {
         const body = await request.json();
-        const input = renumberGlAccountSchema.parse(body);
-        const result = await renumberGlAccount(ctx, id, input);
+        const parsed = renumberGlAccountSchema.safeParse(body);
+        if (!parsed.success) {
+          return NextResponse.json(
+            { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+            { status: 400 },
+          );
+        }
+        const result = await renumberGlAccount(ctx, id, parsed.data);
         return NextResponse.json({ data: result });
       }
     }

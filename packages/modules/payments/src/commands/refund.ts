@@ -61,6 +61,22 @@ export async function refundPayment(
     }
 
     // 3. Validate status — must be captured (or ach_settled/ach_originated for ACH)
+    //    Explicitly reject 'refunded' / 'refund_pending' to prevent double-refund even if
+    //    the FOR UPDATE lock is somehow bypassed by a same-connection read.
+    if (intent.status === 'refunded') {
+      throw new AppError(
+        'ALREADY_REFUNDED',
+        'This payment has already been fully refunded.',
+        409,
+      );
+    }
+    if (intent.status === 'refund_pending') {
+      throw new AppError(
+        'REFUND_IN_PROGRESS',
+        'A refund is already in progress for this payment. Please wait for it to complete.',
+        409,
+      );
+    }
     const isAch = intent.paymentMethodType === 'ach';
     const validRefundStatuses = isAch
       ? ['captured', 'ach_settled', 'ach_originated']
@@ -212,7 +228,7 @@ export async function refundPayment(
         paymentIntentId: intent.id,
         tenantId: ctx.tenantId,
         locationId: intent.locationId,
-        amountCents: intent.amountCents,
+        amountCents: refundAmountCents,       // Bug 10 fix: use the actual refund amount, not the original sale amount
         refundedAmountCents: newRefundedTotal,
         orderId: intent.orderId,
         customerId: intent.customerId,

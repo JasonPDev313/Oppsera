@@ -20,18 +20,26 @@ export async function sendEmail(
     return;
   }
 
-  const res = await fetch(RESEND_API_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ from, to: [to], subject, html }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => '(no body)');
-    console.error('[email] Resend API error', { status: res.status, body, to, subject });
-    throw new Error(`Email send failed: ${res.status}`);
+  try {
+    const res = await fetch(RESEND_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ from, to: [to], subject, html }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '(no body)');
+      console.error('[email] Resend API error', { status: res.status, body, to, subject });
+      throw new Error(`Email send failed: ${res.status}`);
+    }
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

@@ -20,11 +20,14 @@ export async function checkIdempotency(
 ): Promise<{ isDuplicate: boolean; originalResult?: unknown }> {
   if (!clientRequestId) return { isDuplicate: false };
 
-  // 1. Check for a completed (non-expired) key with a real result
+  // 1. Check for a completed (non-expired) key with a real result.
+  // Filter by commandName to prevent cross-command cache hits (e.g., same clientRequestId
+  // used for both compOrderLine and voidOrderLine would return the wrong cached result).
   const [existing] = await (txOrDb as any).select().from(idempotencyKeys).where(
     and(
       eq(idempotencyKeys.tenantId, tenantId),
       eq(idempotencyKeys.clientRequestId, clientRequestId),
+      eq(idempotencyKeys.commandName, commandName),
     ),
   );
 
@@ -58,18 +61,21 @@ export async function saveIdempotencyKey(
   tx: Database,
   tenantId: string,
   clientRequestId: string | undefined,
-  _commandName: string,
+  commandName: string,
   resultPayload: unknown,
 ): Promise<void> {
   if (!clientRequestId) return;
 
-  // Update the reserved key with the real result
+  // Update the reserved key with the real result.
+  // Filter by commandName to prevent cross-command result corruption when the same
+  // clientRequestId is reused across different commands.
   await (tx as any).update(idempotencyKeys).set({
     resultPayload: resultPayload as Record<string, unknown>,
   }).where(
     and(
       eq(idempotencyKeys.tenantId, tenantId),
       eq(idempotencyKeys.clientRequestId, clientRequestId),
+      eq(idempotencyKeys.commandName, commandName),
     ),
   );
 }

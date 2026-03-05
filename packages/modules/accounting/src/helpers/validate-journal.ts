@@ -246,13 +246,13 @@ function getAllowedSourcesForControlType(controlAccountType: string): string[] {
       return [
         'pos', 'pos_return', 'pos_legacy', 'fnb', 'payments', 'chargeback',
         'ach', 'ach_return', 'stored_value', 'voucher', 'pms',
-        'drawer_session', 'customers', 'membership', 'inventory', 'manual',
+        'drawer_session', 'customers', 'membership', 'inventory', 'settlement', 'manual',
       ];
     case 'bank':
       return [
         'ap', 'ar', 'pos', 'pos_return', 'pos_legacy', 'fnb', 'payments', 'chargeback',
         'ach', 'ach_return', 'pms', 'drawer_session', 'stored_value',
-        'voucher', 'customers', 'membership', 'inventory', 'manual',
+        'voucher', 'customers', 'membership', 'inventory', 'settlement', 'manual',
       ];
     case 'pms_guest_ledger':
       return ['pms', 'manual'];

@@ -2,9 +2,9 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { AppError, ValidationError, ConflictError } from '@oppsera/shared';
+import { AppError, ValidationError } from '@oppsera/shared';
 import { tenders, tenderReversals, paymentJournalEntries, orders } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import type { ReverseTenderInput } from '../validation';
 import {
   checkIdempotency,
@@ -57,11 +57,11 @@ export async function reverseTender(
       throw new AppError('TENDER_NOT_FOUND', `Tender ${tenderId} not found`, 404);
     }
 
-    if (tender.status !== 'captured') {
-      throw new ValidationError(`Tender is in status '${tender.status}', expected 'captured'`);
+    if (tender.status !== 'captured' && tender.status !== 'partially_reversed') {
+      throw new ValidationError(`Tender is in status '${tender.status}', expected 'captured' or 'partially_reversed'`);
     }
 
-    // 2. Check not already reversed
+    // 2. Check cumulative reversals don't exceed tender amount
     const existingReversals = await tx
       .select()
       .from(tenderReversals)
@@ -72,15 +72,14 @@ export async function reverseTender(
         ),
       );
 
-    if (existingReversals.length > 0) {
-      throw new ConflictError('Tender has already been reversed');
-    }
+    const alreadyReversed = existingReversals.reduce((sum, r) => sum + r.amount, 0);
 
-    // 3. Validate reversal amount
-    if (input.amount > tender.amount) {
+    // 3. Validate reversal amount against remaining reversible amount
+    const maxReversible = tender.amount - alreadyReversed;
+    if (input.amount > maxReversible) {
       throw new ValidationError(
-        `Reversal amount (${input.amount}) cannot exceed tender amount (${tender.amount})`,
-        [{ field: 'amount', message: `Max reversible amount is ${tender.amount}` }],
+        `Reversal amount (${input.amount}) exceeds remaining reversible amount (${maxReversible})`,
+        [{ field: 'amount', message: `Max reversible amount is ${maxReversible}` }],
       );
     }
 
@@ -102,6 +101,15 @@ export async function reverseTender(
       .returning();
 
     if (!reversal) throw new AppError('INSERT_FAILED', 'Failed to create reversal record', 500);
+
+    // Bug 9 fix: update the original tender's status to 'reversed' so queries
+    // and downstream logic can identify reversed tenders without joining tenderReversals.
+    // Full reversals mark the tender 'reversed'; partial reversals mark it 'partially_reversed'.
+    const isFullReversal = input.amount === tender.amount;
+    await tx
+      .update(tenders)
+      .set({ status: isFullReversal ? 'reversed' : 'partially_reversed' })
+      .where(and(eq(tenders.id, tenderId), eq(tenders.tenantId, ctx.tenantId)));
 
     // 5. Generate reversing GL journal entry
     const originalJournals = await tx
@@ -174,7 +182,7 @@ export async function reverseTender(
     const [order] = await tx
       .select()
       .from(orders)
-      .where(eq(orders.id, tender.orderId));
+      .where(and(eq(orders.id, tender.orderId), eq(orders.tenantId, ctx.tenantId)));
 
     if (order && order.status === 'paid') {
       // Check if there are still active (non-reversed) tenders covering the total
@@ -185,7 +193,7 @@ export async function reverseTender(
           and(
             eq(tenders.tenantId, ctx.tenantId),
             eq(tenders.orderId, tender.orderId),
-            eq(tenders.status, 'captured'),
+            inArray(tenders.status, ['captured', 'partially_reversed']),
           ),
         );
 
@@ -223,7 +231,7 @@ export async function reverseTender(
             updatedBy: ctx.user.id,
             updatedAt: now,
           })
-          .where(eq(orders.id, tender.orderId));
+          .where(and(eq(orders.id, tender.orderId), eq(orders.tenantId, ctx.tenantId)));
       }
     }
 

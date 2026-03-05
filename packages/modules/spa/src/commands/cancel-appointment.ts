@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, notInArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
@@ -79,7 +79,9 @@ export async function cancelAppointment(ctx: RequestContext, input: CancelAppoin
       )
       .returning();
 
-    // Cancel all non-completed items
+    // Cancel only items that are still in a cancellable state.
+    // Items already in 'completed' or 'checked_out' status must not be reverted —
+    // they may have GL entries and financial records attached to them.
     await tx
       .update(spaAppointmentItems)
       .set({
@@ -90,6 +92,7 @@ export async function cancelAppointment(ctx: RequestContext, input: CancelAppoin
         and(
           eq(spaAppointmentItems.tenantId, ctx.tenantId),
           eq(spaAppointmentItems.appointmentId, parsed.id),
+          notInArray(spaAppointmentItems.status, ['completed', 'checked_out', 'canceled']),
         ),
       );
 

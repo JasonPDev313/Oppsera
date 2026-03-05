@@ -67,7 +67,12 @@ export async function resolveFailedPayment(
         metadata: resolutionMeta,
         updatedAt: new Date(),
       })
-      .where(eq(paymentIntents.id, parsed.paymentIntentId))
+      .where(
+        and(
+          eq(paymentIntents.id, parsed.paymentIntentId),
+          eq(paymentIntents.tenantId, ctx.tenantId),
+        ),
+      )
       .returning();
 
     const event = buildEventFromContext(

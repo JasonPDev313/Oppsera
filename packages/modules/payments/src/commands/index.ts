@@ -40,3 +40,5 @@ export { terminalReadCard } from './terminal-read-card';
 export type { ReadCardResult } from './terminal-read-card';
 export { terminalDisplay } from './terminal-display';
 export { terminalCancel } from './terminal-cancel';
+export { terminalTip } from './terminal-tip';
+export type { TerminalTipResult } from './terminal-tip';

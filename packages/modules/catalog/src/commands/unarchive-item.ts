@@ -35,7 +35,7 @@ export async function unarchiveItem(ctx: RequestContext, itemId: string) {
         updatedBy: ctx.user.id,
         updatedAt: new Date(),
       })
-      .where(eq(catalogItems.id, itemId))
+      .where(and(eq(catalogItems.id, itemId), eq(catalogItems.tenantId, ctx.tenantId)))
       .returning();
 
     await logItemChange(tx, {

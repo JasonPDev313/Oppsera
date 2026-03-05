@@ -658,6 +658,9 @@ export const fnbKitchenTickets = pgTable(
       table.locationId,
       table.businessDate,
     ),
+    index('idx_fnb_kitchen_tickets_kds_poll')
+      .on(table.tenantId, table.locationId, table.businessDate, table.status)
+      .where(sql`status IN ('pending', 'in_progress')`),
   ],
 );
 

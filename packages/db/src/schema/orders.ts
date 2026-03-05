@@ -103,6 +103,9 @@ export const orders = pgTable(
     index('idx_orders_tenant_employee')
       .on(table.tenantId, table.employeeId)
       .where(sql`employee_id IS NOT NULL`),
+    index('idx_orders_tenant_location_terminal')
+      .on(table.tenantId, table.locationId, table.terminalId)
+      .where(sql`terminal_id IS NOT NULL`),
   ],
 );
 

@@ -6,6 +6,24 @@
  * auto-reconnects on expiry or failure.
  *
  * Key format: {tenantId}:{hsn}
+ *
+ * VERCEL / SERVERLESS NOTE:
+ * This cache is process-local (in-memory Map). On Vercel, each serverless
+ * instance has its own separate cache — there is no shared session state
+ * across instances. This means:
+ *   - A session cached on instance A is NOT visible on instance B.
+ *   - Cold starts always result in a cache miss → a new connect() call.
+ *   - Concurrent requests routed to different instances will each connect
+ *     independently, potentially creating multiple active sessions for the
+ *     same terminal.
+ *
+ * This is safe because the code degrades gracefully: on any cache miss
+ * (whether from a cold start, instance rotation, or expiry), getTerminalSession()
+ * calls connect() to establish a fresh session. The CardPointe Terminal API
+ * accepts multiple sessions per device and handles reconnects transparently.
+ *
+ * Stage 2+: Replace with Redis or a DB-backed session store to share sessions
+ * across instances and reduce redundant connect() calls under high concurrency.
  */
 
 import {

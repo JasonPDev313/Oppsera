@@ -124,12 +124,14 @@ export class OutboxWorker {
     this.lastStaleRecoveryAt = now;
 
     try {
-      // First: delete events older than 1 hour — they're stale beyond recovery.
-      // This prevents infinite backlog growth from frozen Vercel instances.
+      // First: delete events older than 1 hour that were already processed (published_at IS NOT NULL).
+      // Only purge claimed events — unprocessed events (published_at IS NULL) that are old
+      // indicate cron downtime and must NOT be deleted, or events will be silently lost.
       const deleted = await guardedQuery('outbox:purgeStale', () =>
         db.execute(sql`
           DELETE FROM event_outbox
           WHERE created_at < NOW() - INTERVAL '1 hour'
+            AND published_at IS NOT NULL
           RETURNING id
         `),
       ) as unknown as Array<{ id: string }>;
@@ -138,15 +140,17 @@ export class OutboxWorker {
         console.warn(`[outbox] Purged ${deleted.length} event(s) older than 1 hour`);
       }
 
-      // Then: recover stale claims (claimed > 10 min ago but not yet processed).
-      // Uses a simple time-based check instead of scanning processed_events.
+      // Then: recover stale claims (claimed > STALE_CLAIM_THRESHOLD_MINUTES ago but not yet
+      // processed). Uses a simple time-based check instead of scanning processed_events.
       // Events that repeatedly fail will be caught by the 1-hour purge above.
+      // NOTE: The recovery threshold MUST be >= the claim timeout used when batching.
+      // Using the named constant here ensures both values stay in sync.
       const result = await guardedQuery('outbox:recoverStale', () =>
         db.execute(sql`
           UPDATE event_outbox
           SET published_at = NULL
           WHERE published_at IS NOT NULL
-            AND published_at < NOW() - INTERVAL '10 minutes'
+            AND published_at < NOW() - (${OutboxWorker.STALE_CLAIM_THRESHOLD_MINUTES} * INTERVAL '1 minute')
           RETURNING id
         `),
       ) as unknown as Array<{ id: string }>;
@@ -209,10 +213,15 @@ export class OutboxWorker {
         // Successfully processed — delete from outbox
         deleteIds.push(row.id);
       } catch (error) {
+        const parsed = EventEnvelopeSchema.safeParse(row.payload);
+        const tenantId = parsed.success ? parsed.data.tenantId : undefined;
+        const correlationId = parsed.success ? (parsed.data as Record<string, unknown>).correlationId : undefined;
         console.error('Failed to publish outbox event:', {
           outboxId: row.id,
           eventType: row.event_type,
           eventId: row.event_id,
+          tenantId,
+          correlationId,
           error: error instanceof Error ? error.message : String(error),
         });
         // Leave it claimed — stale recovery will pick it up after 10 min.

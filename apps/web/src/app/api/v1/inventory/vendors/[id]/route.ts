@@ -23,8 +23,14 @@ export const PATCH = withMiddleware(
     if (!id) return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Missing vendor ID' } }, { status: 400 });
 
     const body = await request.json();
-    const input = updateVendorSchema.parse({ ...body, vendorId: id });
-    const vendor = await updateVendor(ctx, input);
+    const parsed = updateVendorSchema.safeParse({ ...body, vendorId: id });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input' } },
+        { status: 400 },
+      );
+    }
+    const vendor = await updateVendor(ctx, parsed.data);
     return NextResponse.json({ data: vendor });
   },
   { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },

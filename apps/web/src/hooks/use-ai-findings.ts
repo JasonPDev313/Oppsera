@@ -94,8 +94,9 @@ export function useAnalysisFindings(opts: UseAnalysisFindingsOptions = {}) {
 
   const markRead = useCallback(async (findingId: string): Promise<void> => {
     try {
-      await apiFetch(`/api/v1/semantic/findings/${findingId}/read`, {
-        method: 'POST',
+      await apiFetch(`/api/v1/semantic/findings/${findingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isRead: true }),
       });
       const now = new Date().toISOString();
       setFindings((prev) =>
@@ -113,8 +114,9 @@ export function useAnalysisFindings(opts: UseAnalysisFindingsOptions = {}) {
 
   const dismiss = useCallback(async (findingId: string): Promise<void> => {
     try {
-      await apiFetch(`/api/v1/semantic/findings/${findingId}/dismiss`, {
-        method: 'POST',
+      await apiFetch(`/api/v1/semantic/findings/${findingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isDismissed: true }),
       });
       const now = new Date().toISOString();
       setFindings((prev) => {
@@ -137,8 +139,9 @@ export function useAnalysisFindings(opts: UseAnalysisFindingsOptions = {}) {
 
   const markActedOn = useCallback(async (findingId: string): Promise<void> => {
     try {
-      await apiFetch(`/api/v1/semantic/findings/${findingId}/acted`, {
-        method: 'POST',
+      await apiFetch(`/api/v1/semantic/findings/${findingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isRead: true, isDismissed: false }),
       });
       setFindings((prev) =>
         prev.map((f) =>

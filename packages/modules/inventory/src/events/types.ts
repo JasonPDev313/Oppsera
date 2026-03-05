@@ -84,6 +84,19 @@ export const OrderVoidedDataSchema = z.object({
   total: z.number().int().optional(),
 });
 
+export const OrderReturnedDataSchema = z.object({
+  returnOrderId: z.string(),
+  originalOrderId: z.string(),
+  returnType: z.enum(['full', 'partial']),
+  locationId: z.string().nullable().optional(),
+  customerId: z.string().nullable().optional(),
+  returnTotal: z.number().int(),
+  lines: z.array(z.object({
+    catalogItemId: z.string(),
+    qty: z.number(),
+  })).optional(),
+});
+
 export const CatalogItemCreatedDataSchema = z.object({
   itemId: z.string(),
   name: z.string(),

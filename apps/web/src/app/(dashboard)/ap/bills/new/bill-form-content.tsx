@@ -7,6 +7,7 @@ import { AccountingPageShell } from '@/components/accounting/accounting-page-she
 import { AccountPicker } from '@/components/accounting/account-picker';
 import { MoneyInput } from '@/components/accounting/money-input';
 import { useAPBillMutations, usePaymentTerms } from '@/hooks/use-ap';
+import { apiFetch } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import { formatAccountingMoney } from '@/types/accounting';
 import type { APLineType } from '@/types/accounting';
@@ -121,7 +122,17 @@ export default function BillFormContent() {
       });
 
       if (autoPost) {
-        // TODO: post immediately after creation
+        try {
+          await apiFetch(`/api/v1/ap/bills/${result.id}/post`, {
+            method: 'POST',
+            body: JSON.stringify({ businessDate: billDate }),
+          });
+          toast.success('Bill saved & posted');
+        } catch (postErr) {
+          toast.error(`Bill saved but posting failed: ${postErr instanceof Error ? postErr.message : 'Unknown error'}`);
+        }
+        router.push(`/ap/bills/${result.id}`);
+        return;
       }
 
       toast.success('Bill saved');

@@ -146,6 +146,7 @@ export {
   listMembershipAccounts,
   getMembershipAccount,
   getMembershipAccountingSettings,
+  getMembershipSettings,
   listSubscriptions,
   listStatements,
   getStatementDetail,

@@ -167,21 +167,23 @@ describe('reverseTender', () => {
     await expect(reverseTender(ctx, 'tender-999', baseInput)).rejects.toThrow('not found');
   });
 
-  it('should throw when tender is not in captured status', async () => {
+  it('should throw when tender is not in captured or partially_reversed status', async () => {
     mocks.state.tender = { ...mocks.state.tender, status: 'voided' };
     const ctx = createCtx();
-    await expect(reverseTender(ctx, 'tender-1', baseInput)).rejects.toThrow("expected 'captured'");
+    await expect(reverseTender(ctx, 'tender-1', baseInput)).rejects.toThrow("expected 'captured' or 'partially_reversed'");
   });
 
-  it('should throw when tender has already been reversed', async () => {
-    mocks.state.existingReversals = [{ id: 'rev-existing', originalTenderId: 'tender-1' }];
+  it('should throw when tender has already been fully reversed', async () => {
+    mocks.state.tender = { ...mocks.state.tender, status: 'reversed' };
     const ctx = createCtx();
-    await expect(reverseTender(ctx, 'tender-1', baseInput)).rejects.toThrow('already been reversed');
+    await expect(reverseTender(ctx, 'tender-1', baseInput)).rejects.toThrow("expected 'captured' or 'partially_reversed'");
   });
 
-  it('should throw when reversal amount exceeds tender amount', async () => {
+  it('should throw when reversal amount exceeds remaining reversible amount', async () => {
+    // Existing partial reversal of 500, remaining = 1000, requesting 2000
+    mocks.state.existingReversals = [{ id: 'rev-existing', originalTenderId: 'tender-1', amount: 500 }];
     const ctx = createCtx();
-    await expect(reverseTender(ctx, 'tender-1', { ...baseInput, amount: 2000 })).rejects.toThrow('cannot exceed tender amount');
+    await expect(reverseTender(ctx, 'tender-1', { ...baseInput, amount: 2000 })).rejects.toThrow('exceeds remaining reversible amount');
   });
 
   it('should successfully reverse a tender (full reversal)', async () => {

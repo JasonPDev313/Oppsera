@@ -167,6 +167,7 @@ export async function postReceipt(
         FROM (VALUES ${sql.join(lineUpdateCases, sql`, `)})
           AS v(line_id, ext_cost, base_qty, alloc_ship, landed, landed_unit)
         WHERE rl.id = v.line_id::text
+          AND rl.tenant_id = ${ctx.tenantId}
       `);
     }
 
@@ -217,31 +218,48 @@ export async function postReceipt(
     }
 
     // 7. Compute new costs per item + collect stock alerts
+    // Aggregate receipt lines by inventoryItemId to handle multi-line same-item receipts
+    // correctly. Without dedup, the weighted-average cost formula uses stale prevOnHand
+    // for the second+ lines of the same item, producing wrong costs and duplicate costUpdates.
     const allEvents: any[] = [];
     const costUpdates: Array<{ id: string; newCost: number }> = [];
 
+    // Group computed lines by inventoryItemId
+    const linesByItem = new Map<string, Array<{ baseQty: number; landedUnitCost: number; landedCost: number }>>();
     for (const line of lineRows) {
       const comp = computed.find((c) => c.id === (line as any).id)!;
-      const item = itemMap.get((line as any).inventoryItemId);
+      const itemId = (line as any).inventoryItemId as string;
+      const existing = linesByItem.get(itemId) ?? [];
+      existing.push({ baseQty: comp.baseQty, landedUnitCost: comp.landedUnitCost, landedCost: comp.landedCost });
+      linesByItem.set(itemId, existing);
+    }
+
+    for (const [itemId, itemLines] of linesByItem) {
+      const item = itemMap.get(itemId);
       if (!item) continue;
 
+      const totalBaseQty = itemLines.reduce((s, l) => s + l.baseQty, 0);
+      const totalLandedCost = itemLines.reduce((s, l) => s + l.landedCost, 0);
+      const avgLandedUnitCost = totalBaseQty > 0 ? totalLandedCost / totalBaseQty : 0;
+
       const currentOnHand = onHandMap.get(item.id) ?? 0;
-      const prevOnHand = currentOnHand - comp.baseQty;
+      const prevOnHand = currentOnHand - totalBaseQty;
       const prevCost = Number(item.currentCost ?? 0);
 
       let newCost: number;
       const method = item.costingMethod ?? 'fifo';
       if (method === 'weighted_avg') {
-        newCost = weightedAvgCost(prevOnHand, prevCost, comp.baseQty, comp.landedUnitCost);
+        newCost = weightedAvgCost(prevOnHand, prevCost, totalBaseQty, avgLandedUnitCost);
       } else if (method === 'standard') {
         newCost = prevCost;
       } else {
-        newCost = lastCost(comp.landedUnitCost);
+        // Last cost: use the last line's landed unit cost (most recent)
+        newCost = lastCost(itemLines[itemLines.length - 1]!.landedUnitCost);
       }
 
       costUpdates.push({ id: item.id, newCost });
 
-      // Stock alerts (pure function, no DB)
+      // Stock alerts — only once per unique item, not per receipt line
       const alertEvents = checkStockAlerts(ctx, {
         inventoryItemId: item.id,
         catalogItemId: item.catalogItemId,
@@ -264,6 +282,7 @@ export async function postReceipt(
         FROM (VALUES ${sql.join(costCases, sql`, `)})
           AS v(item_id, new_cost)
         WHERE ii.id = v.item_id::text
+          AND ii.tenant_id = ${ctx.tenantId}
       `);
     }
 

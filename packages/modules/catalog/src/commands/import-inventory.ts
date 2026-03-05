@@ -311,6 +311,27 @@ export async function importInventory(
               source: 'IMPORT',
             });
 
+            // Emit catalog.item.updated.v1 so downstream consumers
+            // (inventory sync, POS cache) are notified of the SKU change.
+            events.push(
+              buildEventFromContext(
+                ctx,
+                'catalog.item.updated.v1',
+                {
+                  itemId: existingItemId,
+                  sku: after!.sku,
+                  name: after!.name,
+                  itemType: after!.itemType,
+                  defaultPrice: Number(after!.defaultPrice),
+                  cost: after!.cost != null ? Number(after!.cost) : null,
+                  categoryId: after!.categoryId,
+                  taxCategoryId: after!.taxCategoryId,
+                  isTrackable: after!.isTrackable,
+                },
+                `${ctx.tenantId}:catalog_item:${after!.sku || after!.name}:imported_update`,
+              ),
+            );
+
             updatedRows++;
             await tx.execute(sql.raw(`RELEASE SAVEPOINT ${sp}`));
             continue;

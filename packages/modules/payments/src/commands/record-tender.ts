@@ -39,6 +39,17 @@ export async function recordTender(
     );
   }
 
+  // Resolve legacy GL setting BEFORE the transaction to avoid holding a DB connection
+  // during an external API call (Vercel pool exhaustion with max: 2).
+  let enableLegacyGl = true;
+  try {
+    const accountingApi = getAccountingPostingApi();
+    const acctSettings = await accountingApi.getSettings(ctx.tenantId);
+    enableLegacyGl = acctSettings.enableLegacyGlPosting ?? true;
+  } catch {
+    // AccountingPostingApi not initialized — legacy behavior (keep legacy GL active)
+  }
+
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx,
@@ -148,7 +159,7 @@ export async function recordTender(
     const lines = await tx
       .select()
       .from(orderLines)
-      .where(eq(orderLines.orderId, orderId));
+      .where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId)));
     const orderLinesForGL: OrderLineForGL[] = lines.map(
       (l) => ({
         departmentId: null, // V1: all revenue to single account
@@ -195,21 +206,15 @@ export async function recordTender(
         total: sql<number>`COALESCE(SUM(price_override_discount_cents), 0)::int`,
       })
       .from(orderLines)
-      .where(eq(orderLines.orderId, orderId));
+      .where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId)));
     const priceOverrideLossCents = priceOverrideLossRows[0]?.total ?? 0;
 
     // 7. Generate legacy GL journal entry (gated behind enableLegacyGlPosting)
     // The new GL pipeline posts via the POS adapter event consumer on tender.recorded.v1.
     // When enableLegacyGlPosting is false, only the new pipeline runs.
+    // NOTE: enableLegacyGl is resolved BEFORE the transaction (see below) to avoid
+    // holding a DB connection during an external API call (Vercel pool exhaustion).
     let allocationSnapshot: Record<string, unknown> | null = null;
-    let enableLegacyGl = true;
-    try {
-      const accountingApi = getAccountingPostingApi();
-      const acctSettings = await accountingApi.getSettings(ctx.tenantId);
-      enableLegacyGl = acctSettings.enableLegacyGlPosting ?? true;
-    } catch {
-      // AccountingPostingApi not initialized — legacy behavior (keep legacy GL active)
-    }
 
     if (enableLegacyGl) {
       const journalResult = await generateJournalEntry(
@@ -322,9 +327,10 @@ export async function recordTender(
     };
   });
 
-  // Fire-and-forget — audit log should never block the POS response
-  auditLog(ctx, 'tender.recorded', 'order', orderId).catch((e) => {
+  try {
+    await auditLog(ctx, 'tender.recorded', 'order', orderId);
+  } catch (e) {
     console.error('Audit log failed for tender.recorded:', e instanceof Error ? e.message : e);
-  });
+  }
   return result;
 }

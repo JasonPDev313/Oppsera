@@ -24,14 +24,15 @@ export async function applyDiscount(ctx: RequestContext, orderId: string, input:
     if (input.type === 'percentage') {
       amount = Math.round(order.subtotal * input.value / 100);
     } else {
-      amount = Math.round(input.value * 100); // convert dollars to cents
+      // value is already in cents (POS frontend converts dollars→cents before sending)
+      amount = Math.round(input.value);
     }
 
     const [discount] = await tx.insert(orderDiscounts).values({
       tenantId: ctx.tenantId,
       orderId,
       type: input.type,
-      value: input.value, // raw value: dollars for fixed, percent for percentage; `amount` holds computed cents
+      value: input.value, // raw value: cents for fixed, percent for percentage; `amount` holds computed cents
       amount,
       reason: input.reason ?? null,
       discountClassification: input.discountClassification ?? 'manual_discount',

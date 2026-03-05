@@ -201,7 +201,7 @@ export async function handleTagEvaluationOnVisitRecorded(event: EventEnvelope): 
     await evaluateCustomerTagsOnEvent(
       event.tenantId,
       customerId,
-      'customer.visit.recorded.v1',
+      'customer_visit.recorded.v1',
       event.eventId,
     );
   } catch (err) {
@@ -221,7 +221,7 @@ export async function handleTagEvaluationOnMembershipChanged(event: EventEnvelop
     await evaluateCustomerTagsOnEvent(
       event.tenantId,
       customerId,
-      'customer.membership.created.v1',
+      'membership.created.v1',
       event.eventId,
     );
   } catch (err) {
