@@ -129,7 +129,13 @@ export async function bootstrapTenantCoa(
   };
 
   // Pre-generate IDs and build a lookup by account number
-  const accountPrep = resolvedTemplates.map((at) => ({
+  // Deduplicate by accountNumber — templates may contain duplicates from
+  // cross-joined migrations (e.g. 0238). Last-write-wins keeps newest template.
+  const deduped = new Map<string, typeof resolvedTemplates[number]>();
+  for (const at of resolvedTemplates) {
+    deduped.set(at.accountNumber, at);
+  }
+  const accountPrep = Array.from(deduped.values()).map((at) => ({
     id: generateUlid(),
     template: at,
     classificationId: classificationMap.get(at.classificationName) ?? null,

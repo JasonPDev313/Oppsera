@@ -22,6 +22,9 @@ export interface RecordLoginParams {
 
 export async function recordLoginEvent(params: RecordLoginParams): Promise<string | null> {
   try {
+    // Skip recording if tenantId is empty — FK constraint requires a valid tenant
+    if (!params.tenantId) return null;
+
     const adminDb = createAdminClient();
     const id = generateUlid();
     await adminDb.insert(loginRecords).values({

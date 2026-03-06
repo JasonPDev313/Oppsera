@@ -17,6 +17,8 @@ interface CourseSectionProps {
   onHold?: () => void;
   onFire?: () => void;
   onSend?: () => void;
+  /** Disables action buttons while a mutation is in-flight */
+  disabled?: boolean;
 }
 
 // ── Timeline Steps ─────────────────────────────────────────────
@@ -145,6 +147,7 @@ export function CourseSection({
   onHold,
   onFire,
   onSend,
+  disabled,
 }: CourseSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
   const latestTs = getLatestTimestamp(courseStatus, sentAt, firedAt, servedAt);
@@ -202,9 +205,9 @@ export function CourseSection({
         {courseStatus === 'unsent' && onSend && (
           // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
           <span
-            onClick={(e) => { e.stopPropagation(); onSend(); }}
+            onClick={(e) => { e.stopPropagation(); if (!disabled) onSend(); }}
             className="rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer transition-opacity hover:opacity-80"
-            style={{ backgroundColor: 'var(--fnb-action-send)', color: '#fff' }}
+            style={{ backgroundColor: 'var(--fnb-action-send)', color: '#fff', opacity: disabled ? 0.5 : undefined }}
           >
             Send
           </span>
@@ -212,9 +215,9 @@ export function CourseSection({
         {courseStatus === 'sent' && onFire && (
           // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
           <span
-            onClick={(e) => { e.stopPropagation(); onFire(); }}
-            className={`rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer transition-opacity hover:opacity-80 inline-flex items-center gap-1 ${showFirePulse ? 'animate-pulse' : ''}`}
-            style={{ backgroundColor: 'var(--fnb-action-fire)', color: '#fff' }}
+            onClick={(e) => { e.stopPropagation(); if (!disabled) onFire(); }}
+            className={`rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer transition-opacity hover:opacity-80 inline-flex items-center gap-1 ${showFirePulse && !disabled ? 'animate-pulse' : ''}`}
+            style={{ backgroundColor: 'var(--fnb-action-fire)', color: '#fff', opacity: disabled ? 0.5 : undefined }}
           >
             <Flame className="h-3 w-3" />
             Fire
@@ -223,9 +226,9 @@ export function CourseSection({
         {(courseStatus === 'unsent' || courseStatus === 'sent' || courseStatus === 'held') && onHold && (
           // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
           <span
-            onClick={(e) => { e.stopPropagation(); onHold(); }}
+            onClick={(e) => { e.stopPropagation(); if (!disabled) onHold(); }}
             className="rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer transition-opacity hover:opacity-80 inline-flex items-center gap-1"
-            style={{ backgroundColor: 'var(--fnb-bg-surface)', color: 'var(--fnb-text-muted)' }}
+            style={{ backgroundColor: 'var(--fnb-bg-surface)', color: 'var(--fnb-text-muted)', opacity: disabled ? 0.5 : undefined }}
           >
             <Pause className="h-3 w-3" />
             Hold

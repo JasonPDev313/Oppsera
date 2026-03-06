@@ -258,6 +258,14 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
       }
       const rawMsg = error instanceof Error ? error.message : String(error);
       const reqPath = new URL(request.url).pathname;
+
+      // Client disconnected — the underlying response writer is null.
+      // Return an empty response; there's nobody to receive it anyway.
+      if (rawMsg.includes("Cannot read properties of null (reading 'write')") || request.signal.aborted) {
+        console.warn(`[middleware] Client disconnected during ${request.method} ${reqPath}`);
+        return new NextResponse(null, { status: 499 });
+      }
+
       console.error(`Unhandled error in route handler [${request.method} ${reqPath}]:`, rawMsg, error);
 
       // Report to Sentry so 500s are visible in monitoring

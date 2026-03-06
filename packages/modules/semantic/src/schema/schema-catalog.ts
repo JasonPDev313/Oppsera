@@ -664,7 +664,7 @@ async function _loadSchemaCatalog(): Promise<SchemaCatalog> {
       AND kcu.table_schema = tc.table_schema
       AND kcu.column_name = c.column_name
     WHERE c.table_schema = 'public'
-      AND c.table_name = ANY(${tableNameArray})
+      AND c.table_name = ANY(${sql`ARRAY[${sql.join(tableNameArray.map(n => sql`${n}`), sql`,`)}]::text[]`})
     ORDER BY c.table_name, c.ordinal_position
   `),
   );

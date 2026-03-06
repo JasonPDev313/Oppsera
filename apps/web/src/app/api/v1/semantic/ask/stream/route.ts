@@ -78,14 +78,17 @@ export const POST = withMiddleware(
 
     // Build the SSE ReadableStream
     const encoder = new TextEncoder();
+    let cancelled = false;
     const stream = new ReadableStream({
       async start(controller) {
         const sendEvent = (event: SSEEvent) => {
+          if (cancelled) return;
           const line = `data: ${JSON.stringify(event)}\n\n`;
           try {
             controller.enqueue(encoder.encode(line));
           } catch {
             // Stream may already be closed if client disconnected
+            cancelled = true;
           }
         };
 
@@ -110,6 +113,7 @@ export const POST = withMiddleware(
             { onEvent: sendEvent },
           );
         } catch (err) {
+          if (cancelled) return;
           // runPipelineStreaming already emits its own SSE error event,
           // so this catch is a safety net for truly unexpected errors only.
           console.error('[semantic/ask/stream] Unexpected error (pipeline should have handled):', err);
@@ -125,6 +129,9 @@ export const POST = withMiddleware(
             // Already closed
           }
         }
+      },
+      cancel() {
+        cancelled = true;
       },
     });
 

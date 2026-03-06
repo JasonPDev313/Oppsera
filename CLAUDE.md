@@ -91,6 +91,13 @@ Defense-in-depth: app-level filtering + `withTenant()` + Postgres RLS.
 3. File naming: `{0000}_{snake_case}.sql` (zero-padded, matching idx)
 4. Use `IF NOT EXISTS` / `IF EXISTS` for idempotent DDL
 5. `pnpm db:migrate` = local | `pnpm db:migrate:remote` = production
+6. **`when` timestamps MUST use `Date.now()`** — Drizzle skips migrations where `when <= MAX(created_at)` in the tracking table. Production watermark is ~1772292944406 (Feb 28 2026). Synthetic/backdated timestamps will be silently skipped. Always use real `Date.now()` for new entries.
+7. **NEVER edit a migration file after it has been applied** — Drizzle tracks by content hash. Editing changes the hash, causing the migration to appear "unapplied" while the old hash becomes orphaned. If a fix is needed, create a new migration.
+8. **Verify with `node scripts/check-migrations.cjs`** — compares local journal against production tracking table. Run after creating migrations to confirm they will be picked up.
+
+## Auto-Deploy
+
+After every completed task, auto-deploy to Vercel: `npx vercel --prod --yes`. No confirmation needed.
 
 ## Quick Commands
 

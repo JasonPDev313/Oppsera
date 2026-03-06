@@ -18,6 +18,8 @@ interface OrderTicketProps {
   onMoveLineToCourse?: (lineId: string, newCourseNumber: number) => void;
   /** When false, hides per-course Send/Fire buttons (KDS routing mode) */
   kdsSendEnabled?: boolean;
+  /** Disables action buttons while a mutation is in-flight */
+  disabled?: boolean;
 }
 
 export const OrderTicket = memo(function OrderTicket({
@@ -31,6 +33,7 @@ export const OrderTicket = memo(function OrderTicket({
   onLineTap,
   onMoveLineToCourse,
   kdsSendEnabled = true,
+  disabled,
 }: OrderTicketProps) {
   const [viewMode, setViewMode] = useState<'active' | 'all'>('all');
   const [coursePickerLineId, setCoursePickerLineId] = useState<string | null>(null);
@@ -172,6 +175,7 @@ export const OrderTicket = memo(function OrderTicket({
               previousCourseServed={previousCourseServed}
               onSend={kdsSendEnabled ? () => onSendCourse(courseNum) : undefined}
               onFire={kdsSendEnabled ? () => onFireCourse(courseNum) : undefined}
+              disabled={disabled}
             >
               {/* Server-committed lines */}
               {courseLines.map((line) => {

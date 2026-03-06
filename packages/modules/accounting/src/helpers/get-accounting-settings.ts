@@ -45,6 +45,16 @@ export interface AccountingSettings {
   // Discount classification GL defaults (migration 0212)
   defaultDiscountAccountId: string | null;
   defaultPriceOverrideExpenseAccountId: string | null;
+  // COA expansion (migration 0238)
+  defaultCreditCardReceivableAccountId: string | null;
+  defaultGiftCardLiabilityAccountId: string | null;
+  defaultCcProcessingFeeAccountId: string | null;
+  defaultBadDebtExpenseAccountId: string | null;
+  defaultInterestIncomeAccountId: string | null;
+  defaultInterestExpenseAccountId: string | null;
+  defaultDeliveryCommissionAccountId: string | null;
+  defaultPettyCashAccountId: string | null;
+  defaultEmployeeReimbursableAccountId: string | null;
   // Auto-close orchestrator (migration 0187)
   autoCloseEnabled: boolean;
   autoCloseTime: string; // HH:MM
@@ -137,6 +147,15 @@ function mapRow(row: any): AccountingSettings {
     defaultAchReceivableAccountId: row.defaultAchReceivableAccountId ?? row.default_ach_receivable_account_id ?? null,
     defaultDiscountAccountId: row.defaultDiscountAccountId ?? row.default_discount_account_id ?? null,
     defaultPriceOverrideExpenseAccountId: row.defaultPriceOverrideExpenseAccountId ?? row.default_price_override_expense_account_id ?? null,
+    defaultCreditCardReceivableAccountId: row.defaultCreditCardReceivableAccountId ?? row.default_credit_card_receivable_account_id ?? null,
+    defaultGiftCardLiabilityAccountId: row.defaultGiftCardLiabilityAccountId ?? row.default_gift_card_liability_account_id ?? null,
+    defaultCcProcessingFeeAccountId: row.defaultCcProcessingFeeAccountId ?? row.default_cc_processing_fee_account_id ?? null,
+    defaultBadDebtExpenseAccountId: row.defaultBadDebtExpenseAccountId ?? row.default_bad_debt_expense_account_id ?? null,
+    defaultInterestIncomeAccountId: row.defaultInterestIncomeAccountId ?? row.default_interest_income_account_id ?? null,
+    defaultInterestExpenseAccountId: row.defaultInterestExpenseAccountId ?? row.default_interest_expense_account_id ?? null,
+    defaultDeliveryCommissionAccountId: row.defaultDeliveryCommissionAccountId ?? row.default_delivery_commission_account_id ?? null,
+    defaultPettyCashAccountId: row.defaultPettyCashAccountId ?? row.default_petty_cash_account_id ?? null,
+    defaultEmployeeReimbursableAccountId: row.defaultEmployeeReimbursableAccountId ?? row.default_employee_reimbursable_account_id ?? null,
     autoCloseEnabled: row.autoCloseEnabled ?? row.auto_close_enabled ?? false,
     autoCloseTime: row.autoCloseTime ?? row.auto_close_time ?? '02:00',
     autoCloseSkipHolidays: row.autoCloseSkipHolidays ?? row.auto_close_skip_holidays ?? false,

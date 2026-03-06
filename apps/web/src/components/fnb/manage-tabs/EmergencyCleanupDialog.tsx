@@ -120,7 +120,7 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
       <div className="absolute inset-0 bg-black/60" onClick={step === 'options' ? handleDone : undefined} />
       <div
         className={`relative w-full rounded-xl shadow-2xl p-6 ${step === 'pin' ? 'max-w-lg' : 'max-w-md'}`}

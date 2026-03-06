@@ -259,28 +259,31 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
   }, [tabId, act]);
 
   const fireCourseFn = useCallback(async (courseNumber: number) => {
-    if (!tabId) return;
+    if (!tabId || isActing) return;
     await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/course/fire`, {
       method: 'POST',
-      body: JSON.stringify({ courseNumber }),
+      body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
     }));
-  }, [tabId, act]);
+  }, [tabId, act, isActing]);
 
   const sendCourseFn = useCallback(async (courseNumber: number) => {
-    if (!tabId) return;
+    if (!tabId || isActing) return;
     await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/course/send`, {
       method: 'POST',
-      body: JSON.stringify({ courseNumber }),
+      body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
     }));
-  }, [tabId, act]);
+  }, [tabId, act, isActing]);
 
   const addItemsFn = useCallback(async (items: AddTabItemInput[]) => {
-    if (!tabId || items.length === 0) return;
+    if (!tabId || items.length === 0 || isActing) return;
+    // Check stale tab status — refuse to add if tab is no longer writable
+    const current = tabRef.current;
+    if (current && !['open', 'ordering', 'sent_to_kitchen'].includes(current.status)) return;
     await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/items`, {
       method: 'POST',
-      body: JSON.stringify({ tabId, items }),
+      body: JSON.stringify({ tabId, items, clientRequestId: crypto.randomUUID() }),
     }));
-  }, [tabId, act]);
+  }, [tabId, act, isActing]);
 
   const updatePartySizeFn = useCallback(async (newSize: number) => {
     const currentTab = tabRef.current;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { BookOpen, FileSpreadsheet, ArrowRightLeft, Repeat, FileBarChart } from 'lucide-react';
@@ -21,6 +21,14 @@ const RecurringTemplates = dynamic(() => import('../recurring/recurring-content'
 const GLCodeSummary = dynamic(() => import('../reports/gl-code-summary/gl-code-summary-content'), { ssr: false });
 
 export default function GLContent() {
+  return (
+    <Suspense fallback={null}>
+      <GLContentInner />
+    </Suspense>
+  );
+}
+
+function GLContentInner() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'chart-of-accounts';
   const [activeTab, setActiveTab] = useState(initialTab);

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/consistent-type-imports -- vitest dynamic import mocks use typeof import() */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Drizzle chainable mock ─────────────────────────────────────

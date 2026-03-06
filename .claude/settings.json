@@ -68,7 +68,12 @@
       "Bash(npm list postgres)",
       "Bash(find \"c:/Users/Jason/Dev/Oppsera/apps/web/src/app/\\(dashboard\\)/spa\" -name \"*-content.tsx\" -type f)",
       "Bash(grep -L \"useAuthContext\" /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/*/*-content.tsx)",
-      "Bash(do echo \"=== $hook ===\" grep -l \"import.*$hook\" apps/web/src/app/\\\\\\(dashboard\\\\\\)/*/*-content.tsx)"
+      "Bash(do echo \"=== $hook ===\" grep -l \"import.*$hook\" apps/web/src/app/\\\\\\(dashboard\\\\\\)/*/*-content.tsx)",
+      "Bash(wc -l /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/accounting/mappings/mappings-content.tsx)",
+      "Bash(xargs grep -n \"\\\\.write\\(\")",
+      "Bash(git -C /c/Users/Jason/Dev/Oppsera log --all --oneline --grep=\"stream\\\\|write\" -- \"apps/web/src/app/api/v1/semantic/ask/stream/route.ts\")",
+      "Bash(git -C /c/Users/Jason/Dev/Oppsera show 5334cf88:apps/web/src/app/api/v1/semantic/ask/stream/route.ts)",
+      "Bash(node -e \":*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",

@@ -21,6 +21,7 @@
     "audit:deep:json": "node scripts/audit-deep.cjs --json",
     "audit:deep:fix": "node scripts/audit-deep.cjs --fix-suggestions",
     "deploy:prod": "node scripts/deploy-oppsera.cjs",
+    "push-my-app": "node scripts/push-my-app.cjs",
     "wt:create": "node scripts/worktree-create.cjs",
     "wt:remove": "node scripts/worktree-remove.cjs",
     "wt:list": "node scripts/worktree-list.cjs",

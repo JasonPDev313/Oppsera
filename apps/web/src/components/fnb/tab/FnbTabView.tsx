@@ -659,6 +659,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
                 onSendCourse={sendCourse}
                 onFireCourse={fireCourse}
                 kdsSendEnabled={kdsSendEnabled}
+                disabled={isActing}
               />
 
               {/* Totals */}

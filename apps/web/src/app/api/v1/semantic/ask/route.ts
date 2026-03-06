@@ -74,6 +74,11 @@ export const POST = withMiddleware(
     const bv = tenantRow?.businessVertical ?? 'general';
     const excludeDomains = (bv !== 'golf' && bv !== 'hybrid') ? ['golf'] : [];
 
+    // Bail early if client already disconnected (e.g. navigated away)
+    if (request.signal.aborted) {
+      return new NextResponse(null, { status: 499 });
+    }
+
     let output;
     try {
       output = await runPipeline({
@@ -93,6 +98,10 @@ export const POST = withMiddleware(
         excludeDomains,
       });
     } catch (err) {
+      // Client disconnected during pipeline — no point sending error response
+      if (request.signal.aborted) {
+        return new NextResponse(null, { status: 499 });
+      }
       const errMsg = err instanceof Error ? err.message : String(err);
       const errStack = err instanceof Error ? err.stack : '';
       console.error(`[semantic/ask] Pipeline error: ${errMsg}`, errStack);
@@ -100,6 +109,11 @@ export const POST = withMiddleware(
         { error: { code: 'PIPELINE_ERROR', message: 'Unable to process your query. Please try rephrasing or try again later.' } },
         { status: 500 },
       );
+    }
+
+    // Client may have disconnected while pipeline was running
+    if (request.signal.aborted) {
+      return new NextResponse(null, { status: 499 });
     }
 
     // If the pipeline returned with compilation errors and no narrative, log it
