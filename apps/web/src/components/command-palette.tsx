@@ -153,8 +153,11 @@ export function CommandPalette() {
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh]" role="dialog" aria-modal="true" aria-label="Command palette" onKeyDown={handleKeyDown}>
+    <>
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+      <div className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh]" role="dialog" aria-modal="true" aria-label="Command palette" onKeyDown={handleKeyDown}>
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
 
       {/* Palette */}
@@ -243,7 +246,8 @@ export function CommandPalette() {
           </span>
         </div>
       </div>
-    </div>,
+    </div>
+    </>,
     document.body,
   );
 }

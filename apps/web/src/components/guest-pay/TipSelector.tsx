@@ -134,6 +134,7 @@ export function TipSelector({ tipSettings, baseCents, selectedTipCents, onTipCha
               value={customValue}
               onChange={(e) => setCustomValue(e.target.value)}
               className="w-full rounded-xl border border-input py-3 pl-7 pr-3 text-base text-foreground bg-surface focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
           </div>

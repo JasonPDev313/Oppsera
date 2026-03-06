@@ -71,11 +71,12 @@ export function ReceiptActions({ token }: ReceiptActionsProps) {
   if (showEmailInput && !emailSent) {
     return (
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-foreground">
+        <label htmlFor="receipt-email" className="block text-sm font-medium text-foreground">
           Email your receipt
         </label>
         <div className="flex gap-2">
           <input
+            id="receipt-email"
             type="email"
             value={emailInput}
             onChange={(e) => {
@@ -85,6 +86,7 @@ export function ReceiptActions({ token }: ReceiptActionsProps) {
             placeholder="your@email.com"
             className="flex-1 rounded-lg border border-input px-3 py-2 text-sm
                        focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSendEmail();

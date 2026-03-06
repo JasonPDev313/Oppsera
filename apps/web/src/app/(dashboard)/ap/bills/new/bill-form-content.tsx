@@ -164,8 +164,9 @@ export default function BillFormContent() {
         <div className="rounded-lg border border-border bg-surface p-5 space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Vendor <span className="text-red-500">*</span></label>
+              <label htmlFor="bill-vendor" className="block text-sm font-medium text-foreground mb-1">Vendor <span className="text-red-500">*</span></label>
               <input
+                id="bill-vendor"
                 type="text"
                 value={vendorName}
                 onChange={(e) => { setVendorName(e.target.value); setVendorId(e.target.value ? 'vendor_placeholder' : ''); }}
@@ -177,8 +178,9 @@ export default function BillFormContent() {
               {errors.vendorId && <p className="mt-1 text-xs text-red-500">{errors.vendorId}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Bill Number <span className="text-red-500">*</span></label>
+              <label htmlFor="bill-number" className="block text-sm font-medium text-foreground mb-1">Bill Number <span className="text-red-500">*</span></label>
               <input
+                id="bill-number"
                 type="text"
                 value={billNumber}
                 onChange={(e) => setBillNumber(e.target.value)}
@@ -191,8 +193,9 @@ export default function BillFormContent() {
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Bill Date <span className="text-red-500">*</span></label>
+              <label htmlFor="bill-date" className="block text-sm font-medium text-foreground mb-1">Bill Date <span className="text-red-500">*</span></label>
               <input
+                id="bill-date"
                 type="date"
                 value={billDate}
                 onChange={(e) => setBillDate(e.target.value)}
@@ -200,8 +203,9 @@ export default function BillFormContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Payment Terms</label>
+              <label htmlFor="bill-payment-terms" className="block text-sm font-medium text-foreground mb-1">Payment Terms</label>
               <select
+                id="bill-payment-terms"
                 value={paymentTermsId}
                 onChange={(e) => handleTermsChange(e.target.value)}
                 className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -213,8 +217,9 @@ export default function BillFormContent() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Due Date <span className="text-red-500">*</span></label>
+              <label htmlFor="bill-due-date" className="block text-sm font-medium text-foreground mb-1">Due Date <span className="text-red-500">*</span></label>
               <input
+                id="bill-due-date"
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
@@ -223,8 +228,9 @@ export default function BillFormContent() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Memo</label>
+            <label htmlFor="bill-memo" className="block text-sm font-medium text-foreground mb-1">Memo</label>
             <input
+              id="bill-memo"
               type="text"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
@@ -307,10 +313,12 @@ export default function BillFormContent() {
                   <AccountPicker value={line.glAccountId} onChange={(v) => updateLine(line.key, 'glAccountId', v)} />
                   <div className="grid grid-cols-2 gap-3">
                     <div>
+                      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                       <label className="text-xs text-muted-foreground">Qty</label>
                       <input type="number" value={line.quantity} onChange={(e) => updateLine(line.key, 'quantity', e.target.value)} className="w-full rounded border border-border px-2 py-1.5 text-sm" />
                     </div>
                     <div>
+                      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                       <label className="text-xs text-muted-foreground">Unit Cost</label>
                       <MoneyInput value={line.unitCost} onChange={(v) => updateLine(line.key, 'unitCost', v)} />
                     </div>

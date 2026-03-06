@@ -40,10 +40,12 @@ export function TableActionMenu({
   ].filter((a) => a.show);
 
   return createPortal(
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="fixed inset-0 z-50"
       onClick={onClose}
     >
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl p-2 shadow-lg w-[220px] bg-surface border border-border"
         onClick={(e) => e.stopPropagation()}

@@ -1,7 +1,7 @@
 import { EventEnvelopeSchema } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
 import { generateUlid } from '@oppsera/shared';
-import { db, processedEvents, eventDeadLetters, guardedQuery } from '@oppsera/db';
+import { db, sql, processedEvents, eventDeadLetters, guardedQuery } from '@oppsera/db';
 import type { EventBus, EventHandler } from './bus';
 
 interface NamedHandler {
@@ -121,6 +121,7 @@ export class InMemoryEventBus implements EventBus {
     );
     if (claimed.length === 0) return; // already processed by another instance
 
+    let handlerSucceeded = false;
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -134,6 +135,7 @@ export class InMemoryEventBus implements EventBus {
         } finally {
           if (timeoutId) clearTimeout(timeoutId);
         }
+        handlerSucceeded = true;
         return;
       } catch (error) {
         console.error(
@@ -172,6 +174,26 @@ export class InMemoryEventBus implements EventBus {
             consumerName,
           });
         }
+      }
+    }
+
+    // If all retries failed, remove the claim so the outbox worker can retry
+    // later. Without this, the event is permanently stuck as "claimed but
+    // never processed" — the outbox worker sees it in processedEvents and
+    // skips it, even though the handler never succeeded.
+    if (!handlerSucceeded) {
+      try {
+        await guardedQuery('bus:unclaimEvent', () =>
+          db.execute(
+            sql`DELETE FROM processed_events WHERE event_id = ${event.eventId} AND consumer_name = ${consumerName}`,
+          ),
+        );
+      } catch (unclaimErr) {
+        console.error('Failed to unclaim event after handler failure:', {
+          eventId: event.eventId,
+          consumerName,
+          error: unclaimErr,
+        });
       }
     }
   }

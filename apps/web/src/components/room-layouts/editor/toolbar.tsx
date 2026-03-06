@@ -106,6 +106,7 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
             onChange={(e) => setNameValue(e.target.value)}
             onBlur={handleNameBlur}
             onKeyDown={handleNameKeyDown}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             className="rounded border border-indigo-500/30 px-2 py-0.5 text-sm font-medium text-foreground focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />

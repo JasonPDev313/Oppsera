@@ -524,6 +524,7 @@ export function FnbModifierDrawer({
   });
 
   return createPortal(
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="fixed inset-0 flex flex-col justify-end"
       style={{ zIndex: 'var(--fnb-z-modal)', backgroundColor: 'var(--fnb-bg-overlay)' }}

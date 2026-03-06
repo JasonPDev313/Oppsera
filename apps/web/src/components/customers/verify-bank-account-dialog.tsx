@@ -66,10 +66,12 @@ export function VerifyBankAccountDialog({
   };
 
   return createPortal(
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       onKeyDown={handleKeyDown}
     >
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div className="relative mx-4 w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-2xl">
@@ -105,7 +107,7 @@ export function VerifyBankAccountDialog({
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
+                  <label htmlFor="verify-deposit-1" className="block text-sm font-medium text-foreground mb-1">
                     Deposit 1 (cents)
                   </label>
                   <div className="relative">
@@ -113,6 +115,7 @@ export function VerifyBankAccountDialog({
                       $0.
                     </span>
                     <input
+                      id="verify-deposit-1"
                       type="text"
                       inputMode="numeric"
                       maxLength={2}
@@ -124,7 +127,7 @@ export function VerifyBankAccountDialog({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
+                  <label htmlFor="verify-deposit-2" className="block text-sm font-medium text-foreground mb-1">
                     Deposit 2 (cents)
                   </label>
                   <div className="relative">
@@ -132,6 +135,7 @@ export function VerifyBankAccountDialog({
                       $0.
                     </span>
                     <input
+                      id="verify-deposit-2"
                       type="text"
                       inputMode="numeric"
                       maxLength={2}

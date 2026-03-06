@@ -75,11 +75,13 @@ export function PreShiftReportFull({
   const vipReservations = data?.reservations.filter((r) => r.isVip) ?? [];
 
   const content = (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       onClick={onClose}
     >
       <div className="absolute inset-0" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} />
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl shadow-xl m-4"
         style={{ backgroundColor: 'var(--fnb-bg-surface)' }}

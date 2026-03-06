@@ -471,11 +471,12 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
               <input placeholder="POS Override PIN" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={addForm.posOverridePin} onChange={(e) => setAddForm((p) => ({ ...p, posOverridePin: e.target.value }))} />
               <input placeholder="Unique Identification PIN" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={addForm.uniqueIdentificationPin} onChange={(e) => setAddForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value }))} />
               <div className="rounded-lg border border-border bg-muted px-3 py-2.5 text-sm">
-                <label className="mb-1 block text-xs text-muted-foreground">User Tab Color</label>
-                <input type="color" className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent" value={addForm.userTabColor} onChange={(e) => setAddForm((p) => ({ ...p, userTabColor: e.target.value }))} />
+                <label htmlFor="add-user-tab-color" className="mb-1 block text-xs text-muted-foreground">User Tab Color</label>
+                <input id="add-user-tab-color" type="color" className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent" value={addForm.userTabColor} onChange={(e) => setAddForm((p) => ({ ...p, userTabColor: e.target.value }))} />
               </div>
               <input placeholder="External Payroll Employee ID" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={addForm.externalPayrollEmployeeId} onChange={(e) => setAddForm((p) => ({ ...p, externalPayrollEmployeeId: e.target.value }))} />
               <div className="md:col-span-2">
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Locations</label>
                 <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted p-3">
                   {locations.map((l) => (
@@ -592,8 +593,8 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
               <input placeholder="User Name" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.userName} onChange={(e) => setEditForm((p) => ({ ...p, userName: e.target.value }))} />
               <input placeholder="Phone Number" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.phoneNumber} onChange={(e) => setEditForm((p) => ({ ...p, phoneNumber: e.target.value }))} />
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Primary Role</label>
-                <select className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.userRole} onChange={(e) => setEditForm((p) => ({ ...p, userRole: e.target.value, additionalRoleIds: p.additionalRoleIds.filter((id) => id !== e.target.value) }))}>
+                <label htmlFor="edit-user-role" className="mb-1 block text-xs font-medium text-muted-foreground">Primary Role</label>
+                <select id="edit-user-role" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.userRole} onChange={(e) => setEditForm((p) => ({ ...p, userRole: e.target.value, additionalRoleIds: p.additionalRoleIds.filter((id) => id !== e.target.value) }))}>
                   <option value="" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Select Role</option>
                   {roles.map((r) => <option key={r.id} value={r.id} style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>{r.name}</option>)}
                 </select>
@@ -627,6 +628,7 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
               </select>
               {roles.filter((r) => r.id !== editForm.userRole).length > 0 && (
                 <div className="md:col-span-2">
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                   <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Additional Roles</label>
                   <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted p-3">
                     {roles.filter((r) => r.id !== editForm.userRole).map((r) => (
@@ -653,11 +655,12 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
               <input placeholder="POS Override PIN (leave blank to keep unchanged)" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.posOverridePin} onChange={(e) => setEditForm((p) => ({ ...p, posOverridePin: e.target.value }))} />
               <input placeholder="Unique ID PIN (leave blank to keep unchanged)" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.uniqueIdentificationPin} onChange={(e) => setEditForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value }))} />
               <div className="rounded-lg border border-border bg-muted px-3 py-2.5 text-sm">
-                <label className="mb-1 block text-xs text-muted-foreground">User Tab Color</label>
-                <input type="color" className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent" value={editForm.userTabColor} onChange={(e) => setEditForm((p) => ({ ...p, userTabColor: e.target.value }))} />
+                <label htmlFor="edit-user-tab-color" className="mb-1 block text-xs text-muted-foreground">User Tab Color</label>
+                <input id="edit-user-tab-color" type="color" className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent" value={editForm.userTabColor} onChange={(e) => setEditForm((p) => ({ ...p, userTabColor: e.target.value }))} />
               </div>
               <input placeholder="External Payroll Employee ID" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.externalPayrollEmployeeId} onChange={(e) => setEditForm((p) => ({ ...p, externalPayrollEmployeeId: e.target.value }))} />
               <div className="md:col-span-2">
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Locations</label>
                 <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted p-3">
                   {locations.map((l) => (

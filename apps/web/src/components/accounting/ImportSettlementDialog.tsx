@@ -61,6 +61,7 @@ export function ImportSettlementDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-surface rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -73,10 +74,11 @@ export function ImportSettlementDialog({
         <div className="space-y-4">
           {/* Processor Name */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="settlement-processor" className="block text-sm font-medium text-foreground mb-1">
               Processor Name
             </label>
             <select
+              id="settlement-processor"
               value={processorName}
               onChange={(e) => setProcessorName(e.target.value)}
               className="w-full rounded-md border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -104,10 +106,11 @@ export function ImportSettlementDialog({
 
           {/* Bank Account */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="settlement-bank-account" className="block text-sm font-medium text-foreground mb-1">
               Bank Account (optional)
             </label>
             <select
+              id="settlement-bank-account"
               value={bankAccountId}
               onChange={(e) => setBankAccountId(e.target.value)}
               className="w-full rounded-md border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -123,6 +126,7 @@ export function ImportSettlementDialog({
 
           {/* CSV Upload */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="block text-sm font-medium text-foreground mb-1">
               Settlement CSV
             </label>

@@ -43,7 +43,7 @@ export default function AllOrdersContent() {
     [stations],
   );
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (signal?: AbortSignal) => {
     if (!locationId || activeStations.length === 0) return;
     if (fetchingRef.current) return;
     fetchingRef.current = true;
@@ -53,9 +53,12 @@ export default function AllOrdersContent() {
         activeStations.map((s) =>
           apiFetch<{ data: KdsView }>(
             `/api/v1/fnb/stations/${s.id}/kds?businessDate=${today}&locationId=${locationId}`,
+            { signal },
           ).then((r) => r.data).catch(() => null),
         ),
       );
+
+      if (signal?.aborted) return;
 
       // Merge and deduplicate by ticketId (a ticket may appear at multiple stations)
       const ticketMap = new Map<string, KdsTicketCard>();
@@ -77,19 +80,23 @@ export default function AllOrdersContent() {
         }),
       );
     } catch {
-      // silent
+      // silent — AbortError is rethrown by apiFetch without logging
     } finally {
       fetchingRef.current = false;
-      setIsLoading(false);
+      if (!signal?.aborted) setIsLoading(false);
     }
   }, [locationId, activeStations]);
 
   // Initial fetch + polling
   useEffect(() => {
-    fetchAll();
-    if (isPaused) return;
-    const interval = setInterval(fetchAll, POLL_INTERVAL);
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    fetchAll(controller.signal);
+    if (isPaused) return () => controller.abort();
+    const interval = setInterval(() => fetchAll(controller.signal), POLL_INTERVAL);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [fetchAll, isPaused]);
 
   // Compute metrics

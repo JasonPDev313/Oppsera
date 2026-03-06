@@ -79,6 +79,7 @@ export function CloseShiftDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="close-shift-dialog-title">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={summary ? onClose : undefined} />
       <div
         ref={contentRef}
@@ -207,10 +208,11 @@ export function CloseShiftDialog({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+              <label htmlFor="close-shift-notes" className="mb-1.5 block text-sm font-medium text-muted-foreground">
                 Notes (optional)
               </label>
               <textarea
+                id="close-shift-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Any notes about this shift..."

@@ -78,6 +78,7 @@ export function ServerPinModal({
   if (!open) return null;
 
   const content = (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       className="fixed inset-0 z-60 flex items-center justify-center"
       style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}

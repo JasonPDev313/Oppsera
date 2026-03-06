@@ -152,8 +152,9 @@ export function RiskSubTab({ accountId, accountStatus, creditLimitCents, holdCha
         {showHoldForm && (
           <div className="mt-4 rounded-md border border-border bg-surface p-3 space-y-3">
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1">Hold Type</label>
+              <label htmlFor="risk-hold-type" className="block text-xs font-medium text-foreground mb-1">Hold Type</label>
               <select
+                id="risk-hold-type"
                 value={holdType}
                 onChange={(e) => setHoldType(e.target.value as 'charging' | 'full' | 'billing')}
                 className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
@@ -164,8 +165,9 @@ export function RiskSubTab({ accountId, accountStatus, creditLimitCents, holdCha
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1">Reason</label>
+              <label htmlFor="risk-hold-reason" className="block text-xs font-medium text-foreground mb-1">Reason</label>
               <input
+                id="risk-hold-reason"
                 type="text"
                 value={holdReason}
                 onChange={(e) => setHoldReason(e.target.value)}

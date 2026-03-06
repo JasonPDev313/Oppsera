@@ -1,8 +1,9 @@
-import { eq, and, ne } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
+import { logger } from '@oppsera/core/observability';
 import { fnbKitchenTickets, fnbKitchenTicketItems } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { BumpTicketInput } from '../validation';
@@ -36,20 +37,21 @@ export async function bumpTicket(
       throw new TicketStatusConflictError(input.ticketId, ticket.status, 'bump');
     }
 
-    // Verify all non-voided items are ready
-    const notReadyItems = await tx
-      .select()
+    // Verify all non-voided items are ready, and at least one non-voided item exists
+    const allItems = await tx
+      .select({ itemStatus: fnbKitchenTicketItems.itemStatus })
       .from(fnbKitchenTicketItems)
       .where(and(
         eq(fnbKitchenTicketItems.ticketId, input.ticketId),
         eq(fnbKitchenTicketItems.tenantId, ctx.tenantId),
-        ne(fnbKitchenTicketItems.itemStatus, 'ready'),
-        ne(fnbKitchenTicketItems.itemStatus, 'served'),
-        ne(fnbKitchenTicketItems.itemStatus, 'voided'),
-      ))
-      .limit(1);
+      ));
 
-    if (notReadyItems.length > 0) {
+    const nonVoided = allItems.filter((i) => i.itemStatus !== 'voided');
+    if (nonVoided.length === 0) {
+      throw new TicketNotReadyError(input.ticketId);
+    }
+    const notReady = nonVoided.filter((i) => i.itemStatus !== 'ready' && i.itemStatus !== 'served');
+    if (notReady.length > 0) {
       throw new TicketNotReadyError(input.ticketId);
     }
 
@@ -96,6 +98,11 @@ export async function bumpTicket(
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'bumpTicket', updated);
 
     return { result: updated!, events: [event] };
+  });
+
+  logger.info('[kds] ticket bumped to served', {
+    domain: 'kds', tenantId: ctx.tenantId, locationId: ctx.locationId,
+    ticketId: input.ticketId, userId: ctx.user.id,
   });
 
   auditLogDeferred(ctx, 'fnb.kds.ticket_bumped', 'fnb_kitchen_tickets', input.ticketId);

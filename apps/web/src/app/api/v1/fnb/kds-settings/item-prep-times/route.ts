@@ -15,6 +15,7 @@ export const GET = withMiddleware(
     const items = await listItemPrepTimes({
       tenantId: ctx.tenantId,
       catalogItemId: url.searchParams.get('catalogItemId') ?? undefined,
+      categoryId: url.searchParams.get('categoryId') ?? undefined,
       stationId: url.searchParams.get('stationId') ?? undefined,
     });
     return NextResponse.json({ data: items });

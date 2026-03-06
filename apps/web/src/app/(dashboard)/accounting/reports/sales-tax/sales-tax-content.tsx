@@ -44,13 +44,13 @@ export default function SalesTaxContent() {
       {/* Controls */}
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">From</label>
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+          <label htmlFor="sales-tax-from" className="block text-sm font-medium text-foreground mb-1">From</label>
+          <input id="sales-tax-from" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
             className="rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">To</label>
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+          <label htmlFor="sales-tax-to" className="block text-sm font-medium text-foreground mb-1">To</label>
+          <input id="sales-tax-to" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
             className="rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
         </div>
       </div>

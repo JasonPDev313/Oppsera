@@ -128,8 +128,9 @@ export default function CogsContent() {
           {/* Period selector + Calculate */}
           <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Period Start</label>
+              <label htmlFor="cogs-period-start" className="mb-1 block text-xs font-medium text-muted-foreground">Period Start</label>
               <input
+                id="cogs-period-start"
                 type="date"
                 value={periodStart}
                 onChange={(e) => setPeriodStart(e.target.value)}
@@ -137,8 +138,9 @@ export default function CogsContent() {
               />
             </div>
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Period End</label>
+              <label htmlFor="cogs-period-end" className="mb-1 block text-xs font-medium text-muted-foreground">Period End</label>
               <input
+                id="cogs-period-end"
                 type="date"
                 value={periodEnd}
                 onChange={(e) => setPeriodEnd(e.target.value)}
@@ -146,6 +148,7 @@ export default function CogsContent() {
               />
             </div>
             <div className="flex-1">
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Location</label>
               <Select
                 options={locationOptions}

@@ -99,6 +99,7 @@ export function CreateHousekeeperUserDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative z-50 w-full max-w-lg rounded-lg bg-surface border border-border/50 shadow-xl max-h-[90vh] flex flex-col">
         {/* Header */}
@@ -118,19 +119,22 @@ export function CreateHousekeeperUserDialog({
           {/* Name row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1">First Name *</label>
+              <label htmlFor="hk-first-name" className="block text-sm font-medium mb-1">First Name *</label>
               <input
+                id="hk-first-name"
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 className="w-full px-3 py-2 rounded-md border border-border/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
               />
               {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Last Name *</label>
+              <label htmlFor="hk-last-name" className="block text-sm font-medium mb-1">Last Name *</label>
               <input
+                id="hk-last-name"
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
@@ -142,8 +146,9 @@ export function CreateHousekeeperUserDialog({
 
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium mb-1">Email *</label>
+            <label htmlFor="hk-email" className="block text-sm font-medium mb-1">Email *</label>
             <input
+              id="hk-email"
               type="email"
               value={email}
               onChange={(e) => handleEmailChange(e.target.value)}
@@ -154,8 +159,9 @@ export function CreateHousekeeperUserDialog({
 
           {/* Username */}
           <div>
-            <label className="block text-sm font-medium mb-1">Username *</label>
+            <label htmlFor="hk-username" className="block text-sm font-medium mb-1">Username *</label>
             <input
+              id="hk-username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -166,8 +172,9 @@ export function CreateHousekeeperUserDialog({
 
           {/* Password */}
           <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
+            <label htmlFor="hk-password" className="block text-sm font-medium mb-1">Password</label>
             <input
+              id="hk-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -180,8 +187,9 @@ export function CreateHousekeeperUserDialog({
 
           {/* Phone */}
           <div>
-            <label className="block text-sm font-medium mb-1">Phone</label>
+            <label htmlFor="hk-phone" className="block text-sm font-medium mb-1">Phone</label>
             <input
+              id="hk-phone"
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -191,6 +199,7 @@ export function CreateHousekeeperUserDialog({
 
           {/* Role badge */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="block text-sm font-medium mb-1">Role</label>
             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-indigo-500/10 text-indigo-500 border border-indigo-500/30 text-sm">
               Housekeeper

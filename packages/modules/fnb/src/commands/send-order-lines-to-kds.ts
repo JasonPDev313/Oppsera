@@ -3,6 +3,7 @@ import { withTenant } from '@oppsera/db';
 import { orderLines, fnbKitchenTicketItems } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
+import { logger } from '@oppsera/core/observability';
 import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from './create-kitchen-ticket';
@@ -62,7 +63,12 @@ export async function sendOrderLinesToKds(
       ),
   ) as OrderLineRow[];
 
-  if (!lines.length) return { sentCount: 0 };
+  if (!lines.length) {
+    logger.debug('[kds] sendOrderLinesToKds: no food/bev lines for order', {
+      domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
+    });
+    return { sentCount: 0 };
+  }
 
   // 2. Check which lines already have KDS ticket items
   const lineIds = lines.map((l) => l.id);
@@ -83,7 +89,18 @@ export async function sendOrderLinesToKds(
   );
 
   const newLines = lines.filter((l) => !alreadySentIds.has(l.id));
-  if (!newLines.length) return { sentCount: 0 };
+  if (!newLines.length) {
+    logger.debug('[kds] sendOrderLinesToKds: all lines already sent', {
+      domain: 'kds', tenantId: ctx.tenantId, orderId, totalLines: lines.length,
+      alreadySent: alreadySentIds.size,
+    });
+    return { sentCount: 0 };
+  }
+
+  logger.info('[kds] sendOrderLinesToKds: routing new lines', {
+    domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
+    newLineCount: newLines.length, alreadySent: alreadySentIds.size,
+  });
 
   // 3. Build routable items and enrich with catalog hierarchy
   let routableItems: RoutableItem[] = newLines.map((line) => ({
@@ -104,9 +121,10 @@ export async function sendOrderLinesToKds(
   // Log unrouted items
   const unrouted = routingResults.filter((r) => !r.stationId);
   if (unrouted.length > 0) {
-    console.warn(
-      `[sendOrderLinesToKds] ${unrouted.length} item(s) could not be routed to any KDS station for order ${orderId}`,
-    );
+    logger.warn('[kds] sendOrderLinesToKds: unroutable items', {
+      domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
+      unroutedCount: unrouted.length, totalLines: newLines.length,
+    });
   }
 
   // 5. Group routed items by station
@@ -144,10 +162,16 @@ export async function sendOrderLinesToKds(
     stationGroups.set(r.stationId, group);
   }
 
-  if (stationGroups.size === 0) return { sentCount: 0 };
+  if (stationGroups.size === 0) {
+    logger.warn('[kds] sendOrderLinesToKds: no stations resolved — no tickets created', {
+      domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
+    });
+    return { sentCount: 0 };
+  }
 
   // 6. Create one ticket per station (serial to avoid pool exhaustion)
   // Use line-based idempotency: key includes sorted line IDs so re-sends are safe
+  let actualSentCount = 0;
   for (const [stationId, ticketItems] of stationGroups) {
     const sortedLineIds = ticketItems.map((i) => i.orderLineId).sort().join(',');
     try {
@@ -158,14 +182,17 @@ export async function sendOrderLinesToKds(
         channel: 'pos',
         items: ticketItems,
       });
+      actualSentCount += ticketItems.length;
     } catch (err) {
-      console.warn(
-        `[sendOrderLinesToKds] Failed to create ticket for station ${stationId}: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      logger.warn('[kds] sendOrderLinesToKds: failed to create ticket for station', {
+        domain: 'kds', tenantId: ctx.tenantId, orderId, stationId, locationId: ctx.locationId,
+        itemCount: ticketItems.length,
+        error: { message: err instanceof Error ? err.message : String(err) },
+      });
     }
   }
 
-  return { sentCount: newLines.length };
+  return { sentCount: actualSentCount };
 }
 
 /** Extract modifier IDs from the JSONB modifiers array. */

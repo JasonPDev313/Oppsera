@@ -187,6 +187,7 @@ export default function SurchargingTab() {
               When enabled, a surcharge will be applied to eligible credit card transactions.
             </p>
           </div>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="relative inline-flex cursor-pointer items-center">
             <input
               type="checkbox"
@@ -206,8 +207,9 @@ export default function SurchargingTab() {
             <h3 className="font-medium text-foreground">Rate Configuration</h3>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-foreground">Surcharge Rate (%)</label>
+                <label htmlFor="st-surcharge-rate" className="block text-sm font-medium text-foreground">Surcharge Rate (%)</label>
                 <input
+                  id="st-surcharge-rate"
                   type="text"
                   value={surchargeRate}
                   onChange={(e) => setSurchargeRate(e.target.value)}
@@ -228,8 +230,9 @@ export default function SurchargingTab() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground">Maximum Rate Cap (%)</label>
+                <label htmlFor="st-max-rate" className="block text-sm font-medium text-foreground">Maximum Rate Cap (%)</label>
                 <input
+                  id="st-max-rate"
                   type="text"
                   value={maxRate}
                   onChange={(e) => setMaxRate(e.target.value)}
@@ -312,8 +315,9 @@ export default function SurchargingTab() {
           <div className="rounded-lg border border-border p-5 space-y-4">
             <h3 className="font-medium text-foreground">Disclosure Text</h3>
             <div>
-              <label className="block text-sm font-medium text-foreground">Customer Disclosure</label>
+              <label htmlFor="st-customer-disclosure" className="block text-sm font-medium text-foreground">Customer Disclosure</label>
               <textarea
+                id="st-customer-disclosure"
                 value={customerDisclosure}
                 onChange={(e) => setCustomerDisclosure(e.target.value)}
                 className="mt-1 block w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
@@ -326,8 +330,9 @@ export default function SurchargingTab() {
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground">Receipt Disclosure</label>
+              <label htmlFor="st-receipt-disclosure" className="block text-sm font-medium text-foreground">Receipt Disclosure</label>
               <input
+                id="st-receipt-disclosure"
                 type="text"
                 value={receiptDisclosure}
                 onChange={(e) => setReceiptDisclosure(e.target.value)}

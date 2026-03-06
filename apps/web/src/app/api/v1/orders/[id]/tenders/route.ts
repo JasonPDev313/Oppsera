@@ -59,6 +59,7 @@ export const POST = withMiddleware(
       delete body.customerId;
     }
 
+    body.employeeId = body.employeeId || ctx.user.id;
     const parsed = recordTenderSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

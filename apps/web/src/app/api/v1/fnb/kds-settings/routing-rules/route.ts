@@ -16,7 +16,7 @@ export const GET = withMiddleware(
       tenantId: ctx.tenantId,
       locationId: ctx.locationId ?? url.searchParams.get('locationId') ?? '',
       stationId: url.searchParams.get('stationId') ?? undefined,
-      ruleType: (url.searchParams.get('ruleType') as any) ?? undefined,
+      ruleType: (url.searchParams.get('ruleType') as 'item' | 'category' | 'department' | 'modifier' | 'sub_department') ?? undefined,
     });
     return NextResponse.json({ data: rules });
   },

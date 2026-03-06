@@ -121,6 +121,7 @@ export default function WalletsTab() {
               <p className="text-sm text-muted-foreground">Accept payments via Apple Pay on Safari and iOS devices.</p>
             </div>
           </div>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="relative inline-flex cursor-pointer items-center">
             <input
               type="checkbox"
@@ -169,6 +170,7 @@ export default function WalletsTab() {
               <p className="text-sm text-muted-foreground">Accept payments via Google Pay on Chrome and Android devices.</p>
             </div>
           </div>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="relative inline-flex cursor-pointer items-center">
             <input
               type="checkbox"
@@ -183,10 +185,11 @@ export default function WalletsTab() {
         {enableGooglePay && (
           <div className="mt-4 space-y-3">
             <div>
-              <label className="block text-sm font-medium text-foreground">
+              <label htmlFor="wt-google-pay-merchant-id" className="block text-sm font-medium text-foreground">
                 Google Pay Merchant ID <span className="text-red-500">*</span>
               </label>
               <input
+                id="wt-google-pay-merchant-id"
                 type="text"
                 value={googlePayMerchantId}
                 onChange={(e) => setGooglePayMerchantId(e.target.value)}
@@ -199,10 +202,11 @@ export default function WalletsTab() {
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground">
+              <label htmlFor="wt-gateway-merchant-id" className="block text-sm font-medium text-foreground">
                 Gateway Merchant ID <span className="text-red-500">*</span>
               </label>
               <input
+                id="wt-gateway-merchant-id"
                 type="text"
                 value={googlePayGatewayId}
                 onChange={(e) => setGooglePayGatewayId(e.target.value)}

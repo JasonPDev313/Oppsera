@@ -117,6 +117,7 @@ export function LayersPanel() {
                   onChange={(e) => setEditValue(e.target.value)}
                   onBlur={handleRenameSubmit}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleRenameSubmit(); if (e.key === 'Escape') setEditingId(null); }}
+                  // eslint-disable-next-line jsx-a11y/no-autofocus
                   autoFocus
                   className="flex-1 rounded border border-indigo-500/30 bg-surface px-1 py-0 text-xs text-foreground"
                 />

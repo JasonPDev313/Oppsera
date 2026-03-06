@@ -3,6 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
+import { logger } from '@oppsera/core/observability';
 import { fnbKitchenTicketItems, fnbKitchenTickets } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { BumpItemInput } from '../validation';
@@ -31,31 +32,43 @@ export async function bumpItem(
       .limit(1);
     if (!item) throw new TicketItemNotFoundError(input.ticketItemId);
 
-    // Guard: only pending/cooking items can be bumped
-    if (item.itemStatus === 'ready' || item.itemStatus === 'served' || item.itemStatus === 'voided') {
+    // Guard: served/voided are terminal — cannot bump further.
+    // pending/in_progress → ready, ready → served.
+    if (item.itemStatus === 'served' || item.itemStatus === 'voided') {
       throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'bump');
     }
 
     const now = new Date();
+    const isAlreadyReady = item.itemStatus === 'ready';
     const updateData: Record<string, unknown> = {
-      itemStatus: 'ready',
-      readyAt: now,
-      bumpedBy: ctx.user.id,
+      itemStatus: isAlreadyReady ? 'served' : 'ready',
       updatedAt: now,
     };
+    if (isAlreadyReady) {
+      updateData.servedAt = now;
+      updateData.bumpedBy = ctx.user.id;
+    } else {
+      updateData.readyAt = now;
+      updateData.bumpedBy = ctx.user.id;
+    }
     // Record startedAt on first interaction (item was pending, never started)
     if (!item.startedAt) {
       updateData.startedAt = now;
     }
 
+    // Optimistic lock: include current status in WHERE to prevent concurrent double-bump
     const [updated] = await tx
       .update(fnbKitchenTicketItems)
       .set(updateData)
       .where(and(
         eq(fnbKitchenTicketItems.id, input.ticketItemId),
         eq(fnbKitchenTicketItems.tenantId, ctx.tenantId),
+        eq(fnbKitchenTicketItems.itemStatus, item.itemStatus),
       ))
       .returning();
+    if (!updated) {
+      throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'bump (concurrent)');
+    }
 
     // Look up ticket for locationId
     const [ticket] = await tx
@@ -77,6 +90,12 @@ export async function bumpItem(
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'bumpItem', updated);
 
     return { result: updated!, events: [event] };
+  });
+
+  const newStatus = result.itemStatus === 'served' ? 'served' : 'ready';
+  logger.info(`[kds] item bumped to ${newStatus}`, {
+    domain: 'kds', tenantId: ctx.tenantId, locationId: ctx.locationId,
+    ticketItemId: input.ticketItemId, stationId: input.stationId, userId: ctx.user.id,
   });
 
   auditLogDeferred(ctx, 'fnb.kds.item_bumped', 'fnb_kitchen_ticket_items', input.ticketItemId);

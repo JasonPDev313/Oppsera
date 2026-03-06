@@ -200,6 +200,7 @@ export function CourseSection({
 
         {/* Inline action buttons */}
         {courseStatus === 'unsent' && onSend && (
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
           <span
             onClick={(e) => { e.stopPropagation(); onSend(); }}
             className="rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer transition-opacity hover:opacity-80"
@@ -209,6 +210,7 @@ export function CourseSection({
           </span>
         )}
         {courseStatus === 'sent' && onFire && (
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
           <span
             onClick={(e) => { e.stopPropagation(); onFire(); }}
             className={`rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer transition-opacity hover:opacity-80 inline-flex items-center gap-1 ${showFirePulse ? 'animate-pulse' : ''}`}
@@ -219,6 +221,7 @@ export function CourseSection({
           </span>
         )}
         {(courseStatus === 'unsent' || courseStatus === 'sent' || courseStatus === 'held') && onHold && (
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
           <span
             onClick={(e) => { e.stopPropagation(); onHold(); }}
             className="rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer transition-opacity hover:opacity-80 inline-flex items-center gap-1"

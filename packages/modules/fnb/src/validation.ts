@@ -936,7 +936,7 @@ export const startPaymentSessionSchema = z.object({
   ...idempotencyMixin,
   tabId: z.string().min(1),
   orderId: z.string().min(1),
-  totalAmountCents: z.number().int().min(1),
+  totalAmountCents: z.number().int().min(0),
 });
 
 export type StartPaymentSessionInput = z.input<typeof startPaymentSessionSchema>;
@@ -1914,24 +1914,34 @@ export const upsertPerformanceTargetSchema = z.object({
 );
 export type UpsertPerformanceTargetInput = z.input<typeof upsertPerformanceTargetSchema>;
 
-// Item prep times
+// Item / category prep times
 export const upsertItemPrepTimeSchema = z.object({
-  catalogItemId: z.string().min(1),
+  catalogItemId: z.string().min(1).optional(),
+  categoryId: z.string().min(1).optional(),
   stationId: z.string().optional(),
   estimatedPrepSeconds: z.number().int().min(10).max(7200),
   clientRequestId: z.string().min(1),
-});
-export type UpsertItemPrepTimeInput = z.input<typeof upsertItemPrepTimeSchema>;
+}).refine(
+  (d) => (d.catalogItemId != null) !== (d.categoryId != null),
+  { message: 'Exactly one of catalogItemId or categoryId must be provided' },
+);
+export type UpsertItemPrepTimeInput = z.infer<typeof upsertItemPrepTimeSchema>;
+
+const prepTimeItemSchema = z.object({
+  catalogItemId: z.string().min(1).optional(),
+  categoryId: z.string().min(1).optional(),
+  stationId: z.string().optional(),
+  estimatedPrepSeconds: z.number().int().min(10).max(7200),
+}).refine(
+  (d) => (d.catalogItemId != null) !== (d.categoryId != null),
+  { message: 'Exactly one of catalogItemId or categoryId must be provided' },
+);
 
 export const bulkUpsertItemPrepTimesSchema = z.object({
-  items: z.array(z.object({
-    catalogItemId: z.string().min(1),
-    stationId: z.string().optional(),
-    estimatedPrepSeconds: z.number().int().min(10).max(7200),
-  })).min(1).max(200),
+  items: z.array(prepTimeItemSchema).min(1).max(200),
   clientRequestId: z.string().min(1),
 });
-export type BulkUpsertItemPrepTimesInput = z.input<typeof bulkUpsertItemPrepTimesSchema>;
+export type BulkUpsertItemPrepTimesInput = z.infer<typeof bulkUpsertItemPrepTimesSchema>;
 
 // Enhanced routing rule (extends existing createRoutingRuleSchema)
 export const createKdsRoutingRuleSchema = z.object({
@@ -1955,6 +1965,12 @@ export type CreateKdsRoutingRuleInput = z.input<typeof createKdsRoutingRuleSchem
 export const updateKdsRoutingRuleSchema = z.object({
   ruleId: z.string().min(1),
   ruleName: z.string().min(1).max(100).optional(),
+  ruleType: z.enum(['item', 'modifier', 'department', 'sub_department', 'category']).optional(),
+  catalogItemId: z.string().nullable().optional(),
+  modifierId: z.string().nullable().optional(),
+  departmentId: z.string().nullable().optional(),
+  subDepartmentId: z.string().nullable().optional(),
+  categoryId: z.string().nullable().optional(),
   stationId: z.string().min(1).optional(),
   priority: z.number().int().min(0).max(100).optional(),
   orderTypeCondition: z.enum(['dine_in', 'takeout', 'delivery', 'bar']).nullable().optional(),

@@ -47,10 +47,12 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
   const dialog = (
     <>
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 z-50 bg-black/30" onClick={onClose} />
 
       {/* Dialog */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div ref={dialogRef} className="w-full max-w-lg rounded-lg border border-border bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-6 py-4">
@@ -63,8 +65,9 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4 p-6">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Name *</label>
+              <label htmlFor="project-name" className="block text-sm font-medium text-foreground mb-1">Name *</label>
               <input
+                id="project-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Project name"
@@ -74,8 +77,9 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+              <label htmlFor="project-description" className="block text-sm font-medium text-foreground mb-1">Description</label>
               <textarea
+                id="project-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Brief project description"
@@ -86,8 +90,9 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Type</label>
+                <label htmlFor="project-type" className="block text-sm font-medium text-foreground mb-1">Type</label>
                 <select
+                  id="project-type"
                   value={projectType}
                   onChange={(e) => setProjectType(e.target.value)}
                   className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm text-foreground"
@@ -99,8 +104,9 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Budget ($)</label>
+                <label htmlFor="project-budget" className="block text-sm font-medium text-foreground mb-1">Budget ($)</label>
                 <input
+                  id="project-budget"
                   value={budgetAmount}
                   onChange={(e) => setBudgetAmount(e.target.value)}
                   type="number"
@@ -114,8 +120,9 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Start Date</label>
+                <label htmlFor="project-start-date" className="block text-sm font-medium text-foreground mb-1">Start Date</label>
                 <input
+                  id="project-start-date"
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
@@ -123,8 +130,9 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">End Date</label>
+                <label htmlFor="project-end-date" className="block text-sm font-medium text-foreground mb-1">End Date</label>
                 <input
+                  id="project-end-date"
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
@@ -134,8 +142,9 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Budget Labor Hours</label>
+              <label htmlFor="project-labor-hours" className="block text-sm font-medium text-foreground mb-1">Budget Labor Hours</label>
               <input
+                id="project-labor-hours"
                 value={budgetLaborHours}
                 onChange={(e) => setBudgetLaborHours(e.target.value)}
                 type="number"
@@ -147,8 +156,9 @@ export function CreateProjectDialog({ onClose }: CreateProjectDialogProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Notes</label>
+              <label htmlFor="project-notes" className="block text-sm font-medium text-foreground mb-1">Notes</label>
               <textarea
+                id="project-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}

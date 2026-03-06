@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
+import { logger } from '@oppsera/core/observability';
 import type { GetKdsViewInput } from '../validation';
-import { StationNotFoundError } from '../errors';
+import { StationNotFoundError, ExpoStationError } from '../errors';
 
 export interface KdsTicketItem {
   itemId: string;
@@ -91,6 +92,7 @@ export async function getKdsView(
     const stationArr = Array.from(stationRows as Iterable<Record<string, unknown>>);
     const station = stationArr[0];
     if (!station) throw new StationNotFoundError(input.stationId);
+    if ((station.station_type as string) === 'expo') throw new ExpoStationError(input.stationId);
 
     // Resolve locationId: prefer explicit input, fallback to station's own location_id
     const resolvedLocationId = input.locationId || (station.location_id as string);
@@ -114,9 +116,32 @@ export async function getKdsView(
             AND kt.business_date = ${input.businessDate}
             AND kt.status IN ('pending', 'in_progress')
             AND kti.item_status NOT IN ('served', 'voided')
-          ORDER BY kt.priority_level DESC NULLS LAST, kt.sent_at ASC`,
+          ORDER BY kt.priority_level DESC NULLS LAST, kt.sent_at ASC
+          LIMIT 200`,
     );
     const tickets = Array.from(ticketRows as Iterable<Record<string, unknown>>);
+
+    // [KDS-DIAG] Debug-level diagnostic — only runs when no tickets found.
+    // Uses a single lightweight COUNT query instead of 3 parallel scans.
+    if (tickets.length === 0) {
+      const diagRows = await tx.execute(sql`
+        SELECT COUNT(*)::int AS total_today,
+               COUNT(*) FILTER (WHERE kt.status IN ('pending', 'in_progress'))::int AS active_today
+        FROM fnb_kitchen_tickets kt
+        WHERE kt.tenant_id = ${input.tenantId}
+          AND kt.business_date = ${input.businessDate}
+          AND kt.location_id = ${resolvedLocationId}`);
+      const diag = Array.from(diagRows as Iterable<Record<string, unknown>>)[0];
+      logger.debug('[KDS-DIAG] No active tickets for station', {
+        domain: 'kds',
+        tenantId: input.tenantId,
+        stationId: input.stationId,
+        locationId: resolvedLocationId,
+        businessDate: input.businessDate,
+        totalTodayTickets: Number(diag?.total_today ?? 0),
+        activeTodayTickets: Number(diag?.active_today ?? 0),
+      });
+    }
 
     // Batch-fetch all items for all active tickets at this station in a single query
     // (fixes N+1: previously one SELECT per ticket)
@@ -203,6 +228,7 @@ export async function getKdsView(
             FROM fnb_kitchen_tickets kt_this
             INNER JOIN fnb_kitchen_tickets kt_sibling
               ON kt_sibling.tenant_id = kt_this.tenant_id
+              AND kt_sibling.business_date = ${input.businessDate}
               AND kt_sibling.id != kt_this.id
               AND (
                 (kt_sibling.order_id IS NOT NULL AND kt_sibling.order_id = kt_this.order_id)
@@ -235,28 +261,29 @@ export async function getKdsView(
       }
     }
 
-    // Fetch recently completed tickets at this station (all items bumped/served/voided)
+    // Fetch recently completed tickets at this station (all items ready/served/voided)
+    // Use COALESCE(served_at, ready_at) so the timestamp reflects the final bump, not the first
     const completedRows = await tx.execute(
       sql`SELECT kt.id, kt.ticket_number, kt.table_number, kt.server_name,
                  COUNT(kti.id)::integer AS item_count,
-                 MAX(kti.ready_at) AS completed_at,
-                 EXTRACT(EPOCH FROM (NOW() - MAX(kti.ready_at)))::integer AS completed_seconds_ago
+                 COALESCE(MAX(kti.served_at), MAX(kti.ready_at)) AS completed_at,
+                 EXTRACT(EPOCH FROM (NOW() - COALESCE(MAX(kti.served_at), MAX(kti.ready_at))))::integer AS completed_seconds_ago
           FROM fnb_kitchen_tickets kt
           INNER JOIN fnb_kitchen_ticket_items kti
             ON kti.ticket_id = kt.id AND kti.station_id = ${input.stationId}
           WHERE kt.tenant_id = ${input.tenantId}
             AND kt.location_id = ${resolvedLocationId}
             AND kt.business_date = ${input.businessDate}
-            AND kti.item_status IN ('bumped', 'served')
+            AND kti.item_status IN ('ready', 'served')
             AND NOT EXISTS (
               SELECT 1 FROM fnb_kitchen_ticket_items kti2
               WHERE kti2.ticket_id = kt.id
                 AND kti2.station_id = ${input.stationId}
-                AND kti2.item_status NOT IN ('bumped', 'served', 'voided')
+                AND kti2.item_status NOT IN ('ready', 'served', 'voided')
             )
           GROUP BY kt.id
-          ORDER BY MAX(kti.ready_at) DESC NULLS LAST
-          LIMIT 10`,
+          ORDER BY COALESCE(MAX(kti.served_at), MAX(kti.ready_at)) DESC NULLS LAST
+          LIMIT 20`,
     );
     const recentlyCompleted: KdsCompletedTicket[] = Array.from(
       completedRows as Iterable<Record<string, unknown>>,

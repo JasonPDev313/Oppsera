@@ -57,6 +57,7 @@ export function SaveAsTemplateDialog({ onClose }: SaveAsTemplateDialogProps) {
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
@@ -67,8 +68,9 @@ export function SaveAsTemplateDialog({ onClose }: SaveAsTemplateDialogProps) {
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground">Name</label>
+            <label htmlFor="sat-name" className="block text-sm font-medium text-foreground">Name</label>
             <input
+              id="sat-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -77,8 +79,9 @@ export function SaveAsTemplateDialog({ onClose }: SaveAsTemplateDialogProps) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground">Description</label>
+            <label htmlFor="sat-description" className="block text-sm font-medium text-foreground">Description</label>
             <textarea
+              id="sat-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
@@ -86,8 +89,9 @@ export function SaveAsTemplateDialog({ onClose }: SaveAsTemplateDialogProps) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground">Category</label>
+            <label htmlFor="sat-category" className="block text-sm font-medium text-foreground">Category</label>
             <select
+              id="sat-category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"

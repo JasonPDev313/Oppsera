@@ -206,6 +206,7 @@ export const ItemButton = memo(function ItemButton({
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onMouseDown={(e) => e.stopPropagation()}
             role="menu"
+            tabIndex={-1}
           >
             {/* Edit — requires canEditItem */}
             {canEditItem && onEditItem && (

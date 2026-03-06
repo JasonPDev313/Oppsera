@@ -3,7 +3,8 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { fnbKitchenTickets, fnbKitchenTicketItems, fnbTabs } from '@oppsera/db';
+import { logger } from '@oppsera/core/observability';
+import { fnbKitchenTickets, fnbKitchenTicketItems, fnbTabs, fnbTables } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { CreateKitchenTicketInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
@@ -72,11 +73,20 @@ export async function createKitchenTicket(
       tx, ctx.tenantId, input.clientRequestId, 'createKitchenTicket',
     );
     if (idempotencyCheck.isDuplicate) {
+      logger.info('[kds] createKitchenTicket idempotency dedup — skipped duplicate', {
+        domain: 'kds',
+        tenantId: ctx.tenantId,
+        locationId: ctx.locationId,
+        clientRequestId: input.clientRequestId,
+        tabId: input.tabId,
+        orderId: input.orderId,
+      });
       return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
     // Validate tab (when present — retail orders have no tab)
     let tab: Record<string, unknown> | null = null;
+    let resolvedTableNumber: number | null = null;
     if (input.tabId) {
       const [found] = await tx
         .select()
@@ -88,6 +98,16 @@ export async function createKitchenTicket(
         .limit(1);
       if (!found) throw new TabNotFoundError(input.tabId);
       tab = found;
+
+      // Look up the table's display number for the KDS ticket
+      if (tab.tableId) {
+        const [tableRow] = await tx
+          .select({ tableNumber: fnbTables.tableNumber })
+          .from(fnbTables)
+          .where(eq(fnbTables.id, tab.tableId as string))
+          .limit(1);
+        resolvedTableNumber = tableRow?.tableNumber ?? null;
+      }
     }
 
     const resolvedBusinessDate = tab?.businessDate as string | undefined ?? input.businessDate;
@@ -110,7 +130,10 @@ export async function createKitchenTicket(
     // Compute estimatedPickupAt from the max prep time across all items
     let estimatedPickupAt: Date | null = null;
     if (prepTimeMap.size > 0) {
-      const maxPrepSeconds = Math.max(...prepTimeMap.values());
+      let maxPrepSeconds = 0;
+      for (const seconds of prepTimeMap.values()) {
+        if (seconds > maxPrepSeconds) maxPrepSeconds = seconds;
+      }
       if (maxPrepSeconds > 0) {
         estimatedPickupAt = new Date(Date.now() + maxPrepSeconds * 1000);
       }
@@ -129,8 +152,8 @@ export async function createKitchenTicket(
         status: 'pending',
         businessDate: resolvedBusinessDate,
         sentBy: ctx.user.id,
-        tableNumber: tab?.tableId ? undefined : null,
-        serverName: undefined,
+        tableNumber: resolvedTableNumber,
+        serverName: null, // TODO: look up from users table via serverUserId
         priorityLevel: input.priorityLevel ?? 0,
         orderType: input.orderType ?? null,
         channel: input.channel ?? null,
@@ -193,6 +216,23 @@ export async function createKitchenTicket(
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createKitchenTicket', ticket);
 
     return { result: ticket!, events: [event] };
+  });
+
+  logger.info('[kds] kitchen ticket created', {
+    domain: 'kds',
+    tenantId: ctx.tenantId,
+    locationId: ctx.locationId,
+    ticketId: result.id,
+    tabId: input.tabId,
+    orderId: input.orderId,
+    courseNumber: input.courseNumber,
+    itemCount: input.items.length,
+    routedItemCount: routingResults.filter((r) => r.stationId !== null).length,
+    unroutedItemCount: routingResults.filter((r) => r.stationId === null).length,
+    orderType: input.orderType,
+    channel: input.channel,
+    prepTimeCount: prepTimeMap.size,
+    clientRequestId: input.clientRequestId,
   });
 
   auditLogDeferred(ctx, 'fnb.ticket.created', 'fnb_kitchen_tickets', result.id, undefined, {

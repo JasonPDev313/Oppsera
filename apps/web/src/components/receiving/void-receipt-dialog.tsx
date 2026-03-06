@@ -27,6 +27,7 @@ export function VoidReceiptDialog({ open, onConfirm, onClose, isVoiding }: VoidR
           placeholder="Reason for voiding..."
           rows={3}
           className="mt-4 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none"
+          // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
         />
         <div className="mt-4 flex justify-end gap-3">

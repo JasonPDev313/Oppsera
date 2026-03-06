@@ -1,4 +1,4 @@
-import { eq, and, lt, inArray } from 'drizzle-orm';
+import { eq, and, lt, inArray, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
@@ -37,58 +37,73 @@ export async function emergencyCleanup(
     const affectedTabIds: string[] = [];
 
     // Sub-operation 1: Close tabs that are fully paid but still in 'paying' status
+    // Only close tabs where tender amount >= order total (actually paid, not just started paying)
     if (input.actions.closePaidTabs) {
-      const payingTabs = await tx
-        .select()
-        .from(fnbTabs)
-        .where(and(
-          eq(fnbTabs.tenantId, ctx.tenantId),
-          eq(fnbTabs.locationId, input.locationId),
-          eq(fnbTabs.status, 'paying'),
-        ));
+      const payingRows = await tx.execute(sql`
+        SELECT t.*
+        FROM fnb_tabs t
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(SUM(td.amount), 0) AS paid
+          FROM tenders td
+          WHERE td.tenant_id = t.tenant_id
+            AND td.order_id = t.primary_order_id
+            AND td.status != 'reversed'
+        ) tender_agg ON true
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(o.total, 0) AS total
+          FROM orders o
+          WHERE o.id = t.primary_order_id
+            AND o.tenant_id = t.tenant_id
+            AND o.status NOT IN ('voided', 'cancelled')
+        ) order_agg ON true
+        WHERE t.tenant_id = ${ctx.tenantId}
+          AND t.location_id = ${input.locationId}
+          AND t.status = 'paying'
+          AND tender_agg.paid >= order_agg.total
+      `);
+      const payingTabs = Array.from(payingRows as Iterable<Record<string, unknown>>).map((r) => ({
+        id: r.id as string,
+        version: Number(r.version),
+        tableId: r.table_id as string | null,
+      }));
 
       for (const tab of payingTabs) {
-        try {
-          await tx
-            .update(fnbTabs)
-            .set({
-              status: 'closed',
-              closedAt: new Date(),
-              version: tab.version + 1,
-              updatedAt: new Date(),
-            })
-            .where(eq(fnbTabs.id, tab.id));
+        await tx.execute(sql`
+          UPDATE fnb_tabs SET status = 'closed', closed_at = NOW(),
+            version = version + 1, updated_at = NOW()
+          WHERE id = ${tab.id}
+        `);
 
-          if (tab.tableId) {
-            await tx
-              .update(fnbTableLiveStatus)
-              .set({
-                status: 'dirty',
-                currentTabId: null,
-                currentServerUserId: null,
-                partySize: null,
-                guestNames: null,
-                updatedAt: new Date(),
-              })
-              .where(and(
-                eq(fnbTableLiveStatus.tenantId, ctx.tenantId),
-                eq(fnbTableLiveStatus.tableId, tab.tableId),
-              ));
-          }
-
-          paidTabsClosed++;
-          affectedTabIds.push(tab.id);
-        } catch (err) {
-          errors.push({ tabId: tab.id, error: String(err) });
+        if (tab.tableId) {
+          await tx.execute(sql`
+            UPDATE fnb_table_live_status SET status = 'dirty',
+              current_tab_id = NULL, current_server_user_id = NULL,
+              party_size = NULL, guest_names = NULL, updated_at = NOW()
+            WHERE tenant_id = ${ctx.tenantId} AND table_id = ${tab.tableId}
+          `);
         }
+
+        paidTabsClosed++;
+        affectedTabIds.push(tab.id);
       }
     }
 
-    // Sub-operation 2: Release all soft locks for the location
+    // Sub-operation 2: Release soft locks scoped to this location
+    // Locks reference entities (tabs/tables) — scope by joining entity to location
     if (input.actions.releaseLocks) {
       const deleteResult = await tx
         .delete(fnbSoftLocks)
-        .where(eq(fnbSoftLocks.tenantId, ctx.tenantId))
+        .where(and(
+          eq(fnbSoftLocks.tenantId, ctx.tenantId),
+          sql`(
+            (${fnbSoftLocks.entityType} = 'tab' AND ${fnbSoftLocks.entityId} IN (
+              SELECT id FROM fnb_tabs WHERE tenant_id = ${ctx.tenantId} AND location_id = ${input.locationId}
+            ))
+            OR (${fnbSoftLocks.entityType} = 'table' AND ${fnbSoftLocks.entityId} IN (
+              SELECT id FROM fnb_tables WHERE tenant_id = ${ctx.tenantId} AND location_id = ${input.locationId}
+            ))
+          )`,
+        ))
         .returning();
 
       locksReleased = deleteResult.length;
@@ -110,46 +125,42 @@ export async function emergencyCleanup(
         ));
 
       for (const tab of staleTabs) {
-        try {
+        await tx
+          .update(fnbTabs)
+          .set({
+            status: 'voided',
+            closedAt: new Date(),
+            version: tab.version + 1,
+            updatedAt: new Date(),
+            metadata: {
+              ...(tab.metadata as Record<string, unknown> ?? {}),
+              voidReason: `Stale tab (open > ${thresholdMinutes} min)`,
+              voidedBy: ctx.user.id,
+              emergencyCleanup: true,
+            },
+          })
+          .where(and(eq(fnbTabs.id, tab.id), eq(fnbTabs.version, tab.version)));
+
+        if (tab.tableId) {
           await tx
-            .update(fnbTabs)
+            .update(fnbTableLiveStatus)
             .set({
-              status: 'voided',
-              closedAt: new Date(),
-              version: tab.version + 1,
+              status: 'available',
+              currentTabId: null,
+              currentServerUserId: null,
+              partySize: null,
+              guestNames: null,
+              seatedAt: null,
               updatedAt: new Date(),
-              metadata: {
-                ...(tab.metadata as Record<string, unknown> ?? {}),
-                voidReason: `Stale tab (open > ${thresholdMinutes} min)`,
-                voidedBy: ctx.user.id,
-                emergencyCleanup: true,
-              },
             })
-            .where(eq(fnbTabs.id, tab.id));
-
-          if (tab.tableId) {
-            await tx
-              .update(fnbTableLiveStatus)
-              .set({
-                status: 'available',
-                currentTabId: null,
-                currentServerUserId: null,
-                partySize: null,
-                guestNames: null,
-                seatedAt: null,
-                updatedAt: new Date(),
-              })
-              .where(and(
-                eq(fnbTableLiveStatus.tenantId, ctx.tenantId),
-                eq(fnbTableLiveStatus.tableId, tab.tableId),
-              ));
-          }
-
-          staleTabsVoided++;
-          affectedTabIds.push(tab.id);
-        } catch (err) {
-          errors.push({ tabId: tab.id, error: String(err) });
+            .where(and(
+              eq(fnbTableLiveStatus.tenantId, ctx.tenantId),
+              eq(fnbTableLiveStatus.tableId, tab.tableId),
+            ));
         }
+
+        staleTabsVoided++;
+        affectedTabIds.push(tab.id);
       }
     }
 
@@ -169,45 +180,41 @@ export async function emergencyCleanup(
         ));
 
       for (const tab of abandonedTabs) {
-        try {
+        await tx
+          .update(fnbTabs)
+          .set({
+            status: 'abandoned',
+            version: tab.version + 1,
+            updatedAt: new Date(),
+            metadata: {
+              ...(tab.metadata as Record<string, unknown> ?? {}),
+              abandonedReason: `Stale tab (open > ${abandonedThreshold} min, no kitchen activity)`,
+              abandonedBy: ctx.user.id,
+              emergencyCleanup: true,
+            },
+          })
+          .where(and(eq(fnbTabs.id, tab.id), eq(fnbTabs.version, tab.version)));
+
+        if (tab.tableId) {
           await tx
-            .update(fnbTabs)
+            .update(fnbTableLiveStatus)
             .set({
-              status: 'abandoned',
-              version: tab.version + 1,
+              status: 'available',
+              currentTabId: null,
+              currentServerUserId: null,
+              partySize: null,
+              guestNames: null,
+              seatedAt: null,
               updatedAt: new Date(),
-              metadata: {
-                ...(tab.metadata as Record<string, unknown> ?? {}),
-                abandonedReason: `Stale tab (open > ${abandonedThreshold} min, no kitchen activity)`,
-                abandonedBy: ctx.user.id,
-                emergencyCleanup: true,
-              },
             })
-            .where(eq(fnbTabs.id, tab.id));
-
-          if (tab.tableId) {
-            await tx
-              .update(fnbTableLiveStatus)
-              .set({
-                status: 'available',
-                currentTabId: null,
-                currentServerUserId: null,
-                partySize: null,
-                guestNames: null,
-                seatedAt: null,
-                updatedAt: new Date(),
-              })
-              .where(and(
-                eq(fnbTableLiveStatus.tenantId, ctx.tenantId),
-                eq(fnbTableLiveStatus.tableId, tab.tableId),
-              ));
-          }
-
-          staleTabsAbandoned++;
-          affectedTabIds.push(tab.id);
-        } catch (err) {
-          errors.push({ tabId: tab.id, error: String(err) });
+            .where(and(
+              eq(fnbTableLiveStatus.tenantId, ctx.tenantId),
+              eq(fnbTableLiveStatus.tableId, tab.tableId),
+            ));
         }
+
+        staleTabsAbandoned++;
+        affectedTabIds.push(tab.id);
       }
     }
 
@@ -222,7 +229,7 @@ export async function emergencyCleanup(
         initiatorUserId: ctx.user.id,
         approverUserId: input.approverUserId,
         actionType: 'emergency_cleanup',
-        tabIds: affectedTabIds.length > 0 ? affectedTabIds : ['none'],
+        tabIds: affectedTabIds,
         reasonCode: null,
         reasonText: null,
         metadata: { actions: input.actions },

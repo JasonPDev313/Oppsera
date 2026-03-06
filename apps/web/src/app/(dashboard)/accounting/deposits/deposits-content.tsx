@@ -102,7 +102,9 @@ function PrepareDepositDialog({
   }
 
   return createPortal(
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -118,8 +120,9 @@ function PrepareDepositDialog({
 
         {/* Slip Number */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-foreground mb-1">Slip Number (optional)</label>
+          <label htmlFor="deposit-slip-number" className="block text-sm font-medium text-foreground mb-1">Slip Number (optional)</label>
           <input
+            id="deposit-slip-number"
             type="text"
             value={slipNumber}
             onChange={(e) => setSlipNumber(e.target.value)}

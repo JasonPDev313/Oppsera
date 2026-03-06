@@ -184,10 +184,11 @@ function GenerateStatementModal({
         )}
 
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-foreground">
+          <label htmlFor="stmt-period-start" className="mb-1 block text-sm font-medium text-foreground">
             Period Start
           </label>
           <input
+            id="stmt-period-start"
             type="date"
             value={periodStart}
             onChange={(e) => setPeriodStart(e.target.value)}
@@ -196,10 +197,11 @@ function GenerateStatementModal({
         </div>
 
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-foreground">
+          <label htmlFor="stmt-period-end" className="mb-1 block text-sm font-medium text-foreground">
             Period End
           </label>
           <input
+            id="stmt-period-end"
             type="date"
             value={periodEnd}
             onChange={(e) => setPeriodEnd(e.target.value)}
@@ -208,10 +210,11 @@ function GenerateStatementModal({
         </div>
 
         <div className="mb-6">
-          <label className="mb-1 block text-sm font-medium text-foreground">
+          <label htmlFor="stmt-due-date" className="mb-1 block text-sm font-medium text-foreground">
             Due Date
           </label>
           <input
+            id="stmt-due-date"
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}

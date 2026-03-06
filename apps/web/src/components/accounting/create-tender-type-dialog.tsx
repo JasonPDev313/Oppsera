@@ -106,6 +106,7 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
 
       {/* Dialog */}
@@ -127,8 +128,9 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
           {/* Name + Code */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Name</label>
+              <label htmlFor="tender-name" className="block text-sm font-medium text-foreground mb-1">Name</label>
               <input
+                id="tender-name"
                 type="text"
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
@@ -137,8 +139,9 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Code</label>
+              <label htmlFor="tender-code" className="block text-sm font-medium text-foreground mb-1">Code</label>
               <input
+                id="tender-code"
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
@@ -152,8 +155,9 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
           {/* Category + Posting Mode */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Category</label>
+              <label htmlFor="tender-category" className="block text-sm font-medium text-foreground mb-1">Category</label>
               <select
+                id="tender-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-surface"
@@ -164,8 +168,9 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Posting Mode</label>
+              <label htmlFor="tender-posting-mode" className="block text-sm font-medium text-foreground mb-1">Posting Mode</label>
               <select
+                id="tender-posting-mode"
                 value={postingMode}
                 onChange={(e) => setPostingMode(e.target.value)}
                 className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-surface"
@@ -182,6 +187,7 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
 
           {/* Default Accounts based on posting mode */}
           <div className="space-y-3">
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="block text-sm font-medium text-foreground">Default Accounts</label>
 
             {postingMode === 'clearing' && (

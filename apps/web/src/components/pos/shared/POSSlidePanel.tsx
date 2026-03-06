@@ -41,6 +41,7 @@ export const POSSlidePanel = memo(function POSSlidePanel({
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className="fixed inset-0 bg-black/40 slide-panel-backdrop"
         onClick={onClose}

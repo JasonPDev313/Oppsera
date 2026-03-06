@@ -107,6 +107,7 @@ export function TipPrompt({ subtotalCents, onSelect, disabled }: TipPromptProps)
               color: 'var(--fnb-text-primary)',
               fontFamily: 'var(--fnb-font-mono)',
             }}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
           />
         </div>

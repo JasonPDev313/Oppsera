@@ -13,6 +13,7 @@ export const POST = withMiddleware(
       ...body,
       tenantId: ctx.tenantId,
       locationId: ctx.locationId ?? body.locationId,
+      approverUserId: body.approverUserId || ctx.user.id,
     });
     if (!parsed.success) {
       throw new ValidationError(
@@ -22,7 +23,7 @@ export const POST = withMiddleware(
     }
 
     const result = await bulkTransferTabs(ctx, parsed.data);
-    broadcastFnb(ctx, 'tabs').catch(() => {});
+    broadcastFnb(ctx, 'tabs', 'tables').catch(() => {});
     return NextResponse.json({ data: result });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage', writeAccess: true },

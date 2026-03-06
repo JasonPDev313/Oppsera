@@ -80,10 +80,11 @@ export function ChangeTierDialog({
         )}
 
         <div className="mt-4">
-          <label className="block text-sm font-medium text-foreground">
+          <label htmlFor="tier-change-reason" className="block text-sm font-medium text-foreground">
             Reason for change
           </label>
           <input
+            id="tier-change-reason"
             type="text"
             value={reason}
             onChange={(e) => setReason(e.target.value)}

@@ -298,6 +298,7 @@ export default function WaitlistJoinContent() {
       {/* Multi-Location Picker */}
       {locations.length > 1 && (
         <div className="px-6 pt-4">
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
             <MapPin className="h-3.5 w-3.5" /> Location
           </label>
@@ -346,26 +347,27 @@ export default function WaitlistJoinContent() {
       <div className="px-6 space-y-5">
         {/* Name */}
         <div>
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+          <label htmlFor="waitlist-name" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
             <User className="h-3.5 w-3.5" /> Name
           </label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name"
+          <input id="waitlist-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name"
             className="w-full rounded-xl border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:border-transparent"
             style={{ '--tw-ring-color': `${b.primaryColor}40` } as React.CSSProperties} />
         </div>
 
         {/* Phone */}
         <div>
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+          <label htmlFor="waitlist-phone" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
             <Phone className="h-3.5 w-3.5" /> Phone {!f.requirePhone && <span className="text-muted-foreground normal-case">(optional)</span>}
           </label>
-          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 123-4567"
+          <input id="waitlist-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 123-4567"
             className="w-full rounded-xl border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:border-transparent"
             style={{ '--tw-ring-color': `${b.primaryColor}40` } as React.CSSProperties} />
         </div>
 
         {/* Party Size */}
         <div>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
             <Users className="h-3.5 w-3.5" /> Party Size
           </label>
@@ -404,6 +406,7 @@ export default function WaitlistJoinContent() {
         {/* Seating Preference */}
         {f.enableSeatingPreference && f.seatingOptions.length > 0 && (
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
               Seating Preference <span className="text-muted-foreground normal-case">(optional)</span>
             </label>
@@ -436,6 +439,7 @@ export default function WaitlistJoinContent() {
             {/* Occasion */}
             {f.enableOccasion && f.occasionOptions.length > 0 && (
               <div>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Occasion</label>
                 <div className="flex flex-wrap gap-2">
                   {f.occasionOptions.map((occ) => (
@@ -455,8 +459,8 @@ export default function WaitlistJoinContent() {
             {/* Notes */}
             {f.enableNotes && (
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Notes</label>
-                <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
+                <label htmlFor="waitlist-notes" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Notes</label>
+                <textarea id="waitlist-notes" value={notes} onChange={(e) => setNotes(e.target.value)}
                   placeholder="Any special requests or dietary needs?"
                   maxLength={f.notesMaxLength}
                   className="w-full rounded-xl border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:border-transparent resize-none h-20"

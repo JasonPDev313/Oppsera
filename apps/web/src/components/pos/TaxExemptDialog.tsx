@@ -61,6 +61,7 @@ export function TaxExemptDialog({ open, onClose, onConfirm }: TaxExemptDialogPro
             onChange={(e) => setReason(e.target.value)}
             className="w-full rounded-lg border border-input bg-surface px-4 py-2.5 text-sm text-foreground focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
             placeholder="Enter tax exempt reason..."
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
           />
         </div>

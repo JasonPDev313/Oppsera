@@ -43,6 +43,7 @@ export function VendorCatalogEditDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">

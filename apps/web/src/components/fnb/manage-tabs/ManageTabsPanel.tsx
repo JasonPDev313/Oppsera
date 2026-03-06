@@ -174,6 +174,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
     setTransferTargetId(serverId);
     setTransferTargetName(serverName);
     setShowTransfer(false);
+    setVerifiedApprover(null); // Clear stale approver from previous action
     setBulkAction('transfer');
   }
 
@@ -195,6 +196,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex">
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Panel */}
@@ -441,6 +443,18 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
                 <div className="flex items-center justify-center py-12">
                   <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>Loading tabs...</p>
                 </div>
+              ) : mgr.error ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <AlertTriangle size={24} style={{ color: 'var(--fnb-status-dirty)' }} />
+                  <p className="text-sm" style={{ color: 'var(--fnb-status-dirty)' }}>{mgr.error}</p>
+                  <button
+                    onClick={() => mgr.refreshTabs()}
+                    className="text-xs px-3 py-1.5 rounded-md"
+                    style={{ background: 'var(--fnb-bg-surface)', color: 'var(--fnb-text-primary)', border: '1px solid var(--fnb-border-subtle)' }}
+                  >
+                    Retry
+                  </button>
+                </div>
               ) : filteredTabs.length === 0 ? (
                 <div className="flex items-center justify-center py-12">
                   <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>No tabs found</p>
@@ -524,7 +538,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
             {/* Action buttons */}
             <div className="flex flex-col gap-2">
               <button
-                onClick={() => setBulkAction('void')}
+                onClick={() => { setVerifiedApprover(null); setBulkAction('void'); }}
                 disabled={selCount === 0 || mgr.isMutating}
                 className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
                 style={{
@@ -552,7 +566,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
               </button>
 
               <button
-                onClick={() => setBulkAction('close')}
+                onClick={() => { setVerifiedApprover(null); setBulkAction('close'); }}
                 disabled={selCount === 0 || mgr.isMutating}
                 className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
                 style={{
@@ -599,7 +613,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
           selectedCount={selCount}
           totalBalance={selBalance}
           requirePin={
-            bulkAction === 'void'
+            (bulkAction === 'void' || bulkAction === 'close')
               ? mgr.settings?.requirePinForVoid !== false
               : false
           }
@@ -630,6 +644,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
 
       {showTransfer && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowTransfer(false)} />
           <div
             className="relative w-full max-w-sm rounded-xl shadow-2xl p-5"
@@ -660,6 +675,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
       {mgr.undoSnapshot && (
         <UndoBanner
           message={getUndoMessage(mgr.undoSnapshot)}
+          durationMs={30_000}
           onUndo={async () => {
             // Undo not implemented in V1
           }}

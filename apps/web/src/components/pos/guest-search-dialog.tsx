@@ -116,6 +116,7 @@ export function GuestSearchDialog({
       aria-labelledby="guest-search-dialog-title"
     >
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Dialog */}

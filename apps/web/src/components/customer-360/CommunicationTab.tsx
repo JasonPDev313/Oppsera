@@ -184,8 +184,9 @@ function ComposeForm({
       <div className="space-y-3">
         {/* Channel selector */}
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Channel</label>
+          <label htmlFor="compose-channel" className="mb-1 block text-xs font-medium text-muted-foreground">Channel</label>
           <select
+            id="compose-channel"
             value={channel}
             onChange={(e) => setChannel(e.target.value)}
             className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -199,8 +200,9 @@ function ComposeForm({
 
         {/* Subject (optional) */}
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Subject (optional)</label>
+          <label htmlFor="compose-subject" className="mb-1 block text-xs font-medium text-muted-foreground">Subject (optional)</label>
           <input
+            id="compose-subject"
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
@@ -211,8 +213,9 @@ function ComposeForm({
 
         {/* Body */}
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Message</label>
+          <label htmlFor="compose-body" className="mb-1 block text-xs font-medium text-muted-foreground">Message</label>
           <textarea
+            id="compose-body"
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Write your message..."

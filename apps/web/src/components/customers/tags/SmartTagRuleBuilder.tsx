@@ -210,6 +210,7 @@ export function SmartTagRuleBuilder({ open, onClose, editRule, onSaved }: SmartT
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative flex w-full max-w-2xl flex-col rounded-lg bg-surface shadow-xl">
         {/* Header */}
@@ -339,10 +340,11 @@ function StepTagInfo({ form, errors, smartTags, isEdit, onUpdate, onApplyTemplat
     <div className="space-y-5">
       {/* Tag selector */}
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-foreground">
+        <label htmlFor="str-tag-id" className="block text-sm font-medium text-foreground">
           Smart Tag <span className="text-red-500">*</span>
         </label>
         <select
+          id="str-tag-id"
           value={form.tagId}
           onChange={(e) => onUpdate('tagId', e.target.value)}
           disabled={isEdit}
@@ -363,10 +365,11 @@ function StepTagInfo({ form, errors, smartTags, isEdit, onUpdate, onApplyTemplat
 
       {/* Name */}
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-foreground">
+        <label htmlFor="str-rule-name" className="block text-sm font-medium text-foreground">
           Rule Name <span className="text-red-500">*</span>
         </label>
         <input
+          id="str-rule-name"
           type="text"
           value={form.name}
           onChange={(e) => onUpdate('name', e.target.value)}
@@ -386,8 +389,9 @@ function StepTagInfo({ form, errors, smartTags, isEdit, onUpdate, onApplyTemplat
 
       {/* Description */}
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-foreground">Description</label>
+        <label htmlFor="str-description" className="block text-sm font-medium text-foreground">Description</label>
         <textarea
+          id="str-description"
           value={form.description}
           onChange={(e) => onUpdate('description', e.target.value)}
           rows={3}
@@ -444,6 +448,7 @@ function StepSchedule({ form, errors, onUpdate, tagId }: StepScheduleProps) {
     <div className="space-y-5">
       {/* Evaluation mode */}
       <div className="space-y-2">
+        {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
         <label className="block text-sm font-medium text-foreground">Evaluation Mode</label>
         <div className="space-y-2">
           {([
@@ -451,6 +456,7 @@ function StepSchedule({ form, errors, onUpdate, tagId }: StepScheduleProps) {
             { value: 'event_driven', label: 'Event Driven', desc: 'Run when customer data changes' },
             { value: 'hybrid', label: 'Hybrid', desc: 'Both scheduled and event-driven' },
           ] as const).map((opt) => (
+            // eslint-disable-next-line jsx-a11y/label-has-associated-control
             <label
               key={opt.value}
               className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
@@ -479,12 +485,13 @@ function StepSchedule({ form, errors, onUpdate, tagId }: StepScheduleProps) {
       {/* Cron schedule */}
       {showCron && (
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-foreground">
+          <label htmlFor="str-schedule-cron" className="block text-sm font-medium text-foreground">
             Cron Schedule <span className="text-red-500">*</span>
           </label>
           <div className="flex items-center gap-2">
             <Settings2 className="h-4 w-4 shrink-0 text-muted-foreground" />
             <input
+              id="str-schedule-cron"
               type="text"
               value={form.scheduleCron}
               onChange={(e) => onUpdate('scheduleCron', e.target.value)}
@@ -526,8 +533,9 @@ function StepSchedule({ form, errors, onUpdate, tagId }: StepScheduleProps) {
 
       {/* Cooldown hours */}
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-foreground">Cooldown Hours</label>
+        <label htmlFor="str-cooldown-hours" className="block text-sm font-medium text-foreground">Cooldown Hours</label>
         <input
+          id="str-cooldown-hours"
           type="number"
           value={form.cooldownHours}
           onChange={(e) => onUpdate('cooldownHours', e.target.value)}
@@ -543,8 +551,9 @@ function StepSchedule({ form, errors, onUpdate, tagId }: StepScheduleProps) {
 
       {/* Priority */}
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-foreground">Priority</label>
+        <label htmlFor="str-priority" className="block text-sm font-medium text-foreground">Priority</label>
         <input
+          id="str-priority"
           type="number"
           value={form.priority}
           onChange={(e) => onUpdate('priority', e.target.value)}

@@ -1940,6 +1940,27 @@
       "when": 1742534400000,
       "tag": "0276_kds_ticket_nullable_order_id",
       "breakpoints": true
+    },
+    {
+      "idx": 277,
+      "version": "7",
+      "when": 1742620800000,
+      "tag": "0277_kds_tables_default_ulid",
+      "breakpoints": true
+    },
+    {
+      "idx": 278,
+      "version": "7",
+      "when": 1742707200000,
+      "tag": "0278_kds_prep_times_category",
+      "breakpoints": true
+    },
+    {
+      "idx": 279,
+      "version": "7",
+      "when": 1742793600000,
+      "tag": "0279_force_rls_pacing_load_turnagg",
+      "breakpoints": true
     }
   ]
 }

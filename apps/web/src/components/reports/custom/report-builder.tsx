@@ -604,6 +604,7 @@ export function ReportBuilder({ reportId, initialData }: ReportBuilderProps) {
         <div className="space-y-6">
           {/* Chart type selector */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="mb-2 block text-sm font-medium text-foreground">
               Visualization
             </label>

@@ -328,8 +328,9 @@ function ContractCard({
       {/* Extra payment inline form */}
       {showExtraPayment && (
         <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-muted p-3">
-          <label className="text-sm text-muted-foreground">Amount ($):</label>
+          <label htmlFor={`extra-payment-amount-${contract.id}`} className="text-sm text-muted-foreground">Amount ($):</label>
           <input
+            id={`extra-payment-amount-${contract.id}`}
             type="number"
             step="0.01"
             min="0.01"
@@ -359,10 +360,11 @@ function ContractCard({
       {/* Cancel inline form */}
       {showCancel && (
         <div className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-3">
-          <label className="mb-1 block text-sm font-medium text-red-500">
+          <label htmlFor={`cancel-reason-${contract.id}`} className="mb-1 block text-sm font-medium text-red-500">
             Cancellation Reason
           </label>
           <input
+            id={`cancel-reason-${contract.id}`}
             type="text"
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
@@ -542,10 +544,11 @@ function PayoffCalculator({
       {expanded && (
         <div className="mt-3 space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            <label htmlFor={`payoff-date-${contractId}`} className="mb-1 block text-xs font-medium text-muted-foreground">
               Payoff Date
             </label>
             <input
+              id={`payoff-date-${contractId}`}
               type="date"
               value={dateInput}
               onChange={(e) => setDateInput(e.target.value)}

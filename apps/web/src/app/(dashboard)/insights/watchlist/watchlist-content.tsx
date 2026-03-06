@@ -111,6 +111,7 @@ function AddMetricDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-lg max-h-[80vh] bg-surface border border-border rounded-2xl shadow-xl flex flex-col mx-4">
         {/* Header */}

@@ -85,6 +85,7 @@ export function ColumnMappingTable({
     <div className="space-y-4">
       {/* Grouping Key Selector */}
       <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-3">
+        {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
         <label className="text-sm font-medium whitespace-nowrap">Grouping Key:</label>
         <MappingDropdown
           value={groupingKey ?? ''}

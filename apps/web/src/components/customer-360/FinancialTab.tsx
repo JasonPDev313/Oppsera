@@ -1288,6 +1288,7 @@ export default function FinancialTab({
                 onChange={(e) => setHoldReason(e.target.value)}
                 placeholder="Reason for placing account on hold"
                 className="rounded border border-input bg-surface px-2 py-1.5 text-sm"
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
               />
             </label>

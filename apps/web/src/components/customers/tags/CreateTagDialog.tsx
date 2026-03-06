@@ -135,6 +135,7 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-lg bg-surface p-6 shadow-xl">
         <div className="flex items-center justify-between">

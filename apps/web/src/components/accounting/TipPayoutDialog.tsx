@@ -70,6 +70,7 @@ export function TipPayoutDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-surface rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -98,6 +99,7 @@ export function TipPayoutDialog({
 
           {/* Payout Type */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="block text-sm font-medium text-foreground mb-1">
               Payout Method
             </label>
@@ -121,7 +123,7 @@ export function TipPayoutDialog({
           {/* Amount */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium text-foreground">Amount</label>
+              <label htmlFor="tip-payout-amount" className="block text-sm font-medium text-foreground">Amount</label>
               <button
                 onClick={handlePayFull}
                 className="text-xs text-indigo-500 hover:text-indigo-400"
@@ -132,6 +134,7 @@ export function TipPayoutDialog({
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
               <input
+                id="tip-payout-amount"
                 type="number"
                 step="0.01"
                 min="0.01"
@@ -146,10 +149,11 @@ export function TipPayoutDialog({
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="tip-payout-notes" className="block text-sm font-medium text-foreground mb-1">
               Notes (optional)
             </label>
             <input
+              id="tip-payout-notes"
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

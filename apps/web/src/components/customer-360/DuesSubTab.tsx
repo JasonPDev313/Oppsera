@@ -129,10 +129,11 @@ function ChangePlanModal({
         )}
 
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-foreground">
+          <label htmlFor="dues-new-plan" className="mb-1 block text-sm font-medium text-foreground">
             Select New Plan
           </label>
           <select
+            id="dues-new-plan"
             value={selectedPlanId}
             onChange={(e) => setSelectedPlanId(e.target.value)}
             className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"

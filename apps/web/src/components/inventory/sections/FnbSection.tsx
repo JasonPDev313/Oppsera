@@ -114,6 +114,7 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
         </div>
 
         {/* Special Instructions toggle */}
+        {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
         <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2.5">
           <input
             type="checkbox"
@@ -129,6 +130,7 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
 
         {/* Fractional Sales */}
         <div>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="mb-1 block text-xs font-medium text-foreground">Allowed Portion Sizes</label>
           <div className="flex gap-2">
             {FRACTION_OPTIONS.map((opt) => {

@@ -444,6 +444,7 @@ export default function ModifiersContent() {
 
                       {menuOpenId === group.id && (
                         <>
+                          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
                           <div
                             className="fixed inset-0 z-10"
                             onClick={() => setMenuOpenId(null)}
@@ -595,6 +596,7 @@ function CategoryFormModal({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Category name"
+          // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSubmit();
@@ -829,8 +831,9 @@ function ModifierGroupModal({
           {/* Row 1: Group name + Category */}
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block text-xs font-semibold text-foreground mb-1">Group Name</label>
+              <label htmlFor="modifier-group-name" className="block text-xs font-semibold text-foreground mb-1">Group Name</label>
               <input
+                id="modifier-group-name"
                 type="text"
                 value={form.name}
                 onChange={(e) => updateField('name', e.target.value)}
@@ -839,8 +842,9 @@ function ModifierGroupModal({
               />
             </div>
             <div className="w-48">
-              <label className="block text-xs font-semibold text-foreground mb-1">Category</label>
+              <label htmlFor="modifier-group-category" className="block text-xs font-semibold text-foreground mb-1">Category</label>
               <select
+                id="modifier-group-category"
                 value={form.categoryId}
                 onChange={(e) => updateField('categoryId', e.target.value)}
                 className="w-full rounded-lg border border-border/60 bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
@@ -859,6 +863,7 @@ function ModifierGroupModal({
           {/* Row 2: Selection type + Required */}
           <div className="flex gap-4">
             <div className="flex-1">
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="flex items-center gap-1 text-xs font-semibold text-foreground mb-1">
                 Selection Type
                 <span className="relative group">
@@ -902,6 +907,7 @@ function ModifierGroupModal({
             </div>
 
             <div className="flex-1">
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="block text-xs font-semibold text-foreground mb-1">Required?</label>
               <button
                 type="button"
@@ -928,10 +934,11 @@ function ModifierGroupModal({
           {form.selectionType === 'multiple' && (
             <div className="flex gap-4">
               <div className="flex-1">
-                <label className="block text-xs font-semibold text-foreground mb-1">
+                <label htmlFor="modifier-min-selections" className="block text-xs font-semibold text-foreground mb-1">
                   Min Selections
                 </label>
                 <input
+                  id="modifier-min-selections"
                   type="number"
                   min={0}
                   value={form.minSelections}
@@ -940,10 +947,11 @@ function ModifierGroupModal({
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-semibold text-foreground mb-1">
+                <label htmlFor="modifier-max-selections" className="block text-xs font-semibold text-foreground mb-1">
                   Max Selections
                 </label>
                 <input
+                  id="modifier-max-selections"
                   type="number"
                   min={1}
                   value={form.maxSelections}
@@ -972,6 +980,7 @@ function ModifierGroupModal({
             <div className="space-y-4 rounded-lg border border-border/60 p-4 bg-muted/20">
               {/* Instruction mode */}
               <div>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="block text-xs font-semibold text-foreground mb-1">
                   Instruction Mode
                 </label>
@@ -1002,6 +1011,7 @@ function ModifierGroupModal({
 
               {/* Default behavior */}
               <div>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="block text-xs font-semibold text-foreground mb-1">
                   Default Behavior
                 </label>
@@ -1033,6 +1043,7 @@ function ModifierGroupModal({
 
               {/* Channel visibility */}
               <div>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="block text-xs font-semibold text-foreground mb-1">
                   Channel Visibility
                 </label>
@@ -1056,6 +1067,7 @@ function ModifierGroupModal({
           {/* Modifier options */}
           <div>
             <div className="flex items-center justify-between mb-2">
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="text-xs font-semibold text-foreground">Options</label>
               <button
                 type="button"

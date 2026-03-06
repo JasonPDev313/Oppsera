@@ -110,9 +110,24 @@ Transactional outbox pattern. Consumers are idempotent. 3x retry with exponentia
 ### Cross-Module Event Flow
 ```
 catalog.item.created.v1  → inventory (auto-create inventory item)
-order.placed.v1          → inventory (deduct stock, type-aware) + customers (AR charge if house account, update visit/spend stats)
-order.voided.v1          → inventory (reverse stock) + tenders (reverse payments) + customers (AR void reversal)
+order.placed.v1          → inventory (deduct stock, type-aware) + customers (AR charge if house account, update visit/spend stats) + KDS (create kitchen tickets if FnB)
+order.voided.v1          → inventory (reverse stock) + tenders (reverse payments) + customers (AR void reversal) + reporting (adjust read models)
 tender.recorded.v1       → orders (mark paid when fully paid) + customers (AR payment + FIFO allocation if house account) + accounting (GL posting with subdepartment-resolved revenue)
+tender.reversed.v1       → reporting (adjust read model aggregates)
+fnb.course.sent.v1       → KDS (create kitchen tickets per station via routing engine)
+spa.appointment.completed.v1 → reporting (spa revenue read models)
+inventory.movement.created.v1 → stock alerts (emit low_stock/negative events when thresholds crossed)
+```
+
+### Serialized DB Operations Pattern
+When a command creates multiple DB records in a loop, serialize with `for...of` instead of `Promise.all()` to prevent pool exhaustion:
+```typescript
+// CORRECT — serialized (pool-safe)
+for (const line of lines) {
+  await createKitchenTicket(ctx, { ...line });
+}
+// WRONG — concurrent (exhausts pool with max:2)
+await Promise.all(lines.map(line => createKitchenTicket(ctx, { ...line })));
 ```
 
 ### Internal Read APIs (Sync Cross-Module)
@@ -134,6 +149,59 @@ const [ordersSummary, tendersSummary] = await Promise.all([
 
 Internal APIs are read-only, use singleton getter/setter, and are the only exception to events-only cross-module rule.
 
+## Audit Logging (Mandatory)
+
+Every command that mutates data MUST call `auditLog()` after the transaction:
+```typescript
+async function createThing(ctx: RequestContext, input: ValidatedInput) {
+  const result = await publishWithOutbox(ctx, async (tx) => { ... });
+  await auditLog(ctx, 'module.entity.created', 'entity_type', result.id);
+  return result;
+}
+```
+Helpers in `packages/core/src/audit/helpers.ts`. Context utilities in `packages/core/src/auth/context.ts`.
+
 ## Cross-Module Decoupling Note
 
 Cross-module deps were eliminated in the architecture decoupling pass. Shared helpers (`checkIdempotency`, `saveIdempotencyKey`, `fetchOrderForMutation`, `incrementVersion`, `calculateTaxes`, `CatalogReadApi`) now live in `@oppsera/core/helpers/`. Pure domain math with no external deps (`computePackageAllocations`) lives in `@oppsera/shared/src/utils/`. Order and catalog modules provide thin re-exports for backward compat. Event payloads are self-contained: `order.placed.v1` includes `customerId` and `lines[]`, `order.voided.v1` includes `locationId`/`businessDate`/`total`, `tender.recorded.v1` includes `customerId`, `lines[]` (with `subDepartmentId`, `taxGroupId`, `packageComponents`), and `paymentMethod` alias.
+
+## Middleware Reference (withMiddleware)
+
+Full chain: bot detection → rate limit → auth → tenant → location (LRU 2K/60s) → requireLocation → active role → entitlement → permission (15s cache) → replay guard → step-up auth → impersonation DELETE block → handler → deferred work flush.
+
+Key options: `{ public, authenticated, permission, entitlement, writeAccess, cache, replayGuard, stepUp, botDetection, requireLocation, rateLimit }`. See §223 in CONVENTIONS_FULL.md for full reference.
+
+Rate limit presets: `auth` (20/15min), `authStrict` (5/15min), `api` (100/min), `apiWrite` (30/min), `publicRead` (30/min), `publicWrite` (5/min). Auto-selected if not specified.
+
+Global 25s timeout wrapping entire chain → 504.
+
+## Deferred Work Pattern
+
+`deferWork(ctx, fn)` enqueues post-response work via Next.js `after()`. Use `auditLogDeferred()` instead of `await auditLog()` for non-critical post-commit work. Flushes on both success and error paths. Vercel-safe (no setInterval).
+
+## Cron Route Pattern
+
+```typescript
+export async function GET(req: NextRequest) {
+  // 1. Validate CRON_SECRET bearer token
+  // 2. Acquire distributed lock: withDistributedLock(LOCK_KEYS.X, ttlMs, fn)
+  // 3. Return { skipped } if lock returns null
+  // 4. Dynamic import module: const { fn } = await import('@oppsera/module-x')
+  // 5. Sequential processing with time budget guard (55s for Vercel Pro)
+  // 6. Return results summary
+}
+```
+
+Lock TTL: slightly under cron interval (15-min cron → 14-min TTL). Sequential processing to respect pool max: 2.
+
+## F&B Realtime V2
+
+Server: `broadcastFnb(ctx, ...events)` — single Supabase Realtime HTTP POST (stateless, Vercel-safe). Called after tx commits with `.catch(() => {})`.
+
+Client: `useFnbRealtime(channels)` hook with channel registry. Feature-flagged: `NEXT_PUBLIC_FNB_REALTIME=true`. Polling always runs as safety net. `debouncedNotify()` coalesces within 150ms.
+
+Topics: `tables → floor+dashboard`, `waitlist → dashboard`, `kds → kds+expo`, `tabs → tab+dashboard`, `guest_pay → guest_pay`.
+
+## Orchestration Layer Cross-Module Queries
+
+`apps/web` API routes (orchestration layer) are the ONLY place where cross-module DB queries are permitted. Modules still must never import each other. Example: POS catalog endpoint cross-joins catalog + inventory + F&B for enrichment, with non-critical try/catch per enrichment.

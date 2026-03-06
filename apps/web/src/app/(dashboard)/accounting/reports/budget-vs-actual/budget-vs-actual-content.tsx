@@ -210,8 +210,9 @@ export default function BudgetVsActualContent() {
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-3 print:hidden">
         <div className="min-w-[200px]">
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Budget</label>
+          <label htmlFor="bva-budget" className="mb-1 block text-xs font-medium text-muted-foreground">Budget</label>
           <select
+            id="bva-budget"
             value={selectedBudgetId}
             onChange={(e) => setSelectedBudgetId(e.target.value)}
             className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground"
@@ -225,8 +226,9 @@ export default function BudgetVsActualContent() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">From</label>
+          <label htmlFor="bva-from" className="mb-1 block text-xs font-medium text-muted-foreground">From</label>
           <input
+            id="bva-from"
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
@@ -234,8 +236,9 @@ export default function BudgetVsActualContent() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">To</label>
+          <label htmlFor="bva-to" className="mb-1 block text-xs font-medium text-muted-foreground">To</label>
           <input
+            id="bva-to"
             type="date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}

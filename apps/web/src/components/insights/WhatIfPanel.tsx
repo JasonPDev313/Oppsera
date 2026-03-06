@@ -162,10 +162,11 @@ export function WhatIfPanel({
       <div className="p-4 space-y-4">
         {/* Metric selector */}
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">
+          <label htmlFor="whatif-base-metric" className="block text-xs font-medium text-muted-foreground mb-1">
             Base Metric
           </label>
           <select
+            id="whatif-base-metric"
             value={baseMetric}
             onChange={(e) => setBaseMetric(e.target.value)}
             className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"

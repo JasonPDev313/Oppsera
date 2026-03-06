@@ -109,6 +109,7 @@ export function GuestTipScreen({
             value={customInput}
             onChange={(e) => setCustomInput(e.target.value)}
             className="w-48 rounded-2xl px-6 py-4 text-4xl font-mono text-center outline-none bg-white/10 text-white"
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
           />
         </div>

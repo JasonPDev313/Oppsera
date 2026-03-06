@@ -131,8 +131,9 @@ function EditRelationshipRow({
           Primary contact
         </label>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Effective Date</label>
+          <label htmlFor={`rel-effective-date-${rel.id}`} className="mb-1 block text-xs font-medium text-muted-foreground">Effective Date</label>
           <input
+            id={`rel-effective-date-${rel.id}`}
             type="date"
             value={effectiveDate}
             onChange={(e) => setEffectiveDate(e.target.value)}
@@ -140,8 +141,9 @@ function EditRelationshipRow({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Expiration Date</label>
+          <label htmlFor={`rel-expiration-date-${rel.id}`} className="mb-1 block text-xs font-medium text-muted-foreground">Expiration Date</label>
           <input
+            id={`rel-expiration-date-${rel.id}`}
             type="date"
             value={expirationDate}
             onChange={(e) => setExpirationDate(e.target.value)}
@@ -149,8 +151,9 @@ function EditRelationshipRow({
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Notes</label>
+          <label htmlFor={`rel-notes-${rel.id}`} className="mb-1 block text-xs font-medium text-muted-foreground">Notes</label>
           <textarea
+            id={`rel-notes-${rel.id}`}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}

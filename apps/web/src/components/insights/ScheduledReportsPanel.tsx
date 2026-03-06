@@ -356,6 +356,7 @@ function ScheduleFormDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       {/* Dialog */}
@@ -375,10 +376,11 @@ function ScheduleFormDialog({
 
         {/* Name */}
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">
+          <label htmlFor="sched-name" className="block text-xs font-medium text-muted-foreground mb-1">
             Schedule Name
           </label>
           <input
+            id="sched-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -390,10 +392,11 @@ function ScheduleFormDialog({
 
         {/* Report type */}
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">
+          <label htmlFor="sched-report-type" className="block text-xs font-medium text-muted-foreground mb-1">
             Report Type
           </label>
           <select
+            id="sched-report-type"
             value={reportType}
             onChange={(e) => setReportType(e.target.value)}
             className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
@@ -407,10 +410,11 @@ function ScheduleFormDialog({
         {/* Frequency + Time */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label htmlFor="sched-frequency" className="block text-xs font-medium text-muted-foreground mb-1">
               Frequency
             </label>
             <select
+              id="sched-frequency"
               value={frequency}
               onChange={(e) => setFrequency(e.target.value)}
               className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
@@ -421,10 +425,11 @@ function ScheduleFormDialog({
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label htmlFor="sched-delivery-hour" className="block text-xs font-medium text-muted-foreground mb-1">
               Delivery Time
             </label>
             <select
+              id="sched-delivery-hour"
               value={deliveryHour}
               onChange={(e) => setDeliveryHour(Number(e.target.value))}
               className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
@@ -439,10 +444,11 @@ function ScheduleFormDialog({
         {/* Day of week (weekly only) */}
         {frequency === 'weekly' && (
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label htmlFor="sched-day-of-week" className="block text-xs font-medium text-muted-foreground mb-1">
               Day of Week
             </label>
             <select
+              id="sched-day-of-week"
               value={deliveryDayOfWeek}
               onChange={(e) => setDeliveryDayOfWeek(Number(e.target.value))}
               className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
@@ -457,10 +463,11 @@ function ScheduleFormDialog({
         {/* Day of month (monthly only) */}
         {frequency === 'monthly' && (
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label htmlFor="sched-day-of-month" className="block text-xs font-medium text-muted-foreground mb-1">
               Day of Month
             </label>
             <select
+              id="sched-day-of-month"
               value={deliveryDayOfMonth}
               onChange={(e) => setDeliveryDayOfMonth(Number(e.target.value))}
               className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
@@ -474,6 +481,7 @@ function ScheduleFormDialog({
 
         {/* Channel */}
         <div>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="block text-xs font-medium text-muted-foreground mb-1">
             Delivery Channel
           </label>
@@ -498,10 +506,11 @@ function ScheduleFormDialog({
         {/* Recipients — show for email channel */}
         {channel === 'email' && (
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label htmlFor="sched-recipients" className="block text-xs font-medium text-muted-foreground mb-1">
               Recipients
             </label>
             <input
+              id="sched-recipients"
               type="text"
               value={recipients}
               onChange={(e) => setRecipients(e.target.value)}

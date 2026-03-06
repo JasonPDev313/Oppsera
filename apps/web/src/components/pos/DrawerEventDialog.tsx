@@ -85,6 +85,7 @@ export function DrawerEventDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="drawer-event-dialog-title">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
         ref={contentRef}
@@ -128,6 +129,7 @@ export function DrawerEventDialog({
           {/* Amount input (only for paid_in, paid_out, cash_drop) */}
           {currentConfig.requiresAmount && (
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Amount</label>
               <CurrencyInput
                 value={amountDollars}
@@ -141,8 +143,9 @@ export function DrawerEventDialog({
           {isCashDrop && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Bag ID</label>
+                <label htmlFor="drawer-bag-id" className="mb-1.5 block text-sm font-medium text-muted-foreground">Bag ID</label>
                 <input
+                  id="drawer-bag-id"
                   type="text"
                   value={bagId}
                   onChange={(e) => setBagId(e.target.value)}
@@ -151,8 +154,9 @@ export function DrawerEventDialog({
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Seal #</label>
+                <label htmlFor="drawer-seal-number" className="mb-1.5 block text-sm font-medium text-muted-foreground">Seal #</label>
                 <input
+                  id="drawer-seal-number"
                   type="text"
                   value={sealNumber}
                   onChange={(e) => setSealNumber(e.target.value)}
@@ -165,10 +169,11 @@ export function DrawerEventDialog({
 
           {/* Reason */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+            <label htmlFor="drawer-reason" className="mb-1.5 block text-sm font-medium text-muted-foreground">
               Reason {currentConfig.requiresAmount ? '' : '(optional)'}
             </label>
             <input
+              id="drawer-reason"
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}

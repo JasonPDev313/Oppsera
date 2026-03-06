@@ -201,8 +201,9 @@ export default function CloseContent() {
       {!detailLoading && detail && detail.status !== 'closed' && (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Close Notes</label>
+            <label htmlFor="close-notes" className="block text-sm font-medium text-foreground mb-1">Close Notes</label>
             <textarea
+              id="close-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}

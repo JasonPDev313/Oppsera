@@ -141,6 +141,7 @@ export function AnnotationOverlay({
 
                     {/* Popover */}
                     {isActive && (
+                      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
                       <div
                         className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-20 w-52 rounded-lg border border-border bg-surface shadow-lg p-2.5"
                         onClick={(e) => e.stopPropagation()}

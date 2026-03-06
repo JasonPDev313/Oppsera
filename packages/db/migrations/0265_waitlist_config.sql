@@ -29,9 +29,14 @@ CREATE INDEX IF NOT EXISTS idx_fnb_waitlist_config_tenant
 CREATE UNIQUE INDEX IF NOT EXISTS uq_fnb_waitlist_config_slug
   ON fnb_waitlist_config (slug_override) WHERE slug_override IS NOT NULL;
 
--- RLS policy
+-- RLS policies
 ALTER TABLE fnb_waitlist_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fnb_waitlist_config FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS fnb_waitlist_config_tenant_isolation
-  ON fnb_waitlist_config
-  USING (tenant_id = current_setting('app.tenant_id', true));
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'fnb_waitlist_config_tenant_isolation' AND tablename = 'fnb_waitlist_config') THEN
+    CREATE POLICY fnb_waitlist_config_tenant_isolation
+      ON fnb_waitlist_config
+      USING (tenant_id = current_setting('app.current_tenant_id', true));
+  END IF;
+END $$;

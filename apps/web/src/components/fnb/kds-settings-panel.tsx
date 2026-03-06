@@ -734,10 +734,12 @@ function StationsTab({ locationId }: { locationId?: string }) {
       )}
 
       {confirmDeactivate && createPortal(
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
           onClick={() => setConfirmDeactivate(null)}
         >
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div
             className="bg-surface border border-border rounded-lg w-full max-w-sm mx-4 shadow-xl p-4 space-y-3"
             onClick={(e) => e.stopPropagation()}
@@ -839,6 +841,7 @@ function CreateStationDialog({
   }, [name, displayName, stationType, color, warningSeconds, criticalSeconds, onSubmit]);
 
   return createPortal(
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       ref={backdropRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
@@ -1005,6 +1008,7 @@ function EditStationDialog({
   }, [displayName, stationType, color, warningSeconds, criticalSeconds, onSubmit]);
 
   return createPortal(
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       ref={backdropRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
@@ -1135,7 +1139,7 @@ function RoutingTab({ locationId }: { locationId?: string }) {
     rules, isLoading, isActing,
     filterRuleType, setFilterRuleType,
     filterStationId, setFilterStationId,
-    createRule, updateRule, deleteRule,
+    createRule, updateRule, deleteRule, refresh: refreshRules,
   } = useRoutingRules(locationId);
   const { stations } = useStationManagement({ locationId });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -1195,6 +1199,7 @@ function RoutingTab({ locationId }: { locationId?: string }) {
           stations={stations}
           existingRules={rules}
           onCreateRule={createRule}
+          onRefreshRules={refreshRules}
           isActing={isActing}
         />
       )}
@@ -1409,6 +1414,7 @@ function RoutingRecommendationPanel({
   stations,
   existingRules,
   onCreateRule,
+  onRefreshRules,
   isActing,
 }: {
   stations: Array<{ id: string; name: string; displayName: string; stationType: string; isActive: boolean }>;
@@ -1421,9 +1427,11 @@ function RoutingRecommendationPanel({
     stationId: string;
     priority?: number;
     clientRequestId: string;
-  }) => Promise<void>;
+  }, opts?: { skipRefresh?: boolean }) => Promise<void>;
+  onRefreshRules: () => Promise<void>;
   isActing: boolean;
 }) {
+  const { toast } = useToast();
   const { data: allCategories, isLoading: catLoading } = useAllCategories();
   const [rows, setRows] = useState<RecommendationRow[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);
@@ -1522,9 +1530,12 @@ function RoutingRecommendationPanel({
     );
   }, []);
 
-  const handleAcceptSingle = useCallback(async (row: RecommendationRow) => {
+  const handleAcceptSingle = useCallback(async (row: RecommendationRow, opts?: { skipRefresh?: boolean }) => {
     const stationId = row.overrideStationId || row.resolvedStation?.id;
-    if (!stationId) return;
+    if (!stationId) {
+      toast.error(`No station selected for "${row.categoryName}"`);
+      return;
+    }
 
     // "No KDS" means this department doesn't need KDS routing —
     // acknowledge it without creating a rule (no rule = no kitchen ticket)
@@ -1553,14 +1564,20 @@ function RoutingRecommendationPanel({
       (input as Record<string, unknown>).subDepartmentId = row.categoryId;
     }
 
-    await onCreateRule(input);
+    try {
+      await onCreateRule(input, { skipRefresh: opts?.skipRefresh });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Rule failed: ${msg}`);
+      throw err;
+    }
     setRows((prev) =>
       prev.map((r) =>
         r.categoryId === row.categoryId ? { ...r, status: 'accepted' as const } : r,
       ),
     );
     setAppliedCount((c) => c + 1);
-  }, [onCreateRule]);
+  }, [onCreateRule, toast]);
 
   const handleAcceptAll = useCallback(async () => {
     const pending = rows.filter(
@@ -1569,18 +1586,23 @@ function RoutingRecommendationPanel({
     if (pending.length === 0) return;
 
     setIsApplying(true);
-    let applied = 0;
+    let failed = 0;
     for (const row of pending) {
       try {
-        await handleAcceptSingle(row);
-        applied++;
+        await handleAcceptSingle(row, { skipRefresh: true });
       } catch {
-        // continue with next
+        failed++;
       }
     }
+    // Single refresh after all rules are created
+    await onRefreshRules().catch(() => {});
     setIsApplying(false);
-    setAppliedCount((c) => c + applied);
-  }, [rows, handleAcceptSingle]);
+    if (failed > 0) {
+      toast.error(`${failed} of ${pending.length} rules failed.`);
+    } else {
+      toast.success(`${pending.length} routing rules created.`);
+    }
+  }, [rows, handleAcceptSingle, onRefreshRules, toast]);
 
   const pendingRows = rows.filter((r) => r.status === 'pending');
   const acceptedRows = rows.filter((r) => r.status === 'accepted');
@@ -1623,7 +1645,7 @@ function RoutingRecommendationPanel({
             <button
               type="button"
               onClick={handleAcceptAll}
-              disabled={isActing || isApplying}
+              disabled={isApplying}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
             >
               <Check className="h-3.5 w-3.5" />
@@ -2133,6 +2155,7 @@ function CreateRoutingRuleDialog({
       : 'Create Rule';
 
   return createPortal(
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       ref={backdropRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
@@ -2341,10 +2364,26 @@ function EditRoutingRuleDialog({
   onClose,
   isActing,
 }: {
-  rule: { id: string; ruleName: string | null; stationId: string; priority: number; orderTypeCondition: string | null; channelCondition: string | null; timeConditionStart: string | null; timeConditionEnd: string | null; isActive: boolean };
+  rule: {
+    id: string; ruleName: string | null; ruleType: string;
+    catalogItemId: string | null; modifierId: string | null;
+    departmentId: string | null; departmentName: string | null;
+    subDepartmentId: string | null; subDepartmentName: string | null;
+    categoryId: string | null; categoryName: string | null;
+    stationId: string; priority: number;
+    orderTypeCondition: string | null; channelCondition: string | null;
+    timeConditionStart: string | null; timeConditionEnd: string | null;
+    isActive: boolean;
+  };
   stations: Array<{ id: string; name: string; displayName: string }>;
   onSubmit: (input: {
     ruleName?: string;
+    ruleType?: string;
+    catalogItemId?: string | null;
+    modifierId?: string | null;
+    departmentId?: string | null;
+    subDepartmentId?: string | null;
+    categoryId?: string | null;
     stationId?: string;
     priority?: number;
     orderTypeCondition?: string | null;
@@ -2358,6 +2397,7 @@ function EditRoutingRuleDialog({
   isActing: boolean;
 }) {
   const [ruleName, setRuleName] = useState(rule.ruleName ?? '');
+  const [ruleType, setRuleType] = useState(rule.ruleType);
   const [stationId, setStationId] = useState(rule.stationId);
   const [priority, setPriority] = useState(rule.priority);
   const [orderType, setOrderType] = useState(rule.orderTypeCondition ?? '');
@@ -2367,9 +2407,43 @@ function EditRoutingRuleDialog({
   const [isActive, setIsActive] = useState(rule.isActive);
   const backdropRef = useRef<HTMLDivElement>(null);
 
+  // Target state — single select for edit
+  const currentTargetId = rule.catalogItemId ?? rule.modifierId ?? rule.departmentId ?? rule.subDepartmentId ?? rule.categoryId ?? '';
+  const [selectedTargetId, setSelectedTargetId] = useState(currentTargetId);
+  const [selectedTargetName, setSelectedTargetName] = useState('');
+  const [targetId, setTargetId] = useState(currentTargetId); // for item/modifier text input
+
+  const usesMultiSelect = ruleType === 'department' || ruleType === 'sub_department' || ruleType === 'category';
+
+  // When rule type changes, clear target selection
+  useEffect(() => {
+    if (ruleType !== rule.ruleType) {
+      setSelectedTargetId('');
+      setSelectedTargetName('');
+      setTargetId('');
+    }
+  }, [ruleType, rule.ruleType]);
+
+  const targetKey = ruleType === 'item' ? 'catalogItemId'
+    : ruleType === 'modifier' ? 'modifierId'
+    : ruleType === 'category' ? 'categoryId'
+    : ruleType === 'sub_department' ? 'subDepartmentId'
+    : 'departmentId';
+
+  // Determine the effective target ID
+  const effectiveTargetId = usesMultiSelect ? selectedTargetId : targetId.trim();
+
   const handleSubmit = useCallback(async () => {
-    await onSubmit({
+    if (!effectiveTargetId) return;
+    // Build update payload — null out all target fields, then set the active one
+    const input: Record<string, unknown> = {
       ruleName: ruleName.trim() || undefined,
+      ruleType,
+      catalogItemId: null,
+      modifierId: null,
+      departmentId: null,
+      subDepartmentId: null,
+      categoryId: null,
       stationId,
       priority,
       orderTypeCondition: orderType || null,
@@ -2378,10 +2452,30 @@ function EditRoutingRuleDialog({
       timeConditionEnd: timeEnd || null,
       isActive,
       clientRequestId: `update-rr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    });
-  }, [ruleName, stationId, priority, orderType, channel, timeStart, timeEnd, isActive, onSubmit]);
+    };
+    input[targetKey] = effectiveTargetId;
+    await onSubmit(input as Parameters<typeof onSubmit>[0]);
+  }, [ruleName, ruleType, targetKey, effectiveTargetId, stationId, priority, orderType, channel, timeStart, timeEnd, isActive, onSubmit]);
+
+  // Single-select handler for TargetSelector (replace instead of toggle)
+  const handleToggleTarget = useCallback((id: string, name: string) => {
+    if (selectedTargetId === id) {
+      setSelectedTargetId('');
+      setSelectedTargetName('');
+    } else {
+      setSelectedTargetId(id);
+      setSelectedTargetName(name);
+    }
+  }, [selectedTargetId]);
+
+  const selectedIds = useMemo(() => {
+    const s = new Set<string>();
+    if (selectedTargetId) s.add(selectedTargetId);
+    return s;
+  }, [selectedTargetId]);
 
   return createPortal(
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       ref={backdropRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
@@ -2396,92 +2490,147 @@ function EditRoutingRuleDialog({
         </div>
 
         <div className="px-4 py-4 space-y-4">
+          {/* Target Station */}
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-foreground">Target Station</span>
+            <select
+              value={stationId}
+              onChange={(e) => setStationId(e.target.value)}
+              className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
+            >
+              {stations.map((s) => (
+                <option key={s.id} value={s.id}>{s.displayName || s.name}</option>
+              ))}
+            </select>
+          </label>
+
+          {/* Rule Type */}
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-foreground">Rule Type</span>
+            <select
+              value={ruleType}
+              onChange={(e) => setRuleType(e.target.value)}
+              className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
+            >
+              {Object.entries(ROUTING_RULE_TYPE_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          </label>
+
+          {/* Target Picker */}
+          {usesMultiSelect ? (
+            <TargetSelector
+              ruleType={ruleType}
+              selectedIds={selectedIds}
+              onToggle={handleToggleTarget}
+            />
+          ) : (
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-foreground">
+                {ruleType === 'item' ? 'Catalog Item ID' : 'Modifier ID'}
+              </span>
+              <input
+                type="text"
+                value={targetId}
+                onChange={(e) => setTargetId(e.target.value)}
+                placeholder={`Enter ${ruleType === 'item' ? 'catalog item ID' : 'modifier ID'}`}
+                className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </label>
+          )}
+
+          {/* Selected target badge */}
+          {usesMultiSelect && selectedTargetId && selectedTargetName && (
+            <div className="flex flex-wrap gap-1.5">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/30">
+                {selectedTargetName}
+                <button
+                  type="button"
+                  onClick={() => { setSelectedTargetId(''); setSelectedTargetName(''); }}
+                  className="hover:text-red-500 transition-colors"
+                >
+                  <XIcon className="h-3 w-3" />
+                </button>
+              </span>
+            </div>
+          )}
+
           <label className="block space-y-1">
             <span className="text-xs font-medium text-foreground">Rule Name</span>
             <input
               type="text"
               value={ruleName}
               onChange={(e) => setRuleName(e.target.value)}
+              placeholder={usesMultiSelect ? 'Optional — defaults to target name' : 'e.g. Salmon to Grill'}
               maxLength={100}
               className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-4">
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-foreground">Target Station</span>
-              <select
-                value={stationId}
-                onChange={(e) => setStationId(e.target.value)}
-                className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
-              >
-                {stations.map((s) => (
-                  <option key={s.id} value={s.id}>{s.displayName || s.name}</option>
-                ))}
-              </select>
-            </label>
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-foreground">Priority (0-100, higher = evaluated first)</span>
+            <input
+              type="number"
+              value={priority}
+              onChange={(e) => setPriority(Number(e.target.value) || 0)}
+              min={0}
+              max={100}
+              className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
+            />
+          </label>
 
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-foreground">Priority</span>
-              <input
-                type="number"
-                value={priority}
-                onChange={(e) => setPriority(Number(e.target.value) || 0)}
-                min={0}
-                max={100}
-                className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
-              />
-            </label>
-          </div>
+          <div className="border-t border-border pt-3">
+            <h4 className="text-xs font-semibold text-foreground mb-3">Optional Conditions</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-foreground">Order Type</span>
+                <select
+                  value={orderType}
+                  onChange={(e) => setOrderType(e.target.value)}
+                  className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
+                >
+                  <option value="">Any</option>
+                  {Object.entries(ORDER_TYPE_LABELS).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </label>
 
-          <div className="grid grid-cols-2 gap-4">
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-foreground">Order Type</span>
-              <select
-                value={orderType}
-                onChange={(e) => setOrderType(e.target.value)}
-                className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
-              >
-                <option value="">Any</option>
-                {Object.entries(ORDER_TYPE_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
-              </select>
-            </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-foreground">Channel</span>
+                <select
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value)}
+                  className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
+                >
+                  <option value="">Any</option>
+                  {Object.entries(CHANNEL_LABELS).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-foreground">Channel</span>
-              <select
-                value={channel}
-                onChange={(e) => setChannel(e.target.value)}
-                className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
-              >
-                <option value="">Any</option>
-                {Object.entries(CHANNEL_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
-              </select>
-            </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-foreground">Time Window Start</span>
+                <input
+                  type="time"
+                  value={timeStart}
+                  onChange={(e) => setTimeStart(e.target.value)}
+                  className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
+                />
+              </label>
 
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-foreground">Time Start</span>
-              <input
-                type="time"
-                value={timeStart}
-                onChange={(e) => setTimeStart(e.target.value)}
-                className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
-              />
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-foreground">Time End</span>
-              <input
-                type="time"
-                value={timeEnd}
-                onChange={(e) => setTimeEnd(e.target.value)}
-                className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
-              />
-            </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-foreground">Time Window End</span>
+                <input
+                  type="time"
+                  value={timeEnd}
+                  onChange={(e) => setTimeEnd(e.target.value)}
+                  className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
+                />
+              </label>
+            </div>
           </div>
 
           <label className="flex items-center gap-2">
@@ -2506,7 +2655,7 @@ function EditRoutingRuleDialog({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isActing}
+            disabled={isActing || !effectiveTargetId}
             className="px-4 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
           >
             {isActing ? 'Saving...' : 'Save Changes'}
@@ -2961,9 +3110,9 @@ function PrepTimesTab({ locationId }: { locationId?: string }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Item Prep Times</h3>
+          <h3 className="text-sm font-semibold text-foreground">Prep Times</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Estimated preparation time per item, optionally per station. Used for meal pacing and order time estimates.
+            Estimated preparation time per item, department, sub-department, or category. Used for meal pacing and order time estimates.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -2981,15 +3130,15 @@ function PrepTimesTab({ locationId }: { locationId?: string }) {
       {items.length === 0 ? (
         <div className="py-8 text-center">
           <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground">No item prep times configured</p>
-          <p className="text-xs text-muted-foreground mt-1">Add prep times to enable meal pacing and time estimates</p>
+          <p className="text-sm text-muted-foreground">No prep times configured</p>
+          <p className="text-xs text-muted-foreground mt-1">Add prep times per item, department, sub-department, or category</p>
         </div>
       ) : (
         <div className="bg-surface border border-border rounded-lg overflow-hidden">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left px-3 py-2 text-muted-foreground font-medium">Item</th>
+                <th className="text-left px-3 py-2 text-muted-foreground font-medium">Target</th>
                 <th className="text-left px-3 py-2 text-muted-foreground font-medium">Station</th>
                 <th className="text-center px-3 py-2 text-muted-foreground font-medium">Prep Time</th>
                 <th className="text-right px-3 py-2 text-muted-foreground font-medium">Actions</th>
@@ -2998,7 +3147,14 @@ function PrepTimesTab({ locationId }: { locationId?: string }) {
             <tbody>
               {items.map((item) => (
                 <tr key={item.id} className="border-b border-border last:border-0 hover:bg-accent transition-colors">
-                  <td className="px-3 py-2 text-foreground">{item.catalogItemName ?? item.catalogItemId}</td>
+                  <td className="px-3 py-2 text-foreground">
+                    {item.catalogItemName ?? item.categoryName ?? item.catalogItemId ?? item.categoryId}
+                    {item.categoryLevel && (
+                      <span className="ml-1.5 text-[9px] text-muted-foreground uppercase tracking-wide">
+                        {item.categoryLevel === 'department' ? 'Dept' : item.categoryLevel === 'sub_department' ? 'Sub-Dept' : 'Category'}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-foreground">{item.stationName ?? 'All Stations'}</td>
                   <td className="px-3 py-2 text-center">
                     <span className="bg-indigo-500/10 text-indigo-500 px-1.5 py-0.5 rounded text-[10px] font-mono">
@@ -3027,7 +3183,8 @@ function PrepTimesTab({ locationId }: { locationId?: string }) {
           stations={stations.filter((s) => s.isActive)}
           onSave={async (input) => {
             await upsertPrepTime({
-              catalogItemId: input.catalogItemId,
+              catalogItemId: input.catalogItemId || undefined,
+              categoryId: input.categoryId || undefined,
               stationId: input.stationId || undefined,
               estimatedPrepSeconds: input.estimatedPrepSeconds,
               clientRequestId: `prep-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -3045,7 +3202,8 @@ function PrepTimesTab({ locationId }: { locationId?: string }) {
           stations={stations.filter((s) => s.isActive)}
           onSave={async (input) => {
             await upsertPrepTime({
-              catalogItemId: input.catalogItemId,
+              catalogItemId: input.catalogItemId || undefined,
+              categoryId: input.categoryId || undefined,
               stationId: input.stationId || undefined,
               estimatedPrepSeconds: input.estimatedPrepSeconds,
               clientRequestId: `prep-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -3070,6 +3228,7 @@ interface CatalogItemSearchResult {
 }
 
 type ItemPickerMode = 'search' | 'browse';
+type PrepTimeTargetType = 'item' | 'category';
 
 function AddPrepTimeDialog({
   stations,
@@ -3078,11 +3237,13 @@ function AddPrepTimeDialog({
   isActing,
 }: {
   stations: { id: string; displayName: string }[];
-  onSave: (input: { catalogItemId: string; stationId: string; estimatedPrepSeconds: number }) => Promise<void>;
+  onSave: (input: { catalogItemId?: string; categoryId?: string; stationId: string; estimatedPrepSeconds: number }) => Promise<void>;
   onClose: () => void;
   isActing: boolean;
 }) {
+  const [targetType, setTargetType] = useState<PrepTimeTargetType>('item');
   const [selectedItem, setSelectedItem] = useState<CatalogItemSearchResult | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<{ id: string; name: string; level: string } | null>(null);
   const [stationId, setStationId] = useState('');
   const [prepMinutes, setPrepMinutes] = useState(5);
   const [pickerMode, setPickerMode] = useState<ItemPickerMode>('search');
@@ -3094,7 +3255,7 @@ function AddPrepTimeDialog({
   const [showDropdown, setShowDropdown] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Browse mode state ──
+  // ── Browse / category mode shared state ──
   const { data: allCategories } = useAllCategories();
   const [browseDeptId, setBrowseDeptId] = useState<string | null>(null);
   const [browseSubDeptId, setBrowseSubDeptId] = useState<string | null>(null);
@@ -3134,9 +3295,9 @@ function AddPrepTimeDialog({
   // Determine the categoryId to fetch items for — deepest selected level
   const activeCategoryId = browseCatId ?? browseSubDeptId ?? browseDeptId;
 
-  // Fetch items when browsing into a category
+  // Fetch items when browsing into a category (only in item/browse mode)
   useEffect(() => {
-    if (pickerMode !== 'browse' || !activeCategoryId) {
+    if (targetType !== 'item' || pickerMode !== 'browse' || !activeCategoryId) {
       setBrowseItems([]);
       return;
     }
@@ -3152,7 +3313,7 @@ function AddPrepTimeDialog({
       if (!cancelled) setIsBrowseLoading(false);
     });
     return () => { cancelled = true; };
-  }, [pickerMode, activeCategoryId]);
+  }, [targetType, pickerMode, activeCategoryId]);
 
   // Filter browse items by inline search
   const filteredBrowseItems = useMemo(() => {
@@ -3195,6 +3356,14 @@ function AddPrepTimeDialog({
   }, []);
 
   // ── Browse hierarchy navigation ──
+  const resetBrowse = () => {
+    setBrowseDeptId(null);
+    setBrowseSubDeptId(null);
+    setBrowseCatId(null);
+    setBrowseSearch('');
+    setSelectedCategory(null);
+  };
+
   const handleSelectDept = (id: string) => {
     setBrowseDeptId(id);
     setBrowseSubDeptId(null);
@@ -3211,9 +3380,14 @@ function AddPrepTimeDialog({
     setBrowseSearch('');
   };
   const handleBrowseBack = () => {
-    if (browseCatId) { setBrowseCatId(null); setBrowseSearch(''); }
-    else if (browseSubDeptId) { setBrowseSubDeptId(null); setBrowseSearch(''); }
-    else if (browseDeptId) { setBrowseDeptId(null); setBrowseSearch(''); }
+    if (browseCatId) { setBrowseCatId(null); setBrowseSearch(''); setSelectedCategory(null); }
+    else if (browseSubDeptId) { setBrowseSubDeptId(null); setBrowseSearch(''); setSelectedCategory(null); }
+    else if (browseDeptId) { setBrowseDeptId(null); setBrowseSearch(''); setSelectedCategory(null); }
+  };
+
+  // ── Category target selection (for targetType === 'category') ──
+  const handleSelectCategoryTarget = (catNode: { id: string; name: string }, level: string) => {
+    setSelectedCategory({ id: catNode.id, name: catNode.name, level });
   };
 
   // Breadcrumb label
@@ -3234,10 +3408,22 @@ function AddPrepTimeDialog({
     return parts;
   }, [browseDeptId, browseSubDeptId, browseCatId, departments, currentSubDepts, currentCategories]);
 
+  // Reset selection when switching target type
+  const handleTargetTypeChange = (type: PrepTimeTargetType) => {
+    setTargetType(type);
+    setSelectedItem(null);
+    setSelectedCategory(null);
+    setSearchQuery('');
+    resetBrowse();
+  };
+
+  const isValid = targetType === 'item' ? !!selectedItem : !!selectedCategory;
+
   const handleSubmit = () => {
-    if (!selectedItem) return;
+    if (!isValid) return;
     void onSave({
-      catalogItemId: selectedItem.id,
+      catalogItemId: targetType === 'item' ? selectedItem!.id : undefined,
+      categoryId: targetType === 'category' ? selectedCategory!.id : undefined,
       stationId,
       estimatedPrepSeconds: prepMinutes * 60,
     });
@@ -3245,88 +3431,251 @@ function AddPrepTimeDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl mx-4 p-5 flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-foreground">Add Item Prep Time</h3>
+          <h3 className="text-sm font-semibold text-foreground">Add Prep Time</h3>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
             <XIcon className="h-4 w-4" />
           </button>
         </div>
 
         <div className="space-y-3 flex-1 overflow-hidden flex flex-col">
-          {/* ── Item Selection ── */}
+          {/* ── Target Type Toggle ── */}
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Select Item *</label>
-
-            {/* Mode toggle */}
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Apply To</label>
             <div className="flex gap-1 mb-2">
               <button
                 type="button"
-                onClick={() => setPickerMode('search')}
+                onClick={() => handleTargetTypeChange('item')}
                 className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
-                  pickerMode === 'search'
+                  targetType === 'item'
                     ? 'bg-indigo-600 text-white'
                     : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
                 }`}
               >
-                <Search className="h-3 w-3" aria-hidden="true" />
-                Search
+                Item
               </button>
               <button
                 type="button"
-                onClick={() => setPickerMode('browse')}
+                onClick={() => handleTargetTypeChange('category')}
                 className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
-                  pickerMode === 'browse'
+                  targetType === 'category'
                     ? 'bg-indigo-600 text-white'
                     : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
                 }`}
               >
                 <Layers className="h-3 w-3" aria-hidden="true" />
-                Browse by Category
+                Dept / Sub-Dept / Category
               </button>
             </div>
+          </div>
 
-            {/* Search mode */}
-            {pickerMode === 'search' && (
-              <div className="relative">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" aria-hidden="true" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    onFocus={() => { if (searchResults.length > 0 && !selectedItem) setShowDropdown(true); }}
-                    placeholder="Type to search by name or SKU..."
-                    className="w-full pl-7 pr-3 py-1.5 text-xs bg-surface border border-input rounded-md text-foreground placeholder:text-muted-foreground"
-                  />
-                </div>
-                {isSearching && (
-                  <div className="absolute right-2 top-1.5 text-[10px] text-muted-foreground">Searching...</div>
-                )}
-                {showDropdown && searchResults.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full bg-surface border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                    {searchResults.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => handleSelectItem(item)}
-                        className="w-full text-left px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
-                      >
-                        <div className="font-medium text-foreground">{item.name}</div>
-                        {item.sku && <div className="text-[10px] text-muted-foreground mt-0.5">SKU: {item.sku}</div>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {!isSearching && searchQuery.trim().length >= 2 && searchResults.length === 0 && !selectedItem && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">No items found</p>
-                )}
+          {/* ── Item Selection (when targetType === 'item') ── */}
+          {targetType === 'item' && (
+            <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Select Item *</label>
+
+              {/* Mode toggle */}
+              <div className="flex gap-1 mb-2">
+                <button
+                  type="button"
+                  onClick={() => setPickerMode('search')}
+                  className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
+                    pickerMode === 'search'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                >
+                  <Search className="h-3 w-3" aria-hidden="true" />
+                  Search
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPickerMode('browse')}
+                  className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
+                    pickerMode === 'browse'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                >
+                  <Layers className="h-3 w-3" aria-hidden="true" />
+                  Browse by Category
+                </button>
               </div>
-            )}
 
-            {/* Browse mode */}
-            {pickerMode === 'browse' && (
+              {/* Search mode */}
+              {pickerMode === 'search' && (
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      onFocus={() => { if (searchResults.length > 0 && !selectedItem) setShowDropdown(true); }}
+                      placeholder="Type to search by name or SKU..."
+                      className="w-full pl-7 pr-3 py-1.5 text-xs bg-surface border border-input rounded-md text-foreground placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  {isSearching && (
+                    <div className="absolute right-2 top-1.5 text-[10px] text-muted-foreground">Searching...</div>
+                  )}
+                  {showDropdown && searchResults.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-surface border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {searchResults.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleSelectItem(item)}
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
+                        >
+                          <div className="font-medium text-foreground">{item.name}</div>
+                          {item.sku && <div className="text-[10px] text-muted-foreground mt-0.5">SKU: {item.sku}</div>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!isSearching && searchQuery.trim().length >= 2 && searchResults.length === 0 && !selectedItem && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">No items found</p>
+                  )}
+                </div>
+              )}
+
+              {/* Browse mode */}
+              {pickerMode === 'browse' && (
+                <div className="border border-border rounded-md overflow-hidden">
+                  {/* Breadcrumb / back bar */}
+                  {browseDeptId && (
+                    <div className="flex items-center gap-1 px-2.5 py-1.5 border-b border-border bg-muted/50">
+                      <button type="button" onClick={handleBrowseBack} className="p-0.5 rounded hover:bg-accent text-muted-foreground">
+                        <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                      <span className="text-[11px] text-muted-foreground truncate">{breadcrumb.join(' > ')}</span>
+                    </div>
+                  )}
+
+                  {/* Inline search when items are visible */}
+                  {activeCategoryId && (
+                    <div className="px-2.5 py-1.5 border-b border-border">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                        <input
+                          type="text"
+                          value={browseSearch}
+                          onChange={(e) => setBrowseSearch(e.target.value)}
+                          placeholder="Filter items..."
+                          className="w-full pl-6 pr-2 py-1 text-[11px] bg-surface border border-input rounded text-foreground placeholder:text-muted-foreground"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Content area */}
+                  <div className="max-h-52 overflow-y-auto">
+                    {!browseDeptId && (
+                      departments.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-muted-foreground">No departments found</div>
+                      ) : (
+                        departments.map((dept) => (
+                          <button
+                            key={dept.id}
+                            type="button"
+                            onClick={() => handleSelectDept(dept.id)}
+                            className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
+                          >
+                            <span className="font-medium text-foreground">{dept.name}</span>
+                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                          </button>
+                        ))
+                      )
+                    )}
+
+                    {browseDeptId && !browseSubDeptId && currentSubDepts.length > 0 && (
+                      currentSubDepts.map((sub) => (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => handleSelectSubDept(sub.id)}
+                          className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
+                        >
+                          <span className="font-medium text-foreground">{sub.name}</span>
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                        </button>
+                      ))
+                    )}
+
+                    {browseSubDeptId && !browseCatId && currentCategories.length > 0 && (
+                      currentCategories.map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => handleSelectCat(cat.id)}
+                          className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
+                        >
+                          <span className="font-medium text-foreground">{cat.name}</span>
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                        </button>
+                      ))
+                    )}
+
+                    {/* Show items — when at a leaf level or a level with no children */}
+                    {activeCategoryId && (
+                      ((browseDeptId && !browseSubDeptId && currentSubDepts.length === 0) ||
+                       (browseSubDeptId && !browseCatId && currentCategories.length === 0) ||
+                       browseCatId) && (
+                        isBrowseLoading ? (
+                          <div className="py-6 text-center text-xs text-muted-foreground">Loading items...</div>
+                        ) : filteredBrowseItems.length === 0 ? (
+                          <div className="py-6 text-center text-xs text-muted-foreground">
+                            {browseSearch ? 'No matching items' : 'No items in this category'}
+                          </div>
+                        ) : (
+                          filteredBrowseItems.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => { setSelectedItem(item); setSearchQuery(item.name); }}
+                              className={`w-full text-left px-3 py-2 text-xs transition-colors border-b border-border last:border-0 ${
+                                selectedItem?.id === item.id
+                                  ? 'bg-indigo-500/10 text-indigo-400'
+                                  : 'hover:bg-accent text-foreground'
+                              }`}
+                            >
+                              <div className="font-medium">{item.name}</div>
+                              {item.sku && <div className="text-[10px] text-muted-foreground mt-0.5">SKU: {item.sku}</div>}
+                            </button>
+                          ))
+                        )
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Selected item indicator */}
+              {selectedItem && (
+                <p className="text-[10px] text-green-500 mt-1">
+                  Selected: {selectedItem.name}{selectedItem.sku ? ` (${selectedItem.sku})` : ''}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* ── Category/Dept/Sub-Dept Selection (when targetType === 'category') ── */}
+          {targetType === 'category' && (
+            <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                Select a department, sub-department, or category *
+              </label>
+              <p className="text-[10px] text-muted-foreground mb-2">
+                The prep time will apply to all items within the selected level. Click to select, or drill down for more specificity.
+              </p>
+
               <div className="border border-border rounded-md overflow-hidden">
                 {/* Breadcrumb / back bar */}
                 {browseDeptId && (
@@ -3334,27 +3683,10 @@ function AddPrepTimeDialog({
                     <button type="button" onClick={handleBrowseBack} className="p-0.5 rounded hover:bg-accent text-muted-foreground">
                       <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
-                    <span className="text-[11px] text-muted-foreground truncate">{breadcrumb.join(' › ')}</span>
+                    <span className="text-[11px] text-muted-foreground truncate">{breadcrumb.join(' > ')}</span>
                   </div>
                 )}
 
-                {/* Inline search when items are visible */}
-                {activeCategoryId && (
-                  <div className="px-2.5 py-1.5 border-b border-border">
-                    <div className="relative">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" aria-hidden="true" />
-                      <input
-                        type="text"
-                        value={browseSearch}
-                        onChange={(e) => setBrowseSearch(e.target.value)}
-                        placeholder="Filter items..."
-                        className="w-full pl-6 pr-2 py-1 text-[11px] bg-surface border border-input rounded text-foreground placeholder:text-muted-foreground"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Content area */}
                 <div className="max-h-52 overflow-y-auto">
                   {/* Show departments */}
                   {!browseDeptId && (
@@ -3362,95 +3694,106 @@ function AddPrepTimeDialog({
                       <div className="py-6 text-center text-xs text-muted-foreground">No departments found</div>
                     ) : (
                       departments.map((dept) => (
-                        <button
-                          key={dept.id}
-                          type="button"
-                          onClick={() => handleSelectDept(dept.id)}
-                          className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
-                        >
-                          <span className="font-medium text-foreground">{dept.name}</span>
-                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-                        </button>
-                      ))
-                    )
-                  )}
-
-                  {/* Show sub-departments (if dept selected, subs exist, and no sub selected yet) */}
-                  {browseDeptId && !browseSubDeptId && currentSubDepts.length > 0 && (
-                    currentSubDepts.map((sub) => (
-                      <button
-                        key={sub.id}
-                        type="button"
-                        onClick={() => handleSelectSubDept(sub.id)}
-                        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
-                      >
-                        <span className="font-medium text-foreground">{sub.name}</span>
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-                      </button>
-                    ))
-                  )}
-
-                  {/* Show categories (if sub-dept selected, cats exist, and no cat selected yet) */}
-                  {browseSubDeptId && !browseCatId && currentCategories.length > 0 && (
-                    currentCategories.map((cat) => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => handleSelectCat(cat.id)}
-                        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
-                      >
-                        <span className="font-medium text-foreground">{cat.name}</span>
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-                      </button>
-                    ))
-                  )}
-
-                  {/* Show items — when at a leaf level or a level with no children */}
-                  {activeCategoryId && (
-                    // Only show items when we're at a leaf level (no further children to drill into)
-                    ((browseDeptId && !browseSubDeptId && currentSubDepts.length === 0) ||
-                     (browseSubDeptId && !browseCatId && currentCategories.length === 0) ||
-                     browseCatId) && (
-                      isBrowseLoading ? (
-                        <div className="py-6 text-center text-xs text-muted-foreground">Loading items...</div>
-                      ) : filteredBrowseItems.length === 0 ? (
-                        <div className="py-6 text-center text-xs text-muted-foreground">
-                          {browseSearch ? 'No matching items' : 'No items in this category'}
-                        </div>
-                      ) : (
-                        filteredBrowseItems.map((item) => (
+                        <div key={dept.id} className="flex items-center border-b border-border last:border-0">
                           <button
-                            key={item.id}
                             type="button"
-                            onClick={() => { setSelectedItem(item); setSearchQuery(item.name); }}
-                            className={`w-full text-left px-3 py-2 text-xs transition-colors border-b border-border last:border-0 ${
-                              selectedItem?.id === item.id
+                            onClick={() => handleSelectCategoryTarget(dept, 'Department')}
+                            className={`flex-1 text-left px-3 py-2 text-xs transition-colors ${
+                              selectedCategory?.id === dept.id
                                 ? 'bg-indigo-500/10 text-indigo-400'
                                 : 'hover:bg-accent text-foreground'
                             }`}
                           >
-                            <div className="font-medium">{item.name}</div>
-                            {item.sku && <div className="text-[10px] text-muted-foreground mt-0.5">SKU: {item.sku}</div>}
+                            <span className="font-medium">{dept.name}</span>
+                            <span className="ml-1.5 text-[9px] text-muted-foreground uppercase">Dept</span>
                           </button>
-                        ))
-                      )
+                          {(childrenByParent.get(dept.id)?.length ?? 0) > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleSelectDept(dept.id)}
+                              className="px-2 py-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                              title="Drill into sub-departments"
+                            >
+                              <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                      ))
                     )
+                  )}
+
+                  {/* Show sub-departments */}
+                  {browseDeptId && !browseSubDeptId && currentSubDepts.length > 0 && (
+                    currentSubDepts.map((sub) => (
+                      <div key={sub.id} className="flex items-center border-b border-border last:border-0">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectCategoryTarget(sub, 'Sub-Dept')}
+                          className={`flex-1 text-left px-3 py-2 text-xs transition-colors ${
+                            selectedCategory?.id === sub.id
+                              ? 'bg-indigo-500/10 text-indigo-400'
+                              : 'hover:bg-accent text-foreground'
+                          }`}
+                        >
+                          <span className="font-medium">{sub.name}</span>
+                          <span className="ml-1.5 text-[9px] text-muted-foreground uppercase">Sub-Dept</span>
+                        </button>
+                        {(childrenByParent.get(sub.id)?.length ?? 0) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectSubDept(sub.id)}
+                            className="px-2 py-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                            title="Drill into categories"
+                          >
+                            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  )}
+
+                  {/* Show categories (leaf level in hierarchy) */}
+                  {browseSubDeptId && currentCategories.length > 0 && (
+                    currentCategories.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => handleSelectCategoryTarget(cat, 'Category')}
+                        className={`w-full text-left px-3 py-2 text-xs transition-colors border-b border-border last:border-0 ${
+                          selectedCategory?.id === cat.id
+                            ? 'bg-indigo-500/10 text-indigo-400'
+                            : 'hover:bg-accent text-foreground'
+                        }`}
+                      >
+                        <span className="font-medium">{cat.name}</span>
+                        <span className="ml-1.5 text-[9px] text-muted-foreground uppercase">Category</span>
+                      </button>
+                    ))
+                  )}
+
+                  {/* No children at current level */}
+                  {browseDeptId && !browseSubDeptId && currentSubDepts.length === 0 && (
+                    <div className="py-4 text-center text-xs text-muted-foreground">No sub-departments in this department</div>
+                  )}
+                  {browseSubDeptId && currentCategories.length === 0 && (
+                    <div className="py-4 text-center text-xs text-muted-foreground">No categories in this sub-department</div>
                   )}
                 </div>
               </div>
-            )}
 
-            {/* Selected item indicator */}
-            {selectedItem && (
-              <p className="text-[10px] text-green-500 mt-1">
-                Selected: {selectedItem.name}{selectedItem.sku ? ` (${selectedItem.sku})` : ''}
-              </p>
-            )}
-          </div>
+              {/* Selected category indicator */}
+              {selectedCategory && (
+                <p className="text-[10px] text-green-500 mt-1">
+                  Selected: {selectedCategory.name} ({selectedCategory.level})
+                </p>
+              )}
+            </div>
+          )}
 
           {/* ── Station + Prep Time (side by side) ── */}
           <div className="grid grid-cols-2 gap-3">
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="block text-xs font-medium text-muted-foreground mb-1">Station (optional)</label>
               <select
                 value={stationId}
@@ -3465,6 +3808,7 @@ function AddPrepTimeDialog({
             </div>
 
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="block text-xs font-medium text-muted-foreground mb-1">Prep Time (minutes)</label>
               <input
                 type="number"
@@ -3489,7 +3833,7 @@ function AddPrepTimeDialog({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isActing || !selectedItem}
+            disabled={isActing || !isValid}
             className="px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             {isActing ? 'Saving...' : 'Add Prep Time'}
@@ -3510,18 +3854,34 @@ function EditPrepTimeDialog({
   onClose,
   isActing,
 }: {
-  item: { id: string; catalogItemId: string; catalogItemName?: string | null; stationId: string | null; stationName?: string | null; estimatedPrepSeconds: number };
+  item: {
+    id: string;
+    catalogItemId: string | null;
+    catalogItemName?: string | null;
+    categoryId: string | null;
+    categoryName?: string | null;
+    categoryLevel?: 'department' | 'sub_department' | 'category' | null;
+    stationId: string | null;
+    stationName?: string | null;
+    estimatedPrepSeconds: number;
+  };
   stations: { id: string; displayName: string }[];
-  onSave: (input: { catalogItemId: string; stationId: string; estimatedPrepSeconds: number }) => Promise<void>;
+  onSave: (input: { catalogItemId?: string; categoryId?: string; stationId: string; estimatedPrepSeconds: number }) => Promise<void>;
   onClose: () => void;
   isActing: boolean;
 }) {
   const [stationId, setStationId] = useState(item.stationId ?? '');
   const [prepMinutes, setPrepMinutes] = useState(Math.ceil(item.estimatedPrepSeconds / 60));
 
+  const targetLabel = item.catalogItemName ?? item.categoryName ?? item.catalogItemId ?? item.categoryId ?? 'Unknown';
+  const levelLabel = item.categoryLevel
+    ? item.categoryLevel === 'department' ? 'Dept' : item.categoryLevel === 'sub_department' ? 'Sub-Dept' : 'Category'
+    : null;
+
   const handleSubmit = () => {
     void onSave({
-      catalogItemId: item.catalogItemId,
+      catalogItemId: item.catalogItemId ?? undefined,
+      categoryId: item.categoryId ?? undefined,
       stationId,
       estimatedPrepSeconds: prepMinutes * 60,
     });
@@ -3529,6 +3889,7 @@ function EditPrepTimeDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-md mx-4 p-5">
         <div className="flex items-center justify-between mb-4">
@@ -3540,13 +3901,16 @@ function EditPrepTimeDialog({
 
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Item</label>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Target</label>
             <div className="px-3 py-1.5 text-xs bg-surface border border-input rounded-md text-foreground opacity-75">
-              {item.catalogItemName ?? item.catalogItemId}
+              {targetLabel}
+              {levelLabel && <span className="ml-1.5 text-[9px] text-muted-foreground uppercase">{levelLabel}</span>}
             </div>
           </div>
 
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="block text-xs font-medium text-muted-foreground mb-1">Station</label>
             <select
               value={stationId}
@@ -3561,6 +3925,7 @@ function EditPrepTimeDialog({
           </div>
 
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="block text-xs font-medium text-muted-foreground mb-1">Prep Time (minutes)</label>
             <input
               type="number"

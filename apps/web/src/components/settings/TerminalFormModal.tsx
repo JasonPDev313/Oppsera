@@ -89,8 +89,9 @@ export function TerminalFormModal({ profitCenterId, terminalId, onClose, onSaved
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground">Name</label>
+            <label htmlFor="tfm-name" className="block text-sm font-medium text-foreground">Name</label>
             <input
+              id="tfm-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -100,8 +101,9 @@ export function TerminalFormModal({ profitCenterId, terminalId, onClose, onSaved
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground">Terminal Number</label>
+            <label htmlFor="tfm-terminal-number" className="block text-sm font-medium text-foreground">Terminal Number</label>
             <input
+              id="tfm-terminal-number"
               type="number"
               value={terminalNumber}
               onChange={(e) => setTerminalNumber(e.target.value)}
@@ -111,8 +113,9 @@ export function TerminalFormModal({ profitCenterId, terminalId, onClose, onSaved
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground">Device Identifier</label>
+            <label htmlFor="tfm-device-identifier" className="block text-sm font-medium text-foreground">Device Identifier</label>
             <input
+              id="tfm-device-identifier"
               type="text"
               value={deviceIdentifier}
               onChange={(e) => setDeviceIdentifier(e.target.value)}
@@ -122,8 +125,9 @@ export function TerminalFormModal({ profitCenterId, terminalId, onClose, onSaved
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground">IP Address</label>
+            <label htmlFor="tfm-ip-address" className="block text-sm font-medium text-foreground">IP Address</label>
             <input
+              id="tfm-ip-address"
               type="text"
               value={ipAddress}
               onChange={(e) => setIpAddress(e.target.value)}

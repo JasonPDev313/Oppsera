@@ -283,6 +283,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
 
                         {isActionsOpen && (
                           <>
+                            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
                             <div className="fixed inset-0 z-10" onClick={() => setActionsOpenId(null)} />
                             <div className="absolute right-2 top-full z-20 mt-1 w-40 rounded-lg border border-border bg-surface py-1 shadow-lg">
                               {(role.isSystem ? role.name !== 'owner' : true) && (
@@ -1061,6 +1062,7 @@ export function DashboardSettingsTab() {
         <h3 className="text-sm font-medium text-foreground">Widgets</h3>
         <div className="space-y-3">
           {widgets.map((w) => (
+            // eslint-disable-next-line jsx-a11y/label-has-associated-control
             <label key={w.key} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-4 hover:bg-accent/50">
               <input
                 type="checkbox"

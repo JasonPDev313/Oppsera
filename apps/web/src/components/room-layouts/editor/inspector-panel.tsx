@@ -347,6 +347,7 @@ function ObjectProperties({ objs }: { objs: CanvasObject[] }) {
       {isSingle && obj.type === 'text_label' && (
         <Section title="Text Settings">
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="text-xs text-muted-foreground">Content</label>
             <textarea value={String(props.text ?? '')} onChange={(e) => handlePropChange('text', e.target.value)} onBlur={commit} rows={2} className="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-foreground" />
           </div>

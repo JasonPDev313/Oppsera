@@ -102,6 +102,7 @@ export function ModeManagerDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
@@ -190,6 +191,7 @@ export function ModeManagerDialog({
               onChange={(e) => setNewModeName(e.target.value)}
               placeholder="Mode name (e.g., Event)"
               className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
             {modes.length > 0 && (

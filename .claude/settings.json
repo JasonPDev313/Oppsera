@@ -61,7 +61,9 @@
       "WebFetch(domain:www.revenuehub.org)",
       "WebFetch(domain:www.accountingtools.com)",
       "WebFetch(domain:www.double-entry-bookkeeping.com)",
-      "WebFetch(domain:buzsoftware.com)"
+      "WebFetch(domain:buzsoftware.com)",
+      "Bash(# There are BOTH /packages/fnb and /packages/modules/fnb # Let me check which one has the validation files ls /c/Users/Jason/Dev/Oppsera/packages/fnb/src/)",
+      "Bash(docker info)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",
@@ -76,7 +78,11 @@
       "c:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\api\\v1\\fnb\\public\\[tenantSlug]\\waitlist",
       "c:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\(guest)\\waitlist\\[tenantSlug]\\status",
       "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\api\\v1\\fnb\\host\\waitlist\\[id]",
-      "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\(guest)\\waitlist\\[tenantSlug]"
+      "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\(guest)\\waitlist\\[tenantSlug]",
+      "c:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\api\\v1\\inventory\\[id]",
+      "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\.next",
+      "c:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\.next",
+      "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web"
     ]
   }
 }

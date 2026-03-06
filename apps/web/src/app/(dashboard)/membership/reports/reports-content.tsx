@@ -280,8 +280,9 @@ export default function ReportsContent() {
           <span className="text-sm font-medium text-foreground">Filters</span>
         </div>
         <div>
-          <label className="block text-xs text-muted-foreground">Period Start</label>
+          <label htmlFor="membership-period-start" className="block text-xs text-muted-foreground">Period Start</label>
           <input
+            id="membership-period-start"
             type="date"
             value={periodStart}
             onChange={(e) => setPeriodStart(e.target.value)}
@@ -289,8 +290,9 @@ export default function ReportsContent() {
           />
         </div>
         <div>
-          <label className="block text-xs text-muted-foreground">Period End</label>
+          <label htmlFor="membership-period-end" className="block text-xs text-muted-foreground">Period End</label>
           <input
+            id="membership-period-end"
             type="date"
             value={periodEnd}
             onChange={(e) => setPeriodEnd(e.target.value)}
@@ -298,8 +300,9 @@ export default function ReportsContent() {
           />
         </div>
         <div>
-          <label className="block text-xs text-muted-foreground">Status</label>
+          <label htmlFor="membership-status-filter" className="block text-xs text-muted-foreground">Status</label>
           <select
+            id="membership-status-filter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground"
@@ -311,8 +314,9 @@ export default function ReportsContent() {
           </select>
         </div>
         <div>
-          <label className="block text-xs text-muted-foreground">Compliance</label>
+          <label htmlFor="membership-traffic-filter" className="block text-xs text-muted-foreground">Compliance</label>
           <select
+            id="membership-traffic-filter"
             value={trafficFilter}
             onChange={(e) => setTrafficFilter(e.target.value as 'all' | 'green' | 'amber' | 'red')}
             className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground"

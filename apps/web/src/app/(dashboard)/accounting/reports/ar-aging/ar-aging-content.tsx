@@ -162,8 +162,9 @@ export default function ArAgingReportContent() {
 
       {/* Date selector */}
       <div className="flex flex-wrap items-center gap-3 print:hidden">
-        <label className="text-sm font-medium text-foreground">As of Date</label>
+        <label htmlFor="ar-aging-as-of-date" className="text-sm font-medium text-foreground">As of Date</label>
         <input
+          id="ar-aging-as-of-date"
           type="date"
           value={asOfDate}
           onChange={(e) => setAsOfDate(e.target.value)}

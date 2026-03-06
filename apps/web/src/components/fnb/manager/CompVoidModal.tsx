@@ -54,6 +54,7 @@ export function CompVoidModal({ open, onClose, lines, onComp, onVoid, disabled }
       className="fixed inset-0 flex items-center justify-center"
       style={{ zIndex: 'var(--fnb-z-modal)' } as React.CSSProperties}
     >
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div
         className="relative rounded-2xl p-5 w-[420px] shadow-2xl max-h-[80vh] flex flex-col"

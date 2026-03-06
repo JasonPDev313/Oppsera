@@ -363,8 +363,9 @@ export function ReceiptSettingsTab() {
         {/* Printer */}
         <Section id="printer" icon={Printer} title="Printer">
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Paper Width</label>
+            <label htmlFor="receipt-printer-width" className="mb-1 block text-sm font-medium text-foreground">Paper Width</label>
             <select
+              id="receipt-printer-width"
               value={draft.printerWidth}
               onChange={(e) => patch('printerWidth', e.target.value as '58mm' | '80mm')}
               className={SELECT}
@@ -382,8 +383,9 @@ export function ReceiptSettingsTab() {
         <Section id="typography" icon={Type} title="Typography">
           <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Font Family</label>
+              <label htmlFor="receipt-font-family" className="mb-1 block text-sm font-medium text-foreground">Font Family</label>
               <select
+                id="receipt-font-family"
                 value={draft.fontFamily}
                 onChange={(e) => patch('fontFamily', e.target.value as ReceiptFontFamily)}
                 className={SELECT}
@@ -395,8 +397,9 @@ export function ReceiptSettingsTab() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">Body Font Size</label>
+                <label htmlFor="receipt-body-font-size" className="mb-1 block text-sm font-medium text-foreground">Body Font Size</label>
                 <input
+                  id="receipt-body-font-size"
                   type="number"
                   min={8}
                   max={16}
@@ -407,8 +410,9 @@ export function ReceiptSettingsTab() {
                 <p className="mt-1 text-xs text-muted-foreground">8–16 px</p>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">Header Font Size</label>
+                <label htmlFor="receipt-header-font-size" className="mb-1 block text-sm font-medium text-foreground">Header Font Size</label>
                 <input
+                  id="receipt-header-font-size"
                   type="number"
                   min={10}
                   max={20}
@@ -420,8 +424,9 @@ export function ReceiptSettingsTab() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Line Height</label>
+              <label htmlFor="receipt-line-height" className="mb-1 block text-sm font-medium text-foreground">Line Height</label>
               <input
+                id="receipt-line-height"
                 type="number"
                 min={1.0}
                 max={2.0}
@@ -461,6 +466,7 @@ export function ReceiptSettingsTab() {
               onChange={(v) => patch('showTaxId', v)}
             />
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="mb-1 block text-sm font-medium text-foreground">Custom Header Lines</label>
               <LinesEditor
                 lines={draft.customHeaderLines}
@@ -532,8 +538,9 @@ export function ReceiptSettingsTab() {
             {draft.showQrCode && (
               <>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">QR Code Label</label>
+                  <label htmlFor="receipt-qr-label" className="mb-1 block text-sm font-medium text-foreground">QR Code Label</label>
                   <input
+                    id="receipt-qr-label"
                     type="text"
                     value={draft.qrCodeLabel}
                     maxLength={100}
@@ -543,8 +550,9 @@ export function ReceiptSettingsTab() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">QR Code URL</label>
+                  <label htmlFor="receipt-qr-url" className="mb-1 block text-sm font-medium text-foreground">QR Code URL</label>
                   <input
+                    id="receipt-qr-url"
                     type="text"
                     value={draft.qrCodeUrlTemplate}
                     maxLength={500}
@@ -573,8 +581,9 @@ export function ReceiptSettingsTab() {
             {draft.digitalReceiptEnabled && (
               <>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">Link Expiry (days)</label>
+                  <label htmlFor="receipt-digital-expiry" className="mb-1 block text-sm font-medium text-foreground">Link Expiry (days)</label>
                   <input
+                    id="receipt-digital-expiry"
                     type="number"
                     min={0}
                     max={365}
@@ -601,8 +610,9 @@ export function ReceiptSettingsTab() {
                 />
                 <p className="ml-12 -mt-2 text-xs text-amber-500">Coming soon</p>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">Email From Name</label>
+                  <label htmlFor="receipt-email-from-name" className="mb-1 block text-sm font-medium text-foreground">Email From Name</label>
                   <input
+                    id="receipt-email-from-name"
                     type="text"
                     value={draft.emailReceiptFromName}
                     maxLength={100}
@@ -623,8 +633,9 @@ export function ReceiptSettingsTab() {
         <Section id="footer" icon={Type} title="Footer" defaultOpen={false}>
           <div className="space-y-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Thank You Message</label>
+              <label htmlFor="receipt-thank-you" className="mb-1 block text-sm font-medium text-foreground">Thank You Message</label>
               <input
+                id="receipt-thank-you"
                 type="text"
                 value={draft.thankYouMessage}
                 maxLength={200}
@@ -640,8 +651,9 @@ export function ReceiptSettingsTab() {
             />
             {draft.showReturnPolicy && (
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">Return Policy Text</label>
+                <label htmlFor="receipt-return-policy" className="mb-1 block text-sm font-medium text-foreground">Return Policy Text</label>
                 <textarea
+                  id="receipt-return-policy"
                   value={draft.returnPolicyText}
                   maxLength={500}
                   rows={3}
@@ -652,6 +664,7 @@ export function ReceiptSettingsTab() {
               </div>
             )}
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="mb-1 block text-sm font-medium text-foreground">Custom Footer Lines</label>
               <LinesEditor
                 lines={draft.customFooterLines}
@@ -695,8 +708,9 @@ export function ReceiptSettingsTab() {
               onChange={(v) => patch('autoPromptReceipt', v)}
             />
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Receipt Copies</label>
+              <label htmlFor="receipt-copies" className="mb-1 block text-sm font-medium text-foreground">Receipt Copies</label>
               <select
+                id="receipt-copies"
                 value={draft.receiptCopies}
                 onChange={(e) => patch('receiptCopies', Number(e.target.value))}
                 className={SELECT}
@@ -715,8 +729,9 @@ export function ReceiptSettingsTab() {
         <div className="sticky top-4 space-y-3">
           {/* Variant selector */}
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-foreground shrink-0">Preview:</label>
+            <label htmlFor="receipt-preview-variant" className="text-sm font-medium text-foreground shrink-0">Preview:</label>
             <select
+              id="receipt-preview-variant"
               value={previewVariant}
               onChange={(e) => setPreviewVariant(e.target.value as ReceiptVariant)}
               className={SELECT}

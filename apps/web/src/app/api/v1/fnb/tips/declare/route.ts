@@ -8,6 +8,7 @@ import { declareCashTips, declareCashTipsSchema } from '@oppsera/module-fnb';
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const body = await request.json();
+    body.serverUserId = body.serverUserId || ctx.user.id;
     const parsed = declareCashTipsSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

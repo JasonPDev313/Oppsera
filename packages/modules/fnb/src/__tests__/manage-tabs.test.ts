@@ -350,6 +350,66 @@ describe('Manage Tabs', () => {
 
       expect(result.failed[0]!.error).toContain("Cannot void tab in status 'voided'");
     });
+
+    it('rejects tab with stale version (optimistic locking)', async () => {
+      const bulkVoidTabs = await importBulkVoid();
+      const tab = makeTab({ id: 'tab-1', status: 'open', version: 3 });
+      mockTx.where.mockResolvedValueOnce([tab]);
+      mockTx.returning.mockResolvedValueOnce([{ id: 'override-1' }]);
+
+      const result = await bulkVoidTabs(makeCtx(), {
+        tenantId: 'tenant-1',
+        locationId: 'loc-1',
+        tabIds: ['tab-1'],
+        reasonCode: 'end_of_shift',
+        approverUserId: 'manager-1',
+        clientRequestId: 'req-void-stale-version',
+        expectedVersions: { 'tab-1': 2 }, // client has version 2, server has 3
+      });
+
+      expect(result.succeeded).toHaveLength(0);
+      expect(result.failed).toHaveLength(1);
+      expect(result.failed[0]!.error).toContain('Conflict');
+    });
+
+    it('accepts tab when version matches (optimistic locking)', async () => {
+      const bulkVoidTabs = await importBulkVoid();
+      const tab = makeTab({ id: 'tab-1', status: 'open', version: 5 });
+      mockTx.where.mockResolvedValueOnce([tab]);
+      mockTx.returning.mockResolvedValueOnce([{ id: 'override-1' }]);
+
+      const result = await bulkVoidTabs(makeCtx(), {
+        tenantId: 'tenant-1',
+        locationId: 'loc-1',
+        tabIds: ['tab-1'],
+        reasonCode: 'end_of_shift',
+        approverUserId: 'manager-1',
+        clientRequestId: 'req-void-version-match',
+        expectedVersions: { 'tab-1': 5 }, // matches server version
+      });
+
+      expect(result.succeeded).toEqual(['tab-1']);
+      expect(result.failed).toHaveLength(0);
+    });
+
+    it('skips version check when expectedVersions not provided', async () => {
+      const bulkVoidTabs = await importBulkVoid();
+      const tab = makeTab({ id: 'tab-1', status: 'open', version: 99 });
+      mockTx.where.mockResolvedValueOnce([tab]);
+      mockTx.returning.mockResolvedValueOnce([{ id: 'override-1' }]);
+
+      const result = await bulkVoidTabs(makeCtx(), {
+        tenantId: 'tenant-1',
+        locationId: 'loc-1',
+        tabIds: ['tab-1'],
+        reasonCode: 'end_of_shift',
+        approverUserId: 'manager-1',
+        clientRequestId: 'req-void-no-version-check',
+        // no expectedVersions — should succeed regardless of version
+      });
+
+      expect(result.succeeded).toEqual(['tab-1']);
+    });
   });
 
   // ────────────────────────────────────────────────────────────
@@ -538,6 +598,27 @@ describe('Manage Tabs', () => {
 
       expect(result.succeeded).toEqual(['tab-1']);
       expect(result.failed).toHaveLength(2);
+    });
+
+    it('rejects transfer with stale version (optimistic locking)', async () => {
+      const bulkTransferTabs = await importBulkTransfer();
+      const tab = makeTab({ id: 'tab-1', status: 'open', serverUserId: 'server-1', version: 4 });
+      mockTx.where.mockResolvedValueOnce([tab]);
+      mockTx.returning.mockResolvedValueOnce([{ id: 'override-1' }]);
+
+      const result = await bulkTransferTabs(makeCtx(), {
+        tenantId: 'tenant-1',
+        locationId: 'loc-1',
+        tabIds: ['tab-1'],
+        toServerUserId: 'server-2',
+        reasonCode: 'end_of_shift',
+        clientRequestId: 'req-transfer-stale',
+        expectedVersions: { 'tab-1': 3 }, // stale: client has 3, server has 4
+      });
+
+      expect(result.succeeded).toHaveLength(0);
+      expect(result.failed).toHaveLength(1);
+      expect(result.failed[0]!.error).toContain('Conflict');
     });
   });
 
@@ -768,16 +849,20 @@ describe('Manage Tabs', () => {
 
     it('runs all sub-operations when enabled', async () => {
       const emergencyCleanup = await importEmergencyCleanup();
-      // paying tabs select (terminal)
+      // closePaidTabs uses tx.execute() for raw SQL (lateral joins)
+      mockTx.execute
+        .mockResolvedValueOnce([{ id: 'paid-1', version: 1, table_id: null }]) // SELECT paying tabs
+        .mockResolvedValueOnce(undefined); // UPDATE paid tab
+
+      // releaseLocks: delete → where (intermediate) → returning
       mockTx.where
-        .mockResolvedValueOnce([makeTab({ id: 'paid-1', status: 'paying', tableId: null })])
-        .mockReturnValueOnce(mockTx)    // tab update .where() — intermediate
-        .mockReturnValueOnce(mockTx)    // delete locks .where() — intermediate
-        .mockResolvedValueOnce([]);     // stale tabs select (terminal)
-      // lock deletes returning
-      mockTx.returning.mockResolvedValueOnce([{ id: 'lock-1' }]);
-      // insert override returning
-      mockTx.returning.mockResolvedValueOnce([{ id: 'override-1' }]);
+        .mockReturnValueOnce(mockTx)    // delete locks .where() — intermediate, chain to returning
+        .mockResolvedValueOnce([]);     // voidStaleTabs: select().from().where() — terminal, no stale tabs
+
+      // returning: first for lock deletes, second for override insert
+      mockTx.returning
+        .mockResolvedValueOnce([{ id: 'lock-1' }])
+        .mockResolvedValueOnce([{ id: 'override-1' }]);
 
       const result = await emergencyCleanup(makeCtx(), {
         tenantId: 'tenant-1',
@@ -1181,6 +1266,212 @@ describe('Manage Tabs', () => {
       expect(result.items).toHaveLength(100);
       expect(result.hasMore).toBe(true);
       expect(result.cursor).toBeDefined();
+    });
+
+    it('cursor encodes openedAt for oldest sort', async () => {
+      const listTabsForManage = await importListTabs();
+      const openedAt = new Date('2026-01-15T10:00:00Z');
+      const items = Array.from({ length: 3 }, (_, i) => ({
+        id: `tab-${i}`,
+        tab_number: i + 1,
+        guest_name: null,
+        status: 'open',
+        table_id: null,
+        table_label: null,
+        server_user_id: null,
+        server_name: null,
+        party_size: null,
+        course_count: 0,
+        opened_at: openedAt,
+        updated_at: new Date(),
+        closed_at: null,
+        version: 1,
+        open_duration_minutes: 30,
+      }));
+      mockTx.execute.mockResolvedValueOnce(items);
+
+      const result = await listTabsForManage({
+        tenantId: 'tenant-1',
+        locationId: 'loc-1',
+        sortBy: 'oldest',
+        viewMode: 'all',
+        includeAmounts: false,
+        limit: 2,
+      });
+
+      expect(result.hasMore).toBe(true);
+      expect(result.cursor).toBeDefined();
+      // Decode and verify the compound cursor contains openedAt
+      const decoded = JSON.parse(Buffer.from(result.cursor!, 'base64url').toString());
+      expect(decoded.id).toBe('tab-1');
+      expect(decoded.oa).toBeDefined();
+    });
+
+    it('cursor encodes updatedAt for recently_updated sort', async () => {
+      const listTabsForManage = await importListTabs();
+      const updatedAt = new Date('2026-02-20T14:30:00Z');
+      const items = Array.from({ length: 3 }, (_, i) => ({
+        id: `tab-${i}`,
+        tab_number: i + 1,
+        guest_name: null,
+        status: 'open',
+        table_id: null,
+        table_label: null,
+        server_user_id: null,
+        server_name: null,
+        party_size: null,
+        course_count: 0,
+        opened_at: new Date(),
+        updated_at: updatedAt,
+        closed_at: null,
+        version: 1,
+        open_duration_minutes: 10,
+      }));
+      mockTx.execute.mockResolvedValueOnce(items);
+
+      const result = await listTabsForManage({
+        tenantId: 'tenant-1',
+        locationId: 'loc-1',
+        sortBy: 'recently_updated',
+        viewMode: 'all',
+        includeAmounts: false,
+        limit: 2,
+      });
+
+      expect(result.hasMore).toBe(true);
+      const decoded = JSON.parse(Buffer.from(result.cursor!, 'base64url').toString());
+      expect(decoded.id).toBe('tab-1');
+      expect(decoded.ua).toBeDefined();
+      expect(decoded.oa).toBeUndefined(); // should NOT contain openedAt
+    });
+
+    it('cursor encodes balance for highest_balance sort with includeAmounts', async () => {
+      const listTabsForManage = await importListTabs();
+      const items = Array.from({ length: 3 }, (_, i) => ({
+        id: `tab-${i}`,
+        tab_number: i + 1,
+        guest_name: null,
+        status: 'open',
+        table_id: null,
+        table_label: null,
+        server_user_id: null,
+        server_name: null,
+        party_size: null,
+        course_count: 0,
+        opened_at: new Date(),
+        updated_at: new Date(),
+        closed_at: null,
+        version: 1,
+        open_duration_minutes: 10,
+        order_total: 5000,
+        amount_paid: 2000,
+      }));
+      mockTx.execute.mockResolvedValueOnce(items);
+
+      const result = await listTabsForManage({
+        tenantId: 'tenant-1',
+        locationId: 'loc-1',
+        sortBy: 'highest_balance',
+        viewMode: 'all',
+        includeAmounts: true,
+        limit: 2,
+      });
+
+      expect(result.hasMore).toBe(true);
+      const decoded = JSON.parse(Buffer.from(result.cursor!, 'base64url').toString());
+      expect(decoded.id).toBe('tab-1');
+      expect(decoded.bal).toBe(3000); // 5000 - 2000
+    });
+
+    it('falls back to updatedAt for highest_balance when includeAmounts=false', async () => {
+      const listTabsForManage = await importListTabs();
+      const items = Array.from({ length: 3 }, (_, i) => ({
+        id: `tab-${i}`,
+        tab_number: i + 1,
+        guest_name: null,
+        status: 'open',
+        table_id: null,
+        table_label: null,
+        server_user_id: null,
+        server_name: null,
+        party_size: null,
+        course_count: 0,
+        opened_at: new Date(),
+        updated_at: new Date('2026-03-01T08:00:00Z'),
+        closed_at: null,
+        version: 1,
+        open_duration_minutes: 10,
+      }));
+      mockTx.execute.mockResolvedValueOnce(items);
+
+      const result = await listTabsForManage({
+        tenantId: 'tenant-1',
+        locationId: 'loc-1',
+        sortBy: 'highest_balance',
+        viewMode: 'all',
+        includeAmounts: false,
+        limit: 2,
+      });
+
+      expect(result.hasMore).toBe(true);
+      const decoded = JSON.parse(Buffer.from(result.cursor!, 'base64url').toString());
+      expect(decoded.ua).toBeDefined();
+      expect(decoded.bal).toBeUndefined();
+    });
+
+    it('handles backwards-compatible plain ULID cursor', async () => {
+      const listTabsForManage = await importListTabs();
+      mockTx.execute.mockResolvedValueOnce([]);
+
+      // Should not throw when given a plain ULID cursor (pre-compound format)
+      const result = await listTabsForManage({
+        tenantId: 'tenant-1',
+        locationId: 'loc-1',
+        sortBy: 'oldest',
+        viewMode: 'all',
+        includeAmounts: false,
+        cursor: '01HXYZ1234567890ABCDEFGH', // plain ULID, not base64url JSON
+        limit: 100,
+      });
+
+      expect(result.items).toHaveLength(0);
+      expect(result.hasMore).toBe(false);
+    });
+
+    it('no cursor returned when no more pages', async () => {
+      const listTabsForManage = await importListTabs();
+      // Return exactly limit items (no hasMore)
+      const items = Array.from({ length: 5 }, (_, i) => ({
+        id: `tab-${i}`,
+        tab_number: i + 1,
+        guest_name: null,
+        status: 'open',
+        table_id: null,
+        table_label: null,
+        server_user_id: null,
+        server_name: null,
+        party_size: null,
+        course_count: 0,
+        opened_at: new Date(),
+        updated_at: new Date(),
+        closed_at: null,
+        version: 1,
+        open_duration_minutes: 10,
+      }));
+      mockTx.execute.mockResolvedValueOnce(items);
+
+      const result = await listTabsForManage({
+        tenantId: 'tenant-1',
+        locationId: 'loc-1',
+        sortBy: 'newest',
+        viewMode: 'all',
+        includeAmounts: false,
+        limit: 10,
+      });
+
+      expect(result.items).toHaveLength(5);
+      expect(result.hasMore).toBe(false);
+      expect(result.cursor).toBeNull();
     });
   });
 

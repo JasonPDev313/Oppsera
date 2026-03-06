@@ -3,6 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
+import { generateUlid } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { UpsertItemPrepTimeInput, BulkUpsertItemPrepTimesInput } from '../validation';
 
@@ -18,13 +19,16 @@ export async function upsertItemPrepTime(
       return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
+    const catalogItemId = input.catalogItemId ?? null;
+    const categoryId = input.categoryId ?? null;
     const stationId = input.stationId ?? null;
 
     // Manual upsert — ON CONFLICT doesn't support COALESCE expressions directly
     const existingRows = await tx.execute(
       sql`SELECT id FROM fnb_kds_item_prep_times
           WHERE tenant_id = ${ctx.tenantId}
-            AND catalog_item_id = ${input.catalogItemId}
+            AND COALESCE(catalog_item_id, '') = COALESCE(${catalogItemId}, '')
+            AND COALESCE(category_id, '') = COALESCE(${categoryId}, '')
             AND COALESCE(station_id, '') = COALESCE(${stationId}, '')
             AND is_active = true
           LIMIT 1`,
@@ -43,10 +47,10 @@ export async function upsertItemPrepTime(
     } else {
       rows = await tx.execute(
         sql`INSERT INTO fnb_kds_item_prep_times (
-              tenant_id, catalog_item_id, station_id,
+              id, tenant_id, catalog_item_id, category_id, station_id,
               estimated_prep_seconds, is_active
             ) VALUES (
-              ${ctx.tenantId}, ${input.catalogItemId}, ${stationId},
+              ${generateUlid()}, ${ctx.tenantId}, ${catalogItemId}, ${categoryId}, ${stationId},
               ${input.estimatedPrepSeconds}, true
             )
             RETURNING *`,
@@ -57,7 +61,8 @@ export async function upsertItemPrepTime(
 
     const event = buildEventFromContext(ctx, 'fnb.kds.item_prep_time.upserted.v1', {
       prepTimeId: saved.id as string,
-      catalogItemId: input.catalogItemId,
+      catalogItemId,
+      categoryId,
       stationId,
       estimatedPrepSeconds: input.estimatedPrepSeconds,
     });
@@ -85,12 +90,15 @@ export async function bulkUpsertItemPrepTimes(
     const savedItems: Record<string, unknown>[] = [];
 
     for (const item of input.items) {
+      const catalogItemId = item.catalogItemId ?? null;
+      const categoryId = item.categoryId ?? null;
       const stationId = item.stationId ?? null;
 
       const existingRows = await tx.execute(
         sql`SELECT id FROM fnb_kds_item_prep_times
             WHERE tenant_id = ${ctx.tenantId}
-              AND catalog_item_id = ${item.catalogItemId}
+              AND COALESCE(catalog_item_id, '') = COALESCE(${catalogItemId}, '')
+              AND COALESCE(category_id, '') = COALESCE(${categoryId}, '')
               AND COALESCE(station_id, '') = COALESCE(${stationId}, '')
               AND is_active = true
             LIMIT 1`,
@@ -109,10 +117,10 @@ export async function bulkUpsertItemPrepTimes(
       } else {
         rows = await tx.execute(
           sql`INSERT INTO fnb_kds_item_prep_times (
-                tenant_id, catalog_item_id, station_id,
+                id, tenant_id, catalog_item_id, category_id, station_id,
                 estimated_prep_seconds, is_active
               ) VALUES (
-                ${ctx.tenantId}, ${item.catalogItemId}, ${stationId},
+                ${generateUlid()}, ${ctx.tenantId}, ${catalogItemId}, ${categoryId}, ${stationId},
                 ${item.estimatedPrepSeconds}, true
               )
               RETURNING *`,

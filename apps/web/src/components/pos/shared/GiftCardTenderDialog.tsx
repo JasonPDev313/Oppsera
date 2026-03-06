@@ -137,6 +137,7 @@ export function GiftCardTenderDialog({
     : 0;
 
   return createPortal(
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       role="dialog"
@@ -145,6 +146,7 @@ export function GiftCardTenderDialog({
       onKeyDown={handleKeyDown}
     >
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Dialog */}
@@ -173,13 +175,14 @@ export function GiftCardTenderDialog({
 
         {/* Card number input + lookup */}
         <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+          <label htmlFor="gc-card-number" className="mb-1.5 block text-sm font-medium text-muted-foreground">
             Card Number
           </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <CreditCard className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <input
+                id="gc-card-number"
                 ref={inputRef}
                 type="text"
                 value={cardNumber}
@@ -234,7 +237,7 @@ export function GiftCardTenderDialog({
         {/* Redemption amount */}
         {balance && (
           <div className="mb-5">
-            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+            <label htmlFor="gc-redeem-amount" className="mb-1.5 block text-sm font-medium text-muted-foreground">
               Redemption Amount
             </label>
             <div className="relative">
@@ -242,6 +245,7 @@ export function GiftCardTenderDialog({
                 $
               </span>
               <input
+                id="gc-redeem-amount"
                 type="number"
                 step="0.01"
                 min="0.01"

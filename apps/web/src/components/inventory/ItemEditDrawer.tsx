@@ -298,6 +298,7 @@ export function ItemEditDrawer() {
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className={`fixed inset-0 transition-opacity duration-300 ${
           isAnimating ? 'bg-black/30' : 'bg-black/0'
@@ -440,6 +441,7 @@ export function ItemEditDrawer() {
       {showDiscardDialog &&
         createPortal(
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div
               className="fixed inset-0 bg-black/50"
               onClick={() => setShowDiscardDialog(false)}

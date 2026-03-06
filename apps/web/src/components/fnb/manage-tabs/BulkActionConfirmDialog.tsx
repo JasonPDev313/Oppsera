@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle, XCircle, X, ChevronRight } from 'lucide-react';
 import { ManagerPinModal } from '../manager/ManagerPinModal';
@@ -26,6 +26,12 @@ const ACTION_LABELS: Record<ActionType, string> = {
   void: 'Void',
   transfer: 'Transfer',
   close: 'Close',
+};
+
+const ACTION_GERUNDS: Record<ActionType, string> = {
+  void: 'Voiding',
+  transfer: 'Transferring',
+  close: 'Closing',
 };
 
 const ACTION_COLORS: Record<ActionType, string> = {
@@ -70,6 +76,18 @@ export function BulkActionConfirmDialog({
   const [reasonText, setReasonText] = useState('');
   const [executing, setExecuting] = useState(false);
   const [result, setResult] = useState<{ succeeded: string[]; failed: Array<{ tabId: string; error: string }> } | null>(null);
+
+  // Reset all internal state when the dialog re-opens to prevent stale state from previous run
+  useEffect(() => {
+    if (open) {
+      setStep('summary');
+      setPinError(null);
+      setReasonCode('end_of_shift');
+      setReasonText('');
+      setExecuting(false);
+      setResult(null);
+    }
+  }, [open]);
 
   if (!open) return null;
 
@@ -120,6 +138,7 @@ export function BulkActionConfirmDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/60" onClick={step !== 'execute' ? handleDone : undefined} />
       <div
         className="relative w-full max-w-md rounded-xl shadow-2xl p-6"
@@ -259,7 +278,7 @@ export function BulkActionConfirmDialog({
             {executing ? (
               <>
                 <h2 className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
-                  {actionLabel}ing Tabs...
+                  {ACTION_GERUNDS[actionType]} Tabs...
                 </h2>
                 <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--fnb-bg-primary)' }}>
                   <div

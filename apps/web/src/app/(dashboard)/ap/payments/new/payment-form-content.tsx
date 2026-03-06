@@ -133,10 +133,11 @@ export default function PaymentFormContent() {
         <div className="rounded-lg border border-border bg-surface p-5 space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="ap-payment-vendor" className="block text-sm font-medium text-foreground mb-1">
                 Vendor <span className="text-red-500">*</span>
               </label>
               <input
+                id="ap-payment-vendor"
                 type="text"
                 value={vendorId}
                 onChange={(e) => handleVendorChange(e.target.value)}
@@ -145,10 +146,11 @@ export default function PaymentFormContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="ap-payment-date" className="block text-sm font-medium text-foreground mb-1">
                 Payment Date <span className="text-red-500">*</span>
               </label>
               <input
+                id="ap-payment-date"
                 type="date"
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
@@ -156,8 +158,9 @@ export default function PaymentFormContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Payment Method</label>
+              <label htmlFor="ap-payment-method" className="block text-sm font-medium text-foreground mb-1">Payment Method</label>
               <select
+                id="ap-payment-method"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -168,8 +171,9 @@ export default function PaymentFormContent() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Bank Account</label>
+              <label htmlFor="ap-payment-bank-account" className="block text-sm font-medium text-foreground mb-1">Bank Account</label>
               <input
+                id="ap-payment-bank-account"
                 type="text"
                 value={bankAccountId}
                 onChange={(e) => setBankAccountId(e.target.value)}
@@ -178,8 +182,9 @@ export default function PaymentFormContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Reference #</label>
+              <label htmlFor="ap-payment-reference" className="block text-sm font-medium text-foreground mb-1">Reference #</label>
               <input
+                id="ap-payment-reference"
                 type="text"
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
@@ -188,6 +193,7 @@ export default function PaymentFormContent() {
               />
             </div>
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="block text-sm font-medium text-foreground mb-1">
                 Amount <span className="text-red-500">*</span>
               </label>
@@ -195,8 +201,9 @@ export default function PaymentFormContent() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Memo</label>
+            <label htmlFor="ap-payment-memo" className="block text-sm font-medium text-foreground mb-1">Memo</label>
             <textarea
+              id="ap-payment-memo"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               rows={2}

@@ -345,6 +345,7 @@ export default function RatePlansContent() {
       {isDialogOpen &&
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div
               className="absolute inset-0 bg-black/40"
               onClick={closeDialog}
@@ -372,6 +373,7 @@ export default function RatePlansContent() {
               <div className="space-y-4">
                 {/* Property (read-only for single property) */}
                 <div>
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                   <label className="mb-1 block text-sm font-medium text-foreground">
                     Property
                   </label>
@@ -392,16 +394,18 @@ export default function RatePlansContent() {
 
                 {/* Code */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="rate-plan-code" className="mb-1 block text-sm font-medium text-foreground">
                     Code <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="rate-plan-code"
                     type="text"
                     value={formCode}
                     onChange={(e) => setFormCode(e.target.value.toUpperCase())}
                     placeholder="e.g. RACK, WKND, PROMO"
                     maxLength={20}
                     className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -411,10 +415,11 @@ export default function RatePlansContent() {
 
                 {/* Name */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="rate-plan-name" className="mb-1 block text-sm font-medium text-foreground">
                     Name <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="rate-plan-name"
                     type="text"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
@@ -426,10 +431,11 @@ export default function RatePlansContent() {
 
                 {/* Description */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="rate-plan-description" className="mb-1 block text-sm font-medium text-foreground">
                     Description
                   </label>
                   <input
+                    id="rate-plan-description"
                     type="text"
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
@@ -440,10 +446,11 @@ export default function RatePlansContent() {
 
                 {/* Default Nightly Rate */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="rate-plan-default-rate" className="mb-1 block text-sm font-medium text-foreground">
                     Default Nightly Rate ($)
                   </label>
                   <input
+                    id="rate-plan-default-rate"
                     type="number"
                     step="0.01"
                     min="0"

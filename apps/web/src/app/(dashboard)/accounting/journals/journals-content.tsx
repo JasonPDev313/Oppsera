@@ -235,6 +235,7 @@ function JournalRow({ entry, onRefresh: _onRefresh }: { entry: JournalEntry; onR
           </button>
           {showActions && (
             <>
+              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
               <div className="fixed inset-0 z-40" onClick={() => setShowActions(false)} />
               <div className="absolute right-0 z-50 mt-1 w-36 rounded-lg border border-border bg-surface py-1 shadow-lg">
                 <Link

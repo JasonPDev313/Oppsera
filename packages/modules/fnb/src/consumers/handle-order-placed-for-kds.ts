@@ -3,6 +3,7 @@ import { withTenant } from '@oppsera/db';
 import { orderLines, fnbKitchenTicketItems } from '@oppsera/db';
 import type { EventEnvelope } from '@oppsera/shared/types/events';
 import type { RequestContext } from '@oppsera/core/auth/context';
+import { logger } from '@oppsera/core/observability';
 import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from '../commands/create-kitchen-ticket';
@@ -16,7 +17,7 @@ const KDS_ITEM_TYPES = ['food', 'beverage'];
  * 1. Fetches order lines filtered to food/beverage
  * 2. Enriches items with catalog hierarchy (categoryId, departmentId) + modifierIds
  * 3. Bulk-resolves KDS stations via the routing engine
- * 4. Groups items by station, creates tickets in parallel
+ * 4. Groups items by station, creates tickets serially
  *
  * Idempotent via deterministic clientRequestId per order+station.
  * Never throws — logs errors and continues.
@@ -32,6 +33,7 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
   };
 
   if (!data.orderId || !data.locationId) return;
+  if (!event.tenantId) return;
 
   try {
     // 1. Fetch food/beverage order lines (acquires + releases its own conn)
@@ -68,7 +70,17 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
         ),
     ) as OrderLineRow[];
 
-    if (!lines.length) return;
+    if (!lines.length) {
+      logger.debug('[kds] handleOrderPlacedForKds: no food/bev lines found', {
+        domain: 'kds', tenantId: event.tenantId, orderId: data.orderId, locationId: data.locationId,
+      });
+      return;
+    }
+
+    logger.info('[kds] handleOrderPlacedForKds: processing order', {
+      domain: 'kds', tenantId: event.tenantId, orderId: data.orderId,
+      locationId: data.locationId, lineCount: lines.length,
+    });
 
     // 1b. Filter out lines already sent to KDS via manual send-to-kds flow
     const lineIds = lines.map((l) => l.id);
@@ -109,9 +121,10 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
     // Log items that couldn't be routed (no eligible station)
     const unrouted = routingResults.filter((r) => !r.stationId);
     if (unrouted.length > 0) {
-      console.warn(
-        `[handleOrderPlacedForKds] ${unrouted.length} item(s) could not be routed to any KDS station for order ${data.orderId}`,
-      );
+      logger.warn('[kds] handleOrderPlacedForKds: unroutable items', {
+        domain: 'kds', tenantId: event.tenantId, orderId: data.orderId,
+        locationId: data.locationId, unroutedCount: unrouted.length, totalLines: filteredLines.length,
+      });
     }
 
     // 5. Build a line lookup and group routed items by station
@@ -149,9 +162,19 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
       stationGroups.set(r.stationId, group);
     }
 
-    if (stationGroups.size === 0) return;
+    if (stationGroups.size === 0) {
+      logger.warn('[kds] handleOrderPlacedForKds: no stations resolved — no tickets created', {
+        domain: 'kds', tenantId: event.tenantId, orderId: data.orderId, locationId: data.locationId,
+      });
+      return;
+    }
 
-    // 6. Create one ticket per station — parallel since they're independent
+    logger.info('[kds] handleOrderPlacedForKds: creating tickets', {
+      domain: 'kds', tenantId: event.tenantId, orderId: data.orderId,
+      locationId: data.locationId, stationCount: stationGroups.size,
+    });
+
+    // 6. Create one ticket per station (serial to avoid pool exhaustion — gotcha #466)
     const syntheticCtx = {
       tenantId: event.tenantId,
       locationId: data.locationId,
@@ -164,27 +187,34 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
       isPlatformAdmin: false,
     } as unknown as RequestContext;
 
-    await Promise.all(
-      Array.from(stationGroups, ([stationId, ticketItems]) =>
-        createKitchenTicket(syntheticCtx, {
+    for (const [stationId, ticketItems] of stationGroups) {
+      try {
+        await createKitchenTicket(syntheticCtx, {
           clientRequestId: `retail-kds-${data.orderId}-${stationId}`,
           orderId: data.orderId,
           businessDate: data.businessDate,
           channel: 'pos',
           customerName: data.customerName ?? undefined,
           items: ticketItems,
-        }).catch((err) => {
-          console.warn(
-            `[handleOrderPlacedForKds] Failed to create ticket for station ${stationId}: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }),
-      ),
-    );
+        });
+      } catch (err) {
+        logger.warn('[kds] handleOrderPlacedForKds: failed to create ticket for station', {
+          domain: 'kds', tenantId: event.tenantId, orderId: data.orderId,
+          stationId, locationId: data.locationId,
+          error: { message: err instanceof Error ? err.message : String(err) },
+        });
+      }
+    }
   } catch (err) {
     // Consumer must never throw
-    console.error(
-      `[handleOrderPlacedForKds] Unhandled error for order ${data.orderId}: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    logger.error('[kds] handleOrderPlacedForKds: unhandled error', {
+      domain: 'kds', tenantId: event.tenantId, orderId: data.orderId,
+      locationId: data.locationId,
+      error: {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      },
+    });
   }
 }
 

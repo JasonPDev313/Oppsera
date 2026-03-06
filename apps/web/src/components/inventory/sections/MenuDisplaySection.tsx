@@ -54,6 +54,7 @@ export function MenuDisplaySection({ metadata, onUpdateMetadata }: MenuDisplaySe
     <CollapsibleSection id="menu-display" title="Menu Display" defaultOpen={false}>
       <div className="space-y-3">
         <div>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="mb-2 block text-xs font-medium text-foreground">
             Button Color
           </label>

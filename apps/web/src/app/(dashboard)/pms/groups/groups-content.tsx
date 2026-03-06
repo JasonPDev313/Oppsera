@@ -487,6 +487,7 @@ export default function GroupsContent() {
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div
               className="absolute inset-0 bg-black/40"
               onClick={closeDialog}
@@ -519,22 +520,24 @@ export default function GroupsContent() {
                 <div className="space-y-4">
                   {/* Group Name */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-foreground">
+                    <label htmlFor="group-name" className="mb-1 block text-sm font-medium text-foreground">
                       Group Name <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="group-name"
                       type="text"
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
                       placeholder="e.g. Smith Wedding Party"
                       className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      // eslint-disable-next-line jsx-a11y/no-autofocus
                       autoFocus
                     />
                   </div>
 
                   {/* Group Type */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-foreground">
+                    <label htmlFor="group-type" className="mb-1 block text-sm font-medium text-foreground">
                       Type <span className="text-red-500">*</span>
                     </label>
                     <Select
@@ -547,8 +550,9 @@ export default function GroupsContent() {
 
                   {/* Contact Info */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-foreground">Contact Name</label>
+                    <label htmlFor="group-contact-name" className="mb-1 block text-sm font-medium text-foreground">Contact Name</label>
                     <input
+                      id="group-contact-name"
                       type="text"
                       value={formContactName}
                       onChange={(e) => setFormContactName(e.target.value)}
@@ -558,8 +562,9 @@ export default function GroupsContent() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-foreground">Contact Email</label>
+                      <label htmlFor="group-contact-email" className="mb-1 block text-sm font-medium text-foreground">Contact Email</label>
                       <input
+                        id="group-contact-email"
                         type="email"
                         value={formContactEmail}
                         onChange={(e) => setFormContactEmail(e.target.value)}
@@ -568,8 +573,9 @@ export default function GroupsContent() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-foreground">Contact Phone</label>
+                      <label htmlFor="group-contact-phone" className="mb-1 block text-sm font-medium text-foreground">Contact Phone</label>
                       <input
+                        id="group-contact-phone"
                         type="tel"
                         value={formContactPhone}
                         onChange={(e) => setFormContactPhone(e.target.value)}
@@ -582,10 +588,11 @@ export default function GroupsContent() {
                   {/* Dates */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-foreground">
+                      <label htmlFor="group-start-date" className="mb-1 block text-sm font-medium text-foreground">
                         Start Date <span className="text-red-500">*</span>
                       </label>
                       <input
+                        id="group-start-date"
                         type="date"
                         value={formStartDate}
                         onChange={(e) => setFormStartDate(e.target.value)}
@@ -593,10 +600,11 @@ export default function GroupsContent() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-foreground">
+                      <label htmlFor="group-end-date" className="mb-1 block text-sm font-medium text-foreground">
                         End Date <span className="text-red-500">*</span>
                       </label>
                       <input
+                        id="group-end-date"
                         type="date"
                         value={formEndDate}
                         onChange={(e) => setFormEndDate(e.target.value)}
@@ -608,12 +616,13 @@ export default function GroupsContent() {
 
                   {/* Cutoff Date */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-foreground">
+                    <label htmlFor="group-cutoff-date" className="mb-1 block text-sm font-medium text-foreground">
                       Cutoff Date
                     </label>
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
                       <input
+                        id="group-cutoff-date"
                         type="date"
                         value={formCutoffDate}
                         onChange={(e) => setFormCutoffDate(e.target.value)}
@@ -629,7 +638,7 @@ export default function GroupsContent() {
                   {/* Rate Plan + Negotiated Rate */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-foreground">Rate Plan</label>
+                      <label htmlFor="group-rate-plan" className="mb-1 block text-sm font-medium text-foreground">Rate Plan</label>
                       {ratePlans.length === 0 ? (
                         <p className="py-2 text-xs text-muted-foreground">
                           None available
@@ -647,8 +656,9 @@ export default function GroupsContent() {
                       )}
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-foreground">Negotiated Rate ($)</label>
+                      <label htmlFor="group-negotiated-rate" className="mb-1 block text-sm font-medium text-foreground">Negotiated Rate ($)</label>
                       <input
+                        id="group-negotiated-rate"
                         type="number"
                         step="0.01"
                         min="0"
@@ -662,7 +672,7 @@ export default function GroupsContent() {
 
                   {/* Billing Type */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-foreground">Billing Type</label>
+                    <label htmlFor="group-billing-type" className="mb-1 block text-sm font-medium text-foreground">Billing Type</label>
                     <Select
                       options={BILLING_TYPE_OPTIONS}
                       value={formBillingType}
@@ -673,8 +683,9 @@ export default function GroupsContent() {
 
                   {/* Notes */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-foreground">Notes</label>
+                    <label htmlFor="group-notes" className="mb-1 block text-sm font-medium text-foreground">Notes</label>
                     <textarea
+                      id="group-notes"
                       value={formNotes}
                       onChange={(e) => setFormNotes(e.target.value)}
                       placeholder="Optional notes about this group booking..."

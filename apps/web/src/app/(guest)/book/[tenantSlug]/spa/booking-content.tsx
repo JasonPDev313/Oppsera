@@ -1104,11 +1104,12 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
 
             {/* Email */}
             <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+              <label htmlFor="guest-spa-email" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
                 <Mail className="h-3.5 w-3.5" />
                 Email
               </label>
               <input
+                id="guest-spa-email"
                 type="email"
                 value={customerInfo.email}
                 onChange={(e) => {
@@ -1123,11 +1124,12 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
 
             {/* First Name */}
             <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+              <label htmlFor="guest-spa-first-name" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
                 <User className="h-3.5 w-3.5" />
                 First Name
               </label>
               <input
+                id="guest-spa-first-name"
                 type="text"
                 value={customerInfo.firstName}
                 onChange={(e) => setCustomerInfo((prev) => ({ ...prev, firstName: e.target.value }))}
@@ -1138,10 +1140,11 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
 
             {/* Last Name */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+              <label htmlFor="guest-spa-last-name" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
                 Last Name
               </label>
               <input
+                id="guest-spa-last-name"
                 type="text"
                 value={customerInfo.lastName}
                 onChange={(e) => setCustomerInfo((prev) => ({ ...prev, lastName: e.target.value }))}
@@ -1152,11 +1155,12 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
 
             {/* Phone */}
             <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+              <label htmlFor="guest-spa-phone" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
                 <Phone className="h-3.5 w-3.5" />
                 Phone <span className="normal-case text-muted-foreground">(optional)</span>
               </label>
               <input
+                id="guest-spa-phone"
                 type="tel"
                 value={customerInfo.phone}
                 onChange={(e) => setCustomerInfo((prev) => ({ ...prev, phone: e.target.value }))}
@@ -1167,11 +1171,12 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
 
             {/* Notes */}
             <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+              <label htmlFor="guest-spa-notes" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
                 <FileText className="h-3.5 w-3.5" />
                 Notes <span className="normal-case text-muted-foreground">(optional)</span>
               </label>
               <textarea
+                id="guest-spa-notes"
                 value={customerInfo.notes}
                 onChange={(e) => setCustomerInfo((prev) => ({ ...prev, notes: e.target.value }))}
                 placeholder="Any special requests or notes..."

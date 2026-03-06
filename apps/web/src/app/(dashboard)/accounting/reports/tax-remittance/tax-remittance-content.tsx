@@ -116,8 +116,9 @@ export default function TaxRemittanceContent() {
       {/* Filters */}
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-end">
         <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">From</label>
+          <label htmlFor="tax-remittance-from" className="mb-1 block text-xs font-medium text-muted-foreground">From</label>
           <input
+            id="tax-remittance-from"
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
@@ -125,8 +126,9 @@ export default function TaxRemittanceContent() {
           />
         </div>
         <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">To</label>
+          <label htmlFor="tax-remittance-to" className="mb-1 block text-xs font-medium text-muted-foreground">To</label>
           <input
+            id="tax-remittance-to"
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
@@ -134,6 +136,7 @@ export default function TaxRemittanceContent() {
           />
         </div>
         <div className="flex-1">
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Location</label>
           <Select
             options={locationOptions}

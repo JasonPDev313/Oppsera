@@ -114,8 +114,9 @@ export default function BankReconciliationSummaryContent() {
 
       {/* Status filter */}
       <div className="flex flex-wrap items-center gap-3 print:hidden">
-        <label className="text-sm font-medium text-foreground">Status</label>
+        <label htmlFor="bank-rec-report-status" className="text-sm font-medium text-foreground">Status</label>
         <select
+          id="bank-rec-report-status"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className="rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"

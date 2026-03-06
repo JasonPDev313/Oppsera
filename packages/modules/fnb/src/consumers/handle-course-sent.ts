@@ -1,6 +1,7 @@
 import { eq, and, inArray } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { fnbTabs, fnbTabItems, fnbTabCourses } from '@oppsera/db';
+import { logger } from '@oppsera/core/observability';
 import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from '../commands/create-kitchen-ticket';
@@ -20,7 +21,7 @@ export interface CourseSentConsumerData {
  * 2. Enriches items with catalog hierarchy + modifierIds
  * 3. Bulk-resolves KDS stations via the routing engine (with conditions)
  * 4. Groups items by station
- * 5. Creates one kitchen ticket per station (in parallel)
+ * 5. Creates one kitchen ticket per station (serially)
  *
  * Idempotent via deterministic clientRequestId per tab+course+station.
  * Never throws — logs errors and continues (fire-and-forget consumer pattern).
@@ -93,7 +94,9 @@ export async function handleCourseSent(
     const courseName = courseResult[0]?.courseName ?? `Course ${data.courseNumber}`;
 
     if (!tab) {
-      console.warn(`[handleCourseSent] Tab not found: ${data.tabId}`);
+      logger.warn('[kds] handleCourseSent: tab not found', {
+        domain: 'kds', tenantId, tabId: data.tabId, courseNumber: data.courseNumber,
+      });
       return;
     }
 
@@ -102,10 +105,25 @@ export async function handleCourseSent(
 
     const locationId = data.locationId || tab.locationId;
 
-    if (!items.length) {
-      console.warn(`[handleCourseSent] No items for tab ${data.tabId} course ${data.courseNumber}`);
+    if (!locationId) {
+      logger.error('[kds] handleCourseSent: no locationId on tab or event — cannot create tickets', {
+        domain: 'kds', tenantId, tabId: data.tabId, courseNumber: data.courseNumber,
+        eventLocationId: data.locationId, tabLocationId: tab.locationId,
+      });
       return;
     }
+
+    if (!items.length) {
+      logger.warn('[kds] handleCourseSent: no items found for course', {
+        domain: 'kds', tenantId, tabId: data.tabId, courseNumber: data.courseNumber, locationId,
+      });
+      return;
+    }
+
+    logger.info('[kds] handleCourseSent: processing course', {
+      domain: 'kds', tenantId, tabId: data.tabId, courseNumber: data.courseNumber,
+      locationId, itemCount: items.length, courseName,
+    });
 
     // 4. Build routable items with modifierIds extracted from JSONB
     let routableItems: RoutableItem[] = items.map((item) => ({
@@ -132,9 +150,10 @@ export async function handleCourseSent(
     // Log items that couldn't be routed
     const unrouted = routingResults.filter((r) => !r.stationId);
     if (unrouted.length > 0) {
-      console.warn(
-        `[handleCourseSent] ${unrouted.length} item(s) could not be routed to any KDS station for tab ${data.tabId} course ${data.courseNumber}`,
-      );
+      logger.warn('[kds] handleCourseSent: unroutable items', {
+        domain: 'kds', tenantId, tabId: data.tabId, courseNumber: data.courseNumber,
+        locationId, unroutedCount: unrouted.length, totalItems: items.length,
+      });
     }
 
     // 7. Group routed items by station
@@ -170,13 +189,22 @@ export async function handleCourseSent(
     }
 
     if (stationGroups.size === 0) {
-      console.warn(`[handleCourseSent] No stations resolved for tab ${data.tabId} course ${data.courseNumber}`);
+      logger.warn('[kds] handleCourseSent: no stations resolved — no tickets will be created', {
+        domain: 'kds', tenantId, tabId: data.tabId, courseNumber: data.courseNumber,
+        locationId, itemCount: items.length,
+      });
       return;
     }
 
-    // 8. Create one kitchen ticket per station — in PARALLEL.
+    logger.info('[kds] handleCourseSent: creating tickets', {
+      domain: 'kds', tenantId, tabId: data.tabId, courseNumber: data.courseNumber,
+      locationId, stationCount: stationGroups.size,
+      routedItemCount: routingResults.filter((r) => r.stationId).length,
+    });
+
+    // 8. Create one kitchen ticket per station (serial to avoid pool exhaustion — gotcha #466).
     // Each ticket has a deterministic idempotency key (tab+course+station),
-    // so concurrent execution is safe and won't create duplicates.
+    // so replays won't create duplicates.
     const syntheticCtx = {
       tenantId,
       locationId,
@@ -185,10 +213,10 @@ export async function handleCourseSent(
       isPlatformAdmin: false,
     } as unknown as RequestContext;
 
-    await Promise.allSettled(
-      [...stationGroups].map(([stationId, ticketItems]) => {
+    for (const [stationId, ticketItems] of stationGroups) {
+      try {
         const clientRequestId = `kds-course-${data.tabId}-${data.courseNumber}-${stationId}`;
-        return createKitchenTicket(syntheticCtx, {
+        await createKitchenTicket(syntheticCtx, {
           clientRequestId,
           tabId: data.tabId,
           orderId: tab.primaryOrderId ?? undefined,
@@ -196,19 +224,26 @@ export async function handleCourseSent(
           orderType: tab.tabType ?? undefined,
           channel: 'pos',
           items: ticketItems,
-        }).catch((err) => {
-          // Log but don't throw — idempotency duplicate is expected on replay
-          console.warn(
-            `[handleCourseSent] Failed to create ticket for station ${stationId}: ${err instanceof Error ? err.message : String(err)}`,
-          );
         });
-      }),
-    );
+      } catch (err) {
+        // Log but don't throw — idempotency duplicate is expected on replay
+        logger.warn('[kds] handleCourseSent: failed to create ticket for station', {
+          domain: 'kds', tenantId, tabId: data.tabId, courseNumber: data.courseNumber,
+          stationId, locationId,
+          error: { message: err instanceof Error ? err.message : String(err) },
+        });
+      }
+    }
   } catch (err) {
     // Consumer must never throw
-    console.error(
-      `[handleCourseSent] Unhandled error for tab ${data.tabId} course ${data.courseNumber}: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    logger.error('[kds] handleCourseSent: unhandled error', {
+      domain: 'kds', tenantId, tabId: data.tabId, courseNumber: data.courseNumber,
+      locationId: data.locationId,
+      error: {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      },
+    });
   }
 }
 

@@ -103,11 +103,14 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
   };
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      onKeyDown={handleKeyDown}
-    >
+    <>
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center"
+        onKeyDown={handleKeyDown}
+      >
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={handleClose} />
 
       {/* Dialog */}
@@ -139,10 +142,11 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
         <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           {/* Routing Number */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="bank-routing-number" className="block text-sm font-medium text-foreground mb-1">
               Routing Number
             </label>
             <input
+              id="bank-routing-number"
               type="password"
               inputMode="numeric"
               maxLength={9}
@@ -163,10 +167,11 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
 
           {/* Account Number */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="bank-account-number" className="block text-sm font-medium text-foreground mb-1">
               Account Number
             </label>
             <input
+              id="bank-account-number"
               type="password"
               inputMode="numeric"
               maxLength={17}
@@ -180,10 +185,11 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
 
           {/* Confirm Account Number */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="bank-confirm-account" className="block text-sm font-medium text-foreground mb-1">
               Confirm Account Number
             </label>
             <input
+              id="bank-confirm-account"
               type="password"
               inputMode="numeric"
               maxLength={17}
@@ -204,6 +210,7 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
 
           {/* Account Type */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="block text-sm font-medium text-foreground mb-1">
               Account Type
             </label>
@@ -235,10 +242,11 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
 
           {/* Bank Name (optional) */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="bank-name" className="block text-sm font-medium text-foreground mb-1">
               Bank Name <span className="text-muted-foreground">(optional)</span>
             </label>
             <input
+              id="bank-name"
               type="text"
               autoComplete="off"
               value={bankName}
@@ -251,10 +259,11 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
 
           {/* Nickname (optional) */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="bank-nickname" className="block text-sm font-medium text-foreground mb-1">
               Nickname <span className="text-muted-foreground">(optional)</span>
             </label>
             <input
+              id="bank-nickname"
               type="text"
               autoComplete="off"
               value={nickname}
@@ -303,7 +312,8 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
           </div>
         </form>
       </div>
-    </div>,
+    </div>
+    </>,
     document.body,
   );
 }

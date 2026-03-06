@@ -142,6 +142,7 @@ export function ReceiptHeader({
           <div className="grid grid-cols-1 gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2 lg:grid-cols-5">
             {/* Vendor */}
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="block text-xs font-medium text-muted-foreground mb-1">
                 Vendor
               </label>
@@ -155,10 +156,11 @@ export function ReceiptHeader({
 
             {/* Invoice # */}
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label htmlFor="rh-invoice-number" className="block text-xs font-medium text-muted-foreground mb-1">
                 Invoice #
               </label>
               <input
+                id="rh-invoice-number"
                 type="text"
                 value={receipt.vendorInvoiceNumber ?? ''}
                 onChange={(e) =>
@@ -174,10 +176,11 @@ export function ReceiptHeader({
 
             {/* Received Date */}
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label htmlFor="rh-received-date" className="block text-xs font-medium text-muted-foreground mb-1">
                 Received Date
               </label>
               <input
+                id="rh-received-date"
                 type="date"
                 value={receipt.receivedDate}
                 onChange={(e) => onHeaderChange('receivedDate', e.target.value)}
@@ -187,6 +190,7 @@ export function ReceiptHeader({
 
             {/* Freight Mode */}
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="block text-xs font-medium text-muted-foreground mb-1">
                 Freight Mode
               </label>
@@ -201,6 +205,7 @@ export function ReceiptHeader({
             {/* Allocation Method (only in ALLOCATE mode) */}
             {!isExpenseMode && (
               <div>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="block text-xs font-medium text-muted-foreground mb-1">
                   Allocation
                 </label>
@@ -288,8 +293,9 @@ export function ReceiptHeader({
               <div className="mt-3 rounded-md border border-indigo-500/30 bg-indigo-500/10 p-3 space-y-2">
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-0.5">Type</label>
+                    <label htmlFor="charge-type" className="block text-xs text-muted-foreground mb-0.5">Type</label>
                     <select
+                      id="charge-type"
                       value={newChargeType}
                       onChange={(e) => setNewChargeType(e.target.value)}
                       className="w-full rounded border border-border px-2 py-1.5 text-sm"
@@ -300,8 +306,9 @@ export function ReceiptHeader({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-0.5">Amount</label>
+                    <label htmlFor="charge-amount" className="block text-xs text-muted-foreground mb-0.5">Amount</label>
                     <input
+                      id="charge-amount"
                       type="number"
                       step="0.01"
                       min="0"
@@ -312,8 +319,9 @@ export function ReceiptHeader({
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs text-muted-foreground mb-0.5">Description</label>
+                    <label htmlFor="charge-description" className="block text-xs text-muted-foreground mb-0.5">Description</label>
                     <input
+                      id="charge-description"
                       type="text"
                       value={newChargeDesc}
                       onChange={(e) => setNewChargeDesc(e.target.value)}
@@ -327,8 +335,9 @@ export function ReceiptHeader({
                 {isExpenseMode && (
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-xs text-muted-foreground mb-0.5">GL Account Code</label>
+                      <label htmlFor="charge-gl-code" className="block text-xs text-muted-foreground mb-0.5">GL Account Code</label>
                       <input
+                        id="charge-gl-code"
                         type="text"
                         value={newChargeGlCode}
                         onChange={(e) => setNewChargeGlCode(e.target.value)}
@@ -337,8 +346,9 @@ export function ReceiptHeader({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-muted-foreground mb-0.5">GL Account Name</label>
+                      <label htmlFor="charge-gl-name" className="block text-xs text-muted-foreground mb-0.5">GL Account Name</label>
                       <input
+                        id="charge-gl-name"
                         type="text"
                         value={newChargeGlName}
                         onChange={(e) => setNewChargeGlName(e.target.value)}

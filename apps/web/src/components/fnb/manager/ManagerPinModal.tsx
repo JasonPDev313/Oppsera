@@ -58,6 +58,7 @@ export function ManagerPinModal({ open, onClose, onVerify, error, title = 'Manag
       className="fixed inset-0 flex items-center justify-center"
       style={{ zIndex: 'var(--fnb-z-modal)' } as React.CSSProperties}
     >
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div
         className={`relative rounded-2xl p-6 w-80 shadow-2xl ${shake ? 'animate-[shake_0.3s_ease-in-out]' : ''}`}

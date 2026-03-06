@@ -202,6 +202,7 @@ function UnsavedChangesModal({
   return createPortal(
     <div className="fixed inset-0 z-70 flex items-center justify-center p-4">
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onStay} />
 
       {/* Modal */}

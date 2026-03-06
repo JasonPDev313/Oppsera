@@ -248,10 +248,11 @@ export default function TransactionsContent() {
         <div className="rounded-lg border border-border bg-surface p-4">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label htmlFor="txn-date-from" className="block text-xs font-medium text-muted-foreground mb-1">
                 From Date
               </label>
               <input
+                id="txn-date-from"
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
@@ -259,10 +260,11 @@ export default function TransactionsContent() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label htmlFor="txn-date-to" className="block text-xs font-medium text-muted-foreground mb-1">
                 To Date
               </label>
               <input
+                id="txn-date-to"
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
@@ -270,10 +272,11 @@ export default function TransactionsContent() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label htmlFor="txn-amount-min" className="block text-xs font-medium text-muted-foreground mb-1">
                 Min Amount ($)
               </label>
               <input
+                id="txn-amount-min"
                 type="number"
                 step="0.01"
                 min="0"
@@ -284,10 +287,11 @@ export default function TransactionsContent() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label htmlFor="txn-amount-max" className="block text-xs font-medium text-muted-foreground mb-1">
                 Max Amount ($)
               </label>
               <input
+                id="txn-amount-max"
                 type="number"
                 step="0.01"
                 min="0"

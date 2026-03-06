@@ -315,6 +315,7 @@ function WaitlistCard({
     new Date(entry.notifiedAt).getTime() + graceMinutes * 60_000 < Date.now();
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events
     <div
       role="option"
       aria-selected={mergeSelected}

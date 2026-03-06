@@ -46,8 +46,9 @@ export default function ARAgingContent() {
       {/* Controls */}
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">As of Date</label>
+          <label htmlFor="ar-aging-date" className="block text-sm font-medium text-foreground mb-1">As of Date</label>
           <input
+            id="ar-aging-date"
             type="date"
             value={asOfDate}
             onChange={(e) => setAsOfDate(e.target.value)}

@@ -13,6 +13,7 @@ const STATION_TYPE_COLORS: Record<string, string> = {
   salad: '#22c55e',
   dessert: '#ec4899',
   pizza: '#e11d48',
+  expo: '#14b8a6',
   custom: '#8b5cf6',
 };
 
@@ -26,10 +27,10 @@ export default function KdsSelectorContent() {
   const locationId = locations?.[0]?.id;
   const { stations, isLoading } = useStations({ locationId });
 
-  // Show active station types except 'expo' (expo has its own standalone page)
   const kdsStations = stations.filter(
     (s) => s.isActive && s.stationType !== 'expo',
   );
+  const hasExpo = stations.some((s) => s.isActive && s.stationType === 'expo');
 
   return (
     <div className="flex flex-col h-screen" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
@@ -58,7 +59,7 @@ export default function KdsSelectorContent() {
             <div className="h-8 w-8 border-2 rounded-full animate-spin"
               style={{ borderColor: 'var(--fnb-text-muted)', borderTopColor: 'var(--fnb-status-seated)' }} />
           </div>
-        ) : kdsStations.length === 0 ? (
+        ) : kdsStations.length === 0 && !hasExpo ? (
           <div className="text-center py-16">
             <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>
               No KDS stations configured
@@ -69,6 +70,36 @@ export default function KdsSelectorContent() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-3xl mx-auto">
+            {hasExpo && (
+              <button
+                type="button"
+                onClick={() => router.push('/expo')}
+                className="flex flex-col items-center justify-center rounded-xl p-6 transition-colors hover:opacity-80"
+                style={{
+                  backgroundColor: 'var(--fnb-bg-surface)',
+                  border: '2px solid rgba(20, 184, 166, 0.4)',
+                  minHeight: '140px',
+                }}
+              >
+                <div
+                  className="flex items-center justify-center rounded-full mb-3"
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    backgroundColor: '#14b8a6',
+                    color: '#fff',
+                  }}
+                >
+                  <span className="text-lg font-bold">E</span>
+                </div>
+                <span className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+                  Expo
+                </span>
+                <span className="text-[10px] uppercase mt-1" style={{ color: '#14b8a6' }}>
+                  All Stations
+                </span>
+              </button>
+            )}
             {kdsStations.map((station) => (
               <button
                 key={station.id}

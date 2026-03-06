@@ -60,6 +60,7 @@ export function ProfitCenterPane({
           </p>
         ) : (
           items.map((pc) => (
+            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
             <div
               key={pc.id}
               onClick={() => onSelect(pc.id)}

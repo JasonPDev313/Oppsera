@@ -265,8 +265,9 @@ function UploadForm({
       <div className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Document Type</label>
+            <label htmlFor="upload-doc-type" className="mb-1 block text-xs font-medium text-muted-foreground">Document Type</label>
             <select
+              id="upload-doc-type"
               value={documentType}
               onChange={(e) => setDocumentType(e.target.value)}
               className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -277,8 +278,9 @@ function UploadForm({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Name</label>
+            <label htmlFor="upload-doc-name" className="mb-1 block text-xs font-medium text-muted-foreground">Name</label>
             <input
+              id="upload-doc-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -289,8 +291,9 @@ function UploadForm({
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Description (optional)</label>
+          <label htmlFor="upload-doc-description" className="mb-1 block text-xs font-medium text-muted-foreground">Description (optional)</label>
           <input
+            id="upload-doc-description"
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -301,8 +304,9 @@ function UploadForm({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Tags (comma-separated)</label>
+            <label htmlFor="upload-doc-tags" className="mb-1 block text-xs font-medium text-muted-foreground">Tags (comma-separated)</label>
             <input
+              id="upload-doc-tags"
               type="text"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
@@ -311,8 +315,9 @@ function UploadForm({
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Expires (optional)</label>
+            <label htmlFor="upload-doc-expires" className="mb-1 block text-xs font-medium text-muted-foreground">Expires (optional)</label>
             <input
+              id="upload-doc-expires"
               type="date"
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}

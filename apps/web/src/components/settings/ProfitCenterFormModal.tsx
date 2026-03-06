@@ -152,8 +152,9 @@ export function ProfitCenterFormModal({
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground">Location</label>
+            <label htmlFor="pcfm-location" className="block text-sm font-medium text-foreground">Location</label>
             <select
+              id="pcfm-location"
               value={locationId}
               onChange={(e) => setLocationId(e.target.value)}
               className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
@@ -190,8 +191,9 @@ export function ProfitCenterFormModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground">Name</label>
+            <label htmlFor="pcfm-name" className="block text-sm font-medium text-foreground">Name</label>
             <input
+              id="pcfm-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -201,8 +203,9 @@ export function ProfitCenterFormModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground">Code</label>
+            <label htmlFor="pcfm-code" className="block text-sm font-medium text-foreground">Code</label>
             <input
+              id="pcfm-code"
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value)}
@@ -212,8 +215,9 @@ export function ProfitCenterFormModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground">Description</label>
+            <label htmlFor="pcfm-description" className="block text-sm font-medium text-foreground">Description</label>
             <textarea
+              id="pcfm-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}

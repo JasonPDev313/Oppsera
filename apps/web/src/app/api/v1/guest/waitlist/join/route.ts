@@ -13,33 +13,19 @@ const joinWaitlistSchema = z.object({
   seatingPreference: z.string().max(100).optional().transform((s) => s || null),
 });
 
-// Simple in-memory rate limiter for guest join endpoint
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const MAX_REQUESTS = 10;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= MAX_REQUESTS) return false;
-  entry.count++;
-  return true;
-}
+import { checkRateLimit as checkCoreRateLimit, getRateLimitKey, RATE_LIMITS, rateLimitHeaders } from '@oppsera/core/security';
 
 /**
  * POST /api/v1/guest/waitlist/join
  * Public guest self-service join — no auth required, rate limited.
  */
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? 'unknown';
-  if (!checkRateLimit(ip)) {
+  const rlKey = getRateLimitKey(req, 'wl-join-legacy');
+  const rl = checkCoreRateLimit(rlKey, RATE_LIMITS.publicWrite);
+  if (!rl.allowed) {
     return NextResponse.json(
       { error: { code: 'RATE_LIMITED', message: 'Too many requests. Please wait a moment and try again.' } },
-      { status: 429 },
+      { status: 429, headers: rateLimitHeaders(rl) },
     );
   }
 
@@ -86,6 +72,11 @@ export async function POST(req: NextRequest) {
     // Without this, concurrent requests can read the same MAX(position) and get duplicate positions.
     // Use admin client to bypass RLS (public guest endpoint, no tenant context).
     const rows = await adminDb.transaction(async (tx) => {
+      // Advisory lock prevents concurrent position collision (FOR UPDATE is invalid with aggregates)
+      await tx.execute(sql`
+        SELECT pg_advisory_xact_lock(hashtext(${tenantId} || ':waitlist:' || ${input.locationId} || ':' || ${businessDate}))
+      `);
+
       const posRows = await tx.execute(sql`
         SELECT COALESCE(MAX(position), 0) + 1 AS next_pos
         FROM fnb_waitlist_entries
@@ -93,7 +84,6 @@ export async function POST(req: NextRequest) {
           AND location_id = ${input.locationId}
           AND business_date = ${businessDate}
           AND status IN ('waiting', 'notified')
-        FOR UPDATE
       `);
       const nextPos = Number(
         (Array.from(posRows as Iterable<Record<string, unknown>>)[0] as Record<string, unknown>)?.next_pos ?? 1,
@@ -128,7 +118,8 @@ export async function POST(req: NextRequest) {
         tenantSlug,
       },
     }, { status: 201 });
-  } catch {
+  } catch (err) {
+    console.error('[guest-waitlist-join] Failed to join waitlist:', err instanceof Error ? err.message : err);
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Failed to join waitlist' } },
       { status: 500 },

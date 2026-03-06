@@ -115,6 +115,7 @@ function CreateCustomerDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
@@ -131,6 +132,7 @@ function CreateCustomerDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Type Toggle */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="mb-1 block text-sm font-medium text-foreground">Type</label>
             <div className="flex gap-2">
               <button
@@ -162,10 +164,11 @@ function CreateCustomerDialog({
           {form.type === 'person' ? (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">
+                <label htmlFor="customer-first-name" className="mb-1 block text-sm font-medium text-foreground">
                   First Name
                 </label>
                 <input
+                  id="customer-first-name"
                   type="text"
                   value={form.firstName}
                   onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
@@ -173,10 +176,11 @@ function CreateCustomerDialog({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">
+                <label htmlFor="customer-last-name" className="mb-1 block text-sm font-medium text-foreground">
                   Last Name
                 </label>
                 <input
+                  id="customer-last-name"
                   type="text"
                   value={form.lastName}
                   onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
@@ -186,10 +190,11 @@ function CreateCustomerDialog({
             </div>
           ) : (
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">
+              <label htmlFor="customer-org-name" className="mb-1 block text-sm font-medium text-foreground">
                 Organization Name
               </label>
               <input
+                id="customer-org-name"
                 type="text"
                 value={form.organizationName}
                 onChange={(e) => setForm((f) => ({ ...f, organizationName: e.target.value }))}
@@ -200,8 +205,9 @@ function CreateCustomerDialog({
 
           {/* Email */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Email</label>
+            <label htmlFor="customer-email" className="mb-1 block text-sm font-medium text-foreground">Email</label>
             <input
+              id="customer-email"
               type="email"
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
@@ -212,8 +218,9 @@ function CreateCustomerDialog({
 
           {/* Phone */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Phone</label>
+            <label htmlFor="customer-phone" className="mb-1 block text-sm font-medium text-foreground">Phone</label>
             <input
+              id="customer-phone"
               type="tel"
               value={form.phone}
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
@@ -224,8 +231,9 @@ function CreateCustomerDialog({
 
           {/* Notes */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Notes</label>
+            <label htmlFor="customer-notes" className="mb-1 block text-sm font-medium text-foreground">Notes</label>
             <textarea
+              id="customer-notes"
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               rows={2}
@@ -235,10 +243,11 @@ function CreateCustomerDialog({
 
           {/* Tags */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="customer-tags" className="mb-1 block text-sm font-medium text-foreground">
               Tags <span className="font-normal text-muted-foreground">(comma-separated)</span>
             </label>
             <input
+              id="customer-tags"
               type="text"
               value={form.tags}
               onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}

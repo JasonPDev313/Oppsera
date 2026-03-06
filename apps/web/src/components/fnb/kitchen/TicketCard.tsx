@@ -66,8 +66,8 @@ export function TicketCard({
   const readyCount = ticket.items.filter((i) => i.itemStatus === 'ready' || i.itemStatus === 'bumped').length;
   const activeCount = ticket.items.filter((i) => i.itemStatus !== 'voided').length;
 
-  // Card width based on density
-  const cardWidth = density === 'compact' ? '200px' : density === 'comfortable' ? '320px' : '260px';
+  // Card width based on density — generous for touch targets
+  const cardWidth = density === 'compact' ? '240px' : density === 'comfortable' ? '360px' : '300px';
 
   // Border glow based on aging tier
   const borderStyle = isDomTicket
@@ -207,7 +207,7 @@ export function TicketCard({
 
       {/* Bump button */}
       {!isDomTicket && (
-        <div className={density === 'compact' ? 'p-1.5' : 'p-2'}>
+        <div className={density === 'compact' ? 'p-2' : 'p-3'}>
           <BumpButton
             onClick={() => onBumpTicket(ticket.ticketId)}
             disabled={disabled || !allReady}

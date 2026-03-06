@@ -106,6 +106,7 @@ function ReturnLineSelector({
                   <div className="mt-3 space-y-2">
                     {/* Qty spinner */}
                     <div className="flex items-center gap-3">
+                      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                       <label className="text-xs text-muted-foreground">Qty to return:</label>
                       <div className="flex items-center gap-1">
                         <button
@@ -133,6 +134,7 @@ function ReturnLineSelector({
 
                     {/* Reason */}
                     <div>
+                      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                       <label className="text-xs text-muted-foreground">Reason:</label>
                       <select
                         value={line.reason}

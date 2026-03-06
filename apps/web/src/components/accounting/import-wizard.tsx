@@ -347,6 +347,7 @@ export function ImportWizard({ open, onClose, onSuccess }: ImportWizardProps) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
 
       {/* Dialog */}
@@ -538,6 +539,7 @@ function UploadStep({
   return (
     <div className="space-y-6">
       {/* Drop zone */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         onDrop={onDrop}
         onDragOver={(e) => e.preventDefault()}
@@ -578,7 +580,7 @@ function UploadStep({
 
       {/* State selector */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label htmlFor="import-state-name" className="block text-sm font-medium text-foreground mb-1">
           State Name (optional)
         </label>
         <p className="text-xs text-muted-foreground mb-2">
@@ -586,6 +588,7 @@ function UploadStep({
           select the state to auto-standardize them with [STATE_NAME] placeholders.
         </p>
         <select
+          id="import-state-name"
           value={stateName}
           onChange={(e) => onStateName(e.target.value)}
           className="w-full sm:w-64 px-3 py-2 text-sm border border-input rounded-lg bg-surface text-foreground"
@@ -907,8 +910,9 @@ function TypeRow({
             <div className="space-y-3">
               {/* Type override */}
               <div className="flex items-center gap-3">
-                <label className="text-xs font-medium text-muted-foreground w-24">Override type:</label>
+                <label htmlFor={`override-type-${account.accountNumber}`} className="text-xs font-medium text-muted-foreground w-24">Override type:</label>
                 <select
+                  id={`override-type-${account.accountNumber}`}
                   value={override?.accountType ?? ''}
                   onChange={(e) => onOverride('accountType', e.target.value)}
                   className="px-2 py-1 text-xs border border-input rounded bg-surface text-foreground"

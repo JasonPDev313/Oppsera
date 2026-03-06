@@ -22,5 +22,10 @@ CREATE INDEX IF NOT EXISTS idx_fnb_pacing_rules_tenant_location
 
 -- RLS
 ALTER TABLE fnb_pacing_rules ENABLE ROW LEVEL SECURITY;
-CREATE POLICY fnb_pacing_rules_tenant_isolation ON fnb_pacing_rules
-  USING (tenant_id = current_setting('app.current_tenant_id', true));
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'fnb_pacing_rules_tenant_isolation' AND tablename = 'fnb_pacing_rules') THEN
+    CREATE POLICY fnb_pacing_rules_tenant_isolation ON fnb_pacing_rules
+      USING (tenant_id = current_setting('app.current_tenant_id', true));
+  END IF;
+END $$;

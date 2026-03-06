@@ -55,6 +55,7 @@ export function AccountMergeDialog({ open, onClose, sourceAccount, accounts, onS
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 mx-4 w-full max-w-md rounded-xl bg-surface shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
@@ -70,6 +71,7 @@ export function AccountMergeDialog({ open, onClose, sourceAccount, accounts, onS
         <div className="space-y-4 px-6 py-4">
           {/* Source */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="block text-xs font-medium text-muted-foreground uppercase">Source (will be merged)</label>
             <div className="mt-1 rounded-lg border border-border bg-muted p-3">
               <p className="text-sm font-medium text-foreground">
@@ -81,8 +83,9 @@ export function AccountMergeDialog({ open, onClose, sourceAccount, accounts, onS
 
           {/* Target */}
           <div>
-            <label className="block text-xs font-medium text-muted-foreground uppercase">Target (merge into)</label>
+            <label htmlFor="merge-target-account" className="block text-xs font-medium text-muted-foreground uppercase">Target (merge into)</label>
             <select
+              id="merge-target-account"
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
               className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"

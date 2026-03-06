@@ -298,8 +298,9 @@ function AddMidDialog({
           Use Sandbox UAT Test MID
         </button>
         <div>
-          <label className="block text-sm font-medium text-foreground">Merchant ID (MID)</label>
+          <label htmlFor="add-mid-merchant-id" className="block text-sm font-medium text-foreground">Merchant ID (MID)</label>
           <input
+            id="add-mid-merchant-id"
             type="text"
             value={merchantId}
             onChange={(e) => setMerchantId(e.target.value)}
@@ -309,8 +310,9 @@ function AddMidDialog({
           <p className="mt-1 text-xs text-muted-foreground">Your processor-assigned merchant identifier.</p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground">Display Name</label>
+          <label htmlFor="add-mid-display-name" className="block text-sm font-medium text-foreground">Display Name</label>
           <input
+            id="add-mid-display-name"
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
@@ -359,8 +361,9 @@ function EditMidDialog({
       <p className="mt-1 text-sm text-muted-foreground">MID: {account.merchantId}</p>
       <div className="mt-4 space-y-3">
         <div>
-          <label className="block text-sm font-medium text-foreground">Display Name</label>
+          <label htmlFor="edit-mid-display-name" className="block text-sm font-medium text-foreground">Display Name</label>
           <input
+            id="edit-mid-display-name"
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
@@ -639,17 +642,17 @@ function MerchantAccountSetupPanel({
           {/* Primary Credentials */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-foreground">CardPointe Username <span className="text-red-500">*</span></label>
-              <input type={showPasswords ? 'text' : 'password'} value={credUsername} onChange={(e) => setCredUsername(e.target.value)} placeholder={maskedCreds.username || 'YOUR_CARDPOINTE_USERNAME'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <label htmlFor="setup-cred-username" className="block text-sm font-medium text-foreground">CardPointe Username <span className="text-red-500">*</span></label>
+              <input id="setup-cred-username" type={showPasswords ? 'text' : 'password'} value={credUsername} onChange={(e) => setCredUsername(e.target.value)} placeholder={maskedCreds.username || 'YOUR_CARDPOINTE_USERNAME'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground">CardPointe Password <span className="text-red-500">*</span></label>
-              <input type={showPasswords ? 'text' : 'password'} value={credPassword} onChange={(e) => setCredPassword(e.target.value)} placeholder={maskedCreds.password || 'YOUR_CARDPOINTE_PASSWORD'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <label htmlFor="setup-cred-password" className="block text-sm font-medium text-foreground">CardPointe Password <span className="text-red-500">*</span></label>
+              <input id="setup-cred-password" type={showPasswords ? 'text' : 'password'} value={credPassword} onChange={(e) => setCredPassword(e.target.value)} placeholder={maskedCreds.password || 'YOUR_CARDPOINTE_PASSWORD'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground">Authorization Key <span className="text-muted-foreground">(optional)</span></label>
-            <input type={showPasswords ? 'text' : 'password'} value={credAuthKey} onChange={(e) => setCredAuthKey(e.target.value)} placeholder={maskedCreds.authorizationKey || 'YOUR_AUTH_KEY'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label htmlFor="setup-cred-auth-key" className="block text-sm font-medium text-foreground">Authorization Key <span className="text-muted-foreground">(optional)</span></label>
+            <input id="setup-cred-auth-key" type={showPasswords ? 'text' : 'password'} value={credAuthKey} onChange={(e) => setCredAuthKey(e.target.value)} placeholder={maskedCreds.authorizationKey || 'YOUR_AUTH_KEY'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
 
           {/* ACH Credentials */}
@@ -657,12 +660,12 @@ function MerchantAccountSetupPanel({
             <p className="mb-3 text-sm font-medium text-foreground">ACH Credentials <span className="text-muted-foreground">(if ACH is enabled)</span></p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-foreground">ACH Username</label>
-                <input type={showPasswords ? 'text' : 'password'} value={credAchUsername} onChange={(e) => setCredAchUsername(e.target.value)} placeholder={maskedCreds.achUsername || 'YOUR_ACH_USERNAME'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label htmlFor="setup-ach-username" className="block text-sm font-medium text-foreground">ACH Username</label>
+                <input id="setup-ach-username" type={showPasswords ? 'text' : 'password'} value={credAchUsername} onChange={(e) => setCredAchUsername(e.target.value)} placeholder={maskedCreds.achUsername || 'YOUR_ACH_USERNAME'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground">ACH Password</label>
-                <input type={showPasswords ? 'text' : 'password'} value={credAchPassword} onChange={(e) => setCredAchPassword(e.target.value)} placeholder={maskedCreds.achPassword || 'YOUR_ACH_PASSWORD'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label htmlFor="setup-ach-password" className="block text-sm font-medium text-foreground">ACH Password</label>
+                <input id="setup-ach-password" type={showPasswords ? 'text' : 'password'} value={credAchPassword} onChange={(e) => setCredAchPassword(e.target.value)} placeholder={maskedCreds.achPassword || 'YOUR_ACH_PASSWORD'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
             </div>
           </div>
@@ -672,12 +675,12 @@ function MerchantAccountSetupPanel({
             <p className="mb-3 text-sm font-medium text-foreground">Funding Credentials <span className="text-muted-foreground">(optional)</span></p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-foreground">Funding Username</label>
-                <input type={showPasswords ? 'text' : 'password'} value={credFundingUsername} onChange={(e) => setCredFundingUsername(e.target.value)} placeholder={maskedCreds.fundingUsername || 'FUNDING_USERNAME'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label htmlFor="setup-funding-username" className="block text-sm font-medium text-foreground">Funding Username</label>
+                <input id="setup-funding-username" type={showPasswords ? 'text' : 'password'} value={credFundingUsername} onChange={(e) => setCredFundingUsername(e.target.value)} placeholder={maskedCreds.fundingUsername || 'FUNDING_USERNAME'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground">Funding Password</label>
-                <input type={showPasswords ? 'text' : 'password'} value={credFundingPassword} onChange={(e) => setCredFundingPassword(e.target.value)} placeholder={maskedCreds.fundingPassword || 'FUNDING_PASSWORD'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label htmlFor="setup-funding-password" className="block text-sm font-medium text-foreground">Funding Password</label>
+                <input id="setup-funding-password" type={showPasswords ? 'text' : 'password'} value={credFundingPassword} onChange={(e) => setCredFundingPassword(e.target.value)} placeholder={maskedCreds.fundingPassword || 'FUNDING_PASSWORD'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
             </div>
           </div>
@@ -691,20 +694,20 @@ function MerchantAccountSetupPanel({
         </legend>
         <div className="mt-3 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground">Merchant Name <span className="text-red-500">*</span></label>
-            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="YOUR_MERCHANT_NAME" className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label htmlFor="setup-merchant-name" className="block text-sm font-medium text-foreground">Merchant Name <span className="text-red-500">*</span></label>
+            <input id="setup-merchant-name" type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="YOUR_MERCHANT_NAME" className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground">HSN (Hardware Serial Number) <span className="text-muted-foreground">(optional)</span></label>
-            <input type="text" value={hsn} onChange={(e) => setHsn(e.target.value)} placeholder="OPTIONAL_HSN" className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label htmlFor="setup-hsn" className="block text-sm font-medium text-foreground">HSN (Hardware Serial Number) <span className="text-muted-foreground">(optional)</span></label>
+            <input id="setup-hsn" type="text" value={hsn} onChange={(e) => setHsn(e.target.value)} placeholder="OPTIONAL_HSN" className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground">ACH Merchant ID <span className="text-muted-foreground">(if ACH is enabled)</span></label>
-            <input type="text" value={achMerchantId} onChange={(e) => setAchMerchantId(e.target.value)} placeholder="YOUR_ACH_MID" className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label htmlFor="setup-ach-merchant-id" className="block text-sm font-medium text-foreground">ACH Merchant ID <span className="text-muted-foreground">(if ACH is enabled)</span></label>
+            <input id="setup-ach-merchant-id" type="text" value={achMerchantId} onChange={(e) => setAchMerchantId(e.target.value)} placeholder="YOUR_ACH_MID" className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground">Funding Merchant ID <span className="text-muted-foreground">(optional)</span></label>
-            <input type="text" value={fundingMerchantId} onChange={(e) => setFundingMerchantId(e.target.value)} placeholder="FUNDING_MID" className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label htmlFor="setup-funding-merchant-id" className="block text-sm font-medium text-foreground">Funding Merchant ID <span className="text-muted-foreground">(optional)</span></label>
+            <input id="setup-funding-merchant-id" type="text" value={fundingMerchantId} onChange={(e) => setFundingMerchantId(e.target.value)} placeholder="FUNDING_MID" className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
         </div>
       </fieldset>

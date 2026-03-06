@@ -144,6 +144,7 @@ function TemplateFormDialog({ open, onClose, onSave, initial, isSaving }: Templa
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-surface rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto mx-4">
         <div className="p-6 space-y-5">
@@ -161,8 +162,9 @@ function TemplateFormDialog({ open, onClose, onSave, initial, isSaving }: Templa
           {/* Name & Description */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Name</label>
+              <label htmlFor="recurring-name" className="block text-sm font-medium text-foreground mb-1">Name</label>
               <input
+                id="recurring-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -171,8 +173,9 @@ function TemplateFormDialog({ open, onClose, onSave, initial, isSaving }: Templa
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+              <label htmlFor="recurring-description" className="block text-sm font-medium text-foreground mb-1">Description</label>
               <input
+                id="recurring-description"
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -185,8 +188,9 @@ function TemplateFormDialog({ open, onClose, onSave, initial, isSaving }: Templa
           {/* Schedule */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Frequency</label>
+              <label htmlFor="recurring-frequency" className="block text-sm font-medium text-foreground mb-1">Frequency</label>
               <select
+                id="recurring-frequency"
                 value={frequency}
                 onChange={(e) => setFrequency(e.target.value as RecurringFrequency)}
                 className="w-full px-3 py-2 border border-border bg-surface rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -201,8 +205,9 @@ function TemplateFormDialog({ open, onClose, onSave, initial, isSaving }: Templa
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Day of Period</label>
+              <label htmlFor="recurring-day-of-period" className="block text-sm font-medium text-foreground mb-1">Day of Period</label>
               <input
+                id="recurring-day-of-period"
                 type="number"
                 min={0}
                 max={28}
@@ -213,8 +218,9 @@ function TemplateFormDialog({ open, onClose, onSave, initial, isSaving }: Templa
               <p className="text-xs text-muted-foreground mt-0.5">0 = last day</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Start Date</label>
+              <label htmlFor="recurring-start-date" className="block text-sm font-medium text-foreground mb-1">Start Date</label>
               <input
+                id="recurring-start-date"
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
@@ -222,8 +228,9 @@ function TemplateFormDialog({ open, onClose, onSave, initial, isSaving }: Templa
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">End Date</label>
+              <label htmlFor="recurring-end-date" className="block text-sm font-medium text-foreground mb-1">End Date</label>
               <input
+                id="recurring-end-date"
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -236,6 +243,7 @@ function TemplateFormDialog({ open, onClose, onSave, initial, isSaving }: Templa
           {/* Journal Lines */}
           <div>
             <div className="flex items-center justify-between mb-2">
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="text-sm font-medium text-foreground">Journal Lines</label>
               <button
                 type="button"
@@ -428,6 +436,7 @@ function ExecuteDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-surface rounded-lg shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
         <h3 className="text-lg font-semibold text-foreground">Execute Template</h3>
@@ -436,8 +445,9 @@ function ExecuteDialog({
         </p>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Business Date</label>
+          <label htmlFor="recurring-business-date" className="block text-sm font-medium text-foreground mb-1">Business Date</label>
           <input
+            id="recurring-business-date"
             type="date"
             value={businessDate}
             onChange={(e) => setBusinessDate(e.target.value)}
@@ -628,6 +638,7 @@ export default function RecurringContent() {
                     <StatusBadge isActive={template.isActive} />
                   </td>
                   <td className="px-4 py-3 text-right">
+                    {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
                     <div
                       className="flex items-center justify-end gap-1"
                       onClick={(e) => e.stopPropagation()}

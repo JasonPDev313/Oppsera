@@ -112,6 +112,7 @@ export function PriceOverrideDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="price-override-dialog-title">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-lg bg-surface shadow-xl">
         {/* Header */}
@@ -140,6 +141,7 @@ export function PriceOverrideDialog({
 
           {/* New price */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="mb-1 block text-sm font-medium text-foreground">New Price</label>
             <CurrencyInput
               value={newPriceDollars}
@@ -149,6 +151,7 @@ export function PriceOverrideDialog({
 
           {/* Reason */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="mb-2 block text-sm font-medium text-foreground">Reason</label>
             <div className="space-y-2">
               {REASONS.map((r) => (
@@ -175,8 +178,9 @@ export function PriceOverrideDialog({
 
           {/* Manager PIN */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Manager PIN</label>
+            <label htmlFor="price-override-pin" className="mb-1 block text-sm font-medium text-foreground">Manager PIN</label>
             <input
+              id="price-override-pin"
               type="password"
               value={pin}
               onChange={(e) => handlePinChange(e.target.value)}

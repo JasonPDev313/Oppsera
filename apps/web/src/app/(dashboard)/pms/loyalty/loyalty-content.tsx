@@ -509,7 +509,6 @@ function ProgramDialog({
             <label htmlFor="program-name" className="mb-1 block text-sm font-medium text-foreground">
               Name <span className="text-red-500">*</span>
             </label>
-            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
             <input
               id="program-name"
               type="text"
@@ -518,6 +517,7 @@ function ProgramDialog({
               placeholder="e.g. Gold Rewards"
               maxLength={100}
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
           </div>
@@ -1002,6 +1002,7 @@ function MemberRow({
           <span className="text-sm text-muted-foreground">{formatDate(member.enrolledAt)}</span>
         </td>
         <td className="px-4 py-3 text-right">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
@@ -1278,6 +1279,7 @@ function AdjustPointsDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
@@ -1304,15 +1306,17 @@ function AdjustPointsDialog({
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="adjust-points" className="mb-1 block text-sm font-medium text-foreground">
               Points <span className="text-red-500">*</span>
             </label>
             <input
+              id="adjust-points"
               type="number"
               value={points}
               onChange={(e) => setPoints(e.target.value)}
               placeholder="e.g. -500 or 200"
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
             <p className="mt-1 text-xs text-muted-foreground">
@@ -1320,10 +1324,11 @@ function AdjustPointsDialog({
             </p>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="adjust-description" className="mb-1 block text-sm font-medium text-foreground">
               Description <span className="text-red-500">*</span>
             </label>
             <input
+              id="adjust-description"
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -1410,6 +1415,7 @@ function EarnPointsDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
@@ -1436,24 +1442,27 @@ function EarnPointsDialog({
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="earn-points" className="mb-1 block text-sm font-medium text-foreground">
               Points <span className="text-red-500">*</span>
             </label>
             <input
+              id="earn-points"
               type="number"
               min="1"
               value={points}
               onChange={(e) => setPoints(e.target.value)}
               placeholder="e.g. 500"
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="earn-reservation-id" className="mb-1 block text-sm font-medium text-foreground">
               Reservation ID
             </label>
             <input
+              id="earn-reservation-id"
               type="text"
               value={reservationId}
               onChange={(e) => setReservationId(e.target.value)}
@@ -1462,10 +1471,11 @@ function EarnPointsDialog({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="earn-description" className="mb-1 block text-sm font-medium text-foreground">
               Description <span className="text-red-500">*</span>
             </label>
             <input
+              id="earn-description"
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -1571,6 +1581,7 @@ function EnrollDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
@@ -1592,20 +1603,22 @@ function EnrollDialog({
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="enroll-guest-id" className="mb-1 block text-sm font-medium text-foreground">
               Guest ID <span className="text-red-500">*</span>
             </label>
             <input
+              id="enroll-guest-id"
               type="text"
               value={guestId}
               onChange={(e) => setGuestId(e.target.value)}
               placeholder="Enter guest ID"
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="enroll-program-id" className="mb-1 block text-sm font-medium text-foreground">
               Program <span className="text-red-500">*</span>
             </label>
             {isLoadingPrograms ? (
@@ -1619,6 +1632,7 @@ function EnrollDialog({
               </p>
             ) : (
               <select
+                id="enroll-program-id"
                 value={programId}
                 onChange={(e) => setProgramId(e.target.value)}
                 className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"

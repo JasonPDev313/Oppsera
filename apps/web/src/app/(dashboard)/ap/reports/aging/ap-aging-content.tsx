@@ -78,8 +78,9 @@ export default function APAgingContent() {
       {/* Controls */}
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">As of Date</label>
+          <label htmlFor="ap-aging-date" className="block text-sm font-medium text-foreground mb-1">As of Date</label>
           <input
+            id="ap-aging-date"
             type="date"
             value={asOfDate}
             onChange={(e) => setAsOfDate(e.target.value)}

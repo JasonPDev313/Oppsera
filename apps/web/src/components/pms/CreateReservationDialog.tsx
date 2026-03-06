@@ -374,6 +374,7 @@ export default function CreateReservationDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="create-reservation-dialog-title">
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       {/* Panel */}
       <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-xl">
@@ -404,7 +405,7 @@ export default function CreateReservationDialog({
           <div className="space-y-4">
             {/* Customer Search */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Guest</label>
+              <label htmlFor="guest-customer-search" className="mb-1 block text-sm font-medium text-foreground">Guest</label>
               {selectedCustomer ? (
                 <div className="flex items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2">
                   <UserCheck className="h-4 w-4 text-indigo-600 shrink-0" />
@@ -428,12 +429,14 @@ export default function CreateReservationDialog({
                 <div ref={customerSearchRef} className="relative">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <input
+                  <input
+                      id="guest-customer-search"
                       type="text"
                       value={customerSearch}
                       onChange={(e) => setCustomerSearch(e.target.value)}
                       placeholder="Search existing customer or enter new guest below..."
                       className="w-full rounded-lg border border-input bg-surface pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      // eslint-disable-next-line jsx-a11y/no-autofocus
                       autoFocus
                     />
                     {customerSearchLoading && (
@@ -473,10 +476,11 @@ export default function CreateReservationDialog({
             {/* Guest Name */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">
+                <label htmlFor="guest-first-name" className="mb-1 block text-sm font-medium text-foreground">
                   First Name <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="guest-first-name"
                   type="text"
                   value={formFirstName}
                   onChange={(e) => setFormFirstName(e.target.value)}
@@ -485,10 +489,11 @@ export default function CreateReservationDialog({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">
+                <label htmlFor="guest-last-name" className="mb-1 block text-sm font-medium text-foreground">
                   Last Name <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="guest-last-name"
                   type="text"
                   value={formLastName}
                   onChange={(e) => setFormLastName(e.target.value)}
@@ -501,8 +506,9 @@ export default function CreateReservationDialog({
             {/* Guest Contact */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">Email</label>
+                <label htmlFor="guest-email" className="mb-1 block text-sm font-medium text-foreground">Email</label>
                 <input
+                  id="guest-email"
                   type="email"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
@@ -511,8 +517,9 @@ export default function CreateReservationDialog({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">Phone</label>
+                <label htmlFor="guest-phone" className="mb-1 block text-sm font-medium text-foreground">Phone</label>
                 <input
+                  id="guest-phone"
                   type="tel"
                   value={formPhone}
                   onChange={(e) => setFormPhone(e.target.value)}
@@ -525,10 +532,11 @@ export default function CreateReservationDialog({
             {/* Dates */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">
+                <label htmlFor="reservation-check-in" className="mb-1 block text-sm font-medium text-foreground">
                   Check-In <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="reservation-check-in"
                   type="date"
                   value={formCheckIn}
                   onChange={(e) => setFormCheckIn(e.target.value)}
@@ -536,10 +544,11 @@ export default function CreateReservationDialog({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">
+                <label htmlFor="reservation-check-out" className="mb-1 block text-sm font-medium text-foreground">
                   Check-Out <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="reservation-check-out"
                   type="date"
                   value={formCheckOut}
                   onChange={(e) => setFormCheckOut(e.target.value)}
@@ -556,7 +565,7 @@ export default function CreateReservationDialog({
 
             {/* Room Type */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">
+              <label htmlFor="reservation-room-type" className="mb-1 block text-sm font-medium text-foreground">
                 Room Type <span className="text-red-500">*</span>
               </label>
               {roomTypes.length === 0 ? (
@@ -579,7 +588,7 @@ export default function CreateReservationDialog({
             {/* Room Assignment (optional) */}
             {formRoomTypeId && (
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">
+                <label htmlFor="reservation-room" className="mb-1 block text-sm font-medium text-foreground">
                   Room (optional)
                 </label>
                 {roomsLoading ? (
@@ -611,7 +620,7 @@ export default function CreateReservationDialog({
             {/* Rate Plan + Nightly Rate */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">
+                <label htmlFor="reservation-rate-plan" className="mb-1 block text-sm font-medium text-foreground">
                   Rate Plan
                 </label>
                 {ratePlans.length === 0 ? (
@@ -633,11 +642,12 @@ export default function CreateReservationDialog({
                 )}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">
+                <label htmlFor="reservation-nightly-rate" className="mb-1 block text-sm font-medium text-foreground">
                   Nightly Rate ($) {!formRatePlanId && <span className="text-red-500">*</span>}
                 </label>
                 <div className="relative">
                   <input
+                    id="reservation-nightly-rate"
                     type="number"
                     step="0.01"
                     min="0"
@@ -671,8 +681,9 @@ export default function CreateReservationDialog({
             {/* Occupancy */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">Adults</label>
+                <label htmlFor="reservation-adults" className="mb-1 block text-sm font-medium text-foreground">Adults</label>
                 <input
+                  id="reservation-adults"
                   type="number"
                   min="1"
                   max="20"
@@ -682,8 +693,9 @@ export default function CreateReservationDialog({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">Children</label>
+                <label htmlFor="reservation-children" className="mb-1 block text-sm font-medium text-foreground">Children</label>
                 <input
+                  id="reservation-children"
                   type="number"
                   min="0"
                   max="20"
@@ -696,7 +708,7 @@ export default function CreateReservationDialog({
 
             {/* Source Type */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Source</label>
+              <label htmlFor="reservation-source" className="mb-1 block text-sm font-medium text-foreground">Source</label>
               <Select
                 options={SOURCE_TYPE_OPTIONS}
                 value={formSourceType}
@@ -707,8 +719,9 @@ export default function CreateReservationDialog({
 
             {/* Notes */}
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Internal Notes</label>
+              <label htmlFor="reservation-notes" className="mb-1 block text-sm font-medium text-foreground">Internal Notes</label>
               <textarea
+                id="reservation-notes"
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
                 placeholder="Optional notes..."

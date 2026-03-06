@@ -3,6 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
+import { logger } from '@oppsera/core/observability';
 import { fnbKitchenTicketItems, fnbKitchenTickets } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { CallBackToStationInput } from '../validation';
@@ -50,8 +51,12 @@ export async function callBackToStation(
       .where(and(
         eq(fnbKitchenTicketItems.id, input.ticketItemId),
         eq(fnbKitchenTicketItems.tenantId, ctx.tenantId),
+        eq(fnbKitchenTicketItems.itemStatus, item.itemStatus),
       ))
       .returning();
+    if (!updated) {
+      throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'call back (concurrent)');
+    }
 
     // If ticket was served, move back to in_progress (with optimistic lock)
     const [ticket] = await tx
@@ -93,6 +98,12 @@ export async function callBackToStation(
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'callBackToStation', updated);
 
     return { result: updated!, events: [event] };
+  });
+
+  logger.info('[kds] item called back to station', {
+    domain: 'kds', tenantId: ctx.tenantId, locationId: ctx.locationId,
+    ticketItemId: input.ticketItemId, stationId: input.stationId,
+    reason: input.reason, userId: ctx.user.id,
   });
 
   auditLogDeferred(ctx, 'fnb.kds.item_called_back', 'fnb_kitchen_ticket_items', input.ticketItemId);

@@ -179,8 +179,9 @@ function CreateDepositForm({
       <h3 className="text-sm font-semibold text-foreground">New Deposit Slip</h3>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Amount ($)</label>
+          <label htmlFor="deposit-amount" className="block text-xs font-medium text-muted-foreground mb-1">Amount ($)</label>
           <input
+            id="deposit-amount"
             type="number"
             step="0.01"
             min="0.01"
@@ -192,8 +193,9 @@ function CreateDepositForm({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
+          <label htmlFor="deposit-type" className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
           <select
+            id="deposit-type"
             value={depositType}
             onChange={(e) => setDepositType(e.target.value)}
             className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
@@ -204,8 +206,9 @@ function CreateDepositForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
+          <label htmlFor="deposit-notes" className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
           <input
+            id="deposit-notes"
             type="text"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

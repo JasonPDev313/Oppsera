@@ -42,6 +42,7 @@ export function FeatureBadge({ storyId }: { storyId: string }) {
     >
       <span
         className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-mono font-medium border cursor-help ${priorityColor}`}
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
         role="note"
         aria-label={`${story.id}: ${story.title} — ${story.targetPhase}`}

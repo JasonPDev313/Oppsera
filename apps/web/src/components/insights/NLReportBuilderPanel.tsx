@@ -100,10 +100,11 @@ export function NLReportBuilderPanel({
       <div className="p-4 space-y-4">
         {/* Text input */}
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+          <label htmlFor="nl-report-description" className="block text-xs font-medium text-muted-foreground mb-1.5">
             Describe the report you want...
           </label>
           <textarea
+            id="nl-report-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onKeyDown={(e) => {

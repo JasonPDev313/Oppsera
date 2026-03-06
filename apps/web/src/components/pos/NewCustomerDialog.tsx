@@ -85,6 +85,7 @@ export function NewCustomerDialog({ open, onClose, onCreated }: NewCustomerDialo
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="new-customer-dialog-title">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-2xl bg-surface shadow-xl">
         {/* Header */}
@@ -144,6 +145,7 @@ export function NewCustomerDialog({ open, onClose, onCreated }: NewCustomerDialo
                   onChange={(e) => setFirstName(e.target.value)}
                   className="w-full rounded-lg border border-input px-3 py-2.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   placeholder="First name"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus
                   autoFocus
                 />
               </div>
@@ -173,6 +175,7 @@ export function NewCustomerDialog({ open, onClose, onCreated }: NewCustomerDialo
                 onChange={(e) => setOrganizationName(e.target.value)}
                 className="w-full rounded-lg border border-input px-3 py-2.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 placeholder="Organization name"
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
               />
             </div>

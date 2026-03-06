@@ -256,6 +256,7 @@ export function HeatmapGrid({
                 const isClickable = !!onCellClick;
 
                 return (
+                  // eslint-disable-next-line jsx-a11y/no-static-element-interactions
                   <div
                     key={`${row.key}::${col.key}`}
                     className={`flex items-center justify-center border border-gray-950/5 text-xs font-medium transition-opacity ${
@@ -279,6 +280,7 @@ export function HeatmapGrid({
                         : undefined
                     }
                     role={isClickable ? 'button' : undefined}
+                    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
                     tabIndex={isClickable ? 0 : undefined}
                     onKeyDown={
                       isClickable

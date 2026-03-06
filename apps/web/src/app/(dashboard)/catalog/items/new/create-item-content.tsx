@@ -981,6 +981,7 @@ function RetailFields({
       {/* TODO: Backend retail_option_groups table not yet available — storing in metadata.optionSets */}
       <div>
         <div className="mb-2 flex items-center justify-between">
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="block text-sm font-medium text-foreground">Option Sets</label>
           <button
             type="button"

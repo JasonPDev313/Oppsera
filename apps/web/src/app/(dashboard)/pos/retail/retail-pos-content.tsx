@@ -269,7 +269,6 @@ function EmailQuoteDialog({ open, onClose, orderId, businessName }: EmailQuoteDi
           <label htmlFor="quote-email" className="mb-1.5 block text-sm font-medium text-foreground">
             Customer email
           </label>
-          {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
           <input
             id="quote-email"
             type="email"
@@ -277,6 +276,7 @@ function EmailQuoteDialog({ open, onClose, orderId, businessName }: EmailQuoteDi
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
             placeholder="customer@example.com"
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
@@ -513,14 +513,15 @@ const TransactionNotesPortal = memo(function TransactionNotesPortal({
   }, [orderId, notes, onSave]);
 
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Transaction Notes"
-    >
+    <>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Transaction Notes"
+      >
       <div className="w-full max-w-md rounded-xl border border-border bg-surface p-5 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2
@@ -576,6 +577,7 @@ const TransactionNotesPortal = memo(function TransactionNotesPortal({
         </div>
       </div>
     </div>
+    </>
   );
 });
 
@@ -2364,7 +2366,6 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                 <label htmlFor="void-reason" className="block text-sm font-medium text-foreground">
                   Reason
                 </label>
-                {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
                 <input
                   id="void-reason"
                   type="text"
@@ -2372,6 +2373,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                   onChange={(e) => setVoidReason(e.target.value)}
                   placeholder="e.g., Customer changed mind"
                   className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus
                   autoFocus
                 />
               </div>

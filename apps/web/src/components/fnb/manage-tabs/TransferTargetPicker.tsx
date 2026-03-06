@@ -17,21 +17,26 @@ interface TransferTargetPickerProps {
   onCancel: () => void;
 }
 
-export function TransferTargetPicker({ locationId, excludeServerIds = [], onSelect, onCancel }: TransferTargetPickerProps) {
-  const [servers, setServers] = useState<ServerOption[]>([]);
+export function TransferTargetPicker({ locationId, excludeServerIds, onSelect, onCancel }: TransferTargetPickerProps) {
+  const [allServers, setAllServers] = useState<ServerOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
     apiFetch<{ data: ServerOption[] }>(`/api/v1/fnb/sections/servers${locationId ? `?locationId=${locationId}` : ''}`)
-      .then((res) => setServers(res.data.filter((s) => !excludeServerIds.includes(s.id))))
-      .catch(() => setServers([]))
-      .finally(() => setLoading(false));
-  }, [locationId, excludeServerIds]);
+      .then((res) => { if (!cancelled) setAllServers(res.data); })
+      .catch(() => { if (!cancelled) setAllServers([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [locationId]);
 
-  const filtered = search
-    ? servers.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()))
-    : servers;
+  // Filter out excluded servers and apply search — outside useEffect to avoid re-fetch
+  const excludeSet = new Set(excludeServerIds ?? []);
+  const filtered = allServers
+    .filter((s) => !excludeSet.has(s.id))
+    .filter((s) => !search || s.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="flex flex-col gap-3">

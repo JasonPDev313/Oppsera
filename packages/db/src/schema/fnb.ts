@@ -1032,7 +1032,8 @@ export const fnbKdsItemPrepTimes = pgTable(
     tenantId: text('tenant_id')
       .notNull()
       .references(() => tenants.id),
-    catalogItemId: text('catalog_item_id').notNull(),
+    catalogItemId: text('catalog_item_id'),
+    categoryId: text('category_id'),
     stationId: text('station_id')
       .references(() => fnbKitchenStations.id),
     estimatedPrepSeconds: integer('estimated_prep_seconds').notNull().default(300),
@@ -1041,8 +1042,15 @@ export const fnbKdsItemPrepTimes = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    uniqueIndex('uidx_prep_time_item')
+      .on(table.tenantId, table.catalogItemId)
+      .where(sql`catalog_item_id IS NOT NULL`),
+    uniqueIndex('uidx_prep_time_category')
+      .on(table.tenantId, table.categoryId)
+      .where(sql`category_id IS NOT NULL`),
     index('idx_fnb_item_prep_times_item').on(table.tenantId, table.catalogItemId),
     index('idx_fnb_item_prep_times_station').on(table.tenantId, table.stationId),
+    index('idx_fnb_item_prep_times_category').on(table.tenantId, table.categoryId),
   ],
 );
 
@@ -2625,6 +2633,6 @@ export const fnbWaitlistConfig = pgTable(
   (table) => [
     uniqueIndex('uq_fnb_waitlist_config_tenant_location').on(table.tenantId, table.locationId),
     index('idx_fnb_waitlist_config_tenant').on(table.tenantId),
-    uniqueIndex('uq_fnb_waitlist_config_slug').on(table.slugOverride),
+    uniqueIndex('uq_fnb_waitlist_config_slug').on(table.slugOverride).where(sql`slug_override IS NOT NULL`),
   ],
 );

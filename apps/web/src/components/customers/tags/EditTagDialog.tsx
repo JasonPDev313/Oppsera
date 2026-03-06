@@ -117,7 +117,8 @@ export function EditTagDialog({ open, onClose, tag, onUpdated }: EditTagDialogPr
   if (tag.isSystem) {
     return createPortal(
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+      <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
         <div className="relative w-full max-w-lg rounded-lg bg-surface p-6 shadow-xl">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-foreground">Edit Tag</h3>
@@ -151,6 +152,7 @@ export function EditTagDialog({ open, onClose, tag, onUpdated }: EditTagDialogPr
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-lg bg-surface p-6 shadow-xl">
         <div className="flex items-center justify-between">

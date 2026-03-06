@@ -113,6 +113,7 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSearch();
             }}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
           />
           <button

@@ -4,6 +4,7 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getKdsView } from '@oppsera/module-fnb';
 
 // GET /api/v1/fnb/stations/[id]/kds — get KDS view for station
+// NOTE: Expo stations are rejected by getKdsView — use /api/v1/fnb/stations/expo instead.
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const parts = request.nextUrl.pathname.split('/');
@@ -14,8 +15,9 @@ export const GET = withMiddleware(
       tenantId: ctx.tenantId,
       stationId,
       locationId: ctx.locationId ?? url.searchParams.get('locationId') ?? '',
-      businessDate: url.searchParams.get('businessDate') ?? '',
+      businessDate: url.searchParams.get('businessDate') || new Date().toISOString().slice(0, 10),
     });
+
     return NextResponse.json({ data: view });
   },
   { entitlement: 'kds', permission: 'kds.view' },

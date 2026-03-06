@@ -113,6 +113,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Diet Coke"
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
           </div>
@@ -199,6 +200,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
           </div>
 
           {/* Track Inventory toggle */}
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2.5">
             <input
               type="checkbox"

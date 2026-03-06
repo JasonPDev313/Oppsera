@@ -78,8 +78,9 @@ function StartReconciliationDialog({
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Bank Account</label>
+            <label htmlFor="start-rec-bank-account" className="block text-sm font-medium text-foreground mb-1">Bank Account</label>
             <select
+              id="start-rec-bank-account"
               value={bankAccountId}
               onChange={(e) => setBankAccountId(e.target.value)}
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -94,8 +95,9 @@ function StartReconciliationDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Statement Date</label>
+            <label htmlFor="start-rec-statement-date" className="block text-sm font-medium text-foreground mb-1">Statement Date</label>
             <input
+              id="start-rec-statement-date"
               type="date"
               value={statementDate}
               onChange={(e) => setStatementDate(e.target.value)}
@@ -104,8 +106,9 @@ function StartReconciliationDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Statement Ending Balance</label>
+            <label htmlFor="start-rec-statement-balance" className="block text-sm font-medium text-foreground mb-1">Statement Ending Balance</label>
             <input
+              id="start-rec-statement-balance"
               type="number"
               step="0.01"
               value={statementBalance}
@@ -182,8 +185,9 @@ function AddAdjustmentDialog({
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Type</label>
+            <label htmlFor="adj-type" className="block text-sm font-medium text-foreground mb-1">Type</label>
             <select
+              id="adj-type"
               value={itemType}
               onChange={(e) => setItemType(e.target.value)}
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -195,8 +199,9 @@ function AddAdjustmentDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Amount (negative for deductions)</label>
+            <label htmlFor="adj-amount" className="block text-sm font-medium text-foreground mb-1">Amount (negative for deductions)</label>
             <input
+              id="adj-amount"
               type="number"
               step="0.01"
               value={amount}
@@ -207,8 +212,9 @@ function AddAdjustmentDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Date</label>
+            <label htmlFor="adj-date" className="block text-sm font-medium text-foreground mb-1">Date</label>
             <input
+              id="adj-date"
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
@@ -217,8 +223,9 @@ function AddAdjustmentDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+            <label htmlFor="adj-description" className="block text-sm font-medium text-foreground mb-1">Description</label>
             <input
+              id="adj-description"
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -557,8 +564,9 @@ export default function BankReconciliationContent() {
       {/* Controls */}
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Status</label>
+          <label htmlFor="bank-rec-status" className="block text-sm font-medium text-foreground mb-1">Status</label>
           <select
+            id="bank-rec-status"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"

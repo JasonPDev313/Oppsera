@@ -273,6 +273,7 @@ export function RoleEditorPanel({
   const panel = (
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       {/* Panel */}
@@ -320,8 +321,9 @@ export function RoleEditorPanel({
           {/* Name + Description */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-foreground">Name</label>
+              <label htmlFor="rep-name" className="block text-sm font-medium text-foreground">Name</label>
               <input
+                id="rep-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -331,8 +333,9 @@ export function RoleEditorPanel({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground">Description</label>
+              <label htmlFor="rep-description" className="block text-sm font-medium text-foreground">Description</label>
               <input
+                id="rep-description"
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -665,6 +668,7 @@ function PermissionItem({
 }) {
   const label = getPermLabel(permKey);
   return (
+    // eslint-disable-next-line jsx-a11y/label-has-associated-control
     <label className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer">
       <input
         type="checkbox"

@@ -38,7 +38,7 @@ export default function TipPayoutsContent() {
     if (!selectedEmployee) return;
 
     await createPayout({
-      locationId: '', // Will be resolved from context
+      locationId: '', // Resolved server-side from ctx.locationId
       employeeId: selectedEmployee.employeeId,
       payoutType: input.payoutType,
       amountCents: input.amountCents,

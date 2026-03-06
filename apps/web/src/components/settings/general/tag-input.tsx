@@ -53,6 +53,7 @@ export function TagInput({
 
   return (
     <div className="relative">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className={`flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-surface px-2 py-1.5 transition-colors focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
         onClick={() => inputRef.current?.focus()}

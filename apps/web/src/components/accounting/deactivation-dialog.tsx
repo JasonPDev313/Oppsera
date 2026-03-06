@@ -39,6 +39,7 @@ export function DeactivationDialog({ open, onClose, account, onSuccess }: Deacti
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 mx-4 w-full max-w-md rounded-xl bg-surface shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">

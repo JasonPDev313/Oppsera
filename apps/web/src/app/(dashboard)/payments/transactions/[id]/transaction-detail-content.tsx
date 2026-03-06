@@ -432,6 +432,7 @@ function VoidDialog({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative rounded-lg bg-surface shadow-xl p-6 w-full max-w-md">
         <h3 className="text-lg font-semibold text-foreground">Void Transaction</h3>
@@ -489,6 +490,7 @@ function RefundDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative rounded-lg bg-surface shadow-xl p-6 w-full max-w-md">
         <h3 className="text-lg font-semibold text-foreground">Refund Transaction</h3>

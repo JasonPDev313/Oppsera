@@ -26,6 +26,7 @@ export function PaymentAdjustments({ tabId, onAdjusted, disabled }: PaymentAdjus
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
 
   const handleVerifyPin = useCallback(
@@ -69,11 +70,12 @@ export function PaymentAdjustments({ tabId, onAdjusted, disabled }: PaymentAdjus
           clientRequestId: crypto.randomUUID(),
         }),
       });
+      setAdjustError(null);
       setMode(null);
       setDiscountInput('');
       onAdjusted();
     } catch {
-      // silent — let server error bubble
+      setAdjustError('Failed to apply discount');
     } finally {
       setIsApplying(false);
     }
@@ -90,11 +92,12 @@ export function PaymentAdjustments({ tabId, onAdjusted, disabled }: PaymentAdjus
           clientRequestId: crypto.randomUUID(),
         }),
       });
+      setAdjustError(null);
       setMode(null);
       setCompReason('');
       onAdjusted();
     } catch {
-      // silent
+      setAdjustError('Failed to apply comp');
     } finally {
       setIsApplying(false);
     }
@@ -236,6 +239,7 @@ export function PaymentAdjustments({ tabId, onAdjusted, disabled }: PaymentAdjus
                 color: 'var(--fnb-text-primary)',
                 fontFamily: 'var(--fnb-font-mono)',
               }}
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
           </div>
@@ -264,6 +268,7 @@ export function PaymentAdjustments({ tabId, onAdjusted, disabled }: PaymentAdjus
           >
             {isApplying ? 'Applying...' : 'Apply Discount'}
           </button>
+          {adjustError && <p className="text-xs mt-1" style={{ color: 'var(--fnb-error, #ef4444)' }}>{adjustError}</p>}
         </div>
 
         <ManagerPinModal
@@ -362,6 +367,7 @@ export function PaymentAdjustments({ tabId, onAdjusted, disabled }: PaymentAdjus
         >
           {isApplying ? 'Applying...' : 'Comp Check'}
         </button>
+        {adjustError && <p className="text-xs mt-1" style={{ color: 'var(--fnb-error, #ef4444)' }}>{adjustError}</p>}
       </div>
 
       <ManagerPinModal

@@ -82,7 +82,7 @@ Defense-in-depth: app-level filtering + `withTenant()` + Postgres RLS.
 9. **GL adapters NEVER throw** — business ops must always succeed. See #249.
 10. **postgres.js returns RowList** — use `Array.from(result as Iterable<T>)`, never `.rows`. See #4.
 
-> Full top 30: [docs/conventions/gotchas-top30.md](docs/conventions/gotchas-top30.md) | All 490: [docs/conventions/gotchas-reference.md](docs/conventions/gotchas-reference.md)
+> Full top 30: [docs/conventions/gotchas-top30.md](docs/conventions/gotchas-top30.md) | All 540: [docs/conventions/gotchas-reference.md](docs/conventions/gotchas-reference.md)
 
 ## Migration Rules (Multi-Agent Safety)
 
@@ -115,7 +115,7 @@ pnpm db:seed              # Seed dev data
 | [docs/conventions/infrastructure-reference.md](docs/conventions/infrastructure-reference.md) | Deployment, DB config, connection pooling, background jobs, observability |
 | [docs/conventions/css-troubleshooting.md](docs/conventions/css-troubleshooting.md) | CSS not loading, page unstyled |
 | [docs/conventions/gotchas-top30.md](docs/conventions/gotchas-top30.md) | Need full details on top 30 gotchas |
-| [docs/conventions/gotchas-reference.md](docs/conventions/gotchas-reference.md) | All 490 gotchas |
+| [docs/conventions/gotchas-reference.md](docs/conventions/gotchas-reference.md) | All 540 gotchas |
 | [docs/conventions/whats-built.md](docs/conventions/whats-built.md) | Complete module/feature inventory |
-| [docs/conventions/CONVENTIONS_FULL.md](docs/conventions/CONVENTIONS_FULL.md) | Full dev conventions (221 sections) |
+| [docs/conventions/CONVENTIONS_FULL.md](docs/conventions/CONVENTIONS_FULL.md) | Full dev conventions (231 sections) |
 | [CONVENTIONS.md](CONVENTIONS.md) | Index into CONVENTIONS_FULL.md by section number |

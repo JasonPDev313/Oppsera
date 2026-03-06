@@ -12,7 +12,7 @@ export interface ManageTabItem {
   tabNumber: number;
   guestName: string | null;
   status: string;
-  serviceMode: string;
+  serviceMode: string | null;
   tableId: string | null;
   tableLabel: string | null;
   serverUserId: string | null;
@@ -111,10 +111,14 @@ const UNDO_WINDOW_MS = 30_000;
 export function useManageTabs(locationId: string) {
   const locHeaders = locationId ? { 'X-Location-Id': locationId } : undefined;
 
+  // ─── Settings (declared early — used by selection cap) ────────
+  const [settings, setSettings] = useState<ManageTabsSettings | null>(null);
+
   // ─── Tab listing ──────────────────────────────────────────────
   const [tabs, setTabs] = useState<ManageTabItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [filters, setFilters] = useState<ManageTabsFilters>({
+  const [error, setError] = useState<string | null>(null);
+  const [filters, setFiltersRaw] = useState<ManageTabsFilters>({
     includeAmounts: true,
     sortBy: 'oldest',
     viewMode: 'all',
@@ -122,12 +126,19 @@ export function useManageTabs(locationId: string) {
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
 
+  // Wrap setFilters to reset cursor — stale cursors break keyset pagination on sort/filter change
+  const setFilters = useCallback((next: ManageTabsFilters) => {
+    setFiltersRaw(next);
+    setCursor(null);
+  }, []);
+
   // ─── Version tracking for conflict detection ──────────────────
   const versionMap = useRef<Map<string, number>>(new Map());
   const [staleIds, setStaleIds] = useState<Set<string>>(new Set());
 
   const refreshTabs = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const qs = buildQueryString({
         ...filters,
@@ -155,8 +166,10 @@ export function useManageTabs(locationId: string) {
       setTabs(res.data);
       setCursor(res.meta.cursor);
       setHasMore(res.meta.hasMore);
-    } catch {
-      // silent
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load tabs';
+      setError(msg);
+      console.error('[useManageTabs] refreshTabs failed:', err);
     } finally {
       setIsLoading(false);
     }
@@ -177,16 +190,18 @@ export function useManageTabs(locationId: string) {
   }, []);
 
   // ─── Polling (15s interval — safety net for missed broadcasts) ─
+  // Uses refreshTabsRef so the interval doesn't restart on every filter change
   const pollEnabled = useRef(true);
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (pollEnabled.current) {
-        refreshTabs();
+        refreshTabsRef.current();
       }
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [refreshTabs]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Pause polling during mutations
   const pausePolling = useCallback(() => { pollEnabled.current = false; }, []);
@@ -224,15 +239,22 @@ export function useManageTabs(locationId: string) {
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        const cap = settings?.maxBulkSelection ?? 0;
+        if (cap > 0 && next.size >= cap) return prev; // Enforce cap
+        next.add(id);
+      }
       return next;
     });
-  }, []);
+  }, [settings?.maxBulkSelection]);
 
   const selectAll = useCallback(() => {
-    setSelectedIds(new Set(tabs.map((t) => t.id)));
-  }, [tabs]);
+    const cap = settings?.maxBulkSelection ?? 0;
+    const ids = tabs.map((t) => t.id);
+    setSelectedIds(new Set(cap > 0 ? ids.slice(0, cap) : ids));
+  }, [tabs, settings?.maxBulkSelection]);
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
@@ -320,7 +342,9 @@ export function useManageTabs(locationId: string) {
 
   const bulkVoid = useCallback(
     async (input: { reasonCode: string; reasonText?: string; approverUserId: string; clientRequestId: string }) => {
+      if (isMutating) return { succeeded: [], failed: [] } as BulkResult;
       const tabIds = Array.from(selectedIds);
+      if (tabIds.length === 0) return { succeeded: [], failed: [] } as BulkResult;
       const preActionTabs = capturePreActionSnapshot('bulk_void', tabIds);
       pausePolling();
       setIsMutating(true);
@@ -344,7 +368,7 @@ export function useManageTabs(locationId: string) {
         resumePolling();
       }
     },
-    [selectedIds, locationId, clearSelection, refreshTabs, capturePreActionSnapshot, buildExpectedVersions, pausePolling, resumePolling],
+    [isMutating, selectedIds, locationId, clearSelection, refreshTabs, capturePreActionSnapshot, buildExpectedVersions, pausePolling, resumePolling],
   );
 
   const bulkTransfer = useCallback(
@@ -355,7 +379,9 @@ export function useManageTabs(locationId: string) {
       approverUserId?: string;
       clientRequestId: string;
     }) => {
+      if (isMutating) return { succeeded: [], failed: [] } as BulkResult;
       const tabIds = Array.from(selectedIds);
+      if (tabIds.length === 0) return { succeeded: [], failed: [] } as BulkResult;
       const preActionTabs = capturePreActionSnapshot('bulk_transfer', tabIds);
       pausePolling();
       setIsMutating(true);
@@ -383,12 +409,14 @@ export function useManageTabs(locationId: string) {
         resumePolling();
       }
     },
-    [selectedIds, locationId, clearSelection, refreshTabs, capturePreActionSnapshot, buildExpectedVersions, pausePolling, resumePolling],
+    [isMutating, selectedIds, locationId, clearSelection, refreshTabs, capturePreActionSnapshot, buildExpectedVersions, pausePolling, resumePolling],
   );
 
   const bulkClose = useCallback(
     async (input: { reasonCode: string; reasonText?: string; approverUserId: string; clientRequestId: string }) => {
+      if (isMutating) return { succeeded: [], failed: [] } as BulkResult;
       const tabIds = Array.from(selectedIds);
+      if (tabIds.length === 0) return { succeeded: [], failed: [] } as BulkResult;
       const preActionTabs = capturePreActionSnapshot('bulk_close', tabIds);
       pausePolling();
       setIsMutating(true);
@@ -416,7 +444,7 @@ export function useManageTabs(locationId: string) {
         resumePolling();
       }
     },
-    [selectedIds, locationId, clearSelection, refreshTabs, capturePreActionSnapshot, buildExpectedVersions, pausePolling, resumePolling],
+    [isMutating, selectedIds, locationId, clearSelection, refreshTabs, capturePreActionSnapshot, buildExpectedVersions, pausePolling, resumePolling],
   );
 
   const runEmergencyCleanup = useCallback(
@@ -432,6 +460,7 @@ export function useManageTabs(locationId: string) {
       approverUserId: string;
       clientRequestId: string;
     }) => {
+      if (isMutating) return { paidTabsClosed: 0, locksReleased: 0, staleTabsVoided: 0, staleTabsAbandoned: 0 } as EmergencyCleanupResult;
       const preActionTabs = capturePreActionSnapshot('emergency_cleanup', tabs.map((t) => t.id));
       pausePolling();
       setIsMutating(true);
@@ -455,7 +484,7 @@ export function useManageTabs(locationId: string) {
         resumePolling();
       }
     },
-    [locationId, refreshTabs, tabs, capturePreActionSnapshot, pausePolling, resumePolling],
+    [isMutating, locationId, refreshTabs, tabs, capturePreActionSnapshot, pausePolling, resumePolling],
   );
 
   const dismissUndo = useCallback(() => {
@@ -476,14 +505,14 @@ export function useManageTabs(locationId: string) {
   );
 
   // ─── Settings ─────────────────────────────────────────────────
-  const [settings, setSettings] = useState<ManageTabsSettings | null>(null);
-
   useEffect(() => {
     apiFetch<{ data: ManageTabsSettings }>('/api/v1/fnb/tabs/manage/settings', {
       headers: locHeaders,
     })
       .then((res) => setSettings(res.data))
-      .catch(() => {});
+      .catch((err) => {
+        console.error('[useManageTabs] Failed to load settings:', err);
+      });
   }, [locationId]);
 
   const updateSettings = useCallback(
@@ -516,6 +545,7 @@ export function useManageTabs(locationId: string) {
     // Tab listing
     tabs,
     isLoading,
+    error,
     filters,
     setFilters,
     cursor,

@@ -167,6 +167,7 @@ export default function GLDetailContent() {
       <div className="print:hidden">
         <div className="flex flex-wrap items-end gap-4">
           <div className="w-72">
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="block text-sm font-medium text-foreground mb-1">Account</label>
             <AccountPicker value={accountId} onChange={setAccountId} />
           </div>

@@ -79,7 +79,10 @@ function HierarchyPane({
         {items.map((item) => (
           <div
             key={item.id}
+            role="button"
+            tabIndex={0}
             onClick={() => onSelect(item.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(item.id); } }}
             className={`relative flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-accent0/10 ${
               selectedId === item.id ? 'bg-indigo-500/10' : ''
             }`}
@@ -95,6 +98,7 @@ function HierarchyPane({
                   if (e.key === 'Escape') setEditingId(null);
                 }}
                 className="mr-2 flex-1 rounded border border-indigo-500/40 bg-transparent px-2 py-0.5 text-sm text-foreground focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
@@ -161,6 +165,7 @@ function HierarchyPane({
               }}
               placeholder="Name..."
               className="flex-1 rounded border border-border bg-transparent px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
             <button

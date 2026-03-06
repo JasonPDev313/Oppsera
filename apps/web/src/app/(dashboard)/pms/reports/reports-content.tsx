@@ -712,6 +712,7 @@ export default function ReportsContent() {
       <div className="flex flex-wrap items-end gap-3">
         {properties.length > 1 && (
           <div className="w-full sm:w-56">
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Property
             </label>
@@ -726,10 +727,11 @@ export default function ReportsContent() {
         {activeTab !== 'overview' && (
           <>
             <div className="w-full sm:w-44">
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              <label htmlFor="reports-start-date" className="mb-1 block text-xs font-medium text-muted-foreground">
                 Start Date
               </label>
               <input
+                id="reports-start-date"
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
@@ -737,10 +739,11 @@ export default function ReportsContent() {
               />
             </div>
             <div className="w-full sm:w-44">
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              <label htmlFor="reports-end-date" className="mb-1 block text-xs font-medium text-muted-foreground">
                 End Date
               </label>
               <input
+                id="reports-end-date"
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -751,10 +754,11 @@ export default function ReportsContent() {
         )}
         {activeTab === 'overview' && (
           <div className="w-full sm:w-44">
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            <label htmlFor="reports-business-date" className="mb-1 block text-xs font-medium text-muted-foreground">
               Business Date
             </label>
             <input
+              id="reports-business-date"
               type="date"
               value={startDate}
               onChange={(e) => {

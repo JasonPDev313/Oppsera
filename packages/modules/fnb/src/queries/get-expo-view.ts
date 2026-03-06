@@ -120,6 +120,8 @@ export async function getExpoView(
 
     for (const t of tickets) {
       const items = itemsByTicket.get(t.id as string) ?? [];
+      // Skip tickets where all items were voided (no non-voided items remain)
+      if (items.length === 0) continue;
       const readyCount = items.filter((i) => i.itemStatus === 'ready' || i.itemStatus === 'served').length;
       const totalCount = items.length;
       const allItemsReady = totalCount > 0 && readyCount === totalCount;

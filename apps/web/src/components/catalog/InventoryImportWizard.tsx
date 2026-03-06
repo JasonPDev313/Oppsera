@@ -166,6 +166,7 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
       {/* Upload Step */}
       {(step === 'upload' || step === 'analyzing') && (
         <div className="space-y-6">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
@@ -196,8 +197,9 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
 
           {/* Default item type selector */}
           <div>
-            <label className="block text-sm font-medium mb-1">Default Item Type</label>
+            <label htmlFor="inventory-import-item-type" className="block text-sm font-medium mb-1">Default Item Type</label>
             <select
+              id="inventory-import-item-type"
               value={defaultItemType}
               onChange={(e) => setDefaultItemType(e.target.value)}
               className="w-full max-w-xs text-sm rounded-md border border-input bg-surface px-3 py-2 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"

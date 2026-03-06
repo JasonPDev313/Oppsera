@@ -327,11 +327,12 @@ function EmbedCodeSection({ tenantSlug }: { tenantSlug: string }) {
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs text-muted-foreground mb-1">
+        <label htmlFor="booking-direct-link" className="block text-xs text-muted-foreground mb-1">
           Direct Booking Link
         </label>
         <div className="flex items-center gap-2">
           <input
+            id="booking-direct-link"
             readOnly
             value={bookingUrl}
             className="flex-1 rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground font-mono"
@@ -360,6 +361,7 @@ function EmbedCodeSection({ tenantSlug }: { tenantSlug: string }) {
       </div>
 
       <div>
+        {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
         <label className="block text-xs text-muted-foreground mb-1">
           Embed Code (iframe)
         </label>

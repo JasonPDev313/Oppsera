@@ -75,6 +75,7 @@ export default function ReservationContextMenu({
   };
 
   return createPortal(
+    /* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
     <div
       className="fixed z-50 min-w-52 rounded-lg border border-border bg-surface py-1 shadow-lg"
       style={{

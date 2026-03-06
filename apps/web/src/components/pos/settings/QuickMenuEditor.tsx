@@ -152,6 +152,7 @@ function TileTypePicker({ allItems, onAdd, onClose }: TileTypePickerProps) {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search items..."
             className="w-full rounded-md border border-border py-1.5 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
           />
         </div>
@@ -249,8 +250,9 @@ function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorP
 
       {/* Label */}
       <div>
-        <label className="mb-1 block text-xs font-medium text-muted-foreground">Label</label>
+        <label htmlFor="tile-inspector-label" className="mb-1 block text-xs font-medium text-muted-foreground">Label</label>
         <input
+          id="tile-inspector-label"
           type="text"
           value={tile.label}
           onChange={(e) => onUpdate({ label: e.target.value })}
@@ -260,6 +262,7 @@ function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorP
 
       {/* Color */}
       <div>
+        {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
         <label className="mb-2 block text-xs font-medium text-muted-foreground">Color</label>
         <div className="flex flex-wrap gap-2">
           {PRESET_COLORS.map((color) => (
@@ -278,6 +281,7 @@ function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorP
 
       {/* Size */}
       <div>
+        {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
         <label className="mb-2 block text-xs font-medium text-muted-foreground">Size (columns)</label>
         <div className="flex gap-2">
           {[1, 2, 3, 4].map((span) => (
@@ -299,6 +303,7 @@ function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorP
 
       {/* Row span */}
       <div>
+        {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
         <label className="mb-2 block text-xs font-medium text-muted-foreground">Height (rows)</label>
         <div className="flex gap-2">
           {[1, 2].map((span) => (

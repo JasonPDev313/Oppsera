@@ -2278,6 +2278,7 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
     <div className="space-y-4">
       {/* Location selector */}
       <div className="flex items-center gap-3">
+        {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
         <label className="text-sm font-medium text-foreground">Location</label>
         <Select
           options={locationOptions}

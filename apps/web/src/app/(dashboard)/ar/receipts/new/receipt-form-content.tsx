@@ -118,10 +118,11 @@ export default function ReceiptFormContent() {
         <div className="rounded-lg border border-border bg-surface p-5 space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="ar-receipt-customer" className="block text-sm font-medium text-foreground mb-1">
                 Customer <span className="text-red-500">*</span>
               </label>
               <input
+                id="ar-receipt-customer"
                 type="text"
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}
@@ -130,8 +131,9 @@ export default function ReceiptFormContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Receipt Date</label>
+              <label htmlFor="ar-receipt-date" className="block text-sm font-medium text-foreground mb-1">Receipt Date</label>
               <input
+                id="ar-receipt-date"
                 type="date"
                 value={receiptDate}
                 onChange={(e) => setReceiptDate(e.target.value)}
@@ -139,8 +141,9 @@ export default function ReceiptFormContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Payment Method</label>
+              <label htmlFor="ar-receipt-payment-method" className="block text-sm font-medium text-foreground mb-1">Payment Method</label>
               <select
+                id="ar-receipt-payment-method"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -153,8 +156,9 @@ export default function ReceiptFormContent() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Reference #</label>
+              <label htmlFor="ar-receipt-reference" className="block text-sm font-medium text-foreground mb-1">Reference #</label>
               <input
+                id="ar-receipt-reference"
                 type="text"
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
@@ -162,6 +166,7 @@ export default function ReceiptFormContent() {
               />
             </div>
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="block text-sm font-medium text-foreground mb-1">
                 Amount <span className="text-red-500">*</span>
               </label>
@@ -169,8 +174,9 @@ export default function ReceiptFormContent() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Memo</label>
+            <label htmlFor="ar-receipt-memo" className="block text-sm font-medium text-foreground mb-1">Memo</label>
             <textarea
+              id="ar-receipt-memo"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               rows={2}

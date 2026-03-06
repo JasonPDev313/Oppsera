@@ -16,7 +16,7 @@ export const GET = withMiddleware(
       businessDate: url.searchParams.get('businessDate') ?? undefined,
       serverUserId: url.searchParams.get('serverUserId') ?? undefined,
       tableId: url.searchParams.get('tableId') ?? undefined,
-      status: (url.searchParams.get('status') as any) ?? undefined,
+      status: (url.searchParams.get('status') as 'open' | 'in_progress' | 'ordering' | 'sent_to_kitchen' | 'check_requested' | 'paying' | 'closed' | 'voided' | 'abandoned' | 'transferred' | 'split') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
       limit: parseLimit(url.searchParams.get('limit')),
     });
@@ -29,6 +29,7 @@ export const GET = withMiddleware(
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const body = await request.json();
+    body.serverUserId = body.serverUserId || ctx.user.id;
     const parsed = openTabSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

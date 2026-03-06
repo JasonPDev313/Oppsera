@@ -260,11 +260,12 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
 
         {/* Site (Location) */}
         <div className="mb-5">
-          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
+          <label htmlFor="tss-site" className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
             <MapPin className="h-4 w-4 text-indigo-600" />
             Location
           </label>
           <select
+            id="tss-site"
             value={selectedSiteId ?? ''}
             onChange={(e) => setSelectedSiteId(e.target.value || null)}
             className={selectClass}
@@ -281,11 +282,12 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
         {/* Venue (only shown when site has children) */}
         {showVenues && (
           <div className="mb-5">
-            <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
+            <label htmlFor="tss-venue" className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
               <Building2 className="h-4 w-4 text-indigo-600" />
               Venue
             </label>
             <select
+              id="tss-venue"
               value={selectedVenueId ?? ''}
               onChange={(e) => setSelectedVenueId(e.target.value || null)}
               disabled={!selectedSiteId}
@@ -307,11 +309,12 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
 
         {/* Profit Center */}
         <div className="mb-5">
-          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
+          <label htmlFor="tss-profit-center" className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
             <Store className="h-4 w-4 text-indigo-600" />
             Profit Center
           </label>
           <select
+            id="tss-profit-center"
             value={selectedProfitCenterId ?? ''}
             onChange={(e) => setSelectedProfitCenterId(e.target.value || null)}
             disabled={!effectiveLocationId}
@@ -352,11 +355,12 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
 
         {/* Terminal */}
         <div className="mb-8">
-          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
+          <label htmlFor="tss-terminal" className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
             <Monitor className="h-4 w-4 text-indigo-600" />
             Terminal
           </label>
           <select
+            id="tss-terminal"
             value={selectedTerminalId ?? ''}
             onChange={(e) => setSelectedTerminalId(e.target.value || null)}
             disabled={!selectedProfitCenterId}

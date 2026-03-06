@@ -69,22 +69,30 @@ export async function publishWithOutbox<T>(
     }),
   );
 
-  // ── Fast-path dispatch ──────────────────────────────────────────
+  // ── Inline dispatch ────────────────────────────────────────────
   // Transaction committed → events are durable in the outbox.
-  // Dispatch immediately in-process so latency-sensitive consumers
-  // (e.g., KDS ticket creation) fire within milliseconds instead of
-  // waiting up to 5s for the outbox worker poll cycle.
-  // Fire-and-forget: failures are safe — the outbox worker retries.
+  // Dispatch inline (awaited) so consumers complete within the request
+  // lifecycle. This is critical on Vercel: fire-and-forget dispatch
+  // races against function freeze — dispatchWithRetry claims the event
+  // in processedEvents BEFORE the handler runs, so if Vercel freezes
+  // mid-handler the event is permanently marked "processed" but the
+  // consumer never finished. The outbox worker then skips it (already
+  // claimed). Awaiting here adds ~100-300ms latency but guarantees
+  // consumers (especially KDS ticket creation) complete reliably.
+  // Errors are caught per-event — the transaction already committed,
+  // so the caller's result is unaffected.
   if (committedEvents.length > 0) {
     const bus = getEventBus();
-    for (const event of committedEvents) {
-      bus.publish(event).catch((err) => {
-        console.error(
-          `[fast-dispatch] post-commit dispatch failed for ${event.eventType} (outbox will retry):`,
-          err instanceof Error ? err.message : err,
-        );
-      });
-    }
+    await Promise.allSettled(
+      committedEvents.map((event) =>
+        bus.publish(event).catch((err) => {
+          console.error(
+            `[inline-dispatch] post-commit dispatch failed for ${event.eventType} (outbox will retry):`,
+            err instanceof Error ? err.message : err,
+          );
+        }),
+      ),
+    );
   }
 
   return result;

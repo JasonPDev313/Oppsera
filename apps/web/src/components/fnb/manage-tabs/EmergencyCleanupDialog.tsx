@@ -50,7 +50,7 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
   const [step, setStep] = useState<Step>('options');
   const [pinError, setPinError] = useState<string | null>(null);
   const [approver, setApprover] = useState<{ userId: string; userName: string } | null>(null);
-  const [_executing, setExecuting] = useState(false);
+  // Step machine drives the UI via step === 'executing' / 'result'
   const [result, setResult] = useState<CleanupResult | null>(null);
 
   if (!open) return null;
@@ -82,7 +82,6 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
 
   async function executeCleanup(approverUserId: string) {
     setStep('executing');
-    setExecuting(true);
     try {
       const res = await onExecute({
         actions: {
@@ -101,8 +100,6 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
     } catch {
       setResult({ paidTabsClosed: 0, locksReleased: 0, staleTabsVoided: 0, staleTabsAbandoned: 0 });
       setStep('result');
-    } finally {
-      setExecuting(false);
     }
   }
 
@@ -123,6 +120,7 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
       <div className="absolute inset-0 bg-black/60" onClick={step === 'options' ? handleDone : undefined} />
       <div
         className="relative w-full max-w-md rounded-xl shadow-2xl p-6"
@@ -146,6 +144,7 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
         {step === 'options' && (
           <div className="flex flex-col gap-4">
             {/* Option: Close Paid Tabs */}
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -160,6 +159,7 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
             </label>
 
             {/* Option: Release Locks */}
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -174,6 +174,7 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
             </label>
 
             {/* Option: Void Stale Tabs */}
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -189,10 +190,11 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
 
             {voidStaleTabs && (
               <div className="ml-7">
-                <label className="text-xs font-medium" style={{ color: 'var(--fnb-text-secondary)' }}>
+                <label htmlFor="cleanup-stale-threshold" className="text-xs font-medium" style={{ color: 'var(--fnb-text-secondary)' }}>
                   Stale threshold: {staleThreshold} min ({Math.floor(staleThreshold / 60)}h {staleThreshold % 60}m)
                 </label>
                 <input
+                  id="cleanup-stale-threshold"
                   type="range"
                   min={30}
                   max={720}
@@ -205,6 +207,7 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
             )}
 
             {/* NEW: Option: Mark Abandoned Tabs */}
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -220,10 +223,11 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
 
             {markAbandoned && (
               <div className="ml-7">
-                <label className="text-xs font-medium" style={{ color: 'var(--fnb-text-secondary)' }}>
+                <label htmlFor="cleanup-abandoned-threshold" className="text-xs font-medium" style={{ color: 'var(--fnb-text-secondary)' }}>
                   Abandoned threshold: {abandonedThreshold} min ({Math.floor(abandonedThreshold / 60)}h {abandonedThreshold % 60}m)
                 </label>
                 <input
+                  id="cleanup-abandoned-threshold"
                   type="range"
                   min={120}
                   max={1440}

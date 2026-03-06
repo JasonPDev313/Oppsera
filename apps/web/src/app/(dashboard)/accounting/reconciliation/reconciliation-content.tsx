@@ -426,8 +426,9 @@ export default function ReconciliationContent() {
       <div className="flex flex-wrap items-end gap-4">
         {activeTab === 'waterfall' ? (
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Business Date</label>
+            <label htmlFor="rec-business-date" className="block text-sm font-medium text-foreground mb-1">Business Date</label>
             <input
+              id="rec-business-date"
               type="date"
               value={businessDate}
               onChange={(e) => setBusinessDate(e.target.value)}
@@ -436,8 +437,9 @@ export default function ReconciliationContent() {
           </div>
         ) : (
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">As of Date</label>
+            <label htmlFor="rec-as-of-date" className="block text-sm font-medium text-foreground mb-1">As of Date</label>
             <input
+              id="rec-as-of-date"
               type="date"
               value={asOfDate}
               onChange={(e) => setAsOfDate(e.target.value)}

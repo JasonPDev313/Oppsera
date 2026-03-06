@@ -98,6 +98,7 @@ export const POST = withMiddleware(
     }
 
     // Parse tender data
+    body.employeeId = body.employeeId || ctx.user.id;
     const tenderParsed = recordTenderSchema.safeParse(body);
     if (!tenderParsed.success) {
       return NextResponse.json(

@@ -371,6 +371,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
               onChange={(e) => setCardToken(e.target.value)}
               placeholder="Scan card or enter token"
               className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none"
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
             <p className="mt-1 text-xs text-muted-foreground">

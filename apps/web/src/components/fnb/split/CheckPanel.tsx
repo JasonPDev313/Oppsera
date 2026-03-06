@@ -18,6 +18,7 @@ export function CheckPanel({ check, lines, isActive, onSelect, onRemoveItem }: C
   const checkLines = lines.filter((l) => check.lineIds.includes(l.id));
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="flex flex-col rounded-lg overflow-hidden transition-colors"
       style={{

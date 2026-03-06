@@ -27,10 +27,11 @@ export default function VendorLedgerContent() {
       {/* Controls */}
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
+          <label htmlFor="vendor-ledger-vendor" className="block text-sm font-medium text-foreground mb-1">
             Vendor <span className="text-red-500">*</span>
           </label>
           <input
+            id="vendor-ledger-vendor"
             type="text"
             value={vendorId}
             onChange={(e) => setVendorId(e.target.value)}
@@ -39,8 +40,9 @@ export default function VendorLedgerContent() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">From</label>
+          <label htmlFor="vendor-ledger-from" className="block text-sm font-medium text-foreground mb-1">From</label>
           <input
+            id="vendor-ledger-from"
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
@@ -48,8 +50,9 @@ export default function VendorLedgerContent() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">To</label>
+          <label htmlFor="vendor-ledger-to" className="block text-sm font-medium text-foreground mb-1">To</label>
           <input
+            id="vendor-ledger-to"
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}

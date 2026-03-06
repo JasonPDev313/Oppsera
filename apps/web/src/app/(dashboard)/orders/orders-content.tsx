@@ -706,6 +706,7 @@ export default function OrdersPage() {
         header: '',
         width: '48px',
         render: (row: SalesRow) => (
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
           <div onClick={(e) => e.stopPropagation()}>
             <ActionMenu items={buildActions(row)} />
           </div>

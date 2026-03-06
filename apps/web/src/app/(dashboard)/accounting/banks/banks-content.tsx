@@ -198,6 +198,7 @@ function BankAccountDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl space-y-4">
         <h3 className="text-lg font-semibold text-foreground">
@@ -206,10 +207,11 @@ function BankAccountDialog({
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="bank-account-name" className="block text-sm font-medium text-foreground mb-1">
               Account Name <span className="text-red-500">*</span>
             </label>
             <input
+              id="bank-account-name"
               type="text"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -222,6 +224,7 @@ function BankAccountDialog({
           </div>
 
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="block text-sm font-medium text-foreground mb-1">
               GL Account <span className="text-red-500">*</span>
             </label>
@@ -233,8 +236,9 @@ function BankAccountDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Bank Name</label>
+            <label htmlFor="bank-account-bank-name" className="block text-sm font-medium text-foreground mb-1">Bank Name</label>
             <input
+              id="bank-account-bank-name"
               type="text"
               value={form.bankName}
               onChange={(e) => setForm((f) => ({ ...f, bankName: e.target.value }))}
@@ -244,8 +248,9 @@ function BankAccountDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Last 4 Digits</label>
+            <label htmlFor="bank-account-last4" className="block text-sm font-medium text-foreground mb-1">Last 4 Digits</label>
             <input
+              id="bank-account-last4"
               type="text"
               value={form.accountNumberLast4}
               onChange={(e) => setForm((f) => ({ ...f, accountNumberLast4: e.target.value.replace(/\D/g, '').slice(0, 4) }))}

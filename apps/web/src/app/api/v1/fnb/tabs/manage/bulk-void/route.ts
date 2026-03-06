@@ -13,6 +13,7 @@ export const POST = withMiddleware(
       ...body,
       tenantId: ctx.tenantId,
       locationId: ctx.locationId ?? body.locationId,
+      approverUserId: body.approverUserId || ctx.user.id,
     });
     if (!parsed.success) {
       throw new ValidationError(

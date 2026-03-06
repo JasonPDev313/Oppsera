@@ -120,8 +120,9 @@ function TasksTabContent({ projectId }: { projectId: string }) {
       {showAddTask && (
         <div className="flex items-end gap-3 rounded-lg border border-border bg-surface p-4">
           <div className="flex-1">
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Task Name</label>
+            <label htmlFor="project-task-name" className="block text-xs font-medium text-muted-foreground mb-1">Task Name</label>
             <input
+              id="project-task-name"
               value={taskName}
               onChange={(e) => setTaskName(e.target.value)}
               placeholder="Enter task name"
@@ -129,8 +130,9 @@ function TasksTabContent({ projectId }: { projectId: string }) {
             />
           </div>
           <div className="w-36">
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Budget ($)</label>
+            <label htmlFor="project-task-budget" className="block text-xs font-medium text-muted-foreground mb-1">Budget ($)</label>
             <input
+              id="project-task-budget"
               value={taskBudget}
               onChange={(e) => setTaskBudget(e.target.value)}
               placeholder="0.00"

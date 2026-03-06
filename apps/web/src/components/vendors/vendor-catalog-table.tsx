@@ -90,6 +90,7 @@ export function VendorCatalogTable({
       header: '',
       width: '100px',
       render: (row: CatalogRow) => (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"

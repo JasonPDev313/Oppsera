@@ -452,6 +452,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
 
   return createPortal(
     <div className="fixed inset-0 z-60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="tender-dialog-title">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-lg rounded-2xl bg-surface shadow-xl">
         {/* Header */}
@@ -566,6 +567,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
               /* ── Card-on-file mode: charge a stored card ── */
               <>
                 <div>
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                   <label className="block text-sm font-medium text-foreground mb-2">
                     <Wallet className="inline h-4 w-4 mr-1 -mt-0.5" />
                     Card on File
@@ -693,6 +695,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                   onChange={(e) => setCheckNumber(e.target.value)}
                   className="w-full rounded-lg border border-input py-3 px-4 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   placeholder="Enter check number"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus
                   autoFocus
                 />
               </div>
@@ -715,6 +718,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                     onChange={(e) => setAmountGiven(e.target.value)}
                     className="w-full rounded-lg border border-input py-3 pl-8 pr-4 text-right text-xl font-bold text-foreground focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
                     placeholder="0.00"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus
                   />
                 </div>

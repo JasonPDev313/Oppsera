@@ -2,6 +2,18 @@
 
 > This file is extracted from CLAUDE.md. It documents everything built in the codebase.
 > Referenced by the slim CLAUDE.md for agents needing full build history.
+> **1,597 lines** — use the section index below to navigate by line range.
+
+## Section Index
+
+| Section | Lines | Contents |
+|---------|-------|----------|
+| What's Built | 10–1109 | All modules: Platform Core, Catalog, Orders, Payments, POS, Inventory, Customers, Reporting, Receiving, Vendors, Semantic/AI, Admin, Room Layouts, Accounting/GL/AP/AR, F&B, PMS, Spa, Operations, Settings, Tags, Import, Guest Pay, Member Portal |
+| Test Coverage | 1110–1181 | Test suites per module, coverage notes |
+| What's Built (Infrastructure) | 1182–1368 | DB, auth, deployment, caching, observability, CI/CD, background jobs, security |
+| What's Next | 1369–1597 | Roadmap items, planned features |
+
+---
 
 ## Current State
 
@@ -1110,6 +1122,75 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 ### Test Coverage
 10617+ tests: 159 core (134 + 25 impersonation-safety) + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 916 customers (100 base + 251 smart-tag-templates + 140 tag-predictive-conditions + 67 tag-expiration + 56 tag-evidence-builder + 82 tag-conflict-resolver + 46 tag-analytics + 53 csv-import + 38 tag-actions + 40 tag-evaluation-consumer + 43 tag-lifecycle-services) + 813 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive + 93 host-stand + 43 host-integration + 35 host-api + 21 onboarding-status) + 27 db + 115 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache + 16 consumer-validation) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 312 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability + 36 pii-masker) + 45 admin (28 auth + 17 eval-api) + 405 admin-phase1a + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 319 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix + 10 gl-audit-fixes) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1175 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables + 58 host-estimator + 51 host-reservations + 55 host-waitlist) + 310 pms (17 availability + 10 errors + 35 events + 8 folio-totals + 20 permissions + 38 pricing-engine + 21 room-assignment + 25 state-machines + 15 template-renderer + 121 validation) + 650 spa (112 availability-engine + 78 appointment-transitions + 56 conflict-detector + 96 deposit-cancellation + 88 commission-engine + 72 waitlist-matcher + 84 rebooking-engine + 64 dynamic-pricing) + 2145 expenses (expense lifecycle + approval workflows + receipt processing + policy evaluation + GL posting + reimbursement + mileage + per-diem + allocation + split + delegation + budget integration) + 667 project-costing (project lifecycle + task management + cost allocation + profitability + GL integration + budget tracking + time entries + milestone billing) + 626 multi-currency (exchange rates + GL functional amounts + unrealized gains/losses + revaluation + reporting currency + close checklist) + 1198 revenue-pipeline (13 consumer handlers + cross-module revenue tracking + unified revenue activity + reporting aggregation + idempotency + edge cases)
 
+- **KDS Enhancements & Hardening** (Session 2026-03-04–05):
+  - **Send-to-KDS retail flow**: `send-order-lines-to-kds` command + `POST /api/v1/orders/[id]/send-to-kds` API route for retail POS manual KDS send
+  - **Serialized ticket creation**: KDS ticket creation serialized (for-of loop instead of Promise.all) to prevent pool exhaustion from concurrent DB connections
+  - **Nullable order_id**: `fnb_kitchen_tickets.order_id` made nullable (migration 0276) so KDS tickets can be created at course-send time before order exists
+  - **Performance indexes**: migrations 0269 (outbox partial index on unpublished events), 0271 (KDS ticket composite index for polling), 0273 (KDS sibling ticket lookup + poll query optimization)
+  - **KDS all-stations view**: `/kds/all` page with all-station ticket view
+  - **Ticket UI overhaul**: behind-time alerts (`KitchenBehindBanner`), item summary panel (`ItemSummaryPanel`), station header, ticket header/meta row components
+  - **Routing engine hardened**: fallback logic, type safety, resolve locationId from station when not provided
+  - **Bump/recall/callback idempotency**: operations are now idempotent
+  - **Fire-course fix**: emits `course.sent` event when firing unsent courses, triggering KDS ticket creation
+  - **Idempotent KDS sends**: filter already-sent lines in `handle-order-placed-for-kds` consumer
+  - **KDS retail order support**: migration 0270
+- **Unified Audit System Overhaul** (Session 2026-03-05):
+  - Unified `auditLog()` wiring across ALL command files in core, catalog, orders, payments, fnb, pms, customers, membership, accounting, ap, ar, expenses, inventory, import, spa modules
+  - New `packages/core/src/audit/helpers.ts` with audit helper utilities
+  - New `packages/core/src/auth/context.ts` with request context helpers
+  - 769 files changed in audit commit alone (3,496 insertions)
+- **FnB Payment Hardening** (Session 2026-03-05):
+  - Payment session start/complete/fail flows hardened with better error handling
+  - Split tender and void flows improved
+  - New `void-last-tender` command added
+  - Nullable KDS order_id for course-send-time ticket creation
+  - POS cart, menu panel, floor view improvements with better state management
+- **Stock Alerts Feature** (Session 2026-03-04):
+  - **Admin UI**: `apps/admin/src/app/(admin)/stock-alerts/page.tsx` — stock alert dashboard
+  - **Web UI**: `/inventory/stock-alerts` page with code-split pattern
+  - **API routes**: `GET /api/v1/inventory/stock-alerts` (web), `GET /api/v1/stock-alerts` (admin)
+  - **Consumer**: `packages/modules/inventory/src/events/stock-alert-consumer.ts` — emits alerts when thresholds crossed
+  - **Hook**: `use-stock-alerts.ts`
+- **Sentry Instrumentation Overhaul** (Session 2026-03-04):
+  - Server + client Sentry config refactored (`apps/web/src/instrumentation.ts`, `instrumentation-client.ts`)
+  - Custom spans for observability
+  - Cold start parallelization: `Promise.all` for 10 critical-path module imports
+  - Non-critical consumers deferred to background
+- **Auto-Close Batches Cron** (Session 2026-03-04):
+  - `POST /api/v1/fnb/cron/auto-close-batches` endpoint for Vercel cron
+  - Distributed lock keys for batch operations added to `@oppsera/shared`
+  - `next.config.ts` and `vercel.json` updated for cron support
+- **Type Safety Pass** (Session 2026-03-04):
+  - Removed unsafe `as any` casts across fnb (90+ files), payments, orders modules
+  - Replaced with proper types, `as unknown`, or non-null assertions
+  - Fixed idempotency return type assertions using `typeof table.$inferSelect`
+  - Fixed `locationId` nullability in create-return
+- **Reporting Module Updates** (Session 2026-03-04–05):
+  - **New consumers**: `spa-completed.ts` (spa appointment checkout → read models), `tender-reversed.ts` (tender reversal → read model adjustments)
+  - Modifier tracking in `handle-order-placed-modifiers` consumer
+  - Membership/folio/AR/guest-pay consumer fixes
+  - Order voided/returned consumer improvements
+  - Dashboard metrics query rewritten and simplified
+- **Migrations 0269–0276** (Session 2026-03-03–05):
+  - `0269_outbox_partial_index.sql`: partial index on unpublished outbox events for drain-cron performance
+  - `0270_kds_retail_order_support.sql`: KDS retail order type support
+  - `0271_kds_ticket_composite_index.sql`: KDS ticket composite index for polling performance
+  - `0272_membership_recognition_rls.sql`: membership dues recognition RLS policies (security fix)
+  - `0273_kds_performance_indexes.sql`: KDS sibling ticket lookup and poll query indexes
+  - `0274_pms_calendar_performance.sql`: PMS calendar performance indexes
+  - `0275_accounting_freight_expense_account.sql`: freight expense account in accounting schema
+  - `0276_kds_ticket_nullable_order_id.sql`: make `fnb_kitchen_tickets.order_id` nullable
+- **Module Hardening** (Session 2026-03-04–05):
+  - **Middleware**: `with-middleware.ts` enhanced with context/permission fixes, audit wiring
+  - **Catalog read API**: `catalog-read-api.ts` improvements
+  - **Publish-with-outbox**: improvements to event publishing reliability
+  - **PMS**: calendar projector and occupancy projector guard clauses
+  - **Membership**: billing cycle close fixes, portal account query fixes
+  - **Spa**: appointment checkout and calendar improvements
+  - **Accounting**: freight expense account migration, GL journal RLS optimization, tender reversal posting adapter improvements
+  - **Semantic**: LLM executor/SQL generator updates, predictive forecaster improvements, seed data refresh
+  - **Backup/restore**: direct DB connection for backup/restore to avoid Supavisor statement timeout, table discovery improvements
+
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
 - **Admin API**: `/api/health` (public, minimal), `/api/admin/health` (full diagnostics), `/api/admin/metrics/system`, `/api/admin/metrics/tenants`, `/api/admin/migration-readiness`
@@ -1506,7 +1587,19 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~Accounting dashboard perf (~30 queries → ~10 via consolidated endpoints)~~ ✓ DONE
 - ~~KDS restored as standalone module (v1 entitlement + settings page + permissions)~~ ✓ DONE
 - ~~F&B payment perf (optimistic check display + visibility-based view switching)~~ ✓ DONE
-- Run migrations 0224-0265 on dev DB
+- ~~KDS enhancements: retail send-to-kds, serialized ticket creation, performance indexes~~ ✓ DONE
+- ~~Unified audit logging across all commands (15+ modules)~~ ✓ DONE
+- ~~FnB payment hardening (session lifecycle, void-last-tender, split tender fixes)~~ ✓ DONE
+- ~~Stock alerts feature (admin + web UI, API routes, inventory consumer)~~ ✓ DONE
+- ~~Sentry instrumentation overhaul (server + client, custom spans)~~ ✓ DONE
+- ~~Auto-close batches cron endpoint~~ ✓ DONE
+- ~~Type safety pass: removed unsafe `as any` casts across fnb/payments/orders~~ ✓ DONE
+- ~~Reporting consumers: spa-completed, tender-reversed, modifier tracking~~ ✓ DONE
+- ~~PMS calendar + KDS performance indexes~~ ✓ DONE
+- ~~Middleware & catalog read API improvements~~ ✓ DONE
+- ~~Membership recognition RLS policies~~ ✓ DONE
+- ~~Semantic module intelligence updates (predictive forecaster, background analyst)~~ ✓ DONE
+- Run migrations 0224-0276 on dev DB
 - Run `tools/scripts/setup-spa-gl.ts` after spa migrations (creates GL accounts for spa adapters)
 - Intercompany commands/queries (schema is done, business logic pending)
 - PMS-POS room charge integration frontend polish (guest search dialog, folio balance badge)

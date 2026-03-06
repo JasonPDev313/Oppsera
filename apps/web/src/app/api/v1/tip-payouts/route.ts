@@ -46,6 +46,7 @@ export const GET = withMiddleware(
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const body = await request.json();
+    body.locationId = body.locationId || ctx.locationId || '';
     const parsed = createTipPayoutSchema.safeParse(body);
 
     if (!parsed.success) {

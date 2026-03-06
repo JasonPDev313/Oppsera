@@ -36,18 +36,24 @@ export function useKdsView({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isActing, setIsActing] = useState(false);
-  const refreshCounter = useRef(0);
   const fetchingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  const hasLoadedRef = useRef(false);
+  const consecutiveFailuresRef = useRef(0);
+  // Generation counter: incremented on each effect cycle so stale promises from
+  // aborted fetches don't clobber state (e.g., setting isLoading=false after cleanup).
+  const generationRef = useRef(0);
 
   const today = businessDate ?? new Date().toISOString().slice(0, 10);
 
-  const fetchKds = useCallback(async () => {
+  const fetchKds = useCallback(async (force = false) => {
     if (!stationId) return;
-    // Dedup: skip if a fetch is already in-flight (prevents concurrent poll + broadcast fetches)
-    if (fetchingRef.current) return;
+    // Dedup: skip if a fetch is already in-flight (prevents concurrent poll + broadcast fetches).
+    // force=true bypasses this for post-mutation refreshes.
+    if (fetchingRef.current && !force) return;
     fetchingRef.current = true;
 
+    const gen = generationRef.current;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -59,30 +65,57 @@ export function useKdsView({
         `/api/v1/fnb/stations/${stationId}/kds?${params}`,
         { signal: controller.signal },
       );
+      // Guard: only apply state if this is still the current generation
+      if (gen !== generationRef.current) return;
       setKdsView(json.data);
       setError(null);
+      hasLoadedRef.current = true;
+      consecutiveFailuresRef.current = 0;
     } catch (err: unknown) {
+      if (gen !== generationRef.current) return;
       if (!(err instanceof DOMException && err.name === 'AbortError')) {
-        setError(err instanceof Error ? err.message : 'Failed to load KDS view');
+        consecutiveFailuresRef.current += 1;
+        // On initial load or after 3+ consecutive failures, show error to user.
+        // Transient poll failures (network blip, dev server recompile) are silently
+        // retried — the next poll will succeed and clear the counter.
+        if (!hasLoadedRef.current || consecutiveFailuresRef.current >= 3) {
+          setError(err instanceof Error ? err.message : 'Failed to load KDS view');
+        }
       }
     } finally {
-      fetchingRef.current = false;
-      setIsLoading(false);
+      if (gen === generationRef.current) {
+        fetchingRef.current = false;
+        setIsLoading(false);
+      }
     }
   }, [stationId, locationId, today]);
 
+  // Main polling effect
   useEffect(() => {
     if (!stationId) {
       setKdsView(null);
       setIsLoading(false);
       return;
     }
+    generationRef.current += 1;
+    fetchingRef.current = false; // Reset so new cycle can start immediately
+    hasLoadedRef.current = false;
+    consecutiveFailuresRef.current = 0;
     setIsLoading(true);
     fetchKds();
     const interval = setInterval(fetchKds, pollIntervalMs);
+
+    // Pause polling when tab is hidden (KDS tablets that sleep, background tabs)
+    function onVisibility() {
+      if (document.visibilityState === 'visible') fetchKds();
+    }
+    document.addEventListener('visibilitychange', onVisibility);
+
     return () => {
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
       abortRef.current?.abort();
+      fetchingRef.current = false;
     };
   }, [stationId, fetchKds, pollIntervalMs]);
 
@@ -93,67 +126,52 @@ export function useKdsView({
   }, [stationId, fetchKds]);
 
   const refresh = useCallback(() => {
-    refreshCounter.current += 1;
-    fetchKds();
+    fetchKds(true);
   }, [fetchKds]);
 
   const locQs = locationId ? `?locationId=${locationId}` : '';
 
-  const bumpItem = useCallback(async (ticketItemId: string) => {
-    if (!stationId) return;
+  // Shared mutation helper: run mutation → force-refresh KDS view → report errors
+  const runAction = useCallback(async (
+    url: string,
+    body: Record<string, unknown>,
+  ) => {
     setIsActing(true);
     try {
-      await apiFetch(`/api/v1/fnb/stations/${stationId}/bump-item${locQs}`, {
+      await apiFetch(url, {
         method: 'POST',
-        body: JSON.stringify({ ticketItemId, stationId }),
+        body: JSON.stringify({ ...body, clientRequestId: crypto.randomUUID() }),
       });
-      await fetchKds();
+      await fetchKds(true);
+    } catch (err: unknown) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setError(err instanceof Error ? err.message : 'Action failed');
+      }
+      throw err;
     } finally {
       setIsActing(false);
     }
-  }, [stationId, locQs, fetchKds]);
+  }, [fetchKds]);
+
+  const bumpItem = useCallback(async (ticketItemId: string) => {
+    if (!stationId || isActing) return;
+    await runAction(`/api/v1/fnb/stations/${stationId}/bump-item${locQs}`, { ticketItemId, stationId });
+  }, [stationId, locQs, runAction, isActing]);
 
   const bumpTicket = useCallback(async (ticketId: string) => {
-    if (!stationId) return;
-    setIsActing(true);
-    try {
-      await apiFetch(`/api/v1/fnb/stations/${stationId}/bump-ticket${locQs}`, {
-        method: 'POST',
-        body: JSON.stringify({ ticketId }),
-      });
-      await fetchKds();
-    } finally {
-      setIsActing(false);
-    }
-  }, [stationId, locQs, fetchKds]);
+    if (!stationId || isActing) return;
+    await runAction(`/api/v1/fnb/stations/${stationId}/bump-ticket${locQs}`, { ticketId });
+  }, [stationId, locQs, runAction, isActing]);
 
   const recallItem = useCallback(async (ticketItemId: string) => {
-    if (!stationId) return;
-    setIsActing(true);
-    try {
-      await apiFetch(`/api/v1/fnb/stations/${stationId}/recall${locQs}`, {
-        method: 'POST',
-        body: JSON.stringify({ ticketItemId, stationId }),
-      });
-      await fetchKds();
-    } finally {
-      setIsActing(false);
-    }
-  }, [stationId, locQs, fetchKds]);
+    if (!stationId || isActing) return;
+    await runAction(`/api/v1/fnb/stations/${stationId}/recall${locQs}`, { ticketItemId, stationId });
+  }, [stationId, locQs, runAction, isActing]);
 
   const callBack = useCallback(async (ticketItemId: string, reason?: string) => {
-    if (!stationId) return;
-    setIsActing(true);
-    try {
-      await apiFetch(`/api/v1/fnb/stations/${stationId}/callback${locQs}`, {
-        method: 'POST',
-        body: JSON.stringify({ ticketItemId, stationId, reason }),
-      });
-      await fetchKds();
-    } finally {
-      setIsActing(false);
-    }
-  }, [stationId, locQs, fetchKds]);
+    if (!stationId || isActing) return;
+    await runAction(`/api/v1/fnb/stations/${stationId}/callback${locQs}`, { ticketItemId, stationId, reason });
+  }, [stationId, locQs, runAction, isActing]);
 
   return { kdsView, isLoading, error, bumpItem, bumpTicket, recallItem, callBack, isActing, refresh };
 }
@@ -186,14 +204,17 @@ export function useExpoView({
   const [isActing, setIsActing] = useState(false);
   const fetchingExpoRef = useRef(false);
   const abortExpoRef = useRef<AbortController | null>(null);
+  const hasLoadedExpoRef = useRef(false);
+  const consecutiveExpoFailuresRef = useRef(0);
+  const expoGenerationRef = useRef(0);
 
   const today = businessDate ?? new Date().toISOString().slice(0, 10);
 
-  const fetchExpo = useCallback(async () => {
-    // Dedup: skip if a fetch is already in-flight (prevents concurrent poll + broadcast fetches)
-    if (fetchingExpoRef.current) return;
+  const fetchExpo = useCallback(async (force = false) => {
+    if (fetchingExpoRef.current && !force) return;
     fetchingExpoRef.current = true;
 
+    const gen = expoGenerationRef.current;
     abortExpoRef.current?.abort();
     const controller = new AbortController();
     abortExpoRef.current = controller;
@@ -205,25 +226,46 @@ export function useExpoView({
         `/api/v1/fnb/stations/expo?${params}`,
         { signal: controller.signal },
       );
+      if (gen !== expoGenerationRef.current) return;
       setExpoView(json.data);
       setError(null);
+      hasLoadedExpoRef.current = true;
+      consecutiveExpoFailuresRef.current = 0;
     } catch (err: unknown) {
+      if (gen !== expoGenerationRef.current) return;
       if (!(err instanceof DOMException && err.name === 'AbortError')) {
-        setError(err instanceof Error ? err.message : 'Failed to load expo view');
+        consecutiveExpoFailuresRef.current += 1;
+        if (!hasLoadedExpoRef.current || consecutiveExpoFailuresRef.current >= 3) {
+          setError(err instanceof Error ? err.message : 'Failed to load expo view');
+        }
       }
     } finally {
-      fetchingExpoRef.current = false;
-      setIsLoading(false);
+      if (gen === expoGenerationRef.current) {
+        fetchingExpoRef.current = false;
+        setIsLoading(false);
+      }
     }
   }, [locationId, today]);
 
   useEffect(() => {
+    expoGenerationRef.current += 1;
+    fetchingExpoRef.current = false;
+    hasLoadedExpoRef.current = false;
+    consecutiveExpoFailuresRef.current = 0;
     setIsLoading(true);
     fetchExpo();
     const interval = setInterval(fetchExpo, pollIntervalMs);
+
+    function onVisibility() {
+      if (document.visibilityState === 'visible') fetchExpo();
+    }
+    document.addEventListener('visibilitychange', onVisibility);
+
     return () => {
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
       abortExpoRef.current?.abort();
+      fetchingExpoRef.current = false;
     };
   }, [fetchExpo, pollIntervalMs]);
 
@@ -233,22 +275,28 @@ export function useExpoView({
   }, [fetchExpo]);
 
   const refresh = useCallback(() => {
-    fetchExpo();
+    fetchExpo(true);
   }, [fetchExpo]);
 
   const bumpTicket = useCallback(async (ticketId: string) => {
+    if (isActing) return;
     setIsActing(true);
     try {
       const qs = locationId ? `?locationId=${locationId}` : '';
       await apiFetch(`/api/v1/fnb/stations/expo${qs}`, {
         method: 'POST',
-        body: JSON.stringify({ ticketId }),
+        body: JSON.stringify({ ticketId, clientRequestId: crypto.randomUUID() }),
       });
-      await fetchExpo();
+      await fetchExpo(true);
+    } catch (err: unknown) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setError(err instanceof Error ? err.message : 'Action failed');
+      }
+      throw err;
     } finally {
       setIsActing(false);
     }
-  }, [locationId, fetchExpo]);
+  }, [locationId, fetchExpo, isActing]);
 
   return { expoView, isLoading, error, bumpTicket, isActing, refresh };
 }

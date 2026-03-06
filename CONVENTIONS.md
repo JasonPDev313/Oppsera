@@ -1,6 +1,6 @@
 # OppsEra — Conventions Index
 
-> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (10,796 lines).
+> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (11,949 lines).
 > Read only the sections you need by line range. Do NOT load the entire file into context.
 
 ---
@@ -9,7 +9,7 @@
 
 1. Find the relevant section(s) below by topic or number
 2. Read that section from `docs/conventions/CONVENTIONS_FULL.md` using the line range
-3. Example: `Read file_path=docs/conventions/CONVENTIONS_FULL.md offset=150 limit=80` for §5
+3. Example: `Read file_path=docs/conventions/CONVENTIONS_FULL.md offset=313 limit=60` for §8 Commands
 
 ---
 
@@ -19,231 +19,309 @@
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
-| 1 | Monorepo Structure | 1–27 | pnpm, Turborepo, workspace layout |
-| 2 | Database & Schema | 29–120 | Drizzle, postgres.js, table conventions, RLS, indexes |
-| 3 | Package Dependency Rules | 122–155 | Module isolation, cross-module deps banned |
-| 4 | TypeScript Conventions | 157–210 | strict mode, naming, Zod inference, barrels |
-| 5 | API Layer | 212–290 | REST, JSON, camelCase, withMiddleware, response shapes |
-| 6 | Command Pattern | 292–380 | publishWithOutbox, idempotency, optimistic locking |
-| 7 | Query Pattern | 382–430 | withTenant, cursor pagination, limit+1 |
-| 8 | Event System | 432–510 | Outbox, naming, consumers, retry, dead letters |
-| 9 | Error Handling | 512–570 | AppError, HTTP codes, error response format |
-| 10 | Logging & Observability | 572–620 | Structured JSON, Sentry, pg_stat_statements |
+| 1 | Monorepo Structure | 7–28 | pnpm, Turborepo, workspace layout |
+| 2 | Database & Schema | 29–127 | Drizzle, postgres.js, table conventions, RLS, indexes |
+| 3 | Auth & Request Context | 128–184 | Supabase Auth, JWT, RequestContext, DevAuthAdapter |
+| 4 | API Routes | 185–248 | REST, JSON, camelCase, withMiddleware, response shapes |
+| 5 | Error Handling | 249–267 | AppError, HTTP codes, error response format |
+| 6 | Validation | 268–286 | Zod, runtime + TS inference |
+| 7 | Singleton / Service Registry | 287–312 | Getter/setter pattern, module isolation |
+| 8 | Commands (Write Operations) | 313–373 | publishWithOutbox, idempotency, optimistic locking |
+| 9 | Event System | 374–434 | Outbox, naming, consumers, retry, dead letters |
+| 10 | Audit Logging | 435–470 | Mandatory auditLog(), deferred work |
 
-### Testing (§11–§12)
-
-| § | Section | Lines | Key Topics |
-|---|---------|-------|------------|
-| 11 | Testing — Vitest | 622–700 | Config, mocking, coverage, clearAllMocks vs mockReset |
-| 12 | Testing — Patterns | 702–760 | Unit vs integration, mock factories, test isolation |
-
-### Auth & Security (§13–§14)
+### Testing & Tooling (§11–§14)
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
-| 13 | Authentication | 762–830 | Supabase Auth, JWT, validateToken, DevAuthAdapter |
-| 14 | RBAC & Permissions | 832–900 | Roles, permission strings, caching, location-scoped |
+| 11 | Testing | 471–626 | Vitest config, mocking, coverage, clearAllMocks vs mockReset |
+| 12 | Exports & Imports | 627–657 | Barrel files, re-exports, import type |
+| 13 | Permissions (RBAC) | 658–691 | 6 roles, permission strings, caching, location-scoped |
+| 14 | Entitlements | 692–711 | Module gating, access modes |
 
-### Frontend (§15–§16)
-
-| § | Section | Lines | Key Topics |
-|---|---------|-------|------------|
-| 15 | Frontend — Hooks & Data | 902–970 | useFetch, useMutation, apiFetch, React Query |
-| 16 | Frontend — Components | 972–1050 | Tailwind, shadcn, portals, code-split, dark mode |
-
-### Module Architecture (§17–§30)
+### Frontend & TypeScript (§15–§20)
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
-| 17 | Catalog Module | 1052–1130 | Items, categories, hierarchy, archive semantics |
-| 18 | Orders Module | 1132–1210 | Order lifecycle, line items, type-aware processing |
-| 19 | Zod `.input<>` vs `.infer<>` | 1212–1240 | Function params with `.default()` |
-| 20 | Export type bindings | 1242–1260 | `export type` doesn't create local bindings |
-| 21 | Money conventions | 1262–1310 | Dollars vs cents, catalog/GL vs orders/payments |
-| 22 | Inventory Module | 1312–1400 | Append-only movements, on-hand computation |
-| 23 | Payments Module | 1402–1480 | Tenders, GL journals, reversals |
-| 24 | Customer Module | 1482–1560 | CRM, billing/AR, profile drawer, merge |
-| 25 | Reporting Module | 1562–1640 | Read models, consumers, CSV export |
-| 26 | Receiving/Vendors | 1642–1720 | Receipt lifecycle, shipping allocation, vendor mgmt |
-| 27 | Purchase Orders | 1722–1760 | Schema-only phase, optimistic locking |
-| 28 | Package components | 1762–1810 | Sum-of-components pricing, allocation |
-| 29 | Catalog frontend | 1812–1850 | Stock section, code-split, inventory dialogs |
-| 30 | Speed improvements | 1852–1930 | Code-split, covering indexes, SWR dashboard |
+| 15 | Frontend (Next.js App Router) | 712–960 | Tailwind, shadcn, portals, code-split, dark mode, hooks |
+| 16 | Naming Conventions | 961–979 | Files, variables, DB columns, events |
+| 17 | Business Module Internal Structure | 980–1067 | Commands/, queries/, services/ layout |
+| 18 | Location-Scoped Data | 1068–1084 | Multi-location filtering |
+| 19 | Zod Schema Best Practices | 1085–1118 | `.input<>` vs `.infer<>`, `.default()` |
+| 20 | Type Re-Export Scoping | 1119–1137 | `export type` doesn't create local bindings |
 
-### POS Architecture (§31–§38)
+### Patterns & Conventions (§21–§30)
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
-| 31 | POS dual-mode | 1932–2000 | Retail + F&B, CSS-mounted, instant switching |
-| 32 | POS hooks | 2002–2060 | usePOS, useCatalogForPOS, useShift |
-| 33 | POS item handling | 2062–2110 | typeGroup routing, barcode scanner |
-| 34 | POS tenders | 2112–2170 | Append-only, clientRequestId, GL allocation |
-| 35 | POS payment flow | 2172–2230 | TenderDialog, preemptive placeOrder, 409 recovery |
-| 36 | POS batch line items | 2232–2280 | 50ms debounce, max 20, optimistic temp lines |
-| 37 | POS display/UX | 2282–2340 | Font scale, error boundary, visibility resume |
-| 38 | POS offline | 2342–2370 | V1 blocks tenders offline, typed queue for V2 |
+| 21 | Money Representation | 1138–1170 | Dollars vs cents, catalog/GL vs orders/payments |
+| 22 | Idempotency Pattern | 1171–1220 | POS commands, clientRequestId, TOCTOU |
+| 23 | Optimistic Locking | 1221–1279 | fetchOrderForMutation, incrementVersion |
+| 24 | Receipt Snapshot | 1280–1325 | Frozen at placeOrder, immutable |
+| 25 | Order Number Generation | 1326–1354 | Counters, sequence |
+| 26 | Cross-Module Communication | 1355–1391 | Events, read APIs, never import modules |
+| 27 | Business Date & Time Dimensions | 1392–1417 | Timezone, business date derivation |
+| 28 | Fractional Quantities (F&B) | 1418–1447 | Decimal qty for F&B items |
+| 29 | Catalog Schema Patterns | 1448–1548 | Items, categories, hierarchy, modifiers |
+| 30 | Future Schema Warnings | 1549–1560 | Reserved columns, migration notes |
 
-### Domain Modules (§39–§64)
-
-| § | Section | Lines | Key Topics |
-|---|---------|-------|------------|
-| 39 | Golf Reporting | 2372–2420 | Separate module, read models, consumers |
-| 40 | Room Layouts | 2422–2520 | Konva, 3-layer canvas, Zustand, templates |
-| 41 | Room Layout validation | 2522–2560 | Warning-based, error boundary, publish flow |
-| 42 | Room Layout conventions | 2562–2620 | Dark mode, portal dialogs, version history |
-| 43 | Mobile responsiveness | 2622–2650 | 320px+ requirement, breakpoints |
-| 44 | PMS Module | 2652–2780 | Reservations, calendar, folios, state machines |
-| 45 | PMS helpers | 2782–2850 | Pricing engine, room assignment, channels, loyalty |
-| 46 | F&B POS Module | 2852–2980 | 103 commands, 63 queries, frontend phases |
-| 47 | F&B conventions | 2982–3060 | Design tokens, CSS vars, Zustand routing |
-| 48 | F&B floor/tab | 3062–3120 | CSS-mounted views, snapshot cache, menu dedup |
-| 49 | Spa Module | 3122–3250 | Appointments, packages, commissions, booking |
-| 50 | Spa conventions | 3252–3310 | State machine, conflict detection, dynamic pricing |
-| 51 | Semantic Layer | 3312–3450 | Dual-mode pipeline, SQL gen, narrative engine |
-| 52 | Semantic conventions | 3452–3540 | Registry SWR, cache keys, rate limiter |
-| 53 | Semantic streaming | 3542–3600 | SSE pipeline, fast path, prompt caching |
-| 54 | Semantic eval | 3602–3670 | Training platform, examples, batch review |
-| 55 | Admin Portal | 3672–3780 | RBAC, tenant mgmt, impersonation, health scoring |
-| 56 | Admin conventions | 3782–3840 | Fine-grained permissions, DLQ, batch ops |
-| 57 | Customer Tags | 3842–3940 | Smart tags, RFM, conflict resolution, actions |
-| 58 | Expense Management | 3942–3990 | Policies, approvals, GL posting, reimbursement |
-| 59 | Project Costing | 3992–4040 | Tasks, cost allocation, profitability |
-| 60 | Multi-Currency | 4042–4090 | Exchange rates, functional amounts, revaluation |
-| 61 | Fixed Assets | 4092–4130 | Depreciation, disposal, monthly auto-depreciation |
-| 62 | Budget System | 4132–4170 | Budget lifecycle, budget vs actual |
-| 63 | Receipt Engine | 4172–4220 | Builder pattern, renderers, tokenized links |
-| 64 | Guest Pay | 4222–4270 | QR code, member charge, lookup codes |
-
-### Accounting & GL (§65–§80)
+### POS & Payments (§31–§38)
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
-| 65 | Accounting Core | 4272–4380 | GL, COA, posting engine, financial statements |
-| 66 | Accounting posting | 4382–4460 | Double-entry, period locking, control accounts |
-| 67 | AP Module | 4462–4520 | Bills, payments, FIFO allocation, aging |
-| 68 | AR Module | 4522–4580 | Invoices, receipts, aging, customer ledger |
-| 69 | Subledger reconciliation | 4582–4630 | Cross-module via ReconciliationReadApi |
-| 70 | Cross-module financial posting | 4632–4700 | AccountingPostingApi, never import accounting |
-| 71 | GL adapters | 4702–4790 | 15 adapters, canonical pattern, never throw |
-| 72 | GL unmapped events | 4792–4840 | Universal audit trail, close checklist |
-| 73 | POS→GL pipeline | 4842–4920 | Subdepartment resolution, package splitting |
-| 74 | Void/Return GL | 4922–4970 | Per-tender reversal, contra accounts |
-| 75 | F&B GL | 4972–5020 | Category→account mapping, batch journal lines |
-| 76 | Voucher/Membership GL | 5022–5080 | Deferred revenue, lifecycle GL entries |
-| 77 | Chargeback GL | 5082–5120 | Received/won/lost lifecycle |
-| 78 | Close workflow | 5122–5200 | Period status, checklist items, posting gaps |
-| 79 | COA governance | 5202–5260 | Merge, renumber, CSV import, health dashboard |
-| 80 | GL remap | 5262–5310 | Preview, batch remap, auto-remap setting |
+| 31 | POS Frontend Architecture | 1561–1664 | Dual-mode, CSS-mounted, instant switching |
+| 32 | POS Component Organization | 1665–1739 | Component tree, shared vs mode-specific |
+| 33 | POS Hooks Pattern | 1740–1804 | usePOS, useCatalogForPOS, useShift |
+| 34 | POS Frontend Types | 1805–1849 | typeGroup routing, barcode scanner |
+| 35 | Tenders / Payments Architecture | 1850–1918 | Append-only, clientRequestId, GL allocation |
+| 36 | SQL Injection Prevention | 1919–1962 | Parameterized queries, Drizzle sql template |
+| 37 | Token Refresh & API Client | 1963–1985 | apiFetch, auth refresh |
+| 38 | Environment & Credential Hygiene | 1986–2010 | .env, secrets, NEVER commit |
 
-### Operations & Close (§81–§97)
+### Domain Modules — Core (§39–§64)
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
-| 81 | Drawer sessions | 5312–5370 | Server-persisted shifts, events, cash control |
-| 82 | Retail close batch | 5372–5430 | Start/lock/reconcile/post, Z-report |
-| 83 | Comp vs discount GL | 5432–5470 | Expense vs contra-revenue, manager PIN |
-| 84 | Card settlements | 5472–5530 | CSV import, auto-match, GL posting |
-| 85 | Tip payouts | 5532–5580 | Cash/payroll modes, balance tracking |
-| 86 | COGS posting | 5582–5620 | Tri-state: disabled/perpetual/periodic |
-| 87 | Tax jurisdiction | 5622–5660 | Authority columns, remittance report |
-| 88 | Dead letter queue | 5662–5710 | DB persistence, admin UI, retry |
-| 89 | Deposit slips | 5712–5760 | Aggregate cash, GL, depends on all closes |
-| 90 | Close checklist | 5762–5830 | 18+ items, computed live |
-| 91 | Profit centers | 5832–5910 | terminal_locations table, Simple/Advanced mode |
-| 92 | Terminal infrastructure | 5912–5960 | 9+ tables, hierarchy, session flow |
-| 93 | Location hierarchy | 5962–6010 | Site → Venue → Profit Center → Terminal |
-| 94 | Terminal session | 6012–6070 | 3-key localStorage, selection screen |
-| 95 | Entitlement access modes | 6072–6130 | off/view/full, dependency validation |
-| 96 | Payment gateway | 6132–6210 | CardPointe, ACH, surcharges, provider registry |
-| 97 | ERP workflow engine | 6212–6270 | Tier-based defaults, close orchestrator, cron |
+| 39 | Customers / Billing / AR | 2011–2097 | CRM, billing, house accounts, merge |
+| 40 | Key Anti-Patterns to Avoid | 2098–2160 | Common mistakes, banned patterns |
+| 41 | Inventory Architecture | 2161–2250 | Append-only movements, on-hand computation |
+| 42 | Tenant Onboarding | 2251–2287 | Wizard, atomic provisioning |
+| 43 | Current Project State | 2288–2573 | Module/feature inventory snapshot |
+| 44 | Customer Profile Drawer | 2574–2681 | Drawer architecture, tabs |
+| 45 | Module Independence | 2682–2728 | Microservice readiness, isolation |
+| 46 | Mobile Responsiveness | 2729–2761 | 320px+, breakpoints |
+| 47 | Connection Pooling & DB Config | 2762–2830 | max:2, prepare:false, Supavisor |
+| 48 | Background Jobs | 2831–2936 | SKIP LOCKED, tenant fairness, lease/heartbeat |
+| 49 | Scaling Strategy | 2937–3000 | Staged deployment, cost crossover |
+| 50 | Observability | 3001–3148 | Sentry, pg_stat_statements, logging |
+| 51 | Security | 3149–3228 | CSP, HSTS, rate limiting |
+| 52 | Reporting / Read Model Architecture | 3229–3394 | Read models, consumers, CSV export |
+| 53 | Receiving Module | 3395–3547 | Receipt lifecycle, shipping allocation |
+| 54 | Vendor Management | 3548–3637 | Vendor CRUD, soft-delete |
+| 55 | Purchase Orders (Schema Only) | 3638–3683 | PO schema, optimistic locking |
+| 56 | Golf Reporting Module | 3684–3744 | Separate module, read models |
+| 57 | Performance Optimization | 3745–3917 | Code-split, covering indexes, SWR |
+| 58 | Catalog Item Change Log | 3918–3994 | Append-only, field-level diffs |
+| 59 | Receiving Frontend | 3995–4058 | Receiving UI components |
+| 60 | Unified Stock UI in Catalog | 4059–4124 | Inventory dialogs in catalog |
+| 61 | POS Catalog Freshness | 4125–4154 | Cache invalidation |
+| 62 | Dashboard Data Fetching | 4155–4182 | React Query, SWR patterns |
+| 63 | Register Tab Customer Persistence | 4183–4206 | Tab state across refreshes |
+| 64 | POS Tender placeOrder Race Recovery | 4207–4227 | 409 recovery, preemptive placeOrder |
 
-### Transaction Types & Modifiers (§98–§109)
-
-| § | Section | Lines | Key Topics |
-|---|---------|-------|------------|
-| 98* | Transaction type registry | 6272–6330 | 45 system types, dual-table, posting modes |
-| 98* | KDS settings | 6332–6400 | Bump bar, alerts, performance targets, routing |
-| 99 | Modifier groups | 6402–6460 | Categories, channel visibility, per-assignment |
-| 100 | Role access scoping | 6462–6500 | Location/PC/terminal junction tables |
-| 101 | Onboarding system | 6502–6570 | 10 phases, auto-detection, Go Live checklist |
-| 102 | Guest waitlist public | 6572–6610 | Rate-limited, no auth, 8-char tokens |
-| 103 | Member portal | 6612–6660 | Standalone app, portal auth, dark-mode only |
-| 104 | Discount GL classification | 6662–6730 | 24 types, contra-revenue vs expense |
-| 105 | PII masking | 6732–6770 | Two-layer detection, semantic pipeline |
-| 106 | Semantic authoring | 6772–6810 | Tenant-scoped metrics/dimensions |
-| 107 | Admin backup | 6812–6860 | Dual-mode: filesystem + DB BYTEA |
-| 108 | Accessibility | 6862–6920 | Dialog a11y, focus trap, live region, ESLint |
-| 109 | UI components | 6922–6980 | Select combobox, form fields, dark mode |
-
-### Settings & Performance (§110–§135)
+### Semantic & AI (§65–§74)
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
-| 110 | Settings page | 6982–7050 | 6-tab General layout, redirect, lazy tabs |
-| 111 | Merchant services UI | 7052–7120 | 5-tab layout, React Query hooks |
-| 112 | Business info | 7122–7180 | tenant_business_info, content blocks, tax masking |
-| 113 | API consolidation | 7182–7230 | [action] dynamic routes, 43→14 handlers |
-| 114 | Usage analytics | 7232–7290 | Tracker, workflow registry, action items |
-| 115 | Feature flags | 7292–7330 | Dual-table, definitions + tenant overrides |
-| 116 | Impersonation safety | 7332–7390 | 6 assertion guards, action counting |
-| 117 | Performance caching | 7392–7460 | Auth cache, location cache, permission cache |
-| 118 | Pool guard | 7462–7530 | Semaphore, circuit breaker, zombie tracking |
-| 119 | Step-up auth | 7532–7580 | HMAC-SHA256, category TTLs, PIN modal |
-| 120 | Bot detector | 7582–7620 | Weighted scoring, LRU cache |
-| 121 | Replay guard | 7622–7660 | Nonce + timestamp, 5-min window |
-| 122 | Security headers | 7662–7710 | CSP, HSTS, rate limiting |
-| 123 | Deployment | 7712–7780 | Vercel stages, connection pooling, cron |
-| 124 | Background jobs | 7782–7830 | SKIP LOCKED, tenant fairness, lease/heartbeat |
-| 125 | Infrastructure | 7832–7900 | Container migration, K8s decision criteria |
-| 126 | CI/CD | 7902–7940 | GitHub Actions, lint→type-check→test→build |
-| 127 | Host Module V2 | 7942–8040 | Reservations, waitlist, table assigner, notifications |
-| 128 | Host services | 8042–8110 | Wait-time estimator, SMS providers, templates |
-| 129 | Register tab sync | 8112–8170 | BroadcastChannel, SSE, version conflicts |
-| 130 | Web apps registry | 8172–8210 | Settings page driven by shared constants |
-| 131* | Batch line items | 8212–8260 | POST /orders/[id]/lines/batch, POS queue |
-| 131* | Bank reconciliation | 8262–8310 | Start/clear/adjust/complete, auto-populate |
-| 132* | Recurring journals | 8312–8350 | Templates, frequency, auto-generation |
-| 132* | F&B course routing | 8352–8390 | Station resolver, idempotent tickets |
-| 133 | Inline modifier panel | 8392–8430 | Smart instruction suppression |
-| 134 | Server lock banner | 8432–8460 | PIN unlock, FnB design tokens |
-| 135* | Embeddable widgets | 8462–8500 | Token URLs, themes, view tracking |
-| 135* | Format utilities | 8502–8530 | getInitials, formatPhone |
+| 65 | Semantic Layer Architecture | 4228–4259 | Dual-mode pipeline, SQL gen |
+| 66 | LLM Integration Conventions | 4260–4292 | Prompt design, token budget |
+| 67 | Semantic Security | 4293–4310 | PII masking, query validation |
+| 68 | Chat UI (AI Insights) | 4311–4387 | Chat sidebar, session history |
+| 69 | Observability (Semantic) | 4388–4403 | Latency tracking, error rates |
+| 70 | Evaluation & Feedback | 4404–4425 | Training platform, examples |
+| 71 | Semantic Lens | 4426–4447 | Narrative engine framework |
+| 72 | Semantic Module Setup | 4448–4480 | Registry, config, dependencies |
+| 73 | Admin App Architecture | 4481–4538 | RBAC, tenant mgmt, health scoring |
+| 74 | THE OPPS ERA LENS — Narrative | 4539–4652 | Narrative framework (includes unnumbered Answer/Metrics subsections) |
 
-### Advanced Conventions (§136–§214)
+### Accounting & GL (§75–§80)
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
-| 136 | Dark mode overhaul | 8532–8590 | 494 files, opacity-based colors |
-| 137 | Admin DB helper | 8592–8620 | withAdminDb, RLS bypass cascade |
-| 138 | Onboarding tests | 8622–8660 | 750-line test suite |
-| 139 | Transaction type fix script | 8662–8700 | fix-transaction-type-mappings.ts |
-| 140–145 | Dark mode enforcement | 8702–8830 | Banned classes, conversion table, exceptions |
-| 146–150 | Vercel DB safety | 8832–8960 | CRITICAL: fire-and-forget prevention rules |
-| 151 | Distributed locks | 8962–9010 | withDistributedLock, Supavisor-safe |
-| 152 | Deploy script mutex | 9012–9050 | File-based .deploy.lock, PID liveness |
-| 153–160 | Reporting conventions | 9052–9250 | Read models, consumers, business date |
-| 161–170 | Vendor/receiving conventions | 9252–9440 | Name uniqueness, soft-delete, cost tracking |
-| 171–175 | Modern ERP report UX | 9442–9580 | KPI cards, collapsible sections, print, CSV |
-| 176–185 | GL query patterns | 9582–9780 | Balance direction, non-posted guard, control accounts |
-| 186–195 | Event consumer conventions | 9782–9960 | Zod safeParse, payload enrichment |
-| 196–200 | Frontend conventions | 9962–10120 | Chat sidebar, session history, query string |
-| 201–203 | GL event→consumer matrix | 10122–10250 | Full wiring map, adapter checklist |
-| 204 | Semantic conventions | 10252–10350 | Schema catalog, intelligence modules |
-| 205 | Vercel Serverless DB Safety | 10352–10450 | 7 rules for fire-and-forget prevention |
-| 206–210 | PMS conventions | 10452–10600 | State machines, calendar, pricing, channels |
-| 211–214 | Admin/tag/spa conventions | 10602–10796 | Admin eval, tag lifecycle, spa adapters |
+| 75 | Room Layout Builder | 4653–4730 | Konva, 3-layer canvas, Zustand, templates |
+| 76 | Accounting Core / GL | 4731–4935 | GL, COA, posting engine, financial statements |
+| 77 | Accounts Payable (AP) | 4936–5044 | Bills, payments, FIFO allocation, aging |
+| 78 | Accounts Receivable (AR) | 5045–5152 | Invoices, receipts, aging, customer ledger |
+| 79 | Subledger Reconciliation | 5153–5179 | ReconciliationReadApi |
+| 80 | Cross-Module Financial Posting | 5180–5235 | AccountingPostingApi, never import accounting |
 
-### Host, Waitlist & Operations (§215–§221)
+### Infrastructure & Frontend Support (§81–§84)
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
-| 215 | F&B Host Orchestration | 10798–10920 | Server load, pacing, RevPASH, analytics, waitlist offers, guest intelligence |
-| 216 | Waitlist Config System | 10922–11040 | JSONB config, public guest APIs, cron sweep, merge/split/bump, embeddable widget |
-| 217 | Semantic Fast-Path + Schema Catalog | 11042–11100 | Deterministic regex resolver, SWR-cached schema catalog |
-| 218 | Admin Portal Operations | 11102–11190 | Health monitoring, audit deep-dive, finance tools, global search |
-| 219 | Housekeeping Management | 11192–11230 | Cleaning types CRUD, workload/productivity queries |
-| 220 | Accounting: Retained Earnings + Journal Validation | 11232–11300 | FY close, multi-currency, rounding tolerance, control account guard |
-| 221 | Cross-Cutting Patterns (2025-03) | 11302–11354 | Read-model without outbox, deadlock-safe locking, LATERAL JOIN fallback, public adminClient, JSONB config blobs |
+| 81 | Auth Troubleshooting (Vercel) | 5236–5255 | Token refresh, cold start 401s |
+| 82 | Frontend Query String Helper | 5256–5275 | URL params, search state |
+| 83 | CI/CD Workflow | 5276–5303 | GitHub Actions, lint→type-check→test→build |
+| 84 | Accounting Frontend Components | 5304–5319 | Component architecture |
+
+### F&B & Operations (§85–§109)
+
+| § | Section | Lines | Key Topics |
+|---|---------|-------|------------|
+| 85 | F&B POS Backend Module | 5320–5451 | 103 commands, 63 queries |
+| 86 | F&B POS Frontend | 5452–5519 | Design tokens, CSS vars, Zustand |
+| 87 | Profit Centers & Terminal Architecture | 5520–5632 | 9+ tables, hierarchy, session flow |
+| 88 | Admin Tenant Management | 5633–5682 | Tenant CRUD, impersonation |
+| 89 | Cross-Module Write APIs | 5683–5718 | Orchestration layer patterns |
+| 90 | Entitlement Access Modes | 5719–5797 | off/view/full, dependency validation |
+| 91 | Admin Portal RBAC | 5798–5840 | Platform admin roles |
+| 92 | Admin User Management | 5841–5866 | User CRUD, role assignment |
+| 93 | F&B POS Improvements | 5867–5904 | Iterative enhancements |
+| 94 | Terminal Session Integration | 5905–5939 | 3-key localStorage, selection screen |
+| 95 | User Management Tab | 5940–5959 | Settings UI |
+| 96 | Order Metadata Support | 5960–5979 | JSONB metadata on orders |
+| 97 | Seed Data Updates | 5980–5998 | Dev seed scripts |
+| 98a | UXOPS Operations Architecture | 5999–6043 | Sessions UXOPS-01–14 |
+| 99 | Drawer Sessions | 6044–6082 | Server-persisted shifts, cash control |
+| 100 | Retail Close Batches | 6083–6111 | Start/lock/reconcile/post, Z-report |
+| 101 | Card Settlement Workflow | 6112–6140 | CSV import, auto-match, GL posting |
+| 102 | Tip Payout Workflow | 6141–6163 | Cash/payroll modes, balance tracking |
+| 103 | Operations Dashboard & Tender Audit | 6164–6189 | Audit trail, dashboards |
+| 104 | Event Dead Letter Queue | 6190–6208 | DB persistence, admin UI, retry |
+| 105 | Audit Log Policy | 6209–6253 | Retention, query patterns |
+| 106 | Cash Drawer Ownership (V1) | 6254–6267 | Strict mode |
+| 107 | Offline Behavior Policy (V1) | 6268–6283 | Blocks tenders offline |
+| 108 | Kitchen Waste Tracking (V1) | 6284–6298 | Boolean only |
+| 109 | Multi-Currency Roadmap | 6299–6314 | Exchange rates, revaluation |
+| 98b | ReconciliationReadApi | 6315–6386 | Cross-module read boundary for accounting |
+
+### Systems & Configuration (§110–§135)
+
+| § | Section | Lines | Key Topics |
+|---|---------|-------|------------|
+| 110 | Transaction Type Registry | 6387–6446 | 45 system types, dual-table, posting modes |
+| 111 | Dashboard Reporting Fallback | 6447–6482 | Read model → operational table fallback |
+| 112 | Onboarding System | 6483–6540 | 10 phases, auto-detection, Go Live checklist |
+| 113 | F&B Floor & Menu Hook Caching | 6541–6588 | Snapshot cache, menu dedup |
+| 114 | Intelligent AccountPicker | 6589–6621 | Suggestions engine |
+| 115 | Guest Pay (QR Code) | 6622–6650 | QR code, member charge, lookup codes |
+| 116 | Member Portal App | 6651–6678 | Standalone app, portal auth |
+| 117 | GL Remap Workflow | 6679–6697 | Preview, batch remap |
+| 118 | COA Governance | 6698–6711 | Merge, renumber, CSV import |
+| 119 | Admin Impersonation | 6712–6730 | Safety guards |
+| 120 | F&B Payment Tier 3 | 6731–6753 | Advanced payment features |
+| 121 | Semantic Dual-Mode Pipeline | 6754–6824 | Fast path + full pipeline |
+| 122 | PMS Module Architecture | 6825–6925 | Reservations, calendar, folios, state machines |
+| 123 | AI Training & Evaluation | 6926–6979 | Training platform, batch review |
+| 124 | Import System Architecture | 6980–7019 | CSV import, column mapping |
+| 125 | Customer Tag Management | 7020–7124 | Smart tags, RFM, conflict resolution |
+| 126 | Module Independence (PMS) | 7125–7180 | Cross-module event wiring |
+| 127 | LLM Integration Best Practices | 7181–7245 | Prompt design, caching, streaming |
+| — | Local Server Fix (Windows) | 7246–7275 | .next EPERM, node kill, restart |
+| 128 | Payment Gateway Architecture | 7276–7344 | CardPointe, ACH, surcharges, provider registry |
+| 129 | ERP Workflow Engine | 7345–7376 | Tier-based defaults, close orchestrator |
+| 130 | Role Access Scoping | 7377–7413 | Location/PC/terminal junction tables |
+| 131a | SuperAdmin Portal Conventions | 7414–7480 | Admin portal patterns |
+| 132a | POS Resilience Patterns | 7481–7526 | Error recovery, retry |
+| 133a | Modifier Group Architecture | 7527–7572 | Categories, channel visibility |
+| 134a | Explicit Column Selects | 7573–7599 | Query optimization |
+| 135a | CI/Build Lessons | 7600–7645 | Build pipeline fixes |
+| 131b | Year Seed Script | 7646–7730 | seed-year.ts, additive-only |
+| 132b | Portal Auth Scripts | 7731–7751 | Auth setup scripts |
+| 133b | Tenant Business Info | 7752–7797 | Content blocks, tax masking |
+| 134b | Profit Centers & Terminal Selection API | 7798–7879 | API consolidation |
+| 135b | Merchant Services Settings | 7880–7924 | React Query hooks |
+
+### Performance & UX (§136–§175)
+
+| § | Section | Lines | Key Topics |
+|---|---------|-------|------------|
+| 136 | Settings Page Consolidation | 7925–7965 | 6-tab General layout, redirect |
+| 137 | Impersonation Safety Guards | 7966–8000 | 6 assertion guards, action counting |
+| 138 | In-Memory Caching for Hot Paths | 8001–8050 | Auth, location, permission cache |
+| 139 | Combine SQL Round-Trips | 8051–8076 | Transaction batching |
+| 140 | Place-and-Pay Single-Transaction | 8077–8108 | Fast path for simple orders |
+| 141 | Fire-and-Forget Audit on POS Paths | 8109–8133 | Deferred audit logging |
+| 142 | Terminal Session Confirm & Skip | 8134–8159 | Skip scoping |
+| 143 | Parallel Data Fetching in Commands | 8160–8192 | Promise.all for reads |
+| 144 | Bootstrap Partial-Run Recovery | 8193–8224 | Idempotent provisioning |
+| 145 | Dark Mode: Opacity-Based Colors | 8225–8271 | Banned classes, conversion table |
+| 146 | API Route Field Name Mapping | 8272–8301 | snake_case → camelCase |
+| 147 | Admin Portal UI Patterns | 8302–8341 | Layout, navigation |
+| 148 | F&B Host Stand Compact Layout | 8342–8360 | Touch-optimized layout |
+| 149 | Accounting Settings 404 | 8361–8370 | Unconfigured tenant handling |
+| 150 | Host Module V2 Patterns | 8371–8402 | Reservations, waitlist, table assigner |
+| 151 | Circuit Breaker on `apiFetch` | 8403–8449 | Failure detection, fallback |
+| 152 | API Route Consolidation | 8450–8490 | Dynamic `[action]` segments |
+| 153 | Usage Analytics — Buffer-and-Flush | 8491–8531 | Tracker, workflow registry |
+| 154 | Accessibility Infrastructure | 8532–8587 | Dialog a11y, focus trap, live region |
+| 155 | Permission Groups Configuration | 8588–8620 | Group-based permissions |
+| 156 | Feature Flags — Dual-Table | 8621–8654 | Definitions + tenant overrides |
+| 157 | Cold Start Parallelization | 8655–8688 | Startup optimization |
+| 158 | Cross-Tab Auth Token Coordination | 8689–8713 | BroadcastChannel |
+| 159 | Event Bus Resilience | 8714–8737 | Consumer error isolation |
+| 160 | Editable OPPS ERA LENS | 8738–8765 | Narrative template |
+| 161 | DB Pool Tuning for Vercel | 8766–8791 | Serverless pool config |
+| 162 | Cache Scaling with LRU Eviction | 8792–8846 | LRU, TTL, capacity |
+| 163 | Supabase Auth — Combined Query | 8847–8884 | Membership lookup |
+| 164 | POS Payment Race Elimination | 8885–8908 | Double-tap guard |
+| 165 | Settings Lazy-Loading | 8909–8936 | Tab-level code-split |
+| 166 | PMS Housekeeping Staff Mgmt | 8937–8956 | Cleaning types, workload queries |
+| 167 | Lightweight Health Endpoint | 8957–8976 | /api/health |
+| 168 | Frontend Permission Caching | 8977–9007 | Client-side cache |
+| 169 | POS Batch Add-to-Cart | 9008–9051 | 50ms debounce, max 20 |
+| 170 | Logout Deduplication | 9052–9086 | Prevent double signOut |
+| 171 | Pure Algorithm Services (Host V2) | 9087–9123 | Wait-time estimator, table assigner |
+| 172 | Member Portal Dark-Mode-Only | 9124–9153 | Portal design system |
+| 173 | SMS Provider Abstraction | 9154–9186 | Provider registry, templates |
+| 174 | WCAG 2.1 AA Accessibility | 9187–9232 | Standards compliance |
+| 175 | Modern ERP Report UX Standard | 9233–9420 | KPI cards, collapsible, print, CSV |
+
+### Advanced Patterns (§176–§200)
+
+| § | Section | Lines | Key Topics |
+|---|---------|-------|------------|
+| §176 | KDS Settings Constants | 9421–9453 | Bump bar, alerts, performance targets |
+| §177 | Discount GL Classification | 9454–9488 | 24 types, contra-revenue vs expense |
+| §178 | PII Masking at LLM Boundary | 9489–9525 | Two-layer detection |
+| §179 | Dual-Scoped Unique Indexes | 9526–9553 | System + tenant records |
+| §180 | Admin Cross-Tenant Queries | 9554–9584 | withAdminDb, RLS bypass |
+| §181 | KDS Routing — Priority Cascade | 9585–9607 | Item → category → department → fallback |
+| §182 | Modifier Intelligence | 9608–9633 | Instruction suppression |
+| §183 | Accounting Money Format | 9634–9665 | Formatting conventions |
+| §184 | Service Charge Exemption | 9666–9682 | Exemption rules |
+| §185 | GL Query Guard | 9683–9697 | Non-posted entry exclusion |
+| §186 | Event Consumer Payload Validation | 9698–9736 | Zod safeParse, enrichment |
+| §187 | Accounting Settings Auto-Ensure | 9737–9757 | Suspense account guarantee |
+| §188 | GL Rounding Validation | 9758–9774 | Account type validation |
+| §189 | Semantic Pipeline — Fast Path | 9775–9795 | Deterministic regex resolver |
+| §190 | Semantic Pipeline — SSE Streaming | 9796–9820 | Streaming response |
+| §191 | Anthropic Prompt Caching | 9821–9847 | SEM-02 |
+| §192 | Semantic Intent Validation | 9848–9869 | Zod schema validation |
+| §193 | RAG Few-Shot Dedup & Diversity | 9870–9883 | Deduplication |
+| §194 | Semantic Plausibility Checker | 9884–9898 | SEM-09 |
+| §195 | GL Close Checklist — Posting Gap | 9899–9918 | Detection of unposted events |
+| §196 | POS Adapter — Mapping Fallback | 9919–9937 | Incomplete payment type handling |
+| §197 | GL Memo-Only Self-Cancel Prevention | 9938–9951 | Zero-sum detection |
+| §198 | Idempotency on Financial Commands | 9952–9971 | All financial commands |
+| §199 | Tag Action Lifecycle | 9972–9985 | Smart tag triggers |
+| §200 | LLM Adapter — Streaming | 9986–10004 | SSE support |
+
+### Reference Patterns (§201–§231)
+
+| § | Section | Lines | Key Topics |
+|---|---------|-------|------------|
+| §201 | GL Adapter Hardening (Canonical) | 10005–10121 | 15 adapters, canonical pattern, never throw |
+| §202 | Event-to-GL Consumer Wiring Matrix | 10122–10182 | Full wiring map |
+| §203 | GL Audit Checklist | 10183–10214 | New financial event checklist |
+| §204 | Test Resilience Conventions | 10215–10261 | Flaky test prevention |
+| §205 | Vercel Serverless DB Safety | 10262–10429 | 7 rules, fire-and-forget prevention |
+| §206 | Pool Guard Infrastructure | 10430–10481 | Semaphore, circuit breaker, zombie tracking |
+| §207 | Step-Up Authentication | 10482–10528 | HMAC-SHA256, category TTLs, PIN modal |
+| §208 | Bot Detection & Replay Guards | 10529–10565 | Weighted scoring, nonce + timestamp |
+| §209 | Receipt Engine Architecture | 10566–10612 | Builder pattern, renderers, tokenized links |
+| §210 | Multi-Currency Engine | 10613–10643 | Exchange rates, functional amounts |
+| §211 | Expense Management Lifecycle | 10644–10680 | Policies, approvals, GL posting |
+| §212 | Project Costing | 10681–10715 | Tasks, cost allocation, profitability |
+| §213 | Register Tab Sync | 10716–10752 | BroadcastChannel, SSE, version conflicts |
+| §214 | PMS-POS Room Charge Integration | 10753–10798 | Room charge posting |
+| §215 | F&B Host Orchestration | 10799–10934 | Server load, pacing, RevPASH, waitlist offers |
+| §216 | Waitlist Config System | 10935–11051 | JSONB config, public APIs, cron sweep |
+| §217 | Semantic Fast-Path + Schema Catalog | 11052–11103 | SWR-cached schema catalog |
+| §218 | Admin Portal Operations | 11104–11192 | Health monitoring, audit, finance tools |
+| §219 | Housekeeping Management | 11193–11221 | Cleaning types, workload queries |
+| §220 | Retained Earnings + Journal Validation | 11222–11274 | FY close, rounding tolerance |
+| §221 | Cross-Cutting Patterns | 11275–11355 | Read-model w/o outbox, deadlock-safe locking |
+| §222 | KDS & Command Hardening | 11356–11400 | Serialized DB ops, nullable order_id |
+| §223 | Middleware Reference | 11401–11476 | Full chain, options, error categories |
+| §224 | Command Hardening Patterns | 11477–11541 | NaN guards, phase try/catch, bulk ops |
+| §225 | Query Patterns Reference | 11542–11603 | Composite cursors, date filtering, CQRS |
+| §226 | Cron & Distributed Lock | 11604–11674 | Lock mechanics, time budget, drain-outbox |
+| §227 | F&B Realtime Architecture V2 | 11675–11720 | broadcastFnb, channel registry |
+| §228 | React Frontend Patterns | 11721–11819 | Mode derivation, ref patterns, double-tap guard |
+| §229 | Sentry & Observability | 11820–11856 | Init, PII scrubbing, error boundaries |
+| §230 | Backup/Restore System | 11857–11902 | Direct connection, FK order, cursor export |
+| §231 | Reporting Consumer Patterns | 11903–11949 | Cents→dollars, ON CONFLICT additive |
 
 ---
 
@@ -251,31 +329,34 @@
 
 | Topic | Sections |
 |-------|----------|
-| **Money (dollars vs cents)** | §21, §65–§66, §73–§74, §153 |
-| **Dark mode** | §16, §136, §140–§145 |
-| **GL / Accounting** | §65–§80, §104, §176–§185, §201–§203, §220 |
-| **POS** | §31–§38, §131 |
-| **F&B** | §46–§48, §75, §98 (KDS), §127–§128, §132–§134, §215–§216 |
-| **Vercel / Serverless** | §123, §146–§150, §205 |
-| **Database / Schema** | §2, §118, §151 |
-| **Auth / Security** | §13–§14, §116, §119–§122 |
-| **Events / Consumers** | §8, §88, §186–§195 |
-| **Testing** | §11–§12, §138 |
-| **Reporting / Read Models** | §25, §39, §153–§160 |
-| **Semantic / AI** | §51–§54, §105–§106, §204, §217 |
-| **PMS** | §44–§45, §206–§210, §219 |
-| **Spa** | §49–§50, §211–§214 |
-| **Settings / Config** | §110–§115, §130 |
-| **Inventory / Receiving** | §22, §26–§27, §161–§170 |
-| **Customer / Tags** | §24, §57, §211 |
-| **Admin Portal** | §55–§56, §137, §218 |
+| **Money (dollars vs cents)** | §21, §76, §183, §231 |
+| **Dark mode** | §15, §145, §172 |
+| **GL / Accounting** | §76–§80, §84, §114, §117–§118, §149, §177, §183, §185, §187–§188, §195–§197, §201–§203, §220 |
+| **POS** | §31–§35, §57, §61–§64, §132a, §140–§141, §164, §169, §196, §228 |
+| **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227 |
+| **Vercel / Serverless** | §47, §81, §157, §161, §205–§206 |
+| **Database / Schema** | §2, §18, §29–§30, §36, §47, §139, §179, §225 |
+| **Auth / Security** | §3, §13–§14, §38, §51, §67, §81, §119, §137, §207–§208, §223 |
+| **Events / Consumers** | §9, §26, §104, §159, §186, §202, §231 |
+| **Testing** | §11, §204 |
+| **Reporting / Read Models** | §52, §56, §111, §153, §175, §231 |
+| **Semantic / AI** | §65–§72, §74, §121, §123, §127, §160, §178, §189–§194, §200, §217 |
+| **PMS** | §122, §126, §166, §214, §219 |
+| **Settings / Config** | §90, §95, §110, §112, §115–§116, §130, §134b, §135b, §136, §142, §149, §155–§156, §165 |
+| **Inventory / Receiving** | §41, §53–§55, §58–§60 |
+| **Customer / Tags** | §39, §44, §125, §199 |
+| **Admin Portal** | §73, §88, §91–§92, §119, §131a, §147, §180, §218, §229–§230 |
+| **Onboarding** | §42, §112, §144 |
+| **Payments / Tenders** | §35, §64, §96, §101–§102, §128, §140, §198 |
+| **Infrastructure / Cron** | §47–§49, §83, §157, §161–§162, §167, §206, §226 |
 
 ---
 
 ## Notes
 
-- **Duplicate section numbers**: §98, §131, §132, §135 each appear twice (legacy numbering). Use line ranges to disambiguate.
-- **Line ranges are approximate** — sections may vary by ±20 lines. Use the section heading text for precise navigation.
-- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (11,354 lines, 221 sections)
-- **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (490 numbered gotchas)
+- **Duplicate section numbers**: §98, §131–§135 each appear twice in the file (legacy numbering). Disambiguated as `a`/`b` suffixes above.
+- **Unnumbered sections**: "Local Server Fix (Windows)" at line 7246 (between §127 and §128), and "Answer"/"Metrics in This Query" subsections within §74 at lines 4571–4652.
+- **Line ranges are exact** as of the current file (11,949 lines). If CONVENTIONS_FULL.md is edited, re-run: `grep -n "^## " docs/conventions/CONVENTIONS_FULL.md` to verify.
+- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (11,949 lines, 231 sections)
+- **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (540 numbered gotchas)
 - **What's Built / What's Next**: `docs/conventions/whats-built.md`

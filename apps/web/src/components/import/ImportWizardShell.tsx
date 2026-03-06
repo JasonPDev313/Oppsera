@@ -55,6 +55,7 @@ export function ImportWizardShell({
   const content = (
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="import-wizard-dialog-title">
       {/* Backdrop */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
       <div
         className="absolute inset-0 bg-black/40"
         onClick={preventClose ? undefined : onClose}

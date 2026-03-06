@@ -195,8 +195,9 @@ function AssignDeviceDialog({
       </p>
       <div className="mt-4 space-y-3">
         <div>
-          <label className="block text-sm font-medium text-foreground">Provider</label>
+          <label htmlFor="dt-assign-provider" className="block text-sm font-medium text-foreground">Provider</label>
           <select
+            id="dt-assign-provider"
             value={providerId}
             onChange={(e) => setProviderId(e.target.value)}
             className="mt-1 block w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
@@ -208,8 +209,9 @@ function AssignDeviceDialog({
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground">POS Terminal ID</label>
+          <label htmlFor="dt-assign-terminal-id" className="block text-sm font-medium text-foreground">POS Terminal ID</label>
           <input
+            id="dt-assign-terminal-id"
             type="text"
             value={terminalId}
             onChange={(e) => setTerminalId(e.target.value)}
@@ -223,8 +225,9 @@ function AssignDeviceDialog({
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground">Hardware Serial Number (HSN)</label>
+          <label htmlFor="dt-assign-hsn" className="block text-sm font-medium text-foreground">Hardware Serial Number (HSN)</label>
           <input
+            id="dt-assign-hsn"
             type="text"
             value={hsn}
             onChange={(e) => setHsn(e.target.value)}
@@ -236,8 +239,9 @@ function AssignDeviceDialog({
           </p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground">Device Model</label>
+          <label htmlFor="dt-assign-device-model" className="block text-sm font-medium text-foreground">Device Model</label>
           <select
+            id="dt-assign-device-model"
             value={deviceModel}
             onChange={(e) => setDeviceModel(e.target.value)}
             className="mt-1 block w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
@@ -251,8 +255,9 @@ function AssignDeviceDialog({
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground">Label (optional)</label>
+          <label htmlFor="dt-assign-label" className="block text-sm font-medium text-foreground">Label (optional)</label>
           <input
+            id="dt-assign-label"
             type="text"
             value={deviceLabel}
             onChange={(e) => setDeviceLabel(e.target.value)}
@@ -313,8 +318,9 @@ function EditDeviceDialog({
       </p>
       <div className="mt-4 space-y-3">
         <div>
-          <label className="block text-sm font-medium text-foreground">Hardware Serial Number (HSN)</label>
+          <label htmlFor="dt-edit-hsn" className="block text-sm font-medium text-foreground">Hardware Serial Number (HSN)</label>
           <input
+            id="dt-edit-hsn"
             type="text"
             value={hsn}
             onChange={(e) => setHsn(e.target.value)}
@@ -322,8 +328,9 @@ function EditDeviceDialog({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground">Device Model</label>
+          <label htmlFor="dt-edit-device-model" className="block text-sm font-medium text-foreground">Device Model</label>
           <select
+            id="dt-edit-device-model"
             value={deviceModel}
             onChange={(e) => setDeviceModel(e.target.value)}
             className="mt-1 block w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
@@ -337,8 +344,9 @@ function EditDeviceDialog({
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground">Label</label>
+          <label htmlFor="dt-edit-label" className="block text-sm font-medium text-foreground">Label</label>
           <input
+            id="dt-edit-label"
             type="text"
             value={deviceLabel}
             onChange={(e) => setDeviceLabel(e.target.value)}

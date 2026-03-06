@@ -46,6 +46,7 @@ export function VendorCreditDialog({ open, onClose }: VendorCreditDialogProps) {
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 w-full max-w-lg rounded-lg border border-border bg-surface p-6 shadow-xl space-y-4">
         <h3 className="text-lg font-semibold text-foreground">Vendor Credit</h3>
@@ -53,10 +54,11 @@ export function VendorCreditDialog({ open, onClose }: VendorCreditDialogProps) {
 
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="vendor-credit-vendor-id" className="block text-sm font-medium text-foreground mb-1">
               Vendor <span className="text-red-500">*</span>
             </label>
             <input
+              id="vendor-credit-vendor-id"
               type="text"
               value={vendorId}
               onChange={(e) => setVendorId(e.target.value)}
@@ -66,8 +68,9 @@ export function VendorCreditDialog({ open, onClose }: VendorCreditDialogProps) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Credit Date</label>
+              <label htmlFor="vendor-credit-date" className="block text-sm font-medium text-foreground mb-1">Credit Date</label>
               <input
+                id="vendor-credit-date"
                 type="date"
                 value={creditDate}
                 onChange={(e) => setCreditDate(e.target.value)}
@@ -75,6 +78,7 @@ export function VendorCreditDialog({ open, onClose }: VendorCreditDialogProps) {
               />
             </div>
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="block text-sm font-medium text-foreground mb-1">
                 Amount <span className="text-red-500">*</span>
               </label>
@@ -82,10 +86,11 @@ export function VendorCreditDialog({ open, onClose }: VendorCreditDialogProps) {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="vendor-credit-gl-account" className="block text-sm font-medium text-foreground mb-1">
               Expense/Inventory Account <span className="text-red-500">*</span>
             </label>
             <input
+              id="vendor-credit-gl-account"
               type="text"
               value={glAccountId}
               onChange={(e) => setGlAccountId(e.target.value)}
@@ -94,8 +99,9 @@ export function VendorCreditDialog({ open, onClose }: VendorCreditDialogProps) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Reason / Memo</label>
+            <label htmlFor="vendor-credit-memo" className="block text-sm font-medium text-foreground mb-1">Reason / Memo</label>
             <textarea
+              id="vendor-credit-memo"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               rows={2}

@@ -320,6 +320,7 @@ export default function SettingsContent() {
               { key: 'postByLocation', label: 'Post by Location', help: 'Include location dimension on journal lines for multi-location reporting' },
               { key: 'enableUndepositedFundsWorkflow', label: 'Enable Undeposited Funds', help: 'POS → Undeposited Funds → Bank deposit workflow' },
             ].map(({ key, label, help }) => (
+              // eslint-disable-next-line jsx-a11y/label-has-associated-control
               <label key={key} className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -340,6 +341,7 @@ export default function SettingsContent() {
         <section className="space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">GL Remap</h2>
           <div className="rounded-lg border border-border bg-surface p-4 space-y-3">
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -376,6 +378,7 @@ export default function SettingsContent() {
         <section className="space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Vouchers / Gift Cards</h2>
           <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -398,6 +401,7 @@ export default function SettingsContent() {
               </div>
             )}
 
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"

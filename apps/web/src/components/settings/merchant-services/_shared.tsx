@@ -20,6 +20,7 @@ export function DialogOverlay({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
         {children}
@@ -41,6 +42,7 @@ export function ToggleRow({
   onChange: (val: boolean) => void;
 }) {
   return (
+    // eslint-disable-next-line jsx-a11y/label-has-associated-control
     <label className="flex cursor-pointer items-start gap-3">
       <div className="relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center">
         <input

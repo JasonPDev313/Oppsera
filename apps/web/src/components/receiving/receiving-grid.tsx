@@ -285,6 +285,7 @@ export function ReceivingGrid({
             {/* Editable fields */}
             <div className="grid grid-cols-2 gap-2">
               <div>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="text-xs font-medium text-muted-foreground">Rcvd Qty</label>
                 <EditableCell
                   value={line.quantityReceived}
@@ -295,6 +296,7 @@ export function ReceivingGrid({
                 />
               </div>
               <div>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="text-xs font-medium text-muted-foreground">Rcvd Cost</label>
                 <EditableCell
                   value={line.unitCost}

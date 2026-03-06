@@ -99,7 +99,7 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
     );
   }
 
-  const userId = user?.id ?? 'unknown';
+  const userId = user?.id ?? '';
 
   // ── Internal Screen Router (Zustand-driven) ──────────────────
   // Floor + Tab stay mounted and toggle via CSS for instant switching.

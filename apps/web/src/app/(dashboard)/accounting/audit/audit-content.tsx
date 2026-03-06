@@ -179,8 +179,9 @@ export default function AuditContent() {
       {/* Filter Bar */}
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">From</label>
+          <label htmlFor="audit-date-from" className="mb-1 block text-xs font-medium text-muted-foreground">From</label>
           <input
+            id="audit-date-from"
             type="date"
             value={dateFrom}
             onChange={(e) => { setDateFrom(e.target.value); refresh(); }}
@@ -188,8 +189,9 @@ export default function AuditContent() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">To</label>
+          <label htmlFor="audit-date-to" className="mb-1 block text-xs font-medium text-muted-foreground">To</label>
           <input
+            id="audit-date-to"
             type="date"
             value={dateTo}
             onChange={(e) => { setDateTo(e.target.value); refresh(); }}
@@ -197,8 +199,9 @@ export default function AuditContent() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Action</label>
+          <label htmlFor="audit-action" className="mb-1 block text-xs font-medium text-muted-foreground">Action</label>
           <select
+            id="audit-action"
             value={actionPrefix}
             onChange={(e) => { setActionPrefix(e.target.value); refresh(); }}
             className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
@@ -209,8 +212,9 @@ export default function AuditContent() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Entity</label>
+          <label htmlFor="audit-entity" className="mb-1 block text-xs font-medium text-muted-foreground">Entity</label>
           <select
+            id="audit-entity"
             value={entityType}
             onChange={(e) => { setEntityType(e.target.value); refresh(); }}
             className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
@@ -221,10 +225,11 @@ export default function AuditContent() {
           </select>
         </div>
         <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Search Entity ID</label>
+          <label htmlFor="audit-entity-id" className="mb-1 block text-xs font-medium text-muted-foreground">Search Entity ID</label>
           <div className="relative">
             <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
             <input
+              id="audit-entity-id"
               type="text"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}

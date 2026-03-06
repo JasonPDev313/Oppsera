@@ -224,7 +224,7 @@ describe('submitAdminReview', () => {
     const turnRow = makeTurnRow();
     mockDbSelect.mockReturnValueOnce(makeChain([turnRow]));
 
-    await submitAdminReview('turn_001', 'admin_001', {
+    await submitAdminReview('turn_001', 'tenant_001', 'admin_001', {
       score: 4,
       verdict: 'partially_correct',
       notes: 'Good intent but wrong metric',
@@ -241,7 +241,7 @@ describe('submitAdminReview', () => {
     mockDbSelect.mockReturnValueOnce(makeChain([]));
 
     await expect(
-      submitAdminReview('nonexistent', 'admin_001', {
+      submitAdminReview('nonexistent', 'tenant_001', 'admin_001', {
         score: 3,
         verdict: 'incorrect',
         actionTaken: 'none',
@@ -256,7 +256,7 @@ describe('submitAdminReview', () => {
     const turnRow = makeTurnRow();
     mockDbSelect.mockReturnValueOnce(makeChain([turnRow]));
 
-    await submitAdminReview('turn_001', 'admin_001', {
+    await submitAdminReview('turn_001', 'tenant_001', 'admin_001', {
       score: 5,
       verdict: 'correct',
       actionTaken: 'none',
@@ -270,7 +270,7 @@ describe('submitAdminReview', () => {
     mockDbSelect.mockReturnValueOnce(makeChain([turnRow]));
 
     await expect(
-      submitAdminReview('turn_001', 'admin_001', {
+      submitAdminReview('turn_001', 'tenant_001', 'admin_001', {
         score: 2,
         verdict: 'hallucination',
         actionTaken: 'filed_bug',
@@ -295,7 +295,7 @@ describe('promoteToExample', () => {
     });
     mockDbSelect.mockReturnValueOnce(makeChain([turnRow]));
 
-    const exampleId = await promoteToExample('turn_001', 'admin_001', {
+    const exampleId = await promoteToExample('turn_001', 'tenant_001', 'admin_001', {
       category: 'sales',
       difficulty: 'simple',
     });
@@ -311,7 +311,7 @@ describe('promoteToExample', () => {
     mockDbSelect.mockReturnValueOnce(makeChain([turnRow]));
 
     await expect(
-      promoteToExample('turn_001', 'admin_001', {
+      promoteToExample('turn_001', 'tenant_001', 'admin_001', {
         category: 'comparison',
         difficulty: 'medium',
       }),
@@ -324,7 +324,7 @@ describe('promoteToExample', () => {
     mockDbSelect.mockReturnValueOnce(makeChain([]));
 
     await expect(
-      promoteToExample('nonexistent', 'admin_001', {
+      promoteToExample('nonexistent', 'tenant_001', 'admin_001', {
         category: 'sales',
         difficulty: 'complex',
       }),

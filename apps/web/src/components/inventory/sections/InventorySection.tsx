@@ -117,6 +117,7 @@ export function InventorySection({ form, onUpdate, inventoryData, inventoryItemI
         </div>
 
         {/* Track Inventory toggle */}
+        {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
         <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2.5">
           <input
             type="checkbox"
@@ -131,6 +132,7 @@ export function InventorySection({ form, onUpdate, inventoryData, inventoryItemI
         </label>
 
         {/* Allow Negative Quantity override */}
+        {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
         <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2.5">
           <input
             type="checkbox"

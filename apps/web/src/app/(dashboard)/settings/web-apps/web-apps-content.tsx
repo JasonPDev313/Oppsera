@@ -187,6 +187,7 @@ function WebAppCard({ app, tenantSlug, locationId }: WebAppCardProps) {
         {status === 'active' && url && (
           <div className="space-y-3">
             <div className="bg-muted border border-border rounded-md px-3 py-2">
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="block text-xs font-medium text-muted-foreground mb-1">URL</label>
               <div className="flex items-center justify-between gap-2">
                 <code className="text-sm text-foreground truncate">{url}</code>

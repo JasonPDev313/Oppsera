@@ -211,7 +211,6 @@ export function NewReservationDialog({
             <label htmlFor="reservation-guest-name" style={labelStyle}>
               Guest Name <span style={{ color: 'var(--fnb-danger)' }}>*</span>
             </label>
-            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
             <input
               id="reservation-guest-name"
               type="text"
@@ -219,6 +218,7 @@ export function NewReservationDialog({
               onChange={(e) => setGuestName(e.target.value)}
               placeholder="Enter guest name"
               style={inputStyle}
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
           </div>

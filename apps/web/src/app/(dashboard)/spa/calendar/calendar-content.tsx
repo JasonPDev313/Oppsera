@@ -412,6 +412,7 @@ export default function SpaCalendarContent() {
             {providerFilterOpen && (
               <>
                 {/* Backdrop */}
+                {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
                 <div
                   className="fixed inset-0 z-10"
                   onClick={() => setProviderFilterOpen(false)}
@@ -876,6 +877,7 @@ function AppointmentContextMenu({
   ];
 
   return createPortal(
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       ref={menuRef}
       className="fixed z-50 min-w-[180px] rounded-lg border border-border bg-surface py-1 shadow-xl"

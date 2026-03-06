@@ -202,6 +202,7 @@ function LocationMultiSelect({
 
   return (
     <div className="relative">
+      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
       <label className="block text-xs font-medium text-muted-foreground mb-1">
         Locations
       </label>
@@ -219,6 +220,7 @@ function LocationMultiSelect({
 
       {isOpen && (
         <>
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div
             className="fixed inset-0 z-40"
             onClick={() => setIsOpen(false)}

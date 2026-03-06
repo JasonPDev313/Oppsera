@@ -161,6 +161,7 @@ export const TipSettingsSection = memo(function TipSettingsSection({
           <>
             {/* Percentage presets */}
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="mb-2 block text-xs font-medium text-muted-foreground">Percentage Presets</label>
               <div className="flex flex-wrap gap-2">
                 {settings.percentageOptions.map((pct, i) => (
@@ -187,6 +188,7 @@ export const TipSettingsSection = memo(function TipSettingsSection({
                       }}
                       placeholder="e.g. 22"
                       className="w-16 rounded-md border border-border px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      // eslint-disable-next-line jsx-a11y/no-autofocus
                       autoFocus
                     />
                     <span className="text-xs text-muted-foreground">%</span>
@@ -205,6 +207,7 @@ export const TipSettingsSection = memo(function TipSettingsSection({
 
             {/* Dollar amounts */}
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="mb-2 block text-xs font-medium text-muted-foreground">Dollar Amounts</label>
               <div className="flex flex-wrap gap-2">
                 {settings.dollarAmounts.map((amt, i) => (
@@ -230,6 +233,7 @@ export const TipSettingsSection = memo(function TipSettingsSection({
                       }}
                       placeholder="e.g. 5"
                       className="w-16 rounded-md border border-border px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      // eslint-disable-next-line jsx-a11y/no-autofocus
                       autoFocus
                     />
                   </div>
@@ -258,8 +262,9 @@ export const TipSettingsSection = memo(function TipSettingsSection({
 
             {/* Default selection */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Default Selection</label>
+              <label htmlFor="tip-default-selection" className="mb-1 block text-xs font-medium text-muted-foreground">Default Selection</label>
               <select
+                id="tip-default-selection"
                 value={settings.defaultSelectionIndex ?? ''}
                 onChange={(e) =>
                   updateSettings({

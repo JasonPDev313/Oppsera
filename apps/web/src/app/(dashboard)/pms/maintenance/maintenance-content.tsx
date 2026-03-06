@@ -237,10 +237,11 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
         <div className="max-h-[70vh] space-y-4 overflow-y-auto px-6 py-4">
           {/* Title */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
+            <label htmlFor="maint-title" className="mb-1 block text-sm font-medium text-foreground">
               Title <span className="text-red-500">*</span>
             </label>
             <input
+              id="maint-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -251,8 +252,9 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
 
           {/* Description */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Description</label>
+            <label htmlFor="maint-description" className="mb-1 block text-sm font-medium text-foreground">Description</label>
             <textarea
+              id="maint-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Detailed description of the issue..."
@@ -263,6 +265,7 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
 
           {/* Room */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="mb-1 block text-sm font-medium text-foreground">Room</label>
             <Select
               options={roomOptions}
@@ -276,6 +279,7 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
           {/* Category + Priority row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="mb-1 block text-sm font-medium text-foreground">Category</label>
               <Select
                 options={CATEGORY_FORM_OPTIONS}
@@ -285,6 +289,7 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
               />
             </div>
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="mb-1 block text-sm font-medium text-foreground">Priority</label>
               <Select
                 options={PRIORITY_FORM_OPTIONS}
@@ -297,8 +302,9 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
 
           {/* Assigned To */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Assigned To</label>
+            <label htmlFor="maint-assigned-to" className="mb-1 block text-sm font-medium text-foreground">Assigned To</label>
             <input
+              id="maint-assigned-to"
               type="text"
               value={assignedTo}
               onChange={(e) => setAssignedTo(e.target.value)}
@@ -310,8 +316,9 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
           {/* Estimated Hours + Due Date row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Estimated Hours</label>
+              <label htmlFor="maint-est-hours" className="mb-1 block text-sm font-medium text-foreground">Estimated Hours</label>
               <input
+                id="maint-est-hours"
                 type="number"
                 min="0"
                 step="0.5"
@@ -322,8 +329,9 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Due Date</label>
+              <label htmlFor="maint-due-date" className="mb-1 block text-sm font-medium text-foreground">Due Date</label>
               <input
+                id="maint-due-date"
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}

@@ -192,6 +192,11 @@ export async function POST(
 
     // Atomic position calculation + insert
     const rows = await adminDb.transaction(async (tx) => {
+      // Advisory lock prevents concurrent position collision (FOR UPDATE is invalid with aggregates)
+      await tx.execute(sql`
+        SELECT pg_advisory_xact_lock(hashtext(${tenantId} || ':waitlist:' || ${locationId} || ':' || ${businessDate}))
+      `);
+
       const posRows = await tx.execute(sql`
         SELECT COALESCE(MAX(position), 0) + 1 AS next_pos
         FROM fnb_waitlist_entries
@@ -199,7 +204,6 @@ export async function POST(
           AND location_id = ${locationId}
           AND business_date = ${businessDate}
           AND status IN ('waiting', 'notified')
-        FOR UPDATE
       `);
       const nextPos = Number(
         (Array.from(posRows as Iterable<Record<string, unknown>>)[0] as Record<string, unknown>)?.next_pos ?? 1,
@@ -252,7 +256,8 @@ export async function POST(
         estimatedMinutes: Number(created.quoted_wait_minutes),
       },
     }, { status: 201, headers: rateLimitHeaders(rl) });
-  } catch {
+  } catch (err) {
+    console.error('[waitlist-join] Failed to join waitlist:', err instanceof Error ? err.message : err);
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Failed to join waitlist' } },
       { status: 500 },

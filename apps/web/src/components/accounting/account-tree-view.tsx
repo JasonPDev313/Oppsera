@@ -101,6 +101,7 @@ export function AccountTreeView({
                   </div>
                 ) : (
                   (treeItems ?? items.map((a) => ({ ...a, depth: 0, children: [] as GLAccount[] }))).map((acc) => (
+                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
                     <div
                       key={acc.id}
                       onClick={() => onEditAccount(acc)}

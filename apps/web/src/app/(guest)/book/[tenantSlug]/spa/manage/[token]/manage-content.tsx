@@ -437,6 +437,7 @@ export default function ManageContent() {
       {/* Notes (read-only) */}
       {appointment.notes && (
         <div className="mx-4 mt-4">
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
             <FileText className="h-3.5 w-3.5" />
             Notes

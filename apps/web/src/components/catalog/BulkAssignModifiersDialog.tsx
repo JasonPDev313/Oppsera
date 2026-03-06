@@ -187,6 +187,7 @@ export function BulkAssignModifiersDialog({ open, onClose, onSuccess }: BulkAssi
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative flex h-[80vh] w-full max-w-3xl flex-col rounded-lg bg-surface shadow-xl">
         {/* Header */}
@@ -499,6 +500,7 @@ function ItemSelectionStep({
       ) : (
         <div className="max-h-[40vh] space-y-1 overflow-y-auto rounded-lg border border-border">
           {items.map((item) => (
+            // eslint-disable-next-line jsx-a11y/label-has-associated-control
             <label
               key={item.id}
               className={`flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-accent ${
@@ -572,6 +574,7 @@ function GroupSelectionStep({
       ) : (
         <div className="max-h-[40vh] space-y-1 overflow-y-auto rounded-lg border border-border">
           {groups.map((group) => (
+            // eslint-disable-next-line jsx-a11y/label-has-associated-control
             <label
               key={group.id}
               className={`flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-accent ${
@@ -643,8 +646,9 @@ function OverridesStep({
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         {/* Required override */}
         <div>
-          <label className="block text-sm font-medium text-foreground">Required Override</label>
+          <label htmlFor="override-required" className="block text-sm font-medium text-foreground">Required Override</label>
           <select
+            id="override-required"
             value={overrideRequired === null ? '' : overrideRequired ? 'true' : 'false'}
             onChange={(e) => {
               const v = e.target.value;
@@ -660,8 +664,9 @@ function OverridesStep({
 
         {/* Instruction mode override */}
         <div>
-          <label className="block text-sm font-medium text-foreground">Instruction Mode Override</label>
+          <label htmlFor="override-instruction-mode" className="block text-sm font-medium text-foreground">Instruction Mode Override</label>
           <select
+            id="override-instruction-mode"
             value={overrideInstructionMode}
             onChange={(e) => onInstructionModeChange(e.target.value)}
             className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
@@ -675,8 +680,9 @@ function OverridesStep({
 
         {/* Min selections override */}
         <div>
-          <label className="block text-sm font-medium text-foreground">Min Selections Override</label>
+          <label htmlFor="override-min-selections" className="block text-sm font-medium text-foreground">Min Selections Override</label>
           <input
+            id="override-min-selections"
             type="number"
             min={0}
             value={overrideMin}
@@ -688,8 +694,9 @@ function OverridesStep({
 
         {/* Max selections override */}
         <div>
-          <label className="block text-sm font-medium text-foreground">Max Selections Override</label>
+          <label htmlFor="override-max-selections" className="block text-sm font-medium text-foreground">Max Selections Override</label>
           <input
+            id="override-max-selections"
             type="number"
             min={0}
             value={overrideMax}
@@ -701,8 +708,9 @@ function OverridesStep({
 
         {/* Prompt order */}
         <div>
-          <label className="block text-sm font-medium text-foreground">Prompt Order</label>
+          <label htmlFor="override-prompt-order" className="block text-sm font-medium text-foreground">Prompt Order</label>
           <input
+            id="override-prompt-order"
             type="number"
             min={0}
             value={promptOrder}
@@ -782,6 +790,7 @@ function ConfirmStep({
       <div className="rounded-lg border border-border p-4">
         <h3 className="mb-3 text-sm font-semibold text-foreground">Assignment Mode</h3>
         <div className="space-y-3">
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="radio"
@@ -797,6 +806,7 @@ function ConfirmStep({
               </p>
             </div>
           </label>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="radio"

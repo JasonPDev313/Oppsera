@@ -215,13 +215,15 @@ export default function InvoiceDetailContent() {
       {/* Void Dialog */}
       {showVoidDialog && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowVoidDialog(false)} />
           <div className="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl space-y-4">
             <h3 className="text-lg font-semibold text-foreground">Void Invoice</h3>
             <p className="text-sm text-muted-foreground">This will create a reversal GL entry. This cannot be undone.</p>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Reason <span className="text-red-500">*</span></label>
+              <label htmlFor="ar-invoice-void-reason" className="block text-sm font-medium text-foreground mb-1">Reason <span className="text-red-500">*</span></label>
               <textarea
+                id="ar-invoice-void-reason"
                 value={voidReason}
                 onChange={(e) => setVoidReason(e.target.value)}
                 rows={3}

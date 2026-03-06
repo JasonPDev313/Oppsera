@@ -845,6 +845,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 overflow-hidden">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed inset-0 z-40 bg-black/50 transition-opacity md:hidden"
           onClick={() => setSidebarOpen(false)}

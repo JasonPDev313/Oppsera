@@ -585,7 +585,8 @@ export default function CorporateContent() {
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
-            <div
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+          <div
               className="absolute inset-0 bg-black/40"
               onClick={closeDialog}
             />
@@ -613,24 +614,27 @@ export default function CorporateContent() {
               <div className="space-y-4">
                 {/* Company Name */}
                 <div>
-                  <label className={labelCls}>
+                  <label htmlFor="corp-company-name" className={labelCls}>
                     Company Name <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="corp-company-name"
                     type="text"
                     value={form.companyName}
                     onChange={(e) => updateField('companyName', e.target.value)}
                     placeholder="e.g. Acme Corporation"
                     maxLength={200}
                     className={inputCls}
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus
                   />
                 </div>
 
                 {/* Tax ID */}
                 <div>
-                  <label className={labelCls}>Tax ID</label>
+                  <label htmlFor="corp-tax-id" className={labelCls}>Tax ID</label>
                   <input
+                    id="corp-tax-id"
                     type="text"
                     value={form.taxId}
                     onChange={(e) => updateField('taxId', e.target.value)}
@@ -642,8 +646,9 @@ export default function CorporateContent() {
 
                 {/* Billing Address (JSON) */}
                 <div>
-                  <label className={labelCls}>Billing Address (JSON)</label>
+                  <label htmlFor="corp-billing-address" className={labelCls}>Billing Address (JSON)</label>
                   <textarea
+                    id="corp-billing-address"
                     value={form.billingAddress}
                     onChange={(e) => updateField('billingAddress', e.target.value)}
                     placeholder={'{\n  "line1": "123 Main St",\n  "city": "Springfield",\n  "state": "IL",\n  "zip": "62701"\n}'}
@@ -655,8 +660,9 @@ export default function CorporateContent() {
                 {/* Contact section */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className={labelCls}>Contact Name</label>
+                    <label htmlFor="corp-contact-name" className={labelCls}>Contact Name</label>
                     <input
+                      id="corp-contact-name"
                       type="text"
                       value={form.contactName}
                       onChange={(e) => updateField('contactName', e.target.value)}
@@ -666,8 +672,9 @@ export default function CorporateContent() {
                     />
                   </div>
                   <div>
-                    <label className={labelCls}>Contact Email</label>
+                    <label htmlFor="corp-contact-email" className={labelCls}>Contact Email</label>
                     <input
+                      id="corp-contact-email"
                       type="email"
                       value={form.contactEmail}
                       onChange={(e) => updateField('contactEmail', e.target.value)}
@@ -679,8 +686,9 @@ export default function CorporateContent() {
                 </div>
 
                 <div>
-                  <label className={labelCls}>Contact Phone</label>
+                  <label htmlFor="corp-contact-phone" className={labelCls}>Contact Phone</label>
                   <input
+                    id="corp-contact-phone"
                     type="tel"
                     value={form.contactPhone}
                     onChange={(e) => updateField('contactPhone', e.target.value)}
@@ -692,8 +700,9 @@ export default function CorporateContent() {
 
                 {/* Default Rate Plan */}
                 <div>
-                  <label className={labelCls}>Default Rate Plan</label>
+                  <label htmlFor="corp-rate-plan" className={labelCls}>Default Rate Plan</label>
                   <select
+                    id="corp-rate-plan"
                     value={form.defaultRatePlanId}
                     onChange={(e) => updateField('defaultRatePlanId', e.target.value)}
                     className={inputCls}
@@ -710,8 +719,9 @@ export default function CorporateContent() {
                 {/* Financial section */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className={labelCls}>Negotiated Discount %</label>
+                    <label htmlFor="corp-discount-percent" className={labelCls}>Negotiated Discount %</label>
                     <input
+                      id="corp-discount-percent"
                       type="number"
                       step="0.01"
                       min="0"
@@ -723,8 +733,9 @@ export default function CorporateContent() {
                     />
                   </div>
                   <div>
-                    <label className={labelCls}>Credit Limit ($)</label>
+                    <label htmlFor="corp-credit-limit" className={labelCls}>Credit Limit ($)</label>
                     <input
+                      id="corp-credit-limit"
                       type="number"
                       step="0.01"
                       min="0"
@@ -738,8 +749,9 @@ export default function CorporateContent() {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className={labelCls}>Billing Type</label>
+                    <label htmlFor="corp-billing-type" className={labelCls}>Billing Type</label>
                     <select
+                      id="corp-billing-type"
                       value={form.billingType}
                       onChange={(e) => updateField('billingType', e.target.value)}
                       className={inputCls}
@@ -750,8 +762,9 @@ export default function CorporateContent() {
                     </select>
                   </div>
                   <div>
-                    <label className={labelCls}>Payment Terms (days)</label>
+                    <label htmlFor="corp-payment-terms" className={labelCls}>Payment Terms (days)</label>
                     <input
+                      id="corp-payment-terms"
                       type="number"
                       step="1"
                       min="0"
@@ -765,8 +778,9 @@ export default function CorporateContent() {
 
                 {/* Notes */}
                 <div>
-                  <label className={labelCls}>Notes</label>
+                  <label htmlFor="corp-notes" className={labelCls}>Notes</label>
                   <textarea
+                    id="corp-notes"
                     value={form.notes}
                     onChange={(e) => updateField('notes', e.target.value)}
                     placeholder="Internal notes about this corporate account..."

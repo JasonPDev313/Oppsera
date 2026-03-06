@@ -217,6 +217,7 @@ export function CustomerAttachment({
             onFocus={handleFocus}
             placeholder={customerId ? 'Search for a different customer...' : 'Search customer by name, phone, or email...'}
             className="h-8 w-full rounded-md border border-border bg-surface pl-8 pr-8 text-sm placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus={showChangeSearch}
           />
           {isLoading && (

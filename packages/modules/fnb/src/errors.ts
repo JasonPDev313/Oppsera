@@ -184,6 +184,16 @@ export class StationNotFoundError extends AppError {
   }
 }
 
+export class ExpoStationError extends AppError {
+  constructor(stationId: string) {
+    super(
+      'EXPO_STATION_NOT_ALLOWED',
+      `Station ${stationId} is an expo station — use the /api/v1/fnb/stations/expo endpoint instead`,
+      400,
+    );
+  }
+}
+
 export class DuplicateStationNameError extends AppError {
   constructor(name: string) {
     super(

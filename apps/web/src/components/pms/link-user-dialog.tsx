@@ -69,6 +69,7 @@ export function LinkUserDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative z-50 w-full max-w-lg rounded-lg bg-surface border border-border/50 shadow-xl max-h-[80vh] flex flex-col">
         {/* Header */}
@@ -89,6 +90,7 @@ export function LinkUserDialog({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-md border border-border/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
           </div>

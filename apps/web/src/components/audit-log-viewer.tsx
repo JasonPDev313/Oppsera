@@ -117,8 +117,9 @@ export function AuditLogViewer({
       {/* Filters */}
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-xs font-medium text-muted-foreground">From</label>
+          <label htmlFor="audit-log-from-date" className="block text-xs font-medium text-muted-foreground">From</label>
           <input
+            id="audit-log-from-date"
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
@@ -126,8 +127,9 @@ export function AuditLogViewer({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground">To</label>
+          <label htmlFor="audit-log-to-date" className="block text-xs font-medium text-muted-foreground">To</label>
           <input
+            id="audit-log-to-date"
             type="date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
@@ -135,8 +137,9 @@ export function AuditLogViewer({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground">Action</label>
+          <label htmlFor="audit-log-action-filter" className="block text-xs font-medium text-muted-foreground">Action</label>
           <input
+            id="audit-log-action-filter"
             type="text"
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}

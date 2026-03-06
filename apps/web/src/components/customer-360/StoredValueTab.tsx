@@ -155,8 +155,9 @@ function IssueForm({
       <h4 className="mb-3 text-sm font-semibold text-foreground">Issue New Instrument</h4>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Type</label>
+          <label htmlFor="sv-instrument-type" className="mb-1 block text-xs font-medium text-muted-foreground">Type</label>
           <select
+            id="sv-instrument-type"
             value={instrumentType}
             onChange={(e) => setInstrumentType(e.target.value)}
             className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -167,8 +168,9 @@ function IssueForm({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Code</label>
+          <label htmlFor="sv-code" className="mb-1 block text-xs font-medium text-muted-foreground">Code</label>
           <input
+            id="sv-code"
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value)}
@@ -177,8 +179,9 @@ function IssueForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Value ($)</label>
+          <label htmlFor="sv-initial-value" className="mb-1 block text-xs font-medium text-muted-foreground">Value ($)</label>
           <input
+            id="sv-initial-value"
             type="number"
             step="0.01"
             min="0"
@@ -189,8 +192,9 @@ function IssueForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Units (optional)</label>
+          <label htmlFor="sv-unit-count" className="mb-1 block text-xs font-medium text-muted-foreground">Units (optional)</label>
           <input
+            id="sv-unit-count"
             type="number"
             min="1"
             value={unitCount}
@@ -201,8 +205,9 @@ function IssueForm({
         </div>
       </div>
       <div className="mt-3">
-        <label className="mb-1 block text-xs font-medium text-muted-foreground">Description (optional)</label>
+        <label htmlFor="sv-description" className="mb-1 block text-xs font-medium text-muted-foreground">Description (optional)</label>
         <input
+          id="sv-description"
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -405,8 +410,9 @@ function InstrumentCard({
           {showRedeem && (
             <div className="mb-4 flex items-end gap-2 rounded-md border border-border bg-muted/50 p-3">
               <div className="flex-1">
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Amount ($)</label>
+                <label htmlFor={`sv-redeem-amount-${instrument.id}`} className="mb-1 block text-xs font-medium text-muted-foreground">Amount ($)</label>
                 <input
+                  id={`sv-redeem-amount-${instrument.id}`}
                   type="number"
                   step="0.01"
                   min="0.01"
@@ -439,8 +445,9 @@ function InstrumentCard({
           {showReload && (
             <div className="mb-4 flex items-end gap-2 rounded-md border border-border bg-muted/50 p-3">
               <div className="flex-1">
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Amount ($)</label>
+                <label htmlFor={`sv-reload-amount-${instrument.id}`} className="mb-1 block text-xs font-medium text-muted-foreground">Amount ($)</label>
                 <input
+                  id={`sv-reload-amount-${instrument.id}`}
                   type="number"
                   step="0.01"
                   min="0.01"

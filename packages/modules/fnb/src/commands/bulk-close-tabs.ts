@@ -56,6 +56,12 @@ export async function bulkCloseTabs(
         failed.push({ tabId, error: `Cannot close tab in status '${tab.status}'` });
         continue;
       }
+      // Optimistic locking: reject if version changed since client last fetched
+      const expectedVersion = input.expectedVersions?.[tabId];
+      if (expectedVersion != null && tab.version !== expectedVersion) {
+        failed.push({ tabId, error: 'Conflict: tab was modified by another session' });
+        continue;
+      }
       succeeded.push(tabId);
       if (tab.tableId) dirtyTableIdSet.add(tab.tableId);
       if (tab.primaryOrderId) orderIdsToVoid.push(tab.primaryOrderId);

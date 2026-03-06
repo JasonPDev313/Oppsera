@@ -160,11 +160,13 @@ export function Select({
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Filter..."
                   className="w-full rounded border border-border bg-surface py-1 pl-7 pr-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus
                   autoFocus
                 />
               </div>
             </div>
           )}
+          {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role */}
           <ul role="listbox" id={listboxId} className="max-h-60 overflow-auto py-1">
             {filtered.length === 0 && (
               <li className="px-3 py-2 text-sm text-muted-foreground">No options</li>
@@ -172,6 +174,7 @@ export function Select({
             {filtered.map((opt) => {
               const isSelected = selectedValues.includes(opt.value);
               return (
+                // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role
                 <li key={opt.value} role="option" aria-selected={isSelected}>
                   <button
                     type="button"

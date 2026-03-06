@@ -159,10 +159,11 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
         <div className="space-y-4">
           {/* Company Name */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="ach-company-name" className="block text-sm font-medium text-foreground mb-1">
               Company Name <span className="text-red-500">*</span>
             </label>
             <input
+              id="ach-company-name"
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
@@ -177,10 +178,11 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
 
           {/* Company ID */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="ach-company-id" className="block text-sm font-medium text-foreground mb-1">
               Company ID <span className="text-muted-foreground">(optional)</span>
             </label>
             <input
+              id="ach-company-id"
               type="text"
               value={companyId}
               onChange={(e) => setCompanyId(e.target.value)}
@@ -195,9 +197,11 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
 
           {/* Default SEC Code */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="block text-sm font-medium text-foreground mb-1">Default SEC Code</label>
             <div className="grid grid-cols-2 gap-2">
               {SEC_CODE_OPTIONS.map((opt) => (
+                // eslint-disable-next-line jsx-a11y/label-has-associated-control
                 <label
                   key={opt.value}
                   className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 ${
@@ -225,9 +229,11 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
 
           {/* Verification Mode */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="block text-sm font-medium text-foreground mb-1">Bank Account Verification</label>
             <div className="space-y-2">
               {VERIFICATION_MODE_OPTIONS.map((opt) => (
+                // eslint-disable-next-line jsx-a11y/label-has-associated-control
                 <label
                   key={opt.value}
                   className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 ${

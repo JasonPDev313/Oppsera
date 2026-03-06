@@ -123,11 +123,12 @@ export default function JoinContent() {
       <div className="px-6 space-y-5">
         {/* Name */}
         <div>
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+          <label htmlFor="join-name" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
             <User className="h-3.5 w-3.5" />
             Name
           </label>
           <input
+            id="join-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -138,11 +139,12 @@ export default function JoinContent() {
 
         {/* Phone */}
         <div>
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+          <label htmlFor="join-phone" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
             <Phone className="h-3.5 w-3.5" />
             Phone <span className="text-muted-foreground normal-case">(optional)</span>
           </label>
           <input
+            id="join-phone"
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -153,6 +155,7 @@ export default function JoinContent() {
 
         {/* Party Size */}
         <div>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
             <Users className="h-3.5 w-3.5" />
             Party Size
@@ -197,6 +200,7 @@ export default function JoinContent() {
 
         {/* Seating Preference */}
         <div>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
             Seating Preference <span className="text-muted-foreground normal-case">(optional)</span>
           </label>

@@ -68,8 +68,11 @@ export interface PerformanceTargetItem {
 
 export interface ItemPrepTimeItem {
   id: string;
-  catalogItemId: string;
+  catalogItemId: string | null;
   catalogItemName: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  categoryLevel: 'department' | 'sub_department' | 'category' | null;
   stationId: string | null;
   stationName: string | null;
   estimatedPrepSeconds: number;
@@ -335,6 +338,7 @@ export async function listItemPrepTimes(input: {
   tenantId: string;
   stationId?: string;
   catalogItemId?: string;
+  categoryId?: string;
 }): Promise<ItemPrepTimeItem[]> {
   return withTenant(input.tenantId, async (tx) => {
     const conditions: ReturnType<typeof sql>[] = [
@@ -348,25 +352,41 @@ export async function listItemPrepTimes(input: {
     if (input.catalogItemId) {
       conditions.push(sql`ipt.catalog_item_id = ${input.catalogItemId}`);
     }
+    if (input.categoryId) {
+      conditions.push(sql`ipt.category_id = ${input.categoryId}`);
+    }
 
     const whereClause = sql.join(conditions, sql` AND `);
 
     const rows = await tx.execute(
-      sql`SELECT ipt.id, ipt.catalog_item_id, ipt.station_id, ipt.estimated_prep_seconds,
+      sql`SELECT ipt.id, ipt.catalog_item_id, ipt.category_id,
+                 ipt.station_id, ipt.estimated_prep_seconds,
                  ipt.is_active, ipt.created_at, ipt.updated_at,
                  ci.name AS catalog_item_name,
+                 cc.name AS category_name,
+                 CASE
+                   WHEN cc.id IS NULL THEN NULL
+                   WHEN cc.parent_id IS NULL THEN 'department'
+                   WHEN pcc.parent_id IS NULL THEN 'sub_department'
+                   ELSE 'category'
+                 END AS category_level,
                  ks.display_name AS station_name
           FROM fnb_kds_item_prep_times ipt
           LEFT JOIN catalog_items ci ON ci.id = ipt.catalog_item_id AND ci.tenant_id = ipt.tenant_id
+          LEFT JOIN catalog_categories cc ON cc.id = ipt.category_id AND cc.tenant_id = ipt.tenant_id
+          LEFT JOIN catalog_categories pcc ON pcc.id = cc.parent_id
           LEFT JOIN fnb_kitchen_stations ks ON ks.id = ipt.station_id AND ks.tenant_id = ipt.tenant_id
           WHERE ${whereClause}
-          ORDER BY ci.name ASC NULLS LAST, ipt.station_id NULLS LAST`,
+          ORDER BY cc.name ASC NULLS LAST, ci.name ASC NULLS LAST, ipt.station_id NULLS LAST`,
     );
 
     return Array.from(rows as Iterable<Record<string, unknown>>).map((r) => ({
       id: r.id as string,
-      catalogItemId: r.catalog_item_id as string,
+      catalogItemId: (r.catalog_item_id as string) ?? null,
       catalogItemName: (r.catalog_item_name as string) ?? null,
+      categoryId: (r.category_id as string) ?? null,
+      categoryName: (r.category_name as string) ?? null,
+      categoryLevel: (r.category_level as 'department' | 'sub_department' | 'category') ?? null,
       stationId: (r.station_id as string) ?? null,
       stationName: (r.station_name as string) ?? null,
       estimatedPrepSeconds: Number(r.estimated_prep_seconds),

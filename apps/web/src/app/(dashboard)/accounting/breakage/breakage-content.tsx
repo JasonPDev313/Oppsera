@@ -39,6 +39,7 @@ function ReviewDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
         <h3 className="text-lg font-semibold mb-4">Review Breakage</h3>
@@ -63,10 +64,11 @@ function ReviewDialog({
         </div>
 
         <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
+          <label htmlFor="breakage-notes" className="mb-1.5 block text-sm font-medium text-muted-foreground">
             Notes (optional)
           </label>
           <textarea
+            id="breakage-notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Reason for approval or decline..."

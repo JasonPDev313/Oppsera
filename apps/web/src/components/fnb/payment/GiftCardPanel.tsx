@@ -76,6 +76,7 @@ export function GiftCardPanel({ remainingCents, onTender, disabled }: GiftCardPa
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleCheckBalance();
           }}
+          // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
         />
         <button

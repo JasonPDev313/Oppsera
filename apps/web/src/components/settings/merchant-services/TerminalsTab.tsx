@@ -138,8 +138,9 @@ function AssignTerminalDialog({ onClose }: { onClose: () => void }) {
       <div className="mt-4 space-y-3">
         {/* Provider */}
         <div>
-          <label className="block text-sm font-medium text-foreground">Provider</label>
+          <label htmlFor="tt-provider" className="block text-sm font-medium text-foreground">Provider</label>
           <select
+            id="tt-provider"
             value={selectedProviderId}
             onChange={(e) => setSelectedProviderId(e.target.value)}
             className={selectCls}
@@ -151,10 +152,11 @@ function AssignTerminalDialog({ onClose }: { onClose: () => void }) {
 
         {/* Location */}
         <div>
-          <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          <label htmlFor="tt-location" className="flex items-center gap-1.5 text-sm font-medium text-foreground">
             <Building2 className="h-3.5 w-3.5" /> Location
           </label>
           <select
+            id="tt-location"
             value={selectedLocationId}
             onChange={(e) => {
               setSelectedLocationId(e.target.value);
@@ -175,10 +177,11 @@ function AssignTerminalDialog({ onClose }: { onClose: () => void }) {
 
         {/* Profit Center */}
         <div>
-          <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          <label htmlFor="tt-profit-center" className="flex items-center gap-1.5 text-sm font-medium text-foreground">
             <MapPin className="h-3.5 w-3.5" /> Profit Center
           </label>
           <select
+            id="tt-profit-center"
             value={selectedProfitCenterId}
             onChange={(e) => {
               setSelectedProfitCenterId(e.target.value);
@@ -198,8 +201,9 @@ function AssignTerminalDialog({ onClose }: { onClose: () => void }) {
 
         {/* Terminal */}
         <div>
-          <label className="block text-sm font-medium text-foreground">Terminal</label>
+          <label htmlFor="tt-terminal" className="block text-sm font-medium text-foreground">Terminal</label>
           <select
+            id="tt-terminal"
             value={selectedTerminalId}
             onChange={(e) => setSelectedTerminalId(e.target.value)}
             disabled={!selectedProfitCenterId || terminals.length === 0}
@@ -216,8 +220,9 @@ function AssignTerminalDialog({ onClose }: { onClose: () => void }) {
 
         {/* Merchant Account */}
         <div>
-          <label className="block text-sm font-medium text-foreground">Merchant Account</label>
+          <label htmlFor="tt-merchant-account" className="block text-sm font-medium text-foreground">Merchant Account</label>
           <select
+            id="tt-merchant-account"
             value={merchantAccountId}
             onChange={(e) => setMerchantAccountId(e.target.value)}
             className={selectCls}

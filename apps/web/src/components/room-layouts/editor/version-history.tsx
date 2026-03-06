@@ -71,6 +71,7 @@ export function VersionHistory({ roomId, open, onClose, onRevert }: VersionHisto
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="relative z-10 flex w-96 flex-col bg-surface shadow-xl">
         {/* Header */}
@@ -150,6 +151,7 @@ export function VersionHistory({ roomId, open, onClose, onRevert }: VersionHisto
       {/* Revert Confirmation */}
       {confirmRevert && (
         <div className="fixed inset-0 z-60 flex items-center justify-center">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmRevert(null)} />
           <div className="relative z-10 w-96 rounded-lg bg-surface p-6 shadow-xl">
             <h3 className="text-sm font-semibold text-foreground">

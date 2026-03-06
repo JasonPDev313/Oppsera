@@ -268,8 +268,9 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
             <div className="mt-2 space-y-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-3">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="mb-0.5 block text-[11px] text-muted-foreground">Start Date</label>
+                  <label htmlFor="ps-start-date" className="mb-0.5 block text-[11px] text-muted-foreground">Start Date</label>
                   <input
+                    id="ps-start-date"
                     type="date"
                     value={newSchedule.startDate}
                     onChange={(e) => setNewSchedule((p) => ({ ...p, startDate: e.target.value }))}
@@ -277,8 +278,9 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                   />
                 </div>
                 <div>
-                  <label className="mb-0.5 block text-[11px] text-muted-foreground">End Date</label>
+                  <label htmlFor="ps-end-date" className="mb-0.5 block text-[11px] text-muted-foreground">End Date</label>
                   <input
+                    id="ps-end-date"
                     type="date"
                     value={newSchedule.endDate}
                     onChange={(e) => setNewSchedule((p) => ({ ...p, endDate: e.target.value }))}
@@ -288,8 +290,9 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="mb-0.5 block text-[11px] text-muted-foreground">Start Time</label>
+                  <label htmlFor="ps-start-time" className="mb-0.5 block text-[11px] text-muted-foreground">Start Time</label>
                   <input
+                    id="ps-start-time"
                     type="time"
                     value={newSchedule.startTime}
                     onChange={(e) => setNewSchedule((p) => ({ ...p, startTime: e.target.value }))}
@@ -297,8 +300,9 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                   />
                 </div>
                 <div>
-                  <label className="mb-0.5 block text-[11px] text-muted-foreground">End Time</label>
+                  <label htmlFor="ps-end-time" className="mb-0.5 block text-[11px] text-muted-foreground">End Time</label>
                   <input
+                    id="ps-end-time"
                     type="time"
                     value={newSchedule.endTime}
                     onChange={(e) => setNewSchedule((p) => ({ ...p, endTime: e.target.value }))}
@@ -307,6 +311,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                 </div>
               </div>
               <div>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="mb-0.5 block text-[11px] text-muted-foreground">Days of Week</label>
                 <div className="flex gap-1">
                   {DAYS_OF_WEEK.map((day) => (
@@ -326,10 +331,11 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                 </div>
               </div>
               <div>
-                <label className="mb-0.5 block text-[11px] text-muted-foreground">Override Price</label>
+                <label htmlFor="ps-override-price" className="mb-0.5 block text-[11px] text-muted-foreground">Override Price</label>
                 <div className="relative">
                   <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
                   <input
+                    id="ps-override-price"
                     type="number"
                     step="0.01"
                     min="0"

@@ -13,7 +13,7 @@ import { KitchenBehindBanner } from '@/components/fnb/kitchen/KitchenBehindBanne
 import {
   ArrowLeft, LayoutGrid, LayoutList, SplitSquareHorizontal,
   Keyboard as KeyboardIcon, Hand, Pause, Play,
-  Minimize2, Maximize2,
+  Minimize2, Maximize2, History,
 } from 'lucide-react';
 
 type ViewMode = 'ticket_rail' | 'grid' | 'split';
@@ -38,6 +38,7 @@ export default function KdsContent() {
   const [focusedTicketIdx, setFocusedTicketIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
 
   const {
     kdsView,
@@ -118,6 +119,13 @@ export default function KdsContent() {
             setShowSummary((prev) => !prev);
           }
           break;
+        case 'h':
+        case 'H':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            setShowHistory((prev) => !prev);
+          }
+          break;
         case 'Escape':
           e.preventDefault();
           router.push('/kds');
@@ -136,6 +144,13 @@ export default function KdsContent() {
     const card = cards[focusedTicketIdx];
     if (card) card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   }, [focusedTicketIdx, inputMode]);
+
+  // Expo stations use a dedicated aggregated view — redirect there
+  useEffect(() => {
+    if (kdsView?.stationType === 'expo') {
+      router.replace('/expo');
+    }
+  }, [kdsView?.stationType, router]);
 
   // ── Loading / Error states ────────────────────────────────────
   if (isLoading && !kdsView) {
@@ -216,6 +231,17 @@ export default function KdsContent() {
 
           {/* Item summary toggle */}
           <ItemSummaryToggle onClick={() => setShowSummary(!showSummary)} isOpen={showSummary} />
+
+          {/* History toggle */}
+          <button type="button" onClick={() => setShowHistory(!showHistory)}
+            className="p-1.5 rounded transition-colors"
+            style={{
+              backgroundColor: showHistory ? 'rgba(34, 197, 94, 0.2)' : 'transparent',
+              color: showHistory ? '#22c55e' : 'var(--fnb-text-muted)',
+            }}
+            title="Toggle bump history (H)">
+            <History className="h-4 w-4" />
+          </button>
 
           {/* Input mode toggle */}
           <button type="button" onClick={() => setInputMode(inputMode === 'touch' ? 'bump_bar' : 'touch')}
@@ -400,6 +426,44 @@ export default function KdsContent() {
           />
         )}
       </div>
+
+      {/* Recently Completed history strip — visible in all view modes */}
+      {showHistory && kdsView.recentlyCompleted && kdsView.recentlyCompleted.length > 0 && (
+        <div className="shrink-0 border-t" style={{ borderColor: 'rgba(148, 163, 184, 0.15)', backgroundColor: 'rgba(0,0,0,0.15)' }}>
+          <div className="flex items-center gap-3 px-4 py-2 overflow-x-auto">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <History className="h-3.5 w-3.5" style={{ color: 'var(--fnb-status-available)' }} />
+              <span className="text-[10px] uppercase tracking-wider font-semibold whitespace-nowrap"
+                style={{ color: 'var(--fnb-text-muted)' }}>
+                Done
+              </span>
+            </div>
+            {kdsView.recentlyCompleted.map((ct) => {
+              const mins = Math.floor(ct.completedSecondsAgo / 60);
+              const agoLabel = mins < 1 ? 'just now' : mins === 1 ? '1m ago' : `${mins}m ago`;
+              return (
+                <div key={ct.ticketId}
+                  className="flex items-center gap-2 rounded-lg px-3 py-1.5 shrink-0"
+                  style={{
+                    backgroundColor: 'var(--fnb-bg-surface)',
+                    border: '1px solid rgba(34, 197, 94, 0.15)',
+                  }}>
+                  <span className="text-sm font-bold fnb-mono" style={{ color: 'var(--fnb-status-available)' }}>
+                    #{ct.ticketNumber}
+                  </span>
+                  {ct.tableNumber != null && (
+                    <span className="text-xs" style={{ color: 'var(--fnb-text-secondary)' }}>T{ct.tableNumber}</span>
+                  )}
+                  <span className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>
+                    {ct.itemCount} item{ct.itemCount !== 1 ? 's' : ''}
+                  </span>
+                  <span className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>{agoLabel}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* All day summary (bottom bar) */}
       <AllDaySummary kdsView={kdsView} />

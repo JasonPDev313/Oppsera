@@ -3,11 +3,12 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
+import { logger } from '@oppsera/core/observability';
 import { fnbKitchenTicketItems, fnbKitchenTickets } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { RecallItemInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
-import { TicketItemNotFoundError, TicketItemStatusConflictError } from '../errors';
+import { TicketItemNotFoundError, TicketItemStatusConflictError, TicketVersionConflictError } from '../errors';
 
 export async function recallItem(
   ctx: RequestContext,
@@ -36,7 +37,7 @@ export async function recallItem(
       throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'recall');
     }
 
-    // Un-bump: set back to cooking, clear bump attribution
+    // Un-bump: set back to cooking, clear bump attribution and timestamps
     const now = new Date();
     const [updated] = await tx
       .update(fnbKitchenTicketItems)
@@ -44,14 +45,19 @@ export async function recallItem(
         itemStatus: 'cooking',
         readyAt: null,
         servedAt: null,
+        startedAt: null,
         bumpedBy: null,
         updatedAt: now,
       })
       .where(and(
         eq(fnbKitchenTicketItems.id, input.ticketItemId),
         eq(fnbKitchenTicketItems.tenantId, ctx.tenantId),
+        eq(fnbKitchenTicketItems.itemStatus, item.itemStatus),
       ))
       .returning();
+    if (!updated) {
+      throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'recall (concurrent)');
+    }
 
     const [ticket] = await tx
       .select()
@@ -64,7 +70,7 @@ export async function recallItem(
 
     // Revert ticket status if it was served/ready (an item was pulled back)
     if (ticket && (ticket.status === 'served' || ticket.status === 'ready')) {
-      await tx
+      const [reverted] = await tx
         .update(fnbKitchenTickets)
         .set({
           status: 'in_progress',
@@ -76,7 +82,10 @@ export async function recallItem(
         .where(and(
           eq(fnbKitchenTickets.id, item.ticketId),
           eq(fnbKitchenTickets.tenantId, ctx.tenantId),
-        ));
+          eq(fnbKitchenTickets.version, ticket.version),
+        ))
+        .returning();
+      if (!reverted) throw new TicketVersionConflictError(item.ticketId);
     }
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.ITEM_RECALLED, {
@@ -89,6 +98,11 @@ export async function recallItem(
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'recallItem', updated);
 
     return { result: updated!, events: [event] };
+  });
+
+  logger.info('[kds] item recalled to cooking', {
+    domain: 'kds', tenantId: ctx.tenantId, locationId: ctx.locationId,
+    ticketItemId: input.ticketItemId, stationId: input.stationId, userId: ctx.user.id,
   });
 
   auditLogDeferred(ctx, 'fnb.kds.item_recalled', 'fnb_kitchen_ticket_items', input.ticketItemId);

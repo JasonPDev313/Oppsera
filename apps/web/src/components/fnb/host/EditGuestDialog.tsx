@@ -113,6 +113,7 @@ export function EditGuestDialog({
   };
 
   const content = (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       style={{
         position: 'fixed',
@@ -193,23 +194,26 @@ export function EditGuestDialog({
         >
           {/* Guest Name */}
           <div>
-            <label style={labelStyle}>
+            <label htmlFor="edit-guest-name" style={labelStyle}>
               Guest Name <span style={{ color: 'var(--fnb-danger)' }}>*</span>
             </label>
             <input
+              id="edit-guest-name"
               type="text"
               value={guestName}
               onChange={(e) => setGuestName(e.target.value)}
               placeholder="Enter guest name"
               style={inputStyle}
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
           </div>
 
           {/* Phone */}
           <div>
-            <label style={labelStyle}>Phone</label>
+            <label htmlFor="edit-guest-phone" style={labelStyle}>Phone</label>
             <input
+              id="edit-guest-phone"
               type="tel"
               value={guestPhone}
               onChange={(e) => setGuestPhone(formatPhoneDisplay(e.target.value))}
@@ -220,6 +224,7 @@ export function EditGuestDialog({
 
           {/* Party Size */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label style={labelStyle}>Party Size</label>
             <div
               style={{
@@ -283,8 +288,9 @@ export function EditGuestDialog({
 
           {/* Quoted Wait */}
           <div>
-            <label style={labelStyle}>Quoted Wait (minutes)</label>
+            <label htmlFor="edit-guest-wait" style={labelStyle}>Quoted Wait (minutes)</label>
             <input
+              id="edit-guest-wait"
               type="number"
               value={quotedWaitMinutes}
               onChange={(e) => setQuotedWaitMinutes(e.target.value)}
@@ -297,8 +303,9 @@ export function EditGuestDialog({
 
           {/* Seating Preference */}
           <div>
-            <label style={labelStyle}>Seating Preference</label>
+            <label htmlFor="edit-guest-seating" style={labelStyle}>Seating Preference</label>
             <select
+              id="edit-guest-seating"
               value={seatingPreference}
               onChange={(e) => setSeatingPreference(e.target.value)}
               style={{
@@ -316,8 +323,9 @@ export function EditGuestDialog({
 
           {/* Special Requests */}
           <div>
-            <label style={labelStyle}>Special Requests</label>
+            <label htmlFor="edit-guest-special-requests" style={labelStyle}>Special Requests</label>
             <textarea
+              id="edit-guest-special-requests"
               value={specialRequests}
               onChange={(e) => setSpecialRequests(e.target.value)}
               placeholder="Allergies, accessibility needs, etc."
@@ -382,8 +390,9 @@ export function EditGuestDialog({
 
           {/* Notes */}
           <div>
-            <label style={labelStyle}>Notes</label>
+            <label htmlFor="edit-guest-notes" style={labelStyle}>Notes</label>
             <textarea
+              id="edit-guest-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Internal notes..."

@@ -106,6 +106,7 @@ export function TipAdjustDialog({ open, onClose, orderId, orderNumber, locationI
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-2xl bg-surface shadow-xl">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
@@ -128,6 +129,7 @@ export function TipAdjustDialog({ open, onClose, orderId, orderNumber, locationI
               {/* Tender selector (if multiple) */}
               {tenders.length > 1 && (
                 <div>
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                   <label className="block text-sm font-medium text-foreground mb-1">Select Tender</label>
                   <select
                     value={selectedTenderId}
@@ -176,6 +178,7 @@ export function TipAdjustDialog({ open, onClose, orderId, orderNumber, locationI
                     value={tipAmount}
                     onChange={(e) => setTipAmount(e.target.value)}
                     className="w-full rounded-lg border border-input py-2.5 pl-8 pr-4 text-right text-lg font-bold text-foreground focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus
                   />
                 </div>

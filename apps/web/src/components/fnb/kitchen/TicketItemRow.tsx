@@ -54,33 +54,57 @@ function parseModifiers(modifierSummary: string | null): {
 }
 
 export function TicketItemRow({ item, showSeat = true, onBump, density = 'standard' }: TicketItemRowProps) {
-  const isBumped = item.itemStatus === 'ready' || item.itemStatus === 'bumped';
+  const isReady = item.itemStatus === 'ready' || item.itemStatus === 'bumped';
+  const isServed = item.itemStatus === 'served';
   const isVoided = item.itemStatus === 'voided';
+  const isTerminal = isServed || isVoided;
+  const isTappable = !!onBump && !isTerminal;
   const { cookTemp, noMods, regularMods } = parseModifiers(item.modifierSummary ?? null);
 
-  const itemTextSize = density === 'compact' ? 'text-xs' : 'text-sm';
-  const modTextSize = density === 'compact' ? 'text-[10px]' : 'text-xs';
-  const padding = density === 'compact' ? 'px-1.5 py-1' : density === 'comfortable' ? 'px-3 py-2.5' : 'px-2 py-1.5 xl:px-3 xl:py-2';
+  // Touch-optimized sizes — kitchen monitors need large, well-spaced tap targets
+  const itemTextSize = density === 'compact' ? 'text-base' : 'text-lg';
+  const modTextSize = density === 'compact' ? 'text-sm' : 'text-base';
+  const padding = density === 'compact'
+    ? 'px-3 py-3'
+    : density === 'comfortable'
+      ? 'px-5 py-5'
+      : 'px-4 py-4';
+  // Min height ensures a fat touch target even for single-line items
+  const minHeight = density === 'compact' ? '56px' : density === 'comfortable' ? '72px' : '64px';
+  // Visible gap between rows so adjacent items are clearly separate
+  const gapBorder = density === 'compact'
+    ? '3px solid rgba(148, 163, 184, 0.12)'
+    : '4px solid rgba(148, 163, 184, 0.12)';
 
   return (
     <div
-      className={`flex items-start gap-2 ${padding} border-b last:border-b-0 transition-colors`}
+      className={`flex items-center gap-3 ${padding} transition-colors`}
+      role={isTappable ? 'button' : undefined}
+      tabIndex={isTappable ? 0 : undefined}
       style={{
-        borderColor: 'rgba(148, 163, 184, 0.1)',
-        opacity: isVoided ? 0.3 : 1,
+        borderBottom: gapBorder,
+        minHeight,
+        opacity: isVoided ? 0.3 : isServed ? 0.4 : 1,
         textDecoration: isVoided ? 'line-through' : 'none',
-        backgroundColor: isBumped ? 'rgba(34, 197, 94, 0.05)' : 'transparent',
-        cursor: onBump && !isBumped && !isVoided ? 'pointer' : 'default',
+        backgroundColor: isServed
+          ? 'rgba(34, 197, 94, 0.1)'
+          : isReady
+            ? 'rgba(34, 197, 94, 0.05)'
+            : 'transparent',
+        cursor: isTappable ? 'pointer' : 'default',
+        // Active press feedback for touch
+        WebkitTapHighlightColor: isTappable ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
       }}
-      onClick={onBump && !isBumped && !isVoided ? () => onBump(item.itemId) : undefined}
+      onClick={isTappable ? () => onBump(item.itemId) : undefined}
+      onKeyDown={isTappable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onBump(item.itemId); } } : undefined}
     >
       {/* Seat badge */}
       {showSeat && item.seatNumber && (
         <span
-          className="shrink-0 flex items-center justify-center rounded-full text-[10px] font-bold kds-seat-badge"
+          className="shrink-0 flex items-center justify-center rounded-full text-xs font-bold kds-seat-badge"
           style={{
-            width: '20px',
-            height: '20px',
+            width: '28px',
+            height: '28px',
             backgroundColor: 'var(--fnb-status-ordered)',
             color: '#fff',
           }}
@@ -92,7 +116,7 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
       {/* Item content */}
       <div className="flex-1 min-w-0">
         {/* Item name + quantity */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {item.quantity > 1 && (
             <span className={`${itemTextSize} font-bold fnb-mono`} style={{ color: 'var(--fnb-text-primary)' }}>
               {item.quantity}x
@@ -101,40 +125,40 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
           <span
             className={`${itemTextSize} font-bold truncate`}
             style={{
-              color: isBumped ? 'var(--fnb-status-available)' : 'var(--fnb-text-primary)',
+              color: isReady ? 'var(--fnb-status-available)' : 'var(--fnb-text-primary)',
             }}
           >
             {item.kitchenLabel || item.itemName}
           </span>
           {/* Inline badges */}
           {item.isRush && (
-            <span className="text-[9px] font-bold px-1 rounded" style={{ color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)' }}>RUSH</span>
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.15)' }}>RUSH</span>
           )}
           {item.isAllergy && (
-            <span className="text-[9px] font-bold px-1 rounded" style={{ color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)' }}>ALLERGY</span>
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.15)' }}>ALLERGY</span>
           )}
           {item.isVip && (
-            <span className="text-[9px] font-bold px-1 rounded" style={{ color: '#a855f7', backgroundColor: 'rgba(168,85,247,0.1)' }}>VIP</span>
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ color: '#a855f7', backgroundColor: 'rgba(168,85,247,0.15)' }}>VIP</span>
           )}
         </div>
 
         {/* Cook temp — bold and prominent */}
         {cookTemp && (
-          <p className={`${modTextSize} font-bold mt-0.5`} style={{ color: '#f97316' }}>
+          <p className={`${modTextSize} font-bold mt-1`} style={{ color: '#f97316' }}>
             {cookTemp}
           </p>
         )}
 
         {/* "No" modifiers — highlighted in red */}
         {noMods.length > 0 && (
-          <p className={`${modTextSize} font-semibold mt-0.5`} style={{ color: '#ef4444' }}>
+          <p className={`${modTextSize} font-semibold mt-1`} style={{ color: '#ef4444' }}>
             {noMods.join(', ')}
           </p>
         )}
 
         {/* Regular modifiers — compact inline */}
         {regularMods && (
-          <p className={`${modTextSize} mt-0.5`} style={{ color: 'var(--fnb-text-muted)' }}>
+          <p className={`${modTextSize} mt-1`} style={{ color: 'var(--fnb-text-muted)' }}>
             + {regularMods}
           </p>
         )}
@@ -142,7 +166,7 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
         {/* Special instructions */}
         {item.specialInstructions && (
           <p
-            className={`${modTextSize} italic mt-0.5 rounded px-1`}
+            className={`${modTextSize} italic mt-1 rounded px-1.5 py-0.5`}
             style={{
               color: 'var(--fnb-status-check-presented)',
               backgroundColor: 'rgba(245, 158, 11, 0.08)',
@@ -153,9 +177,14 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
         )}
       </div>
 
-      {/* Status indicator */}
-      {isBumped && (
-        <span className="shrink-0 text-sm font-bold" style={{ color: 'var(--fnb-status-available)' }}>
+      {/* Status indicator — large enough to see at a glance */}
+      {isServed && (
+        <span className="shrink-0 text-xl font-bold" style={{ color: 'var(--fnb-status-available)', opacity: 0.6 }}>
+          ✓✓
+        </span>
+      )}
+      {isReady && !isServed && (
+        <span className="shrink-0 text-xl font-bold" style={{ color: 'var(--fnb-status-available)' }}>
           ✓
         </span>
       )}

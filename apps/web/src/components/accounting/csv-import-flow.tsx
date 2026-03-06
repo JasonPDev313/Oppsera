@@ -233,8 +233,9 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
 
           {/* State Selector */}
           <div>
-            <label className="block text-sm font-medium text-foreground">State (optional)</label>
+            <label htmlFor="csv-state-selector" className="block text-sm font-medium text-foreground">State (optional)</label>
             <select
+              id="csv-state-selector"
               value={stateName}
               onChange={(e) => setStateName(e.target.value)}
               className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm bg-surface focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"

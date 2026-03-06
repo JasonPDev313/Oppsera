@@ -266,7 +266,8 @@ export async function apiFetch<T = unknown>(
       tokenLength: token?.length,
       headerKeys: Object.keys(headers),
       bodyLength: typeof options.body === 'string' ? options.body.length : undefined,
-      error: fetchErr,
+      errorName: fetchErr instanceof Error ? fetchErr.name : String(fetchErr),
+      errorMessage: fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
     });
     throw fetchErr;
   }

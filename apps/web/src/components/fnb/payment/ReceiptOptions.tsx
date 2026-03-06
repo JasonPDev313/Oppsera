@@ -68,6 +68,7 @@ export function ReceiptOptions({ onSelect, prefillEmail, disabled }: ReceiptOpti
               backgroundColor: 'var(--fnb-bg-elevated)',
               color: 'var(--fnb-text-primary)',
             }}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSendEmail();

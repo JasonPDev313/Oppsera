@@ -156,15 +156,17 @@ export default function AuditTrailContent() {
 
       {/* Date selectors + tab */}
       <div className="flex flex-wrap items-center gap-3 print:hidden">
-        <label className="text-sm font-medium text-foreground">From</label>
+        <label htmlFor="audit-trail-from" className="text-sm font-medium text-foreground">From</label>
         <input
+          id="audit-trail-from"
           type="date"
           value={from}
           onChange={(e) => setFrom(e.target.value)}
           className="rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
-        <label className="text-sm font-medium text-foreground">To</label>
+        <label htmlFor="audit-trail-to" className="text-sm font-medium text-foreground">To</label>
         <input
+          id="audit-trail-to"
           type="date"
           value={to}
           onChange={(e) => setTo(e.target.value)}

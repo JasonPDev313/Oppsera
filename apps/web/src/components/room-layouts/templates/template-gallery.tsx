@@ -49,6 +49,7 @@ export function TemplateGallery({ onSelect, onClose }: TemplateGalleryProps) {
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="template-gallery-dialog-title">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 flex w-full max-w-3xl flex-col rounded-lg bg-surface shadow-xl" style={{ maxHeight: '80vh' }}>
         {/* Header */}

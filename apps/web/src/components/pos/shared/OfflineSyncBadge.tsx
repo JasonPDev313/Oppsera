@@ -73,6 +73,7 @@ function OfflineSyncBadgeComponent() {
 
       {showDetail && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="offline-queue-dialog-title">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setShowDetail(false)}

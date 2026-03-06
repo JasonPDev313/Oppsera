@@ -172,10 +172,11 @@ export default function JournalEntryFormContent() {
         <div className="rounded-lg border border-border bg-surface p-5 space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="journal-business-date" className="block text-sm font-medium text-foreground mb-1">
                 Business Date <span className="text-red-500">*</span>
               </label>
               <input
+                id="journal-business-date"
                 type="date"
                 value={businessDate}
                 onChange={(e) => setBusinessDate(e.target.value)}
@@ -190,6 +191,7 @@ export default function JournalEntryFormContent() {
               )}
             </div>
             <div>
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="block text-sm font-medium text-foreground mb-1">Source</label>
               <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
                 Manual
@@ -197,8 +199,9 @@ export default function JournalEntryFormContent() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Memo</label>
+            <label htmlFor="journal-memo" className="block text-sm font-medium text-foreground mb-1">Memo</label>
             <input
+              id="journal-memo"
               type="text"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
@@ -314,6 +317,7 @@ export default function JournalEntryFormContent() {
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <div>
+                      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                       <label className="block text-xs text-muted-foreground mb-1">Debit</label>
                       <MoneyInput
                         value={line.debitAmount}
@@ -321,6 +325,7 @@ export default function JournalEntryFormContent() {
                       />
                     </div>
                     <div>
+                      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                       <label className="block text-xs text-muted-foreground mb-1">Credit</label>
                       <MoneyInput
                         value={line.creditAmount}

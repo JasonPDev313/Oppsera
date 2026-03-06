@@ -25,6 +25,7 @@
 
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
+import { logger } from '@oppsera/core/observability';
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -90,13 +91,18 @@ function getCurrentTimeHHMM(): string {
 
 /** Check if a rule's conditions match the current routing context. */
 function ruleMatchesConditions(rule: RoutingRule, context: RoutingContext): boolean {
-  // Order type condition
-  if (rule.orderTypeCondition && context.orderType && rule.orderTypeCondition !== context.orderType) {
-    return false;
+  // Order type condition — if a rule restricts to a specific order type,
+  // reject when context has no orderType (don't silently match everything)
+  if (rule.orderTypeCondition) {
+    if (!context.orderType || rule.orderTypeCondition !== context.orderType) {
+      return false;
+    }
   }
-  // Channel condition
-  if (rule.channelCondition && context.channel && rule.channelCondition !== context.channel) {
-    return false;
+  // Channel condition — same: reject when context has no channel
+  if (rule.channelCondition) {
+    if (!context.channel || rule.channelCondition !== context.channel) {
+      return false;
+    }
   }
   // Time window condition
   if (rule.timeConditionStart && rule.timeConditionEnd) {
@@ -107,7 +113,8 @@ function ruleMatchesConditions(rule: RoutingRule, context: RoutingContext): bool
     if (start <= end) {
       if (now < start || now > end) return false;
     } else {
-      if (now < start && now > end) return false;
+      // Overnight: valid when now >= start OR now <= end
+      if (now < start && now > end) return false; // eslint-disable-line -- intentional: for overnight, reject only when BOTH conditions true (between end and start)
     }
   }
   return true;
@@ -170,12 +177,15 @@ function matchItem(
     if (catMatch) return catMatch;
   }
 
-  // 3. Sub-department: ruleType = 'sub_department' or department rule matching subDepartmentId
+  // 3. Sub-department: match sub_department rules by their subDepartmentId column,
+  //    AND department rules whose departmentId targets this hierarchy level
+  //    (users may create a "department" rule pointing at a mid-level category)
   if (item.subDepartmentId) {
     const subMatch = findFirstValid(
       rules.filter(
-        (r) => r.subDepartmentId === item.subDepartmentId &&
-          (r.ruleType === 'sub_department' || r.ruleType === 'department'),
+        (r) =>
+          (r.ruleType === 'sub_department' && r.subDepartmentId === item.subDepartmentId) ||
+          (r.ruleType === 'department' && r.departmentId === item.subDepartmentId),
       ),
       'sub_department',
     );
@@ -208,20 +218,24 @@ function matchItem(
 // ── Catalog Enrichment ──────────────────────────────────────────
 
 /**
- * Bulk-enrich routable items with `categoryId` and `departmentId` from the
- * catalog. Items that already have these fields set are left unchanged.
+ * Bulk-enrich routable items with the full 3-level category hierarchy from
+ * the catalog. Items that already have all fields set are left unchanged.
  *
- * Performs a single query joining catalog_items → catalog_categories to get:
- *   - categoryId = catalog_items.category_id
- *   - departmentId = catalog_categories.parent_id (the parent of the sub-department)
+ * Performs a single query with a 3-level join (matching getStationPrepTimeForItem):
+ *   - categoryId     = catalog_items.category_id              (level 3, most specific)
+ *   - subDepartmentId = catalog_categories.parent_id          (level 2, mid-level)
+ *   - departmentId    = grandparent catalog_categories.parent_id (level 1, top-level)
+ *
+ * Note: hierarchies deeper than 3 levels are not walked — the top 3 ancestor
+ * levels are resolved. This covers the standard dept → sub-dept → category model.
  */
 export async function enrichRoutableItems(
   tenantId: string,
   items: RoutableItem[],
 ): Promise<RoutableItem[]> {
-  // Collect catalogItemIds that need enrichment
+  // Collect catalogItemIds that need enrichment (any missing hierarchy level)
   const needsEnrichment = items.filter(
-    (item) => !item.categoryId || !item.departmentId,
+    (item) => !item.categoryId || !item.subDepartmentId || !item.departmentId,
   );
   if (needsEnrichment.length === 0) return items;
 
@@ -229,24 +243,48 @@ export async function enrichRoutableItems(
   if (catalogItemIds.length === 0) return items;
 
   const enrichmentMap = await withTenant(tenantId, async (tx) => {
+    // Walk the full 3-level category chain: item → category → sub-dept → dept
+    // (matches the hierarchy used by getStationPrepTimeForItem)
     const rows = await tx.execute(
       sql`SELECT ci.id AS catalog_item_id,
                  ci.category_id,
-                 cc.parent_id AS department_id
+                 c1.parent_id AS sub_department_id,
+                 c2.parent_id AS department_id
           FROM catalog_items ci
-          LEFT JOIN catalog_categories cc ON cc.id = ci.category_id
+          LEFT JOIN catalog_categories c1 ON c1.id = ci.category_id
+          LEFT JOIN catalog_categories c2 ON c2.id = c1.parent_id
           WHERE ci.tenant_id = ${tenantId}
             AND ci.id IN (${sql.join(catalogItemIds.map((id) => sql`${id}`), sql`, `)})`,
     );
-    const map = new Map<string, { categoryId: string | null; departmentId: string | null }>();
+    const map = new Map<string, { categoryId: string | null; subDepartmentId: string | null; departmentId: string | null }>();
     for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
       map.set(r.catalog_item_id as string, {
         categoryId: (r.category_id as string) ?? null,
+        subDepartmentId: (r.sub_department_id as string) ?? null,
         departmentId: (r.department_id as string) ?? null,
       });
     }
     return map;
   });
+
+  const enrichedCount = [...enrichmentMap.keys()].length;
+  const missedCount = needsEnrichment.filter((i) => !enrichmentMap.has(i.catalogItemId)).length;
+  if (missedCount > 0) {
+    logger.warn('[kds-routing] catalog enrichment missed items', {
+      domain: 'kds',
+      tenantId,
+      enrichedCount,
+      missedCount,
+      missedItemIds: needsEnrichment.filter((i) => !enrichmentMap.has(i.catalogItemId)).map((i) => i.catalogItemId).join(','),
+    });
+  } else {
+    logger.debug('[kds-routing] catalog enrichment complete', {
+      domain: 'kds',
+      tenantId,
+      enrichedCount,
+      totalItems: items.length,
+    });
+  }
 
   return items.map((item) => {
     const enrichment = enrichmentMap.get(item.catalogItemId);
@@ -254,6 +292,7 @@ export async function enrichRoutableItems(
     return {
       ...item,
       categoryId: item.categoryId ?? enrichment.categoryId,
+      subDepartmentId: item.subDepartmentId ?? enrichment.subDepartmentId,
       departmentId: item.departmentId ?? enrichment.departmentId,
     };
   });
@@ -345,6 +384,29 @@ export async function resolveStationRouting(
     const fallbackStation = stations.find((s) => stationAcceptsOrder(s, context));
     const fallbackStationId = fallbackStation?.id ?? null;
 
+    // Warn-level when no stations or no rules — these are config issues that
+    // cause silent routing failures and should never be hidden behind debug
+    const routingMeta = {
+      domain: 'kds',
+      tenantId: context.tenantId,
+      locationId: context.locationId,
+      ruleCount: rules.length,
+      stationCount: stations.length,
+      itemCount: items.length,
+      orderType: context.orderType ?? 'none',
+      channel: context.channel ?? 'none',
+      fallbackStationId: fallbackStationId ?? 'none',
+      pausedStationCount: stations.filter((s) => s.pauseReceiving).length,
+    };
+
+    if (stations.length === 0) {
+      logger.warn('[kds-routing] no active stations for location — all items will be unrouted', routingMeta);
+    } else if (rules.length === 0) {
+      logger.warn('[kds-routing] no active routing rules — all items will use fallback station', routingMeta);
+    } else {
+      logger.info('[kds-routing] resolveStationRouting loaded', routingMeta);
+    }
+
     // Match each item
     const results: RoutingResult[] = items.map((item) => {
       const match = matchItem(item, rules, context, stationMap);
@@ -377,6 +439,34 @@ export async function resolveStationRouting(
       };
     });
 
+    // Summarize routing results
+    const matchSummary: Record<string, number> = {};
+    for (const r of results) {
+      const key = r.matchType ?? 'unrouted';
+      matchSummary[key] = (matchSummary[key] ?? 0) + 1;
+    }
+    const unroutedCount = results.filter((r) => !r.stationId).length;
+
+    if (unroutedCount > 0) {
+      logger.warn('[kds-routing] items could not be routed to any station', {
+        domain: 'kds',
+        tenantId: context.tenantId,
+        locationId: context.locationId,
+        unroutedCount,
+        totalItems: items.length,
+        matchSummary: JSON.stringify(matchSummary),
+        unroutedItemIds: results.filter((r) => !r.stationId).map((r) => r.orderLineId).join(','),
+      });
+    } else {
+      logger.info('[kds-routing] all items routed successfully', {
+        domain: 'kds',
+        tenantId: context.tenantId,
+        locationId: context.locationId,
+        totalItems: items.length,
+        matchSummary: JSON.stringify(matchSummary),
+      });
+    }
+
     return results;
   });
 }
@@ -401,8 +491,15 @@ function parseTextArray(value: unknown): string[] {
  * Look up the estimated prep time (in seconds) for a catalog item at a
  * specific station. Returns null if no prep time is configured.
  *
- * Checks for a station-specific entry first, then falls back to a
- * station-agnostic entry (station_id IS NULL).
+ * Resolution priority (most specific wins):
+ *   1. Item + station-specific
+ *   2. Item + global (null station)
+ *   3. Category (level 3) + station-specific
+ *   4. Category + global
+ *   5. Sub-department (level 2) + station-specific
+ *   6. Sub-department + global
+ *   7. Department (level 1) + station-specific
+ *   8. Department + global
  */
 export async function getStationPrepTimeForItem(
   tenantId: string,
@@ -410,21 +507,62 @@ export async function getStationPrepTimeForItem(
   stationId: string,
 ): Promise<number | null> {
   return withTenant(tenantId, async (tx) => {
-    const rows = await tx.execute(
-      sql`SELECT estimated_prep_seconds, station_id
-          FROM fnb_kds_item_prep_times
-          WHERE tenant_id = ${tenantId}
-            AND catalog_item_id = ${catalogItemId}
-            AND is_active = true
-            AND (station_id = ${stationId} OR station_id IS NULL)
-          ORDER BY
-            CASE WHEN station_id IS NOT NULL THEN 0 ELSE 1 END
+    // Get the item's category chain in one query
+    const chainRows = await tx.execute(
+      sql`SELECT ci.category_id AS cat_id,
+                 c1.parent_id AS sub_dept_id,
+                 c2.parent_id AS dept_id
+          FROM catalog_items ci
+          LEFT JOIN catalog_categories c1 ON c1.id = ci.category_id
+          LEFT JOIN catalog_categories c2 ON c2.id = c1.parent_id
+          WHERE ci.id = ${catalogItemId} AND ci.tenant_id = ${tenantId}
           LIMIT 1`,
     );
-    const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+    const chain = Array.from(chainRows as Iterable<Record<string, unknown>>)[0];
+    const catId = (chain?.cat_id as string) ?? null;
+    const subDeptId = (chain?.sub_dept_id as string) ?? null;
+    const deptId = (chain?.dept_id as string) ?? null;
 
-    if (arr.length === 0) return null;
-    return Number(arr[0]!.estimated_prep_seconds);
+    // Build target IDs to search for
+    const targetConditions = [sql`catalog_item_id = ${catalogItemId}`];
+    const categoryIds = [catId, subDeptId, deptId].filter(Boolean) as string[];
+    if (categoryIds.length > 0) {
+      targetConditions.push(
+        sql`category_id IN (${sql.join(categoryIds.map((id) => sql`${id}`), sql`, `)})`,
+      );
+    }
+
+    const rows = await tx.execute(
+      sql`SELECT catalog_item_id, category_id, station_id, estimated_prep_seconds
+          FROM fnb_kds_item_prep_times
+          WHERE tenant_id = ${tenantId}
+            AND is_active = true
+            AND (${sql.join(targetConditions, sql` OR `)})
+            AND (station_id = ${stationId} OR station_id IS NULL)`,
+    );
+
+    // Build maps and resolve with priority cascade
+    const specific = new Map<string, number>();
+    const fallback = new Map<string, number>();
+    for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
+      const targetId = (r.catalog_item_id ?? r.category_id) as string;
+      const sid = r.station_id as string | null;
+      const seconds = Number(r.estimated_prep_seconds);
+      if (sid) {
+        specific.set(targetId, seconds);
+      } else if (!fallback.has(targetId)) {
+        fallback.set(targetId, seconds);
+      }
+    }
+
+    const tryResolve = (id: string): number | undefined =>
+      specific.get(id) ?? fallback.get(id);
+
+    return tryResolve(catalogItemId)
+      ?? (catId ? tryResolve(catId) : undefined)
+      ?? (subDeptId ? tryResolve(subDeptId) : undefined)
+      ?? (deptId ? tryResolve(deptId) : undefined)
+      ?? null;
   });
 }
 
@@ -436,13 +574,14 @@ export interface PrepTimeLookup {
 
 /**
  * Batched version of getStationPrepTimeForItem — resolves prep times for
- * multiple (catalogItemId, stationId) pairs in a SINGLE database round-trip.
+ * multiple (catalogItemId, stationId) pairs with hierarchical category fallback.
  *
  * Returns a Map of orderLineId → prep seconds. Items with no configured
  * prep time are omitted from the map.
  *
- * Prefers station-specific entries over station-agnostic (station_id IS NULL)
- * using DISTINCT ON + ORDER BY to pick the best match per catalog item.
+ * Resolution priority per item (most specific wins):
+ *   item+station > item+global > category+station > category+global
+ *   > sub-dept+station > sub-dept+global > dept+station > dept+global
  */
 export async function getStationPrepTimesForItems(
   tenantId: string,
@@ -450,63 +589,95 @@ export async function getStationPrepTimesForItems(
 ): Promise<Map<string, number>> {
   if (lookups.length === 0) return new Map();
 
-  // Deduplicate by (catalogItemId, stationId) to minimize query size
-  const uniquePairs = new Map<string, { catalogItemId: string; stationId: string }>();
-  for (const l of lookups) {
-    const key = `${l.catalogItemId}:${l.stationId}`;
-    if (!uniquePairs.has(key)) {
-      uniquePairs.set(key, { catalogItemId: l.catalogItemId, stationId: l.stationId });
-    }
-  }
-
   const catalogItemIds = [...new Set(lookups.map((l) => l.catalogItemId))];
   const stationIds = [...new Set(lookups.map((l) => l.stationId))];
 
   return withTenant(tenantId, async (tx) => {
-    // Fetch all matching prep times in one query. The DISTINCT ON picks
-    // the station-specific entry over the global fallback (station_id IS NULL)
-    // per catalog item via ORDER BY CASE.
-    const rows = await tx.execute(
-      sql`SELECT DISTINCT ON (catalog_item_id, COALESCE(matched_station, ''))
-                 catalog_item_id, station_id AS matched_station, estimated_prep_seconds
-          FROM fnb_kds_item_prep_times
-          WHERE tenant_id = ${tenantId}
-            AND catalog_item_id IN (${sql.join(catalogItemIds.map((id) => sql`${id}`), sql`, `)})
-            AND is_active = true
-            AND (station_id IN (${sql.join(stationIds.map((id) => sql`${id}`), sql`, `)}) OR station_id IS NULL)
-          ORDER BY catalog_item_id, COALESCE(matched_station, ''),
-                   CASE WHEN station_id IS NOT NULL THEN 0 ELSE 1 END`,
+    // 1. Enrich with category chain: item → category → sub-dept → dept
+    const chainRows = await tx.execute(
+      sql`SELECT ci.id AS catalog_item_id,
+                 ci.category_id AS cat_id,
+                 c1.parent_id AS sub_dept_id,
+                 c2.parent_id AS dept_id
+          FROM catalog_items ci
+          LEFT JOIN catalog_categories c1 ON c1.id = ci.category_id
+          LEFT JOIN catalog_categories c2 ON c2.id = c1.parent_id
+          WHERE ci.tenant_id = ${tenantId}
+            AND ci.id IN (${sql.join(catalogItemIds.map((id) => sql`${id}`), sql`, `)})`,
     );
 
-    // Build lookup: "catalogItemId:stationId" → prepSeconds
-    // Also store global fallbacks under "catalogItemId:" for items without station-specific times
-    const prepMap = new Map<string, number>();
-    for (const row of Array.from(rows as Iterable<Record<string, unknown>>)) {
-      const catId = row.catalog_item_id as string;
-      const matchedStation = row.matched_station as string | null;
-      const seconds = Number(row.estimated_prep_seconds);
-      if (matchedStation) {
-        prepMap.set(`${catId}:${matchedStation}`, seconds);
-      } else {
-        // Global fallback — only used if no station-specific entry exists
-        const fallbackKey = `${catId}:__fallback__`;
-        if (!prepMap.has(fallbackKey)) {
-          prepMap.set(fallbackKey, seconds);
-        }
+    const chainMap = new Map<string, {
+      catId: string | null;
+      subDeptId: string | null;
+      deptId: string | null;
+    }>();
+    for (const r of Array.from(chainRows as Iterable<Record<string, unknown>>)) {
+      chainMap.set(r.catalog_item_id as string, {
+        catId: (r.cat_id as string) ?? null,
+        subDeptId: (r.sub_dept_id as string) ?? null,
+        deptId: (r.dept_id as string) ?? null,
+      });
+    }
+
+    // 2. Collect all category IDs we need to search for
+    const allCategoryIds = new Set<string>();
+    for (const chain of chainMap.values()) {
+      if (chain.catId) allCategoryIds.add(chain.catId);
+      if (chain.subDeptId) allCategoryIds.add(chain.subDeptId);
+      if (chain.deptId) allCategoryIds.add(chain.deptId);
+    }
+
+    // 3. Build target conditions
+    const targetConditions = [
+      sql`catalog_item_id IN (${sql.join(catalogItemIds.map((id) => sql`${id}`), sql`, `)})`,
+    ];
+    if (allCategoryIds.size > 0) {
+      const catIds = [...allCategoryIds];
+      targetConditions.push(
+        sql`category_id IN (${sql.join(catIds.map((id) => sql`${id}`), sql`, `)})`,
+      );
+    }
+
+    // 4. Fetch all matching prep time rows in one query
+    const rows = await tx.execute(
+      sql`SELECT catalog_item_id, category_id, station_id, estimated_prep_seconds
+          FROM fnb_kds_item_prep_times
+          WHERE tenant_id = ${tenantId}
+            AND is_active = true
+            AND (${sql.join(targetConditions, sql` OR `)})
+            AND (station_id IN (${sql.join(stationIds.map((id) => sql`${id}`), sql`, `)}) OR station_id IS NULL)`,
+    );
+
+    // 5. Build lookup maps keyed by "targetId:stationId" and "targetId" (fallback)
+    const specific = new Map<string, number>(); // "targetId:stationId" → seconds
+    const fallbackMap = new Map<string, number>(); // "targetId" → seconds
+    for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
+      const targetId = (r.catalog_item_id ?? r.category_id) as string;
+      const sid = r.station_id as string | null;
+      const seconds = Number(r.estimated_prep_seconds);
+      if (sid) {
+        specific.set(`${targetId}:${sid}`, seconds);
+      } else if (!fallbackMap.has(targetId)) {
+        fallbackMap.set(targetId, seconds);
       }
     }
 
-    // Map back to orderLineId
+    // 6. Resolve each lookup through the 8-level priority cascade
+    const tryResolve = (id: string, sid: string): number | undefined =>
+      specific.get(`${id}:${sid}`) ?? fallbackMap.get(id);
+
     const result = new Map<string, number>();
     for (const l of lookups) {
-      const specific = prepMap.get(`${l.catalogItemId}:${l.stationId}`);
-      if (specific !== undefined) {
-        result.set(l.orderLineId, specific);
-      } else {
-        const fallback = prepMap.get(`${l.catalogItemId}:__fallback__`);
-        if (fallback !== undefined) {
-          result.set(l.orderLineId, fallback);
-        }
+      const chain = chainMap.get(l.catalogItemId);
+
+      const resolution =
+        tryResolve(l.catalogItemId, l.stationId)
+        ?? (chain?.catId ? tryResolve(chain.catId, l.stationId) : undefined)
+        ?? (chain?.subDeptId ? tryResolve(chain.subDeptId, l.stationId) : undefined)
+        ?? (chain?.deptId ? tryResolve(chain.deptId, l.stationId) : undefined);
+
+      if (resolution !== undefined) {
+        result.set(l.orderLineId, resolution);
       }
     }
 

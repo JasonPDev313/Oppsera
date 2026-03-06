@@ -320,6 +320,7 @@ export default function RoomTypesContent() {
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div
               className="absolute inset-0 bg-black/40"
               onClick={closeDialog}
@@ -348,6 +349,7 @@ export default function RoomTypesContent() {
               <div className="space-y-4">
                 {/* Property (auto-filled, read-only for single property) */}
                 <div>
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                   <label className="mb-1 block text-sm font-medium text-foreground">
                     Property
                   </label>
@@ -368,16 +370,18 @@ export default function RoomTypesContent() {
 
                 {/* Code */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="room-type-code" className="mb-1 block text-sm font-medium text-foreground">
                     Code <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="room-type-code"
                     type="text"
                     value={formCode}
                     onChange={(e) => setFormCode(e.target.value.toUpperCase())}
                     placeholder="e.g. STD, DLX, STE"
                     maxLength={20}
                     className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -387,10 +391,11 @@ export default function RoomTypesContent() {
 
                 {/* Name */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="room-type-name" className="mb-1 block text-sm font-medium text-foreground">
                     Name <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="room-type-name"
                     type="text"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
@@ -402,10 +407,11 @@ export default function RoomTypesContent() {
 
                 {/* Description */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="room-type-description" className="mb-1 block text-sm font-medium text-foreground">
                     Description
                   </label>
                   <input
+                    id="room-type-description"
                     type="text"
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
@@ -417,10 +423,11 @@ export default function RoomTypesContent() {
                 {/* Capacity row */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-foreground">
+                    <label htmlFor="room-type-max-adults" className="mb-1 block text-sm font-medium text-foreground">
                       Max Adults
                     </label>
                     <input
+                      id="room-type-max-adults"
                       type="number"
                       min={1}
                       max={20}
@@ -430,10 +437,11 @@ export default function RoomTypesContent() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-foreground">
+                    <label htmlFor="room-type-max-children" className="mb-1 block text-sm font-medium text-foreground">
                       Max Children
                     </label>
                     <input
+                      id="room-type-max-children"
                       type="number"
                       min={0}
                       max={20}

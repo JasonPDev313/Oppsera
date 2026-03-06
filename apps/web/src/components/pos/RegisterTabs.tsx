@@ -461,22 +461,25 @@ export function RegisterTabs({
 
                 {/* Close button (hidden when only 1 tab) */}
                 {tabs.length > 1 && (
-                  <span
-                    role="button"
-                    tabIndex={-1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onCloseTab(tab.tabNumber);
-                    }}
-                    className={`ml-0.5 shrink-0 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 ${
-                      isActive
-                        ? 'hover:bg-indigo-500 text-indigo-200 hover:text-white'
-                        : 'hover:bg-accent text-muted-foreground hover:text-foreground'
-                    }`}
-                    aria-label={`Close ${label}`}
-                  >
-                    <X className="h-3 w-3" />
-                  </span>
+                  <>
+                    {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
+                    <span
+                      role="button"
+                      tabIndex={-1}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCloseTab(tab.tabNumber);
+                      }}
+                      className={`ml-0.5 shrink-0 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 ${
+                        isActive
+                          ? 'hover:bg-indigo-500 text-indigo-200 hover:text-white'
+                          : 'hover:bg-accent text-muted-foreground hover:text-foreground'
+                      }`}
+                      aria-label={`Close ${label}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  </>
                 )}
               </button>
             );
@@ -510,6 +513,7 @@ export function RegisterTabs({
       {contextMenu &&
         typeof document !== 'undefined' &&
         createPortal(
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions
           <div
             className="fixed z-50 min-w-48 rounded-lg border border-border bg-surface py-1 shadow-xl"
             style={{ left: contextMenu.x, top: contextMenu.y }}
@@ -650,6 +654,7 @@ export function RegisterTabs({
       {renaming &&
         typeof document !== 'undefined' &&
         createPortal(
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions
           <div
             data-rename-popover
             className="fixed z-50 w-64 rounded-lg border border-border bg-surface p-3 shadow-xl"
@@ -701,6 +706,7 @@ export function RegisterTabs({
       {customerSearch &&
         typeof document !== 'undefined' &&
         createPortal(
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions
           <div
             data-customer-search
             className="fixed z-50 w-80 rounded-lg border border-border bg-surface shadow-xl"
@@ -787,6 +793,7 @@ export function RegisterTabs({
       {serverSearch &&
         typeof document !== 'undefined' &&
         createPortal(
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions
           <div
             data-server-search
             className="fixed z-50 w-80 rounded-lg border border-border bg-surface shadow-xl"

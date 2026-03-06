@@ -132,8 +132,9 @@ export default function PeriodCloseContent() {
 
       {/* Period selector */}
       <div className="flex flex-wrap items-center gap-3 print:hidden">
-        <label className="text-sm font-medium text-foreground">Period</label>
+        <label htmlFor="period-close-period" className="text-sm font-medium text-foreground">Period</label>
         <select
+          id="period-close-period"
           value={selectedPeriod ?? ''}
           onChange={(e) => setSelectedPeriod(e.target.value || null)}
           className="rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"

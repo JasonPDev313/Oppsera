@@ -282,8 +282,9 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
             <div className="rounded-lg border border-border bg-surface p-4">
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Category</label>
+                  <label htmlFor="pref-category" className="mb-1 block text-xs font-medium text-muted-foreground">Category</label>
                   <select
+                    id="pref-category"
                     value={newPrefCategory}
                     onChange={(e) => setNewPrefCategory(e.target.value)}
                     className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -294,8 +295,9 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Key</label>
+                  <label htmlFor="pref-key" className="mb-1 block text-xs font-medium text-muted-foreground">Key</label>
                   <input
+                    id="pref-key"
                     type="text"
                     value={newPrefKey}
                     onChange={(e) => setNewPrefKey(e.target.value)}
@@ -304,8 +306,9 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Value</label>
+                  <label htmlFor="pref-value" className="mb-1 block text-xs font-medium text-muted-foreground">Value</label>
                   <input
+                    id="pref-value"
                     type="text"
                     value={newPrefValue}
                     onChange={(e) => setNewPrefValue(e.target.value)}

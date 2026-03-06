@@ -215,8 +215,9 @@ function PostChargeDialog({
     >
       <div className="mt-4 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-foreground">Type</label>
+          <label htmlFor="folio-entry-type" className="block text-sm font-medium text-foreground">Type</label>
           <select
+            id="folio-entry-type"
             value={entryType}
             onChange={(e) => setEntryType(e.target.value)}
             className="mt-1 block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
@@ -229,8 +230,9 @@ function PostChargeDialog({
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground">Description</label>
+          <label htmlFor="folio-description" className="block text-sm font-medium text-foreground">Description</label>
           <input
+            id="folio-description"
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -239,8 +241,9 @@ function PostChargeDialog({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground">Amount ($)</label>
+          <label htmlFor="folio-amount" className="block text-sm font-medium text-foreground">Amount ($)</label>
           <input
+            id="folio-amount"
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
@@ -303,10 +306,11 @@ function CancelDialog({
       isLoading={isSubmitting}
     >
       <div className="mt-4">
-        <label className="block text-sm font-medium text-foreground">
+        <label htmlFor="cancel-reason" className="block text-sm font-medium text-foreground">
           Reason (optional)
         </label>
         <input
+          id="cancel-reason"
           type="text"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -365,10 +369,11 @@ function MoveRoomDialog({
       isLoading={isSubmitting}
     >
       <div className="mt-4">
-        <label className="block text-sm font-medium text-foreground">
+        <label htmlFor="move-room-id" className="block text-sm font-medium text-foreground">
           New Room ID
         </label>
         <input
+          id="move-room-id"
           type="text"
           value={newRoomId}
           onChange={(e) => setNewRoomId(e.target.value)}

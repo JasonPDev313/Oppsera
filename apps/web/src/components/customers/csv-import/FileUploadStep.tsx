@@ -49,6 +49,7 @@ export function FileUploadStep({ onFileSelected, error }: FileUploadStepProps) {
         </p>
       </div>
 
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className={`relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-12 transition-colors ${
           isDragOver

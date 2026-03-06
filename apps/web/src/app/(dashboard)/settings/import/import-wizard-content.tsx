@@ -300,8 +300,9 @@ export default function ImportWizardContent() {
         {wizard.step === 'upload' && (
           <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium">Import Name</label>
+              <label htmlFor="import-name" className="mb-1 block text-sm font-medium">Import Name</label>
               <input
+                id="import-name"
                 type="text"
                 value={uploadName}
                 onChange={(e) => setUploadName(e.target.value)}
@@ -311,8 +312,9 @@ export default function ImportWizardContent() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1 block text-sm font-medium">Import Mode</label>
+                <label htmlFor="import-mode" className="mb-1 block text-sm font-medium">Import Mode</label>
                 <select
+                  id="import-mode"
                   value={uploadMode}
                   onChange={(e) => setUploadMode(e.target.value)}
                   className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
@@ -322,8 +324,9 @@ export default function ImportWizardContent() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Source System</label>
+                <label htmlFor="import-source-system" className="mb-1 block text-sm font-medium">Source System</label>
                 <input
+                  id="import-source-system"
                   type="text"
                   value={uploadSourceSystem}
                   onChange={(e) => setUploadSourceSystem(e.target.value)}

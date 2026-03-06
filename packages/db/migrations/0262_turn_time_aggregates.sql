@@ -23,5 +23,10 @@ CREATE INDEX IF NOT EXISTS idx_fnb_turn_agg_lookup
   ON fnb_turn_time_aggregates (tenant_id, location_id, table_type, meal_period, day_of_week, party_size_bucket);
 
 ALTER TABLE fnb_turn_time_aggregates ENABLE ROW LEVEL SECURITY;
-CREATE POLICY fnb_turn_time_aggregates_tenant_isolation ON fnb_turn_time_aggregates
-  USING (tenant_id = current_setting('app.current_tenant_id', true));
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'fnb_turn_time_aggregates_tenant_isolation' AND tablename = 'fnb_turn_time_aggregates') THEN
+    CREATE POLICY fnb_turn_time_aggregates_tenant_isolation ON fnb_turn_time_aggregates
+      USING (tenant_id = current_setting('app.current_tenant_id', true));
+  END IF;
+END $$;

@@ -937,10 +937,11 @@ export default function ItemDetailPage() {
         isLoading={deactivating}
       >
         <div className="mt-4">
-          <label className="block text-sm font-medium text-foreground mb-1">
+          <label htmlFor="deactivate-reason" className="block text-sm font-medium text-foreground mb-1">
             Reason (optional)
           </label>
           <textarea
+            id="deactivate-reason"
             value={deactivateReason}
             onChange={(e) => setDeactivateReason(e.target.value)}
             className="w-full rounded-lg border border-border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
@@ -964,6 +965,7 @@ export default function ItemDetailPage() {
       {/* Edit Tax Groups dialog */}
       {showTaxEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowTaxEdit(false)} />
           <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-foreground">Edit Tax Groups</h3>
@@ -1013,6 +1015,7 @@ export default function ItemDetailPage() {
       {/* Add Location Price dialog */}
       {showAddPrice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowAddPrice(false)} />
           <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-foreground">Set Location Price</h3>
@@ -1078,6 +1081,7 @@ export default function ItemDetailPage() {
       {/* Add Modifier Group dialog */}
       {showAddModGroup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div className="fixed inset-0 bg-black/50" onClick={() => { setShowAddModGroup(false); setAddModGroupId(''); }} />
           <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-foreground">Add Modifier Group</h3>
@@ -1085,8 +1089,9 @@ export default function ItemDetailPage() {
               <p className="mt-4 text-sm text-muted-foreground">All modifier groups are already assigned to this item.</p>
             ) : (
               <div className="mt-4">
-                <label className="block text-sm font-medium text-foreground mb-1">Modifier Group</label>
+                <label htmlFor="add-modifier-group-select" className="block text-sm font-medium text-foreground mb-1">Modifier Group</label>
                 <select
+                  id="add-modifier-group-select"
                   value={addModGroupId}
                   onChange={(e) => setAddModGroupId(e.target.value)}
                   className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
@@ -1128,6 +1133,7 @@ export default function ItemDetailPage() {
       {/* Edit Assignment Overrides dialog */}
       {editingAssignment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div className="fixed inset-0 bg-black/50" onClick={() => setEditingAssignment(null)} />
           <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-foreground">Assignment Overrides</h3>
@@ -1136,8 +1142,9 @@ export default function ItemDetailPage() {
             </p>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Required</label>
+                <label htmlFor="override-required" className="block text-sm font-medium text-foreground mb-1">Required</label>
                 <select
+                  id="override-required"
                   value={editOverrides.overrideRequired === null ? '' : editOverrides.overrideRequired ? 'true' : 'false'}
                   onChange={(e) => {
                     const v = e.target.value;
@@ -1152,8 +1159,9 @@ export default function ItemDetailPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Min Selections</label>
+                  <label htmlFor="override-min-selections" className="block text-sm font-medium text-foreground mb-1">Min Selections</label>
                   <input
+                    id="override-min-selections"
                     type="number"
                     min={0}
                     value={editOverrides.overrideMinSelections ?? ''}
@@ -1166,8 +1174,9 @@ export default function ItemDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Max Selections</label>
+                  <label htmlFor="override-max-selections" className="block text-sm font-medium text-foreground mb-1">Max Selections</label>
                   <input
+                    id="override-max-selections"
                     type="number"
                     min={0}
                     value={editOverrides.overrideMaxSelections ?? ''}
@@ -1181,8 +1190,9 @@ export default function ItemDetailPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Instruction Mode</label>
+                <label htmlFor="override-instruction-mode" className="block text-sm font-medium text-foreground mb-1">Instruction Mode</label>
                 <select
+                  id="override-instruction-mode"
                   value={editOverrides.overrideInstructionMode ?? ''}
                   onChange={(e) => {
                     setEditOverrides((p) => ({ ...p, overrideInstructionMode: e.target.value || null }));
@@ -1196,8 +1206,9 @@ export default function ItemDetailPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Prompt Order</label>
+                <label htmlFor="override-prompt-order" className="block text-sm font-medium text-foreground mb-1">Prompt Order</label>
                 <input
+                  id="override-prompt-order"
                   type="number"
                   min={0}
                   value={editOverrides.promptOrder}

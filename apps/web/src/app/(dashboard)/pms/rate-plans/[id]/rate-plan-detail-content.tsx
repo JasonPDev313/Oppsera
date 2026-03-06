@@ -569,7 +569,6 @@ function EditHeaderDialog({
             <label htmlFor="edit-rate-plan-name" className="mb-1 block text-sm font-medium text-foreground">
               Name <span className="text-red-500">*</span>
             </label>
-            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
             <input
               id="edit-rate-plan-name"
               type="text"
@@ -577,6 +576,7 @@ function EditHeaderDialog({
               onChange={(e) => setName(e.target.value)}
               maxLength={100}
               className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
           </div>
@@ -744,11 +744,11 @@ function SetRateDialog({
         <div className="space-y-4">
           {/* Room Type */}
           <div>
-            <label htmlFor="set-rate-room-type" className="mb-1 block text-sm font-medium text-foreground">
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Room Type <span className="text-red-500">*</span>
             </label>
             <Select
-              id="set-rate-room-type"
               options={roomTypeOptions}
               value={roomTypeId}
               onChange={(v) => setRoomTypeId(v as string)}
@@ -795,7 +795,6 @@ function SetRateDialog({
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                 $
               </span>
-              {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
               <input
                 id="set-rate-nightly-rate"
                 type="number"
@@ -805,6 +804,7 @@ function SetRateDialog({
                 step="0.01"
                 min="0"
                 className="w-full rounded-lg border border-border bg-surface py-2 pl-7 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
               />
             </div>

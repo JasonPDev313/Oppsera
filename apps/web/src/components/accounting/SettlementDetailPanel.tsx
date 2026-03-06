@@ -55,6 +55,7 @@ export function SettlementDetailPanel({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
       <div className="relative bg-surface w-full max-w-2xl shadow-xl overflow-y-auto">
         {/* Header */}

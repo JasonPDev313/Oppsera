@@ -473,7 +473,6 @@ export default function RoomsContent() {
                   <label htmlFor="create-room-number" className="mb-1 block text-sm font-medium text-foreground">
                     Room Number <span className="text-red-500">*</span>
                   </label>
-                  {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
                   <input
                     id="create-room-number"
                     type="text"
@@ -482,6 +481,7 @@ export default function RoomsContent() {
                     placeholder="e.g. 101"
                     maxLength={20}
                     className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus
                   />
                 </div>
@@ -590,7 +590,6 @@ export default function RoomsContent() {
                   <label htmlFor="edit-room-number" className="mb-1 block text-sm font-medium text-foreground">
                     Room Number <span className="text-red-500">*</span>
                   </label>
-                  {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
                   <input
                     id="edit-room-number"
                     type="text"
@@ -599,6 +598,7 @@ export default function RoomsContent() {
                     placeholder="e.g. 101"
                     maxLength={20}
                     className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus
                   />
                 </div>

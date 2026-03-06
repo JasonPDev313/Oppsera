@@ -7,7 +7,7 @@ export interface ManageTabListItem {
   tabNumber: number;
   guestName: string | null;
   status: string;
-  serviceMode: string;
+  serviceMode: string | null;
   tableId: string | null;
   tableLabel: string | null;
   serverUserId: string | null;
@@ -30,6 +30,30 @@ export interface ManageTabListResult {
   items: ManageTabListItem[];
   cursor: string | null;
   hasMore: boolean;
+}
+
+// Compound cursor encoding for keyset pagination.
+// Encodes both the tiebreaker `id` and the primary sort column value so that
+// `(sort_col, id) < (cursor_sort_val, cursor_id)` produces correct page breaks.
+interface CursorData {
+  id: string;
+  oa?: string;   // openedAt (oldest/newest)
+  ua?: string;   // updatedAt (recently_updated, highest_balance fallback)
+  bal?: number;  // balance (highest_balance)
+}
+
+function encodeCursor(data: CursorData): string {
+  return Buffer.from(JSON.stringify(data)).toString('base64url');
+}
+
+function decodeCursor(cursor: string): CursorData {
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString()) as Record<string, unknown>;
+    if (parsed && typeof parsed.id === 'string') return parsed as unknown as CursorData;
+  } catch {
+    // Backwards compat: treat plain ULID as id-only cursor
+  }
+  return { id: cursor };
 }
 
 const NEEDS_ATTENTION_STATUSES = ['check_requested', 'paying', 'abandoned'];
@@ -71,7 +95,9 @@ export async function listTabsForManage(
     }
 
     if (input.search) {
-      const pattern = `%${input.search}%`;
+      // Escape ILIKE wildcards in user input to prevent wildcard injection
+      const escaped = input.search.replace(/[%_\\]/g, '\\$&');
+      const pattern = `%${escaped}%`;
       conditions.push(sql`(
         t.tab_number::text ILIKE ${pattern}
         OR t.guest_name ILIKE ${pattern}
@@ -80,7 +106,37 @@ export async function listTabsForManage(
     }
 
     if (input.cursor) {
-      conditions.push(sql`t.id < ${input.cursor}`);
+      // Compound keyset pagination: (sort_col, id) comparison ensures no
+      // duplicates/skips even when multiple rows share the same sort value.
+      const cur = decodeCursor(input.cursor);
+      switch (input.sortBy) {
+        case 'oldest':
+          conditions.push(cur.oa
+            ? sql`(t.opened_at, t.id) > (${cur.oa}::timestamptz, ${cur.id})`
+            : sql`t.id > ${cur.id}`);
+          break;
+        case 'newest':
+          conditions.push(cur.oa
+            ? sql`(t.opened_at, t.id) < (${cur.oa}::timestamptz, ${cur.id})`
+            : sql`t.id < ${cur.id}`);
+          break;
+        case 'recently_updated':
+          conditions.push(cur.ua
+            ? sql`(t.updated_at, t.id) < (${cur.ua}::timestamptz, ${cur.id})`
+            : sql`t.id < ${cur.id}`);
+          break;
+        case 'highest_balance':
+          if (cur.bal != null && input.includeAmounts) {
+            conditions.push(sql`(COALESCE(order_agg.order_total - tender_agg.amount_paid, 0), t.id) < (${cur.bal}, ${cur.id})`);
+          } else if (cur.ua) {
+            conditions.push(sql`(t.updated_at, t.id) < (${cur.ua}::timestamptz, ${cur.id})`);
+          } else {
+            conditions.push(sql`t.id < ${cur.id}`);
+          }
+          break;
+        default:
+          conditions.push(sql`t.id > ${cur.id}`);
+      }
     }
 
     const whereClause = conditions.length > 0
@@ -116,7 +172,10 @@ export async function listTabsForManage(
         sortClause = sql`t.opened_at DESC, t.id DESC`;
         break;
       case 'highest_balance':
-        sortClause = sql`COALESCE(order_agg.order_total - tender_agg.amount_paid, 0) DESC, t.id DESC`;
+        // Amount aliases only exist when includeAmounts=true; fall back to updated_at otherwise
+        sortClause = input.includeAmounts
+          ? sql`COALESCE(order_agg.order_total - tender_agg.amount_paid, 0) DESC, t.id DESC`
+          : sql`t.updated_at DESC, t.id DESC`;
         break;
       case 'recently_updated':
         sortClause = sql`t.updated_at DESC, t.id DESC`;
@@ -136,20 +195,16 @@ export async function listTabsForManage(
     const amountJoins = input.includeAmounts
       ? sql`
         LEFT JOIN LATERAL (
-          SELECT COALESCE(SUM(o.total_cents), 0) AS order_total
+          SELECT COALESCE(o.total, 0) AS order_total
           FROM orders o
-          WHERE o.tenant_id = t.tenant_id
-            AND o.tab_id = t.id
+          WHERE o.id = t.primary_order_id
             AND o.status NOT IN ('voided', 'cancelled')
         ) order_agg ON true
         LEFT JOIN LATERAL (
           SELECT COALESCE(SUM(td.amount), 0) AS amount_paid
           FROM tenders td
           WHERE td.tenant_id = t.tenant_id
-            AND td.order_id IN (
-              SELECT o2.id FROM orders o2
-              WHERE o2.tenant_id = t.tenant_id AND o2.tab_id = t.id
-            )
+            AND td.order_id = t.primary_order_id
             AND td.status != 'reversed'
         ) tender_agg ON true`
       : sql``;
@@ -164,7 +219,6 @@ export async function listTabsForManage(
         t.tab_number,
         t.guest_name,
         t.status,
-        t.service_mode,
         t.table_id,
         ft.display_label AS table_label,
         t.server_user_id,
@@ -221,7 +275,7 @@ export async function listTabsForManage(
         tabNumber: Number(r.tab_number),
         guestName: (r.guest_name as string) ?? null,
         status: r.status as string,
-        serviceMode: r.service_mode as string,
+        serviceMode: null as string | null,
         tableId: (r.table_id as string) ?? null,
         tableLabel: (r.table_label as string) ?? null,
         serverUserId: (r.server_user_id as string) ?? null,
@@ -243,9 +297,33 @@ export async function listTabsForManage(
       };
     });
 
+    // Encode compound cursor with sort-relevant fields
+    let nextCursor: string | null = null;
+    if (hasMore) {
+      const last = items[items.length - 1]!;
+      const cursorData: CursorData = { id: last.id };
+      switch (input.sortBy) {
+        case 'oldest':
+        case 'newest':
+          cursorData.oa = last.openedAt;
+          break;
+        case 'recently_updated':
+          cursorData.ua = last.updatedAt;
+          break;
+        case 'highest_balance':
+          if (input.includeAmounts) {
+            cursorData.bal = last.balance ?? 0;
+          } else {
+            cursorData.ua = last.updatedAt;
+          }
+          break;
+      }
+      nextCursor = encodeCursor(cursorData);
+    }
+
     return {
       items,
-      cursor: hasMore ? items[items.length - 1]!.id : null,
+      cursor: nextCursor,
       hasMore,
     };
   });

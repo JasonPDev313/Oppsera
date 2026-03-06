@@ -503,6 +503,7 @@ export async function getReviewStats(
 // ── bulkReview ─────────────────────────────────────────────────
 
 export async function bulkReview(
+  tenantId: string,
   adminId: string,
   reviews: BulkReviewItem[],
 ): Promise<BulkReviewResult> {
@@ -511,7 +512,7 @@ export async function bulkReview(
 
   for (const review of reviews) {
     try {
-      await submitAdminReview(review.turnId, adminId, {
+      await submitAdminReview(review.turnId, tenantId, adminId, {
         score: review.score,
         verdict: review.verdict,
         notes: review.notes,

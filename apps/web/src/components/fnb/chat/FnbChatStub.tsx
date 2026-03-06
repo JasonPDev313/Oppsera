@@ -27,6 +27,7 @@ export function FnbChatStub() {
 
       {/* Panel */}
       {isOpen && typeof document !== 'undefined' && createPortal(
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed inset-0 z-60 flex justify-end"
           style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}

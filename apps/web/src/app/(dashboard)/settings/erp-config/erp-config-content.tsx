@@ -311,6 +311,7 @@ function AutoCloseTab() {
             </div>
           </div>
           <label className="relative inline-flex cursor-pointer items-center">
+            <span className="sr-only">Enable Auto-Close</span>
             <input
               type="checkbox"
               checked={settings?.autoCloseEnabled ?? false}
@@ -325,8 +326,9 @@ function AutoCloseTab() {
         {settings?.autoCloseEnabled && (
           <div className="mt-4 flex flex-wrap items-end gap-4 border-t border-border pt-4">
             <div>
-              <label className="block text-xs font-medium text-foreground">Auto-Close Time</label>
+              <label htmlFor="auto-close-time" className="block text-xs font-medium text-foreground">Auto-Close Time</label>
               <input
+                id="auto-close-time"
                 type="time"
                 value={settings.autoCloseTime}
                 onChange={(e) => handleAutoCloseTimeChange(e.target.value)}
@@ -362,6 +364,7 @@ function AutoCloseTab() {
             </div>
           </div>
           <label className="relative inline-flex cursor-pointer items-center">
+            <span className="sr-only">Enable Day End Close</span>
             <input
               type="checkbox"
               checked={settings?.dayEndCloseEnabled ?? false}
@@ -376,8 +379,9 @@ function AutoCloseTab() {
         {settings?.dayEndCloseEnabled && (
           <div className="mt-4 border-t border-border pt-4">
             <div>
-              <label className="block text-xs font-medium text-foreground">Day End Close Time</label>
+              <label htmlFor="day-end-close-time" className="block text-xs font-medium text-foreground">Day End Close Time</label>
               <input
+                id="day-end-close-time"
                 type="time"
                 value={settings.dayEndCloseTime}
                 onChange={(e) => handleDayEndTimeChange(e.target.value)}
@@ -398,8 +402,9 @@ function AutoCloseTab() {
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs font-medium text-foreground">Business Date</label>
+            <label htmlFor="erp-business-date" className="block text-xs font-medium text-foreground">Business Date</label>
             <input
+              id="erp-business-date"
               type="date"
               value={businessDate}
               onChange={(e) => setBusinessDate(e.target.value)}

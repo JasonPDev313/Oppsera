@@ -454,6 +454,7 @@ function BudgetDetailView({
                                 <input
                                   type="number"
                                   step="0.01"
+                                  // eslint-disable-next-line jsx-a11y/no-autofocus
                                   autoFocus
                                   value={editValue}
                                   onChange={(e) => setEditValue(e.target.value)}

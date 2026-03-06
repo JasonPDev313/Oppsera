@@ -38,6 +38,7 @@ export const GET = withMiddleware(
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const body = await request.json();
+    body.serverUserId = body.serverUserId || ctx.user.id;
     const parsed = beginServerCheckoutSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

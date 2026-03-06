@@ -64,10 +64,11 @@ export function MemberAuthForm({ token, onSuccess, onBack }: MemberAuthFormProps
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
+          <label htmlFor="member-number" className="block text-sm font-medium text-foreground mb-1">
             Member Number
           </label>
           <input
+            id="member-number"
             type="text"
             value={memberNumber}
             onChange={(e) => setMemberNumber(e.target.value)}
@@ -79,10 +80,11 @@ export function MemberAuthForm({ token, onSuccess, onBack }: MemberAuthFormProps
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
+          <label htmlFor="member-phone-last4" className="block text-sm font-medium text-foreground mb-1">
             Last 4 Digits of Phone
           </label>
           <input
+            id="member-phone-last4"
             type="tel"
             inputMode="numeric"
             maxLength={4}

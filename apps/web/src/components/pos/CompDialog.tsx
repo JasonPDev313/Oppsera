@@ -47,6 +47,7 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="comp-dialog-title">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
@@ -77,6 +78,7 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
 
           {/* Category */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Category</label>
             <div className="flex flex-wrap gap-2">
               {COMP_CATEGORIES.map((cat) => (
@@ -98,6 +100,7 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
 
           {/* Quick reasons */}
           <div>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Reason</label>
             <div className="mb-2 flex flex-wrap gap-1.5">
               {QUICK_REASONS.map((r) => (

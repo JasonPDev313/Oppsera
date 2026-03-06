@@ -144,10 +144,12 @@ export function DataTable<T extends Record<string, unknown>>({
       {/* Mobile card layout */}
       <div className="space-y-3 p-4 md:hidden">
         {data.map((row, idx) => (
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions
           <div
             key={(row.id as string) ?? idx}
             onClick={onRowClick ? () => onRowClick(row) : undefined}
             onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row); } } : undefined}
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
             tabIndex={onRowClick ? 0 : undefined}
             role={onRowClick ? 'button' : undefined}
             className={`rounded-lg border border-border p-4 ${

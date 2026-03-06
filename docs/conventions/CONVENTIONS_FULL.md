@@ -11351,4 +11351,599 @@ export function mergeConfig(existing, partial) {
 
 Used by: `fnb_waitlist_config`, `spa_booking_widget_config`
 
+---
+
+## §222 — KDS & Command Hardening Patterns (2026-03-05)
+
+### Serialized DB Operations in Commands
+
+When a command creates multiple DB records in a loop (e.g., KDS tickets per order line), serialize with `for...of` instead of `Promise.all()` to prevent pool exhaustion:
+
+```typescript
+// CORRECT — serialized (pool-safe with max:2)
+for (const line of lines) {
+  await createKitchenTicket(ctx, { ...line });
+}
+// WRONG — concurrent (exhausts pool)
+await Promise.all(lines.map(line => createKitchenTicket(ctx, { ...line })));
+```
+
+### Mandatory Audit Logging
+
+Every command that mutates data MUST call `auditLog()` after the `publishWithOutbox` transaction:
+
+```typescript
+const result = await publishWithOutbox(ctx, async (tx) => { ... });
+await auditLog(ctx, 'module.entity.created', 'entity_type', result.id);
+return result;
+```
+
+Helpers: `packages/core/src/audit/helpers.ts`. Context: `packages/core/src/auth/context.ts`.
+
+### KDS Nullable order_id
+
+`fnb_kitchen_tickets.order_id` is nullable (migration 0276) — KDS tickets are created at course-send time before the order exists. Queries joining on `order_id` must use LEFT JOIN or handle NULL.
+
+### KDS Consumer Idempotency
+
+Filter already-sent lines in `handle-order-placed-for-kds` to prevent duplicate tickets on event reprocessing. Use client request ID pattern: `kds-course-{tabId}-{courseNumber}-{stationId}`.
+
+### Stock Alert Consumer
+
+`packages/modules/inventory/src/events/stock-alert-consumer.ts` emits `inventory.stock.low.v1` and `inventory.stock.negative.v1` events when movement crosses thresholds. Consumer is fire-and-forget safe (in-memory event bus only).
+
+### Direct DB Connection for Admin Operations
+
+Supavisor (port 6543) blocks `SET LOCAL statement_timeout`. Use `createAdminClient()` with `DATABASE_URL_ADMIN` (direct connection, port 5432) for backup/restore and admin operations requiring session-level settings.
+
+---
+
+## §223 — Middleware Reference (2026-03-05)
+
+### Full Middleware Chain (Ordered)
+
+`withMiddleware(handler, options?)` executes these steps in strict order:
+
+1. **Bot detection** (default `'standard'`) — before auth, returns 429
+2. **Rate limiting** (auto-selected by method) — before auth, returns 429
+3. **Authentication** — validates `Authorization: Bearer <token>`, supports impersonation
+4. **Tenant resolution** — checks `tenantStatus === 'active'`, `membershipStatus === 'active'`
+5. **Location resolution** — `x-location-id` header or `locationId` query param, LRU cache (2K entries, 60s TTL), validates user has role assignment
+6. **`requireLocation` guard** — returns 400 `LOCATION_REQUIRED` if location not resolved
+7. **Active role validation** — `x-role-id` header (ULID validated), sets `ctx.activeRoleId`
+8. **Entitlement check** — module enabled check; `writeAccess: true` additionally blocks `'view'` mode
+9. **Permission check** — 15s cached `Set<string>`, supports wildcard/module-wildcard/exact
+10. **Replay guard** (`replayGuard: true`) — validates `X-Request-Nonce` + `X-Request-Timestamp`, 409 on replay
+11. **Step-up auth** (`stepUp: category`) — requires `X-Step-Up-Token` HMAC-SHA256 signed token
+12. **Impersonation DELETE block** — all DELETE during impersonation returns 403
+13. **Handler execution** — inside `requestContext.run(ctx, ...)` (AsyncLocalStorage)
+14. **Impersonation action count** — awaited after handler (not fire-and-forget)
+
+Global timeout: 25s `Promise.race` wrapping entire chain → 504 `GATEWAY_TIMEOUT`.
+
+### MiddlewareOptions Interface
+
+| Option | Type | Default | Purpose |
+|--------|------|---------|---------|
+| `public` | boolean | false | Skip auth entirely |
+| `authenticated` | boolean | false | Require auth, skip tenant resolution |
+| `permission` | string | — | e.g., `'accounting.view'` |
+| `entitlement` | string | — | Module key, e.g., `'accounting'` |
+| `writeAccess` | boolean | false | Block `'view'` entitlement mode |
+| `cache` | string | — | Cache-Control header on GETs |
+| `replayGuard` | boolean | false | Require nonce + timestamp |
+| `stepUp` | StepUpCategory | — | Require step-up token |
+| `botDetection` | `'standard' \| 'strict' \| false` | `'standard'` | Bot scoring level |
+| `requireLocation` | boolean | false | 400 if no location context |
+| `rateLimit` | preset string or false | auto | Rate limit preset |
+
+Rate limit presets: `auth` (20/15min), `authStrict` (5/15min), `api` (100/min), `apiWrite` (30/min), `publicRead` (30/min), `publicWrite` (5/min).
+
+### Deferred Work Pattern
+
+`deferWork(ctx, fn)` enqueues work to run after HTTP response via Next.js `after()`. Flushed on both success and error paths.
+
+```typescript
+// Use auditLogDeferred instead of await auditLog in commands
+auditLogDeferred(ctx, 'gl_account.created', 'gl_account', account.id, { name: account.name });
+```
+
+Also suitable for cache invalidation and GL adapter calls post-commit.
+
+### Error Handling Categories
+
+| Error | Status | Condition |
+|-------|--------|-----------|
+| `GATEWAY_TIMEOUT` | 504 | Chain exceeds 25s |
+| `AppError` | varies | Known business error |
+| `SCHEMA_MISMATCH` | 500 | Migration needed |
+| `TIMEOUT` | 500 | DB statement timeout |
+| `CONNECTION_ERROR` | 500 | Pool/connection failure |
+| `INTERNAL_ERROR` | 500 | Anything else |
+
+### Route Patterns
+
+```typescript
+// Read: withMiddleware(handler, { entitlement, permission })
+// Mutation: withMiddleware(handler, { entitlement, permission, writeAccess: true })
+// High-security: add replayGuard: true, stepUp: 'financial_critical'
+// Public: withMiddleware(handler, { public: true })
+// Location-scoped: add requireLocation: true
+// Cached: add cache: 'private, max-age=60, stale-while-revalidate=300'
+```
+
+---
+
+## §224 — Command Hardening Patterns (2026-03-05)
+
+### publishWithOutbox Internals
+
+`publishWithOutbox` wraps `db.transaction()` in `guardedQuery` for pool protection. Inside the transaction:
+- `SET LOCAL statement_timeout = '15000'` (dual-layer timeout with outer JS race)
+- Combined `set_config('app.current_tenant_id', ..., true)` in single SQL statement
+- After commit: fast-path event dispatch via `bus.publish()` (fire-and-forget, outbox is durable backup)
+
+### NaN Guard for Monetary Calculations
+
+Before inserting any monetary value into the DB, assert `!Number.isNaN()`:
+
+```typescript
+if (Number.isNaN(unitPrice) || Number.isNaN(lineSubtotal) || Number.isNaN(taxResult.taxTotal)) {
+  throw new AppError('CALCULATION_ERROR', `Invalid price for "${posItem.name}"`, 500);
+}
+```
+
+Include full diagnostic context: item name, type, raw price, qty. NaN silently becomes NULL/0 in Postgres.
+
+### Phase-Level Try/Catch
+
+Multi-phase commands (like `add-line-items-batch`) use labeled phase boundaries:
+
+- **Phase 1 (catalog lookup)**: `Promise.all` outside transaction, re-throw `AppError`, log unexpected errors with item IDs
+- **Phase 2 (transaction)**: `publishWithOutbox`, log unexpected errors with item summary
+- **Per-item catch inside tx**: log full item context (orderId, catalogItemId, unitPrice, qty) before re-throw
+
+Rules: (1) AppError passthrough — don't re-log known errors. (2) Catalog lookups OUTSIDE the tx via `Promise.all`. (3) One `recalculateOrderTotals()` + one `version + 1` for entire batch.
+
+### Void Command Patterns
+
+- **VOIDABLE_STATUSES allowlist**: never negate. Close uses separate `CLOSEABLE_STATUSES`.
+- **Atomic SQL guard**: `UPDATE ... WHERE status IN (...) RETURNING id` — empty RETURNING = guard failed.
+- **Two-layer optimistic lock**: pre-check + WHERE + RETURNING null check.
+- **RBAC outside tx**: elevated permission checks before `publishWithOutbox`.
+- **Tab ownership check**: verify user is tab's server OR holds elevated permission.
+- **Order-belongs-to-tab validation**: verify `tab.primaryOrderId === input.orderId`.
+
+### Bulk Operation Patterns
+
+- Return `{ succeeded: string[], failed: { id, error }[] }` — never throw on partial failure.
+- Cascade void to linked orders: `UPDATE orders SET status = 'voided' WHERE id = ANY(ids::text[])`.
+- Dedup shared tables with `new Set<string>()` before batch status updates.
+- Close → `'dirty'` (needs bussing). Void → `'available'` (immediately reusable).
+
+### Optional clientRequestId Guard
+
+When `clientRequestId` is optional, always warn when absent:
+
+```typescript
+if (!input.clientRequestId) {
+  console.warn('[cmd] No clientRequestId — retries will not be idempotent');
+}
+if (input.clientRequestId) {
+  const check = await checkIdempotency(tx, tenantId, input.clientRequestId);
+  if (check.isDuplicate) return { result: check.data, events: [] };
+}
+```
+
+Never pass `undefined` to `checkIdempotency` — matches NULL rows.
+
+---
+
+## §225 — Query Patterns Reference (2026-03-05)
+
+### Cursor Pagination Standard
+
+```typescript
+const limit = Math.min(input.limit ?? 50, 100); // ALWAYS cap at 100
+const rows = await query.limit(limit + 1);
+const hasMore = rows.length > limit;
+const items = hasMore ? rows.slice(0, limit) : rows;
+return { items, cursor: hasMore ? items[items.length - 1]!.id : null, hasMore };
+```
+
+### Composite Cursor Variants
+
+| Variant | Format | Use Case |
+|---------|--------|----------|
+| Pipe-delimited | `date\|id` | Date-sorted lists (reservations, appointments) |
+| Base64url | `btoa(date\|id)` | Opaque cursors for ledgers |
+| Triple-component | `lastName\|firstName\|id` | Alphabetic search |
+| Drizzle row-value | Cursor-row PK lookup | ORM-typed sorted lists |
+
+All variants include legacy id-only fallback for backwards compatibility.
+
+### Date Range Filtering
+
+- **String dates**: `if (input.startDate) conditions.push(sql\`col >= ${input.startDate}\`)`
+- **Timestamp expansion**: `new Date(\`${input.startDate}T00:00:00.000Z\`)` to cover full day
+- **asOfDate default**: `input.asOfDate ?? new Date().toISOString().slice(0, 10)`
+- **Business date fallback**: `COALESCE(o.business_date, o.created_at::date::text)` for pre-migration rows
+
+### Null Safety in Row Mapping
+
+- Nullable strings: `row.col ? String(row.col) : null`
+- Nullable numbers (preserve null vs zero): `row.col != null ? Number(row.col) : null` (use `!= null`)
+- Aggregates that may return null: `Number(row.col ?? 0)`
+- Reporting helper: `const num = (v) => Number(v) || 0`
+
+### SQL Patterns
+
+- `COALESCE(SUM(CASE WHEN ... THEN amount ELSE 0 END), 0)` for aging buckets
+- `ORDER BY col DESC NULLS LAST` for nullable sort columns
+- `tags @> ${JSON.stringify(input.tags)}::jsonb` for JSONB containment
+- `inArray(col, ids)` — always guard: `if (ids.length > 0)` (empty array = invalid SQL)
+- Location filter always optional: absent = aggregate all locations
+
+### CQRS Read-Model Fallback
+
+```typescript
+const rows = await tx.select().from(readModel).where(conditions);
+if (rows.length > 0) return rows.map(mapFn);
+// Fallback to operational tables when read model is empty
+return queryOperationalTables(tx, tenantId, dateRange);
+```
+
+Used when data was seeded directly bypassing the event system.
+
+### Batch-Fetch Child Records
+
+After slicing the parent page, batch-fetch children with `IN (${sql.join(ids)})` and group by parent ID with a `Map`. Avoids N+1 queries.
+
+---
+
+## §226 — Cron & Distributed Lock Patterns (2026-03-05)
+
+### Cron Route Template
+
+Every cron route follows this structure:
+
+1. Validate `Authorization: Bearer ${CRON_SECRET}`
+2. Acquire distributed lock: `withDistributedLock(LOCK_KEYS.X, ttlMs, fn)`
+3. Return `{ skipped: 'Lock held' }` if lock returns `null`
+4. Process with time budget guard: `if (Date.now() - start > TIME_BUDGET_MS) break`
+5. Sequential processing (not parallel) to respect pool `max: 2`
+6. Cap batch size with `LIMIT ${BATCH_CAP + 1}` (detect overflow)
+
+### Distributed Lock Mechanics
+
+- `INSERT ON CONFLICT DO UPDATE WHERE expires_at < NOW()` — no `SELECT FOR UPDATE`
+- Holder ID: `vercel-${randomUUID()}-${Date.now()}` (unique across instances)
+- Returns `null` when held — callers MUST handle
+- TTL sizing: 15-min cron → 14-min TTL, daily → 23-hour TTL
+- Lock keys in `@oppsera/shared` (`LOCK_KEYS`) to prevent collisions
+- Expired lock cleanup in drain-outbox cron (non-fatal)
+
+### Application-Level Idempotency (Defense-in-Depth)
+
+After acquiring the lock, check for existing run records in DB:
+
+```typescript
+const existing = await db.execute(sql`SELECT id FROM run_table WHERE tenant_id = ... AND business_date = ... LIMIT 1`);
+if (existing.length > 0) return; // already ran
+```
+
+### Time Budget Guard
+
+```typescript
+const TIME_BUDGET_MS = 55_000; // Vercel Pro = 60s
+if (Date.now() - startMs > TIME_BUDGET_MS) {
+  console.warn(`Time budget exhausted — remaining will retry next run`);
+  break;
+}
+```
+
+### Dynamic Import for Module Loading
+
+```typescript
+// Inside cron handler body, NOT at top level
+const { reconcileCloseBatch, postBatchToGl } = await import('@oppsera/module-fnb');
+```
+
+Prevents large modules from loading on every cold start for unrelated routes.
+
+### drain-outbox Multipurpose Housekeeping
+
+Runs every minute. Tasks: recover stale outbox claims, process pending events, detect stuck `idle in transaction` (>60s), kill zombie `idle + ClientRead` connections, clean expired locks, clean processed_events (>90d, 5K/run), clean event_outbox (>7d, 5K/run), auto-create audit_log partitions (next 3 months), flush usage tracking buffer.
+
+### Cron Schedule
+
+| Path | Schedule | Purpose |
+|------|----------|---------|
+| `/api/v1/internal/drain-outbox` | `* * * * *` | Outbox + housekeeping |
+| `/api/v1/erp/cron` | `*/15 * * * *` | ERP close orchestrator |
+| `/api/v1/internal/cleanup-tabs` | `*/15 * * * *` | Stale tab cleanup |
+| `/api/v1/membership/cron/recognize-revenue` | `0 1 * * *` | Membership revenue recognition |
+| `/api/v1/internal/cleanup-processed-events` | `0 3 * * *` | Outbox event GC |
+| `/api/v1/fnb/cron/auto-close-batches` | `0 4 * * *` | F&B batch auto-close + GL post |
+
+### ERP Cron Timezone Handling
+
+Stores close times in local HH:MM. Resolves tenant timezone via `Intl.DateTimeFormat`. `isWithinWindow()` handles midnight crossover with 1440-min wrapping. Close times before noon = previous business date.
+
+---
+
+## §227 — F&B Realtime Architecture V2 (2026-03-05)
+
+### Server Side — `broadcastFnb()`
+
+```typescript
+export async function broadcastFnb(
+  ctx: { tenantId: string; locationId?: string },
+  ...events: FnbBroadcastEvent[]
+): Promise<void>
+```
+
+- Single Supabase Realtime HTTP POST — no WebSocket, no persistent connection. Vercel-safe.
+- Events: `'tables' | 'waitlist' | 'reservations' | 'kds' | 'tabs' | 'guest_pay'`
+- Channel naming: `oppsera:fnb:{tenantId}:{locationId}`
+- Called AFTER transaction commits, outside `publishWithOutbox`, with `.catch(() => {})`
+- Best-effort, 3s abort timeout. Never throws. Polling is correctness safety net.
+
+### Client Registry — `realtime-channel-registry.ts`
+
+Module-level (not React) listener bus:
+- `onChannelRefresh(channel, cb)` / `notifyChannel(channel)` / `debouncedNotify(channel)`
+- Channels: `'floor' | 'tab' | 'kds' | 'expo' | 'dashboard' | 'guest_pay'`
+- `debouncedNotify` coalesces within 150ms to prevent refetch storms
+- Snapshot listeners array before iterating (callbacks may modify the Set)
+
+### Broadcast Topic → Local Channel Mapping
+
+| Server Topic | Client Channels |
+|---|---|
+| `tables` | `floor`, `dashboard` |
+| `waitlist` | `dashboard` |
+| `reservations` | `dashboard` |
+| `kds` | `kds`, `expo` |
+| `tabs` | `tab`, `dashboard` |
+| `guest_pay` | `guest_pay` |
+
+### Client Hook — `useFnbRealtime`
+
+- Singleton per mounting component, feature-flagged by `NEXT_PUBLIC_FNB_REALTIME=true`
+- Polling always runs as safety net. Connected intervals: floor 5s, tab 5s, kds 3s, expo 3s, dashboard 15s. Fallback: 2–3x slower.
+- Reconnect after >10s gap → immediate full refresh. Under 10s → debounced.
+- Visibility pause: stops polling + disconnects on `document.hidden`. Waits 500ms on resume.
+- Stabilize `channels` array with `useMemo([channelsKey])` to avoid infinite re-render loops.
+
+---
+
+## §228 — React Frontend Patterns (2026-03-05)
+
+### Mode Derivation from Pathname (Not State)
+
+```typescript
+// CORRECT: pure derivation, no state/effect cascade
+const mode = pathname.startsWith('/pos/fnb') ? 'fnb' : 'retail';
+
+// WRONG: useState + useEffect sync → stale state, extra renders
+```
+
+### Visited Tracking with useRef (Not useState)
+
+For boolean toggles (false → true only), use `useRef`. `useState` creates unnecessary re-render cycles:
+
+```typescript
+const visitedRef = useRef({ retail: isRetail, fnb: isFnB });
+if (isRetail) visitedRef.current.retail = true;
+```
+
+### Router Ref for Stale Closure Avoidance
+
+```typescript
+const routerRef = useRef(router);
+routerRef.current = router;
+useEffect(() => {
+  if (!isLoading && !isAuthenticated) routerRef.current.replace('/login');
+}, [isLoading, isAuthenticated]); // router NOT in deps
+```
+
+### Dual Ref+State Guard for Financial Mutations
+
+```typescript
+const isSubmittingRef = useRef(false);
+const handleSubmit = useCallback(async () => {
+  if (isSubmittingRef.current) return; // sync guard — same tick
+  isSubmittingRef.current = true;
+  setIsSubmitting(true); // React state — next render
+  try { /* ... */ } finally {
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
+  }
+}, []);
+```
+
+### Timer Ref Pattern
+
+```typescript
+const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+// Always clear before setting:
+if (timerRef.current) clearTimeout(timerRef.current);
+timerRef.current = setTimeout(() => setState(null), 2000);
+```
+
+### Functional Setters in ResizeObserver
+
+```typescript
+setSize(prev => prev.w === w && prev.h === h ? prev : { w, h });
+```
+
+Return previous reference when unchanged to break infinite observe → setState → re-render loops.
+
+### Long-Press via Pointer Events + Ref
+
+Use `onPointerDown` + `onPointerUp` + `onPointerCancel` on the element with a `useRef` timer. Global `window.addEventListener('pointerup')` leaks on unmount.
+
+### Stable Empty Arrays
+
+```typescript
+const EMPTY_TABLES: Table[] = []; // module scope
+// In hook:
+tables: data?.tables ?? EMPTY_TABLES, // stable reference
+```
+
+Inline `?? []` creates a new reference every render, breaking downstream memoization.
+
+### Mounted Guard for Async Operations
+
+```typescript
+useEffect(() => {
+  let mounted = true;
+  warmOpenTabs(tabIds, () => mounted).catch(() => {});
+  return () => { mounted = false; };
+}, [tabIds]);
+```
+
+Pass `() => boolean` guard to async functions so they bail mid-batch on unmount.
+
+### Modifier Price Display
+
+```typescript
+{mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
+```
+
+Use Unicode minus `\u2212` (−) for negative price adjustments, not ASCII hyphen-minus.
+
+---
+
+## §229 — Sentry & Observability Patterns (2026-03-05)
+
+### Initialization
+
+- Conditional on `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` — no-op if not configured
+- `tracesSampleRate`: 1.0 in development, 0.1 in production
+- `replaysSessionSampleRate`: 0.1, `replaysOnErrorSampleRate`: 1.0
+
+### PII Scrubbing in `beforeSend`
+
+Always scrub from `event.request.headers`: `authorization`, `cookie`, `x-api-key`.
+Always scrub from `event.request.data`: `password`, `token`, `refreshToken`, `pin`, `posPin`, `overridePin`.
+Server config additionally scrubs `extra` fields matching `/url|secret|key|password|token|dsn/i`.
+
+### Server-Side Hook
+
+```typescript
+// instrumentation.ts
+export const onRequestError = Sentry.captureRequestError;
+```
+
+### Error Boundary Patterns
+
+| Boundary | Type | Sentry Loading | Behavior |
+|----------|------|---------------|----------|
+| `global-error.tsx` | Root | Direct import | `useEffect(() => captureException(error))` |
+| `dashboard/error.tsx` | Dashboard | Dynamic import | Tags: `{ component: 'DashboardError' }` |
+| `pos-error-boundary.tsx` | POS | Dynamic import in `componentDidCatch` | Crash counter: soft → hard reload after 2 |
+
+Dynamic import pattern for non-critical boundaries: `import('@sentry/nextjs').then(Sentry => Sentry.captureException(...)).catch(() => {})`.
+
+### Consumer Registration Observability
+
+`instrumentation.ts` splits consumers into critical (await Promise.all) and deferred (Promise.allSettled in background). `importSafe(label, fn)` wraps each registration — failed modules log but don't crash startup.
+
+---
+
+## §230 — Backup/Restore System (2026-03-05)
+
+### Direct Connection Requirement
+
+Must use `DATABASE_URL_ADMIN` (port 5432, direct). Port 6543 (Supavisor) silently ignores `SET LOCAL statement_timeout`. Startup check throws if port 6543 detected.
+
+### Table Discovery
+
+Via `information_schema.tables` (schema=public, type=BASE TABLE). Excluded: `drizzle_migrations`, `spatial_ref_sys`, `platform_backups`, `distributed_locks`, etc.
+
+### FK Dependency Order
+
+Kahn's topological sort on FK graph from `information_schema.table_constraints`. Insert order: parents first. Truncate order: children first. Circular deps: `SET CONSTRAINTS ALL DEFERRED`.
+
+### RLS Bypass Cascade
+
+Tried in order: (1) `SET LOCAL role = 'postgres'`, (2) `SET LOCAL role = 'supabase_admin'`, (3) `SET LOCAL row_security = 'off'`.
+
+### Cursor-Based Export
+
+```sql
+DECLARE backup_export_cursor NO SCROLL CURSOR FOR SELECT * FROM "table"
+FETCH 5000 FROM backup_export_cursor  -- loop until empty
+CLOSE backup_export_cursor
+```
+
+Avoids O(n²) LIMIT/OFFSET rescanning on large tables.
+
+### Transaction Timeouts
+
+```sql
+SET LOCAL statement_timeout = '300s'
+SET LOCAL idle_in_transaction_session_timeout = '600s'
+```
+
+### Dual Restore Modes
+
+- Full restore: TRUNCATE all → INSERT all in dependency order → reset sequences
+- Tenant-scoped: DELETE WHERE tenant_id → INSERT matching rows (skip non-tenant tables, no sequence reset)
+
+### Schema Version Check
+
+`MAX(idx) FROM drizzle_migrations` must match between backup and current DB. Mismatch = hard error.
+
+---
+
+## §231 — Reporting Consumer Patterns (2026-03-05)
+
+### Universal Consumer Structure
+
+```
+1. Zod safeParse(event.data) — on failure, console.error + return (don't throw)
+2. withTenant(tenantId, tx => {
+3.   INSERT INTO processed_events ON CONFLICT DO NOTHING RETURNING id
+4.   if (rows.length === 0) return  — already processed
+5.   ... upsert read model tables ...
+})
+```
+
+Consumer name: `CONSUMER_NAME = 'reporting.orderPlaced'` (stable constant, not auto-generated).
+
+### Cents → Dollars at Boundary
+
+Events carry INTEGER cents. Read models store NUMERIC(19,4) dollars. Convert at top of consumer body:
+
+```typescript
+const gross = (data.subtotal ?? 0) / 100;
+const tax = (data.taxTotal ?? 0) / 100;
+```
+
+### ON CONFLICT Upsert with Additive SQL
+
+```sql
+order_count = rm_daily_sales.order_count + 1,
+gross_sales = rm_daily_sales.gross_sales + $gross
+```
+
+Running averages: `((avg * count) + new) / (count + 1)`.
+Totals always recalculated from components in DO UPDATE (prevents drift).
+
+### Location Timezone for Business Date
+
+Look up `locations.timezone` in same transaction. Call `computeBusinessDate(occurredAt, timezone)`. Default: `'America/New_York'`.
+
+### Non-Revenue Entry Filtering
+
+PMS folio consumer skips: `PAYMENT`, `REFUND`, `CREDIT`, `ADJUSTMENT`, `DEPOSIT`, `TRANSFER`.
+
+### Multi-Dimensional Read Model Upserts
+
+Spa completed event upserts 4 read models in one transaction: daily operations, provider metrics, service metrics (loop over items), client metrics (conditional on customerId).
+
 

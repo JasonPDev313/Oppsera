@@ -329,6 +329,7 @@ export default function CleaningTypesTab({ propertyId }: CleaningTypesTabProps) 
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div className="absolute inset-0 bg-black/40" onClick={closeDialog} />
             {/* Panel */}
             <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
@@ -354,10 +355,11 @@ export default function CleaningTypesTab({ propertyId }: CleaningTypesTabProps) 
               <div className="space-y-4">
                 {/* Code */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="cleaning-type-code" className="mb-1 block text-sm font-medium text-foreground">
                     Code <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="cleaning-type-code"
                     type="text"
                     value={formCode}
                     onChange={(e) => setFormCode(e.target.value.toUpperCase())}
@@ -365,6 +367,7 @@ export default function CleaningTypesTab({ propertyId }: CleaningTypesTabProps) 
                     maxLength={20}
                     disabled={dialogMode === 'edit'}
                     className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus={dialogMode === 'create'}
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -374,26 +377,29 @@ export default function CleaningTypesTab({ propertyId }: CleaningTypesTabProps) 
 
                 {/* Name */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="cleaning-type-name" className="mb-1 block text-sm font-medium text-foreground">
                     Name <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="cleaning-type-name"
                     type="text"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
                     placeholder="e.g. Full Clean, Towel Refresh"
                     maxLength={100}
                     className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus={dialogMode === 'edit'}
                   />
                 </div>
 
                 {/* Description */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
+                  <label htmlFor="cleaning-type-description" className="mb-1 block text-sm font-medium text-foreground">
                     Description
                   </label>
                   <textarea
+                    id="cleaning-type-description"
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
                     placeholder="Optional description of what this cleaning type includes"
@@ -406,10 +412,11 @@ export default function CleaningTypesTab({ propertyId }: CleaningTypesTabProps) 
                 {/* Estimated Minutes + Sort Order */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-foreground">
+                    <label htmlFor="cleaning-type-est-minutes" className="mb-1 block text-sm font-medium text-foreground">
                       Est. Minutes
                     </label>
                     <input
+                      id="cleaning-type-est-minutes"
                       type="number"
                       min={1}
                       value={formEstimatedMinutes}
@@ -420,10 +427,11 @@ export default function CleaningTypesTab({ propertyId }: CleaningTypesTabProps) 
                     <p className="mt-1 text-xs text-muted-foreground">Expected duration</p>
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-foreground">
+                    <label htmlFor="cleaning-type-sort-order" className="mb-1 block text-sm font-medium text-foreground">
                       Sort Order
                     </label>
                     <input
+                      id="cleaning-type-sort-order"
                       type="number"
                       min={0}
                       value={formSortOrder}

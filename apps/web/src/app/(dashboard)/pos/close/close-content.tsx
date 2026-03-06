@@ -265,8 +265,9 @@ function CashCountForm({
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Notes (optional)</label>
+        <label htmlFor="close-notes" className="mb-1.5 block text-sm font-medium text-muted-foreground">Notes (optional)</label>
         <textarea
+          id="close-notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Any notes about this close..."

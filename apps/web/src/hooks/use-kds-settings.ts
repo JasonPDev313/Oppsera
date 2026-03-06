@@ -59,8 +59,11 @@ interface PerformanceTarget {
 
 interface ItemPrepTime {
   id: string;
-  catalogItemId: string;
+  catalogItemId: string | null;
   catalogItemName?: string | null;
+  categoryId: string | null;
+  categoryName?: string | null;
+  categoryLevel?: 'department' | 'sub_department' | 'category' | null;
   stationId: string | null;
   stationName?: string | null;
   estimatedPrepSeconds: number;
@@ -288,7 +291,8 @@ export function useItemPrepTimes(opts?: { catalogItemId?: string; stationId?: st
   useEffect(() => { setIsLoading(true); refresh(); }, [refresh]);
 
   const upsertPrepTime = useCallback(async (input: {
-    catalogItemId: string;
+    catalogItemId?: string;
+    categoryId?: string;
     stationId?: string;
     estimatedPrepSeconds: number;
     clientRequestId: string;
@@ -306,7 +310,7 @@ export function useItemPrepTimes(opts?: { catalogItemId?: string; stationId?: st
   }, [refresh]);
 
   const bulkUpsertPrepTimes = useCallback(async (input: {
-    items: Array<{ catalogItemId: string; stationId?: string; estimatedPrepSeconds: number }>;
+    items: Array<{ catalogItemId?: string; categoryId?: string; stationId?: string; estimatedPrepSeconds: number }>;
     clientRequestId: string;
   }) => {
     setIsActing(true);
@@ -391,7 +395,7 @@ export function useRoutingRules(locationId?: string) {
     timeConditionStart?: string;
     timeConditionEnd?: string;
     clientRequestId: string;
-  }) => {
+  }, opts?: { skipRefresh?: boolean }) => {
     requireLocationId(locationId);
     setIsActing(true);
     try {
@@ -399,7 +403,11 @@ export function useRoutingRules(locationId?: string) {
         method: 'POST',
         body: JSON.stringify(input),
       });
-      await refresh();
+      if (!opts?.skipRefresh) await refresh();
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[useRoutingRules] createRule FAILED — ${errMsg}`);
+      throw err;
     } finally {
       setIsActing(false);
     }
@@ -407,6 +415,12 @@ export function useRoutingRules(locationId?: string) {
 
   const updateRule = useCallback(async (ruleId: string, input: {
     ruleName?: string;
+    ruleType?: string;
+    catalogItemId?: string | null;
+    modifierId?: string | null;
+    departmentId?: string | null;
+    subDepartmentId?: string | null;
+    categoryId?: string | null;
     stationId?: string;
     priority?: number;
     orderTypeCondition?: string | null;

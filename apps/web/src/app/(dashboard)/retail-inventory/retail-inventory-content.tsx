@@ -237,6 +237,7 @@ export default function RetailInventoryContent() {
       key: 'actions',
       header: '',
       render: (row: EnrichedRow) => (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div onClick={(e) => e.stopPropagation()}>
           <ActionMenu items={buildActions(row)} />
         </div>
@@ -358,10 +359,11 @@ export default function RetailInventoryContent() {
         }}
       >
         <div className="mt-4">
-          <label className="block text-sm font-medium text-foreground mb-1">
+          <label htmlFor="deactivate-reason" className="block text-sm font-medium text-foreground mb-1">
             Reason (optional)
           </label>
           <textarea
+            id="deactivate-reason"
             value={deactivateReason}
             onChange={(e) => setDeactivateReason(e.target.value)}
             className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"

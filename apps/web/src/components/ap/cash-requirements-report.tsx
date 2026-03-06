@@ -35,8 +35,9 @@ export function CashRequirementsReport() {
       {/* Controls */}
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Group By</label>
+          <label htmlFor="cash-req-group-by" className="block text-sm font-medium text-foreground mb-1">Group By</label>
           <select
+            id="cash-req-group-by"
             value={groupBy}
             onChange={(e) => setGroupBy(e.target.value as 'week' | 'month')}
             className="rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"

@@ -100,6 +100,7 @@ export function FileUploadZone({
 
   return (
     <div className="space-y-2">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className={`relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors ${
           isDragOver

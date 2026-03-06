@@ -216,8 +216,9 @@ export default function FailedPaymentsContent() {
         <div className="rounded-lg border border-border bg-surface p-4">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">From Date</label>
+              <label htmlFor="failed-date-from" className="block text-xs font-medium text-muted-foreground mb-1">From Date</label>
               <input
+                id="failed-date-from"
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
@@ -225,8 +226,9 @@ export default function FailedPaymentsContent() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">To Date</label>
+              <label htmlFor="failed-date-to" className="block text-xs font-medium text-muted-foreground mb-1">To Date</label>
               <input
+                id="failed-date-to"
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
@@ -234,8 +236,9 @@ export default function FailedPaymentsContent() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Decline Category</label>
+              <label htmlFor="failed-category-filter" className="block text-xs font-medium text-muted-foreground mb-1">Decline Category</label>
               <select
+                id="failed-category-filter"
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 className="block w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
@@ -525,6 +528,7 @@ function RetryDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative rounded-lg bg-surface shadow-xl p-6 w-full max-w-md">
         <h3 className="text-lg font-semibold text-foreground">Retry Payment</h3>
@@ -662,6 +666,7 @@ function ResolveDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative rounded-lg bg-surface shadow-xl p-6 w-full max-w-md">
         <h3 className="text-lg font-semibold text-foreground">
@@ -675,10 +680,11 @@ function ResolveDialog({
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <label htmlFor="failed-resolve-reason" className="block text-sm font-medium text-foreground mb-1">
               Reason <span className="text-red-500">*</span>
             </label>
             <textarea
+              id="failed-resolve-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}

@@ -43,6 +43,7 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
       <div className="space-y-5 pb-4 pl-7">
         {/* Split ratio slider */}
         <div>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="mb-2 block text-xs font-medium text-muted-foreground">
             Catalog / Cart Width
           </label>
@@ -81,6 +82,7 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
 
         {/* Item tile size */}
         <div>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="mb-2 block text-xs font-medium text-muted-foreground">Item Tile Size</label>
           <div className="flex gap-2">
             {TILE_SIZES.map((size) => (
@@ -103,6 +105,7 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
 
         {/* Default view mode */}
         <div>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="mb-2 block text-xs font-medium text-muted-foreground">Default View Mode</label>
           <div className="flex gap-2">
             <button

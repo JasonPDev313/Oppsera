@@ -32,6 +32,12 @@ export async function updateRoutingRule(
 
     const setFields: Record<string, unknown> = { updatedAt: new Date() };
     if (input.ruleName !== undefined) setFields.ruleName = input.ruleName;
+    if (input.ruleType !== undefined) setFields.ruleType = input.ruleType;
+    if (input.catalogItemId !== undefined) setFields.catalogItemId = input.catalogItemId;
+    if (input.modifierId !== undefined) setFields.modifierId = input.modifierId;
+    if (input.departmentId !== undefined) setFields.departmentId = input.departmentId;
+    if (input.subDepartmentId !== undefined) setFields.subDepartmentId = input.subDepartmentId;
+    if (input.categoryId !== undefined) setFields.categoryId = input.categoryId;
     if (input.stationId !== undefined) setFields.stationId = input.stationId;
     if (input.priority !== undefined) setFields.priority = input.priority;
     if (input.orderTypeCondition !== undefined) setFields.orderTypeCondition = input.orderTypeCondition;
@@ -43,7 +49,10 @@ export async function updateRoutingRule(
     const [updated] = await tx
       .update(fnbKitchenRoutingRules)
       .set(setFields)
-      .where(eq(fnbKitchenRoutingRules.id, ruleId))
+      .where(and(
+        eq(fnbKitchenRoutingRules.id, ruleId),
+        eq(fnbKitchenRoutingRules.tenantId, ctx.tenantId),
+      ))
       .returning();
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'updateRoutingRule', updated);

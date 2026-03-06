@@ -50,6 +50,12 @@ export async function bulkVoidTabs(
         failed.push({ tabId, error: `Cannot void tab in status '${tab.status}'` });
         continue;
       }
+      // Optimistic locking: reject if version changed since client last fetched
+      const expectedVersion = input.expectedVersions?.[tabId];
+      if (expectedVersion != null && tab.version !== expectedVersion) {
+        failed.push({ tabId, error: 'Conflict: tab was modified by another session' });
+        continue;
+      }
 
       // Void the tab
       await tx

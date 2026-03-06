@@ -54,6 +54,12 @@ export async function bulkTransferTabs(
         failed.push({ tabId, error: 'Tab already assigned to target server' });
         continue;
       }
+      // Optimistic locking: reject if version changed since client last fetched
+      const expectedVersion = input.expectedVersions?.[tabId];
+      if (expectedVersion != null && tab.version !== expectedVersion) {
+        failed.push({ tabId, error: 'Conflict: tab was modified by another session' });
+        continue;
+      }
 
       const fromServerUserId = tab.serverUserId;
 

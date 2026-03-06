@@ -108,10 +108,11 @@ export default function InvoiceFormContent() {
         <div className="rounded-lg border border-border bg-surface p-5 space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="ar-invoice-customer" className="block text-sm font-medium text-foreground mb-1">
                 Customer <span className="text-red-500">*</span>
               </label>
               <input
+                id="ar-invoice-customer"
                 type="text"
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}
@@ -120,8 +121,9 @@ export default function InvoiceFormContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Billing Account</label>
+              <label htmlFor="ar-invoice-billing-account" className="block text-sm font-medium text-foreground mb-1">Billing Account</label>
               <input
+                id="ar-invoice-billing-account"
                 type="text"
                 value={billingAccountId}
                 onChange={(e) => setBillingAccountId(e.target.value)}
@@ -130,8 +132,9 @@ export default function InvoiceFormContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Source Type</label>
+              <label htmlFor="ar-invoice-source-type" className="block text-sm font-medium text-foreground mb-1">Source Type</label>
               <select
+                id="ar-invoice-source-type"
                 value={sourceType}
                 onChange={(e) => setSourceType(e.target.value)}
                 className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -142,10 +145,11 @@ export default function InvoiceFormContent() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="ar-invoice-date" className="block text-sm font-medium text-foreground mb-1">
                 Invoice Date <span className="text-red-500">*</span>
               </label>
               <input
+                id="ar-invoice-date"
                 type="date"
                 value={invoiceDate}
                 onChange={(e) => setInvoiceDate(e.target.value)}
@@ -153,10 +157,11 @@ export default function InvoiceFormContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="ar-invoice-due-date" className="block text-sm font-medium text-foreground mb-1">
                 Due Date <span className="text-red-500">*</span>
               </label>
               <input
+                id="ar-invoice-due-date"
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
@@ -165,8 +170,9 @@ export default function InvoiceFormContent() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Memo</label>
+            <label htmlFor="ar-invoice-memo" className="block text-sm font-medium text-foreground mb-1">Memo</label>
             <textarea
+              id="ar-invoice-memo"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               rows={2}

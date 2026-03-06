@@ -196,6 +196,7 @@ export function BranchTree({
 
                     <div className="flex items-center justify-between">
                       {isEditing ? (
+                        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="text"
@@ -203,6 +204,7 @@ export function BranchTree({
                             onChange={(e) => setEditLabel(e.target.value)}
                             className="rounded border border-input bg-background px-2 py-0.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
                             maxLength={60}
+                            // eslint-disable-next-line jsx-a11y/no-autofocus
                             autoFocus
                           />
                           <button

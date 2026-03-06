@@ -1,4 +1,4 @@
-import { db, withTenant } from '@oppsera/db';
+import { withTenant } from '@oppsera/db';
 import {
   semanticEvalTurns,
   semanticEvalSessions,
@@ -123,8 +123,7 @@ export async function submitUserRating(
     hasCompiledSql;
 
   if (shouldPromote) {
-    // Fire-and-forget — never block the feedback response
-    addTrainingPair({
+    await addTrainingPair({
       tenantId,
       question: turn.userMessage,
       compiledSql: turn.compiledSql,
@@ -146,14 +145,18 @@ export async function submitUserRating(
 
 export async function submitAdminReview(
   evalTurnId: string,
+  tenantId: string,
   adminId: string,
   input: AdminReviewInput,
 ): Promise<void> {
-  const [turn] = await db
-    .select()
-    .from(semanticEvalTurns)
-    .where(eq(semanticEvalTurns.id, evalTurnId))
-    .limit(1);
+  const turn = await withTenant(tenantId, async (tx) => {
+    const [t] = await tx
+      .select()
+      .from(semanticEvalTurns)
+      .where(and(eq(semanticEvalTurns.id, evalTurnId), eq(semanticEvalTurns.tenantId, tenantId)))
+      .limit(1);
+    return t;
+  });
 
   if (!turn) {
     throw new NotFoundError('Eval turn not found');
@@ -179,25 +182,27 @@ export async function submitAdminReview(
     qualityFlags: recomputedFlags,
   } as Parameters<typeof computeQualityScore>[0]);
 
-  await db
-    .update(semanticEvalTurns)
-    .set({
-      adminReviewerId: adminId,
-      adminScore: input.score,
-      adminVerdict: input.verdict,
-      adminNotes: input.notes ?? null,
-      adminCorrectedPlan: input.correctedPlan ?? null,
-      adminCorrectedNarrative: input.correctedNarrative ?? null,
-      adminReviewedAt: now,
-      adminActionTaken: input.actionTaken,
-      qualityFlags: recomputedFlags.length > 0 ? recomputedFlags : turn.qualityFlags as QualityFlag[],
-      qualityScore: newScore !== null ? newScore.toString() : turn.qualityScore,
-      updatedAt: now,
-    })
-    .where(eq(semanticEvalTurns.id, evalTurnId));
+  await withTenant(tenantId, async (tx) => {
+    await tx
+      .update(semanticEvalTurns)
+      .set({
+        adminReviewerId: adminId,
+        adminScore: input.score,
+        adminVerdict: input.verdict,
+        adminNotes: input.notes ?? null,
+        adminCorrectedPlan: input.correctedPlan ?? null,
+        adminCorrectedNarrative: input.correctedNarrative ?? null,
+        adminReviewedAt: now,
+        adminActionTaken: input.actionTaken,
+        qualityFlags: recomputedFlags.length > 0 ? recomputedFlags : turn.qualityFlags as QualityFlag[],
+        qualityScore: newScore !== null ? newScore.toString() : turn.qualityScore,
+        updatedAt: now,
+      })
+      .where(eq(semanticEvalTurns.id, evalTurnId));
+  });
 
   // Update session avg admin score
-  await updateSessionAvgAdminScore(turn.sessionId);
+  await updateSessionAvgAdminScore(turn.sessionId, tenantId);
 
   // ── SEM-05: Auto-promote to RAG on admin 5-star approval ──────
   // When an admin gives a perfect score with "approved" verdict and
@@ -210,7 +215,7 @@ export async function submitAdminReview(
     !!turn.compiledSql;
 
   if (adminShouldPromote) {
-    addTrainingPair({
+    await addTrainingPair({
       tenantId: turn.tenantId,
       question: turn.userMessage,
       compiledSql: turn.compiledSql,
@@ -231,14 +236,18 @@ export async function submitAdminReview(
 
 export async function promoteToExample(
   evalTurnId: string,
+  tenantId: string,
   adminId: string,
   input: PromoteExampleInput,
 ): Promise<string> {
-  const [turn] = await db
-    .select()
-    .from(semanticEvalTurns)
-    .where(eq(semanticEvalTurns.id, evalTurnId))
-    .limit(1);
+  const turn = await withTenant(tenantId, async (tx) => {
+    const [t] = await tx
+      .select()
+      .from(semanticEvalTurns)
+      .where(and(eq(semanticEvalTurns.id, evalTurnId), eq(semanticEvalTurns.tenantId, tenantId)))
+      .limit(1);
+    return t;
+  });
 
   if (!turn) {
     throw new NotFoundError('Eval turn not found');
@@ -250,28 +259,29 @@ export async function promoteToExample(
 
   const exampleId = generateUlid();
 
-  await db.insert(semanticEvalExamples).values({
-    id: exampleId,
-    tenantId: turn.tenantId,
-    sourceEvalTurnId: evalTurnId,
-    question: turn.userMessage,
-    plan: turn.llmPlan as Record<string, unknown>,
-    rationale: turn.llmRationale as Record<string, unknown> | null,
-    category: input.category,
-    difficulty: input.difficulty,
-    qualityScore: turn.qualityScore,
-    isActive: true,
-    addedBy: adminId,
-  });
+  await withTenant(tenantId, async (tx) => {
+    await tx.insert(semanticEvalExamples).values({
+      id: exampleId,
+      tenantId: turn.tenantId,
+      sourceEvalTurnId: evalTurnId,
+      question: turn.userMessage,
+      plan: turn.llmPlan as Record<string, unknown>,
+      rationale: turn.llmRationale as Record<string, unknown> | null,
+      category: input.category,
+      difficulty: input.difficulty,
+      qualityScore: turn.qualityScore,
+      isActive: true,
+      addedBy: adminId,
+    });
 
-  // Mark the source turn
-  await db
-    .update(semanticEvalTurns)
-    .set({
-      adminActionTaken: 'added_to_examples',
-      updatedAt: new Date(),
-    })
-    .where(eq(semanticEvalTurns.id, evalTurnId));
+    await tx
+      .update(semanticEvalTurns)
+      .set({
+        adminActionTaken: 'added_to_examples',
+        updatedAt: new Date(),
+      })
+      .where(eq(semanticEvalTurns.id, evalTurnId));
+  });
 
   return exampleId;
 }
@@ -289,47 +299,24 @@ function inferModeFromTurn(turn: { llmPlan: unknown }): 'metrics' | 'sql' {
 
 // ── Session rolling averages ────────────────────────────────────
 
-async function _updateSessionAvgUserRating(sessionId: string, tenantId: string): Promise<void> {
-  // Wrap in withTenant so RLS context is set for the eval tables.
+async function updateSessionAvgAdminScore(sessionId: string, tenantId: string): Promise<void> {
   await withTenant(tenantId, async (tx) => {
-    // Compute rolling average from all turns in session that have a user rating
-    const result = await tx.execute<{ avg_rating: string }>(
-      sql`SELECT AVG(user_rating)::NUMERIC(3,2) as avg_rating
+    const result = await tx.execute<{ avg_score: string }>(
+      sql`SELECT AVG(admin_score)::NUMERIC(3,2) as avg_score
           FROM semantic_eval_turns
           WHERE session_id = ${sessionId}
             AND tenant_id = ${tenantId}
-            AND user_rating IS NOT NULL`,
+            AND admin_score IS NOT NULL`,
     );
-
-    const rows = Array.from(result as Iterable<{ avg_rating: string }>);
-    const avgRating = rows[0]?.avg_rating;
+    const rows = Array.from(result as Iterable<{ avg_score: string }>);
+    const avgScore = rows[0]?.avg_score;
 
     await tx
       .update(semanticEvalSessions)
       .set({
-        avgUserRating: avgRating ?? null,
+        avgAdminScore: avgScore ?? null,
         updatedAt: new Date(),
       })
       .where(eq(semanticEvalSessions.id, sessionId));
   });
-}
-
-async function updateSessionAvgAdminScore(sessionId: string): Promise<void> {
-  const result = await db.execute<{ avg_score: string }>(
-    sql`SELECT AVG(admin_score)::NUMERIC(3,2) as avg_score
-        FROM semantic_eval_turns
-        WHERE session_id = ${sessionId}
-          AND admin_score IS NOT NULL`,
-  );
-
-  const rows = Array.from(result as Iterable<{ avg_score: string }>);
-  const avgScore = rows[0]?.avg_score;
-
-  await db
-    .update(semanticEvalSessions)
-    .set({
-      avgAdminScore: avgScore ?? null,
-      updatedAt: new Date(),
-    })
-    .where(eq(semanticEvalSessions.id, sessionId));
 }
