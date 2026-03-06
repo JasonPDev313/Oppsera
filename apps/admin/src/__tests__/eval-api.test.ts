@@ -43,13 +43,13 @@ vi.mock('@oppsera/module-semantic', () => ({
   adminReviewSchema: {
     safeParse: vi.fn().mockReturnValue({
       success: true,
-      data: { verdict: 'correct', score: 5, notes: undefined, action: undefined },
+      data: { tenantId: 'tenant_001', verdict: 'correct', score: 5, notes: undefined, actionTaken: undefined },
     }),
   },
   promoteExampleSchema: {
     safeParse: vi.fn().mockReturnValue({
       success: true,
-      data: { category: 'sales', difficulty: 'easy', tags: ['test'] },
+      data: { tenantId: 'tenant_001', category: 'sales', difficulty: 'easy' },
     }),
   },
 }));
@@ -167,13 +167,14 @@ describe('POST /api/v1/eval/turns/[id]/review', () => {
     const { POST } = await import('../app/api/v1/eval/turns/[id]/review/route');
     const req = makeRequest('/api/v1/eval/turns/turn_001/review', {
       method: 'POST',
-      body: JSON.stringify({ verdict: 'correct', score: 5 }),
+      body: JSON.stringify({ tenantId: 'tenant_001', verdict: 'correct', score: 5 }),
     });
     const res = await POST(req, { params: Promise.resolve({ id: 'turn_001' }) });
 
     expect(res.status).toBe(200);
     expect(mockSubmitAdminReview).toHaveBeenCalledWith(
       'turn_001',
+      'tenant_001',
       'admin_001',
       expect.objectContaining({ verdict: 'correct', score: 5 }),
     );
@@ -192,7 +193,7 @@ describe('POST /api/v1/eval/turns/[id]/promote', () => {
     const { POST } = await import('../app/api/v1/eval/turns/[id]/promote/route');
     const req = makeRequest('/api/v1/eval/turns/turn_001/promote', {
       method: 'POST',
-      body: JSON.stringify({ category: 'sales', difficulty: 'easy' }),
+      body: JSON.stringify({ tenantId: 'tenant_001', category: 'sales', difficulty: 'easy' }),
     });
     const res = await POST(req, { params: Promise.resolve({ id: 'turn_001' }) });
 
