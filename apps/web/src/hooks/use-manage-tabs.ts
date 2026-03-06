@@ -104,6 +104,7 @@ export interface UndoSnapshot {
 }
 
 const POLL_INTERVAL_MS = 15_000;
+const MAX_BACKOFF_MS = 120_000; // 2 minutes max between polls on repeated errors
 const UNDO_WINDOW_MS = 30_000;
 
 // ── Hook ────────────────────────────────────────────────────────
@@ -136,6 +137,9 @@ export function useManageTabs(locationId: string) {
   const versionMap = useRef<Map<string, number>>(new Map());
   const [staleIds, setStaleIds] = useState<Set<string>>(new Set());
 
+  // ─── Error backoff for polling ────────────────────────────────
+  const consecutiveErrors = useRef(0);
+
   const refreshTabs = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -166,7 +170,9 @@ export function useManageTabs(locationId: string) {
       setTabs(res.data);
       setCursor(res.meta.cursor);
       setHasMore(res.meta.hasMore);
+      consecutiveErrors.current = 0;
     } catch (err) {
+      consecutiveErrors.current += 1;
       const msg = err instanceof Error ? err.message : 'Failed to load tabs';
       setError(msg);
       console.error('[useManageTabs] refreshTabs failed:', err);
@@ -189,17 +195,25 @@ export function useManageTabs(locationId: string) {
     return onChannelRefresh('tab', () => { refreshTabsRef.current(); });
   }, []);
 
-  // ─── Polling (15s interval — safety net for missed broadcasts) ─
+  // ─── Polling (15s base — backs off exponentially on repeated errors) ─
   // Uses refreshTabsRef so the interval doesn't restart on every filter change
   const pollEnabled = useRef(true);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (pollEnabled.current) {
-        refreshTabsRef.current();
-      }
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      const backoff = consecutiveErrors.current > 0
+        ? Math.min(POLL_INTERVAL_MS * 2 ** consecutiveErrors.current, MAX_BACKOFF_MS)
+        : POLL_INTERVAL_MS;
+      timer = setTimeout(() => {
+        if (pollEnabled.current) {
+          refreshTabsRef.current();
+        }
+        schedule();
+      }, backoff);
+    };
+    schedule();
+    return () => clearTimeout(timer);
   }, []);
 
   // Pause polling during mutations
