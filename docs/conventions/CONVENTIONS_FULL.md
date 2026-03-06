@@ -11946,4 +11946,412 @@ PMS folio consumer skips: `PAYMENT`, `REFUND`, `CREDIT`, `ADJUSTMENT`, `DEPOSIT`
 
 Spa completed event upserts 4 read models in one transaction: daily operations, provider metrics, service metrics (loop over items), client metrics (conditional on customerId).
 
+## §232 — Event Bus Inline Dispatch + Unclaim (2026-03-05)
+
+### Inline Dispatch (No Fire-and-Forget)
+
+`publishWithOutbox` MUST `await` inline dispatch — never fire-and-forget:
+
+```typescript
+// CORRECT — awaited inline dispatch
+await Promise.allSettled(
+  committedEvents.map((event) =>
+    bus.publish(event).catch((err) => {
+      console.error(`[inline-dispatch] post-commit dispatch failed`, err);
+    }),
+  ),
+);
+
+// WRONG — fire-and-forget races with Vercel freeze
+for (const event of committedEvents) {
+  bus.publish(event).catch(() => {}); // NEVER
+}
+```
+
+The event bus claims events in `processed_events` BEFORE the handler runs. Fire-and-forget allows Vercel to freeze mid-handler, leaving the event permanently claimed but never processed. Awaiting adds ~100–300ms but guarantees handler completion.
+
+### Unclaim on Handler Failure
+
+If all retry attempts fail, the event bus MUST delete the `processed_events` claim:
+
+```typescript
+if (!handlerSucceeded) {
+  await db.execute(
+    sql`DELETE FROM processed_events WHERE event_id = ${eventId} AND consumer_name = ${consumerName}`,
+  );
+}
+```
+
+Without unclaim, exhausted retries leave the event permanently stuck — the outbox worker sees it as claimed and skips it forever.
+
+## §233 — Tenant ID Defense-in-Depth (2026-03-05)
+
+Every `UPDATE` and `DELETE` WHERE clause MUST include `tenantId` alongside the primary key:
+
+```typescript
+// CORRECT — defense-in-depth
+await tx.update(table).set(data).where(
+  and(eq(table.id, id), eq(table.tenantId, ctx.tenantId))
+);
+
+// WRONG — relies solely on RLS
+await tx.update(table).set(data).where(eq(table.id, id));
+```
+
+Even with RLS active, app-level tenant filtering catches RLS misconfigurations, service-role bypasses, and background worker contexts. Applied to all mutation commands across all modules.
+
+## §234 — Hook Return Stabilization (2026-03-05)
+
+Every custom hook that returns an object literal MUST wrap it in `useMemo`:
+
+```typescript
+// CORRECT — stable reference
+return useMemo(() => ({
+  user, tenant, login, logout, refetch,
+}), [user, tenant, login, logout, refetch]);
+
+// WRONG — new object every render, cascading re-renders
+return { user, tenant, login, logout, refetch };
+```
+
+Inline functions in the return must be extracted to `useCallback` first:
+
+```typescript
+const refetch = useCallback(() => fetchData(true), [fetchData]);
+return useMemo(() => ({ data, refetch }), [data, refetch]);
+```
+
+Critical for hooks consumed broadly (`useAuth`, `useEntitlements`, `useNavigationGuard`). Context Provider values get the same treatment.
+
+## §235 — KDS Polling Resilience (2026-03-05)
+
+### Generation Counter for Stale-Promise Prevention
+
+```typescript
+const generationRef = useRef(0);
+// On deps change:
+generationRef.current += 1;
+// In async fetch:
+const gen = generationRef.current;
+const data = await apiFetch(...);
+if (gen !== generationRef.current) return; // Stale — discard
+setState(data);
+```
+
+### AbortController on Every Fetch
+
+```typescript
+abortRef.current?.abort();
+const controller = new AbortController();
+abortRef.current = controller;
+await apiFetch(url, { signal: controller.signal });
+```
+
+### Transient Failure Suppression
+
+```typescript
+consecutiveFailuresRef.current += 1;
+if (!hasLoadedRef.current || consecutiveFailuresRef.current >= 3) {
+  setError(msg); // Only surface after 3 consecutive failures
+}
+// On success:
+consecutiveFailuresRef.current = 0;
+```
+
+### Tab Visibility Resume
+
+```typescript
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') fetchData();
+});
+```
+
+### Stable Polling Ref (No Interval Restart)
+
+```typescript
+const refreshRef = useRef(refreshFn);
+refreshRef.current = refreshFn; // Update ref each render
+useEffect(() => {
+  const interval = setInterval(() => refreshRef.current(), POLL_MS);
+  return () => clearInterval(interval);
+}, []); // Never restarts — ref always has latest
+```
+
+## §236 — A11y Sweep Patterns (2026-03-05)
+
+### Label-Input Association
+
+Every `<label>` MUST have `htmlFor` pointing to an `<input>` with matching `id`:
+
+```tsx
+<label htmlFor="bank-routing-number">Routing Number</label>
+<input id="bank-routing-number" type="password" ... />
+
+// In mapped lists, scope IDs to prevent collision:
+<label htmlFor={`rel-date-${rel.id}`}>Effective Date</label>
+<input id={`rel-date-${rel.id}`} type="date" ... />
+```
+
+When a custom component can't thread `id`, use targeted suppress:
+```tsx
+{/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+<label>Amount</label>
+```
+
+### Backdrop Divs — Intentional Suppress
+
+Backdrops are NOT interactive content. Keep as `<div>` with suppress comment:
+
+```tsx
+{/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+<div className="absolute inset-0 bg-black/50" onClick={onClose} />
+```
+
+Making backdrops `<button>` would expose them to keyboard Tab — wrong a11y.
+
+### Touch-Interactive Elements
+
+KDS and touch targets use `role="button"` + `tabIndex={0}` + `onKeyDown`:
+
+```tsx
+<div
+  role={isTappable ? 'button' : undefined}
+  tabIndex={isTappable ? 0 : undefined}
+  onKeyDown={isTappable ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
+  style={{ WebkitTapHighlightColor: 'rgba(99, 102, 241, 0.15)' }}
+/>
+```
+
+## §237 — Customer Profile Drawer V2 (2026-03-05)
+
+### Two-Level Navigation
+
+Vertical icon rail (52px) on left with 7 sections + horizontal sub-tab bar for sections with sub-views. Sub-tab state persisted per-section as `Record<string, string>`.
+
+### Lazy-Loaded Tabs with Skeleton
+
+```tsx
+const FinancialTab = dynamic(
+  () => import('@/components/customer-360/FinancialTab'),
+  { ssr: false, loading: () => <TabSkeleton /> },
+);
+```
+
+14 eager imports → 13 lazy imports with `ssr: false` (portals don't SSR).
+
+### Legacy Tab Key Backward Compatibility
+
+```typescript
+const LEGACY_TAB_MAP: Record<string, { section: SectionKey; subTab?: string }> = {
+  payments: { section: 'financial', subTab: 'accounts' },
+  notes: { section: 'communication', subTab: 'messages' },
+};
+```
+
+### Tab Error Boundary with Auto-Reset
+
+Class component wrapping tab content. `resetKey = ${customerId}-${section}-${subTab}` — navigating away auto-clears crash state.
+
+### Focus Trap + Focus Restore
+
+Capture `document.activeElement` before open, focus into drawer, trap Tab within focusable elements, restore trigger focus on close (with 300ms animation delay).
+
+### Body Scroll Lock (Preserve Previous)
+
+```typescript
+const prev = document.body.style.overflow;
+document.body.style.overflow = 'hidden';
+return () => { document.body.style.overflow = prev; };
+```
+
+## §238 — GL Adapter Self-Canceling Entry Guards (2026-03-05)
+
+GL adapters MUST detect and abort Dr/Cr against the same account:
+
+```typescript
+if (debitAccountId && creditAccountId && debitAccountId === creditAccountId) {
+  await logUnmappedEvent(db, tenantId, {
+    eventType: 'order.line.comped.v1',
+    reason: `Skipped — debit and credit resolve to same account (${debitAccountId})`,
+  });
+  return; // Abort — don't create phantom zero-effect entry
+}
+```
+
+Also guard negative net amounts and unbalanced line totals:
+
+```typescript
+if (Math.abs(totalDebits - totalCredits) > 0.01) {
+  await logUnmappedEvent(..., { reason: `GL entry unbalanced: debits=${totalDebits} credits=${totalCredits}` });
+  return;
+}
+```
+
+## §239 — Tender Reversal: Mirror Original GL (2026-03-05)
+
+Reversals MUST look up the original tender's GL journal entry and swap Dr/Cr on each line:
+
+```typescript
+const origLines = await getOriginalJournalLines(tx, tenantId, originalTenderId);
+const reversalLines = origLines.map((line) => ({
+  accountId: line.accountId,
+  debitAmount: String(Number(line.creditAmount ?? 0).toFixed(2)),
+  creditAmount: String(Number(line.debitAmount ?? 0).toFixed(2)),
+  memo: `Reversal of tender ${originalTenderId}`,
+}));
+```
+
+Falls back to generic reversal only if original GL entry not found. Prevents mismatched accounts.
+
+## §240 — KDS Bump Two-Phase State Machine (2026-03-05)
+
+KDS items have a two-bump lifecycle: `pending/in_progress → ready → served`.
+
+- First bump: sets `ready` (kitchen signals "done")
+- Second bump: sets `served` (expo confirms "delivered")
+- Terminal states `served`/`voided` reject further bumps
+
+### Concurrent Bump Guard
+
+Include current status in WHERE to prevent race conditions:
+
+```typescript
+const [updated] = await tx.update(fnbKitchenTicketItems)
+  .set({ itemStatus: newStatus })
+  .where(and(
+    eq(table.id, itemId),
+    eq(table.tenantId, ctx.tenantId),
+    eq(table.itemStatus, currentStatus), // Optimistic lock
+  ))
+  .returning();
+if (!updated) throw new TicketItemStatusConflictError(...);
+```
+
+## §241 — Advisory Locks for Aggregate Serialization (2026-03-05)
+
+`SELECT MAX(position) ... FOR UPDATE` is invalid — no rows to lock on aggregates. Use `pg_advisory_xact_lock`:
+
+```typescript
+await tx.execute(sql`
+  SELECT pg_advisory_xact_lock(hashtext(${tenantId} || ':waitlist:' || ${locationId} || ':' || ${businessDate}))
+`);
+const nextPos = await tx.execute(sql`SELECT COALESCE(MAX(position), 0) + 1 AS next_pos ...`);
+```
+
+Advisory lock is transaction-scoped (auto-released on commit). Hash the compound key to a single integer.
+
+## §242 — RLS Migration Patterns (2026-03-05)
+
+### Idempotent Policy Creation
+
+`CREATE POLICY IF NOT EXISTS` is NOT valid Postgres. Use `DO $$ BEGIN`:
+
+```sql
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE policyname = 'my_policy' AND tablename = 'my_table'
+  ) THEN
+    CREATE POLICY my_policy ON my_table
+      USING (tenant_id = current_setting('app.current_tenant_id', true));
+  END IF;
+END $$;
+```
+
+### FORCE ROW LEVEL SECURITY
+
+`ENABLE ROW LEVEL SECURITY` only applies to non-superuser roles. Service-role connections bypass RLS. Add `FORCE` for tables with tenant data:
+
+```sql
+ALTER TABLE my_table ENABLE ROW LEVEL SECURITY;
+ALTER TABLE my_table FORCE ROW LEVEL SECURITY;
+```
+
+### GUC Key Convention
+
+Always use `app.current_tenant_id` — NOT `app.tenant_id`. Verify in all RLS policies.
+
+## §243 — KDS Category-Level Prep Times (2026-03-05)
+
+### XOR Constraint
+
+`fnb_kds_item_prep_times` supports item-level OR category-level targeting:
+
+```sql
+ALTER TABLE fnb_kds_item_prep_times ADD CONSTRAINT chk_prep_time_target CHECK (
+  (catalog_item_id IS NOT NULL AND category_id IS NULL) OR
+  (catalog_item_id IS NULL AND category_id IS NOT NULL)
+);
+```
+
+### Partial Unique Indexes with COALESCE for Nullable Columns
+
+```sql
+CREATE UNIQUE INDEX uidx_prep_time_item
+  ON fnb_kds_item_prep_times (tenant_id, catalog_item_id, COALESCE(station_id, ''))
+  WHERE catalog_item_id IS NOT NULL;
+```
+
+`COALESCE(station_id, '')` handles NULL station (global scope) — without it, two NULL rows wouldn't conflict.
+
+No FK to `catalog_categories` — cross-module FK not allowed. App-level integrity only.
+
+## §244 — Compound Cursor Pagination (2026-03-05)
+
+For keyset pagination where the sort column is not unique, encode both the sort value and `id` in the cursor:
+
+```typescript
+interface CursorData { id: string; sortVal?: string; }
+function encodeCursor(data: CursorData): string {
+  return Buffer.from(JSON.stringify(data)).toString('base64url');
+}
+
+// Pagination condition for (opened_at DESC, id DESC):
+conditions.push(sql`(t.opened_at, t.id) < (${cursor.sortVal}::timestamptz, ${cursor.id})`);
+```
+
+### ILIKE Wildcard Escaping
+
+Always escape `%`, `_`, `\` in user search input before building ILIKE patterns:
+
+```typescript
+const escaped = input.search.replace(/[%_\\]/g, '\\$&');
+const pattern = `%${escaped}%`;
+```
+
+## §245 — Dialog State Reset on Re-open (2026-03-05)
+
+Dialogs reused across multiple actions MUST reset state when `open` transitions to `true`:
+
+```tsx
+useEffect(() => {
+  if (open) {
+    setStep('summary');
+    setPinError(null);
+    setExecuting(false);
+    setResult(null);
+  }
+}, [open]);
+```
+
+Without this, the dialog briefly flashes previous results/state before rendering the new action.
+
+## §246 — Emergency Cleanup Payment Verification (2026-03-05)
+
+Emergency cleanup MUST verify actual payment before closing `paying`-status tabs:
+
+```sql
+SELECT t.* FROM fnb_tabs t
+LEFT JOIN LATERAL (
+  SELECT COALESCE(SUM(td.amount), 0) AS paid
+  FROM tenders td WHERE td.order_id = t.primary_order_id AND td.status != 'reversed'
+) tender_agg ON true
+LEFT JOIN LATERAL (
+  SELECT COALESCE(o.total, 0) AS total FROM orders o WHERE o.id = t.primary_order_id
+) order_agg ON true
+WHERE t.status = 'paying' AND tender_agg.paid >= order_agg.total
+```
+
+Lock release scoped to location — never release locks belonging to other locations.
+
 

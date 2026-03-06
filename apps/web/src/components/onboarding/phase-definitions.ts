@@ -417,7 +417,7 @@ export const ONBOARDING_PHASES: OnboardingPhaseDef[] = [
         label: 'KDS Stations',
         description: 'Set up kitchen display stations and configure routing rules for order tickets.',
         icon: ClipboardList,
-        href: '/kds',
+        href: '/kds/setup',
       },
       {
         key: 'menu_periods',

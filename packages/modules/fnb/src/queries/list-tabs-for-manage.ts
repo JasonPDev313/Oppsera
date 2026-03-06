@@ -224,7 +224,7 @@ export async function listTabsForManage(
         t.server_user_id,
         u.display_name AS server_name,
         t.party_size,
-        t.course_count,
+        t.current_course_number AS course_count,
         t.opened_at,
         t.updated_at,
         t.closed_at,

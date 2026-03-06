@@ -321,7 +321,27 @@
 | §228 | React Frontend Patterns | 11721–11819 | Mode derivation, ref patterns, double-tap guard |
 | §229 | Sentry & Observability | 11820–11856 | Init, PII scrubbing, error boundaries |
 | §230 | Backup/Restore System | 11857–11902 | Direct connection, FK order, cursor export |
-| §231 | Reporting Consumer Patterns | 11903–11949 | Cents→dollars, ON CONFLICT additive |
+| §231 | Reporting Consumer Patterns | 11903–11948 | Cents→dollars, ON CONFLICT additive |
+
+### Hardening Patterns (§232–§246) — Added 2026-03-05
+
+| § | Section | Lines | Key Topics |
+|---|---------|-------|------------|
+| §232 | Event Bus Inline Dispatch + Unclaim | 11949–11986 | Await dispatch, unclaim on failure, no fire-and-forget |
+| §233 | Tenant ID Defense-in-Depth | 11987–12002 | tenantId in every UPDATE/DELETE WHERE |
+| §234 | Hook Return Stabilization | 12003–12025 | useMemo on hook returns, useCallback for inline fns |
+| §235 | KDS Polling Resilience | 12026–12079 | Generation counter, AbortController, transient suppression, visibility resume, stable poll ref |
+| §236 | A11y Sweep Patterns | 12080–12124 | label/input association, backdrop suppress, touch a11y |
+| §237 | Customer Profile Drawer V2 | 12125–12166 | Two-level nav, lazy tabs, focus trap, error boundary, legacy compat |
+| §238 | GL Adapter Self-Canceling Guards | 12167–12189 | Same-account Dr/Cr abort, negative net guard, balance check |
+| §239 | Tender Reversal: Mirror Original GL | 12190–12205 | Look up original entry, swap Dr/Cr per line |
+| §240 | KDS Bump Two-Phase State Machine | 12206–12229 | ready→served, concurrent bump guard via WHERE |
+| §241 | Advisory Locks for Aggregates | 12230–12242 | pg_advisory_xact_lock replaces invalid FOR UPDATE |
+| §242 | RLS Migration Patterns | 12243–12273 | Idempotent policy creation, FORCE RLS, GUC key |
+| §243 | KDS Category-Level Prep Times | 12274–12298 | XOR constraint, partial unique indexes, COALESCE |
+| §244 | Compound Cursor Pagination | 12299–12321 | base64url cursor with sortVal+id, ILIKE escaping |
+| §245 | Dialog State Reset on Re-open | 12322–12338 | useEffect([open]) to clear previous state |
+| §246 | Emergency Cleanup Payment Verification | 12339–12357 | Verify SUM(tenders) >= total, location-scoped locks |
 
 ---
 
@@ -331,24 +351,27 @@
 |-------|----------|
 | **Money (dollars vs cents)** | §21, §76, §183, §231 |
 | **Dark mode** | §15, §145, §172 |
-| **GL / Accounting** | §76–§80, §84, §114, §117–§118, §149, §177, §183, §185, §187–§188, §195–§197, §201–§203, §220 |
+| **GL / Accounting** | §76–§80, §84, §114, §117–§118, §149, §177, §183, §185, §187–§188, §195–§197, §201–§203, §220, §238–§239 |
 | **POS** | §31–§35, §57, §61–§64, §132a, §140–§141, §164, §169, §196, §228 |
-| **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227 |
-| **Vercel / Serverless** | §47, §81, §157, §161, §205–§206 |
-| **Database / Schema** | §2, §18, §29–§30, §36, §47, §139, §179, §225 |
-| **Auth / Security** | §3, §13–§14, §38, §51, §67, §81, §119, §137, §207–§208, §223 |
-| **Events / Consumers** | §9, §26, §104, §159, §186, §202, §231 |
+| **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227, §240, §243, §246 |
+| **Vercel / Serverless** | §47, §81, §157, §161, §205–§206, §232 |
+| **Database / Schema** | §2, §18, §29–§30, §36, §47, §139, §179, §225, §241–§244 |
+| **Auth / Security** | §3, §13–§14, §38, §51, §67, §81, §119, §137, §207–§208, §223, §233, §242 |
+| **Events / Consumers** | §9, §26, §104, §159, §186, §202, §231, §232 |
 | **Testing** | §11, §204 |
 | **Reporting / Read Models** | §52, §56, §111, §153, §175, §231 |
 | **Semantic / AI** | §65–§72, §74, §121, §123, §127, §160, §178, §189–§194, §200, §217 |
 | **PMS** | §122, §126, §166, §214, §219 |
 | **Settings / Config** | §90, §95, §110, §112, §115–§116, §130, §134b, §135b, §136, §142, §149, §155–§156, §165 |
 | **Inventory / Receiving** | §41, §53–§55, §58–§60 |
-| **Customer / Tags** | §39, §44, §125, §199 |
+| **Customer / Tags** | §39, §44, §125, §199, §237 |
 | **Admin Portal** | §73, §88, §91–§92, §119, §131a, §147, §180, §218, §229–§230 |
 | **Onboarding** | §42, §112, §144 |
-| **Payments / Tenders** | §35, §64, §96, §101–§102, §128, §140, §198 |
+| **Payments / Tenders** | §35, §64, §96, §101–§102, §128, §140, §198, §239 |
 | **Infrastructure / Cron** | §47–§49, §83, §157, §161–§162, §167, §206, §226 |
+| **Frontend Patterns** | §15, §57, §228, §234–§237, §245 |
+| **A11y / Accessibility** | §154, §174, §236 |
+| **KDS** | §176, §181, §222, §235, §240, §243 |
 
 ---
 
@@ -356,7 +379,7 @@
 
 - **Duplicate section numbers**: §98, §131–§135 each appear twice in the file (legacy numbering). Disambiguated as `a`/`b` suffixes above.
 - **Unnumbered sections**: "Local Server Fix (Windows)" at line 7246 (between §127 and §128), and "Answer"/"Metrics in This Query" subsections within §74 at lines 4571–4652.
-- **Line ranges are exact** as of the current file (11,949 lines). If CONVENTIONS_FULL.md is edited, re-run: `grep -n "^## " docs/conventions/CONVENTIONS_FULL.md` to verify.
-- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (11,949 lines, 231 sections)
-- **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (540 numbered gotchas)
+- **Line ranges are exact** as of the current file (12,357 lines). If CONVENTIONS_FULL.md is edited, re-run: `grep -n "^## " docs/conventions/CONVENTIONS_FULL.md` to verify.
+- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (12,357 lines, 246 sections)
+- **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (562 numbered gotchas)
 - **What's Built / What's Next**: `docs/conventions/whats-built.md`

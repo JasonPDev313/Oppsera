@@ -316,25 +316,45 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   const handleSendAll = async () => {
     if (!tab || !tabId) return;
 
-    // Compute courses to send BEFORE addItems, including any new courses
-    // that draft lines will create. This avoids a stale-closure bug where
-    // tab.courses doesn't include courses created by addItems.
+    // Build a map of existing course statuses
     const existingCourses = new Map(
       (tab.courses ?? []).map((c) => [c.courseNumber, c.courseStatus]),
     );
+
+    // Compute the next available course number for redirecting drafts
+    // that target already-sent courses (e.g., user added items after
+    // Course 1 was sent — those items need to go to a new course).
+    const allCourseNumbers = [
+      ...[...existingCourses.keys()],
+      ...draftLines.map((d) => d.courseNumber),
+    ];
+    const maxCourse = allCourseNumbers.length > 0 ? Math.max(...allCourseNumbers) : 0;
+    const nextNewCourse = maxCourse + 1;
+
+    // Redirect draft lines from already-sent courses to a new unsent course.
+    // This handles the common restaurant flow: send apps → add entrees → send again.
+    const redirectedDrafts = draftLines.map((d) => {
+      const status = existingCourses.get(d.courseNumber);
+      if (status && status !== 'unsent') {
+        return { ...d, courseNumber: nextNewCourse };
+      }
+      return d;
+    });
+
+    // Compute courses to send: existing unsent + any new courses from drafts
     const courseNumbersToSend = new Set<number>();
     for (const [num, status] of existingCourses) {
       if (status === 'unsent') courseNumbersToSend.add(num);
     }
-    for (const d of draftLines) {
+    for (const d of redirectedDrafts) {
       if (!existingCourses.has(d.courseNumber)) {
         courseNumbersToSend.add(d.courseNumber);
       }
     }
 
     // 1. Persist any draft lines first (also auto-creates missing courses)
-    if (draftLines.length > 0) {
-      await addItems(draftLines.map((d) => ({
+    if (redirectedDrafts.length > 0) {
+      await addItems(redirectedDrafts.map((d) => ({
         catalogItemId: d.catalogItemId,
         catalogItemName: d.catalogItemName,
         unitPriceCents: d.unitPriceCents,
@@ -350,6 +370,17 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     // 2. Send all unsent courses (including newly created ones)
     for (const courseNumber of courseNumbersToSend) {
       await sendCourse(courseNumber);
+    }
+
+    // 3. Auto-advance active course so new items go to a fresh unsent course.
+    // After sending, the next item added should go to a new course — not back
+    // into an already-sent course. Use nextNewCourse if drafts were redirected,
+    // otherwise compute from what was just sent.
+    if (courseNumbersToSend.size > 0) {
+      const highestSent = Math.max(...courseNumbersToSend);
+      // If redirected drafts used nextNewCourse, advance past it
+      const advanceTo = Math.max(highestSent, nextNewCourse) + 1;
+      store.setCourse(advanceTo);
     }
   };
 

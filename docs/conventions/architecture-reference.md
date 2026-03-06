@@ -205,3 +205,23 @@ Topics: `tables → floor+dashboard`, `waitlist → dashboard`, `kds → kds+exp
 ## Orchestration Layer Cross-Module Queries
 
 `apps/web` API routes (orchestration layer) are the ONLY place where cross-module DB queries are permitted. Modules still must never import each other. Example: POS catalog endpoint cross-joins catalog + inventory + F&B for enrichment, with non-critical try/catch per enrichment.
+
+## Event Dispatch — Inline (Awaited), Never Fire-and-Forget
+
+`publishWithOutbox` uses `await Promise.allSettled()` for inline dispatch. The bus claims events in `processed_events` BEFORE the handler runs — fire-and-forget risks Vercel freezing mid-handler, leaving events permanently claimed but unprocessed. If all handler retries fail, the bus unclaims the event (deletes from `processed_events`) so the outbox worker can redispatch.
+
+## Tenant ID Defense-in-Depth
+
+Every `UPDATE`/`DELETE` WHERE clause MUST include `tenantId` alongside the primary key. Even with RLS, this catches misconfigurations, service-role bypasses, and background worker contexts.
+
+## Advisory Locks for Aggregate Serialization
+
+`SELECT MAX(col) ... FOR UPDATE` is invalid (no rows to lock). Use `pg_advisory_xact_lock(hashtext(compound_key))` — transaction-scoped, auto-released on commit.
+
+## Hook Return Stabilization
+
+Custom hooks returning object literals MUST wrap in `useMemo`. Inline functions extracted to `useCallback` first. Critical for broadly-consumed hooks (`useAuth`, `useEntitlements`).
+
+## KDS Bump Two-Phase State Machine
+
+`pending/in_progress → ready → served`. First bump = ready (kitchen done), second bump = served (expo confirmed). WHERE-clause optimistic lock on `itemStatus` prevents concurrent double-bumps.

@@ -1185,6 +1185,68 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - **Catalog read API**: `catalog-read-api.ts` improvements
   - **Publish-with-outbox**: improvements to event publishing reliability
   - **PMS**: calendar projector and occupancy projector guard clauses
+- **Customer Profile Drawer V2** (Session 2026-03-05):
+  - Consolidated 14 `ProfileXxxTab.tsx` files into single `CustomerProfileDrawer.tsx` with two-level navigation (vertical icon rail + horizontal sub-tabs)
+  - 13 lazy-loaded tabs via `next/dynamic` with skeleton loading (previously 14 eager imports)
+  - Legacy tab key backward-compatibility map (`LEGACY_TAB_MAP`)
+  - Class-based `TabErrorBoundary` with auto-reset on navigation
+  - Full keyboard focus trap + focus restore on close
+  - Body scroll lock preserving previous overflow value
+  - SSR-safe mount detection
+- **Event Bus Hardening** (Session 2026-03-05):
+  - `publishWithOutbox` switched from fire-and-forget to `await Promise.allSettled()` for inline dispatch — prevents Vercel freeze leaving claimed-but-unprocessed events
+  - Event bus unclaims events on handler failure (deletes `processed_events` row after retries exhausted) — prevents permanent event loss
+  - `auditLogDeferred()` pattern: all audit logging moved to post-response via `deferWork(ctx, fn)` using Next.js `after()` — saves ~20–80ms per command on critical path
+- **Tenant ID Defense-in-Depth** (Session 2026-03-05):
+  - Every `UPDATE`/`DELETE` across all modules now includes `tenantId` in WHERE alongside primary key
+  - Affected: `packages/core/`, `packages/modules/accounting/`, `packages/modules/fnb/`, API routes
+- **Hook Return Stabilization** (Session 2026-03-05):
+  - `useAuth`, `useEntitlements`, `useNavigationGuard` return objects wrapped in `useMemo`
+  - Prevents cascading re-renders from unstable references
+- **KDS Hardening — Phase 2** (Session 2026-03-05):
+  - Two-phase bump state machine: `pending/in_progress → ready → served` with concurrent bump guard (WHERE on current status)
+  - Category-level prep times: XOR constraint, partial unique indexes, COALESCE for nullable station_id
+  - KDS view: expo station guard, location fallback, LIMIT 200, sibling ticket join for NULL order_id, correct completed-ticket timestamp
+  - `gen_ulid()` DEFAULT backfilled on 4 KDS tables (migration 0277)
+  - Category-level prep times schema (migration 0278)
+- **Manage Tabs Hardening** (Session 2026-03-05):
+  - Bulk ops: optimistic locking via `expectedVersions` map
+  - Compound cursor pagination with base64url-encoded `{ id, sortVal }` for non-unique sort columns
+  - ILIKE wildcard escaping (`%`, `_`, `\`)
+  - Emergency cleanup: payment verification before closing, location-scoped lock release
+  - New `listServersForTransfer` query (union of section assignments + servers with open tabs)
+  - `BulkActionConfirmDialog`: state reset on re-open via `useEffect([open])`
+- **A11y Sweep** (Session 2026-03-05):
+  - ~200 component files: `htmlFor`/`id` on all label/input pairs
+  - Backdrop div suppress pattern (intentional `eslint-disable`)
+  - KDS touch targets: `role="button"` + `tabIndex` + `onKeyDown` + `WebkitTapHighlightColor`
+- **GL Adapter Guards** (Session 2026-03-05):
+  - Self-canceling entry detection (Dr/Cr to same account → abort + log to unmapped)
+  - Negative net amount guard, unbalanced line total guard
+  - Tender reversal mirrors original GL entry lines (not generic reversal)
+- **KDS Polling Resilience** (Session 2026-03-05):
+  - `useKdsView`: generation counter, AbortController, transient failure suppression (3 consecutive failures before surfacing error), tab visibility resume, `runAction` helper
+  - `useManageTabs`: stable polling ref (no interval restart), error state exposed, cursor reset on filter change, bulk selection cap
+- **RLS Migration Fixes** (Session 2026-03-05):
+  - 5 migrations corrected: `CREATE POLICY IF NOT EXISTS` → `DO $$ BEGIN IF NOT EXISTS ... END $$`
+  - `FORCE ROW LEVEL SECURITY` added to FnB analytics tables (migration 0279)
+  - GUC key corrected `app.tenant_id` → `app.current_tenant_id`
+- **Advisory Locks** (Session 2026-03-05):
+  - Waitlist position serialization: `pg_advisory_xact_lock(hashtext(compound_key))` replaces invalid `FOR UPDATE` on aggregate
+- **FnB Permission Normalization** (Session 2026-03-05):
+  - Payment routes: `pos_fnb.payments.manage` → `pos_fnb.payments.create` (servers need payment access)
+  - Refund route: → `pos_fnb.payments.refund` (separate permission)
+  - Location ID guard enforcement: explicit `LOCATION_REQUIRED` throw instead of silent `?? ''` fallback
+- **New API Routes** (Session 2026-03-05):
+  - `POST /api/v1/accounting/retained-earnings` — FY close retained earnings
+  - `GET /api/v1/fnb/sections/servers` — servers for transfer picker
+  - `POST /api/v1/fnb/tabs/:id/comp` — comp tab items
+  - `POST /api/v1/fnb/tabs/:id/discount` — discount tab items
+  - `POST /api/v1/inventory/:id/adjust` — inventory adjustment
+- **Migrations 0277–0279** (Session 2026-03-05):
+  - `0277_kds_tables_default_ulid.sql`: backfill `gen_ulid()` DEFAULT on 4 KDS tables
+  - `0278_kds_prep_times_category.sql`: category-level prep times with XOR constraint + partial unique indexes
+  - `0279_force_rls_pacing_load_turnagg.sql`: FORCE RLS on FnB analytics tables
   - **Membership**: billing cycle close fixes, portal account query fixes
   - **Spa**: appointment checkout and calendar improvements
   - **Accounting**: freight expense account migration, GL journal RLS optimization, tender reversal posting adapter improvements

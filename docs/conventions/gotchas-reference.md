@@ -1,6 +1,6 @@
 # Critical Gotchas — Full Reference
 
-> This file contains all 540 gotchas from OppsEra's CLAUDE.md.
+> This file contains all 562 gotchas from OppsEra's CLAUDE.md.
 > The slim CLAUDE.md keeps only the top 30 most critical ones.
 > Search this file when working on specific modules or encountering issues.
 
@@ -555,4 +555,26 @@
 538. **Pre-auth capture threshold guard (20% default)** — `capturePreauth` validates total capture ≤ auth amount × 1.20. `overrideThreshold` flag enables manager override without bypassing auth. Named constant, not magic number.
 539. **`inArray()` empty-array guard** — `inArray(col, [])` generates invalid SQL `IN ()`. Always guard: `if (ids.length > 0) { ... inArray(col, ids) ... }`. Used in customer financial queries.
 540. **`ORDER BY ... NULLS LAST` for nullable sort columns** — prevents NULL rows from sorting first in DESC order. Required on any sort column that can be NULL (e.g., `lastVisitAt`, `businessDate`).
+541. **Hook return objects MUST be wrapped in `useMemo`** — returning `{ data, fn }` from a hook creates a new reference every render, cascading re-renders through all consumers. Critical for `useAuth`, `useEntitlements`, `useNavigationGuard`. Inline functions must be `useCallback` first.
+542. **Fire-and-forget event dispatch races with Vercel freeze** — bus claims events in `processed_events` BEFORE handler runs. If Vercel freezes mid-handler, event is permanently claimed but never processed. Always `await Promise.allSettled()` inline dispatch. See §232.
+543. **`processed_events` claim without handler success = permanent event loss** — if all retries fail, the bus must DELETE the claim row so the outbox worker can redispatch. Without unclaim, the event is stuck forever.
+544. **`CREATE POLICY IF NOT EXISTS` is NOT valid Postgres** — use `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'x') THEN CREATE POLICY ... END IF; END $$`. See §242.
+545. **`FORCE ROW LEVEL SECURITY` needed for service-role bypass** — `ENABLE ROW LEVEL SECURITY` alone doesn't apply to superuser/service-role connections. Always pair with `FORCE`.
+546. **`FOR UPDATE` on aggregate queries is invalid** — `SELECT MAX(position) FROM ... FOR UPDATE` has no rows to lock. Use `pg_advisory_xact_lock(hashtext(compound_key))` — transaction-scoped, auto-released. See §241.
+547. **KDS `order_id` is nullable — tickets created at course-send before order exists** — orders are created at prepare-check (payment time). Kitchen tickets from course-send have `order_id = NULL`. KDS view joins must handle `(order_id IS NOT NULL AND ...) OR (tab_id IS NOT NULL AND ...)`.
+548. **`COALESCE(nullable_col, '')` trick for partial unique indexes** — Postgres treats two NULLs as non-equal in unique indexes. `COALESCE(station_id, '')` ensures two global-scope rows (station_id=NULL) conflict correctly.
+549. **Tender reversal must mirror original GL entry lines** — look up original tender's GL journal entry, swap Dr/Cr on each line. Generic Dr/Cr reversal to UncategorizedRevenue produces mismatched accounts. Fall back to generic only if original not found.
+550. **Emergency cleanup must verify actual payment, not just tab status** — a `paying`-status tab may still be mid-card-auth. Check `SUM(tenders.amount) >= order.total` before closing. Scope lock release to location.
+551. **Dialog state must reset on re-open** — `useEffect(() => { if (open) resetAllState(); }, [open])`. Without this, dialog flashes previous action's results before rendering new state.
+552. **Polling interval with callback in deps restarts on every change** — `useEffect(() => setInterval(refresh, ms), [refresh])` restarts when `refresh` reference changes. Use a ref: `refreshRef.current = refresh` and `setInterval(() => refreshRef.current(), ms)` with `[]` deps.
+553. **Generation counter prevents stale fetch responses from overwriting fresh state** — increment `generationRef.current` on deps change. Check `if (gen !== generationRef.current) return` after each async step. Cheaper than AbortController for state safety.
+554. **GL Dr/Cr to same account creates phantom zero-effect entries** — detect when debit and credit accounts resolve to the same ID, abort posting, log to `gl_unmapped_events`. Happens when comp expense account = revenue account due to misconfiguration.
+555. **ILIKE wildcard injection** — user search input containing `%` or `_` triggers unintended pattern matching. Always escape: `input.replace(/[%_\\]/g, '\\$&')` before building `%${escaped}%` patterns.
+556. **Tab visibility resume triggers immediate fetch** — `document.addEventListener('visibilitychange', ...)` + fetch on `visible`. KDS tablets sleep frequently; without this, stale data persists up to full poll interval after wake.
+557. **`useState(() => new Date())` avoids null initial render** — `useState(null)` + `useEffect(() => setNow(new Date()))` causes one frame of empty render. Lazy initializer runs synchronously on first render.
+558. **`WebkitTapHighlightColor` for iPad/Android kitchen touch feedback** — set to `rgba(99, 102, 241, 0.15)` on tappable elements. CSS `:active` has a 300ms delay on mobile; this gives immediate visual feedback.
+559. **Every UPDATE/DELETE WHERE must include `tenantId`** — defense-in-depth alongside RLS. Catches RLS misconfigurations, service-role bypasses, and background worker contexts. See §233.
+560. **KDS bump is two-phase: ready → served** — first bump = ready, second bump = served. Include `eq(table.itemStatus, currentStatus)` in WHERE as optimistic lock to prevent concurrent double-bump race. See §240.
+561. **Bulk tab operations need `expectedVersions` map** — client sends `{ [tabId]: version }` from last fetch. Server rejects if version mismatch: `failed.push({ tabId, error: 'Conflict' })`. Prevents bulk-close of tab being modified by another session.
+562. **Compound cursor pagination for non-unique sort columns** — `WHERE id < cursor` skips rows when sorting by non-unique column (e.g., `opened_at`). Encode `{ id, sortVal }` in base64url cursor, paginate with `(sort_col, id) < (cursorVal, cursorId)`. See §244.
 

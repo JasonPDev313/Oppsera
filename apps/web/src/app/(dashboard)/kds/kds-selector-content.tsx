@@ -64,8 +64,15 @@ export default function KdsSelectorContent() {
             <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>
               No KDS stations configured
             </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
-              Create stations in Settings to use KDS
+            <p className="text-xs mt-2" style={{ color: 'var(--fnb-text-muted)' }}>
+              <a
+                href="/kds/setup"
+                className="underline hover:opacity-80"
+                style={{ color: 'var(--fnb-status-seated)' }}
+              >
+                Run the KDS Setup Wizard
+              </a>
+              {' '}to get started
             </p>
           </div>
         ) : (
