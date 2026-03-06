@@ -7,7 +7,7 @@
  *   3. Sub-department rule   (ruleType = 'sub_department', matches subDepartmentId)
  *   4. Department rule       (ruleType = 'department', matches departmentId)
  *   5. Modifier rule         (ruleType = 'modifier', matches any modifierId)
- *   6. Fallback station      (first expo station, or first active station)
+ *   6. Fallback station      (first active prep station; expo excluded)
  *
  * Rules are further filtered by optional conditions:
  *   - order_type_condition: only match when the order type matches
@@ -307,8 +307,9 @@ export async function enrichRoutableItems(
  * query, then matches each item against the priority cascade with
  * condition filtering (order type, channel, time window).
  *
- * If no rule matches, falls back to the first eligible station at the
- * location (expo preferred, filtered by pause/allowed settings).
+ * If no rule matches, falls back to the first eligible prep station at
+ * the location (expo is excluded from fallback since it is a monitoring
+ * view, not a prep station).
  */
 export async function resolveStationRouting(
   context: RoutingContext,
@@ -360,7 +361,7 @@ export async function resolveStationRouting(
             AND location_id = ${context.locationId}
             AND is_active = true
           ORDER BY
-            CASE WHEN station_type = 'expo' THEN 0 ELSE 1 END,
+            CASE WHEN station_type = 'expo' THEN 1 ELSE 0 END,
             sort_order ASC`,
     );
     const stations: StationMeta[] = Array.from(

@@ -1944,6 +1944,9 @@ export const bulkUpsertItemPrepTimesSchema = z.object({
 export type BulkUpsertItemPrepTimesInput = z.infer<typeof bulkUpsertItemPrepTimesSchema>;
 
 // Enhanced routing rule (extends existing createRoutingRuleSchema)
+// superRefine enforces that the FK field matching ruleType is required:
+//   item → catalogItemId, modifier → modifierId, department → departmentId,
+//   sub_department → subDepartmentId, category → categoryId
 export const createKdsRoutingRuleSchema = z.object({
   ruleName: z.string().min(1).max(100).optional(),
   ruleType: z.enum(['item', 'modifier', 'department', 'sub_department', 'category']),
@@ -1959,6 +1962,22 @@ export const createKdsRoutingRuleSchema = z.object({
   timeConditionStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   timeConditionEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   clientRequestId: z.string().min(1),
+}).superRefine((data, ctx) => {
+  const fkMap: Record<string, { field: keyof typeof data; label: string }> = {
+    item: { field: 'catalogItemId', label: 'catalogItemId' },
+    modifier: { field: 'modifierId', label: 'modifierId' },
+    department: { field: 'departmentId', label: 'departmentId' },
+    sub_department: { field: 'subDepartmentId', label: 'subDepartmentId' },
+    category: { field: 'categoryId', label: 'categoryId' },
+  };
+  const expected = fkMap[data.ruleType];
+  if (expected && !data[expected.field]) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `${expected.label} is required when ruleType is '${data.ruleType}'`,
+      path: [expected.field],
+    });
+  }
 });
 export type CreateKdsRoutingRuleInput = z.input<typeof createKdsRoutingRuleSchema>;
 
