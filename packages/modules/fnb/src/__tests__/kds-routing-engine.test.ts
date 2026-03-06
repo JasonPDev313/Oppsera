@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { createKdsRoutingRuleSchema as CreateKdsRoutingRuleSchemaType } from '../validation';
 
 // ── Mocks ──────────────────────────────────────────────────────
 
@@ -26,7 +27,7 @@ vi.mock('@oppsera/core/observability', () => ({
   },
 }));
 
-import type { RoutingContext, RoutableItem } from '../services/kds-routing-engine';
+import type { RoutingContext, RoutableItem, resolveStationRouting as ResolveStationRoutingFn } from '../services/kds-routing-engine';
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -118,7 +119,7 @@ function setupMocks(rules: MockRule[], stations: MockStation[]) {
 // ── Tests ──────────────────────────────────────────────────────
 
 describe('KDS Routing Engine — resolveStationRouting', () => {
-  let resolveStationRouting: typeof import('../services/kds-routing-engine').resolveStationRouting;
+  let resolveStationRouting: ResolveStationRoutingFn;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -451,7 +452,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
 // ── Validation Tests ─────────────────────────────────────────
 
 describe('KDS Routing Rule — Zod superRefine validation', () => {
-  let createKdsRoutingRuleSchema: typeof import('../validation').createKdsRoutingRuleSchema;
+  let createKdsRoutingRuleSchema: CreateKdsRoutingRuleSchemaType;
 
   beforeEach(async () => {
     const mod = await import('../validation');

@@ -114,7 +114,7 @@ function ruleMatchesConditions(rule: RoutingRule, context: RoutingContext): bool
       if (now < start || now > end) return false;
     } else {
       // Overnight: valid when now >= start OR now <= end
-      if (now < start && now > end) return false; // eslint-disable-line -- intentional: for overnight, reject only when BOTH conditions true (between end and start)
+      if (now < start && now > end) return false; // intentional: for overnight, reject only when BOTH conditions true (between end and start)
     }
   }
   return true;
