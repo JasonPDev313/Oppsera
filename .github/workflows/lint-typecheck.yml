@@ -30,8 +30,8 @@ jobs:
       # These checks are pure file scanning — no pnpm install needed
       - name: Secrets scan — staged .env files
         run: |
-          # Fail if any .env file is tracked in git
-          ENV_FILES=$(git ls-files '*.env' '*.env.*' 2>/dev/null || true)
+          # Fail if any real .env file is tracked in git (exclude .env.example)
+          ENV_FILES=$(git ls-files '*.env' '*.env.*' 2>/dev/null | grep -v '\.example$' || true)
           if [ -n "$ENV_FILES" ]; then
             echo "::error::Tracked .env files found in repository:"
             echo "$ENV_FILES"
