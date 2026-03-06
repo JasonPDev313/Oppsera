@@ -200,7 +200,6 @@ export function useManageTabs(locationId: string) {
       }
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Pause polling during mutations
