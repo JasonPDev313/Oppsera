@@ -108,6 +108,10 @@ export interface FnbTicketBumpedConsumerData {
   itemCount: number;
   thresholdSeconds: number;
   hour: number;
+  /** Seconds from fire/send to all items ready (prep efficiency) */
+  fireToReadySeconds: number | null;
+  /** Seconds from all items ready to ticket served (expo/window efficiency) */
+  readyToServedSeconds: number | null;
 }
 
 export interface FnbItemBumpedConsumerData {
@@ -117,6 +121,12 @@ export interface FnbItemBumpedConsumerData {
 }
 
 export interface FnbItemVoidedConsumerData {
+  locationId: string;
+  stationId: string;
+  businessDate: string;
+}
+
+export interface FnbItemRecalledConsumerData {
   locationId: string;
   stationId: string;
   businessDate: string;

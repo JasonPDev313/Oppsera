@@ -16,9 +16,11 @@ export interface ExpoTicketItem {
   estimatedPrepSeconds: number | null;
   stationId: string | null;
   stationName: string | null;
+  specialInstructions: string | null;
   isRush: boolean;
   isAllergy: boolean;
   isVip: boolean;
+  readyAt: string | null;
 }
 
 export interface ExpoTicketCard {
@@ -59,7 +61,7 @@ export async function getExpoView(
                  priority_level, is_held, order_type, channel,
                  table_number, server_name, customer_name,
                  sent_at, estimated_pickup_at,
-                 EXTRACT(EPOCH FROM (NOW() - sent_at))::integer AS elapsed_seconds
+                 GREATEST(0, EXTRACT(EPOCH FROM (NOW() - sent_at))::integer) AS elapsed_seconds
           FROM fnb_kitchen_tickets
           WHERE tenant_id = ${input.tenantId}
             AND location_id = ${input.locationId}
@@ -77,11 +79,11 @@ export async function getExpoView(
     if (ticketIds.length > 0) {
       const allItemRows = await tx.execute(
         sql`SELECT kti.id, kti.ticket_id, kti.item_name, kti.kitchen_label, kti.item_color,
-                   kti.modifier_summary, kti.seat_number,
+                   kti.modifier_summary, kti.special_instructions, kti.seat_number,
                    kti.course_name, kti.quantity, kti.item_status,
                    kti.priority_level, kti.estimated_prep_seconds,
                    kti.station_id,
-                   kti.is_rush, kti.is_allergy, kti.is_vip,
+                   kti.is_rush, kti.is_allergy, kti.is_vip, kti.ready_at,
                    ks.display_name AS station_name
             FROM fnb_kitchen_ticket_items kti
             LEFT JOIN fnb_kitchen_stations ks ON ks.id = kti.station_id
@@ -97,17 +99,19 @@ export async function getExpoView(
           kitchenLabel: (r.kitchen_label as string) ?? null,
           itemColor: (r.item_color as string) ?? null,
           modifierSummary: (r.modifier_summary as string) ?? null,
+          specialInstructions: (r.special_instructions as string) ?? null,
           seatNumber: r.seat_number != null ? Number(r.seat_number) : null,
           courseName: (r.course_name as string) ?? null,
           quantity: Number(r.quantity),
           itemStatus: r.item_status as string,
           priorityLevel: Number(r.priority_level ?? 0),
-          estimatedPrepSeconds: r.estimated_prep_seconds != null ? Number(r.estimated_prep_seconds) : null,
+          estimatedPrepSeconds: r.estimated_prep_seconds != null ? Math.max(0, Number(r.estimated_prep_seconds)) : null,
           stationId: (r.station_id as string) ?? null,
           stationName: (r.station_name as string) ?? null,
-          isRush: r.is_rush as boolean,
-          isAllergy: r.is_allergy as boolean,
-          isVip: r.is_vip as boolean,
+          isRush: (r.is_rush as boolean) ?? false,
+          isAllergy: (r.is_allergy as boolean) ?? false,
+          isVip: (r.is_vip as boolean) ?? false,
+          readyAt: r.ready_at instanceof Date ? r.ready_at.toISOString() : (r.ready_at as string) ?? null,
         };
         const arr = itemsByTicket.get(tId) ?? [];
         arr.push(item);
@@ -135,7 +139,7 @@ export async function getExpoView(
         courseNumber: t.course_number != null ? Number(t.course_number) : null,
         status: t.status as string,
         priorityLevel: Number(t.priority_level ?? 0),
-        isHeld: (t.is_held as boolean) ?? false,
+        isHeld: Boolean(t.is_held),
         orderType: (t.order_type as string) ?? null,
         channel: (t.channel as string) ?? null,
         tableNumber: t.table_number != null ? Number(t.table_number) : null,

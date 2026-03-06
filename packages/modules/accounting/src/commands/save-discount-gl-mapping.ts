@@ -1,4 +1,4 @@
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
@@ -131,47 +131,29 @@ export async function saveDiscountGlMappingsBatch(
       }
     }
 
-    // Upsert each mapping
-    const results = [];
-    for (const m of input.mappings) {
-      const existing = await tx
-        .select()
-        .from(discountGlMappings)
-        .where(
-          and(
-            eq(discountGlMappings.tenantId, ctx.tenantId),
-            eq(discountGlMappings.subDepartmentId, m.subDepartmentId),
-            eq(discountGlMappings.discountClassification, m.classification),
-          ),
-        )
-        .limit(1);
+    // Bulk upsert all mappings in a single statement
+    const values = input.mappings.map(m => ({
+      tenantId: ctx.tenantId,
+      subDepartmentId: m.subDepartmentId,
+      discountClassification: m.classification,
+      glAccountId: m.glAccountId,
+    }));
 
-      let mapping;
-      if (existing.length > 0) {
-        [mapping] = await tx
-          .update(discountGlMappings)
-          .set({ glAccountId: m.glAccountId })
-          .where(
-            and(
-              eq(discountGlMappings.tenantId, ctx.tenantId),
-              eq(discountGlMappings.subDepartmentId, m.subDepartmentId),
-              eq(discountGlMappings.discountClassification, m.classification),
-            ),
-          )
-          .returning();
-      } else {
-        [mapping] = await tx
-          .insert(discountGlMappings)
-          .values({
-            tenantId: ctx.tenantId,
-            subDepartmentId: m.subDepartmentId,
-            discountClassification: m.classification,
-            glAccountId: m.glAccountId,
-          })
-          .returning();
-      }
-      results.push(mapping!);
-    }
+    const results = await tx
+      .insert(discountGlMappings)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [
+          discountGlMappings.tenantId,
+          discountGlMappings.subDepartmentId,
+          discountGlMappings.discountClassification,
+        ],
+        set: {
+          glAccountId: sql`excluded.gl_account_id`,
+          updatedAt: sql`now()`,
+        },
+      })
+      .returning();
 
     const event = buildEventFromContext(ctx, 'accounting.discount_gl_mappings.batch_saved.v1', {
       count: input.mappings.length,

@@ -5,11 +5,19 @@ import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
 import { bumpTicket, bumpTicketSchema } from '@oppsera/module-fnb';
 
-// POST /api/v1/fnb/stations/[id]/bump-ticket — bump entire ticket
+// POST /api/v1/fnb/stations/[id]/bump-ticket — bump entire ticket from prep station
+// Passes the station [id] so bumpTicket knows this is a prep-station bump (→ 'ready')
+// vs. an expo bump (→ 'served').
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
+    // Extract station ID from URL: /api/v1/fnb/stations/{stationId}/bump-ticket
+    const url = new URL(request.url);
+    const segments = url.pathname.split('/');
+    const bumpIdx = segments.indexOf('bump-ticket');
+    const stationId = bumpIdx > 0 ? segments[bumpIdx - 1] : undefined;
+
     const body = await request.json();
-    const parsed = bumpTicketSchema.safeParse(body);
+    const parsed = bumpTicketSchema.safeParse({ ...body, stationId });
     if (!parsed.success) {
       throw new ValidationError(
         'Validation failed',

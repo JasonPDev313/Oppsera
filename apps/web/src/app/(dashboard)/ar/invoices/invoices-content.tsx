@@ -7,6 +7,7 @@ import { AccountingPageShell } from '@/components/accounting/accounting-page-she
 import { StatusBadge } from '@/components/accounting/status-badge';
 import { AccountingEmptyState } from '@/components/accounting/accounting-empty-state';
 import { useARInvoices, type ARInvoiceFilters } from '@/hooks/use-ar';
+import { useAuthContext } from '@/components/auth-provider';
 import { formatAccountingMoney } from '@/types/accounting';
 
 const SOURCE_BADGES: Record<string, { label: string; color: string }> = {
@@ -17,8 +18,10 @@ const SOURCE_BADGES: Record<string, { label: string; color: string }> = {
 };
 
 export default function InvoicesContent() {
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const [filters, setFilters] = useState<ARInvoiceFilters>({});
-  const { data: invoices, isLoading } = useARInvoices({ ...filters, limit: 50 });
+  const { data: invoices, isLoading } = useARInvoices({ ...filters, locationId, limit: 50 });
 
   const today = new Date().toISOString().split('T')[0];
 

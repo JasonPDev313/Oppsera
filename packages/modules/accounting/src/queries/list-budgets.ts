@@ -24,6 +24,7 @@ export interface ListBudgetsResult {
 
 export async function listBudgets(input: {
   tenantId: string;
+  locationId?: string;
   fiscalYear?: number;
   status?: string;
   cursor?: string;
@@ -34,6 +35,9 @@ export async function listBudgets(input: {
   return withTenant(input.tenantId, async (tx) => {
     const conditions = [sql`b.tenant_id = ${input.tenantId}`];
 
+    if (input.locationId) {
+      conditions.push(sql`b.location_id = ${input.locationId}`);
+    }
     if (input.fiscalYear) {
       conditions.push(sql`b.fiscal_year = ${input.fiscalYear}`);
     }

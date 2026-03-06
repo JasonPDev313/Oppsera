@@ -21,7 +21,6 @@ export interface ServiceCategoryRow {
  */
 export async function listServiceCategories(
   tenantId: string,
-  _locationId?: string,
 ): Promise<ServiceCategoryRow[]> {
   return withTenant(tenantId, async (tx) => {
     const conditions = [eq(spaServiceCategories.tenantId, tenantId)];

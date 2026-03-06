@@ -68,11 +68,16 @@ export async function getAccountingSettings(
   tenantId: string,
 ): Promise<AccountingSettings | null> {
   try {
+    // Use a SAVEPOINT so that if the Drizzle ORM query fails (e.g., column
+    // from a pending migration doesn't exist yet), the enclosing transaction
+    // is NOT aborted and the raw-SQL fallback can still execute.
+    await tx.execute(sql`SAVEPOINT settings_drizzle`);
     const [row] = await tx
       .select()
       .from(accountingSettings)
       .where(eq(accountingSettings.tenantId, tenantId))
       .limit(1);
+    await tx.execute(sql`RELEASE SAVEPOINT settings_drizzle`);
 
     if (!row) {
       return null;
@@ -83,7 +88,9 @@ export async function getAccountingSettings(
     const msg = String((err as Error)?.message ?? '').toLowerCase();
     if (msg.includes('column') && msg.includes('does not exist')) {
       // Schema mismatch — Drizzle schema has columns the DB doesn't.
-      // Fall back to raw SQL with only the core columns.
+      // Roll back to the savepoint to restore the transaction, then
+      // fall back to raw SQL which only reads columns that actually exist.
+      await tx.execute(sql`ROLLBACK TO SAVEPOINT settings_drizzle`);
       return getAccountingSettingsRaw(tx, tenantId);
     }
     throw err;

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { useBudgets, useBudget, useBudgetMutations } from '@/hooks/use-budgets';
+import { useAuthContext } from '@/components/auth-provider';
 import { formatAccountingMoney } from '@/types/accounting';
 
 // ── Constants ─────────────────────────────────────────────────
@@ -515,6 +516,8 @@ function BudgetDetailView({
 // ── Main Component ────────────────────────────────────────────
 
 export default function BudgetsContent() {
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const [view, setView] = useState<'list' | 'detail'>('list');
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -523,6 +526,7 @@ export default function BudgetsContent() {
   const [search, setSearch] = useState('');
 
   const { data: budgets, isLoading, mutate } = useBudgets({
+    locationId,
     status: statusFilter || undefined,
     fiscalYear: yearFilter,
   });

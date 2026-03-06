@@ -3,9 +3,10 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
-import { useExpoView } from '@/hooks/use-fnb-kitchen';
+import { useExpoView, useExpoHistory } from '@/hooks/use-fnb-kitchen';
 import { ExpoHeader } from '@/components/fnb/kitchen/ExpoHeader';
 import { ExpoTicketCard } from '@/components/fnb/kitchen/ExpoTicketCard';
+import { ExpoHistoryPanel } from '@/components/fnb/kitchen/ExpoHistoryPanel';
 import { ItemSummaryPanel, ItemSummaryToggle } from '@/components/fnb/kitchen/ItemSummaryPanel';
 import { KitchenMetrics } from '@/components/fnb/kitchen/KitchenMetrics';
 import { KitchenBehindBanner } from '@/components/fnb/kitchen/KitchenBehindBanner';
@@ -13,10 +14,11 @@ import { formatTimer } from '@/components/fnb/kitchen/TimerBar';
 import { apiFetch } from '@/lib/api-client';
 import {
   ArrowLeft, Search, Flame, Pause, Play,
-  LayoutGrid, LayoutList, Package, Clock,
+  LayoutGrid, LayoutList, Package, Clock, History,
 } from 'lucide-react';
 
 type ExpoViewMode = 'rail' | 'grid';
+type ExpoTab = 'active' | 'history';
 type ExpoFilter = 'all' | 'ready' | 'in_progress' | 'held' | 'rush';
 
 const DEFAULT_WARNING_SECONDS = 480;
@@ -27,11 +29,13 @@ export default function ExpoContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
   const locationId = locations?.[0]?.id;
+  const [activeTab, setActiveTab] = useState<ExpoTab>('active');
   const [viewMode, setViewMode] = useState<ExpoViewMode>('rail');
   const [filter, setFilter] = useState<ExpoFilter>('all');
   const [search, setSearch] = useState('');
   const [isPaused, setIsPaused] = useState(false);
   const [isFiring, setIsFiring] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(true); // Default open for expo
 
   const {
@@ -43,16 +47,30 @@ export default function ExpoContent() {
     refresh,
   } = useExpoView({ locationId, pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
 
+  const {
+    history: expoHistory,
+    isLoading: historyLoading,
+    refresh: refreshHistory,
+  } = useExpoHistory({ locationId, enabled: activeTab === 'history' });
+
+  const handleTabChange = useCallback((tab: ExpoTab) => {
+    setActiveTab(tab);
+    if (tab === 'history') refreshHistory();
+  }, [refreshHistory]);
+
   const fireTicket = useCallback(async (ticketId: string) => {
     setIsFiring(true);
+    setActionError(null);
     try {
       await apiFetch(`/api/v1/fnb/kitchen/tickets/${ticketId}/fire`, {
         method: 'POST',
         body: JSON.stringify({ clientRequestId: `fire-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }),
       });
       refresh();
-    } catch {
-      // silent
+    } catch (err: unknown) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setActionError(err instanceof Error ? err.message : 'Fire failed');
+      }
     } finally {
       setIsFiring(false);
     }
@@ -60,14 +78,17 @@ export default function ExpoContent() {
 
   const recallTicket = useCallback(async (ticketId: string) => {
     setIsFiring(true);
+    setActionError(null);
     try {
       await apiFetch(`/api/v1/fnb/kitchen/tickets/${ticketId}/recall`, {
         method: 'POST',
         body: JSON.stringify({ clientRequestId: `recall-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }),
       });
       refresh();
-    } catch {
-      // silent
+    } catch (err: unknown) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setActionError(err instanceof Error ? err.message : 'Recall failed');
+      }
     } finally {
       setIsFiring(false);
     }
@@ -189,6 +210,15 @@ export default function ExpoContent() {
 
         {/* Toolbar */}
         <div className="flex items-center gap-1 px-2" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
+          <button type="button" onClick={() => handleTabChange(activeTab === 'history' ? 'active' : 'history')}
+            className="p-1.5 rounded transition-colors"
+            title={activeTab === 'history' ? 'Back to active' : 'Order history'}
+            style={{
+              backgroundColor: activeTab === 'history' ? 'rgba(99,102,241,0.2)' : 'transparent',
+              color: activeTab === 'history' ? 'var(--fnb-status-seated)' : 'var(--fnb-text-muted)',
+            }}>
+            <History className="h-4 w-4" />
+          </button>
           <ItemSummaryToggle onClick={() => setShowSummary(!showSummary)} isOpen={showSummary} />
           <button type="button" onClick={() => setViewMode(viewMode === 'rail' ? 'grid' : 'rail')}
             className="p-1.5 rounded transition-colors"
@@ -209,6 +239,15 @@ export default function ExpoContent() {
         warningThresholdSeconds={DEFAULT_WARNING_SECONDS}
         criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
       />
+
+      {/* Action error toast */}
+      {actionError && (
+        <div className="flex items-center justify-between px-3 py-1.5 text-xs font-medium shrink-0"
+          style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError(null)} className="ml-2 underline">Dismiss</button>
+        </div>
+      )}
 
       {/* Search + filter bar */}
       <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ backgroundColor: 'var(--fnb-bg-surface)', borderBottom: '1px solid rgba(148, 163, 184, 0.15)' }}>
@@ -253,54 +292,64 @@ export default function ExpoContent() {
 
       {/* Main content area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Ticket area */}
-        <div className="flex-1 overflow-auto">
-          {filteredTickets.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <p className="text-lg font-bold" style={{ color: 'var(--fnb-text-muted)' }}>
-                  {search || filter !== 'all' ? 'No Matching Tickets' : 'All Clear'}
-                </p>
-                <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
-                  {search || filter !== 'all' ? 'Try adjusting your filters' : 'No tickets in the pass'}
-                </p>
-              </div>
+        {activeTab === 'history' ? (
+          <ExpoHistoryPanel
+            history={expoHistory}
+            isLoading={historyLoading}
+            onRefresh={refreshHistory}
+          />
+        ) : (
+          <>
+            {/* Ticket area */}
+            <div className="flex-1 overflow-auto">
+              {filteredTickets.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <p className="text-lg font-bold" style={{ color: 'var(--fnb-text-muted)' }}>
+                      {search || filter !== 'all' ? 'No Matching Tickets' : 'All Clear'}
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
+                      {search || filter !== 'all' ? 'Try adjusting your filters' : 'No tickets in the pass'}
+                    </p>
+                  </div>
+                </div>
+              ) : viewMode === 'grid' ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 p-3">
+                  {filteredTickets.map((ticket) => (
+                    <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
+                      warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
+                      onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
+                      disabled={isActing || isFiring} />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex gap-3 p-3 h-full items-start overflow-x-auto">
+                  {filteredTickets.map((ticket) => (
+                    <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
+                      warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
+                      onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
+                      disabled={isActing || isFiring} />
+                  ))}
+                </div>
+              )}
             </div>
-          ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 p-3">
-              {filteredTickets.map((ticket) => (
-                <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
-                  warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
-                  onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
-                  disabled={isActing || isFiring} />
-              ))}
-            </div>
-          ) : (
-            <div className="flex gap-3 p-3 h-full items-start overflow-x-auto">
-              {filteredTickets.map((ticket) => (
-                <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
-                  warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
-                  onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
-                  disabled={isActing || isFiring} />
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Right panel: item summary + metrics */}
-        {showSummary && (
-          <div className="flex flex-col">
-            <ItemSummaryPanel
-              tickets={expoView.tickets}
-              onClose={() => setShowSummary(false)}
-            />
-            <KitchenMetrics
-              tickets={expoView.tickets}
-              warningThresholdSeconds={DEFAULT_WARNING_SECONDS}
-              criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
-              totalServedToday={expoView.ticketsAllReady}
-            />
-          </div>
+            {/* Right panel: item summary + metrics */}
+            {showSummary && (
+              <div className="flex flex-col">
+                <ItemSummaryPanel
+                  tickets={expoView.tickets}
+                  onClose={() => setShowSummary(false)}
+                />
+                <KitchenMetrics
+                  tickets={expoView.tickets}
+                  warningThresholdSeconds={DEFAULT_WARNING_SECONDS}
+                  criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
+                  totalServedToday={expoHistory?.totalServed ?? 0}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

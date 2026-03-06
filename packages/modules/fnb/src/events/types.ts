@@ -40,6 +40,7 @@ export const FNB_EVENTS = {
   ITEM_RECALLED: 'fnb.kds.item_recalled.v1',
   TICKET_BUMPED: 'fnb.kds.ticket_bumped.v1',
   ITEM_CALLED_BACK: 'fnb.kds.item_called_back.v1',
+  ITEM_REFIRED: 'fnb.kds.item_refired.v1',
   // Session 6 — 86 Board, Menu Availability & Allergens
   ITEM_EIGHTY_SIXED: 'fnb.menu.item_eighty_sixed.v1',
   ITEM_RESTORED: 'fnb.menu.item_restored.v1',
@@ -367,12 +368,25 @@ export interface TicketBumpedPayload {
   ticketId: string;
   locationId: string;
   tabId: string;
+  /** Present on prep-station bumps */
+  stationId?: string;
+  /** 'ready' for prep bump, absent for expo bump (which sets status='served') */
+  bumpedToStatus?: 'ready';
 }
 
 export interface ItemCalledBackPayload {
   ticketItemId: string;
   ticketId: string;
   stationId: string;
+  locationId: string;
+  reason: string | null;
+}
+
+export interface ItemRefiredPayload {
+  originalItemId: string;
+  newItemId: string;
+  ticketId: string;
+  stationId: string | null;
   locationId: string;
   reason: string | null;
 }

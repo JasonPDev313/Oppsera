@@ -18,6 +18,7 @@ export interface InvoiceListItem {
 
 interface ListInvoicesInput {
   tenantId: string;
+  locationId?: string;
   status?: string;
   customerId?: string;
   startDate?: string;
@@ -37,6 +38,7 @@ export async function listInvoices(input: ListInvoicesInput): Promise<ListInvoic
 
   return withTenant(input.tenantId, async (tx) => {
     const conditions = [sql`i.tenant_id = ${input.tenantId}`];
+    if (input.locationId) conditions.push(sql`i.location_id = ${input.locationId}`);
     if (input.status) conditions.push(sql`i.status = ${input.status}`);
     if (input.customerId) conditions.push(sql`i.customer_id = ${input.customerId}`);
     if (input.startDate) conditions.push(sql`i.invoice_date >= ${input.startDate}`);

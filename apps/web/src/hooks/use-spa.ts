@@ -286,6 +286,7 @@ export interface SpaDashboardMetrics {
 // ═══════════════════════════════════════════════════════════════════
 
 export interface SpaServiceFilters {
+  locationId?: string;
   categoryId?: string;
   status?: 'active' | 'archived' | 'all';
   search?: string;
@@ -294,6 +295,7 @@ export interface SpaServiceFilters {
 }
 
 export interface SpaProviderFilters {
+  locationId?: string;
   status?: string;
   search?: string;
   cursor?: string;
@@ -301,6 +303,7 @@ export interface SpaProviderFilters {
 }
 
 export interface SpaResourceFilters {
+  locationId?: string;
   type?: string;
   status?: string;
   search?: string;
@@ -350,11 +353,12 @@ interface CursorMeta {
 
 // ── useSpaSettings ──────────────────────────────────────────────
 
-export function useSpaSettings() {
+export function useSpaSettings(params: { locationId?: string } = {}) {
+  const headers = params.locationId ? { 'X-Location-Id': params.locationId } : undefined;
   const result = useQuery({
-    queryKey: ['spa-settings'],
+    queryKey: ['spa-settings', params.locationId],
     queryFn: () =>
-      apiFetch<{ data: SpaSettings }>('/api/v1/spa/settings').then(
+      apiFetch<{ data: SpaSettings }>('/api/v1/spa/settings', headers ? { headers } : undefined).then(
         (r) => r.data,
       ),
     staleTime: 120_000,
@@ -596,7 +600,7 @@ export function useSpaAvailableSlots(params: SpaAvailableSlotsParams | null) {
         `/api/v1/spa/appointments/available-slots${qs}`,
       ).then((r) => r.data);
     },
-    enabled: !!params?.serviceId && !!params?.date,
+    enabled: !!params?.serviceId && !!params?.locationId && !!params?.date,
     staleTime: 15_000,
   });
 
@@ -1071,11 +1075,12 @@ export interface OnlineBookingStats {
 
 // ── useSpaBookingConfig ─────────────────────────────────────────
 
-export function useSpaBookingConfig() {
+export function useSpaBookingConfig(params: { locationId?: string } = {}) {
+  const headers = params.locationId ? { 'X-Location-Id': params.locationId } : undefined;
   const result = useQuery({
-    queryKey: ['spa-booking-config'],
+    queryKey: ['spa-booking-config', params.locationId],
     queryFn: () =>
-      apiFetch<{ data: BookingWidgetConfig | null }>('/api/v1/spa/booking/config').then(
+      apiFetch<{ data: BookingWidgetConfig | null }>('/api/v1/spa/booking/config', headers ? { headers } : undefined).then(
         (r) => r.data,
       ),
     staleTime: 120_000,
@@ -1092,13 +1097,14 @@ export function useSpaBookingConfig() {
 
 // ── useSpaBookingStats ──────────────────────────────────────────
 
-export function useSpaBookingStats(from?: string, to?: string) {
-  const qs = buildQueryString({ from, to });
+export function useSpaBookingStats(params: { locationId?: string; from?: string; to?: string } = {}) {
+  const headers = params.locationId ? { 'X-Location-Id': params.locationId } : undefined;
+  const qs = buildQueryString({ from: params.from, to: params.to });
 
   const result = useQuery({
-    queryKey: ['spa-booking-stats', from, to],
+    queryKey: ['spa-booking-stats', params.locationId, params.from, params.to],
     queryFn: () =>
-      apiFetch<{ data: OnlineBookingStats }>(`/api/v1/spa/booking/stats${qs}`).then(
+      apiFetch<{ data: OnlineBookingStats }>(`/api/v1/spa/booking/stats${qs}`, headers ? { headers } : undefined).then(
         (r) => r.data,
       ),
     staleTime: 60_000,

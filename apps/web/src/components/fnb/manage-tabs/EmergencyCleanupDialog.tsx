@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, X, CheckCircle } from 'lucide-react';
-import { ManagerPinModal } from '../manager/ManagerPinModal';
+import { InlinePinPad } from './InlinePinPad';
 
 interface EmergencyCleanupDialogProps {
   open: boolean;
@@ -120,13 +120,13 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/60" onClick={step === 'options' ? handleDone : undefined} />
       <div
-        className="relative w-full max-w-md rounded-xl shadow-2xl p-6"
+        className={`relative w-full rounded-xl shadow-2xl p-6 ${step === 'pin' ? 'max-w-lg' : 'max-w-md'}`}
         style={{ background: 'var(--fnb-bg-surface)' }}
       >
-        <button onClick={handleDone} className="absolute top-4 right-4 p-1" style={{ color: 'var(--fnb-text-muted)' }}>
+        <button type="button" aria-label="Close dialog" onClick={handleDone} className="absolute top-4 right-4 p-1" style={{ color: 'var(--fnb-text-muted)' }}>
           <X size={18} />
         </button>
 
@@ -241,6 +241,7 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
 
             <div className="flex gap-2 mt-2">
               <button
+                type="button"
                 onClick={handleDone}
                 className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
                 style={{
@@ -252,6 +253,7 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleContinue}
                 disabled={!anySelected}
                 className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
@@ -266,12 +268,11 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
           </div>
         )}
 
-        {/* Step: PIN verification (inline) */}
+        {/* Step: PIN verification (inline — no portal) */}
         {step === 'pin' && (
-          <ManagerPinModal
-            open={true}
-            onClose={handleDone}
+          <InlinePinPad
             onVerify={handlePinVerify}
+            onBack={() => setStep('options')}
             error={pinError}
             title="Manager Override — Emergency Cleanup"
           />
@@ -309,6 +310,7 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
               <li>{result.staleTabsAbandoned} tab{result.staleTabsAbandoned !== 1 ? 's' : ''} marked abandoned</li>
             </ul>
             <button
+              type="button"
               onClick={handleDone}
               className="w-full mt-2 px-4 py-2.5 rounded-lg text-sm font-medium"
               style={{ background: 'var(--fnb-accent-primary)', color: '#fff' }}

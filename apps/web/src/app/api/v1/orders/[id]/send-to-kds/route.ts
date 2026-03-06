@@ -9,8 +9,8 @@ import { sendOrderLinesToKds } from '@oppsera/module-fnb';
 
 function extractOrderId(request: NextRequest): string {
   const parts = new URL(request.url).pathname.split('/');
-  // /api/v1/orders/:id/send-to-kds → id is 3 segments before end
-  return parts[parts.length - 3]!;
+  // /api/v1/orders/:id/send-to-kds → id is 2 segments before end
+  return parts[parts.length - 2]!;
 }
 
 // POST /api/v1/orders/:id/send-to-kds — send unsent food/bev items to KDS without placing

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Settings, Save } from 'lucide-react';
 import { useSpaSettings, useUpdateSpaSettings } from '@/hooks/use-spa';
 import type { SpaSettings } from '@/hooks/use-spa';
+import { useAuthContext } from '@/components/auth-provider';
 
 /* ────────────────────────────────────────────────────────────────────
  * Local form state — maps to/from backend SpaSettings fields
@@ -151,7 +152,9 @@ function NumberField({
  * ──────────────────────────────────────────────────────────────────── */
 
 export default function SettingsContent() {
-  const { data: serverSettings, isLoading } = useSpaSettings();
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
+  const { data: serverSettings, isLoading } = useSpaSettings({ locationId });
   const { mutate: updateSettings, isPending: isSaving } = useUpdateSpaSettings();
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [isDirty, setIsDirty] = useState(false);

@@ -9,6 +9,7 @@ export const GET = withMiddleware(
     const { searchParams } = new URL(request.url);
     const result = await getApAging({
       tenantId: ctx.tenantId,
+      locationId: ctx.locationId ?? searchParams.get('locationId') ?? undefined,
       asOfDate: searchParams.get('asOfDate') ?? undefined,
     });
     return NextResponse.json({ data: result });

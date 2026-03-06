@@ -15,6 +15,7 @@ import { AccountingPageShell } from '@/components/accounting/accounting-page-she
 import { useAPAging } from '@/hooks/use-ap';
 import { formatAccountingMoney } from '@/types/accounting';
 import { buildQueryString } from '@/lib/query-string';
+import { useAuthContext } from '@/components/auth-provider';
 
 // ── Types (match actual API response shape) ──────────────────
 
@@ -104,12 +105,14 @@ function AgingBar({ row }: { row: AgingRow }) {
 // ── Main ─────────────────────────────────────────────────────
 
 export default function ApAgingReportContent() {
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const [asOfDate, setAsOfDate] = useState(
     () => new Date().toISOString().split('T')[0]!,
   );
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: rawData, isLoading, mutate } = useAPAging({ asOfDate });
+  const { data: rawData, isLoading, mutate } = useAPAging({ locationId, asOfDate });
 
   // The hook returns the full report object cast as APAgingRow[]
   const report = useMemo<AgingReport>(() => {

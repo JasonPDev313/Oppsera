@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { createKdsRoutingRuleSchema as CreateKdsRoutingRuleSchemaType } from '../validation';
+import type { ZodIssue } from 'zod';
+import type { createKdsRoutingRuleSchema } from '../validation';
+type CreateKdsRoutingRuleSchemaType = typeof createKdsRoutingRuleSchema;
 
 // ── Mocks ──────────────────────────────────────────────────────
 
@@ -27,7 +29,8 @@ vi.mock('@oppsera/core/observability', () => ({
   },
 }));
 
-import type { RoutingContext, RoutableItem, resolveStationRouting as ResolveStationRoutingFn } from '../services/kds-routing-engine';
+import type { RoutingContext, RoutableItem, resolveStationRouting } from '../services/kds-routing-engine';
+type ResolveStationRoutingFn = typeof resolveStationRouting;
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -477,7 +480,7 @@ describe('KDS Routing Rule — Zod superRefine validation', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const issue = result.error.issues.find((i) => i.path.includes('categoryId'));
+      const issue = result.error.issues.find((i: ZodIssue) => i.path.includes('categoryId'));
       expect(issue).toBeDefined();
       expect(issue!.message).toContain('categoryId is required');
     }
@@ -499,7 +502,7 @@ describe('KDS Routing Rule — Zod superRefine validation', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((i) => i.path.includes('catalogItemId'))).toBe(true);
+      expect(result.error.issues.some((i: ZodIssue) => i.path.includes('catalogItemId'))).toBe(true);
     }
   });
 
@@ -519,7 +522,7 @@ describe('KDS Routing Rule — Zod superRefine validation', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((i) => i.path.includes('modifierId'))).toBe(true);
+      expect(result.error.issues.some((i: ZodIssue) => i.path.includes('modifierId'))).toBe(true);
     }
   });
 
@@ -539,7 +542,7 @@ describe('KDS Routing Rule — Zod superRefine validation', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((i) => i.path.includes('departmentId'))).toBe(true);
+      expect(result.error.issues.some((i: ZodIssue) => i.path.includes('departmentId'))).toBe(true);
     }
   });
 
@@ -559,7 +562,7 @@ describe('KDS Routing Rule — Zod superRefine validation', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((i) => i.path.includes('subDepartmentId'))).toBe(true);
+      expect(result.error.issues.some((i: ZodIssue) => i.path.includes('subDepartmentId'))).toBe(true);
     }
   });
 });

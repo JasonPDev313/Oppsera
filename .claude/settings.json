@@ -63,7 +63,12 @@
       "WebFetch(domain:www.double-entry-bookkeeping.com)",
       "WebFetch(domain:buzsoftware.com)",
       "Bash(# There are BOTH /packages/fnb and /packages/modules/fnb # Let me check which one has the validation files ls /c/Users/Jason/Dev/Oppsera/packages/fnb/src/)",
-      "Bash(docker info)"
+      "Bash(docker info)",
+      "Bash(npx eslint apps/web/src/instrumentation.ts apps/web/src/app/api/v1/fnb/stations/expo/route.ts apps/web/src/app/api/v1/fnb/stations/[id]/bump-ticket/route.ts apps/web/src/app/api/v1/fnb/stations/[id]/refire/route.ts apps/web/src/app/api/v1/fnb/kds-settings/heartbeat/route.ts apps/web/src/app/api/v1/orders/[id]/send-to-kds/route.ts apps/web/src/components/fnb/kitchen/ExpoTicketCard.tsx apps/web/src/components/fnb/kitchen/ItemSummaryPanel.tsx apps/web/src/components/fnb/kitchen/KitchenMetrics.tsx apps/web/src/components/fnb/kitchen/TicketCard.tsx apps/web/src/components/fnb/kitchen/TicketItemRow.tsx apps/web/src/hooks/use-fnb-kitchen.ts apps/web/src/types/fnb.ts packages/modules/fnb/src/commands/refire-item.ts packages/modules/fnb/src/commands/bump-item.ts packages/modules/fnb/src/commands/bump-ticket.ts packages/modules/fnb/src/commands/heartbeat-kds-terminal.ts packages/modules/fnb/src/consumers/handle-kitchen-action-log.ts packages/modules/fnb/src/consumers/handle-fnb-ticket-bumped.ts packages/modules/fnb/src/queries/get-kds-view.ts packages/modules/fnb/src/queries/get-expo-view.ts packages/modules/fnb/src/queries/get-expo-history.ts packages/modules/fnb/src/queries/list-kds-terminal-heartbeats.ts packages/modules/fnb/src/validation.ts packages/modules/fnb/src/index.ts packages/modules/fnb/src/__tests__/kds-routing-engine.test.ts packages/modules/fnb/src/__tests__/enrich-routable-items.test.ts packages/modules/fnb/src/__tests__/session15-consumer-types.test.ts packages/core/src/auth/with-middleware.ts packages/db/src/schema/fnb.ts apps/web/src/app/\\\\\\(dashboard\\\\\\)/expo/expo-content.tsx apps/web/src/app/\\\\\\(dashboard\\\\\\)/kds/setup/setup-content.tsx apps/web/src/components/fnb/kitchen/ExpoHistoryPanel.tsx apps/web/src/components/fnb/manage-tabs/BulkActionConfirmDialog.tsx apps/web/src/components/fnb/manage-tabs/EmergencyCleanupDialog.tsx)",
+      "Bash(npm list postgres)",
+      "Bash(find \"c:/Users/Jason/Dev/Oppsera/apps/web/src/app/\\(dashboard\\)/spa\" -name \"*-content.tsx\" -type f)",
+      "Bash(grep -L \"useAuthContext\" /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/*/*-content.tsx)",
+      "Bash(do echo \"=== $hook ===\" grep -l \"import.*$hook\" apps/web/src/app/\\\\\\(dashboard\\\\\\)/*/*-content.tsx)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",
@@ -83,7 +88,8 @@
       "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\.next",
       "c:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\.next",
       "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web",
-      "C:\\Users\\Jason\\Dev\\Oppsera"
+      "C:\\Users\\Jason\\Dev\\Oppsera",
+      "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\api\\v1\\fnb\\stations\\[id]"
     ]
   }
 }

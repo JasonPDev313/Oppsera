@@ -74,6 +74,8 @@ export const GET = withMiddleware(async (_request, ctx) => {
         id: l.id,
         name: l.name,
         timezone: l.timezone,
+        locationType: l.locationType,
+        parentLocationId: l.parentLocationId,
         isActive: l.isActive,
       })),
       membership: {

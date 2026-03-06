@@ -7,14 +7,17 @@ import { AccountingPageShell } from '@/components/accounting/accounting-page-she
 import { StatusBadge } from '@/components/accounting/status-badge';
 import { AccountingEmptyState } from '@/components/accounting/accounting-empty-state';
 import { useAPBills, useAPSummary, type APBillFilters } from '@/hooks/use-ap';
+import { useAuthContext } from '@/components/auth-provider';
 import { formatAccountingMoney } from '@/types/accounting';
 
 export default function BillsContent() {
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const [filters, setFilters] = useState<APBillFilters>({});
   const [search, setSearch] = useState('');
 
-  const { data: bills, isLoading } = useAPBills({ ...filters, limit: 50 });
-  const { data: summary } = useAPSummary();
+  const { data: bills, isLoading } = useAPBills({ ...filters, locationId, limit: 50 });
+  const { data: summary } = useAPSummary({ locationId });
 
   const today = new Date().toISOString().split('T')[0];
 

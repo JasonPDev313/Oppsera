@@ -3,6 +3,7 @@ import { withTenant } from '@oppsera/db';
 
 export interface GetApAgingInput {
   tenantId: string;
+  locationId?: string;
   asOfDate?: string; // defaults to today
   vendorId?: string;
 }
@@ -35,6 +36,9 @@ export async function getApAging(input: GetApAgingInput): Promise<ApAgingReport>
   const asOfDate = input.asOfDate ?? new Date().toISOString().slice(0, 10);
 
   return withTenant(input.tenantId, async (tx) => {
+    const locationFilter = input.locationId
+      ? sql`AND b.location_id = ${input.locationId}`
+      : sql``;
     const vendorFilter = input.vendorId
       ? sql`AND b.vendor_id = ${input.vendorId}`
       : sql``;
@@ -77,6 +81,7 @@ export async function getApAging(input: GetApAgingInput): Promise<ApAgingReport>
       WHERE b.tenant_id = ${input.tenantId}
         AND b.status IN ('posted', 'partial')
         AND b.balance_due::numeric > 0
+        ${locationFilter}
         ${vendorFilter}
       GROUP BY v.id, v.name
       HAVING SUM(b.balance_due::numeric) > 0

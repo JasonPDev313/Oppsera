@@ -3,6 +3,8 @@
 import { useState, useMemo } from 'react';
 import { AlertTriangle, Package, RefreshCw, ArrowDown, Bell } from 'lucide-react';
 import { useStockAlerts } from '@/hooks/use-stock-alerts';
+import { useAuthContext } from '@/components/auth-provider';
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60_000);
@@ -18,11 +20,13 @@ type TabKey = 'live' | 'history';
 type SeverityFilter = 'all' | 'critical' | 'warning';
 
 export default function StockAlertsContent() {
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const [activeTab, setActiveTab] = useState<TabKey>('live');
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [search, setSearch] = useState('');
 
-  const { lowStockItems, negativeStockItems, recentAlerts, summary, isLoading, mutate } = useStockAlerts();
+  const { lowStockItems, negativeStockItems, recentAlerts, summary, isLoading, mutate } = useStockAlerts({ locationId });
 
   // ── Combined live items with severity ──────────────────────────
   const liveItems = useMemo(() => {

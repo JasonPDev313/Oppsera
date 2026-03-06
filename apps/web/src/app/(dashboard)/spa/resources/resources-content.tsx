@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Package, Plus, Search, MoreVertical, Pencil, Power } from 'lucide-react';
 import { useSpaResources } from '@/hooks/use-spa';
 import type { SpaResource } from '@/hooks/use-spa';
+import { useAuthContext } from '@/components/auth-provider';
 
 const typeFilterOptions = [
   { value: '', label: 'All Types' },
@@ -53,12 +54,15 @@ function getCapacityDisplay(resource: SpaResource): string {
 }
 
 export default function ResourcesContent() {
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
   const [actionsOpenId, setActionsOpenId] = useState<string | null>(null);
 
   const { items: resources, isLoading } = useSpaResources({
+    locationId,
     type: typeFilter || undefined,
     status: statusFilter || undefined,
     search: search || undefined,

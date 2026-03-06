@@ -863,7 +863,7 @@ function BookingSummary({
 export default function NewAppointmentContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
-  const locationId = locations[0]?.id ?? '';
+  const locationId = (locations.find(l => l.locationType === 'venue') ?? locations[0])?.id ?? '';
 
   // ── Form state ──────────────────────────────────────────────────
   const [selectedServiceId, setSelectedServiceId] = useState('');
@@ -883,9 +883,12 @@ export default function NewAppointmentContent() {
 
   // ── Data hooks ──────────────────────────────────────────────────
   const { items: services, isLoading: isLoadingServices } = useSpaServices({
+    locationId: locationId || undefined,
     status: 'active',
   });
-  const { items: providers, isLoading: isLoadingProviders } = useSpaProviders();
+  const { items: providers, isLoading: isLoadingProviders } = useSpaProviders({
+    locationId: locationId || undefined,
+  });
   const { data: categories } = useSpaServiceCategories();
   const createAppointment = useCreateAppointment();
 

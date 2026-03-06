@@ -18,7 +18,7 @@ const NO_MOD_PATTERN = /\bno\s+\w+/gi;
 /**
  * Parse modifiers into structured display: cook temp, "no" mods, and regular mods.
  */
-function parseModifiers(modifierSummary: string | null): {
+export function parseModifiers(modifierSummary: string | null): {
   cookTemp: string | null;
   noMods: string[];
   regularMods: string;
@@ -54,7 +54,7 @@ function parseModifiers(modifierSummary: string | null): {
 }
 
 export function TicketItemRow({ item, showSeat = true, onBump, density = 'standard' }: TicketItemRowProps) {
-  const isReady = item.itemStatus === 'ready' || item.itemStatus === 'bumped';
+  const isReady = item.itemStatus === 'ready';
   const isServed = item.itemStatus === 'served';
   const isVoided = item.itemStatus === 'voided';
   const isTerminal = isServed || isVoided;

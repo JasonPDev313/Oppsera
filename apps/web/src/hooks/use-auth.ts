@@ -22,6 +22,8 @@ interface LocationProfile {
   id: string;
   name: string;
   timezone: string;
+  locationType: string | null;
+  parentLocationId: string | null;
   isActive: boolean;
 }
 

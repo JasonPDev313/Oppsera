@@ -21,7 +21,8 @@ vi.mock('@oppsera/core/observability', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import type { RoutableItem, enrichRoutableItems as EnrichRoutableItemsFn } from '../services/kds-routing-engine';
+import type { RoutableItem, enrichRoutableItems } from '../services/kds-routing-engine';
+type EnrichRoutableItemsFn = typeof enrichRoutableItems;
 
 // ── Helpers ────────────────────────────────────────────────────
 

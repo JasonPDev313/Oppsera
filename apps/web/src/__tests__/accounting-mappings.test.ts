@@ -29,15 +29,18 @@ describe('mapping coverage', () => {
       departments: { mapped: 3, total: 5 },
       paymentTypes: { mapped: 2, total: 4 },
       taxGroups: { mapped: 1, total: 2 },
+      discounts: { mapped: 6, total: 10 },
     };
 
     const deptPct = (coverage.departments.mapped / coverage.departments.total) * 100;
     const payPct = (coverage.paymentTypes.mapped / coverage.paymentTypes.total) * 100;
     const taxPct = (coverage.taxGroups.mapped / coverage.taxGroups.total) * 100;
+    const discPct = (coverage.discounts.mapped / coverage.discounts.total) * 100;
 
     expect(deptPct).toBe(60);
     expect(payPct).toBe(50);
     expect(taxPct).toBe(50);
+    expect(discPct).toBe(60);
   });
 
   it('handles zero total gracefully', () => {
@@ -53,10 +56,11 @@ describe('mapping coverage', () => {
       departments: { mapped: 5, total: 5 },
       paymentTypes: { mapped: 3, total: 3 },
       taxGroups: { mapped: 2, total: 2 },
+      discounts: { mapped: 10, total: 10 },
     };
 
-    const total = coverage.departments.total + coverage.paymentTypes.total + coverage.taxGroups.total;
-    const mapped = coverage.departments.mapped + coverage.paymentTypes.mapped + coverage.taxGroups.mapped;
+    const total = coverage.departments.total + coverage.paymentTypes.total + coverage.taxGroups.total + coverage.discounts.total;
+    const mapped = coverage.departments.mapped + coverage.paymentTypes.mapped + coverage.taxGroups.mapped + coverage.discounts.mapped;
 
     expect(Math.round((mapped / total) * 100)).toBe(100);
   });

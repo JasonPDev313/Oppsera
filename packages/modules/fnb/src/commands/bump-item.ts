@@ -32,25 +32,20 @@ export async function bumpItem(
       .limit(1);
     if (!item) throw new TicketItemNotFoundError(input.ticketItemId);
 
-    // Guard: served/voided are terminal — cannot bump further.
-    // pending/in_progress → ready, ready → served.
-    if (item.itemStatus === 'served' || item.itemStatus === 'voided') {
+    // Guard: ready/served/voided are terminal for item-level bump.
+    // Items go pending/in_progress → ready here. The ready → served
+    // transition only happens via bumpTicket from expo.
+    if (item.itemStatus === 'ready' || item.itemStatus === 'served' || item.itemStatus === 'voided') {
       throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'bump');
     }
 
     const now = new Date();
-    const isAlreadyReady = item.itemStatus === 'ready';
     const updateData: Record<string, unknown> = {
-      itemStatus: isAlreadyReady ? 'served' : 'ready',
+      itemStatus: 'ready',
+      readyAt: now,
+      bumpedBy: ctx.user.id,
       updatedAt: now,
     };
-    if (isAlreadyReady) {
-      updateData.servedAt = now;
-      updateData.bumpedBy = ctx.user.id;
-    } else {
-      updateData.readyAt = now;
-      updateData.bumpedBy = ctx.user.id;
-    }
     // Record startedAt on first interaction (item was pending, never started)
     if (!item.startedAt) {
       updateData.startedAt = now;
@@ -92,8 +87,7 @@ export async function bumpItem(
     return { result: updated!, events: [event] };
   });
 
-  const newStatus = result.itemStatus === 'served' ? 'served' : 'ready';
-  logger.info(`[kds] item bumped to ${newStatus}`, {
+  logger.info('[kds] item bumped to ready', {
     domain: 'kds', tenantId: ctx.tenantId, locationId: ctx.locationId,
     ticketItemId: input.ticketItemId, stationId: input.stationId, userId: ctx.user.id,
   });

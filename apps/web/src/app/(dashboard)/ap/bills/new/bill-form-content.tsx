@@ -7,10 +7,11 @@ import { AccountingPageShell } from '@/components/accounting/accounting-page-she
 import { AccountPicker } from '@/components/accounting/account-picker';
 import { MoneyInput } from '@/components/accounting/money-input';
 import { useAPBillMutations, usePaymentTerms } from '@/hooks/use-ap';
+import { useAuthContext } from '@/components/auth-provider';
 import { apiFetch } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import { formatAccountingMoney } from '@/types/accounting';
-import type { APLineType } from '@/types/accounting';
+import type { APLineType, AccountType } from '@/types/accounting';
 
 interface FormLine {
   key: string;
@@ -35,6 +36,8 @@ function newLine(): FormLine {
 export default function BillFormContent() {
   const router = useRouter();
   const { toast } = useToast();
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id ?? null;
   const { createBill } = useAPBillMutations();
   const { data: terms } = usePaymentTerms();
 
@@ -66,7 +69,7 @@ export default function BillFormContent() {
     const term = terms.find((t) => t.id === termsId);
     if (term && billDate) {
       const date = new Date(billDate);
-      date.setDate(date.getDate() + term.dueDays);
+      date.setDate(date.getDate() + term.days);
       setDueDate(date.toISOString().split('T')[0]!);
     }
   };
@@ -109,6 +112,7 @@ export default function BillFormContent() {
         billDate,
         dueDate,
         paymentTermsId: paymentTermsId || null,
+        locationId,
         memo: memo || null,
         taxAmount: tax.toFixed(2),
         lines: lines.map((l, i) => ({
@@ -150,6 +154,20 @@ export default function BillFormContent() {
     { value: 'asset', label: 'Asset' },
     { value: 'freight', label: 'Freight' },
   ];
+
+  const lineTypeAccountTypes: Record<APLineType, AccountType[]> = {
+    expense: ['expense'],
+    inventory: ['asset'],
+    asset: ['asset'],
+    freight: ['expense'],
+  };
+
+  const lineTypeMappingRole: Record<APLineType, 'expense' | 'inventory' | undefined> = {
+    expense: 'expense',
+    inventory: 'inventory',
+    asset: undefined,
+    freight: 'expense',
+  };
 
   return (
     <AccountingPageShell
@@ -275,7 +293,14 @@ export default function BillFormContent() {
                         </select>
                       </td>
                       <td className="px-3 py-2">
-                        <AccountPicker value={line.glAccountId} onChange={(v) => updateLine(line.key, 'glAccountId', v)} className="w-full" />
+                        <AccountPicker
+                          value={line.glAccountId}
+                          onChange={(v) => updateLine(line.key, 'glAccountId', v)}
+                          accountTypes={lineTypeAccountTypes[line.lineType]}
+                          mappingRole={lineTypeMappingRole[line.lineType]}
+                          suggestFor={line.description || line.lineType}
+                          className="w-full"
+                        />
                       </td>
                       <td className="px-3 py-2">
                         <input type="text" value={line.description} onChange={(e) => updateLine(line.key, 'description', e.target.value)} placeholder="Description" className="w-full rounded border border-border px-2 py-1.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none" />
@@ -310,7 +335,13 @@ export default function BillFormContent() {
                   <select value={line.lineType} onChange={(e) => updateLine(line.key, 'lineType', e.target.value)} className="w-full rounded border border-border px-2 py-1.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none">
                     {lineTypes.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
-                  <AccountPicker value={line.glAccountId} onChange={(v) => updateLine(line.key, 'glAccountId', v)} />
+                  <AccountPicker
+                    value={line.glAccountId}
+                    onChange={(v) => updateLine(line.key, 'glAccountId', v)}
+                    accountTypes={lineTypeAccountTypes[line.lineType]}
+                    mappingRole={lineTypeMappingRole[line.lineType]}
+                    suggestFor={line.description || line.lineType}
+                  />
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}

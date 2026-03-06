@@ -320,14 +320,19 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
 
       bus.subscribe('fnb.tab.closed.v1', (event) => fnb.handleFnbTabClosed(event.tenantId, event.data as any), 'fnb_reporting/tab.closed');
 
-      // Ticket bumped: event is thin (ticketId, locationId, tabId) — enrich via DB lookup
+      // Ticket bumped: event fires for both prep→ready and expo→served.
+      // Only record performance metrics on the final served transition.
       bus.subscribe('fnb.kds.ticket_bumped.v1', async (event) => {
-        const d = event.data as { ticketId: string; locationId: string; tabId: string };
+        const d = event.data as { ticketId: string; locationId: string; tabId: string; bumpedToStatus?: string };
+        // Fast-path: skip prep-station bumps (ready) — metrics only on final serve
+        if (d.bumpedToStatus === 'ready') return;
         try {
           await withTenant(event.tenantId, async (tx) => {
             const rows = await tx.execute(sql`
-              SELECT kt.station_id, kt.created_at, ft.business_date,
-                     (SELECT count(*)::int FROM fnb_kitchen_ticket_items WHERE ticket_id = kt.id) AS item_count
+              SELECT kt.station_id, kt.status, kt.created_at, ft.business_date,
+                     kt.fired_at, kt.served_at,
+                     (SELECT count(*)::int FROM fnb_kitchen_ticket_items WHERE ticket_id = kt.id) AS item_count,
+                     (SELECT max(ready_at) FROM fnb_kitchen_ticket_items WHERE ticket_id = kt.id AND ready_at IS NOT NULL) AS last_item_ready_at
               FROM fnb_kitchen_tickets kt
               JOIN fnb_tabs ft ON ft.id = kt.tab_id AND ft.tenant_id = kt.tenant_id
               WHERE kt.id = ${d.ticketId} AND kt.tenant_id = ${event.tenantId}
@@ -335,8 +340,13 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
             const arr = Array.from(rows as Iterable<Record<string, unknown>>);
             if (arr.length > 0) {
               const t = arr[0]!;
+              // Defense-in-depth: also check DB status in case event payload was missing
+              if ((t.status as string) !== 'served') return;
               const createdAt = new Date(String(t.created_at));
               const ticketTimeSeconds = Math.round((Date.now() - createdAt.getTime()) / 1000);
+              const firedAt = t.fired_at ? new Date(String(t.fired_at)).getTime() : null;
+              const lastReadyAt = t.last_item_ready_at ? new Date(String(t.last_item_ready_at)).getTime() : null;
+              const servedAt = t.served_at ? new Date(String(t.served_at)).getTime() : null;
               await fnb.handleFnbTicketBumped(event.tenantId, {
                 ticketId: d.ticketId,
                 locationId: d.locationId,
@@ -346,6 +356,8 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
                 itemCount: Number(t.item_count ?? 0),
                 thresholdSeconds: 900, // default 15min SLA
                 hour: new Date().getHours(),
+                fireToReadySeconds: firedAt && lastReadyAt ? Math.round((lastReadyAt - firedAt) / 1000) : null,
+                readyToServedSeconds: lastReadyAt && servedAt ? Math.round((servedAt - lastReadyAt) / 1000) : null,
               });
             }
           });

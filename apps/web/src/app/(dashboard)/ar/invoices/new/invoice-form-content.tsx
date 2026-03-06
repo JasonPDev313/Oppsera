@@ -8,6 +8,7 @@ import { AccountingPageShell } from '@/components/accounting/accounting-page-she
 import { useARInvoiceMutations } from '@/hooks/use-ar';
 import { formatAccountingMoney } from '@/types/accounting';
 import { useToast } from '@/components/ui/toast';
+import { useAuthContext } from '@/components/auth-provider';
 
 interface InvoiceLine {
   revenueAccountId: string;
@@ -30,6 +31,8 @@ const emptyLine = (): InvoiceLine => ({
 export default function InvoiceFormContent() {
   const router = useRouter();
   const { toast } = useToast();
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id ?? null;
   const { createInvoice } = useARInvoiceMutations();
 
   const [customerId, setCustomerId] = useState('');
@@ -71,6 +74,7 @@ export default function InvoiceFormContent() {
       await createInvoice.mutateAsync({
         customerId,
         billingAccountId: billingAccountId || null,
+        locationId,
         invoiceDate,
         dueDate,
         sourceType,

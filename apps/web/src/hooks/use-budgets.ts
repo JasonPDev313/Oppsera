@@ -9,11 +9,12 @@ import type {
 } from '@oppsera/module-accounting';
 
 // ── useBudgets (list) ─────────────────────────────────────────
-export function useBudgets(params?: { fiscalYear?: number; status?: string }) {
+export function useBudgets(params?: { locationId?: string; fiscalYear?: number; status?: string }) {
   const result = useQuery({
     queryKey: ['budgets', params],
     queryFn: () => {
       const p = new URLSearchParams();
+      if (params?.locationId) p.set('locationId', params.locationId);
       if (params?.fiscalYear) p.set('fiscalYear', String(params.fiscalYear));
       if (params?.status) p.set('status', params.status);
       const qs = p.toString();

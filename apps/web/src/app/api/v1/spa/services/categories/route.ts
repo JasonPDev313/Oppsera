@@ -11,10 +11,7 @@ import {
 // GET /api/v1/spa/services/categories — list all service categories
 export const GET = withMiddleware(
   async (_request: NextRequest, ctx) => {
-    const categories = await listServiceCategories(
-      ctx.tenantId,
-      ctx.locationId ?? undefined,
-    );
+    const categories = await listServiceCategories(ctx.tenantId);
 
     return NextResponse.json({ data: categories });
   },

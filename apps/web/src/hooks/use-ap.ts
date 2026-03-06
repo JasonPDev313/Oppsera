@@ -212,11 +212,13 @@ export interface APSummary {
   dueThisWeek: number;
 }
 
-export function useAPSummary() {
+export function useAPSummary(filters: { locationId?: string } = {}) {
   const result = useQuery({
-    queryKey: ['ap-summary'],
-    queryFn: () =>
-      apiFetch<{ data: APSummary }>('/api/v1/ap/reports/summary').then((r) => r.data),
+    queryKey: ['ap-summary', filters],
+    queryFn: () => {
+      const qs = buildQueryString(filters);
+      return apiFetch<{ data: APSummary }>(`/api/v1/ap/reports/summary${qs}`).then((r) => r.data);
+    },
     staleTime: 30_000,
   });
 
@@ -395,7 +397,7 @@ export function useOpenBills(vendorId: string | null) {
 
 // ── useAPAging ───────────────────────────────────────────────
 
-export function useAPAging(params: { asOfDate?: string } = {}) {
+export function useAPAging(params: { locationId?: string; asOfDate?: string } = {}) {
   const result = useQuery({
     queryKey: ['ap-aging', params],
     queryFn: () => {

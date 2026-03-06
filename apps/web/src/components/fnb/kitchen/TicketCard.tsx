@@ -56,14 +56,14 @@ export function TicketCard({
   const tier = getAgingTier(ticket.elapsedSeconds, warningThresholdSeconds, criticalThresholdSeconds);
 
   const allReady = ticket.items.every(
-    (i) => i.itemStatus === 'ready' || i.itemStatus === 'bumped' || i.itemStatus === 'voided',
+    (i) => i.itemStatus === 'ready' || i.itemStatus === 'voided',
   );
   const isDelta = ticket.status === 'pending' && ticket.items.length === 1;
   const hasVoidedItems = ticket.items.some((i) => i.itemStatus === 'voided');
   const hasRush = ticket.items.some((i) => i.isRush);
   const hasAllergy = ticket.items.some((i) => i.isAllergy);
   const hasVip = ticket.items.some((i) => i.isVip);
-  const readyCount = ticket.items.filter((i) => i.itemStatus === 'ready' || i.itemStatus === 'bumped').length;
+  const readyCount = ticket.items.filter((i) => i.itemStatus === 'ready').length;
   const activeCount = ticket.items.filter((i) => i.itemStatus !== 'voided').length;
 
   // Card width based on density — generous for touch targets

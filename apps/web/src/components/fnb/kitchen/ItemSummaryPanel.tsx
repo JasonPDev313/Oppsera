@@ -44,8 +44,8 @@ export function ItemSummaryPanel({ tickets, onClose, maxItems = 20 }: ItemSummar
 
         existing.total += item.quantity;
         if (item.itemStatus === 'pending') existing.pending += item.quantity;
-        else if (item.itemStatus === 'in_progress') existing.inProgress += item.quantity;
-        else if (item.itemStatus === 'ready' || item.itemStatus === 'bumped' || item.itemStatus === 'served') {
+        else if (item.itemStatus === 'cooking') existing.inProgress += item.quantity;
+        else if (item.itemStatus === 'ready' || item.itemStatus === 'served') {
           existing.ready += item.quantity;
         }
 

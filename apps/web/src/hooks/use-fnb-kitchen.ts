@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { onChannelRefresh } from '@/hooks/use-fnb-realtime';
-import type { KdsView, ExpoView, FnbStation } from '@/types/fnb';
+import type { KdsView, ExpoView, ExpoHistory, FnbStation } from '@/types/fnb';
 
 // ── KDS View Hook ───────────────────────────────────────────────
 
@@ -22,6 +22,8 @@ interface UseKdsViewReturn {
   bumpTicket: (ticketId: string) => Promise<void>;
   recallItem: (ticketItemId: string) => Promise<void>;
   callBack: (ticketItemId: string, reason?: string) => Promise<void>;
+  refireItem: (ticketItemId: string, reason?: string) => Promise<void>;
+  toggleRushMode: () => Promise<void>;
   isActing: boolean;
   refresh: () => void;
 }
@@ -173,7 +175,31 @@ export function useKdsView({
     await runAction(`/api/v1/fnb/stations/${stationId}/callback${locQs}`, { ticketItemId, stationId, reason });
   }, [stationId, locQs, runAction, isActing]);
 
-  return { kdsView, isLoading, error, bumpItem, bumpTicket, recallItem, callBack, isActing, refresh };
+  const refireItem = useCallback(async (ticketItemId: string, reason?: string) => {
+    if (!stationId || isActing) return;
+    await runAction(`/api/v1/fnb/stations/${stationId}/refire${locQs}`, { ticketItemId, stationId, reason });
+  }, [stationId, locQs, runAction, isActing]);
+
+  const toggleRushMode = useCallback(async () => {
+    if (!stationId || isActing) return;
+    const newVal = !(kdsView?.rushMode ?? false);
+    setIsActing(true);
+    try {
+      await apiFetch(`/api/v1/fnb/stations/${stationId}${locQs}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ rushMode: newVal }),
+      });
+      await fetchKds(true);
+    } catch (err: unknown) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setError(err instanceof Error ? err.message : 'Failed to toggle rush mode');
+      }
+    } finally {
+      setIsActing(false);
+    }
+  }, [stationId, locQs, kdsView?.rushMode, fetchKds, isActing]);
+
+  return { kdsView, isLoading, error, bumpItem, bumpTicket, recallItem, callBack, refireItem, toggleRushMode, isActing, refresh };
 }
 
 // ── Expo View Hook ──────────────────────────────────────────────
@@ -299,6 +325,52 @@ export function useExpoView({
   }, [locationId, fetchExpo, isActing]);
 
   return { expoView, isLoading, error, bumpTicket, isActing, refresh };
+}
+
+// ── Expo History Hook ───────────────────────────────────────────
+
+interface UseExpoHistoryOptions {
+  locationId?: string;
+  businessDate?: string;
+  enabled?: boolean;
+}
+
+export function useExpoHistory({
+  locationId,
+  businessDate,
+  enabled = true,
+}: UseExpoHistoryOptions) {
+  const [history, setHistory] = useState<ExpoHistory | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const today = businessDate ?? new Date().toISOString().slice(0, 10);
+
+  const fetchHistory = useCallback(async () => {
+    if (!enabled) return;
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({ businessDate: today });
+      if (locationId) params.set('locationId', locationId);
+      const json = await apiFetch<{ data: ExpoHistory }>(
+        `/api/v1/fnb/stations/expo/history?${params}`,
+      );
+      setHistory(json.data);
+      setError(null);
+    } catch (err: unknown) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setError(err instanceof Error ? err.message : 'Failed to load history');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [locationId, today, enabled]);
+
+  useEffect(() => {
+    if (enabled) fetchHistory();
+  }, [fetchHistory, enabled]);
+
+  return { history, isLoading, error, refresh: fetchHistory };
 }
 
 // ── Stations List Hook ──────────────────────────────────────────

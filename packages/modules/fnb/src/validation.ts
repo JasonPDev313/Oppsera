@@ -628,6 +628,7 @@ export const updateStationSchema = z.object({
   warningThresholdSeconds: z.number().int().min(0).optional(),
   criticalThresholdSeconds: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
+  rushMode: z.boolean().optional(),
 });
 
 export type UpdateStationInput = z.input<typeof updateStationSchema>;
@@ -667,9 +668,19 @@ export type RecallItemInput = z.input<typeof recallItemSchema>;
 export const bumpTicketSchema = z.object({
   ...idempotencyMixin,
   ticketId: z.string().min(1),
+  stationId: z.string().min(1).optional(), // prep station → bump to 'ready'; omit or expo → bump to 'served'
 });
 
 export type BumpTicketInput = z.input<typeof bumpTicketSchema>;
+
+export const refireItemSchema = z.object({
+  ...idempotencyMixin,
+  ticketItemId: z.string().min(1),
+  stationId: z.string().min(1).optional(), // Used for logging context only; item inherits original station
+  reason: z.string().max(200).optional(),
+});
+
+export type RefireItemInput = z.input<typeof refireItemSchema>;
 
 export const callBackToStationSchema = z.object({
   ...idempotencyMixin,
@@ -679,6 +690,16 @@ export const callBackToStationSchema = z.object({
 });
 
 export type CallBackToStationInput = z.input<typeof callBackToStationSchema>;
+
+export const heartbeatKdsTerminalSchema = z.object({
+  terminalId: z.string().min(1).max(100),
+  stationId: z.string().min(1),
+  userId: z.string().optional(),
+  ipAddress: z.string().optional(),
+  userAgent: z.string().max(500).optional(),
+});
+
+export type HeartbeatKdsTerminalInput = z.input<typeof heartbeatKdsTerminalSchema>;
 
 // ── Session 5 Query Filters ─────────────────────────────────────
 

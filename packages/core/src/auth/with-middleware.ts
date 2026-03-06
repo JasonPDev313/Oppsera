@@ -275,7 +275,11 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
       // Surface DB schema mismatch errors clearly — most common cause of 500s during development
       const isDbSchemaError = rawMsg.includes('column') || rawMsg.includes('relation') || rawMsg.includes('does not exist');
       const isTimeoutError = rawMsg.includes('timed out') || rawMsg.includes('timeout') || rawMsg.includes('canceling statement');
-      const isConnectionError = rawMsg.includes('connection') || rawMsg.includes('pool') || rawMsg.includes('ECONNREFUSED');
+      const isConnectionError = rawMsg.includes('connection refused') || rawMsg.includes('connection terminated')
+        || rawMsg.includes('connection slots') || rawMsg.includes('remaining connection')
+        || rawMsg.includes('ECONNREFUSED') || rawMsg.includes('ECONNRESET')
+        || rawMsg.includes('pool is full') || rawMsg.includes('pool exhausted')
+        || rawMsg.includes('could not connect') || rawMsg.includes('no pg_hba.conf');
 
       let userMsg: string;
       let errorCode: string;
@@ -297,7 +301,7 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
           userMsg = 'Database connection error — please try again in a moment.';
           errorCode = 'CONNECTION_ERROR';
         } else {
-          userMsg = `An unexpected error occurred (${error instanceof Error ? error.constructor.name : 'unknown'}). Check server logs for details.`;
+          userMsg = `An unexpected error occurred (${error instanceof Error ? error.constructor.name : 'unknown'}): ${rawMsg}`;
           errorCode = 'INTERNAL_ERROR';
         }
       }

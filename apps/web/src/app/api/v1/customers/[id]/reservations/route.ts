@@ -193,6 +193,7 @@ export const GET = withMiddleware(
     if (hasSpa) {
       queries.spa = listAppointments({
         tenantId: ctx.tenantId,
+        locationId: ctx.locationId,
         customerId,
         limit: 50,
       });

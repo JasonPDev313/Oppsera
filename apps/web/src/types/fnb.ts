@@ -34,7 +34,18 @@ export type FnbTableShape =
 
 export type FnbTabType = 'dine_in' | 'bar' | 'takeout' | 'delivery';
 
-export type FnbTabStatus = 'open' | 'closed' | 'voided' | 'merged';
+export type FnbTabStatus =
+  | 'open'
+  | 'ordering'
+  | 'sent_to_kitchen'
+  | 'in_progress'
+  | 'check_requested'
+  | 'split'
+  | 'paying'
+  | 'closed'
+  | 'voided'
+  | 'transferred'
+  | 'abandoned';
 
 export type FnbCourseStatus =
   | 'unsent'
@@ -47,9 +58,9 @@ export type FnbCourseStatus =
 
 export type FnbTicketStatus =
   | 'pending'
-  | 'cooking'
+  | 'in_progress'
   | 'ready'
-  | 'bumped'
+  | 'served'
   | 'voided';
 
 export type FnbTicketItemStatus =
@@ -57,7 +68,6 @@ export type FnbTicketItemStatus =
   | 'cooking'
   | 'ready'
   | 'served'
-  | 'bumped'
   | 'voided';
 
 export type FnbPaymentSessionStatus =
@@ -368,6 +378,7 @@ export interface KdsView {
   stationColor: string | null;
   warningThresholdSeconds: number;
   criticalThresholdSeconds: number;
+  rushMode: boolean;
   tickets: KdsTicketCard[];
   activeTicketCount: number;
   recentlyCompleted: KdsCompletedTicket[];
@@ -381,6 +392,7 @@ export interface ExpoTicketItem {
   kitchenLabel: string | null;
   itemColor: string | null;
   modifierSummary: string | null;
+  specialInstructions: string | null;
   seatNumber: number | null;
   courseName: string | null;
   quantity: number;
@@ -392,6 +404,7 @@ export interface ExpoTicketItem {
   isRush: boolean;
   isAllergy: boolean;
   isVip: boolean;
+  readyAt: string | null;
 }
 
 export interface ExpoTicketCard {
@@ -420,6 +433,37 @@ export interface ExpoView {
   tickets: ExpoTicketCard[];
   totalActiveTickets: number;
   ticketsAllReady: number;
+}
+
+// ── Expo History ──────────────────────────────────────────────────
+
+export interface ExpoHistoryItem {
+  itemId: string;
+  itemName: string;
+  kitchenLabel: string | null;
+  quantity: number;
+  modifierSummary: string | null;
+  stationName: string | null;
+}
+
+export interface ExpoHistoryTicket {
+  ticketId: string;
+  ticketNumber: number;
+  tabId: string;
+  courseNumber: number | null;
+  orderType: string | null;
+  tableNumber: number | null;
+  serverName: string | null;
+  customerName: string | null;
+  sentAt: string;
+  servedAt: string | null;
+  durationSeconds: number;
+  items: ExpoHistoryItem[];
+}
+
+export interface ExpoHistory {
+  tickets: ExpoHistoryTicket[];
+  totalServed: number;
 }
 
 // ── Stations ──────────────────────────────────────────────────────

@@ -37,7 +37,7 @@ export function KitchenMetrics({
     const avg = Math.round(total / tickets.length);
     const overdue = tickets.filter((t) => t.elapsedSeconds >= criticalThresholdSeconds).length;
     const ready = tickets.filter((t) =>
-      t.items.every((i) => i.itemStatus === 'ready' || i.itemStatus === 'bumped' || i.itemStatus === 'voided'),
+      t.items.every((i) => i.itemStatus === 'ready' || i.itemStatus === 'voided'),
     ).length;
 
     return { avgTime: avg, overdueCount: overdue, activeCount: tickets.length, readyCount: ready };

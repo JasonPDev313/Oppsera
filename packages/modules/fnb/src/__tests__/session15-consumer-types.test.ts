@@ -87,6 +87,8 @@ describe('Consumer Data Types', () => {
       itemCount: 3,
       thresholdSeconds: 600,
       hour: 18,
+      fireToReadySeconds: 380,
+      readyToServedSeconds: 40,
     };
     expect(data.ticketTimeSeconds).toBe(420);
     expect(data.thresholdSeconds).toBe(600);
@@ -151,6 +153,8 @@ describe('Consumer Data Types', () => {
       itemCount: 2,
       thresholdSeconds: 600,
       hour: 12,
+      fireToReadySeconds: 280,
+      readyToServedSeconds: 20,
     };
     expect(fast.ticketTimeSeconds > fast.thresholdSeconds).toBe(false);
 
@@ -163,6 +167,8 @@ describe('Consumer Data Types', () => {
       itemCount: 5,
       thresholdSeconds: 600,
       hour: 19,
+      fireToReadySeconds: 750,
+      readyToServedSeconds: 150,
     };
     expect(slow.ticketTimeSeconds > slow.thresholdSeconds).toBe(true);
   });

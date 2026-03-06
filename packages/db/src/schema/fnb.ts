@@ -833,6 +833,7 @@ export const fnbKitchenStations = pgTable(
     screenCommunicationMode: text('screen_communication_mode').notNull().default('independent'),
     assemblyLineOrder: integer('assembly_line_order'),
     pauseReceiving: boolean('pause_receiving').notNull().default(false),
+    rushMode: boolean('rush_mode').notNull().default(false),
     supervisedByExpoId: text('supervised_by_expo_id'),
     showOtherStationItems: boolean('show_other_station_items').notNull().default(false),
     allowedOrderTypes: text('allowed_order_types').array().notNull().default(sql`'{}'`),
@@ -2607,6 +2608,57 @@ export const fnbTurnTimeAggregates = pgTable('fnb_turn_time_aggregates', {
     table.mealPeriod, table.dayOfWeek, table.partySizeBucket,
   ),
 ]);
+
+// ═══════════════════════════════════════════════════════════════════
+// KDS Enhancements — Action Log, Terminal Heartbeats
+// ═══════════════════════════════════════════════════════════════════
+
+// ── Kitchen Action Log (append-only audit trail) ──────────────────
+export const fnbKitchenActions = pgTable(
+  'fnb_kitchen_actions',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull(),
+    stationId: text('station_id'),
+    ticketId: text('ticket_id').notNull(),
+    ticketItemId: text('ticket_item_id'),
+    actionType: text('action_type').notNull(),
+    actorId: text('actor_id').notNull(),
+    actorName: text('actor_name'),
+    reason: text('reason'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    businessDate: date('business_date').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_kitchen_actions_tenant_date').on(table.tenantId, table.locationId, table.businessDate),
+    index('idx_fnb_kitchen_actions_ticket').on(table.ticketId),
+    index('idx_fnb_kitchen_actions_actor').on(table.tenantId, table.actorId),
+  ],
+);
+
+// ── KDS Terminal Heartbeats ──────────────────────────────────────
+export const fnbKdsTerminalHeartbeats = pgTable(
+  'fnb_kds_terminal_heartbeats',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull(),
+    terminalId: text('terminal_id').notNull(),
+    stationId: text('station_id').notNull(),
+    userId: text('user_id'),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_fnb_kds_heartbeat_terminal').on(table.tenantId, table.locationId, table.terminalId),
+    index('idx_fnb_kds_heartbeat_station').on(table.stationId),
+  ],
+);
 
 // ═══════════════════════════════════════════════════════════════════
 // SESSION 8 — Waitlist V1: Config & Branding

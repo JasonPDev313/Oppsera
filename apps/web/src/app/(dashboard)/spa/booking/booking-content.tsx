@@ -985,9 +985,10 @@ function RecentBookingsTable({
 // ── Main Content ────────────────────────────────────────────────
 
 export default function BookingContent() {
-  const { tenant } = useAuthContext();
-  const { data: config, isLoading: configLoading } = useSpaBookingConfig();
-  const { data: stats, isLoading: statsLoading } = useSpaBookingStats();
+  const { tenant, locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
+  const { data: config, isLoading: configLoading } = useSpaBookingConfig({ locationId });
+  const { data: stats, isLoading: statsLoading } = useSpaBookingStats({ locationId });
 
   const tenantSlug = tenant?.slug ?? '';
 

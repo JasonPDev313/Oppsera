@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useSpaProviders } from '@/hooks/use-spa';
 import type { SpaProvider } from '@/hooks/use-spa';
+import { useAuthContext } from '@/components/auth-provider';
 import { getInitials } from '@oppsera/shared';
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -180,12 +181,15 @@ function ProvidersSkeleton() {
 // ── Main Content ─────────────────────────────────────────────────────
 
 export default function ProvidersContent() {
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
 
   const providerStatus = statusFilter === 'all' ? undefined : statusFilter;
 
   const { items: providers, isLoading } = useSpaProviders({
+    locationId,
     status: providerStatus,
     search: search || undefined,
   });

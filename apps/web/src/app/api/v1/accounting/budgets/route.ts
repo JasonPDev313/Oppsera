@@ -8,6 +8,7 @@ export const GET = withMiddleware(
     const url = new URL(request.url);
     const result = await listBudgets({
       tenantId: ctx.tenantId,
+      locationId: ctx.locationId ?? url.searchParams.get('locationId') ?? undefined,
       fiscalYear: url.searchParams.get('fiscalYear')
         ? Number(url.searchParams.get('fiscalYear'))
         : undefined,

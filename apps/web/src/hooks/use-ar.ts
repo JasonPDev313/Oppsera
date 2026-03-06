@@ -13,6 +13,7 @@ import type {
 
 export interface ARInvoiceFilters {
   customerId?: string;
+  locationId?: string;
   status?: string;
   sourceType?: string;
   startDate?: string;

@@ -39,8 +39,9 @@ const ACCOUNT_WIRING: Array<{
  * exist (e.g., tenant imported a COA without standard account numbers), this
  * account is auto-created to guarantee the POS adapter can ALWAYS post GL entries.
  *
- * Account type is 'asset' with debit normal balance — works for both sides of
- * an unresolved GL entry. Accountant reviews and journals amounts out later.
+ * Account type is 'expense' — validateJournal rejects 'asset' and 'revenue' types
+ * for rounding accounts, so expense is the safe choice. Accountant reviews and
+ * journals amounts out to proper accounts later.
  */
 const SUSPENSE_ACCOUNT_NUMBER = '99999';
 const SUSPENSE_ACCOUNT_NAME = 'GL Suspense – Unmapped Transactions';
@@ -195,13 +196,15 @@ async function ensureDefaultPaymentTypeMappings(
   depositAccountId: string,
 ): Promise<void> {
   try {
-    for (const paymentType of STANDARD_PAYMENT_TYPES) {
-      await tx.execute(sql`
-        INSERT INTO payment_type_gl_defaults (tenant_id, payment_type_id, cash_account_id, created_at, updated_at)
-        VALUES (${tenantId}, ${paymentType}, ${depositAccountId}, NOW(), NOW())
-        ON CONFLICT (tenant_id, payment_type_id) DO NOTHING
-      `);
-    }
+    // Single batch INSERT instead of N sequential queries
+    const values = STANDARD_PAYMENT_TYPES
+      .map((pt) => sql`(${tenantId}, ${pt}, ${depositAccountId}, NOW(), NOW())`)
+      .reduce((a, b) => sql`${a}, ${b}`);
+    await tx.execute(sql`
+      INSERT INTO payment_type_gl_defaults (tenant_id, payment_type_id, cash_account_id, created_at, updated_at)
+      VALUES ${values}
+      ON CONFLICT (tenant_id, payment_type_id) DO NOTHING
+    `);
   } catch {
     // Never block — payment type mappings are non-critical fallbacks
   }
@@ -230,7 +233,20 @@ async function ensureSuspenseAccount(
     )
     .limit(1);
 
-  if (existing) return existing.id;
+  if (existing) {
+    // Fix legacy suspense accounts created as 'asset' type — validateJournal
+    // rejects asset-type accounts for rounding. Update to 'expense' if needed.
+    try {
+      await tx.execute(sql`
+        UPDATE gl_accounts
+        SET account_type = 'expense', updated_at = NOW()
+        WHERE id = ${existing.id}
+          AND account_type = 'asset'
+          AND account_number = ${SUSPENSE_ACCOUNT_NUMBER}
+      `);
+    } catch { /* non-critical — existing type may already be expense */ }
+    return existing.id;
+  }
 
   // Auto-create the suspense account
   try {
@@ -240,7 +256,7 @@ async function ensureSuspenseAccount(
       tenantId,
       accountNumber: SUSPENSE_ACCOUNT_NUMBER,
       name: SUSPENSE_ACCOUNT_NAME,
-      accountType: 'asset',
+      accountType: 'expense',
       normalBalance: 'debit',
       isActive: true,
       isControlAccount: false,

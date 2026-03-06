@@ -9,17 +9,25 @@ export const GET = withMiddleware(
     const items = await withTenant(ctx.tenantId, async (tx) => {
       const rows = await tx.execute(sql`
         SELECT
-          tg.tax_group_id,
-          tg.tax_payable_account_id,
-          tg.created_at,
-          tg.updated_at
-        FROM tax_group_gl_defaults tg
+          tg.id AS tax_group_id,
+          tg.name AS tax_group_name,
+          tg.rate,
+          gd.tax_payable_account_id,
+          COALESCE(gd.updated_at, tg.updated_at) AS updated_at,
+          COALESCE(gd.created_at, tg.created_at) AS created_at
+        FROM tax_groups tg
+        LEFT JOIN tax_group_gl_defaults gd
+          ON gd.tenant_id = tg.tenant_id
+          AND gd.tax_group_id = tg.id
         WHERE tg.tenant_id = ${ctx.tenantId}
-        ORDER BY tg.tax_group_id
+          AND tg.is_active = true
+        ORDER BY tg.name
       `);
 
       return Array.from(rows as Iterable<Record<string, unknown>>).map((row) => ({
         taxGroupId: String(row.tax_group_id),
+        taxGroupName: row.tax_group_name ? String(row.tax_group_name) : null,
+        rate: row.rate != null ? Number(row.rate) : null,
         taxPayableAccountId: row.tax_payable_account_id ? String(row.tax_payable_account_id) : null,
         createdAt: String(row.created_at),
         updatedAt: String(row.updated_at),

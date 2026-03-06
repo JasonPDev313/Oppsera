@@ -398,6 +398,7 @@ export default function KdsSetupContent() {
                 stationId: match.id,
                 priority: 10,
                 ruleName: `${rec.departmentName} → ${match.name}`,
+                clientRequestId: crypto.randomUUID(),
               }),
             });
           } catch {
@@ -406,11 +407,21 @@ export default function KdsSetupContent() {
         }
       }
 
-      // Run verification
-      const verify = await apiFetch<{ data: { checks: VerifyCheck[]; canLaunch: boolean } }>(
-        `/api/v1/fnb/kds-setup/verify`,
-        { headers: { 'X-Location-Id': locationId } },
-      );
+      // Run verification (retry once on transient failure)
+      let verify: { data: { checks: VerifyCheck[]; canLaunch: boolean } };
+      try {
+        verify = await apiFetch<{ data: { checks: VerifyCheck[]; canLaunch: boolean } }>(
+          `/api/v1/fnb/kds-setup/verify`,
+          { headers: { 'X-Location-Id': locationId } },
+        );
+      } catch {
+        // Single retry after brief pause — handles transient DB pool exhaustion
+        await new Promise((r) => setTimeout(r, 1500));
+        verify = await apiFetch<{ data: { checks: VerifyCheck[]; canLaunch: boolean } }>(
+          `/api/v1/fnb/kds-setup/verify`,
+          { headers: { 'X-Location-Id': locationId } },
+        );
+      }
       setVerifyChecks(verify.data.checks);
       setStep(5);
     } catch (err) {

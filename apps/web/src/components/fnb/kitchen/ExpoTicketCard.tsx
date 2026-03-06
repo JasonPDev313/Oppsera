@@ -4,7 +4,58 @@ import type { ExpoTicketCard as ExpoTicketCardType } from '@/types/fnb';
 import { TicketHeader, getAgingTier } from './TicketHeader';
 import { AlertBadges } from './AlertBadges';
 import { BumpButton } from './BumpButton';
-import { Flame, Undo2 } from 'lucide-react';
+import { parseModifiers } from './TicketItemRow';
+import { Flame, Undo2, Clock, AlertTriangle } from 'lucide-react';
+
+/** Estimate seconds remaining based on max prep time of non-ready items minus elapsed */
+function estimateRemainingSeconds(
+  items: ExpoTicketCardType['items'],
+  elapsedSeconds: number,
+): number | null {
+  const pendingItems = items.filter(
+    (i) => i.itemStatus !== 'ready' && i.itemStatus !== 'served' && i.itemStatus !== 'voided',
+  );
+  if (pendingItems.length === 0) return null;
+  const maxPrep = Math.max(...pendingItems.map((i) => i.estimatedPrepSeconds ?? 0));
+  if (maxPrep === 0) return null; // no prep time data
+  const remaining = maxPrep - elapsedSeconds;
+  return remaining > 0 ? remaining : 0;
+}
+
+function formatEta(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `~${m}:${String(s).padStart(2, '0')}` : `~${s}s`;
+}
+
+/** Seconds a ready item can sit before being flagged stale */
+const STALE_WARNING_SECONDS = 300; // 5 minutes
+const STALE_CRITICAL_SECONDS = 600; // 10 minutes
+
+type StaleLevel = 'none' | 'stale' | 'remake';
+
+function computeStaleLevels(
+  items: ExpoTicketCardType['items'],
+): Map<string, StaleLevel> {
+  const now = Date.now();
+  const map = new Map<string, StaleLevel>();
+  for (const item of items) {
+    if (item.itemStatus !== 'ready' || !item.readyAt) {
+      map.set(item.itemId, 'none');
+      continue;
+    }
+    const readyTime = new Date(item.readyAt).getTime();
+    if (Number.isNaN(readyTime)) {
+      map.set(item.itemId, 'none');
+      continue;
+    }
+    const secondsSinceReady = Math.floor((now - readyTime) / 1000);
+    if (secondsSinceReady >= STALE_CRITICAL_SECONDS) map.set(item.itemId, 'remake');
+    else if (secondsSinceReady >= STALE_WARNING_SECONDS) map.set(item.itemId, 'stale');
+    else map.set(item.itemId, 'none');
+  }
+  return map;
+}
 
 interface ExpoTicketCardProps {
   ticket: ExpoTicketCardType;
@@ -35,6 +86,8 @@ export function ExpoTicketCard({
     stationGroups[key].push(item);
   }
 
+  const etaSeconds = estimateRemainingSeconds(ticket.items, ticket.elapsedSeconds);
+  const staleLevels = computeStaleLevels(ticket.items);
   const hasRush = ticket.items.some((i) => i.isRush);
   const hasAllergy = ticket.items.some((i) => i.isAllergy);
   const hasVip = ticket.items.some((i) => i.isVip);
@@ -83,10 +136,33 @@ export function ExpoTicketCard({
         itemCount={ticket.items.length}
       />
 
+      {/* Stale-in-window warning */}
+      {(() => {
+        const staleCount = ticket.items.filter(
+          (i) => staleLevels.get(i.itemId) !== 'none',
+        ).length;
+        if (staleCount === 0) return null;
+        const hasRemake = ticket.items.some((i) => staleLevels.get(i.itemId) === 'remake');
+        return (
+          <div
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase"
+            style={{
+              backgroundColor: hasRemake ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.12)',
+              color: hasRemake ? '#ef4444' : '#f59e0b',
+            }}
+          >
+            <AlertTriangle className="h-3 w-3" />
+            {hasRemake
+              ? `${staleCount} item${staleCount > 1 ? 's' : ''} — REMAKE?`
+              : `${staleCount} item${staleCount > 1 ? 's' : ''} STALE in window`}
+          </div>
+        );
+      })()}
+
       {/* Station readiness grid — enhanced with visual status */}
       <div className="px-3 py-2 border-b" style={{ borderColor: 'rgba(148, 163, 184, 0.1)' }}>
         {Object.entries(stationGroups).map(([stationName, items]) => {
-          const ready = items.filter((i) => i.itemStatus === 'ready' || i.itemStatus === 'bumped').length;
+          const ready = items.filter((i) => i.itemStatus === 'ready').length;
           const total = items.filter((i) => i.itemStatus !== 'voided').length;
           const allDone = ready === total;
           const pct = total > 0 ? (ready / total) * 100 : 0;
@@ -124,55 +200,107 @@ export function ExpoTicketCard({
 
       {/* Item details */}
       <div className="flex-1 overflow-y-auto px-3 py-1.5">
-        {ticket.items.map((item) => (
-          <div
-            key={item.itemId}
-            className="flex items-center gap-2 py-0.5"
-            style={{ opacity: item.itemStatus === 'voided' ? 0.3 : 1 }}
-          >
-            {item.seatNumber && (
-              <span
-                className="shrink-0 flex items-center justify-center rounded-full text-[9px] font-bold"
-                style={{
-                  width: '16px',
-                  height: '16px',
-                  backgroundColor: 'var(--fnb-status-ordered)',
-                  color: '#fff',
-                }}
-              >
-                {item.seatNumber}
-              </span>
-            )}
-            <span
-              className="text-xs flex-1 truncate"
+        {ticket.items.map((item) => {
+          const { cookTemp, noMods, regularMods } = parseModifiers(item.modifierSummary ?? null);
+          return (
+            <div
+              key={item.itemId}
+              className="py-1 border-b last:border-b-0"
               style={{
-                color: item.itemStatus === 'ready' || item.itemStatus === 'bumped'
-                  ? 'var(--fnb-status-available)'
-                  : 'var(--fnb-text-secondary)',
+                opacity: item.itemStatus === 'voided' ? 0.3 : 1,
+                borderColor: 'rgba(148, 163, 184, 0.08)',
               }}
             >
-              {item.quantity > 1 ? `${item.quantity}x ` : ''}{item.itemName}
-            </span>
-            {item.isRush && (
-              <span className="text-[9px] font-bold" style={{ color: '#ef4444' }}>RUSH</span>
-            )}
-            <span className="text-[10px]" style={{
-              color: item.itemStatus === 'ready' || item.itemStatus === 'bumped'
-                ? 'var(--fnb-status-available)'
-                : 'var(--fnb-text-muted)',
-            }}>
-              {item.itemStatus === 'ready' || item.itemStatus === 'bumped' ? '✓' : '⏳'}
-            </span>
-          </div>
-        ))}
+              <div className="flex items-center gap-2">
+                {item.seatNumber && (
+                  <span
+                    className="shrink-0 flex items-center justify-center rounded-full text-[9px] font-bold"
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      backgroundColor: 'var(--fnb-status-ordered)',
+                      color: '#fff',
+                    }}
+                  >
+                    {item.seatNumber}
+                  </span>
+                )}
+                <span
+                  className="text-xs font-semibold flex-1 truncate"
+                  style={{
+                    color: item.itemStatus === 'ready'
+                      ? 'var(--fnb-status-available)'
+                      : 'var(--fnb-text-primary)',
+                  }}
+                >
+                  {item.quantity > 1 ? `${item.quantity}x ` : ''}{item.kitchenLabel || item.itemName}
+                </span>
+                {item.isRush && (
+                  <span className="text-[9px] font-bold" style={{ color: '#ef4444' }}>RUSH</span>
+                )}
+                <span className="text-[10px]" style={{
+                  color: item.itemStatus === 'ready'
+                    ? (staleLevels.get(item.itemId) === 'remake' ? '#ef4444'
+                      : staleLevels.get(item.itemId) === 'stale' ? '#f59e0b'
+                      : 'var(--fnb-status-available)')
+                    : 'var(--fnb-text-muted)',
+                }}>
+                  {item.itemStatus === 'ready'
+                    ? (staleLevels.get(item.itemId) === 'remake' ? '⚠ REMAKE?'
+                      : staleLevels.get(item.itemId) === 'stale' ? '⚠ STALE'
+                      : '✓')
+                    : '⏳'}
+                </span>
+              </div>
+              {/* Cook temp */}
+              {cookTemp && (
+                <p className="text-[10px] font-bold mt-0.5 ml-5" style={{ color: '#f97316' }}>
+                  {cookTemp}
+                </p>
+              )}
+              {/* "No" modifiers — red */}
+              {noMods.length > 0 && (
+                <p className="text-[10px] font-semibold mt-0.5 ml-5" style={{ color: '#ef4444' }}>
+                  {noMods.join(', ')}
+                </p>
+              )}
+              {/* Regular modifiers */}
+              {regularMods && (
+                <p className="text-[10px] mt-0.5 ml-5" style={{ color: 'var(--fnb-text-muted)' }}>
+                  + {regularMods}
+                </p>
+              )}
+              {/* Special instructions / notes */}
+              {item.specialInstructions && (
+                <p
+                  className="text-[10px] italic mt-0.5 ml-5 rounded px-1 py-0.5"
+                  style={{
+                    color: 'var(--fnb-status-check-presented)',
+                    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                  }}
+                >
+                  ** {item.specialInstructions}
+                </p>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Server */}
-      {ticket.serverName && (
-        <div className="px-3 py-1" style={{ backgroundColor: 'var(--fnb-bg-elevated)' }}>
+      {/* Server + ETA */}
+      {(ticket.serverName || etaSeconds != null) && (
+        <div className="flex items-center justify-between px-3 py-1" style={{ backgroundColor: 'var(--fnb-bg-elevated)' }}>
           <span className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
-            {ticket.serverName}
+            {ticket.serverName ?? ''}
           </span>
+          {etaSeconds != null && !ticket.allItemsReady && (
+            <span className="flex items-center gap-0.5 text-[10px] font-semibold fnb-mono" style={{
+              color: etaSeconds === 0 ? '#f97316' : 'var(--fnb-text-secondary)',
+            }}>
+              <Clock className="h-2.5 w-2.5" />
+              {etaSeconds === 0 ? 'overdue' : formatEta(etaSeconds)}
+            </span>
+          )}
         </div>
       )}
 

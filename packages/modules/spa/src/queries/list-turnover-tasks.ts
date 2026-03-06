@@ -67,7 +67,9 @@ export async function listTurnoverTasks(
   const limit = input.limit ?? 50;
 
   return withTenant(input.tenantId, async (tx) => {
-    const conditions = [];
+    const conditions = [
+      eq(spaRoomTurnoverTasks.tenantId, input.tenantId),
+    ];
 
     if (input.resourceId) {
       conditions.push(eq(spaRoomTurnoverTasks.resourceId, input.resourceId));
@@ -123,6 +125,7 @@ export async function getTurnoverTasksByResource(
       .from(spaRoomTurnoverTasks)
       .where(
         and(
+          eq(spaRoomTurnoverTasks.tenantId, input.tenantId),
           eq(spaRoomTurnoverTasks.resourceId, input.resourceId),
           gte(spaRoomTurnoverTasks.dueAt, dateStart),
           lte(spaRoomTurnoverTasks.dueAt, dateEnd)
@@ -139,6 +142,7 @@ export async function getTurnoverStats(
 ): Promise<TurnoverStatsResult> {
   return withTenant(input.tenantId, async (tx) => {
     const conditions = [
+      eq(spaRoomTurnoverTasks.tenantId, input.tenantId),
       gte(spaRoomTurnoverTasks.dueAt, new Date(input.dateFrom)),
       lte(spaRoomTurnoverTasks.dueAt, new Date(input.dateTo)),
     ];

@@ -71,6 +71,7 @@ export interface KdsView {
   stationColor: string | null;
   warningThresholdSeconds: number;
   criticalThresholdSeconds: number;
+  rushMode: boolean;
   tickets: KdsTicketCard[];
   activeTicketCount: number;
   recentlyCompleted: KdsCompletedTicket[];
@@ -84,7 +85,7 @@ export async function getKdsView(
     const stationRows = await tx.execute(
       sql`SELECT id, name, display_name, station_type, color,
                  warning_threshold_seconds, critical_threshold_seconds,
-                 location_id
+                 rush_mode, location_id
           FROM fnb_kitchen_stations
           WHERE id = ${input.stationId} AND tenant_id = ${input.tenantId}
           LIMIT 1`,
@@ -304,6 +305,7 @@ export async function getKdsView(
       stationColor: (station.color as string) ?? null,
       warningThresholdSeconds: Number(station.warning_threshold_seconds ?? 480),
       criticalThresholdSeconds: Number(station.critical_threshold_seconds ?? 720),
+      rushMode: (station.rush_mode as boolean) ?? false,
       tickets: ticketCards,
       activeTicketCount: ticketCards.length,
       recentlyCompleted,

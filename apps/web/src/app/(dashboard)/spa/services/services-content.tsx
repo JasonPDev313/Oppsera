@@ -10,6 +10,7 @@ import {
   useSpaServiceCategories,
 } from '@/hooks/use-spa';
 import type { SpaService, SpaServiceCategory } from '@/hooks/use-spa';
+import { useAuthContext } from '@/components/auth-provider';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -179,6 +180,8 @@ function ServicesSkeleton() {
 // ── Main Content ─────────────────────────────────────────────────────
 
 export default function ServicesContent() {
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'active' | 'archived' | 'all'>('active');
@@ -187,6 +190,7 @@ export default function ServicesContent() {
     useSpaServiceCategories();
 
   const { items: services, isLoading: servicesLoading } = useSpaServices({
+    locationId,
     categoryId: selectedCategory ?? undefined,
     status: statusFilter,
     search: search || undefined,

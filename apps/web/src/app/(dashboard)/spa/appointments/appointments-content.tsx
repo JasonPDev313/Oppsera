@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ActionMenu } from '@/components/ui/action-menu';
 import type { ActionMenuItem } from '@/components/ui/action-menu';
 import { useSpaAppointments, useSpaProviders } from '@/hooks/use-spa';
+import { useAuthContext } from '@/components/auth-provider';
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -111,6 +112,8 @@ function StatusBadge({ status }: { status: string }) {
 function FilterBar({
   statusFilter,
   onStatusChange,
+  showPast,
+  onShowPastChange,
   dateFrom,
   onDateFromChange,
   dateTo,
@@ -123,6 +126,8 @@ function FilterBar({
 }: {
   statusFilter: string;
   onStatusChange: (v: string) => void;
+  showPast: boolean;
+  onShowPastChange: (v: boolean) => void;
   dateFrom: string;
   onDateFromChange: (v: string) => void;
   dateTo: string;
@@ -181,6 +186,16 @@ function FilterBar({
           />
         </div>
 
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showPast}
+            onChange={(e) => onShowPastChange(e.target.checked)}
+            className="h-4 w-4 rounded border-border bg-surface text-indigo-600 focus:ring-indigo-500"
+          />
+          Show past
+        </label>
+
         <Select
           options={providerOptions}
           value={provider}
@@ -197,13 +212,23 @@ function FilterBar({
 
 export default function AppointmentsContent() {
   const router = useRouter();
+  const { locations } = useAuthContext();
+  const locationId = (locations.find(l => l.locationType === 'venue') ?? locations[0])?.id;
 
   // ── Filter state ────────────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState('');
+  const [showPast, setShowPast] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [provider, setProvider] = useState('');
   const [search, setSearch] = useState('');
+
+  // Default startDate to today unless "Show past" is on or user set a custom dateFrom
+  const effectiveStartDate = useMemo(() => {
+    if (showPast) return dateFrom || undefined;
+    if (dateFrom) return dateFrom;
+    return new Date().toISOString().split('T')[0]!;
+  }, [showPast, dateFrom]);
 
   // ── Data ────────────────────────────────────────────────────
   const {
@@ -213,12 +238,13 @@ export default function AppointmentsContent() {
     error,
   } = useSpaAppointments({
     status: statusFilter || undefined,
-    startDate: dateFrom || undefined,
+    locationId,
+    startDate: effectiveStartDate,
     endDate: dateTo || undefined,
     providerId: provider || undefined,
     search: search || undefined,
   });
-  const { items: providersList } = useSpaProviders();
+  const { items: providersList } = useSpaProviders({ locationId });
 
   // ── Provider options (memoized) ─────────────────────────────
   const providerOptions = useMemo(
@@ -233,11 +259,12 @@ export default function AppointmentsContent() {
   );
 
   // ── Filter helpers ──────────────────────────────────────────
-  const hasFilters = !!search || !!statusFilter || !!dateFrom || !!dateTo || !!provider;
+  const hasFilters = !!search || !!statusFilter || !!dateFrom || !!dateTo || !!provider || showPast;
 
   const clearFilters = useCallback(() => {
     setSearch('');
     setStatusFilter('');
+    setShowPast(false);
     setDateFrom('');
     setDateTo('');
     setProvider('');
@@ -443,6 +470,8 @@ export default function AppointmentsContent() {
       <FilterBar
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
+        showPast={showPast}
+        onShowPastChange={setShowPast}
         dateFrom={dateFrom}
         onDateFromChange={setDateFrom}
         dateTo={dateTo}

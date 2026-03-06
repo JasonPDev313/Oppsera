@@ -69,6 +69,8 @@ export const MODULE_TABLES = [
   'fnb_manage_tabs_settings',
   'fnb_server_load_snapshots',
   'fnb_waitlist_config',
+  'fnb_kitchen_actions',
+  'fnb_kds_terminal_heartbeats',
 ] as const;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -184,6 +186,9 @@ export { bumpItem } from './commands/bump-item';
 export { recallItem } from './commands/recall-item';
 export { bumpTicket } from './commands/bump-ticket';
 export { callBackToStation } from './commands/call-back-to-station';
+export { refireItem } from './commands/refire-item';
+export { heartbeatKdsTerminal } from './commands/heartbeat-kds-terminal';
+export type { HeartbeatKdsTerminalResult } from './commands/heartbeat-kds-terminal';
 
 // Queries
 export { listStations } from './queries/list-stations';
@@ -194,8 +199,12 @@ export { getKdsView } from './queries/get-kds-view';
 export type { KdsView, KdsTicketCard, KdsTicketItem, KdsCompletedTicket } from './queries/get-kds-view';
 export { getExpoView } from './queries/get-expo-view';
 export type { ExpoView, ExpoTicketCard, ExpoTicketItem } from './queries/get-expo-view';
+export { getExpoHistory } from './queries/get-expo-history';
+export type { ExpoHistory, ExpoHistoryTicket, ExpoHistoryItem } from './queries/get-expo-history';
 export { getStationMetrics } from './queries/get-station-metrics';
 export type { StationMetrics } from './queries/get-station-metrics';
+export { listKdsTerminalHeartbeats } from './queries/list-kds-terminal-heartbeats';
+export type { KdsTerminalStatus } from './queries/list-kds-terminal-heartbeats';
 
 // ═══════════════════════════════════════════════════════════════════
 // Session 6: Modifiers, 86 Board & Menu Availability
@@ -513,7 +522,9 @@ export type { RoomSectionAssignment } from './queries/get-room-section-assignmen
 export { handleFnbTabClosed } from './consumers/handle-fnb-tab-closed';
 export { handleFnbDiscountComp } from './consumers/handle-fnb-discount-comp';
 export type { DiscountCompEventData } from './consumers/handle-fnb-discount-comp';
-export { handleFnbTicketBumped, handleFnbItemBumped, handleFnbItemVoided } from './consumers/handle-fnb-ticket-bumped';
+export { handleFnbTicketBumped, handleFnbItemBumped, handleFnbItemVoided, handleFnbItemRecalled } from './consumers/handle-fnb-ticket-bumped';
+export { logKitchenAction } from './consumers/handle-kitchen-action-log';
+export type { KitchenActionType, KitchenActionLogData } from './consumers/handle-kitchen-action-log';
 export { handleCourseSent } from './consumers/handle-course-sent';
 export type { CourseSentConsumerData } from './consumers/handle-course-sent';
 export { handleOrderPlacedForKds } from './consumers/handle-order-placed-for-kds';
@@ -548,7 +559,7 @@ export {
 export type {
   Daypart, FnbTabClosedConsumerData,
   FnbPaymentCompletedConsumerData, FnbTicketBumpedConsumerData,
-  FnbItemBumpedConsumerData, FnbItemVoidedConsumerData,
+  FnbItemBumpedConsumerData, FnbItemVoidedConsumerData, FnbItemRecalledConsumerData,
 } from './helpers/fnb-reporting-utils';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -618,7 +629,8 @@ export {
   listRoutingRulesFilterSchema,
   // Session 5
   createStationSchema, updateStationSchema, upsertDisplayConfigSchema,
-  bumpItemSchema, recallItemSchema, bumpTicketSchema, callBackToStationSchema,
+  bumpItemSchema, recallItemSchema, bumpTicketSchema, callBackToStationSchema, refireItemSchema,
+  heartbeatKdsTerminalSchema,
   listStationsFilterSchema, getStationDetailSchema,
   getKdsViewSchema, getExpoViewSchema, getStationMetricsSchema,
   // Session 6

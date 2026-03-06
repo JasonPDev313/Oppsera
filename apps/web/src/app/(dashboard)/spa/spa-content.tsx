@@ -121,7 +121,7 @@ function ProviderBar({ name, color, utilization, appointments }: ProviderBarProp
 export default function SpaContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
-  const locationId = locations[0]?.id ?? '';
+  const locationId = (locations.find(l => l.locationType === 'venue') ?? locations[0])?.id ?? '';
 
   const todayISO = useMemo(() => {
     const d = new Date();

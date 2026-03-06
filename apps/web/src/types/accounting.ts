@@ -252,6 +252,7 @@ export interface MappingCoverage {
   departments: { mapped: number; total: number };
   paymentTypes: { mapped: number; total: number };
   taxGroups: { mapped: number; total: number };
+  discounts: { mapped: number; total: number };
   overallPercentage: number;
 }
 
@@ -394,8 +395,8 @@ export interface APPaymentAllocation {
 export interface PaymentTerms {
   id: string;
   name: string;
-  dueDays: number;
-  discountPercent: string | null;
+  days: number;
+  discountPercent: number | null;
   discountDays: number | null;
   isActive: boolean;
 }

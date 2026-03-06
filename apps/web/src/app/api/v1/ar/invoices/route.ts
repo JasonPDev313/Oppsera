@@ -11,6 +11,7 @@ export const GET = withMiddleware(
     const { searchParams } = new URL(request.url);
     const result = await listInvoices({
       tenantId: ctx.tenantId,
+      locationId: ctx.locationId ?? searchParams.get('locationId') ?? undefined,
       customerId: searchParams.get('customerId') ?? undefined,
       status: searchParams.get('status') ?? undefined,
       startDate: searchParams.get('startDate') ?? undefined,

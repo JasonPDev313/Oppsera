@@ -446,29 +446,33 @@ export default function MappingsContent() {
               </button>
             )}
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
             {[
               { label: 'Sub-Departments', ...coverage.departments },
               { label: 'Transaction Types', ...coverage.paymentTypes },
               { label: 'Tax Groups', ...coverage.taxGroups },
-            ].map(({ label, mapped, total }) => (
-              <div key={label}>
-                <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="font-medium text-foreground">{mapped}/{total}</span>
+              { label: 'Discounts', ...(coverage.discounts ?? { mapped: 0, total: 0 }) },
+            ].map(({ label, mapped, total }) => {
+              const pct = total > 0 ? Math.min((mapped / total) * 100, 100) : 0;
+              return (
+                <div key={label}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">{label}</span>
+                    <span className="font-medium text-foreground">{mapped}/{total}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        total === 0 ? 'bg-muted-foreground/30' :
+                        mapped === total ? 'bg-green-500' :
+                        mapped > 0 ? 'bg-amber-500' : 'bg-red-400'
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      total === 0 ? 'bg-muted-foreground/30' :
-                      mapped === total ? 'bg-green-500' :
-                      mapped > 0 ? 'bg-amber-500' : 'bg-red-400'
-                    }`}
-                    style={{ width: total > 0 ? `${(mapped / total) * 100}%` : '0%' }}
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {coverage.overallPercentage < 100 && !isGlobalMapping && !globalProgress && (
             <div className="flex items-center gap-2 rounded bg-amber-500/10 border border-amber-500/40 p-2 text-sm text-amber-500">

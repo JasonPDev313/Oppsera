@@ -110,14 +110,47 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
   const { tenantId } = event;
   const data = event.data as unknown as TenderRecordedPayload;
 
-  // Check if accounting is enabled for this tenant — auto-create if missing
-  let settings = await getAccountingSettings(db, tenantId);
-  if (!settings) {
-    // Auto-create minimal settings row + wire any known fallback accounts
+  try {
+    await handleTenderForAccountingInner(event, tenantId, data);
+  } catch (error) {
+    // Top-level safety net: NEVER let any error propagate to the event consumer.
+    // All known failure paths are already caught below, so this only fires on
+    // truly unexpected errors (e.g., OOM, network partition, driver bug).
+    console.error(`[pos-gl] UNHANDLED: GL posting failed for tender ${data.tenderId}:`, error);
     try {
-      const { created } = await ensureAccountingSettings(db, tenantId);
+      await logUnmappedEvent(db, tenantId, {
+        eventType: 'tender.recorded.v1',
+        sourceModule: 'pos',
+        sourceReferenceId: data.tenderId,
+        entityType: 'unhandled_error',
+        entityId: data.tenderId,
+        reason: `GL posting failed (unhandled): ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    } catch { /* absolute last resort — swallow */ }
+  }
+}
+
+async function handleTenderForAccountingInner(
+  event: EventEnvelope,
+  tenantId: string,
+  data: TenderRecordedPayload,
+): Promise<void> {
+  // Check if accounting is enabled for this tenant — auto-create if missing,
+  // or auto-wire critical fallback accounts if they're null.
+  let settings = await getAccountingSettings(db, tenantId);
+
+  const needsEnsure = !settings
+    || !settings.defaultRoundingAccountId
+    || !settings.defaultUncategorizedRevenueAccountId
+    || !settings.defaultUndepositedFundsAccountId;
+
+  if (needsEnsure) {
+    try {
+      const { created, autoWired } = await ensureAccountingSettings(db, tenantId);
       if (created) {
         console.info(`[pos-gl] Auto-created accounting_settings for tenant=${tenantId}`);
+      } else if (autoWired > 0) {
+        console.info(`[pos-gl] Auto-wired ${autoWired} fallback account(s) for tenant=${tenantId}`);
       }
       settings = await getAccountingSettings(db, tenantId);
     } catch {
@@ -141,6 +174,9 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     }
   }
 
+  // After ensure, settings is guaranteed non-null (either existed or was created)
+  if (!settings) return;
+
   const accountingApi = getAccountingPostingApi();
 
   // Build a synthetic context for GL posting
@@ -154,7 +190,7 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
 
   // Compute proportional allocation ratio
   const orderTotal = data.orderTotal ?? data.amount; // fallback: single tender = full amount
-  if (orderTotal <= 0) {
+  if (!orderTotal || orderTotal <= 0) {
     // Zero/negative-dollar orders (fully comped, etc.) — no money changed hands,
     // nothing to post. Log for visibility so admin can verify coverage.
     try {
@@ -170,6 +206,21 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     return;
   }
   const tenderRatio = data.amount / orderTotal;
+  // Guard against NaN/Infinity from unexpected data (e.g., amount=0, orderTotal=NaN)
+  if (!Number.isFinite(tenderRatio) || tenderRatio < 0) {
+    console.error(`[pos-gl] Invalid tenderRatio=${tenderRatio} (amount=${data.amount}, orderTotal=${orderTotal}) for tender=${data.tenderId}`);
+    try {
+      await logUnmappedEvent(db, tenantId, {
+        eventType: 'tender.recorded.v1',
+        sourceModule: 'pos',
+        sourceReferenceId: data.tenderId,
+        entityType: 'invalid_ratio',
+        entityId: data.tenderId,
+        reason: `GL posting skipped: invalid tenderRatio=${tenderRatio} (amount=${data.amount}, orderTotal=${orderTotal})`,
+      });
+    } catch { /* never block tender */ }
+    return;
+  }
 
   const tipAmount = data.tipAmount ?? 0;
   const discountTotal = data.discountTotal ?? 0;
@@ -598,14 +649,18 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
   // ── 6. Handle missing mappings — always log for resolution ─────
   if (missingMappings.length > 0) {
     for (const reason of missingMappings) {
-      await logUnmappedEvent(db, tenantId, {
-        eventType: 'tender.recorded.v1',
-        sourceModule: 'pos',
-        sourceReferenceId: data.tenderId,
-        entityType: reason.split(':')[0] ?? 'unknown',
-        entityId: reason.split(':')[1] ?? reason,
-        reason: `Missing GL mapping: ${reason}`,
-      });
+      try {
+        await logUnmappedEvent(db, tenantId, {
+          eventType: 'tender.recorded.v1',
+          sourceModule: 'pos',
+          sourceReferenceId: data.tenderId,
+          entityType: reason.split(':')[0] ?? 'unknown',
+          entityId: reason.split(':')[1] ?? reason,
+          reason: `Missing GL mapping: ${reason}`,
+        });
+      } catch {
+        // Never let unmapped-event logging block GL posting
+      }
     }
   }
 
@@ -622,9 +677,12 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     }
     const imbalanceCents = totalDebitsCents - totalCreditsCents;
     if (imbalanceCents !== 0) {
-      const roundingAccountId = settings.defaultRoundingAccountId
-        ?? settings.defaultUncategorizedRevenueAccountId
-        ?? null;
+      // ONLY use the dedicated rounding account — validateJournal rejects
+      // revenue-type and asset-type accounts for rounding. The fallback to
+      // defaultUncategorizedRevenueAccountId was a silent conflict that caused
+      // INVALID_ROUNDING_ACCOUNT errors. ensureAccountingSettings now guarantees
+      // defaultRoundingAccountId is always set (wired to suspense if needed).
+      const roundingAccountId = settings.defaultRoundingAccountId ?? null;
       if (roundingAccountId) {
         if (imbalanceCents > 0) {
           glLines.push({
@@ -680,14 +738,16 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     });
   } catch (error) {
     // POS adapter must NEVER block tenders — log and continue
-    console.error(`POS GL posting failed for tender ${data.tenderId}:`, error);
-    await logUnmappedEvent(db, tenantId, {
-      eventType: 'tender.recorded.v1',
-      sourceModule: 'pos',
-      sourceReferenceId: data.tenderId,
-      entityType: 'posting_error',
-      entityId: data.tenderId,
-      reason: `GL posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    });
+    console.error(`[pos-gl] GL posting failed for tender ${data.tenderId}:`, error);
+    try {
+      await logUnmappedEvent(db, tenantId, {
+        eventType: 'tender.recorded.v1',
+        sourceModule: 'pos',
+        sourceReferenceId: data.tenderId,
+        entityType: 'posting_error',
+        entityId: data.tenderId,
+        reason: `GL posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    } catch { /* never let error logging propagate */ }
   }
 }

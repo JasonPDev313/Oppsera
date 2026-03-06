@@ -13,8 +13,8 @@ import {
   ShoppingCart,
   Eye,
 } from 'lucide-react';
-import { useAuthContext } from '@/components/auth-provider';
 import { useSpaCalendar } from '@/hooks/use-spa';
+import { useAuthContext } from '@/components/auth-provider';
 import { useQueryClient } from '@tanstack/react-query';
 import { SpaPayNowDialog } from '@/components/spa/spa-pay-now-dialog';
 import { CheckoutToPosDialog } from '@/components/spa/checkout-to-pos-dialog';
@@ -173,10 +173,10 @@ const TIME_SLOTS = generateTimeSlots();
 // ── Main Component ────────────────────────────────────────────────────
 
 export default function SpaCalendarContent() {
-  const { locations } = useAuthContext();
-  const locationId = locations[0]?.id ?? '';
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { locations } = useAuthContext();
+  const locationId = (locations.find(l => l.locationType === 'venue') ?? locations[0])?.id;
 
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
@@ -200,7 +200,7 @@ export default function SpaCalendarContent() {
   }, [viewMode, currentDate]);
 
   const { data: calendarData, isLoading, error } = useSpaCalendar(
-    { locationId: locationId || undefined, startDate, endDate },
+    { locationId, startDate, endDate },
   );
 
   const PROVIDER_COLORS = [

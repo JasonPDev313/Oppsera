@@ -5,6 +5,7 @@ import { Download } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { useAPAging } from '@/hooks/use-ap';
 import { formatAccountingMoney } from '@/types/accounting';
+import { useAuthContext } from '@/components/auth-provider';
 
 const AGING_COLORS: Record<string, string> = {
   current: 'text-green-500',
@@ -15,8 +16,10 @@ const AGING_COLORS: Record<string, string> = {
 };
 
 export default function APAgingContent() {
+  const { locations } = useAuthContext();
+  const locationId = locations?.[0]?.id;
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().split('T')[0]!);
-  const { data: rows, isLoading } = useAPAging({ asOfDate });
+  const { data: rows, isLoading } = useAPAging({ locationId, asOfDate });
 
   const totals = useMemo(() => {
     return rows.reduce(

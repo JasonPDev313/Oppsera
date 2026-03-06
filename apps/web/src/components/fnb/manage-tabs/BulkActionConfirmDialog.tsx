@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle, XCircle, X, ChevronRight } from 'lucide-react';
-import { ManagerPinModal } from '../manager/ManagerPinModal';
+import { InlinePinPad } from './InlinePinPad';
 
 type ActionType = 'void' | 'transfer' | 'close';
 type ReasonCode = 'server_leaving' | 'end_of_shift' | 'stale_tab' | 'error_correction' | 'other';
@@ -141,10 +141,12 @@ export function BulkActionConfirmDialog({
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/60" onClick={step !== 'execute' ? handleDone : undefined} />
       <div
-        className="relative w-full max-w-md rounded-xl shadow-2xl p-6"
+        className={`relative w-full rounded-xl shadow-2xl p-6 ${step === 'pin' ? 'max-w-lg' : 'max-w-md'}`}
         style={{ background: 'var(--fnb-bg-surface)' }}
       >
         <button
+          type="button"
+          aria-label="Close dialog"
           onClick={handleDone}
           className="absolute top-4 right-4 p-1"
           style={{ color: 'var(--fnb-text-muted)' }}
@@ -193,6 +195,7 @@ export function BulkActionConfirmDialog({
             </div>
 
             <button
+              type="button"
               onClick={handleNext}
               className="w-full px-4 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
               style={{ background: actionColor, color: '#fff' }}
@@ -202,12 +205,11 @@ export function BulkActionConfirmDialog({
           </div>
         )}
 
-        {/* Step: PIN */}
+        {/* Step: PIN (inline — no portal) */}
         {step === 'pin' && (
-          <ManagerPinModal
-            open={true}
-            onClose={handleDone}
+          <InlinePinPad
             onVerify={handlePinVerify}
+            onBack={handleDone}
             error={pinError}
             title={`Manager Override — ${actionLabel}`}
           />
@@ -250,6 +252,7 @@ export function BulkActionConfirmDialog({
 
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => setStep(requirePin ? 'pin' : 'summary')}
                 className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium"
                 style={{ background: 'transparent', color: 'var(--fnb-text-secondary)', border: '1px solid var(--fnb-border-subtle)' }}
@@ -257,6 +260,7 @@ export function BulkActionConfirmDialog({
                 Back
               </button>
               <button
+                type="button"
                 onClick={handleNext}
                 disabled={reasonCode === 'other' && !reasonText.trim()}
                 className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium"
@@ -327,6 +331,7 @@ export function BulkActionConfirmDialog({
                 </div>
 
                 <button
+                  type="button"
                   onClick={handleDone}
                   className="w-full px-4 py-2.5 rounded-lg text-sm font-medium"
                   style={{ background: 'var(--fnb-accent-primary)', color: '#fff' }}

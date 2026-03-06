@@ -1,6 +1,13 @@
 import { sql } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { AUTO_POSTED_TYPE_CODES } from '@oppsera/shared';
+import {
+  AUTO_POSTED_TYPE_CODES,
+  DISCOUNT_CLASSIFICATIONS,
+  TRANSACTION_TYPE_CATEGORY_ORDER,
+  getMappedStatusRule,
+} from '@oppsera/shared';
+import type { TransactionTypeCategory } from '@oppsera/shared';
 
 export interface MappingCoverageDetail {
   entityType: string;
@@ -13,6 +20,7 @@ export interface MappingCoverageReport {
   departments: { mapped: number; total: number };
   paymentTypes: { mapped: number; total: number };
   taxGroups: { mapped: number; total: number };
+  discounts: { mapped: number; total: number };
   overallPercentage: number;
   unmappedEventCount: number;
   details: MappingCoverageDetail[];
@@ -20,6 +28,30 @@ export interface MappingCoverageReport {
 
 interface GetMappingCoverageInput {
   tenantId: string;
+}
+
+/**
+ * Build the CASE expression for transaction type "is mapped" from the
+ * canonical getMappedStatusRule() so it can never drift from the UI logic
+ * in computeIsMapped (get-transaction-type-mappings.ts).
+ */
+function buildMappedCaseExpr(): SQL {
+  const ruleToSql: Record<string, SQL> = {
+    debit: sql`ttm.debit_account_id IS NOT NULL`,
+    credit: sql`ttm.credit_account_id IS NOT NULL`,
+    both: sql`(ttm.credit_account_id IS NOT NULL AND ttm.debit_account_id IS NOT NULL)`,
+    either: sql`(ttm.credit_account_id IS NOT NULL OR ttm.debit_account_id IS NOT NULL)`,
+  };
+
+  const whens: SQL[] = [];
+  for (const cat of TRANSACTION_TYPE_CATEGORY_ORDER) {
+    const rule = getMappedStatusRule(cat as TransactionTypeCategory);
+    const condition = ruleToSql[rule];
+    whens.push(sql`WHEN ${cat} THEN ${condition}`);
+  }
+
+  // Fallback for any future category: require both sides (strictest)
+  return sql`CASE gtt.category ${sql.join(whens, sql` `)} ELSE (ttm.credit_account_id IS NOT NULL AND ttm.debit_account_id IS NOT NULL) END`;
 }
 
 export async function getMappingCoverage(
@@ -33,7 +65,12 @@ export async function getMappingCoverage(
     const extractCount = (rows: unknown): number =>
       Number((Array.from(rows as Iterable<Record<string, unknown>>))[0]?.cnt ?? 0);
 
-    // Run all 8 count queries in parallel
+    const numClassifications = DISCOUNT_CLASSIFICATIONS.length;
+    const mappedCase = buildMappedCaseExpr();
+
+    // Run all count queries in parallel.
+    // NOTE: subDeptTotalRows is reused for both department and discount totals
+    // (both need active sub-department count) — avoids a duplicate query.
     const [
       subDeptMappedRows,
       subDeptTotalRows,
@@ -41,6 +78,7 @@ export async function getMappingCoverage(
       paymentTotalRows,
       taxMappedRows,
       taxTotalRows,
+      discountMappedRows,
       unmappedRows,
       detailRows,
     ] = await Promise.all([
@@ -58,27 +96,40 @@ export async function getMappingCoverage(
       `),
       tx.execute(sql`
         SELECT COUNT(*)::int AS cnt
-        FROM payment_type_gl_defaults
-        WHERE tenant_id = ${input.tenantId}
-          AND cash_account_id IS NOT NULL
+        FROM gl_transaction_types gtt
+        LEFT JOIN gl_transaction_type_mappings ttm
+          ON ttm.tenant_id = ${input.tenantId}
+          AND ttm.transaction_type_code = gtt.code
+          AND ttm.location_id IS NULL
+        WHERE (gtt.tenant_id IS NULL OR gtt.tenant_id = ${input.tenantId})
+          AND gtt.is_active = true
+          AND (
+            ${autoPostedCodes ? sql`gtt.code IN (${autoPostedCodes})` : sql`false`}
+            OR ${mappedCase}
+          )
       `),
       tx.execute(sql`
         SELECT COUNT(*)::int AS cnt
         FROM gl_transaction_types
         WHERE (tenant_id IS NULL OR tenant_id = ${input.tenantId})
           AND is_active = true
-          ${autoPostedCodes ? sql`AND code NOT IN (${autoPostedCodes})` : sql``}
       `),
       tx.execute(sql`
         SELECT COUNT(*)::int AS cnt
         FROM tax_group_gl_defaults
         WHERE tenant_id = ${input.tenantId}
+          AND tax_payable_account_id IS NOT NULL
       `),
       tx.execute(sql`
         SELECT COUNT(*)::int AS cnt
         FROM tax_groups
         WHERE tenant_id = ${input.tenantId}
           AND is_active = true
+      `),
+      tx.execute(sql`
+        SELECT COUNT(DISTINCT (sub_department_id, discount_classification))::int AS cnt
+        FROM discount_gl_mappings
+        WHERE tenant_id = ${input.tenantId}
       `),
       tx.execute(sql`
         SELECT COUNT(*)::int AS cnt
@@ -102,6 +153,9 @@ export async function getMappingCoverage(
     const paymentTotal = extractCount(paymentTotalRows);
     const taxMapped = extractCount(taxMappedRows);
     const taxTotal = extractCount(taxTotalRows);
+    const discountTotal = subDeptTotal * numClassifications;
+    // Clamp: stale mappings on deactivated sub-departments can exceed total
+    const discountMapped = Math.min(extractCount(discountMappedRows), discountTotal);
     const unmappedEventCount = extractCount(unmappedRows);
 
     const details = Array.from(detailRows as Iterable<Record<string, unknown>>).map((row) => ({
@@ -111,8 +165,8 @@ export async function getMappingCoverage(
       isMapped: false,
     }));
 
-    const totalMapped = subDeptMapped + paymentMapped + taxMapped;
-    const totalAll = subDeptTotal + paymentTotal + taxTotal;
+    const totalMapped = subDeptMapped + paymentMapped + taxMapped + discountMapped;
+    const totalAll = subDeptTotal + paymentTotal + taxTotal + discountTotal;
     const overallPercentage = totalAll > 0
       ? Math.round((totalMapped / totalAll) * 100)
       : 0;
@@ -121,6 +175,7 @@ export async function getMappingCoverage(
       departments: { mapped: subDeptMapped, total: subDeptTotal },
       paymentTypes: { mapped: paymentMapped, total: paymentTotal },
       taxGroups: { mapped: taxMapped, total: taxTotal },
+      discounts: { mapped: discountMapped, total: discountTotal },
       overallPercentage,
       unmappedEventCount,
       details,
