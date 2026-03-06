@@ -19,6 +19,7 @@ export type UserFeedbackParsed = z.infer<typeof userFeedbackSchema>;
 // ── Admin Review ────────────────────────────────────────────────
 
 export const adminReviewSchema = z.object({
+  tenantId: z.string().min(1),
   score: z.number().int().min(1).max(5),
   verdict: z.enum([
     'correct',
@@ -45,6 +46,7 @@ export type AdminReviewParsed = z.infer<typeof adminReviewSchema>;
 // ── Promote to Example ──────────────────────────────────────────
 
 export const promoteExampleSchema = z.object({
+  tenantId: z.string().min(1),
   category: z.enum([
     'sales',
     'golf',

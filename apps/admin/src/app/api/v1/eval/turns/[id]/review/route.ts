@@ -17,7 +17,7 @@ export const POST = withAdminAuth(
       );
     }
 
-    await submitAdminReview(id, session.adminId, {
+    await submitAdminReview(id, parsed.data.tenantId, session.adminId, {
       verdict: parsed.data.verdict,
       score: parsed.data.score,
       notes: parsed.data.notes,

@@ -17,7 +17,7 @@ export const POST = withAdminAuth(
       );
     }
 
-    const exampleId = await promoteToExample(id, session.adminId, {
+    const exampleId = await promoteToExample(id, parsed.data.tenantId, session.adminId, {
       category: parsed.data.category,
       difficulty: parsed.data.difficulty,
     });
