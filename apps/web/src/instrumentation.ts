@@ -245,6 +245,8 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('pms.loyalty.points_redeemed.v1', accounting.handleLoyaltyRedemptionForAccounting, 'accounting/pms.loyalty.points_redeemed');
       bus.subscribe('pms.payment.authorized.v1', accounting.handleDepositAuthorizedForAccounting, 'accounting/pms.payment.authorized');
       bus.subscribe('pms.payment.captured.v1', accounting.handleDepositCapturedForAccounting, 'accounting/pms.payment.captured');
+      bus.subscribe('pms.payment.charged.v1', accounting.handlePaymentChargedForAccounting, 'accounting/pms.payment.charged');
+      bus.subscribe('pms.payment.refunded.v1', accounting.handlePaymentRefundedForAccounting, 'accounting/pms.payment.refunded');
       bus.subscribe('fnb.gl.posting_created.v1', accounting.handleFnbGlPostingForAccounting, 'accounting/fnb.gl.posting_created');
       bus.subscribe('fnb.gl.posting_reversed.v1', accounting.handleFnbGlPostingReversedForAccounting, 'accounting/fnb.gl.posting_reversed');
       bus.subscribe('voucher.purchased.v1', accounting.handleVoucherPurchaseForAccounting, 'accounting/voucher.purchased');
@@ -313,6 +315,15 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('fnb.payment.tender_applied.v1', reporting.handleFnbTenderApplied, 'revenue/fnb.payment.tender_applied');
       bus.subscribe('fnb.guestpay.payment_succeeded.v1', reporting.handleGuestPaySucceeded, 'revenue/fnb.guestpay.payment_succeeded');
       bus.subscribe('customer.stored_value.redeemed.v1', reporting.handleStoredValueRedeemed, 'revenue/stored_value.redeemed');
+      // Spa → rm_revenue_activity (completed creates row, checked_out removes if POS order takes over)
+      bus.subscribe('spa.appointment.completed.v1', reporting.handleSpaCompletedRevenue, 'revenue/spa.appointment.completed');
+      bus.subscribe('spa.appointment.checked_out.v1', reporting.handleSpaCheckedOutRevenue, 'revenue/spa.appointment.checked_out');
+      // Spa packages sold (standalone only — POS-linked skip via orderId dedup)
+      bus.subscribe('spa.package.sold.v1', reporting.handleSpaPackageSold, 'revenue/spa.package.sold');
+      // Membership initiation installments → rm_revenue_activity + rm_daily_sales
+      bus.subscribe('membership.initiation.installment.billed.v1', reporting.handleMembershipInstallmentBilled, 'revenue/membership.initiation.installment.billed');
+      // GL manual journal entries → rm_revenue_activity (only non-automated entries)
+      bus.subscribe('accounting.journal.posted.v1', reporting.handleGlJournalRevenue, 'revenue/accounting.journal.posted');
     }),
 
     // F&B Reporting consumers — F3 fix: properly adapt event payloads to consumer types

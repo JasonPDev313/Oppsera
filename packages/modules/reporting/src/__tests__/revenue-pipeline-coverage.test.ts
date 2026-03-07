@@ -66,10 +66,10 @@ const COVERAGE_MATRIX: Record<string, PipelineCoverage> = {
     voidEvents: ['ar.invoice.voided.v1'],
   },
   membership: {
-    reportingEvents: ['membership.billing.charged.v1'],
-    reportingConsumers: ['handleMembershipCharged'],
-    glEvents: ['membership.billing.charged.v1'],
-    glAdapters: ['handleMembershipBillingForAccounting'],
+    reportingEvents: ['membership.billing.charged.v1', 'membership.initiation.installment.billed.v1'],
+    reportingConsumers: ['handleMembershipCharged', 'handleMembershipInstallmentBilled'],
+    glEvents: ['membership.billing.charged.v1', 'membership.initiation.installment.billed.v1'],
+    glAdapters: ['handleMembershipBillingForAccounting', 'handleInitiationInstallmentForAccounting'],
     voidEvents: [],
     knownGap: 'Membership billing has no void event. Billing cycle charge is final. Corrections handled via AR credit memos.',
   },
@@ -96,6 +96,14 @@ const COVERAGE_MATRIX: Record<string, PipelineCoverage> = {
     glAdapters: ['handleVoucherExpirationForAccounting'],
     voidEvents: [],
     knownGap: 'Expirations are batch background job. Breakage income recognition is final. No void path — re-activate voucher instead.',
+  },
+  spa: {
+    reportingEvents: ['spa.appointment.completed.v1', 'spa.appointment.checked_out.v1', 'spa.package.sold.v1'],
+    reportingConsumers: ['handleSpaCompletedRevenue', 'handleSpaCheckedOutRevenue', 'handleSpaPackageSold'],
+    glEvents: ['spa.appointment.checked_out.v1', 'spa.package.sold.v1'],
+    glAdapters: ['handleSpaCheckoutForAccounting', 'handleSpaPackagePurchaseForAccounting'],
+    voidEvents: [],
+    knownGap: 'Spa revenue is transient — removed from rm_revenue_activity when POS checkout takes over. No dedicated void path; void the POS order instead.',
   },
   pos_return: {
     reportingEvents: ['order.returned.v1'],
@@ -164,7 +172,7 @@ describe('Revenue Pipeline Coverage Guard', () => {
 
   it('REVENUE_SOURCES registry has the expected number of sources', () => {
     // Bump this number when adding new sources — forces a review
-    expect(REVENUE_SOURCE_KEYS.length).toBe(9);
+    expect(REVENUE_SOURCE_KEYS.length).toBe(10);
   });
 
   it('all sources have valid sortOrder (unique, positive)', () => {

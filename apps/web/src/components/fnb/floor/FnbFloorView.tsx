@@ -18,7 +18,7 @@ import { TableGridView } from './TableGridView';
 import { MySectionDialog } from './MySectionDialog';
 import { ServerLockBanner } from '../ServerLockBanner';
 import { ServerPinModal } from '../ServerPinModal';
-import { useMySection } from '@/hooks/use-my-section';
+import { useMySection, getBusinessDate } from '@/hooks/use-my-section';
 import { useManagerOverride } from '@/hooks/use-manager-override';
 import { useFnbSettings } from '@/hooks/use-fnb-settings';
 import { ManagerPinModal } from '../manager/ManagerPinModal';
@@ -82,6 +82,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
   const { data: floorPlan, tables, isLoading, isFetching, error: floorError, refresh } = useFnbFloor({
     roomId: activeRoomId,
+    paused: !isActive,
   });
 
   const actions = useTableActions(refresh);
@@ -342,7 +343,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
     try {
       const tab = await openTabApi({
         serverUserId: userId,
-        businessDate: new Date().toLocaleDateString('en-CA'),
+        businessDate: getBusinessDate(locationTimezone),
         tableId: seatTargetTable.tableId,
         tabType: 'dine_in',
         partySize,
@@ -358,7 +359,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
       toastTimerRef.current = setTimeout(() => setToastMessage(null), 4000);
     }
-  }, [seatTargetTable, userId, store, locationId]);
+  }, [seatTargetTable, userId, store, locationId, locationTimezone]);
 
   const handleRoomChange = useCallback((roomId: string) => {
     store.setActiveRoom(roomId);

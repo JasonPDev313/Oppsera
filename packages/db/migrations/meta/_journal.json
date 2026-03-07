@@ -1982,6 +1982,27 @@
       "when": 1772849055242,
       "tag": "0282_business_type_manager",
       "breakpoints": true
+    },
+    {
+      "idx": 283,
+      "version": "7",
+      "when": 1772907572583,
+      "tag": "0283_bt_workflow_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 284,
+      "version": "7",
+      "when": 1772909054196,
+      "tag": "0284_spa_revenue_daily_sales",
+      "breakpoints": true
+    },
+    {
+      "idx": 285,
+      "version": "7",
+      "when": 1772909226965,
+      "tag": "0285_strict_period_close",
+      "breakpoints": true
     }
   ]
 }

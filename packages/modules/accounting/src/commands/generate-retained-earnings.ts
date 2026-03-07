@@ -19,12 +19,13 @@ export async function generateRetainedEarnings(
 
     // 1. Get fiscal year start month from settings
     const settingsRows = await tx.execute(sql`
-      SELECT fiscal_year_start_month, default_rounding_account_id
+      SELECT fiscal_year_start_month, default_rounding_account_id, base_currency
       FROM accounting_settings
       WHERE tenant_id = ${ctx.tenantId} LIMIT 1
     `);
     const settingsArr = Array.from(settingsRows as Iterable<Record<string, unknown>>);
     const fyStartMonth = settingsArr.length > 0 ? Number(settingsArr[0]!.fiscal_year_start_month) : 1;
+    const baseCurrency = settingsArr.length > 0 ? String(settingsArr[0]!.base_currency ?? 'USD') : 'USD';
 
     // Determine fiscal year start date
     // If FY starts in month M and our end date is in that year:
@@ -106,7 +107,7 @@ export async function generateRetainedEarnings(
       sourceReferenceId: sourceRef,
       businessDate: endDate,
       postingPeriod,
-      currency: 'USD',
+      currency: baseCurrency,
       status: 'posted',
       memo,
       postedAt: now,

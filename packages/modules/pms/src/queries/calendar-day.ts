@@ -81,6 +81,7 @@ export async function getCalendarDay(
             ),
             ''
           ),
+          NULLIF(concat_ws(' ', g.first_name, g.last_name), ''),
           'Guest'
         ) AS guest_name,
         to_char(res.check_in_date, 'YYYY-MM-DD') AS check_in_date,
@@ -93,6 +94,7 @@ export async function getCalendarDay(
         LEFT(res.internal_notes, 80) AS internal_notes,
         res.version
       FROM pms_reservations res
+      LEFT JOIN pms_guests g ON g.id = res.guest_id
       WHERE res.tenant_id = ${tenantId}
         AND res.property_id = ${propertyId}
         AND res.room_id IS NOT NULL
@@ -180,6 +182,7 @@ export async function getCalendarDay(
             ),
             ''
           ),
+          NULLIF(concat_ws(' ', g.first_name, g.last_name), ''),
           'Guest'
         ) AS guest_name,
         to_char(res.check_in_date, 'YYYY-MM-DD') AS check_in_date,
@@ -188,6 +191,7 @@ export async function getCalendarDay(
         res.source_type
       FROM pms_reservations res
       JOIN pms_room_types rt ON rt.id = res.room_type_id
+      LEFT JOIN pms_guests g ON g.id = res.guest_id
       WHERE res.tenant_id = ${tenantId}
         AND res.property_id = ${propertyId}
         AND res.room_id IS NULL

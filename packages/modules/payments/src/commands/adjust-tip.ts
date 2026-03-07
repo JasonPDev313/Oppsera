@@ -174,6 +174,7 @@ export async function adjustTip(
       newTipAmount: input.newTipAmount,
       delta,
       reason: input.reason ?? null,
+      businessDate: tender.businessDate,
     });
 
     return {

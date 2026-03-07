@@ -13,6 +13,7 @@ export interface NonPosRevenue {
   ar: number;
   membership: number;
   voucher: number;
+  spa: number;
 }
 
 export interface DashboardMetrics {
@@ -21,8 +22,8 @@ export interface DashboardMetrics {
   todayVoids: number;
   lowStockCount: number;
   activeCustomers7d: number;
-  /** 'today' for single-date, 'range' for date range, 'all' for all-time fallback */
-  period: 'today' | 'range' | 'all';
+  /** 'today' for single-date, 'range' for date range */
+  period: 'today' | 'range';
   /** Total business revenue including non-POS sources */
   totalBusinessRevenue: number;
   /** Breakdown of non-POS revenue by source */
@@ -36,7 +37,7 @@ export interface DashboardMetrics {
  * both event consumers and the seed script, and includes all revenue sources
  * (POS, PMS, AR, membership, voucher).
  *
- * Falls back to all-time aggregation when no data exists in the date range.
+ * Returns zeros when no data exists in the requested date range.
  */
 export async function getDashboardMetrics(
   input: GetDashboardMetricsInput,
@@ -63,7 +64,8 @@ export async function getDashboardMetrics(
         coalesce(sum(CASE WHEN source = 'pms_folio' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS pms_revenue,
         coalesce(sum(CASE WHEN source = 'ar_invoice' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS ar_revenue,
         coalesce(sum(CASE WHEN source = 'membership' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS membership_revenue,
-        coalesce(sum(CASE WHEN source IN ('voucher', 'stored_value') AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS voucher_revenue
+        coalesce(sum(CASE WHEN source IN ('voucher', 'stored_value') AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS voucher_revenue,
+        coalesce(sum(CASE WHEN source = 'spa' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS spa_revenue
       FROM rm_revenue_activity
       WHERE tenant_id = ${input.tenantId}
         ${dateFilter}
@@ -73,50 +75,18 @@ export async function getDashboardMetrics(
     const salesRows = Array.from(salesResult as Iterable<Record<string, unknown>>);
     const salesRow = salesRows[0];
 
-    let todaySales = Number(salesRow?.net_sales) || 0;
-    let todayOrders = Number(salesRow?.order_count) || 0;
-    let todayVoids = Number(salesRow?.void_count) || 0;
-    let period: 'today' | 'range' | 'all' = isRange ? 'range' : 'today';
+    const todaySales = Number(salesRow?.net_sales) || 0;
+    const todayOrders = Number(salesRow?.order_count) || 0;
+    const todayVoids = Number(salesRow?.void_count) || 0;
+    const period: 'today' | 'range' = isRange ? 'range' : 'today';
     const nonPosRevenue: NonPosRevenue = {
       pms: Number(salesRow?.pms_revenue) || 0,
       ar: Number(salesRow?.ar_revenue) || 0,
       membership: Number(salesRow?.membership_revenue) || 0,
       voucher: Number(salesRow?.voucher_revenue) || 0,
+      spa: Number(salesRow?.spa_revenue) || 0,
     };
-    let totalBusinessRevenue = todaySales;
-
-    // Fallback: all-time when no data in the date range
-    if (todayOrders === 0) {
-      const allTimeResult = await tx.execute(sql`
-        SELECT
-          coalesce(sum(CASE WHEN status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS net_sales,
-          count(CASE WHEN status != 'voided' THEN 1 END)::int AS order_count,
-          count(CASE WHEN status = 'voided' THEN 1 END)::int AS void_count,
-          coalesce(sum(CASE WHEN source = 'pms_folio' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS pms_revenue,
-          coalesce(sum(CASE WHEN source = 'ar_invoice' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS ar_revenue,
-          coalesce(sum(CASE WHEN source = 'membership' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS membership_revenue,
-          coalesce(sum(CASE WHEN source IN ('voucher', 'stored_value') AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS voucher_revenue
-        FROM rm_revenue_activity
-        WHERE tenant_id = ${input.tenantId}
-          ${locFilter}
-      `);
-
-      const allTimeRows = Array.from(allTimeResult as Iterable<Record<string, unknown>>);
-      const allTimeRow = allTimeRows[0];
-      const allTimeOrders = Number(allTimeRow?.order_count) || 0;
-
-      if (allTimeOrders > 0) {
-        todaySales = Number(allTimeRow?.net_sales) || 0;
-        todayOrders = allTimeOrders;
-        todayVoids = Number(allTimeRow?.void_count) || 0;
-        nonPosRevenue.pms = Number(allTimeRow?.pms_revenue) || 0;
-        nonPosRevenue.ar = Number(allTimeRow?.ar_revenue) || 0;
-        nonPosRevenue.membership = Number(allTimeRow?.membership_revenue) || 0;
-        nonPosRevenue.voucher = Number(allTimeRow?.voucher_revenue) || 0;
-        totalBusinessRevenue = todaySales;
-        period = 'all';
-      }
-    }
+    const totalBusinessRevenue = todaySales + nonPosRevenue.pms + nonPosRevenue.ar + nonPosRevenue.membership + nonPosRevenue.voucher + nonPosRevenue.spa;
 
     // 2. Low stock count — read model
     const stockConditions = [
@@ -179,22 +149,7 @@ export async function getDashboardMetrics(
     `);
 
     const custRows = Array.from(custResult as Iterable<Record<string, unknown>>);
-    let activeCustomers7d = Number(custRows[0]?.cnt) || 0;
-
-    // Fallback: all-time distinct customers if date-filtered is still 0
-    if (activeCustomers7d === 0) {
-      const allTimeCustResult = await tx.execute(sql`
-        SELECT count(DISTINCT customer_id)::int AS cnt
-        FROM rm_revenue_activity
-        WHERE tenant_id = ${input.tenantId}
-          AND customer_id IS NOT NULL
-          AND status != 'voided'
-          ${locFilter}
-      `);
-
-      const allTimeCustRows = Array.from(allTimeCustResult as Iterable<Record<string, unknown>>);
-      activeCustomers7d = Number(allTimeCustRows[0]?.cnt) || 0;
-    }
+    const activeCustomers7d = Number(custRows[0]?.cnt) || 0;
 
     return {
       todaySales,

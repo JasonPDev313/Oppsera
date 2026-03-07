@@ -6,6 +6,7 @@ import { getWorkflowConfig } from '@oppsera/core/erp';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { getCloseChecklist } from '../queries/get-close-checklist';
+import { postDraftEntry } from './post-draft-entry';
 
 export interface StepResult {
   stepKey: string;
@@ -48,34 +49,31 @@ const AUTO_EXECUTABLE_STEPS: Record<string, {
   'draft_entries': {
     label: 'Open draft journal entries',
     execute: async (ctx, postingPeriod) => {
-      // Post all draft entries for this period
-      const count = await withTenant(ctx.tenantId, async (tx) => {
+      // Post all draft entries through the proper postDraftEntry() path,
+      // which validates balance, checks period locks, sets postedAt, and
+      // emits the journal-posted event.
+      const draftIds = await withTenant(ctx.tenantId, async (tx) => {
         const draftRows = await tx.execute(sql`
           SELECT id FROM gl_journal_entries
           WHERE tenant_id = ${ctx.tenantId}
             AND posting_period = ${postingPeriod}
             AND status = 'draft'
         `);
-        const drafts = Array.from(draftRows as Iterable<Record<string, unknown>>);
-        let posted = 0;
-        for (const draft of drafts) {
-          try {
-            await tx.execute(sql`
-              UPDATE gl_journal_entries
-              SET status = 'posted', updated_at = now()
-              WHERE id = ${String(draft.id)}
-                AND tenant_id = ${ctx.tenantId}
-                AND status = 'draft'
-            `);
-            posted++;
-          } catch (err) {
-            // Continue on individual failures
-            console.error('[run-close-orchestrator] Error:', err);
-          }
-        }
-        return posted;
+        return Array.from(draftRows as Iterable<Record<string, unknown>>).map(
+          (r) => String(r.id),
+        );
       });
-      return `Auto-posted ${count} draft journal entries`;
+      let posted = 0;
+      for (const entryId of draftIds) {
+        try {
+          await postDraftEntry(ctx, entryId);
+          posted++;
+        } catch (err) {
+          // Continue on individual failures (e.g., period-locked, unbalanced)
+          console.error(`[run-close-orchestrator] postDraftEntry(${entryId}):`, err);
+        }
+      }
+      return `Auto-posted ${posted} of ${draftIds.length} draft journal entries`;
     },
   },
   'recurring_entries': {

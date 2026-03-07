@@ -74,6 +74,12 @@ export const SaveModuleDefaultsInputSchema = z.object({
   modules: z.array(ModuleDefaultInputSchema),
 });
 
+export const WorkflowDefaultSchema = z.object({
+  autoMode: z.boolean().default(true),
+  approvalRequired: z.boolean().default(false),
+  userVisible: z.boolean().default(false),
+});
+
 export const AccountingTemplateInputSchema = z.object({
   coaTemplateRef: z.string().nullable().optional(),
   revenueCategories: RevenueCategorySchema.default({}),
@@ -82,6 +88,7 @@ export const AccountingTemplateInputSchema = z.object({
   deferredRevenue: DeferredRevenueSchema.default({}),
   cogsBehavior: z.enum(['disabled', 'perpetual', 'periodic']).default('disabled'),
   fiscalSettings: FiscalSettingsSchema.default({}),
+  workflowDefaults: z.record(z.string(), WorkflowDefaultSchema).default({}),
 });
 
 export const RoleTemplateInputSchema = z.object({
@@ -109,3 +116,4 @@ export type RevenueCategory = z.infer<typeof RevenueCategorySchema>;
 export type PaymentGlMapping = z.infer<typeof PaymentGlMappingSchema>;
 export type TaxBehavior = z.infer<typeof TaxBehaviorSchema>;
 export type FiscalSettings = z.infer<typeof FiscalSettingsSchema>;
+export type WorkflowDefault = z.infer<typeof WorkflowDefaultSchema>;

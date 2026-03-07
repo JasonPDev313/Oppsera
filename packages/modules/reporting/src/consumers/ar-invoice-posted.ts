@@ -7,12 +7,12 @@ import { computeBusinessDate } from '../business-date';
 
 const arInvoicePostedSchema = z.object({
   invoiceId: z.string(),
-  customerId: z.string().optional(),
-  customerName: z.string().optional(),
+  customerId: z.string().nullish(),
+  customerName: z.string().nullish(),
   invoiceNumber: z.string(),
   totalAmount: z.union([z.string(), z.number()]),
   locationId: z.string(),
-  occurredAt: z.string().optional(),
+  occurredAt: z.string().nullish(),
 });
 
 const CONSUMER_NAME = 'reporting.arInvoicePosted';
@@ -96,7 +96,7 @@ export async function handleArInvoicePosted(event: EventEnvelope): Promise<void>
       ON CONFLICT (tenant_id, location_id, business_date)
       DO UPDATE SET
         ar_revenue = rm_daily_sales.ar_revenue + ${amountDollars},
-        total_business_revenue = rm_daily_sales.net_sales + rm_daily_sales.pms_revenue + (rm_daily_sales.ar_revenue + ${amountDollars}) + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue,
+        total_business_revenue = rm_daily_sales.net_sales + rm_daily_sales.pms_revenue + (rm_daily_sales.ar_revenue + ${amountDollars}) + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue + rm_daily_sales.spa_revenue,
         updated_at = NOW()
     `);
   });

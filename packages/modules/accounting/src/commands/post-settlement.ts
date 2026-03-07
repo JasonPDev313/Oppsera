@@ -128,7 +128,6 @@ export async function postSettlement(
 
     // Dr Processing Fees (if any)
     if (feeAmount > 0) {
-      // Try to find fee expense account from payment type GL mapping for 'card'
       const feeAccountId = await resolveFeeExpenseAccount(tx, ctx.tenantId, settings);
       if (feeAccountId) {
         lines.push({
@@ -138,8 +137,7 @@ export async function postSettlement(
           memo: `Processing fees - ${settlement.processorName}`,
         });
       } else {
-        // Log unmapped event — fee amount is being netted into bank deposit
-        // instead of tracked as a separate expense. Accountant can remap later.
+        // No expense account available at all — log but still post (fee netted into bank).
         try {
           const { logUnmappedEvent } = await import('../helpers/resolve-mapping');
           await logUnmappedEvent(tx, ctx.tenantId, {
@@ -148,7 +146,7 @@ export async function postSettlement(
             sourceReferenceId: settlement.id,
             entityType: 'processing_fee_account',
             entityId: settlement.processorName ?? 'unknown',
-            reason: `Processing fee of $${feeAmount.toFixed(2)} has no GL expense account configured. Fee is netted into bank deposit (Dr Bank ${netAmount.toFixed(2)} instead of Dr Bank ${grossAmount.toFixed(2)} + Dr Fee ${feeAmount.toFixed(2)}). Configure fee_expense_account_id on payment_type_gl_defaults for 'card' to track fees separately.`,
+            reason: `Processing fee of $${feeAmount.toFixed(2)} has no GL expense account configured (checked payment_type_gl_defaults, defaultCcProcessingFeeAccountId, defaultRoundingAccountId). Fee is netted into bank deposit. Configure an expense account to track fees separately.`,
           });
         } catch { /* best-effort tracking */ }
       }
@@ -221,9 +219,10 @@ export async function postSettlement(
 async function resolveFeeExpenseAccount(
   tx: Parameters<Parameters<typeof publishWithOutbox>[1]>[0],
   tenantId: string,
-  _settings: NonNullable<Awaited<ReturnType<typeof getAccountingSettings>>>,
+  settings: NonNullable<Awaited<ReturnType<typeof getAccountingSettings>>>,
 ): Promise<string | null> {
   const { sql } = await import('drizzle-orm');
+  // 1. Check payment type GL mapping for 'card'
   const rows = await tx.execute(sql`
     SELECT fee_expense_account_id
     FROM payment_type_gl_defaults
@@ -235,5 +234,9 @@ async function resolveFeeExpenseAccount(
   if (arr.length > 0 && arr[0]!.fee_expense_account_id) {
     return String(arr[0]!.fee_expense_account_id);
   }
-  return null;
+  // 2. Fallback: tenant-level CC processing fee account → rounding (expense suspense).
+  // NEVER fall back to revenue — processing fees are expenses.
+  return settings.defaultCcProcessingFeeAccountId
+    ?? settings.defaultRoundingAccountId
+    ?? null;
 }

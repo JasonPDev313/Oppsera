@@ -4,6 +4,7 @@ import { createReturn } from '../commands/create-return';
 vi.mock('@oppsera/db', () => ({
   orders: {},
   orderLines: {},
+  tenders: {},
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -150,7 +151,9 @@ describe('createReturn', () => {
         innerJoin: vi.fn().mockReturnThis(),
         where: vi.fn()
           .mockResolvedValueOnce([originalLines[0]]) // fetch matching lines (only line-1 requested)
-          .mockReturnValueOnce({ groupBy: vi.fn().mockResolvedValue([]) }), // prior returns query
+          .mockReturnValueOnce({ groupBy: vi.fn().mockResolvedValue([]) }) // prior returns query
+          .mockResolvedValueOnce(undefined) // update order totals
+          .mockResolvedValueOnce([{ id: 'tender-1', tenderType: 'cash' }]), // tenders auto-resolve query
         insert: vi.fn().mockReturnThis(),
         values: vi.fn().mockReturnThis(),
         update: vi.fn().mockReturnThis(),
@@ -218,7 +221,9 @@ describe('createReturn', () => {
         innerJoin: vi.fn().mockReturnThis(),
         where: vi.fn()
           .mockResolvedValueOnce(originalLines)
-          .mockReturnValueOnce({ groupBy: vi.fn().mockResolvedValue([]) }), // prior returns query
+          .mockReturnValueOnce({ groupBy: vi.fn().mockResolvedValue([]) }) // prior returns query
+          .mockResolvedValueOnce(undefined) // update order totals
+          .mockResolvedValueOnce([{ id: 'tender-1', tenderType: 'card' }]), // tenders auto-resolve query
         insert: vi.fn().mockReturnThis(),
         values: vi.fn().mockReturnThis(),
         update: vi.fn().mockReturnThis(),

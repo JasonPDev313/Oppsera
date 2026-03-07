@@ -540,49 +540,197 @@ describe('getSalesTaxLiability', () => {
   });
 });
 
-// ── Cash Flow Tests ──────────────────────────────────────────────
+// ── Cash Flow Statement Tests ────────────────────────────────────
 
-describe('getCashFlowSimplified', () => {
+describe('getCashFlowStatement', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('should compute netOperatingCashFlow = netIncome + changeAP - changeAR', async () => {
+  it('should build full indirect-method cash flow with operating, investing, financing', async () => {
     const { withTenant } = await import('@oppsera/db');
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
       const mockTx = {
         execute: vi
           .fn()
-          // Net income query
-          .mockResolvedValueOnce([{ revenue: '10000.00', expenses: '6000.00' }])
-          // Settings (AP/AR account IDs)
+          // 1. Net income + depreciation
+          .mockResolvedValueOnce([{ revenue: '10000.00', expenses: '6000.00', depreciation: '500.00' }])
+          // 2. Balance sheet account changes
           .mockResolvedValueOnce([
-            { default_ap_control_account_id: 'acct-ap', default_ar_control_account_id: 'acct-ar' },
+            // AR increased (debit-normal asset) — uses cash
+            { account_name: 'Accounts Receivable', account_type: 'asset', control_account_type: 'ar', classification_name: 'Receivables', balance_change: '800.00' },
+            // Inventory decreased — frees cash
+            { account_name: 'Inventory', account_type: 'asset', control_account_type: null, classification_name: 'Inventory', balance_change: '-200.00' },
+            // AP increased (credit-normal liability) — conserves cash
+            { account_name: 'Accounts Payable', account_type: 'liability', control_account_type: 'ap', classification_name: 'Payables', balance_change: '600.00' },
+            // Equipment purchased (debit-normal asset) — investing outflow
+            { account_name: 'Equipment', account_type: 'asset', control_account_type: null, classification_name: 'Fixed Assets', balance_change: '3000.00' },
+            // Owner contribution (credit-normal equity) — financing inflow
+            { account_name: 'Owner Contributions', account_type: 'equity', control_account_type: null, classification_name: 'Owner Equity', balance_change: '5000.00' },
           ])
-          // Change in AP (credits - debits = positive means AP increased)
-          .mockResolvedValueOnce([{ change: '500.00' }])
-          // Change in AR (credits - debits = negative means AR increased)
-          .mockResolvedValueOnce([{ change: '-800.00' }]),
+          // 3. Beginning cash balance
+          .mockResolvedValueOnce([{ balance: '15000.00' }]),
       };
       return fn(mockTx);
     });
 
-    const { getCashFlowSimplified } = await import('../queries/get-cash-flow-simplified');
-    const result = await getCashFlowSimplified({
+    const { getCashFlowStatement } = await import('../queries/get-cash-flow-statement');
+    const result = await getCashFlowStatement({
       tenantId: 'tenant-1',
       from: '2026-01-01',
       to: '2026-01-31',
     });
 
-    // Net income = 10000 - 6000 = 4000
-    expect(result.operating.netIncome).toBe(4000);
-    // Change in AP = +500 (AP increased → cash conserved)
-    expect(result.operating.changeInAP).toBe(500);
-    // Change in AR = -800 (AR increased → cash uncollected)
-    // Indirect method: OCF = 4000 + 500 + (-800) = 3700
-    expect(result.operating.changeInAR).toBe(-800);
-    expect(result.operating.netOperatingCashFlow).toBe(3700);
-    expect(result.netCashChange).toBe(3700);
+    // Operating: net income 4000 + depreciation 500 + AR change -800 + inventory change +200 + AP change +600 = 4500
+    expect(result.operatingActivities[0]!.label).toBe('Net Income');
+    expect(result.operatingActivities[0]!.amount).toBe(4000);
+    expect(result.operatingActivities[1]!.label).toBe('Depreciation & Amortization');
+    expect(result.operatingActivities[1]!.amount).toBe(500);
+    expect(result.netCashFromOperations).toBe(4500);
+
+    // Investing: equipment -3000
+    expect(result.investingActivities).toHaveLength(1);
+    expect(result.investingActivities[0]!.amount).toBe(-3000);
+    expect(result.netCashFromInvesting).toBe(-3000);
+
+    // Financing: owner contributions +5000
+    expect(result.financingActivities).toHaveLength(1);
+    expect(result.financingActivities[0]!.amount).toBe(5000);
+    expect(result.netCashFromFinancing).toBe(5000);
+
+    // Net change = 4500 - 3000 + 5000 = 6500
+    expect(result.netChangeInCash).toBe(6500);
+    expect(result.beginningCashBalance).toBe(15000);
+    expect(result.endingCashBalance).toBe(21500);
+  });
+
+  it('should return zeros with no journal activity', async () => {
+    const { withTenant } = await import('@oppsera/db');
+    (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
+      const mockTx = {
+        execute: vi
+          .fn()
+          .mockResolvedValueOnce([{ revenue: '0', expenses: '0', depreciation: '0' }])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{ balance: '0' }]),
+      };
+      return fn(mockTx);
+    });
+
+    const { getCashFlowStatement } = await import('../queries/get-cash-flow-statement');
+    const result = await getCashFlowStatement({
+      tenantId: 'tenant-1',
+      from: '2026-01-01',
+      to: '2026-01-31',
+    });
+
+    expect(result.netCashFromOperations).toBe(0);
+    expect(result.netCashFromInvesting).toBe(0);
+    expect(result.netCashFromFinancing).toBe(0);
+    expect(result.netChangeInCash).toBe(0);
+    expect(result.operatingActivities).toHaveLength(1); // just Net Income line
+    expect(result.operatingActivities[0]!.amount).toBe(0);
+  });
+
+  it('should skip retained earnings accounts and cash accounts from activities', async () => {
+    const { withTenant } = await import('@oppsera/db');
+    (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
+      const mockTx = {
+        execute: vi
+          .fn()
+          .mockResolvedValueOnce([{ revenue: '5000.00', expenses: '2000.00', depreciation: '0' }])
+          .mockResolvedValueOnce([
+            // Cash account via control_account_type — should be skipped
+            { account_name: 'Operating Checking', account_type: 'asset', control_account_type: 'bank', classification_name: 'Cash & Bank', balance_change: '3000.00' },
+            // Cash account via classification only — should also be skipped
+            { account_name: 'Petty Cash', account_type: 'asset', control_account_type: null, classification_name: 'Cash & Bank', balance_change: '200.00' },
+            // Retained earnings — should be skipped (covered by net income)
+            { account_name: 'Retained Earnings', account_type: 'equity', control_account_type: null, classification_name: 'Retained Earnings', balance_change: '3000.00' },
+            // AP — should show in operating
+            { account_name: 'Accounts Payable', account_type: 'liability', control_account_type: 'ap', classification_name: 'Payables', balance_change: '1000.00' },
+          ])
+          .mockResolvedValueOnce([{ balance: '10000.00' }]),
+      };
+      return fn(mockTx);
+    });
+
+    const { getCashFlowStatement } = await import('../queries/get-cash-flow-statement');
+    const result = await getCashFlowStatement({
+      tenantId: 'tenant-1',
+      from: '2026-01-01',
+      to: '2026-01-31',
+    });
+
+    // Only net income + AP change in operating (cash & RE skipped)
+    expect(result.operatingActivities).toHaveLength(2);
+    expect(result.operatingActivities[0]!.label).toBe('Net Income');
+    expect(result.operatingActivities[1]!.label).toBe('Accounts Payable');
+    expect(result.investingActivities).toHaveLength(0);
+    expect(result.financingActivities).toHaveLength(0);
+  });
+
+  it('should merge duplicate account names across locations', async () => {
+    const { withTenant } = await import('@oppsera/db');
+    (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
+      const mockTx = {
+        execute: vi
+          .fn()
+          .mockResolvedValueOnce([{ revenue: '1000.00', expenses: '0', depreciation: '0' }])
+          .mockResolvedValueOnce([
+            // Two AR accounts with same name (multi-location)
+            { account_name: 'Accounts Receivable', account_type: 'asset', control_account_type: 'ar', classification_name: 'Receivables', balance_change: '300.00' },
+            { account_name: 'Accounts Receivable', account_type: 'asset', control_account_type: 'ar', classification_name: 'Receivables', balance_change: '200.00' },
+          ])
+          .mockResolvedValueOnce([{ balance: '0' }]),
+      };
+      return fn(mockTx);
+    });
+
+    const { getCashFlowStatement } = await import('../queries/get-cash-flow-statement');
+    const result = await getCashFlowStatement({
+      tenantId: 'tenant-1',
+      from: '2026-01-01',
+      to: '2026-01-31',
+    });
+
+    // Two AR lines should merge into one: -(300 + 200) = -500
+    const arItem = result.operatingActivities.find((i) => i.label === 'Accounts Receivable');
+    expect(arItem).toBeDefined();
+    expect(arItem!.amount).toBe(-500);
+    // Net Income + merged AR = 2 items total
+    expect(result.operatingActivities).toHaveLength(2);
+  });
+
+  it('should classify via control_account_type=bank even with unknown classification', async () => {
+    const { withTenant } = await import('@oppsera/db');
+    (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
+      const mockTx = {
+        execute: vi
+          .fn()
+          .mockResolvedValueOnce([{ revenue: '500.00', expenses: '0', depreciation: '0' }])
+          .mockResolvedValueOnce([
+            // Bank account with a custom/unknown classification — control_account_type='bank' wins
+            { account_name: 'Business Checking', account_type: 'asset', control_account_type: 'bank', classification_name: 'Custom Banking', balance_change: '500.00' },
+            // Normal asset without bank marker
+            { account_name: 'Security Deposit', account_type: 'asset', control_account_type: null, classification_name: 'Other Stuff', balance_change: '100.00' },
+          ])
+          .mockResolvedValueOnce([{ balance: '5000.00' }]),
+      };
+      return fn(mockTx);
+    });
+
+    const { getCashFlowStatement } = await import('../queries/get-cash-flow-statement');
+    const result = await getCashFlowStatement({
+      tenantId: 'tenant-1',
+      from: '2026-01-01',
+      to: '2026-01-31',
+    });
+
+    // Business Checking skipped (cash), Security Deposit classified as operating (unknown classification, asset fallback)
+    expect(result.operatingActivities).toHaveLength(2);
+    expect(result.operatingActivities[1]!.label).toBe('Security Deposit');
+    expect(result.operatingActivities[1]!.amount).toBe(-100);
+    expect(result.beginningCashBalance).toBe(5000);
   });
 });
 

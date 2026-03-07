@@ -6,15 +6,15 @@ import { z } from 'zod';
 import { computeBusinessDate } from '../business-date';
 
 const fnbTenderAppliedSchema = z.object({
-  paymentSessionId: z.string().optional(),
-  tenderId: z.string().optional(),
-  tabId: z.string().optional(),
-  orderId: z.string().optional(),
+  paymentSessionId: z.string().nullish(),
+  tenderId: z.string().nullish(),
+  tabId: z.string().nullish(),
+  orderId: z.string().nullish(),
   locationId: z.string(),
   amountCents: z.number(),
   tenderType: z.string(),
-  tipAmountCents: z.number().optional(),
-  surchargeAmountCents: z.number().optional(),
+  tipAmountCents: z.number().nullish(),
+  surchargeAmountCents: z.number().nullish(),
 });
 
 const CONSUMER_NAME = 'reporting.fnbTenderApplied';

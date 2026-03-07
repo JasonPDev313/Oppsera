@@ -1,14 +1,116 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Save, Loader2, Check, AlertTriangle, X } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Save, Loader2, Lock, Clock } from 'lucide-react';
 import { useAccountingTemplate } from '@/hooks/use-business-type-detail';
 
-const CURRENCIES = ['USD', 'CAD', 'GBP', 'AUD', 'EUR'] as const;
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+// ── Workflow registry (mirrors @oppsera/shared erp-tiers.ts) ──────
+
+const WORKFLOW_KEYS: Record<string, string[]> = {
+  accounting: [
+    'journal_posting',
+    'period_close',
+    'bank_reconciliation',
+    'depreciation',
+    'revenue_recognition',
+    'year_end_close',
+    'eod_reconciliation',
+    'intercompany',
+    'budget_variance',
+    'dormant_accounts',
+  ],
+  payments: [
+    'settlement_matching',
+    'tip_payout',
+    'refund_approval',
+    'cash_variance_alert',
+    'deposit_verification',
+    'chargeback_deadlines',
+  ],
+  inventory: [
+    'costing',
+    'reorder_alerts',
+  ],
+  ap: [
+    'bill_approval',
+    'payment_approval',
+    'payment_scheduling',
+  ],
+  ar: [
+    'invoice_posting',
+    'late_fee_assessment',
+    'credit_hold',
+    'dunning',
+    'recurring_invoices',
+  ],
+};
+
+const MODULE_LABELS: Record<string, string> = {
+  accounting: 'Accounting',
+  payments: 'Payments',
+  inventory: 'Inventory',
+  ap: 'Accounts Payable',
+  ar: 'Accounts Receivable',
+};
+
+const WORKFLOW_LABELS: Record<string, { name: string; description: string }> = {
+  'accounting.journal_posting':     { name: 'Journal Posting', description: 'Auto-post GL entries or save as draft' },
+  'accounting.period_close':        { name: 'Period Close', description: 'Auto-close periods or require manual checklist' },
+  'accounting.bank_reconciliation': { name: 'Bank Reconciliation', description: 'Auto-match bank feeds or manual reconciliation' },
+  'accounting.depreciation':        { name: 'Depreciation', description: 'Auto-post monthly depreciation entries' },
+  'accounting.revenue_recognition': { name: 'Revenue Recognition', description: 'Auto-schedule revenue recognition' },
+  'accounting.year_end_close':      { name: 'Year-End Close', description: 'Auto-generate retained earnings and close fiscal year' },
+  'accounting.eod_reconciliation':  { name: 'End-of-Day Reconciliation', description: 'Orchestrate full close sequence — drawers, batches, deposits, settlements, GL' },
+  'accounting.intercompany':        { name: 'Intercompany Transactions', description: 'Auto-balance intercompany transfers between sites and venues' },
+  'accounting.budget_variance':     { name: 'Budget vs Actual', description: 'Auto-generate variance reports comparing budget to actuals per period' },
+  'accounting.dormant_accounts':    { name: 'Dormant Account Detection', description: 'Auto-flag GL accounts with no activity for a configurable period' },
+  'payments.settlement_matching':   { name: 'Settlement Matching', description: 'Auto-match card settlements to tenders' },
+  'payments.tip_payout':            { name: 'Tip Payout', description: 'Auto-calculate tip payouts' },
+  'payments.refund_approval':       { name: 'Refund Approval', description: 'Require manager approval for refunds above a configurable threshold' },
+  'payments.cash_variance_alert':   { name: 'Cash Variance Alerts', description: 'Auto-alert managers when cash over/short exceeds tolerance' },
+  'payments.deposit_verification':  { name: 'Deposit Verification', description: 'Auto-verify deposit slip totals against expected cash from close batches' },
+  'payments.chargeback_deadlines':  { name: 'Chargeback Deadlines', description: 'Auto-escalate chargebacks approaching response deadlines' },
+  'inventory.costing':              { name: 'Inventory Costing', description: 'Auto-recompute inventory costs' },
+  'inventory.reorder_alerts':       { name: 'Reorder Alerts', description: 'Auto-generate purchase orders vs alerts only' },
+  'ap.bill_approval':               { name: 'Bill Approval', description: 'Auto-post bills or require approval workflow' },
+  'ap.payment_approval':            { name: 'Payment Approval', description: 'Auto-schedule payments or require approval' },
+  'ap.payment_scheduling':          { name: 'Payment Scheduling', description: 'Auto-schedule vendor payments by due date with early-pay discount optimization' },
+  'ar.invoice_posting':             { name: 'Invoice Posting', description: 'Auto-post invoices or save as draft' },
+  'ar.late_fee_assessment':         { name: 'Late Fee Assessment', description: 'Auto-assess late fees or manual assessment' },
+  'ar.credit_hold':                 { name: 'Credit Hold Enforcement', description: 'Auto-block new orders when customer AR balance exceeds credit limit' },
+  'ar.dunning':                     { name: 'Dunning & Collections', description: 'Auto-send payment reminders at aging milestones (30/60/90 days)' },
+  'ar.recurring_invoices':          { name: 'Recurring Invoices', description: 'Auto-generate invoices from recurring billing templates' },
+};
+
+const PROTECTED_WORKFLOWS = new Set([
+  'accounting.journal_posting',
+  'accounting.period_close',
+  'inventory.costing',
+  'payments.settlement_matching',
+  'ar.credit_hold',
+]);
+
+const COMING_SOON_WORKFLOWS = new Set([
+  'accounting.intercompany',
+  'accounting.budget_variance',
+  'accounting.dormant_accounts',
+  'payments.chargeback_deadlines',
+  'ap.payment_scheduling',
+  'ar.dunning',
+  'ar.recurring_invoices',
+]);
+
+// ── Types ─────────────────────────────────────────────────────────
+
+interface WorkflowConfig {
+  autoMode: boolean;
+  approvalRequired: boolean;
+  userVisible: boolean;
+}
+
+type WorkflowDefaults = Record<string, WorkflowConfig>;
+
+// ── Component ─────────────────────────────────────────────────────
 
 export function AccountingTab({
   versionId,
@@ -20,32 +122,8 @@ export function AccountingTab({
   const { template, isLoading, isSaving, error, load, save } =
     useAccountingTemplate(versionId);
 
-  // Revenue Categories
-  const [serviceRevenue, setServiceRevenue] = useState('');
-  const [retailRevenue, setRetailRevenue] = useState('');
-  const [foodRevenue, setFoodRevenue] = useState('');
-  const [beverageRevenue, setBeverageRevenue] = useState('');
-
-  // Payment GL Mappings
-  const [cash, setCash] = useState('');
-  const [creditCard, setCreditCard] = useState('');
-  const [giftCard, setGiftCard] = useState('');
-  const [memberCharge, setMemberCharge] = useState('');
-
-  // Tax
-  const [taxInclusive, setTaxInclusive] = useState(false);
-  const [separateTaxLiability, setSeparateTaxLiability] = useState(true);
-
-  // COGS
-  const [cogsBehavior, setCogsBehavior] = useState('disabled');
-
-  // Deferred Revenue
-  const [deferredEnabled, setDeferredEnabled] = useState(false);
-  const [deferredAccount, setDeferredAccount] = useState('');
-
-  // Fiscal
-  const [fiscalMonth, setFiscalMonth] = useState('01');
-  const [reportingCurrency, setReportingCurrency] = useState('USD');
+  const [workflows, setWorkflows] = useState<WorkflowDefaults>({});
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     load();
@@ -54,69 +132,54 @@ export function AccountingTab({
   // Sync from loaded template
   useEffect(() => {
     if (!template) return;
-    const rev = template.revenueCategories ?? {};
-    setServiceRevenue(rev.serviceRevenue ?? '');
-    setRetailRevenue(rev.retailRevenue ?? '');
-    setFoodRevenue(rev.foodRevenue ?? '');
-    setBeverageRevenue(rev.beverageRevenue ?? '');
-
-    const pay = template.paymentGlMappings ?? {};
-    setCash(pay.cash ?? '');
-    setCreditCard(pay.creditCard ?? '');
-    setGiftCard(pay.giftCard ?? '');
-    setMemberCharge(pay.memberCharge ?? '');
-
-    const tax = template.taxBehavior ?? {};
-    setTaxInclusive(tax.defaultTaxInclusive ?? false);
-    setSeparateTaxLiability(tax.separateTaxLiability ?? true);
-
-    setCogsBehavior(template.cogsBehavior ?? 'disabled');
-
-    const def = template.deferredRevenue ?? {};
-    setDeferredEnabled(def.enabled ?? false);
-    setDeferredAccount(def.liabilityAccount ?? '');
-
-    const fiscal = template.fiscalSettings ?? {};
-    setFiscalMonth(fiscal.fiscalYearStart?.split('-')[0] ?? '01');
-    setReportingCurrency(fiscal.reportingCurrency ?? 'USD');
+    const saved = (template.workflowDefaults ?? {}) as WorkflowDefaults;
+    // Merge saved with full workflow list (fill missing with defaults)
+    const merged: WorkflowDefaults = {};
+    for (const [moduleKey, keys] of Object.entries(WORKFLOW_KEYS)) {
+      for (const wk of keys) {
+        const compositeKey = `${moduleKey}.${wk}`;
+        merged[compositeKey] = saved[compositeKey] ?? {
+          autoMode: true,
+          approvalRequired: false,
+          userVisible: false,
+        };
+      }
+    }
+    setWorkflows(merged);
+    setDirty(false);
   }, [template]);
+
+  const handleToggle = useCallback(
+    (compositeKey: string, field: keyof WorkflowConfig, value: boolean) => {
+      if (isReadOnly) return;
+      setWorkflows((prev) => {
+        const cur = prev[compositeKey] ?? { autoMode: true, approvalRequired: false, userVisible: false };
+        return { ...prev, [compositeKey]: { autoMode: cur.autoMode, approvalRequired: cur.approvalRequired, userVisible: cur.userVisible, [field]: value } };
+      });
+      setDirty(true);
+    },
+    [isReadOnly],
+  );
 
   const handleSave = async () => {
     try {
       await save({
-        revenueCategories: {
-          serviceRevenue: serviceRevenue || undefined,
-          retailRevenue: retailRevenue || undefined,
-          foodRevenue: foodRevenue || undefined,
-          beverageRevenue: beverageRevenue || undefined,
-        },
-        paymentGlMappings: {
-          cash: cash || undefined,
-          creditCard: creditCard || undefined,
-          giftCard: giftCard || undefined,
-          memberCharge: memberCharge || undefined,
-        },
-        taxBehavior: {
-          defaultTaxInclusive: taxInclusive,
-          separateTaxLiability,
-        },
-        cogsBehavior,
-        deferredRevenue: {
-          enabled: deferredEnabled,
-          liabilityAccount: deferredAccount || undefined,
-        },
-        fiscalSettings: {
-          fiscalYearStart: `${fiscalMonth}-01`,
-          reportingCurrency,
-        },
+        revenueCategories: template?.revenueCategories ?? {},
+        paymentGlMappings: template?.paymentGlMappings ?? {},
+        taxBehavior: template?.taxBehavior ?? {},
+        deferredRevenue: template?.deferredRevenue ?? {},
+        cogsBehavior: template?.cogsBehavior ?? 'disabled',
+        fiscalSettings: template?.fiscalSettings ?? {},
+        workflowDefaults: workflows,
       });
+      setDirty(false);
     } catch {
       // error is set in hook
     }
   };
 
   if (isLoading && !template) {
-    return <div className="text-center text-slate-400 py-12">Loading accounting template...</div>;
+    return <div className="text-center text-slate-400 py-12">Loading workflow defaults...</div>;
   }
 
   if (error && !template) {
@@ -127,133 +190,55 @@ export function AccountingTab({
     );
   }
 
-  const validationStatus = template?.validationStatus ?? 'incomplete';
-  const validationErrors = (template?.validationErrors ?? []) as string[];
-
   return (
-    <div className="max-w-3xl space-y-6">
-      {/* Validation Status */}
-      <div className="flex items-center gap-3">
-        <ValidationBadge status={validationStatus} />
-        {isReadOnly && (
-          <span className="text-xs text-amber-400">Read-only — create a new draft to edit</span>
-        )}
-      </div>
-
-      {/* Validation Errors */}
-      {validationErrors.length > 0 && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 space-y-1">
-          {validationErrors.map((err, i) => (
-            <p key={i} className="text-sm text-red-400 flex items-center gap-2">
-              <X size={14} className="shrink-0" />
-              {err}
-            </p>
-          ))}
-        </div>
+    <div className="max-w-4xl space-y-8">
+      {isReadOnly && (
+        <div className="text-xs text-amber-400">Read-only — create a new draft to edit</div>
       )}
 
-      {/* Revenue Categories */}
-      <Section title="Revenue Categories">
-        <GlInput label="Service Revenue" value={serviceRevenue} onChange={setServiceRevenue} disabled={isReadOnly} />
-        <GlInput label="Retail Revenue" value={retailRevenue} onChange={setRetailRevenue} disabled={isReadOnly} />
-        <GlInput label="Food Revenue" value={foodRevenue} onChange={setFoodRevenue} disabled={isReadOnly} />
-        <GlInput label="Beverage Revenue" value={beverageRevenue} onChange={setBeverageRevenue} disabled={isReadOnly} />
-      </Section>
-
-      {/* Payment GL Mappings */}
-      <Section title="Payment GL Mappings">
-        <GlInput label="Cash" value={cash} onChange={setCash} disabled={isReadOnly} />
-        <GlInput label="Credit Card" value={creditCard} onChange={setCreditCard} disabled={isReadOnly} />
-        <GlInput label="Gift Card" value={giftCard} onChange={setGiftCard} disabled={isReadOnly} />
-        <GlInput label="Member Charge" value={memberCharge} onChange={setMemberCharge} disabled={isReadOnly} />
-      </Section>
-
-      {/* Tax Behavior */}
-      <Section title="Tax Behavior">
-        <div className="space-y-3">
-          <ToggleRow label="Tax Inclusive Pricing" checked={taxInclusive} onChange={setTaxInclusive} disabled={isReadOnly} />
-          <ToggleRow label="Separate Tax Liability Account" checked={separateTaxLiability} onChange={setSeparateTaxLiability} disabled={isReadOnly} />
-        </div>
-      </Section>
-
-      {/* COGS Behavior */}
-      <Section title="COGS Behavior">
-        <div className="flex gap-2">
-          {['disabled', 'perpetual', 'periodic'].map((mode) => (
-            <button
-              key={mode}
-              onClick={() => !isReadOnly && setCogsBehavior(mode)}
-              disabled={isReadOnly}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                cogsBehavior === mode
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-700 text-slate-400 hover:text-white'
-              } ${isReadOnly ? 'cursor-not-allowed opacity-60' : ''}`}
-            >
-              {mode.charAt(0).toUpperCase() + mode.slice(1)}
-            </button>
-          ))}
-        </div>
-      </Section>
-
-      {/* Deferred Revenue */}
-      <Section title="Deferred Revenue">
-        <ToggleRow label="Enable Deferred Revenue" checked={deferredEnabled} onChange={setDeferredEnabled} disabled={isReadOnly} />
-        {deferredEnabled && (
-          <GlInput label="Liability Account" value={deferredAccount} onChange={setDeferredAccount} disabled={isReadOnly} />
-        )}
-      </Section>
-
-      {/* Fiscal Settings */}
-      <Section title="Fiscal Settings">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="fiscal-month" className="block text-sm font-medium text-slate-300 mb-1.5">
-              Fiscal Year Start Month
-            </label>
-            <select
-              id="fiscal-month"
-              value={fiscalMonth}
-              onChange={(e) => setFiscalMonth(e.target.value)}
-              disabled={isReadOnly}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
-            >
-              {MONTHS.map((m, i) => (
-                <option key={m} value={String(i + 1).padStart(2, '0')}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="currency" className="block text-sm font-medium text-slate-300 mb-1.5">
-              Reporting Currency
-            </label>
-            <select
-              id="currency"
-              value={reportingCurrency}
-              onChange={(e) => setReportingCurrency(e.target.value)}
-              disabled={isReadOnly}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
-            >
-              {CURRENCIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+      {Object.entries(WORKFLOW_KEYS).map(([moduleKey, workflowKeys]) => (
+        <div key={moduleKey}>
+          <h3 className="mb-3 text-sm font-semibold text-white">
+            {MODULE_LABELS[moduleKey] ?? moduleKey}
+          </h3>
+          <div className="space-y-2">
+            {workflowKeys.map((wk) => {
+              const compositeKey = `${moduleKey}.${wk}`;
+              const config = workflows[compositeKey] ?? {
+                autoMode: true,
+                approvalRequired: false,
+                userVisible: false,
+              };
+              const comingSoon = COMING_SOON_WORKFLOWS.has(compositeKey);
+              const isProtected = PROTECTED_WORKFLOWS.has(compositeKey);
+              return (
+                <WorkflowRow
+                  key={compositeKey}
+                  compositeKey={compositeKey}
+                  autoMode={config.autoMode}
+                  approvalRequired={config.approvalRequired}
+                  userVisible={config.userVisible}
+                  isProtected={isProtected}
+                  isComingSoon={comingSoon}
+                  disabled={isReadOnly}
+                  onToggle={handleToggle}
+                />
+              );
+            })}
           </div>
         </div>
-      </Section>
+      ))}
 
       {/* Save */}
       {!isReadOnly && (
         <div className="flex justify-end">
           <button
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || !dirty}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
           >
             {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            Save Accounting Template
+            Save Workflow Defaults
           </button>
         </div>
       )}
@@ -261,96 +246,128 @@ export function AccountingTab({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
-      <h3 className="text-sm font-semibold text-white mb-4">{title}</h3>
-      <div className="space-y-3">{children}</div>
-    </div>
-  );
-}
+// ── Workflow Row ──────────────────────────────────────────────────
 
-function GlInput({
-  label,
-  value,
-  onChange,
+function WorkflowRow({
+  compositeKey,
+  autoMode,
+  approvalRequired,
+  userVisible,
+  isProtected,
+  isComingSoon,
   disabled,
+  onToggle,
 }: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
+  compositeKey: string;
+  autoMode: boolean;
+  approvalRequired: boolean;
+  userVisible: boolean;
+  isProtected: boolean;
+  isComingSoon: boolean;
   disabled: boolean;
+  onToggle: (key: string, field: keyof WorkflowConfig, value: boolean) => void;
 }) {
+  const info = WORKFLOW_LABELS[compositeKey] ?? {
+    name: compositeKey.split('.')[1]?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) ?? compositeKey,
+    description: '',
+  };
+
+  const isDisabled = disabled || isComingSoon;
+
   return (
-    <div className="flex items-center gap-4">
-      <label className="w-40 text-sm text-slate-400 shrink-0">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        placeholder="GL account code"
-        className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white font-mono placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
-      />
+    <div
+      className={`flex items-center gap-4 rounded-lg border px-4 py-3 ${
+        isComingSoon
+          ? 'border-slate-700/50 bg-slate-800/50'
+          : 'border-slate-700 bg-slate-800'
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className={`text-sm font-medium ${isComingSoon ? 'text-slate-500' : 'text-white'}`}>
+            {info.name}
+          </p>
+          {isProtected && !isComingSoon && (
+            <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-500">
+              <Lock className="h-3 w-3" />
+              Protected
+            </span>
+          )}
+          {isComingSoon && (
+            <span className="inline-flex items-center gap-1 rounded bg-indigo-500/10 px-1.5 py-0.5 text-xs font-medium text-indigo-400">
+              <Clock className="h-3 w-3" />
+              Coming Soon
+            </span>
+          )}
+        </div>
+        {info.description && (
+          <p className="mt-0.5 text-xs text-slate-400">{info.description}</p>
+        )}
+      </div>
+
+      <div className="flex items-center gap-6">
+        <ToggleColumn
+          label="Auto"
+          checked={isComingSoon ? false : autoMode}
+          disabled={isDisabled || (isProtected && autoMode)}
+          dimmed={isComingSoon}
+          onChange={(val) => onToggle(compositeKey, 'autoMode', val)}
+        />
+        <ToggleColumn
+          label="Approval"
+          checked={isComingSoon ? false : approvalRequired}
+          disabled={isDisabled}
+          dimmed={isComingSoon}
+          onChange={(val) => onToggle(compositeKey, 'approvalRequired', val)}
+        />
+        <ToggleColumn
+          label="Visible"
+          checked={isComingSoon ? false : userVisible}
+          disabled={isDisabled}
+          dimmed={isComingSoon}
+          onChange={(val) => onToggle(compositeKey, 'userVisible', val)}
+        />
+      </div>
     </div>
   );
 }
 
-function ToggleRow({
+// ── Toggle Column ────────────────────────────────────────────────
+
+function ToggleColumn({
   label,
   checked,
-  onChange,
   disabled,
+  dimmed,
+  onChange,
 }: {
   label: string;
   checked: boolean;
-  onChange: (v: boolean) => void;
   disabled: boolean;
+  dimmed: boolean;
+  onChange: (val: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-slate-300">{label}</span>
+    <div className="flex flex-col items-center gap-1">
+      <span className={`text-xs font-medium ${dimmed ? 'text-slate-600' : 'text-slate-400'}`}>
+        {label}
+      </span>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         disabled={disabled}
-        onClick={() => !disabled && onChange(!checked)}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-          disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
-        } ${checked ? 'bg-indigo-600' : 'bg-slate-600'}`}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+          checked ? 'bg-indigo-600' : 'bg-slate-600'
+        }`}
       >
         <span
-          className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
-            checked ? 'translate-x-6' : 'translate-x-1'
+          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform ${
+            checked ? 'translate-x-4' : 'translate-x-0'
           }`}
         />
       </button>
     </div>
-  );
-}
-
-function ValidationBadge({ status }: { status: string }) {
-  if (status === 'valid') {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-500/20 text-emerald-400">
-        <Check size={14} />
-        Valid
-      </span>
-    );
-  }
-  if (status === 'invalid') {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-red-500/20 text-red-400">
-        <X size={14} />
-        Invalid
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-400">
-      <AlertTriangle size={14} />
-      Incomplete
-    </span>
   );
 }

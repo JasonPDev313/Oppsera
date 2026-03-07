@@ -57,9 +57,9 @@ interface DashboardMetrics {
   todayVoids: number;
   lowStockCount: number;
   activeCustomers7d: number;
-  period?: 'today' | 'range' | 'all';
+  period?: 'today' | 'range';
   totalBusinessRevenue: number;
-  nonPosRevenue: { pms: number; ar: number; membership: number; voucher: number };
+  nonPosRevenue: { pms: number; ar: number; membership: number; voucher: number; spa: number };
 }
 
 /** A single revenue activity item from the unified ledger. */
@@ -203,11 +203,10 @@ export default function DashboardContent() {
   const greeting = getGreeting();
 
   // Derive display values — prefer reporting metrics, fall back to order data
-  const isAllTime = metrics?.period === 'all';
-  const salesLabel = isAllTime ? 'Total Revenue' : 'Revenue (Last 7 Days)';
-  const ordersLabel = isAllTime ? 'Total Orders' : 'Orders (Last 7 Days)';
+  const salesLabel = 'Revenue (Last 7 Days)';
+  const ordersLabel = 'Orders (Last 7 Days)';
   const nonPosTotal = metrics
-    ? metrics.nonPosRevenue.pms + metrics.nonPosRevenue.ar + metrics.nonPosRevenue.membership + metrics.nonPosRevenue.voucher
+    ? metrics.nonPosRevenue.pms + metrics.nonPosRevenue.ar + metrics.nonPosRevenue.membership + metrics.nonPosRevenue.voucher + metrics.nonPosRevenue.spa
     : 0;
   const totalSalesDisplay = metrics
     ? formatDollars(nonPosTotal > 0 ? metrics.totalBusinessRevenue : metrics.todaySales)

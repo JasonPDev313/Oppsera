@@ -25,10 +25,13 @@ import {
   tenders,
   tenderReversals,
   catalogCategories,
+  catalogModifierGroups,
+  customers,
 } from '@oppsera/db';
 import type { InferSelectModel } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
+import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '@oppsera/core/helpers/optimistic-lock';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
@@ -216,7 +219,7 @@ export async function placeAndRecordTender(
 
     // Build GL lines from already-fetched order lines (no duplicate fetch!)
     const orderLinesForGL: OrderLineForGL[] = placedLines.map((l) => ({
-      departmentId: null,
+      departmentId: l.subDepartmentId ?? null,
       lineGross: l.lineTotal,
       lineTax: l.lineTax,
       lineNet: l.lineTotal - l.lineTax,
@@ -276,16 +279,77 @@ export async function placeAndRecordTender(
       totalTendered: newTotalTendered,
     });
 
+    // ========== ENRICH FOR EVENTS ==========
+    // Discount breakdown by classification (mirrors record-tender.ts)
+    const discountRows = await tx
+      .select({
+        classification: orderDiscounts.discountClassification,
+        amount: orderDiscounts.amount,
+      })
+      .from(orderDiscounts)
+      .where(and(eq(orderDiscounts.orderId, orderId), eq(orderDiscounts.tenantId, ctx.tenantId)));
+
+    const discountBreakdownMap = new Map<string, number>();
+    for (const row of discountRows) {
+      const key = row.classification ?? 'manual_discount';
+      discountBreakdownMap.set(key, (discountBreakdownMap.get(key) ?? 0) + row.amount);
+    }
+    const discountBreakdown = Array.from(discountBreakdownMap.entries()).map(
+      ([classification, amountCents]) => ({ classification, amountCents }),
+    );
+
+    // Price override loss total (mirrors record-tender.ts)
+    const priceOverrideLossRows = await tx
+      .select({
+        total: sql<number>`COALESCE(SUM(price_override_discount_cents), 0)::int`,
+      })
+      .from(orderLines)
+      .where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId)));
+    const priceOverrideLossCents = priceOverrideLossRows[0]?.total ?? 0;
+
     // ========== BUILD EVENTS ==========
     // Resolve category names from subDepartmentId for reporting/AI chat enrichment
     const subDeptIds = [...new Set(placedLines.map((l) => l.subDepartmentId).filter(Boolean))] as string[];
+    const catalogItemIds = [...new Set(placedLines.map((l) => l.catalogItemId).filter(Boolean))] as string[];
     const categoryNameMap = new Map<string, string>();
-    if (subDeptIds.length > 0) {
-      const cats = await tx.select({ id: catalogCategories.id, name: catalogCategories.name })
-        .from(catalogCategories)
-        .where(inArray(catalogCategories.id, subDeptIds));
-      for (const c of cats) categoryNameMap.set(c.id, c.name);
-    }
+    let assignedGroupsMap = new Map<string, string[]>();
+    const modGroupMetaMap = new Map<string, { name: string; isRequired: boolean }>();
+    let resolvedCustomerName: string | null = null;
+
+    // Run all enrichments concurrently (mirrors place-order.ts)
+    await Promise.all([
+      subDeptIds.length > 0
+        ? tx.select({ id: catalogCategories.id, name: catalogCategories.name })
+            .from(catalogCategories)
+            .where(inArray(catalogCategories.id, subDeptIds))
+            .then((cats) => { for (const c of cats) categoryNameMap.set(c.id, c.name); })
+        : Promise.resolve(),
+      catalogItemIds.length > 0 && !isAlreadyPlaced
+        ? (async () => {
+            try {
+              const catalogApi = getCatalogReadApi();
+              assignedGroupsMap = await catalogApi.getAssignedModifierGroupIds(ctx.tenantId, catalogItemIds);
+              const allGroupIds = [...new Set(Array.from(assignedGroupsMap.values()).flat())];
+              if (allGroupIds.length > 0) {
+                const groups = await tx.select({
+                  id: catalogModifierGroups.id,
+                  name: catalogModifierGroups.name,
+                  isRequired: catalogModifierGroups.isRequired,
+                }).from(catalogModifierGroups).where(inArray(catalogModifierGroups.id, allGroupIds));
+                for (const g of groups) modGroupMetaMap.set(g.id, { name: g.name, isRequired: g.isRequired });
+              }
+            } catch {
+              // Best-effort — modifier reporting should never block order placement
+            }
+          })()
+        : Promise.resolve(),
+      order.customerId && !isAlreadyPlaced
+        ? tx.select({ displayName: customers.displayName })
+            .from(customers)
+            .where(eq(customers.id, order.customerId))
+            .then((rows) => { if (rows[0]) resolvedCustomerName = rows[0].displayName; })
+        : Promise.resolve(),
+    ]);
 
     const events = [];
 
@@ -303,7 +367,7 @@ export async function placeAndRecordTender(
         total: order.total,
         lineCount: placedLines.length,
         customerId: order.customerId ?? null,
-        customerName: null,
+        customerName: resolvedCustomerName,
         billingAccountId: order.billingAccountId ?? null,
         tabName: (order.metadata as Record<string, unknown> | null)?.tabName ?? null,
         tableNumber: (order.metadata as Record<string, unknown> | null)?.tableNumber ?? null,
@@ -334,7 +398,11 @@ export async function placeAndRecordTender(
             instruction: m.instruction ?? null,
             isDefault: m.isDefault ?? false,
           })),
-          assignedModifierGroupIds: [],
+          assignedModifierGroupIds: (assignedGroupsMap.get(l.catalogItemId) ?? []).map((gId: string) => ({
+            modifierGroupId: gId,
+            groupName: modGroupMetaMap.get(gId)?.name ?? null,
+            isRequired: modGroupMetaMap.get(gId)?.isRequired ?? false,
+          })),
         })),
       }));
     }
@@ -352,7 +420,7 @@ export async function placeAndRecordTender(
       amount: tenderAmount,
       tipAmount: tenderInput.tipAmount ?? 0,
       changeGiven,
-      amountGiven: tenderInput.amountGiven,
+      amountGiven: effectiveAmountGiven,
       employeeId: tenderInput.employeeId,
       terminalId: tenderInput.terminalId,
       shiftId: tenderInput.shiftId ?? null,
@@ -370,6 +438,9 @@ export async function placeAndRecordTender(
       billingAccountId: order.billingAccountId ?? null,
       surchargeAmountCents: tenderInput.surchargeAmountCents ?? 0,
       lines: enrichedLines,
+      discountBreakdown: discountBreakdown.length > 0 ? discountBreakdown : undefined,
+      priceOverrideLossCents: priceOverrideLossCents > 0 ? priceOverrideLossCents : undefined,
+      metadata: tenderInput.metadata ?? null,
     }));
 
     return {

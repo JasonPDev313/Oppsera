@@ -9,13 +9,13 @@ const chargebackReceivedSchema = z.object({
   chargebackId: z.string(),
   tenderId: z.string(),
   orderId: z.string(),
-  tenderType: z.string().optional(),
+  tenderType: z.string().nullish(),
   chargebackAmountCents: z.number(),
-  feeAmountCents: z.number().optional().default(0),
+  feeAmountCents: z.number().nullish(),
   locationId: z.string(),
-  businessDate: z.string().optional(),
+  businessDate: z.string().nullish(),
   customerId: z.string().nullable().optional(),
-  chargebackReason: z.string().optional(),
+  chargebackReason: z.string().nullish(),
 });
 
 const CONSUMER_NAME = 'reporting.chargebackReceived';

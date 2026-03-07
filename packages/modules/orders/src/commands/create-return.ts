@@ -3,7 +3,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError, generateUlid } from '@oppsera/shared';
-import { orders, orderLines } from '@oppsera/db';
+import { orders, orderLines, tenders } from '@oppsera/db';
 import type { InferSelectModel } from 'drizzle-orm';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import type { CreateReturnInput } from '../validation';
@@ -139,6 +139,7 @@ export async function createReturn(
       returnedTotal: number;
       subDepartmentId: string | null;
       packageComponents: unknown;
+      costCents: number | null;
     }> = [];
 
     for (const returnLine of input.returnLines) {
@@ -146,16 +147,16 @@ export async function createReturn(
       const origQty = Number(orig.qty);
 
       // Use per-unit integer arithmetic to avoid rounding drift across multiple partial returns.
-      // Each unit is worth floor(total / origQty), and the first unit absorbs the remainder,
-      // ensuring that returning all origQty units in any combination always sums to orig.lineSubtotal.
+      // Each unit is worth floor(total / origQty). The remainder cents are only included
+      // on a full return (returnLine.qty === origQty) to prevent cumulative partial returns
+      // from exceeding the original line amount.
       const unitSubtotal = Math.floor(orig.lineSubtotal / origQty);
       const subtotalRemainder = orig.lineSubtotal - unitSubtotal * origQty;
-      // The first unit carries the remainder (remainder is always 0 or 1 cent for typical prices)
-      const lineSubtotalAbs = unitSubtotal * returnLine.qty + (returnLine.qty >= 1 ? Math.min(subtotalRemainder, returnLine.qty) : 0);
+      const lineSubtotalAbs = unitSubtotal * returnLine.qty + (returnLine.qty === origQty ? subtotalRemainder : 0);
 
       const unitTax = Math.floor(orig.lineTax / origQty);
       const taxRemainder = orig.lineTax - unitTax * origQty;
-      const lineTaxAbs = unitTax * returnLine.qty + (returnLine.qty >= 1 ? Math.min(taxRemainder, returnLine.qty) : 0);
+      const lineTaxAbs = unitTax * returnLine.qty + (returnLine.qty === origQty ? taxRemainder : 0);
 
       // Proportional amounts (negative for returns)
       const lineSubtotal = -lineSubtotalAbs;
@@ -196,6 +197,7 @@ export async function createReturn(
         returnedTotal: -(lineSubtotal + lineTax),
         subDepartmentId: orig.subDepartmentId ?? null,
         packageComponents: orig.packageComponents ?? null,
+        costCents: orig.costPrice != null ? Number(orig.costPrice) : null,
       });
     }
 
@@ -213,7 +215,24 @@ export async function createReturn(
       originalOrderId,
     });
 
-    // 8. Emit event
+    // 8. Auto-resolve refund method from original order's tenders when not provided.
+    // If there's exactly one tender, use its payment method — covers the common single-tender case.
+    let resolvedRefundMethod = input.refundMethod ?? null;
+    let resolvedOriginalTenderId = input.originalTenderId ?? null;
+    if (!resolvedRefundMethod) {
+      const originalTenders = await tx.select({
+        id: tenders.id,
+        tenderType: tenders.tenderType,
+      }).from(tenders).where(
+        and(eq(tenders.tenantId, ctx.tenantId), eq(tenders.orderId, originalOrderId), eq(tenders.status, 'captured')),
+      );
+      if (originalTenders.length === 1) {
+        resolvedRefundMethod = originalTenders[0]!.tenderType;
+        resolvedOriginalTenderId = resolvedOriginalTenderId ?? originalTenders[0]!.id;
+      }
+    }
+
+    // Emit event
     const event = buildEventFromContext(ctx, 'order.returned.v1', {
       returnOrderId,
       originalOrderId,
@@ -222,10 +241,8 @@ export async function createReturn(
       businessDate,
       customerId: originalOrder.customerId ?? null,
       returnTotal: -returnTotal, // positive amount representing refund value
-      // Optional payment linkage — allows return posting adapter to resolve
-      // the correct payment account instead of always crediting undeposited funds
-      refundMethod: input.refundMethod ?? null,
-      originalTenderId: input.originalTenderId ?? null,
+      refundMethod: resolvedRefundMethod,
+      originalTenderId: resolvedOriginalTenderId,
       lines: returnLineDetails.map(rl => ({
         catalogItemId: rl.catalogItemId,
         catalogItemName: rl.catalogItemName,
@@ -235,6 +252,7 @@ export async function createReturn(
         returnedTotal: rl.returnedTotal,
         subDepartmentId: rl.subDepartmentId,
         packageComponents: rl.packageComponents,
+        costCents: rl.costCents,
       })),
     });
 

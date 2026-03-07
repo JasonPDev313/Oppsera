@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { createAdminClient } from '@oppsera/db';
+import { generateUlid } from '@oppsera/shared';
 import { withAdminPermission } from '@/lib/with-admin-permission';
 import {
   getProvisioningRun,
@@ -46,18 +47,6 @@ export const POST = withAdminPermission(
       );
     }
 
-    const steps = await listProvisioningRunSteps(id);
-    const step = steps.find((s) => s.domainKey === parsed.data.domainKey);
-    if (!step) {
-      return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Step not found' } }, { status: 404 });
-    }
-    if (step.status !== 'failed') {
-      return NextResponse.json(
-        { error: { code: 'CONFLICT', message: 'Can only retry failed steps' } },
-        { status: 409 },
-      );
-    }
-
     const executor = getDomain(parsed.data.domainKey);
     if (!executor) {
       return NextResponse.json(
@@ -66,15 +55,62 @@ export const POST = withAdminPermission(
       );
     }
 
+    const steps = await listProvisioningRunSteps(id);
+    const existingStep = steps.find((s) => s.domainKey === parsed.data.domainKey);
+
     const db = createAdminClient();
 
-    // Mark step as running
-    await db
-      .update(tenantProvisioningRunSteps)
-      .set({ status: 'running', startedAt: new Date() })
-      .where(eq(tenantProvisioningRunSteps.id, step.id));
+    // Determine if this is a retry of a failed step or a resume of a skipped domain
+    let stepId: string;
+
+    if (existingStep) {
+      // Retry path: step exists, must be in failed state
+      if (existingStep.status !== 'failed') {
+        return NextResponse.json(
+          { error: { code: 'CONFLICT', message: 'Can only retry failed steps' } },
+          { status: 409 },
+        );
+      }
+      stepId = existingStep.id;
+
+      await db
+        .update(tenantProvisioningRunSteps)
+        .set({ status: 'running', errorMessage: null, startedAt: new Date() })
+        .where(eq(tenantProvisioningRunSteps.id, stepId));
+    } else {
+      // Resume path: domain was skipped during original run (no step record exists)
+      stepId = generateUlid();
+      const now = new Date();
+
+      await db.insert(tenantProvisioningRunSteps).values({
+        id: stepId,
+        provisioningRunId: id,
+        domainKey: parsed.data.domainKey,
+        status: 'running',
+        startedAt: now,
+        createdAt: now,
+      });
+    }
 
     try {
+      // Validate before provisioning
+      const validation = await executor.validate(run.businessTypeVersionId);
+      if (!validation.isValid) {
+        await db
+          .update(tenantProvisioningRunSteps)
+          .set({
+            status: 'failed',
+            detailsJson: { validationErrors: validation.errors },
+            errorMessage: `Validation failed: ${validation.errors.join('; ')}`,
+            completedAt: new Date(),
+          })
+          .where(eq(tenantProvisioningRunSteps.id, stepId));
+
+        return NextResponse.json({
+          data: { success: false, details: { validationErrors: validation.errors } },
+        });
+      }
+
       const result = await executor.provision({
         tenantId: run.tenantId,
         businessTypeId: run.businessTypeId,
@@ -91,9 +127,9 @@ export const POST = withAdminPermission(
           errorMessage: result.error ?? null,
           completedAt: new Date(),
         })
-        .where(eq(tenantProvisioningRunSteps.id, step.id));
+        .where(eq(tenantProvisioningRunSteps.id, stepId));
 
-      // Check if all steps are now successful — account for skipped domains
+      // Recalculate run status from all steps, accounting for still-skipped domains
       const allSteps = await listProvisioningRunSteps(id);
       const registeredDomains = getRegisteredDomains();
       const executedDomainKeys = new Set(allSteps.map((s) => s.domainKey));
@@ -101,17 +137,24 @@ export const POST = withAdminPermission(
       const allSuccess = !hasSkippedDomains && allSteps.every((s) => s.status === 'success');
       const anyFailed = allSteps.some((s) => s.status === 'failed');
 
+      const newStatus = allSuccess ? 'success' : anyFailed ? 'failed' : hasSkippedDomains ? 'partial' : 'success';
+
       await db
         .update(tenantProvisioningRuns)
         .set({
-          status: allSuccess ? 'success' : anyFailed ? 'failed' : hasSkippedDomains ? 'partial' : 'success',
+          status: newStatus,
+          errorSummary: anyFailed
+            ? 'Some domains failed'
+            : hasSkippedDomains
+              ? 'Some domains not yet executed'
+              : null,
           updatedAt: new Date(),
         })
         .where(eq(tenantProvisioningRuns.id, id));
 
       await logAdminAudit({
         session,
-        action: 'provisioning.step_retried',
+        action: existingStep ? 'provisioning.step_retried' : 'provisioning.skipped_step_run',
         entityType: 'provisioning_run',
         entityId: id,
         afterSnapshot: { domainKey: parsed.data.domainKey, result: result.success ? 'success' : 'failed' },
@@ -127,7 +170,7 @@ export const POST = withAdminPermission(
           errorMessage: (err as Error).message,
           completedAt: new Date(),
         })
-        .where(eq(tenantProvisioningRunSteps.id, step.id));
+        .where(eq(tenantProvisioningRunSteps.id, stepId));
 
       throw err;
     }

@@ -95,10 +95,6 @@ Defense-in-depth: app-level filtering + `withTenant()` + Postgres RLS.
 7. **NEVER edit a migration file after it has been applied** — Drizzle tracks by content hash. Editing changes the hash, causing the migration to appear "unapplied" while the old hash becomes orphaned. If a fix is needed, create a new migration.
 8. **Verify with `node scripts/check-migrations.cjs`** — compares local journal against production tracking table. Run after creating migrations to confirm they will be picked up.
 
-## Auto-Deploy
-
-After every completed task, auto-deploy to Vercel: `npx vercel --prod --yes`. No confirmation needed.
-
 ## Quick Commands
 
 ```bash

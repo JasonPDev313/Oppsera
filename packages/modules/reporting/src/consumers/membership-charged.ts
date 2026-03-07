@@ -7,14 +7,14 @@ import { computeBusinessDate } from '../business-date';
 
 const membershipChargedSchema = z.object({
   membershipId: z.string(),
-  billingAccountId: z.string().optional(),
-  customerId: z.string().optional(),
+  billingAccountId: z.string().nullish(),
+  customerId: z.string().nullish(),
   amountCents: z.number(),
-  customerName: z.string().optional(),
+  customerName: z.string().nullish(),
   locationId: z.string(),
-  billingPeriodStart: z.string().optional(),
-  billingPeriodEnd: z.string().optional(),
-  occurredAt: z.string().optional(),
+  billingPeriodStart: z.string().nullish(),
+  billingPeriodEnd: z.string().nullish(),
+  occurredAt: z.string().nullish(),
 });
 
 const CONSUMER_NAME = 'reporting.membershipCharged';
@@ -99,7 +99,7 @@ export async function handleMembershipCharged(event: EventEnvelope): Promise<voi
       ON CONFLICT (tenant_id, location_id, business_date)
       DO UPDATE SET
         membership_revenue = rm_daily_sales.membership_revenue + ${amountDollars},
-        total_business_revenue = rm_daily_sales.net_sales + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + (rm_daily_sales.membership_revenue + ${amountDollars}) + rm_daily_sales.voucher_revenue,
+        total_business_revenue = rm_daily_sales.net_sales + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + (rm_daily_sales.membership_revenue + ${amountDollars}) + rm_daily_sales.voucher_revenue + rm_daily_sales.spa_revenue,
         updated_at = NOW()
     `);
   });

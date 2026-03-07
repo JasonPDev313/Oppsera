@@ -95,7 +95,8 @@ export async function getCloseChecklist(
             default_service_charge_revenue_account_id,
             cogs_posting_mode,
             default_ap_control_account_id,
-            supported_currencies
+            supported_currencies,
+            strict_period_close
           FROM accounting_settings
           WHERE tenant_id = ${input.tenantId}
           LIMIT 1
@@ -185,6 +186,7 @@ export async function getCloseChecklist(
       const supportedCurrencies: string[] = settingsArr.length > 0 && Array.isArray(settingsArr[0]!.supported_currencies)
         ? (settingsArr[0]!.supported_currencies as string[])
         : ['USD'];
+      const strictPeriodClose = settingsArr.length > 0 ? Boolean(settingsArr[0]!.strict_period_close) : false;
 
       const discountArr = Array.from(discountRows as Iterable<Record<string, unknown>>);
       const totalMapped = discountArr.length > 0 ? Number(discountArr[0]!.total_mapped) : 0;
@@ -310,6 +312,7 @@ export async function getCloseChecklist(
         totalBankAccounts, unreconciledBanks,
         glTenderCount,
         foreignCurrencyCount, supportedCurrencies,
+        strictPeriodClose,
       };
     }),
   ]);
@@ -338,6 +341,7 @@ export async function getCloseChecklist(
     glTenderCount: number;
     foreignCurrencyCount: number;
     supportedCurrencies: string[];
+    strictPeriodClose: boolean;
   };
   const items: CloseChecklistItem[] = [];
 
@@ -350,11 +354,11 @@ export async function getCloseChecklist(
     detail: l.draftCount > 0 ? `${l.draftCount} draft entries need to be posted or voided` : 'No open drafts',
   });
 
-  // 3. Unmapped events
+  // 3. Unmapped events — fail when strict, warning otherwise
   items.push({
     label: 'Unresolved unmapped events',
-    status: l.unmappedCount === 0 ? 'pass' : 'warning',
-    detail: l.unmappedCount > 0 ? `${l.unmappedCount} events with missing GL mappings` : 'All events mapped',
+    status: l.unmappedCount === 0 ? 'pass' : (l.strictPeriodClose ? 'fail' : 'warning'),
+    detail: l.unmappedCount > 0 ? `${l.unmappedCount} events with missing GL mappings${l.strictPeriodClose ? ' — resolve before closing' : ''}` : 'All events mapped',
   });
 
   // 4. Trial balance
@@ -484,22 +488,22 @@ export async function getCloseChecklist(
     });
   }
 
-  // 16. Dead letter events (local — event infrastructure)
+  // 16. Dead letter events — fail when strict, warning otherwise
   if (l.deadLetterCount > 0) {
     items.push({
       label: 'Unresolved dead letter events',
-      status: 'warning',
-      detail: `${l.deadLetterCount} failed event${l.deadLetterCount !== 1 ? 's' : ''} in dead letter queue`,
+      status: l.strictPeriodClose ? 'fail' : 'warning',
+      detail: `${l.deadLetterCount} failed event${l.deadLetterCount !== 1 ? 's' : ''} in dead letter queue${l.strictPeriodClose ? ' — replay or resolve before closing' : ''}`,
     });
   }
 
-  // 17. Card settlements posted
+  // 17. Card settlements posted — fail when strict, warning otherwise
   if (settlementCounts.total > 0) {
     items.push({
       label: 'Card settlements matched and posted',
-      status: settlementCounts.unposted === 0 ? 'pass' : 'warning',
+      status: settlementCounts.unposted === 0 ? 'pass' : (l.strictPeriodClose ? 'fail' : 'warning'),
       detail: settlementCounts.unposted > 0
-        ? `${settlementCounts.unposted} of ${settlementCounts.total} settlement${settlementCounts.total !== 1 ? 's' : ''} not yet posted`
+        ? `${settlementCounts.unposted} of ${settlementCounts.total} settlement${settlementCounts.total !== 1 ? 's' : ''} not yet posted${l.strictPeriodClose ? ' — post or force-post before closing' : ''}`
         : `All ${settlementCounts.total} settlements posted`,
     });
   }
@@ -548,13 +552,13 @@ export async function getCloseChecklist(
     });
   }
 
-  // 20. Bank accounts reconciled
+  // 20. Bank accounts reconciled — fail when strict, warning otherwise
   if (l.totalBankAccounts > 0) {
     items.push({
       label: 'Bank accounts reconciled',
-      status: l.unreconciledBanks === 0 ? 'pass' : 'warning',
+      status: l.unreconciledBanks === 0 ? 'pass' : (l.strictPeriodClose ? 'fail' : 'warning'),
       detail: l.unreconciledBanks > 0
-        ? `${l.unreconciledBanks} of ${l.totalBankAccounts} bank account${l.totalBankAccounts !== 1 ? 's' : ''} not reconciled for this period`
+        ? `${l.unreconciledBanks} of ${l.totalBankAccounts} bank account${l.totalBankAccounts !== 1 ? 's' : ''} not reconciled for this period${l.strictPeriodClose ? ' — reconcile before closing' : ''}`
         : `All ${l.totalBankAccounts} bank accounts reconciled`,
     });
   }

@@ -11,7 +11,7 @@ export const GET = withMiddleware(
         SELECT
           tg.id AS tax_group_id,
           tg.name AS tax_group_name,
-          tg.rate,
+          COALESCE(rate_sum.total_rate, 0) AS rate,
           gd.tax_payable_account_id,
           COALESCE(gd.updated_at, tg.updated_at) AS updated_at,
           COALESCE(gd.created_at, tg.created_at) AS created_at
@@ -19,6 +19,12 @@ export const GET = withMiddleware(
         LEFT JOIN tax_group_gl_defaults gd
           ON gd.tenant_id = tg.tenant_id
           AND gd.tax_group_id = tg.id
+        LEFT JOIN LATERAL (
+          SELECT SUM(tr.rate_decimal) AS total_rate
+          FROM tax_group_rates tgr
+          JOIN tax_rates tr ON tr.id = tgr.tax_rate_id
+          WHERE tgr.tax_group_id = tg.id
+        ) rate_sum ON true
         WHERE tg.tenant_id = ${ctx.tenantId}
           AND tg.is_active = true
         ORDER BY tg.name

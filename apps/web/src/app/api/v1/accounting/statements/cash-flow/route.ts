@@ -1,23 +1,24 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { getCashFlowSimplified } from '@oppsera/module-accounting';
+import { getCashFlowStatement } from '@oppsera/module-accounting';
 
-// GET /api/v1/accounting/statements/cash-flow — simplified cash flow statement
+// GET /api/v1/accounting/statements/cash-flow — cash flow statement (indirect method)
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
     const from = url.searchParams.get('from');
     const to = url.searchParams.get('to');
 
-    if (!from || !to) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!from || !to || !dateRegex.test(from) || !dateRegex.test(to)) {
       return NextResponse.json(
-        { error: { code: 'VALIDATION_ERROR', message: 'from and to are required' } },
+        { error: { code: 'VALIDATION_ERROR', message: 'from and to are required in YYYY-MM-DD format' } },
         { status: 400 },
       );
     }
 
-    const report = await getCashFlowSimplified({
+    const report = await getCashFlowStatement({
       tenantId: ctx.tenantId,
       from,
       to,

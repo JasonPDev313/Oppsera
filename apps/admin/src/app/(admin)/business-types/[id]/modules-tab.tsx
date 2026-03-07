@@ -1,9 +1,13 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { AlertTriangle, Loader2, Check } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { AlertTriangle, Loader2, Check, X } from 'lucide-react';
 import { useModuleDefaults } from '@/hooks/use-business-type-detail';
 import type { ModuleRegistryEntry } from '@/hooks/use-business-type-detail';
+
+export interface ModulesTabHandle {
+  flush: () => Promise<void>;
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   core: 'Core Operations',
@@ -22,28 +26,30 @@ interface ModuleState {
   accessMode: string;
 }
 
-export function ModulesTab({
-  versionId,
-  isReadOnly,
-}: {
+export const ModulesTab = forwardRef<ModulesTabHandle, {
   versionId: string;
   isReadOnly: boolean;
-}) {
+}>(function ModulesTab({ versionId, isReadOnly }, ref) {
   const { defaults, registry, isLoading, error, load, save } =
     useModuleDefaults(versionId);
 
   const [modules, setModules] = useState<ModuleState[]>([]);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialLoadDone = useRef(false);
+  const dirtyRef = useRef(false);
+  const modulesRef = useRef<ModuleState[]>([]);
+  modulesRef.current = modules;
 
   useEffect(() => {
     load();
   }, [load]);
 
-  // Sync local state from loaded defaults + registry
+  // Sync local state from loaded defaults + registry (only when not dirty)
   useEffect(() => {
     if (registry.length === 0) return;
+    if (dirtyRef.current) return;
 
     const defaultMap = new Map(defaults.map((d) => [d.moduleKey, d]));
     const states: ModuleState[] = registry.map((entry) => {
@@ -58,36 +64,83 @@ export function ModulesTab({
     initialLoadDone.current = true;
   }, [defaults, registry]);
 
+  // Clear debounce timer when becoming read-only or on unmount
+  useEffect(() => {
+    if (isReadOnly && debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+    };
+  }, [isReadOnly]);
+
+  // Expose flush() so the parent can force-save before publish
+  useImperativeHandle(ref, () => ({
+    async flush() {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      if (dirtyRef.current && !isReadOnly && modulesRef.current.length > 0) {
+        setSaveStatus('saving');
+        setSaveError(null);
+        try {
+          await save(modulesRef.current);
+          dirtyRef.current = false;
+          setSaveStatus('saved');
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Failed to save';
+          setSaveError(msg);
+          setSaveStatus('error');
+          throw e;
+        }
+      }
+    },
+  }), [save, isReadOnly]);
+
   // Auto-save with debounce (only after initial load)
   const doAutoSave = useCallback(() => {
     if (!initialLoadDone.current || isReadOnly) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setSaveStatus('saving');
+      setSaveError(null);
       try {
-        await save(modules);
+        await save(modulesRef.current);
+        dirtyRef.current = false;
         setSaveStatus('saved');
-        setTimeout(() => setSaveStatus('idle'), 2000);
-      } catch {
-        setSaveStatus('idle');
+        setTimeout(() => setSaveStatus((s) => s === 'saved' ? 'idle' : s), 2000);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Failed to save';
+        setSaveError(msg);
+        setSaveStatus('error');
       }
     }, 800);
-  }, [modules, save, isReadOnly]);
+  }, [save, isReadOnly]);
 
   const toggleModule = useCallback(
     (key: string) => {
-      setModules((prev) => {
-        const updated = prev.map((m) =>
+      dirtyRef.current = true;
+      setSaveError(null);
+      setSaveStatus('idle');
+      setModules((prev) =>
+        prev.map((m) =>
           m.moduleKey === key ? { ...m, isEnabled: !m.isEnabled } : m,
-        );
-        return updated;
-      });
+        ),
+      );
     },
     [],
   );
 
   const setAccessMode = useCallback(
     (key: string, mode: string) => {
+      dirtyRef.current = true;
+      setSaveError(null);
+      setSaveStatus('idle');
       setModules((prev) =>
         prev.map((m) => (m.moduleKey === key ? { ...m, accessMode: mode } : m)),
       );
@@ -154,6 +207,21 @@ export function ModulesTab({
 
   return (
     <div>
+      {/* Save error banner */}
+      {saveError && (
+        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-2.5 text-red-400 text-sm mb-4">
+          <X size={14} className="shrink-0" />
+          <span className="flex-1">{saveError}</span>
+          <button
+            onClick={() => { setSaveError(null); setSaveStatus('idle'); }}
+            className="text-red-400/60 hover:text-red-400 transition-colors"
+            aria-label="Dismiss"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -177,6 +245,12 @@ export function ModulesTab({
             <span className="flex items-center gap-1.5 text-xs text-emerald-400">
               <Check size={12} />
               Saved
+            </span>
+          )}
+          {saveStatus === 'error' && (
+            <span className="flex items-center gap-1.5 text-xs text-red-400">
+              <AlertTriangle size={12} />
+              Save failed
             </span>
           )}
         </div>
@@ -263,4 +337,4 @@ export function ModulesTab({
       </div>
     </div>
   );
-}
+});

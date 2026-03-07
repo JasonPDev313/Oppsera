@@ -2,8 +2,10 @@ import { eq, and, sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
+import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import { generateUlid } from '@oppsera/shared';
 import { bankAccounts, bankReconciliations, bankReconciliationItems } from '@oppsera/db';
+import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import type {
   StartBankReconciliationInput,
   ClearReconciliationItemsInput,
@@ -365,35 +367,65 @@ export async function completeBankReconciliation(
       .where(and(eq(bankAccounts.id, recon.bankAccountId), eq(bankAccounts.tenantId, ctx.tenantId)))
       .limit(1);
 
-    if (bankAccount) {
+    // Validate bank-only items have GL offset accounts available before completing.
+    // Bank-only items (fees, interest) must be journalized — completing without
+    // proper GL entries leaves the general ledger incomplete.
+    const settings = bankAccount ? await getAccountingSettings(tx, ctx.tenantId) : null;
+    const postingApi = getAccountingPostingApi();
+
+    if (bankAccount && settings) {
       for (const item of bankOnlyItems) {
         const amount = Number(item.amount);
         if (amount === 0) continue;
 
-        // Determine GL accounts based on item type
-        // Fee/adjustment: Dr Expense, Cr Bank  (reduces bank balance)
-        // Interest: Dr Bank, Cr Revenue  (increases bank balance)
-        const lines = [];
+        // Resolve the offset account based on item type
+        let offsetAccountId: string | null = null;
+        let memo = '';
         if (item.itemType === 'interest') {
-          lines.push(
-            { accountId: bankAccount.glAccountId, debitAmount: Math.abs(amount).toFixed(2), creditAmount: '0' },
-            { accountId: bankAccount.glAccountId, debitAmount: '0', creditAmount: Math.abs(amount).toFixed(2) },
-          );
+          // Interest income: Dr Bank, Cr Interest Income
+          offsetAccountId = settings.defaultInterestIncomeAccountId
+            ?? settings.defaultUncategorizedRevenueAccountId
+            ?? null;
+          memo = `Bank interest income — reconciliation`;
         } else {
-          // Fee or adjustment — if negative amount, it's a deduction from bank
-          if (amount < 0) {
-            lines.push(
-              { accountId: bankAccount.glAccountId, debitAmount: '0', creditAmount: Math.abs(amount).toFixed(2) },
-              { accountId: bankAccount.glAccountId, debitAmount: Math.abs(amount).toFixed(2), creditAmount: '0' },
-            );
-          }
+          // Fee/adjustment: Dr Expense, Cr Bank
+          offsetAccountId = settings.defaultCcProcessingFeeAccountId
+            ?? settings.defaultInterestExpenseAccountId
+            ?? settings.defaultRoundingAccountId
+            ?? null;
+          memo = `Bank fee/adjustment — reconciliation`;
         }
 
-        // Only post if we have proper lines (skip for now — adjusting entries need
-        // configurable expense/revenue accounts which are beyond V1 scope)
-        // Bank-only items are tracked for reconciliation purposes without auto-posting.
-        // Operators should create manual journal entries for bank fees/interest.
+        if (!offsetAccountId) {
+          throw new Error(
+            `Cannot complete: bank-only ${item.itemType} item ($${Math.abs(amount).toFixed(2)}) has no GL offset account configured. ` +
+            `Set up interest income or processing fee accounts in Accounting Settings before completing.`,
+          );
+        }
+
+        // Post the adjusting journal entry
+        const absAmount = Math.abs(amount).toFixed(2);
+        const glLines = item.itemType === 'interest'
+          ? [
+              { accountId: bankAccount.glAccountId, debitAmount: absAmount, creditAmount: '0', memo },
+              { accountId: offsetAccountId, debitAmount: '0', creditAmount: absAmount, memo },
+            ]
+          : [
+              { accountId: offsetAccountId, debitAmount: absAmount, creditAmount: '0', memo },
+              { accountId: bankAccount.glAccountId, debitAmount: '0', creditAmount: absAmount, memo },
+            ];
+
+        await postingApi.postEntry(ctx, {
+          businessDate: item.date ?? recon.statementDate,
+          sourceModule: 'bank_reconciliation',
+          sourceReferenceId: `recon-${input.reconciliationId}-item-${item.id}`,
+          memo: `${memo} (${item.description ?? item.itemType})`,
+          lines: glLines,
+          forcePost: true,
+        });
       }
+    } else if (bankOnlyItems.filter((i) => Number(i.amount) !== 0).length > 0) {
+      throw new Error('Cannot complete: bank-only items exist but bank account or accounting settings are missing.');
     }
 
     // Complete the reconciliation

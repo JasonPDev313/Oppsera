@@ -50,6 +50,7 @@ export const rmDailySales = pgTable(
     arRevenue: numeric('ar_revenue', { precision: 19, scale: 4 }).notNull().default('0'),
     membershipRevenue: numeric('membership_revenue', { precision: 19, scale: 4 }).notNull().default('0'),
     voucherRevenue: numeric('voucher_revenue', { precision: 19, scale: 4 }).notNull().default('0'),
+    spaRevenue: numeric('spa_revenue', { precision: 19, scale: 4 }).notNull().default('0'),
     totalBusinessRevenue: numeric('total_business_revenue', { precision: 19, scale: 4 }).notNull().default('0'),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

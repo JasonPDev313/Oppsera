@@ -96,8 +96,12 @@ export async function handleChargebackReceivedForAccounting(event: EventEnvelope
 
     let expenseAccountId = paymentMapping?.feeExpenseAccountId;
     if (!expenseAccountId) {
-      // Fallback to guaranteed suspense/uncategorized account so the entry still posts
-      expenseAccountId = settings.defaultUncategorizedRevenueAccountId ?? null;
+      // Fallback cascade: CC processing fee → bad debt expense → rounding (expense suspense).
+      // NEVER fall back to revenue — chargebacks are expenses.
+      expenseAccountId = settings.defaultCcProcessingFeeAccountId
+        ?? settings.defaultBadDebtExpenseAccountId
+        ?? settings.defaultRoundingAccountId
+        ?? null;
       try {
         await logUnmappedEvent(db, event.tenantId, {
           eventType: 'chargeback.received.v1',
@@ -105,7 +109,7 @@ export async function handleChargebackReceivedForAccounting(event: EventEnvelope
           sourceReferenceId: data.chargebackId,
           entityType: 'payment_type',
           entityId: data.tenderType,
-          reason: `Missing fee expense account for chargeback posting${expenseAccountId ? ' — posted to suspense/uncategorized account' : ' — no fallback available, entry skipped'}`,
+          reason: `Missing fee expense account for chargeback posting${expenseAccountId ? ' — posted to expense suspense' : ' — no fallback available, entry skipped'}`,
         });
       } catch { /* best-effort */ }
       if (!expenseAccountId) return;
@@ -160,7 +164,7 @@ export async function handleChargebackReceivedForAccounting(event: EventEnvelope
       sourceModule: 'chargeback',
       sourceReferenceId: `received-${data.chargebackId}`,
       memo: `Chargeback received: order ${data.orderId} — ${data.chargebackReason}`,
-      currency: 'USD',
+      currency: settings.baseCurrency,
       lines: glLines,
       forcePost: true,
     });
@@ -231,8 +235,12 @@ export async function handleChargebackResolvedForAccounting(event: EventEnvelope
 
     let expenseAccountId = paymentMapping?.feeExpenseAccountId;
     if (!expenseAccountId) {
-      // Fallback to guaranteed suspense/uncategorized account so the entry still posts
-      expenseAccountId = settings.defaultUncategorizedRevenueAccountId ?? null;
+      // Fallback cascade: CC processing fee → bad debt expense → rounding (expense suspense).
+      // NEVER fall back to revenue — chargebacks are expenses.
+      expenseAccountId = settings.defaultCcProcessingFeeAccountId
+        ?? settings.defaultBadDebtExpenseAccountId
+        ?? settings.defaultRoundingAccountId
+        ?? null;
       try {
         await logUnmappedEvent(db, event.tenantId, {
           eventType: 'chargeback.resolved.v1',
@@ -240,7 +248,7 @@ export async function handleChargebackResolvedForAccounting(event: EventEnvelope
           sourceReferenceId: data.chargebackId,
           entityType: 'payment_type',
           entityId: data.tenderType,
-          reason: `Missing fee expense account for chargeback resolution posting${expenseAccountId ? ' — posted to suspense/uncategorized account' : ' — no fallback available, entry skipped'}`,
+          reason: `Missing fee expense account for chargeback resolution posting${expenseAccountId ? ' — posted to expense suspense' : ' — no fallback available, entry skipped'}`,
         });
       } catch { /* best-effort */ }
       if (!expenseAccountId) return;
@@ -258,7 +266,7 @@ export async function handleChargebackResolvedForAccounting(event: EventEnvelope
         sourceModule: 'chargeback',
         sourceReferenceId: `won-${data.chargebackId}`,
         memo: `Chargeback won: order ${data.orderId} — funds returned`,
-        currency: 'USD',
+        currency: settings.baseCurrency,
         lines: [
           {
             accountId: depositAccountId,
@@ -287,7 +295,7 @@ export async function handleChargebackResolvedForAccounting(event: EventEnvelope
           sourceModule: 'chargeback',
           sourceReferenceId: `lost-fee-${data.chargebackId}`,
           memo: `Chargeback lost: order ${data.orderId} — fee charged`,
-          currency: 'USD',
+          currency: settings.baseCurrency,
           lines: [
             {
               accountId: expenseAccountId,

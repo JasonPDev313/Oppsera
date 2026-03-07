@@ -58,12 +58,6 @@ export async function getGlPostingGaps(
 ): Promise<GlPostingGap> {
   const api = getReconciliationReadApi();
 
-  // Build SQL IN clause for all GL source modules
-  const moduleInClause = sql.join(
-    GL_SOURCE_MODULES.map((m) => sql`${m}`),
-    sql`, `,
-  );
-
   // Parallel: get tender summary count + list of GL-covered tender IDs
   const [tenderSummary, glCoverage] = await Promise.all([
     api.getTendersSummary(
@@ -74,15 +68,17 @@ export async function getGlPostingGaps(
     ),
     withTenant(input.tenantId, async (tx) => {
       // Count DISTINCT source_reference_id from posted GL entries
-      // across ALL adapter source modules (not just 'pos')
+      // for POS and FnB modules ONLY — these are the modules that post
+      // tender-level entries. Including other modules (returns, settlements,
+      // memberships, etc.) inflates coverage and masks missing tender postings.
       const rows = await tx.execute(sql`
         SELECT COUNT(DISTINCT source_reference_id)::int AS gl_tender_count
         FROM gl_journal_entries
         WHERE tenant_id = ${input.tenantId}
-          AND source_module IN (${moduleInClause})
+          AND source_module IN ('pos', 'fnb')
           AND status IN ('posted', 'voided')
-          AND entry_date >= ${input.startDate}::date
-          AND entry_date <= ${input.endDate}::date
+          AND business_date >= ${input.startDate}::date
+          AND business_date <= ${input.endDate}::date
       `);
 
       const arr = Array.from(rows as Iterable<Record<string, unknown>>);

@@ -14,6 +14,7 @@ export const POST = withMiddleware(
     const result = await closeAccountingPeriod(ctx, {
       postingPeriod: period,
       notes: body.notes as string | undefined,
+      forceClose: body.forceClose === true,
     });
 
     return NextResponse.json({ data: result });

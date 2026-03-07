@@ -27,7 +27,6 @@ interface CalendarToolbarProps {
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
-  onDateClick?: (date: string) => void;
   onDateJump: (date: string) => void;
   properties: { id: string; name: string }[];
   propertyId: string;
@@ -128,7 +127,7 @@ export default function CalendarToolbar({
           {pageView && onPageViewChange && (
             <div className="flex rounded-lg border border-border bg-surface">
               {([
-                { view: 'quick' as const, label: 'Quick View', Icon: Zap },
+                { view: 'quick' as const, label: 'Quick Reserve', Icon: Zap },
                 { view: 'calendar' as const, label: 'Calendar', Icon: CalendarDays },
                 { view: 'list' as const, label: 'List', Icon: List },
               ]).map(({ view, label, Icon }, i) => (

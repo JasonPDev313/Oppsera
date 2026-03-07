@@ -34,7 +34,7 @@ export async function voidOrder(ctx: RequestContext, orderId: string, input: Voi
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'voidOrder', { orderId });
 
     // Fetch order lines for modifier void tracking
-    const lines = await tx.select().from(orderLines).where(eq(orderLines.orderId, orderId));
+    const lines = await tx.select().from(orderLines).where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'order.voided.v1', {
       orderId,

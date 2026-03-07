@@ -70,6 +70,8 @@ export async function warmFloorPlanCache(roomId: string): Promise<FloorPlanWithL
 interface UseFnbFloorOptions {
   roomId: string | null;
   pollIntervalMs?: number;
+  /** When true, suspends polling and cache-warming (e.g. floor is hidden behind another screen) */
+  paused?: boolean;
 }
 
 // Stable empty arrays to avoid new references on every render
@@ -84,7 +86,7 @@ interface UseFnbFloorReturn {
   refresh: () => Promise<void>;
 }
 
-export function useFnbFloor({ roomId, pollIntervalMs = 20 * 60_000 }: UseFnbFloorOptions): UseFnbFloorReturn {
+export function useFnbFloor({ roomId, pollIntervalMs = 20 * 60_000, paused = false }: UseFnbFloorOptions): UseFnbFloorReturn {
   const queryClient = useQueryClient();
   // Track the full snapshotJson from the first fetch so subsequent lite
   // polls can merge live table statuses without re-downloading the layout.
@@ -126,7 +128,8 @@ export function useFnbFloor({ roomId, pollIntervalMs = 20 * 60_000 }: UseFnbFloo
     // Keep data in RQ cache for 30 minutes after last subscriber unmounts.
     gcTime: 30 * 60_000,
     // Floor plan layout is essentially static during a shift.
-    refetchInterval: pollIntervalMs,
+    // Pause polling when the floor view is hidden (e.g. tab/payment screen active).
+    refetchInterval: paused ? false : pollIntervalMs,
     refetchOnWindowFocus: false,
     // When switching rooms, keep showing the previous room's tables
     // while the new room loads (prevents full-screen spinner).
@@ -167,8 +170,9 @@ export function useFnbFloor({ roomId, pollIntervalMs = 20 * 60_000 }: UseFnbFloo
   // Auto-warm tab cache whenever floor plan data refreshes (poll or visibility resume).
   // Guarded by `mounted` flag — if the component unmounts mid-batch, remaining
   // fetches are skipped (avoids zombie DB connections on Vercel — Gotcha #1).
+  // Skip when paused — no need to warm tabs while the floor is hidden.
   useEffect(() => {
-    if (!data?.tables) return;
+    if (paused || !data?.tables) return;
     let mounted = true;
     const tabIds = data.tables
       .map((t) => t.currentTabId)

@@ -456,66 +456,83 @@ export const POST = withMiddleware(
         createdAt: new Date(),
       }).returning();
 
-      // 14. Apply enterprise workflow defaults + accounting overrides
-      if (isEnterprise) {
+      // 14. Apply workflow defaults from business type template, then tier defaults
+      try {
+        const allWorkflows = getAllWorkflowKeys();
+        const currentTier = (tierMap[businessType] ?? 'SMB') as keyof typeof TIER_WORKFLOW_DEFAULTS;
+        const tierDefaults = TIER_WORKFLOW_DEFAULTS[currentTier];
+
+        // Try to load business-type-specific workflow defaults from the template
+        let btWorkflowDefaults: Record<string, { autoMode: boolean; approvalRequired: boolean; userVisible: boolean }> = {};
         try {
-          // Insert explicit workflow config rows for all enterprise defaults
-          const enterpriseDefaults = TIER_WORKFLOW_DEFAULTS.ENTERPRISE;
-          const allWorkflows = getAllWorkflowKeys();
-
-          for (const { moduleKey, workflowKey } of allWorkflows) {
-            const compositeKey = `${moduleKey}.${workflowKey}`;
-            const d = enterpriseDefaults[compositeKey];
-            if (!d) continue;
-
-            await tx.insert(erpWorkflowConfigs).values({
-              id: generateUlid(),
-              tenantId,
-              moduleKey,
-              workflowKey,
-              autoMode: d.autoMode,
-              approvalRequired: d.approvalRequired,
-              userVisible: d.userVisible,
-            }).returning();
-          }
-
-          // Log the tier assignment
-          await tx.insert(erpWorkflowConfigChangeLog).values({
-            id: generateUlid(),
-            tenantId,
-            moduleKey: '_tier',
-            workflowKey: '_tier',
-            changedBy: ctx.user.id,
-            changeType: 'tier_change',
-            oldConfig: { tier: 'SMB' } as Record<string, unknown>,
-            newConfig: { tier: 'ENTERPRISE' } as Record<string, unknown>,
-            reason: 'Enterprise tier selected during onboarding',
-          });
-
-          // Override accounting settings for enterprise: draft-only GL, periodic COGS,
-          // manual breakage recognition, no auto-remap, no legacy GL
-          if (moduleSet.has('accounting')) {
-            try {
-              await tx
-                .update(accountingSettings)
-                .set({
-                  autoPostMode: 'draft_only',
-                  cogsPostingMode: 'periodic',
-                  recognizeBreakageAutomatically: false,
-                  breakageRecognitionMethod: 'manual_only',
-                  enableAutoRemap: false,
-                  enableLegacyGlPosting: false,
-                  enableUndepositedFundsWorkflow: true,
-                  updatedAt: new Date(),
-                })
-                .where(eq(accountingSettings.tenantId, tenantId));
-            } catch (err) {
-              console.error('[onboard] Enterprise accounting settings override failed (non-blocking):', err);
+          const { getBusinessTypeBySlug, getPublishedVersion, getAccountingTemplate } = await import('@oppsera/module-business-types');
+          const bt = await getBusinessTypeBySlug(businessType);
+          if (bt) {
+            const pubVersion = await getPublishedVersion(bt.id);
+            if (pubVersion) {
+              const acctTemplate = await getAccountingTemplate(pubVersion.id);
+              if (acctTemplate?.workflowDefaults) {
+                btWorkflowDefaults = acctTemplate.workflowDefaults as typeof btWorkflowDefaults;
+              }
             }
           }
         } catch (err) {
-          console.error('[onboard] Enterprise workflow provisioning failed (non-blocking):', err);
+          console.error('[onboard] Business type template lookup failed (falling back to tier defaults):', err);
         }
+
+        // Merge: business type template overrides tier defaults
+        for (const { moduleKey, workflowKey } of allWorkflows) {
+          const compositeKey = `${moduleKey}.${workflowKey}`;
+          const d = btWorkflowDefaults[compositeKey] ?? tierDefaults[compositeKey];
+          if (!d) continue;
+
+          await tx.insert(erpWorkflowConfigs).values({
+            id: generateUlid(),
+            tenantId,
+            moduleKey,
+            workflowKey,
+            autoMode: d.autoMode,
+            approvalRequired: d.approvalRequired,
+            userVisible: d.userVisible,
+          }).returning();
+        }
+
+        // Log the workflow seeding
+        const source = Object.keys(btWorkflowDefaults).length > 0 ? 'business_type_template' : 'tier_defaults';
+        await tx.insert(erpWorkflowConfigChangeLog).values({
+          id: generateUlid(),
+          tenantId,
+          moduleKey: '_tier',
+          workflowKey: '_tier',
+          changedBy: ctx.user.id,
+          changeType: 'tier_change',
+          oldConfig: null,
+          newConfig: { tier: currentTier, source } as Record<string, unknown>,
+          reason: `Workflow defaults seeded from ${source} during onboarding`,
+        });
+
+        // Enterprise accounting settings overrides
+        if (isEnterprise && moduleSet.has('accounting')) {
+          try {
+            await tx
+              .update(accountingSettings)
+              .set({
+                autoPostMode: 'draft_only',
+                cogsPostingMode: 'periodic',
+                recognizeBreakageAutomatically: false,
+                breakageRecognitionMethod: 'manual_only',
+                enableAutoRemap: false,
+                enableLegacyGlPosting: false,
+                enableUndepositedFundsWorkflow: true,
+                updatedAt: new Date(),
+              })
+              .where(eq(accountingSettings.tenantId, tenantId));
+          } catch (err) {
+            console.error('[onboard] Enterprise accounting settings override failed (non-blocking):', err);
+          }
+        }
+      } catch (err) {
+        console.error('[onboard] Workflow provisioning failed (non-blocking):', err);
       }
 
       return { tenantId, slug, locationId };

@@ -35,7 +35,7 @@ export const userRolesExecutor: BlueprintDomainExecutor = {
         .where(eq(businessTypeRoleTemplates.businessTypeVersionId, context.versionId));
 
       for (const template of roleTemplates) {
-        // Idempotent: check if role with same key already exists for this tenant
+        // Idempotent: check if role with same name already exists for this tenant
         const [existingRole] = await adminDb
           .select({ id: roles.id })
           .from(roles)

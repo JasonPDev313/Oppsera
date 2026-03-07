@@ -40,16 +40,22 @@ export const POST = withMiddleware(
       assertImpersonationCanVoid(ctx, orderRow.total);
     }
 
-    // Best-effort: void card payments on the gateway before voiding the order locally.
-    // Gateway void failures do NOT block the local void (gotcha #249: adapters never throw).
+    // Void the order locally FIRST to ensure local state is always consistent.
+    // If gateway voids were done first and voidOrder() failed, we'd have voided
+    // card payments attached to a still-active order — hard to reconcile.
+    const result = await voidOrder(ctx, orderId, parsed.data);
+
+    // Best-effort: void card payments on the gateway AFTER local void succeeds.
+    // Gateway void failures are logged but do not revert the local void
+    // (gotcha #249: adapters never throw). Un-voided gateway payments on a
+    // locally-voided order are easy to reconcile via manual refund.
     if (hasPaymentsGateway()) {
       try {
         if (orderRow) {
-          const tenders = await getTendersByOrder(ctx.tenantId, orderId, orderRow.total);
+          const tenderList = await getTendersByOrder(ctx.tenantId, orderId, orderRow.total);
 
-          // Find card tenders that have a linked payment intent
-          for (const tender of tenders.tenders) {
-            const metadata = (tender as any).metadata as Record<string, unknown> | null;
+          for (const tender of tenderList.tenders) {
+            const metadata = (tender as unknown as { metadata: Record<string, unknown> | null }).metadata;
             const paymentIntentId = metadata?.paymentIntentId as string | undefined;
             if (paymentIntentId) {
               try {
@@ -59,19 +65,16 @@ export const POST = withMiddleware(
                   clientRequestId: `void-order-${orderId}-${tender.id}-${Date.now()}`,
                 });
               } catch {
-                // Best-effort: gateway void failure should not block local void
                 console.error(`Failed to void gateway payment ${paymentIntentId} for tender ${tender.id}`);
               }
             }
           }
         }
       } catch {
-        // Best-effort: if we can't look up tenders, still proceed with local void
         console.error(`Failed to look up tenders for gateway void on order ${orderId}`);
       }
     }
 
-    const result = await voidOrder(ctx, orderId, parsed.data);
     return NextResponse.json({ data: result });
   },
   { entitlement: 'orders', permission: 'orders.manage', writeAccess: true, replayGuard: true },

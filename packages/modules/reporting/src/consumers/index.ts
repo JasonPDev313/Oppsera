@@ -19,3 +19,6 @@ export { handleStoredValueRedeemed } from './stored-value-redeemed';
 export { handleGuestPaySucceeded } from './guest-pay-succeeded';
 export { handleTenderReversed } from './tender-reversed';
 export { handleSpaCompletedRevenue, handleSpaCheckedOutRevenue } from './spa-completed';
+export { handleSpaPackageSold } from './spa-package-sold';
+export { handleMembershipInstallmentBilled } from './membership-installment-billed';
+export { handleGlJournalRevenue } from './gl-journal-revenue';

@@ -6,9 +6,9 @@ import { z } from 'zod';
 
 const spaCompletedSchema = z.object({
   appointmentId: z.string(),
-  appointmentNumber: z.string().optional(),
-  customerId: z.string().optional(),
-  providerId: z.string().optional(),
+  appointmentNumber: z.string().nullish(),
+  customerId: z.string().nullish(),
+  providerId: z.string().nullish(),
   locationId: z.string(),
   businessDate: z.string(),
   totalCents: z.number(),
@@ -102,6 +102,17 @@ export async function handleSpaCompletedRevenue(event: EventEnvelope): Promise<v
         status = ${'completed'},
         occurred_at = ${event.occurredAt}::timestamptz
     `);
+
+    // Step 4: Upsert rm_daily_sales.spa_revenue + recalculate total_business_revenue
+    await (tx as unknown as { execute: (q: ReturnType<typeof sql>) => Promise<unknown> }).execute(sql`
+      INSERT INTO rm_daily_sales (id, tenant_id, location_id, business_date, spa_revenue, total_business_revenue, updated_at)
+      VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${totalDollars}, ${totalDollars}, NOW())
+      ON CONFLICT (tenant_id, location_id, business_date)
+      DO UPDATE SET
+        spa_revenue = rm_daily_sales.spa_revenue + ${totalDollars},
+        total_business_revenue = rm_daily_sales.net_sales + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue + (rm_daily_sales.spa_revenue + ${totalDollars}),
+        updated_at = NOW()
+    `);
   });
 }
 
@@ -130,6 +141,17 @@ export async function handleSpaCheckedOutRevenue(event: EventEnvelope): Promise<
     const rows = Array.from(inserted);
     if (rows.length === 0) return;
 
+    // Read the spa row's amount before deleting so we can back out rm_daily_sales
+    const spaRows = await (tx as unknown as { execute: (q: ReturnType<typeof sql>) => Promise<Iterable<{ amount_dollars: string; location_id: string; business_date: string }>> }).execute(sql`
+      SELECT amount_dollars, location_id, business_date
+      FROM rm_revenue_activity
+      WHERE tenant_id = ${event.tenantId}
+        AND source = 'spa'
+        AND source_id = ${appointmentId}
+      LIMIT 1
+    `);
+    const spaRow = Array.from(spaRows)[0];
+
     // Remove the spa-source row — POS order will have its own row via order.placed.v1
     await (tx as unknown as { execute: (q: ReturnType<typeof sql>) => Promise<unknown> }).execute(sql`
       DELETE FROM rm_revenue_activity
@@ -137,5 +159,19 @@ export async function handleSpaCheckedOutRevenue(event: EventEnvelope): Promise<
         AND source = 'spa'
         AND source_id = ${appointmentId}
     `);
+
+    // Back out the spa_revenue from rm_daily_sales to prevent double-counting
+    if (spaRow) {
+      const spaAmount = Number(spaRow.amount_dollars) || 0;
+      await (tx as unknown as { execute: (q: ReturnType<typeof sql>) => Promise<unknown> }).execute(sql`
+        UPDATE rm_daily_sales
+        SET spa_revenue = GREATEST(spa_revenue - ${spaAmount}, 0),
+            total_business_revenue = net_sales + pms_revenue + ar_revenue + membership_revenue + voucher_revenue + GREATEST(spa_revenue - ${spaAmount}, 0),
+            updated_at = NOW()
+        WHERE tenant_id = ${event.tenantId}
+          AND location_id = ${spaRow.location_id}
+          AND business_date = ${spaRow.business_date}
+      `);
+    }
   });
 }

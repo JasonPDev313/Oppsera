@@ -7,15 +7,15 @@ import { computeBusinessDate } from '../business-date';
 
 const storedValueRedeemedSchema = z.object({
   instrumentId: z.string(),
-  customerId: z.string().optional(),
-  instrumentType: z.string().optional(),
-  code: z.string().optional(),
+  customerId: z.string().nullish(),
+  instrumentType: z.string().nullish(),
+  code: z.string().nullish(),
   amountCents: z.number(),
-  newBalance: z.number().optional(),
-  newStatus: z.string().optional(),
-  sourceModule: z.string().optional(),
-  sourceId: z.string().optional(),
-  locationId: z.string().optional(),
+  newBalance: z.number().nullish(),
+  newStatus: z.string().nullish(),
+  sourceModule: z.string().nullish(),
+  sourceId: z.string().nullish(),
+  locationId: z.string().nullish(),
 });
 
 const CONSUMER_NAME = 'reporting.storedValueRedeemed';

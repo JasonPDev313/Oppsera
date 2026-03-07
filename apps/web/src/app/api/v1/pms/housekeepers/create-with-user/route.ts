@@ -13,8 +13,8 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { createUser } from '@oppsera/core';
-import { db, roles } from '@oppsera/db';
+import { createUser, updateUser } from '@oppsera/core';
+import { withTenant, roles } from '@oppsera/db';
 import { createHousekeeper, PMS_PERMISSIONS } from '@oppsera/module-pms';
 import { ValidationError, NotFoundError } from '@oppsera/shared';
 
@@ -41,17 +41,19 @@ export const POST = withMiddleware(
     const { propertyId, firstName, lastName, email, username, password, phone } = parsed.data;
 
     // 1. Find the housekeeper system role for this tenant
-    const [housekeeperRole] = await db
-      .select({ id: roles.id })
-      .from(roles)
-      .where(
-        and(
-          eq(roles.tenantId, ctx.tenantId),
-          eq(roles.name, 'housekeeper'),
-          eq(roles.isSystem, true),
-        ),
-      )
-      .limit(1);
+    const [housekeeperRole] = await withTenant(ctx.tenantId, async (tx) => {
+      return tx
+        .select({ id: roles.id })
+        .from(roles)
+        .where(
+          and(
+            eq(roles.tenantId, ctx.tenantId),
+            eq(roles.name, 'housekeeper'),
+            eq(roles.isSystem, true),
+          ),
+        )
+        .limit(1);
+    });
 
     if (!housekeeperRole) {
       throw new NotFoundError('Role', 'housekeeper');
@@ -71,14 +73,31 @@ export const POST = withMiddleware(
       userStatus: 'active',
     });
 
-    // 3. Create the housekeeper record
+    // 3. Create the housekeeper record.
+    // If this fails, deactivate the user to avoid an orphaned active account.
     const displayName = `${firstName} ${lastName}`.trim();
-    const housekeeper = await createHousekeeper(ctx, {
-      propertyId,
-      userId: created.userId,
-      name: displayName,
-      phone: phone ?? undefined,
-    });
+    let housekeeper;
+    try {
+      housekeeper = await createHousekeeper(ctx, {
+        propertyId,
+        userId: created.userId,
+        name: displayName,
+        phone: phone ?? undefined,
+      });
+    } catch (err) {
+      // Compensate: deactivate the orphaned user
+      try {
+        await updateUser({
+          tenantId: ctx.tenantId,
+          userId: created.userId,
+          updatedByUserId: ctx.user.id,
+          userStatus: 'inactive',
+        });
+      } catch (compensateErr) {
+        console.error('Failed to deactivate orphaned user after housekeeper creation failed:', compensateErr);
+      }
+      throw err;
+    }
 
     return NextResponse.json({
       data: {

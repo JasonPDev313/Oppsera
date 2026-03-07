@@ -10,12 +10,12 @@ const orderReturnedSchema = z.object({
   originalOrderId: z.string(),
   returnType: z.enum(['full', 'partial']),
   locationId: z.string(),
-  businessDate: z.string().optional(),
+  businessDate: z.string().nullish(),
   customerId: z.string().nullable().optional(),
   returnTotal: z.number(), // positive cents representing refund value
   lines: z.array(z.object({
     catalogItemId: z.string(),
-    catalogItemName: z.string().optional(),
+    catalogItemName: z.string().nullish(),
     qty: z.number(),
     returnedSubtotal: z.number(),
     returnedTax: z.number(),
@@ -96,7 +96,7 @@ export async function handleOrderReturned(event: EventEnvelope): Promise<void> {
           THEN (rm_daily_sales.net_sales - ${returnAmount}) / rm_daily_sales.order_count
           ELSE 0
         END,
-        total_business_revenue = (rm_daily_sales.net_sales - ${returnAmount}) + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue,
+        total_business_revenue = (rm_daily_sales.net_sales - ${returnAmount}) + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue + rm_daily_sales.spa_revenue,
         updated_at = NOW()
     `);
 
@@ -119,5 +119,40 @@ export async function handleOrderReturned(event: EventEnvelope): Promise<void> {
         status = ${'returned'},
         occurred_at = ${occurredAt}::timestamptz
     `);
+
+    // Step 5: Update rm_item_sales for returned lines (mirrors order-voided pattern)
+    if (data.lines && data.lines.length > 0) {
+      for (const line of data.lines) {
+        const lineReturnDollars = (line.returnedSubtotal ?? 0) / 100;
+        await (tx as any).execute(sql`
+          INSERT INTO rm_item_sales (
+            id, tenant_id, location_id, business_date,
+            catalog_item_id, catalog_item_name, sub_department_id,
+            quantity_sold, gross_revenue, quantity_returned, return_revenue, updated_at
+          )
+          VALUES (
+            ${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate},
+            ${line.catalogItemId}, ${line.catalogItemName ?? 'Unknown'}, ${line.subDepartmentId ?? null},
+            ${0}, ${0}, ${line.qty}, ${lineReturnDollars}, NOW()
+          )
+          ON CONFLICT (tenant_id, location_id, business_date, catalog_item_id)
+          DO UPDATE SET
+            quantity_returned = COALESCE(rm_item_sales.quantity_returned, 0) + ${line.qty},
+            return_revenue = COALESCE(rm_item_sales.return_revenue, 0) + ${lineReturnDollars},
+            updated_at = NOW()
+        `);
+      }
+    }
+
+    // Step 6: Decrement rm_customer_activity total_spend for the customer
+    if (data.customerId) {
+      await (tx as any).execute(sql`
+        UPDATE rm_customer_activity
+        SET total_spend = GREATEST(total_spend - ${returnAmount}, 0),
+            updated_at = NOW()
+        WHERE tenant_id = ${event.tenantId}
+          AND customer_id = ${data.customerId}
+      `);
+    }
   });
 }

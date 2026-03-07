@@ -67,11 +67,12 @@ export const POST = withMiddleware(
       };
     }
 
-    // Card tenders with token/paymentMethodId go through the gateway
+    // Card tenders with token/paymentMethodId go through the gateway.
+    // Use validated (parsed) values — never raw body — for gateway calls.
     if (tenderType === 'card' && (body.token || body.paymentMethodId) && hasPaymentsGateway()) {
       const gateway = getPaymentsGatewayApi();
-      const amountCents = Number(body.amountGiven ?? 0);
-      const tipCents = Number(body.tipAmount ?? 0);
+      const amountCents = tenderParsed.data.amountGiven;
+      const tipCents = tenderParsed.data.tipAmount ?? 0;
 
       const gatewayResult = await gateway.sale(ctx, {
         amountCents: amountCents + tipCents,
@@ -81,8 +82,8 @@ export const POST = withMiddleware(
         customerId: body.customerId,
         tipCents,
         ecomind: 'R',
-        metadata: { source: 'retail_pos', terminalId: body.terminalId, entryMode: body.metadata?.entryMode ?? 'keyed' },
-        clientRequestId: body.clientRequestId ?? `retail-${Date.now()}`,
+        metadata: { source: 'retail_pos', terminalId: tenderParsed.data.terminalId, entryMode: body.metadata?.entryMode ?? 'keyed' },
+        clientRequestId: tenderParsed.data.clientRequestId ?? `retail-${orderId}-${Date.now()}`,
       });
 
       if (gatewayResult.status === 'declined' || gatewayResult.status === 'error') {
@@ -106,12 +107,18 @@ export const POST = withMiddleware(
 
     const placeBody = { clientRequestId: body.placeClientRequestId ?? crypto.randomUUID() };
     const placeParsed = placeOrderSchema.safeParse(placeBody);
+    if (!placeParsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Place validation failed', details: placeParsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })) } },
+        { status: 400 },
+      );
+    }
 
     // Single-transaction fast path: place + tender atomically
     const { data, runDeferredWork } = await placeAndRecordTender(
       ctx,
       orderId,
-      placeParsed.success ? placeParsed.data : { clientRequestId: crypto.randomUUID() },
+      placeParsed.data,
       tenderParsed.data,
       { payExact: body.payExact === true },
     );

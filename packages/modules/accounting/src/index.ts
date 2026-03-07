@@ -184,6 +184,7 @@ export { handleSpaCheckoutForAccounting } from './adapters/spa-posting-adapter';
 export { handleSpaPackagePurchaseForAccounting, handleSpaPackageRedemptionForAccounting } from './adapters/spa-package-posting-adapter';
 export { handleSpaCommissionPaidForAccounting } from './adapters/spa-commission-posting-adapter';
 export { handleFnbTipPoolDistributedForAccounting } from './adapters/fnb-tip-pool-posting-adapter';
+export { handlePaymentChargedForAccounting, handlePaymentRefundedForAccounting } from './adapters/payment-charge-adapter';
 
 // Queries
 export { getAccountBalances } from './queries/get-account-balances';
@@ -223,6 +224,8 @@ export { getSalesTaxLiability } from './queries/get-sales-tax-liability';
 export type { SalesTaxLiability, SalesTaxGroupRow } from './queries/get-sales-tax-liability';
 export { getCashFlowSimplified } from './queries/get-cash-flow-simplified';
 export type { CashFlowSimplified } from './queries/get-cash-flow-simplified';
+export { getCashFlowStatement } from './queries/get-cash-flow-statement';
+export type { CashFlowStatement, CashFlowLineItem } from './queries/get-cash-flow-statement';
 export { getPeriodComparison } from './queries/get-period-comparison';
 export type { PeriodComparison, PeriodComparisonLine } from './queries/get-period-comparison';
 export { getFinancialHealthSummary } from './queries/get-financial-health-summary';

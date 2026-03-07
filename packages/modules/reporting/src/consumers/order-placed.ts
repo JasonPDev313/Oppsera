@@ -7,23 +7,23 @@ import { computeBusinessDate } from '../business-date';
 
 const packageComponentSchema = z.object({
   catalogItemId: z.string(),
-  itemName: z.string().optional(),
-  catalogItemName: z.string().optional(),
+  itemName: z.string().nullish(),
+  catalogItemName: z.string().nullish(),
   qty: z.number(),
-  allocatedRevenueCents: z.number().optional(),
+  allocatedRevenueCents: z.number().nullish(),
 });
 
 const orderPlacedSchema = z.object({
   orderId: z.string(),
-  orderNumber: z.string().optional(),
+  orderNumber: z.string().nullish(),
   locationId: z.string(),
-  occurredAt: z.string().optional(),
-  customerId: z.string().optional(),
-  customerName: z.string().optional(),
+  occurredAt: z.string().nullish(),
+  customerId: z.string().nullish(),
+  customerName: z.string().nullish(),
   subtotal: z.number(),
   taxTotal: z.number(),
-  discountTotal: z.number().optional(),
-  serviceChargeTotal: z.number().optional(),
+  discountTotal: z.number().nullish(),
+  serviceChargeTotal: z.number().nullish(),
   total: z.number(),
   // Sales History enrichment
   tabName: z.string().nullish(),
@@ -32,10 +32,10 @@ const orderPlacedSchema = z.object({
   employeeName: z.string().nullish(),
   lines: z.array(z.object({
     catalogItemId: z.string(),
-    catalogItemName: z.string().optional(),
+    catalogItemName: z.string().nullish(),
     categoryName: z.string().nullish(),
     qty: z.number(),
-    lineTotal: z.number().optional(),
+    lineTotal: z.number().nullish(),
     packageComponents: z.array(packageComponentSchema).nullish(),
   })),
 });
@@ -127,7 +127,7 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
           THEN (rm_daily_sales.net_sales + ${net}) / (rm_daily_sales.order_count + 1)
           ELSE 0
         END,
-        total_business_revenue = rm_daily_sales.total_business_revenue + EXCLUDED.total_business_revenue,
+        total_business_revenue = (rm_daily_sales.net_sales + ${net}) + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue + rm_daily_sales.spa_revenue,
         updated_at = NOW()
     `);
 

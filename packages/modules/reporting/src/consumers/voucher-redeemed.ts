@@ -7,11 +7,11 @@ import { computeBusinessDate } from '../business-date';
 
 const voucherRedeemedSchema = z.object({
   voucherId: z.string(),
-  voucherNumber: z.string().optional(),
+  voucherNumber: z.string().nullish(),
   amountCents: z.number(),
-  remainingBalanceCents: z.number().optional(),
-  locationId: z.string().optional(),
-  businessDate: z.string().optional(),
+  remainingBalanceCents: z.number().nullish(),
+  locationId: z.string().nullish(),
+  businessDate: z.string().nullish(),
   orderId: z.string().nullish(),
   tenderId: z.string().nullish(),
 });

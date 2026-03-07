@@ -577,11 +577,8 @@ describe('Tax System', () => {
     it('returns merged tax rates from assigned groups', async () => {
       // We test this by calling the internal API directly
       // But since it's tightly coupled to DB, we'll test via the mock transaction
-      const { getCatalogReadApi, setCatalogReadApi } = await import('../internal-api');
-
-      // Reset to get a fresh API instance that uses our mocks
-      setCatalogReadApi(null as never);
-      const api = getCatalogReadApi();
+      const { createDrizzleCatalogReadApi } = await import('../internal-api');
+      const api = createDrizzleCatalogReadApi();
 
       // Mock the transaction to execute the callback with our mock tx
       mockTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
@@ -623,9 +620,8 @@ describe('Tax System', () => {
     // ── Test 10: no assignments returns empty ────────────────────────
 
     it('returns empty when no tax groups assigned', async () => {
-      const { getCatalogReadApi, setCatalogReadApi } = await import('../internal-api');
-      setCatalogReadApi(null as never);
-      const api = getCatalogReadApi();
+      const { createDrizzleCatalogReadApi } = await import('../internal-api');
+      const api = createDrizzleCatalogReadApi();
 
       mockTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
         const tx = { select: mockSelect };
@@ -646,9 +642,8 @@ describe('Tax System', () => {
     // ── Test 11: different locations have different taxes ───────────
 
     it('returns location-specific tax info', async () => {
-      const { getCatalogReadApi, setCatalogReadApi } = await import('../internal-api');
-      setCatalogReadApi(null as never);
-      const api = getCatalogReadApi();
+      const { createDrizzleCatalogReadApi } = await import('../internal-api');
+      const api = createDrizzleCatalogReadApi();
 
       // Location A query
       mockTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
@@ -667,8 +662,7 @@ describe('Tax System', () => {
       expect(infoA.taxRates).toHaveLength(1);
 
       // Location B query
-      setCatalogReadApi(null as never);
-      const api2 = getCatalogReadApi();
+      const api2 = createDrizzleCatalogReadApi();
 
       mockTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
         const tx = { select: mockSelect };

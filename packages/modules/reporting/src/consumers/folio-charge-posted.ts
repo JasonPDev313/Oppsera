@@ -7,15 +7,15 @@ import { computeBusinessDate } from '../business-date';
 
 const folioChargePostedSchema = z.object({
   folioId: z.string(),
-  reservationId: z.string().optional(),
+  reservationId: z.string().nullish(),
   entryId: z.string(),
   entryType: z.string(),
   amountCents: z.number(),
-  guestName: z.string().optional(),
+  guestName: z.string().nullish(),
   locationId: z.string(),
-  description: z.string().optional(),
-  businessDate: z.string().optional(),
-  occurredAt: z.string().optional(),
+  description: z.string().nullish(),
+  businessDate: z.string().nullish(),
+  occurredAt: z.string().nullish(),
 });
 
 const CONSUMER_NAME = 'reporting.folioChargePosted';
@@ -126,7 +126,7 @@ export async function handleFolioChargePosted(event: EventEnvelope): Promise<voi
       ON CONFLICT (tenant_id, location_id, business_date)
       DO UPDATE SET
         pms_revenue = rm_daily_sales.pms_revenue + ${amountDollars},
-        total_business_revenue = rm_daily_sales.net_sales + (rm_daily_sales.pms_revenue + ${amountDollars}) + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue,
+        total_business_revenue = rm_daily_sales.net_sales + (rm_daily_sales.pms_revenue + ${amountDollars}) + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue + rm_daily_sales.spa_revenue,
         updated_at = NOW()
     `);
   });

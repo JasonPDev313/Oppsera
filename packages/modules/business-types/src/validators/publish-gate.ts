@@ -1,5 +1,5 @@
 import { createAdminClient } from '@oppsera/db';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import {
   businessTypes,
   businessTypeVersions,

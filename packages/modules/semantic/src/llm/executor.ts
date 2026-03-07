@@ -78,10 +78,41 @@ function computeFingerprint(
 // consumers not yet run). This auto-backfill populates them from
 // operational tables so subsequent queries return real data.
 //
-// Runs at most once per tenant per process lifetime.
+// Keyed by tenant+table so backfill of rm_daily_sales doesn't block
+// rm_item_sales. Successful backfills are cached permanently (per process);
+// failed or no-data results use a 60s TTL so the next request retries.
 
-const _backfilledTenants = new Set<string>();
-const BACKFILL_SET_MAX = 1_000;
+const _backfillCache = new Map<string, number>(); // key → timestamp
+const BACKFILL_CACHE_MAX = 2_000;
+const BACKFILL_RETRY_MS = 60_000; // retry after 60s if backfill found nothing or failed
+
+function _backfillKey(tenantId: string, table: string): string {
+  return `${tenantId}:${table}`;
+}
+
+function _isBackfillCached(tenantId: string, table: string): boolean {
+  const key = _backfillKey(tenantId, table);
+  const ts = _backfillCache.get(key);
+  if (ts === undefined) return false;
+  if (ts === -1) return true; // permanent (successful backfill)
+  return Date.now() - ts < BACKFILL_RETRY_MS; // TTL check
+}
+
+function _markBackfilled(tenantId: string, table: string, permanent: boolean): void {
+  if (_backfillCache.size >= BACKFILL_CACHE_MAX) _backfillCache.clear();
+  _backfillCache.set(_backfillKey(tenantId, table), permanent ? -1 : Date.now());
+}
+
+// Exported for the manual backfill endpoint to clear stale cache entries.
+export function clearBackfillCache(tenantId?: string): void {
+  if (!tenantId) {
+    _backfillCache.clear();
+    return;
+  }
+  for (const key of _backfillCache.keys()) {
+    if (key.startsWith(`${tenantId}:`)) _backfillCache.delete(key);
+  }
+}
 
 async function ensureReadModelsPopulated(
   pg: postgres.Sql,
@@ -91,8 +122,8 @@ async function ensureReadModelsPopulated(
   // Only backfill for known read model tables
   if (!primaryTable.startsWith('rm_')) return false;
 
-  // Skip if we already backfilled this tenant in this process
-  if (_backfilledTenants.has(tenantId)) return false;
+  // Skip if we recently checked this tenant+table
+  if (_isBackfillCached(tenantId, primaryTable)) return false;
 
   try {
     const didBackfill = await pg.begin(async (tx) => {
@@ -105,7 +136,7 @@ async function ensureReadModelsPopulated(
       );
       if (rmCheck) return false; // read models already populated
 
-      // Check if operational orders exist
+      // Check if operational orders exist (including those with NULL business_date)
       const [orderCheck] = await tx.unsafe(
         `SELECT 1 AS has_data FROM orders WHERE tenant_id = $1 AND status IN ('placed', 'paid') LIMIT 1`,
         [tenantId],
@@ -113,6 +144,15 @@ async function ensureReadModelsPopulated(
       if (!orderCheck) return false; // no orders to backfill from
 
       console.log(`[semantic] Auto-backfilling read models for tenant ${tenantId}...`);
+
+      // First, fix NULL business_date on orders (use created_at::date as fallback)
+      await tx.unsafe(`
+        UPDATE orders
+        SET business_date = created_at::date::text
+        WHERE tenant_id = $1
+          AND status IN ('placed', 'paid', 'voided')
+          AND business_date IS NULL
+      `, [tenantId]);
 
       // Backfill rm_daily_sales from orders + tenders (cents → dollars)
       await tx.unsafe(`
@@ -197,13 +237,13 @@ async function ensureReadModelsPopulated(
       return true;
     });
 
-    if (_backfilledTenants.size >= BACKFILL_SET_MAX) _backfilledTenants.clear();
-    _backfilledTenants.add(tenantId);
+    // Successful backfill → cache permanently; no data found → TTL cache (retry later)
+    _markBackfilled(tenantId, primaryTable, didBackfill);
     return didBackfill;
   } catch (err) {
     console.warn('[semantic] Auto-backfill failed (non-blocking):', err);
-    if (_backfilledTenants.size >= BACKFILL_SET_MAX) _backfilledTenants.clear();
-    _backfilledTenants.add(tenantId); // don't retry on failure
+    // TTL cache on failure so we retry after 60s instead of permanently giving up
+    _markBackfilled(tenantId, primaryTable, false);
     return false;
   }
 }

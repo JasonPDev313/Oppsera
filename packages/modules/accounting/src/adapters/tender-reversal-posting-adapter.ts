@@ -1,6 +1,7 @@
 import { db, glJournalEntries, glJournalLines } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import type { EventEnvelope } from '@oppsera/shared';
+import type { RequestContext } from '@oppsera/core/auth/context';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
@@ -14,6 +15,7 @@ interface TenderReversedData {
   reason: string | null;
   reversalType: string;
   refundMethod: string;
+  businessDate?: string; // YYYY-MM-DD — original tender business date
 }
 
 interface TipAdjustedData {
@@ -23,6 +25,7 @@ interface TipAdjustedData {
   newTipAmount: number; // cents
   delta: number; // cents (positive = increase, negative = decrease)
   reason: string | null;
+  businessDate?: string; // YYYY-MM-DD — original tender business date
 }
 
 /**
@@ -82,12 +85,16 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
       .limit(1);
 
     const amountDollars = (data.amount / 100).toFixed(2);
+    // Use the original tender's business date for proper period cutoff.
+    // Fall back to current date for events emitted before businessDate was added.
+    const reversalBusinessDate = data.businessDate ?? new Date().toISOString().split('T')[0]!;
     const postingApi = getAccountingPostingApi();
     const ctx = {
       tenantId: event.tenantId,
-      user: { id: 'system', email: '' },
+      user: { id: 'system', email: 'system@oppsera.io', name: 'System', tenantId: event.tenantId, tenantStatus: 'active', membershipStatus: 'active' },
       requestId: `tender-reversal-gl-${data.reversalId}`,
-    } as any;
+      isPlatformAdmin: false,
+    } as RequestContext;
 
     if (origEntries.length > 0) {
       // Reverse the original GL entry's lines with swapped debit/credit
@@ -129,7 +136,7 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
         });
 
         await postingApi.postEntry(ctx, {
-          businessDate: new Date().toISOString().split('T')[0]!,
+          businessDate: reversalBusinessDate,
           sourceModule: 'payments',
           sourceReferenceId: `reversal-${data.reversalId}`,
           memo: `Tender reversal: $${amountDollars} (${data.reversalType}) — order ${data.orderId}`,
@@ -188,7 +195,7 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
     }
 
     await postingApi.postEntry(ctx, {
-      businessDate: new Date().toISOString().split('T')[0]!,
+      businessDate: reversalBusinessDate,
       sourceModule: 'payments',
       sourceReferenceId: `reversal-${data.reversalId}`,
       memo: `Tender reversal: $${amountDollars} (${data.reversalType}) — order ${data.orderId}`,
@@ -285,7 +292,7 @@ export async function handleTipAdjustedForAccounting(event: EventEnvelope): Prom
         requestId: `tip-adjust-gl-${data.tenderId}-${Date.now()}`,
       } as any,
       {
-        businessDate: new Date().toISOString().split('T')[0]!,
+        businessDate: data.businessDate ?? new Date().toISOString().split('T')[0]!,
         sourceModule: 'payments',
         // Use deterministic sourceReferenceId — event.eventId changes on retry (outbox re-dispatch)
         // which would create duplicate GL entries. The tip amounts are stable and unique per adjustment.

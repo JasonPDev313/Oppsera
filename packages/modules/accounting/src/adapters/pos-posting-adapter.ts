@@ -731,7 +731,7 @@ async function handleTenderForAccountingInner(
       sourceModule: 'pos',
       sourceReferenceId: data.tenderId,
       memo: `POS Sale - Order ${data.orderId}`,
-      currency: 'USD',
+      currency: settings.baseCurrency,
       lines: glLines,
       forcePost: true,
     });

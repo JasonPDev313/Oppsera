@@ -3,7 +3,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
-import { orders } from '@oppsera/db';
+import { orders, tenders } from '@oppsera/db';
 import { and, eq } from 'drizzle-orm';
 import type { ReopenOrderInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
@@ -12,14 +12,11 @@ import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-l
 /**
  * Reopen a voided order (status recovery only).
  *
- * WARNING: This does NOT reverse side effects triggered by the original void:
- * - Payment reversals (gateway voids, tender reversal records) remain
- * - GL journal entry reversals remain posted
- * - Inventory void_reversal movements remain
- * - Register tab clearing is not restored
+ * Orders that had tenders recorded cannot be reopened — voiding reversed
+ * those payments (gateway voids, GL reversals) and reopening would leave
+ * the order in an active state backed by reversed financial records.
  *
- * Operators must manually re-capture payments, re-post GL entries, and
- * adjust inventory if full reversal is needed.
+ * Only orders voided before any payment was taken are eligible.
  */
 export async function reopenOrder(ctx: RequestContext, orderId: string, input: ReopenOrderInput) {
   if (!ctx.locationId) {
@@ -31,6 +28,23 @@ export async function reopenOrder(ctx: RequestContext, orderId: string, input: R
     if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, ['voided']);
+
+    // Block reopen if the order ever had tenders — voiding reversed those
+    // payments (gateway voids, GL reversals) and reopening would leave the
+    // order in an active state backed by reversed financial records.
+    const [tenderRow] = await tx
+      .select({ id: tenders.id })
+      .from(tenders)
+      .where(and(eq(tenders.tenantId, ctx.tenantId), eq(tenders.orderId, orderId)))
+      .limit(1);
+
+    if (tenderRow) {
+      throw new AppError(
+        'REOPEN_HAS_TENDERS',
+        'Cannot reopen an order that had payments recorded. Voiding reversed those payments — reopening would leave the order in an inconsistent financial state.',
+        409,
+      );
+    }
 
     const now = new Date();
     await tx.update(orders).set({

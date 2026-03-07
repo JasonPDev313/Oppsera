@@ -7,10 +7,10 @@ import { z } from 'zod';
 const inventoryMovementSchema = z.object({
   inventoryItemId: z.string(),
   locationId: z.string(),
-  itemName: z.string().optional(),
+  itemName: z.string().nullish(),
   delta: z.number(),
-  newOnHand: z.number().optional(),
-  reorderPoint: z.number().optional(),
+  newOnHand: z.number().nullish(),
+  reorderPoint: z.number().nullish(),
 });
 
 type _InventoryMovementData = z.infer<typeof inventoryMovementSchema>;

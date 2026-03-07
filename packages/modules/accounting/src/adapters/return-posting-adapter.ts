@@ -2,6 +2,7 @@ import type { EventEnvelope } from '@oppsera/shared';
 import { db } from '@oppsera/db';
 import {
   resolveSubDepartmentAccounts,
+  batchResolveSubDepartmentAccounts,
   resolvePaymentTypeAccounts,
   logUnmappedEvent,
 } from '../helpers/resolve-mapping';
@@ -18,6 +19,7 @@ interface ReturnLine {
   returnedTax: number; // positive cents
   returnedTotal: number; // positive cents
   subDepartmentId: string | null;
+  costCents?: number | null; // per-unit cost in cents (from original order line)
   packageComponents: Array<{
     catalogItemId: string;
     subDepartmentId: string | null;
@@ -246,6 +248,48 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
       }
     }
 
+    // COGS / inventory reversal — reverse the COGS debit and inventory credit
+    // from the original sale when perpetual COGS posting is enabled.
+    // Debit Inventory / Credit COGS (mirrors the original sale's Debit COGS / Credit Inventory).
+    if (settings.cogsPostingMode === 'perpetual') {
+      const subDeptMap = await batchResolveSubDepartmentAccounts(db, event.tenantId);
+
+      for (const line of data.lines) {
+        if (!line.costCents || line.costCents <= 0) continue;
+
+        const subDeptId = line.subDepartmentId ?? 'unmapped';
+        const subDeptMapping = subDeptId !== 'unmapped' ? subDeptMap.get(subDeptId) : undefined;
+        if (!subDeptMapping?.cogsAccountId || !subDeptMapping?.inventoryAccountId) continue;
+
+        const totalCostCents = Math.round(line.costCents * line.qty);
+        if (totalCostCents <= 0) continue;
+
+        const costDollars = (totalCostCents / 100).toFixed(2);
+
+        // Debit inventory (restore stock value)
+        glLines.push({
+          accountId: subDeptMapping.inventoryAccountId,
+          debitAmount: costDollars,
+          creditAmount: '0',
+          locationId: data.locationId,
+          subDepartmentId: subDeptId !== 'unmapped' ? subDeptId : undefined,
+          channel: 'pos',
+          memo: `Return COGS reversal: ${line.catalogItemName} (inventory restore)`,
+        });
+
+        // Credit COGS (reverse expense)
+        glLines.push({
+          accountId: subDeptMapping.cogsAccountId,
+          debitAmount: '0',
+          creditAmount: costDollars,
+          locationId: data.locationId,
+          subDepartmentId: subDeptId !== 'unmapped' ? subDeptId : undefined,
+          channel: 'pos',
+          memo: `Return COGS reversal: ${line.catalogItemName}`,
+        });
+      }
+    }
+
     // Safety net: if some debit lines were skipped (unmapped), the total debited
     // will be less than returnTotal. Post the difference to uncategorized revenue
     // so debits = credits. Without this, validateJournal throws UnbalancedJournalError.
@@ -322,6 +366,7 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
       sourceModule: 'pos_return',
       sourceReferenceId: data.returnOrderId,
       memo: `Return for order ${data.originalOrderId}`,
+      currency: settings.baseCurrency,
       lines: glLines,
       forcePost: true,
     });

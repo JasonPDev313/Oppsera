@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -14,6 +14,7 @@ import {
 import { useBusinessTypeDetail } from '@/hooks/use-business-type-detail';
 import { useCategories } from '@/hooks/use-business-types';
 import { ModulesTab } from './modules-tab';
+import type { ModulesTabHandle } from './modules-tab';
 import { AccountingTab } from './accounting-tab';
 import { RolesTab } from './roles-tab';
 import { PublishModal } from './publish-modal';
@@ -35,6 +36,7 @@ export default function BusinessTypeDetailPage() {
   const { categories, load: loadCategories } = useCategories();
   const [tab, setTab] = useState<Tab>('details');
   const [showPublish, setShowPublish] = useState(false);
+  const modulesTabRef = useRef<ModulesTabHandle>(null);
 
   useEffect(() => {
     load();
@@ -105,7 +107,14 @@ export default function BusinessTypeDetailPage() {
         <div className="flex items-center gap-2">
           {editableVersionId && detail.draftVersion && (
             <button
-              onClick={() => setShowPublish(true)}
+              onClick={async () => {
+                try {
+                  await modulesTabRef.current?.flush();
+                } catch {
+                  // Save error shown inline in ModulesTab — don't block publish modal
+                }
+                setShowPublish(true);
+              }}
               className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
               Publish Draft
@@ -160,6 +169,7 @@ export default function BusinessTypeDetailPage() {
       )}
       {tab === 'modules' && displayVersionId && (
         <ModulesTab
+          ref={modulesTabRef}
           versionId={displayVersionId}
           isReadOnly={isReadOnly}
         />

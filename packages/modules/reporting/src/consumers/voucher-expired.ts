@@ -7,9 +7,9 @@ import { computeBusinessDate } from '../business-date';
 
 const voucherExpiredSchema = z.object({
   voucherId: z.string(),
-  voucherNumber: z.string().optional(),
+  voucherNumber: z.string().nullish(),
   expirationAmountCents: z.number(),
-  expirationDate: z.string().optional(),
+  expirationDate: z.string().nullish(),
 });
 
 const CONSUMER_NAME = 'reporting.voucherExpired';

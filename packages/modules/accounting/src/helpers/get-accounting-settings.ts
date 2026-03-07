@@ -63,6 +63,8 @@ export interface AccountingSettings {
   dayEndCloseEnabled: boolean;
   dayEndCloseTime: string; // HH:MM
   supportedCurrencies: string[];
+  // Strict period close (migration 0285)
+  strictPeriodClose: boolean;
 }
 
 /**
@@ -162,6 +164,7 @@ function mapRow(row: any): AccountingSettings {
     dayEndCloseEnabled: row.dayEndCloseEnabled ?? row.day_end_close_enabled ?? false,
     dayEndCloseTime: row.dayEndCloseTime ?? row.day_end_close_time ?? '23:00',
     supportedCurrencies: row.supportedCurrencies ?? row.supported_currencies ?? ['USD'],
+    strictPeriodClose: row.strictPeriodClose ?? row.strict_period_close ?? false,
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

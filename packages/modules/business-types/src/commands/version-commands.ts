@@ -12,7 +12,7 @@ import {
 
 export async function createDraftVersion(
   businessTypeId: string,
-  adminUserId: string,
+  _adminUserId: string,
 ) {
   const db = createAdminClient();
   const newVersionId = generateUlid();

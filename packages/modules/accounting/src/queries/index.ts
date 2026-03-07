@@ -31,6 +31,8 @@ export { getSalesTaxLiability } from './get-sales-tax-liability';
 export type { SalesTaxLiability, SalesTaxGroupRow } from './get-sales-tax-liability';
 export { getCashFlowSimplified } from './get-cash-flow-simplified';
 export type { CashFlowSimplified } from './get-cash-flow-simplified';
+export { getCashFlowStatement } from './get-cash-flow-statement';
+export type { CashFlowStatement, CashFlowLineItem } from './get-cash-flow-statement';
 export { getPeriodComparison } from './get-period-comparison';
 export type { PeriodComparison, PeriodComparisonLine } from './get-period-comparison';
 export { getFinancialHealthSummary } from './get-financial-health-summary';

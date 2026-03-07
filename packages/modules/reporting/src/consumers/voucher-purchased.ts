@@ -8,11 +8,11 @@ import { computeBusinessDate } from '../business-date';
 const voucherPurchasedSchema = z.object({
   voucherId: z.string(),
   amountCents: z.number(),
-  voucherNumber: z.string().optional(),
+  voucherNumber: z.string().nullish(),
   orderId: z.string().nullish(),
   locationId: z.string(),
-  customerName: z.string().optional(),
-  occurredAt: z.string().optional(),
+  customerName: z.string().nullish(),
+  occurredAt: z.string().nullish(),
 });
 
 const CONSUMER_NAME = 'reporting.voucherPurchased';
@@ -103,7 +103,7 @@ export async function handleVoucherPurchased(event: EventEnvelope): Promise<void
       ON CONFLICT (tenant_id, location_id, business_date)
       DO UPDATE SET
         voucher_revenue = rm_daily_sales.voucher_revenue + ${amountDollars},
-        total_business_revenue = rm_daily_sales.net_sales + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + (rm_daily_sales.voucher_revenue + ${amountDollars}),
+        total_business_revenue = rm_daily_sales.net_sales + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + (rm_daily_sales.voucher_revenue + ${amountDollars}) + rm_daily_sales.spa_revenue,
         updated_at = NOW()
     `);
   });

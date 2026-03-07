@@ -2,12 +2,11 @@ import { eq } from 'drizzle-orm';
 import { createAdminClient } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import {
-  businessTypeVersions,
   tenantProvisioningRuns,
   tenantProvisioningRunSteps,
 } from '../schema';
 import { getPublishedVersion } from '../queries/business-type-queries';
-import { getRegisteredDomains, getDomain } from './domain-registry';
+import { getRegisteredDomains } from './domain-registry';
 import type { ProvisioningContext } from './domain-registry';
 
 /**
@@ -85,6 +84,28 @@ export async function runProvisioningForTenant(input: {
     });
 
     try {
+      // Validate domain prerequisites before provisioning
+      const validation = await domain.validate(context.versionId);
+      if (!validation.isValid) {
+        await db
+          .update(tenantProvisioningRunSteps)
+          .set({
+            status: 'failed',
+            detailsJson: { validationErrors: validation.errors },
+            errorMessage: `Validation failed: ${validation.errors.join('; ')}`,
+            completedAt: new Date(),
+          })
+          .where(eq(tenantProvisioningRunSteps.id, stepId));
+
+        if (domain.isCritical) {
+          hasFailure = true;
+          break;
+        } else {
+          hasPartial = true;
+          continue;
+        }
+      }
+
       const result = await domain.provision(context);
 
       if (result.success) {

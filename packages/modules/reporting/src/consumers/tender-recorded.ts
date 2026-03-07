@@ -8,12 +8,12 @@ import { computeBusinessDate } from '../business-date';
 const tenderRecordedSchema = z.object({
   orderId: z.string(),
   locationId: z.string(),
-  occurredAt: z.string().optional(),
+  occurredAt: z.string().nullish(),
   tenderType: z.string(),
   amount: z.number(),
-  tipAmount: z.number().optional(),
-  changeGiven: z.number().optional(),
-  surchargeAmountCents: z.number().optional(),
+  tipAmount: z.number().nullish(),
+  changeGiven: z.number().nullish(),
+  surchargeAmountCents: z.number().nullish(),
 });
 
 type _TenderRecordedData = z.infer<typeof tenderRecordedSchema>;

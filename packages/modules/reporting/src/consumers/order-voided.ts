@@ -7,16 +7,16 @@ import { computeBusinessDate } from '../business-date';
 
 const orderVoidedSchema = z.object({
   orderId: z.string(),
-  orderNumber: z.string().optional(),
+  orderNumber: z.string().nullish(),
   locationId: z.string(),
-  occurredAt: z.string().optional(),
+  occurredAt: z.string().nullish(),
   total: z.number(),
   lines: z.array(z.object({
     catalogItemId: z.string(),
-    catalogItemName: z.string().optional(),
-    categoryName: z.string().optional(),
-    qty: z.number().optional(),
-    lineTotal: z.number().optional(),
+    catalogItemName: z.string().nullish(),
+    categoryName: z.string().nullish(),
+    qty: z.number().nullish(),
+    lineTotal: z.number().nullish(),
   })).optional(),
 });
 
@@ -33,8 +33,8 @@ const CONSUMER_NAME = 'reporting.orderVoided';
  * 3. Upsert rm_daily_sales — increment voidCount/voidTotal, decrease netSales
  * 4. Upsert rm_item_sales — increment quantityVoided/voidRevenue per line
  *
- * NOTE: Voids do NOT decrement orderCount. avgOrderValue is recomputed
- * using the original orderCount but the adjusted netSales.
+ * NOTE: Voids decrement orderCount so that avgOrderValue reflects only
+ * non-voided orders. avgOrderValue is recomputed using the adjusted count.
  */
 export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
   const parsed = orderVoidedSchema.safeParse(event.data);
@@ -108,7 +108,7 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
           THEN (rm_daily_sales.net_sales - ${voidAmount}) / GREATEST(rm_daily_sales.order_count - 1, 0)
           ELSE 0
         END,
-        total_business_revenue = (rm_daily_sales.net_sales - ${voidAmount}) + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue,
+        total_business_revenue = (rm_daily_sales.net_sales - ${voidAmount}) + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue + rm_daily_sales.spa_revenue,
         updated_at = NOW()
     `);
 

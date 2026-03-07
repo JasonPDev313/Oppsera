@@ -140,7 +140,7 @@ export async function ensureAccountingSettings(
     updates['defaultUndepositedFundsAccountId'] ??
     (current.defaultUndepositedFundsAccountId as string | null);
 
-  const taxPayableId =
+  const _taxPayableId =
     updates['defaultSalesTaxPayableAccountId'] ??
     (current.defaultSalesTaxPayableAccountId as string | null);
 

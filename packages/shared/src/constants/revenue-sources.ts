@@ -96,6 +96,15 @@ export const REVENUE_SOURCES: Record<string, RevenueSourceDefinition> = {
     moduleKey: 'orders',
     sortOrder: 8,
   },
+  spa: {
+    key: 'spa',
+    label: 'Spa Services',
+    shortLabel: 'Spa',
+    icon: 'Sparkles',
+    color: 'violet',
+    moduleKey: 'spa',
+    sortOrder: 9,
+  },
   pos_return: {
     key: 'pos_return',
     label: 'POS Returns',
@@ -103,7 +112,7 @@ export const REVENUE_SOURCES: Record<string, RevenueSourceDefinition> = {
     icon: 'RotateCcw',
     color: 'red',
     moduleKey: 'orders',
-    sortOrder: 9,
+    sortOrder: 10,
   },
 };
 

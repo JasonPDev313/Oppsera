@@ -113,6 +113,7 @@ export const businessTypeAccountingTemplates = pgTable(
     deferredRevenue: jsonb('deferred_revenue').notNull().default('{}'),
     cogsBehavior: text('cogs_behavior').notNull().default('disabled'), // disabled | perpetual | periodic
     fiscalSettings: jsonb('fiscal_settings').notNull().default('{}'),
+    workflowDefaults: jsonb('workflow_defaults').notNull().default('{}'),
     validationStatus: text('validation_status').notNull().default('incomplete'), // incomplete | valid | invalid
     validationErrors: jsonb('validation_errors').notNull().default('[]'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

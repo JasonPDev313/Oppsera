@@ -67,7 +67,9 @@ describe('addTabItems — catalog argument order', () => {
   const makeCtx = () => ({
     tenantId: TENANT,
     locationId: LOCATION,
-    user: { id: 'user-1', email: 'test@test.com', role: 'cashier' as const },
+    requestId: 'req-1',
+    isPlatformAdmin: false,
+    user: { id: 'user-1', email: 'test@test.com', role: 'cashier' as const, name: 'Test User', tenantId: TENANT, tenantStatus: 'active' as const, membershipStatus: 'none' },
   });
 
   beforeEach(() => {
@@ -114,6 +116,7 @@ describe('addTabItems — catalog argument order', () => {
           catalogItemId: 'catalog-item-1',
           catalogItemName: 'Burger',
           courseNumber: 1,
+          seatNumber: 1,
           qty: 1,
           unitPriceCents: 999,
         },
@@ -136,9 +139,9 @@ describe('addTabItems — catalog argument order', () => {
       tabId: 'tab-1',
       clientRequestId: 'cr-2',
       items: [
-        { catalogItemId: 'item-a', catalogItemName: 'Burger', courseNumber: 1, qty: 1, unitPriceCents: 999 },
-        { catalogItemId: 'item-a', catalogItemName: 'Burger', courseNumber: 1, qty: 2, unitPriceCents: 999 },
-        { catalogItemId: 'item-b', catalogItemName: 'Fries', courseNumber: 1, qty: 1, unitPriceCents: 499 },
+        { catalogItemId: 'item-a', catalogItemName: 'Burger', courseNumber: 1, seatNumber: 1, qty: 1, unitPriceCents: 999 },
+        { catalogItemId: 'item-a', catalogItemName: 'Burger', courseNumber: 1, seatNumber: 1, qty: 2, unitPriceCents: 999 },
+        { catalogItemId: 'item-b', catalogItemName: 'Fries', courseNumber: 1, seatNumber: 1, qty: 1, unitPriceCents: 499 },
       ],
     };
 

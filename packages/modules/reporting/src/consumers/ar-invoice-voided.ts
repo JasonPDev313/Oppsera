@@ -7,10 +7,10 @@ import { computeBusinessDate } from '../business-date';
 
 const arInvoiceVoidedSchema = z.object({
   invoiceId: z.string(),
-  customerId: z.string().optional(),
-  invoiceNumber: z.string().optional(),
+  customerId: z.string().nullish(),
+  invoiceNumber: z.string().nullish(),
   totalAmount: z.union([z.string(), z.number()]),
-  reason: z.string().optional(),
+  reason: z.string().nullish(),
 });
 
 const CONSUMER_NAME = 'reporting.arInvoiceVoided';
@@ -102,7 +102,7 @@ export async function handleArInvoiceVoided(event: EventEnvelope): Promise<void>
         void_count = rm_daily_sales.void_count + 1,
         void_total = rm_daily_sales.void_total + ${amountDollars},
         ar_revenue = rm_daily_sales.ar_revenue - ${amountDollars},
-        total_business_revenue = rm_daily_sales.net_sales + rm_daily_sales.pms_revenue + (rm_daily_sales.ar_revenue - ${amountDollars}) + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue,
+        total_business_revenue = rm_daily_sales.net_sales + rm_daily_sales.pms_revenue + (rm_daily_sales.ar_revenue - ${amountDollars}) + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue + rm_daily_sales.spa_revenue,
         updated_at = NOW()
     `);
   });

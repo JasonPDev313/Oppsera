@@ -153,14 +153,14 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
         lineSubtotal: orderLines.lineSubtotal,
         lineTax: orderLines.lineTax,
         lineTotal: orderLines.lineTotal,
-      }).from(orderLines).where(eq(orderLines.orderId, orderId)),
+      }).from(orderLines).where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId))),
       tx.select({
         amount: orderCharges.amount,
         taxAmount: orderCharges.taxAmount,
-      }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
+      }).from(orderCharges).where(and(eq(orderCharges.orderId, orderId), eq(orderCharges.tenantId, ctx.tenantId))),
       tx.select({
         amount: orderDiscounts.amount,
-      }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
+      }).from(orderDiscounts).where(and(eq(orderDiscounts.orderId, orderId), eq(orderDiscounts.tenantId, ctx.tenantId))),
     ]);
 
     const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);

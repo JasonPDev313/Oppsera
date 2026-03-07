@@ -53,6 +53,11 @@ export async function cloneOrder(ctx: RequestContext, sourceOrderId: string, inp
     // Create new order
     const orderNumber = await getNextOrderNumber(tx, ctx.tenantId, ctx.locationId!);
 
+    // Recalculate totals from cloned lines (not source order) for economic consistency —
+    // charges and discounts are zeroed, so subtotal/taxTotal must come from lines only.
+    const clonedSubtotal = sourceLines.reduce((sum, l) => sum + (l.lineSubtotal ?? 0), 0);
+    const clonedTaxTotal = sourceLines.reduce((sum, l) => sum + (l.lineTax ?? 0), 0);
+
     const [created] = await tx.insert(orders).values({
       tenantId: ctx.tenantId,
       locationId: ctx.locationId!,
@@ -61,15 +66,15 @@ export async function cloneOrder(ctx: RequestContext, sourceOrderId: string, inp
       source: source.source,
       customerId: source.customerId,
       businessDate,
-      notes: source.notes ? `Cloned from #${source.orderNumber}` : null,
+      notes: `Cloned from #${source.orderNumber}`,
       terminalId: source.terminalId,
       employeeId: ctx.user.id,
       shiftId: source.shiftId,
-      subtotal: source.subtotal,
-      taxTotal: source.taxTotal,
+      subtotal: clonedSubtotal,
+      taxTotal: clonedTaxTotal,
       serviceChargeTotal: 0,
       discountTotal: 0,
-      total: source.subtotal + source.taxTotal,
+      total: clonedSubtotal + clonedTaxTotal,
       createdBy: ctx.user.id,
       updatedBy: ctx.user.id,
     }).returning();
@@ -99,6 +104,8 @@ export async function cloneOrder(ctx: RequestContext, sourceOrderId: string, inp
           specialInstructions: line.specialInstructions,
           selectedOptions: line.selectedOptions,
           packageComponents: line.packageComponents,
+          subDepartmentId: line.subDepartmentId,
+          taxGroupId: line.taxGroupId,
           notes: line.notes,
         })),
       ).returning({ id: orderLines.id });

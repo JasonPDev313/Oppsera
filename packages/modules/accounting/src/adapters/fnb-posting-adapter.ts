@@ -266,7 +266,7 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
       sourceModule: 'fnb',
       sourceReferenceId: data.closeBatchId,
       memo: `F&B Close Batch ${data.closeBatchId}`,
-      currency: 'USD',
+      currency: settings.baseCurrency,
       lines: glLines,
       forcePost: true,
     });
@@ -376,7 +376,8 @@ function resolveAccountForCategory(
 
     case 'discount': {
       const m = findMapping('discount');
-      return m?.contraRevenueAccountId ?? m?.expenseAccountId ?? settings.defaultUncategorizedRevenueAccountId ?? null;
+      // Discount is contra-revenue — use dedicated discount account before falling back to uncategorized revenue
+      return m?.contraRevenueAccountId ?? m?.expenseAccountId ?? settings.defaultDiscountAccountId ?? settings.defaultUncategorizedRevenueAccountId ?? null;
     }
 
     case 'comp_expense': {

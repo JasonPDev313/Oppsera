@@ -23,9 +23,20 @@ export const MODULE_TABLES = [
 // Re-export schema for Drizzle
 export * from './schema';
 
-// Re-export the internal read API
-export { getCatalogReadApi, setCatalogReadApi } from './internal-api';
-export type { CatalogReadApi, ItemTaxInfo, PosItemData } from '@oppsera/core/helpers/catalog-read-api';
+// Re-export the internal read API factory (singleton is in @oppsera/core)
+export { createDrizzleCatalogReadApi } from './internal-api';
+export type {
+  CatalogReadApi,
+  CatalogItemRecord,
+  CatalogItemWithModifiers as CatalogItemWithModifiersContract,
+  ModifierGroupWithModifiers as ModifierGroupWithModifiersContract,
+  ModifierGroupRecord,
+  ModifierRecord,
+  TaxGroupRef,
+  TaxRateRef,
+  ItemTaxInfo,
+  PosItemData,
+} from '@oppsera/core/helpers/catalog-read-api';
 
 // Re-export registration helper
 export { registerCatalogReadApi } from './register';

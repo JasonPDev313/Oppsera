@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "cd ../.. && pnpm install --filter @oppsera/admin...",
-  "buildCommand": "cd ../.. && NODE_OPTIONS=--max-old-space-size=8192 pnpm run build --filter @oppsera/admin",
+  "buildCommand": "cd ../.. && NODE_OPTIONS=--max-old-space-size=16384 pnpm run build --filter @oppsera/admin",
   "crons": [
     {
       "path": "/api/v1/admin/backups/cron",

@@ -227,6 +227,11 @@ export const accountingSettings = pgTable('accounting_settings', {
   // ── Day-end close (migration 0189) ──
   dayEndCloseEnabled: boolean('day_end_close_enabled').notNull().default(false),
   dayEndCloseTime: text('day_end_close_time').default('23:00'), // HH:MM in tenant timezone
+  // ── Strict period close (migration 0285) ──
+  // When true, unmapped events, dead letters, unreconciled banks, and unposted
+  // settlements are hard blockers (fail) on the close checklist. When false,
+  // they are advisory warnings that can be skipped.
+  strictPeriodClose: boolean('strict_period_close').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

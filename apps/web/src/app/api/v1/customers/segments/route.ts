@@ -4,11 +4,13 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
 import { createSegment, createSegmentSchema } from '@oppsera/module-customers';
 
-// GET /api/v1/customers/segments — list segments (stub)
+// GET /api/v1/customers/segments — list segments (not yet implemented)
 export const GET = withMiddleware(
   async (_request: NextRequest, _ctx) => {
-    // TODO: implement listSegments query
-    return NextResponse.json({ data: [] });
+    return NextResponse.json(
+      { error: { code: 'NOT_IMPLEMENTED', message: 'Customer segments listing is not yet implemented' } },
+      { status: 501 },
+    );
   },
   { entitlement: 'customers', permission: 'customers.view' },
 );

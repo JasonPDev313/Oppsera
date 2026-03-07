@@ -6,16 +6,36 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { accountingClosePeriods, accountingSettings } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
 import { ACCOUNTING_EVENTS } from '../events/types';
+import { getCloseChecklist } from '../queries/get-close-checklist';
 
 interface CloseAccountingPeriodInput {
   postingPeriod: string; // 'YYYY-MM'
   notes?: string;
+  /** When true, bypass checklist failures. Requires explicit user acknowledgement. */
+  forceClose?: boolean;
 }
 
 export async function closeAccountingPeriod(
   ctx: RequestContext,
   input: CloseAccountingPeriodInput,
 ) {
+  // Enforce close checklist — reject if any items are 'fail' (unless forceClose)
+  if (!input.forceClose) {
+    const checklist = await getCloseChecklist({
+      tenantId: ctx.tenantId,
+      postingPeriod: input.postingPeriod,
+    });
+    const failedItems = checklist.items.filter((i) => i.status === 'fail');
+    if (failedItems.length > 0) {
+      const reasons = failedItems.map((i) => `${i.label}: ${i.detail}`).join('; ');
+      throw new AppError(
+        'CHECKLIST_FAILED',
+        `Cannot close period ${input.postingPeriod}: ${failedItems.length} checklist item(s) failed. ${reasons}`,
+        409,
+      );
+    }
+  }
+
   const result = await publishWithOutbox(ctx, async (tx) => {
     // 1. Find or create the close period row
     let [period] = await tx

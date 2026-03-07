@@ -140,15 +140,11 @@ export function useModuleDefaults(versionId: string | undefined) {
           method: 'PUT',
           body: JSON.stringify({ modules }),
         });
-        await load();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to save');
-        throw e;
       } finally {
         setIsSaving(false);
       }
     },
-    [versionId, load],
+    [versionId],
   );
 
   return { defaults, registry, isLoading, isSaving, error, load, save };
@@ -166,6 +162,7 @@ export interface AccountingTemplateRow {
   deferredRevenue: { enabled?: boolean; liabilityAccount?: string };
   cogsBehavior: string;
   fiscalSettings: { fiscalYearStart?: string; reportingCurrency?: string };
+  workflowDefaults: Record<string, { autoMode: boolean; approvalRequired: boolean; userVisible: boolean }>;
   validationStatus: string;
   validationErrors: string[];
 }

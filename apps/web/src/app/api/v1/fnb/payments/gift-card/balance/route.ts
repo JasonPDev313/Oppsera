@@ -5,27 +5,11 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 // GET /api/v1/fnb/payments/gift-card/balance?cardNumber=xxx — check gift card balance
 // TODO: Wire to getGiftCardBalance query when implemented
 export const GET = withMiddleware(
-  async (request: NextRequest, ctx) => {
-    const { searchParams } = new URL(request.url);
-    const cardNumber = searchParams.get('cardNumber');
-
-    if (!cardNumber) {
-      return NextResponse.json(
-        { error: { code: 'VALIDATION_ERROR', message: 'cardNumber query parameter required' } },
-        { status: 400 },
-      );
-    }
-
-    // Placeholder: return mock balance for development
-    // The real implementation will query the gift card system
-    void ctx;
-    return NextResponse.json({
-      data: {
-        cardNumber,
-        balanceCents: 0,
-        status: 'not_found',
-      },
-    });
+  async (_request: NextRequest, _ctx) => {
+    return NextResponse.json(
+      { error: { code: 'NOT_IMPLEMENTED', message: 'Gift card balance check is not yet implemented' } },
+      { status: 501 },
+    );
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create' },
 );

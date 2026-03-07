@@ -225,8 +225,8 @@ export async function reverseTender(
           postingStatus: 'posted',
         });
 
-        // Mark original journal as voided if full reversal
-        if (input.amount === tender.amount) {
+        // Mark original journal as voided if full reversal (accounts for cumulative partials)
+        if (isFullReversal) {
           await tx
             .update(paymentJournalEntries)
             .set({ postingStatus: 'voided' })
@@ -318,6 +318,7 @@ export async function reverseTender(
       reason: input.reason,
       reversalType: input.reversalType,
       refundMethod: reversal.refundMethod,
+      businessDate: tender.businessDate,
     });
 
     return {
@@ -481,7 +482,8 @@ export async function confirmTenderReversal(
           postingStatus: 'posted',
         });
 
-        if (reversal.amount === tender.amount) {
+        // Mark original journal as voided if full reversal (accounts for cumulative partials)
+        if (isFullReversal) {
           await tx
             .update(paymentJournalEntries)
             .set({ postingStatus: 'voided' })
@@ -556,6 +558,7 @@ export async function confirmTenderReversal(
       reason: reversal.reason,
       reversalType: reversal.reversalType,
       refundMethod: reversal.refundMethod,
+      businessDate: tender.businessDate,
     });
 
     return {

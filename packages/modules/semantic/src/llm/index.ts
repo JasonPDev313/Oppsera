@@ -1,7 +1,7 @@
 export { runPipeline, runPipelineStreaming, getLLMAdapter, setLLMAdapter } from './pipeline';
 export type { SSEEvent, StreamCallbacks } from './pipeline';
 export { resolveIntent } from './intent-resolver';
-export { executeCompiledQuery } from './executor';
+export { executeCompiledQuery, clearBackfillCache } from './executor';
 export { generateNarrative, generateNarrativeStreaming, buildEmptyResultNarrative, getDefaultPromptTemplate } from './narrative';
 export { generateSql } from './sql-generator';
 export { validateGeneratedSql } from './sql-validator';

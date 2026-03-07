@@ -17,7 +17,9 @@
  * Compared case-insensitively after normalizing underscores.
  */
 const PII_COLUMN_EXACT = new Set([
-  'name',
+  // NOTE: 'name' intentionally excluded — too broad, matches room_type.name,
+  // property.name, catalog_item.name etc. Person-name columns are caught by
+  // PII_COLUMN_SUBSTRINGS (first_name, last_name, guest_name, etc.).
   'email',
   'phone',
   'mobile',
@@ -52,6 +54,8 @@ const PII_COLUMN_SUBSTRINGS = [
   'user_name',
   'contact_name',
   'billing_name',
+  'provider_name',
+  'therapist_name',
   'cardholder',
   'recipient',
   'firstname',
@@ -94,10 +98,13 @@ const PII_COLUMN_SUBSTRINGS = [
 
 /**
  * Column name suffixes that indicate PII when combined with any prefix.
- * e.g., `guest_email`, `billing_phone`, `emergency_contact_name`
+ * e.g., `guest_email`, `billing_phone`
+ *
+ * NOTE: '_name' intentionally excluded — too broad, matches catalog_item_name,
+ * category_name, property_name, room_type_name etc. Person-name columns are
+ * caught by PII_COLUMN_SUBSTRINGS instead.
  */
 const PII_COLUMN_SUFFIXES = [
-  '_name',
   '_email',
   '_phone',
   '_mobile',
@@ -254,18 +261,30 @@ function maskPiiValue(value: unknown, columnName: string): unknown {
     return maskPhone(str);
   }
 
-  // Name columns
+  // Name columns — must match PII_COLUMN_SUBSTRINGS person-name patterns
   if (
-    lower === 'name' ||
-    lower.endsWith('_name') ||
     lower.includes('first_name') ||
     lower.includes('last_name') ||
     lower.includes('display_name') ||
     lower.includes('full_name') ||
+    lower.includes('guest_name') ||
+    lower.includes('customer_name') ||
+    lower.includes('member_name') ||
+    lower.includes('staff_name') ||
+    lower.includes('employee_name') ||
+    lower.includes('housekeeper_name') ||
+    lower.includes('server_name') ||
+    lower.includes('user_name') ||
+    lower.includes('contact_name') ||
+    lower.includes('billing_name') ||
+    lower.includes('provider_name') ||
+    lower.includes('therapist_name') ||
     lower.includes('cardholder') ||
     lower.includes('recipient') ||
     lower.includes('firstname') ||
-    lower.includes('lastname')
+    lower.includes('lastname') ||
+    lower.includes('displayname') ||
+    lower.includes('fullname')
   ) {
     return maskName(str);
   }
@@ -334,6 +353,12 @@ function maskJsonbObject(obj: Record<string, unknown>): Record<string, unknown> 
  * Replaces emails, phones, SSNs found in the text.
  */
 function maskStringByContent(text: string): string {
+  // Skip strings that are purely numeric (possibly with sign, decimal, or
+  // thousands separators). Postgres numeric columns return strings like
+  // "850.0000000000000000" which the phone regex falsely matches because
+  // its [-.\s]? separator accepts decimal points (see #PII-01).
+  if (/^-?\d[\d,]*(\.\d+)?$/.test(text.trim())) return text;
+
   let result = text;
   for (const detector of VALUE_DETECTORS) {
     // Reset regex lastIndex for global patterns

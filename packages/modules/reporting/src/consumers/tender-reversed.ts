@@ -13,9 +13,9 @@ const tenderReversedSchema = z.object({
   reason: z.string().nullable().optional(),
   reversalType: z.string(),
   refundMethod: z.string(),
-  tipAmount: z.number().optional(),
-  surchargeAmountCents: z.number().optional(),
-  locationId: z.string().optional(),
+  tipAmount: z.number().nullish(),
+  surchargeAmountCents: z.number().nullish(),
+  locationId: z.string().nullish(),
 });
 
 const CONSUMER_NAME = 'reporting.tenderReversed';

@@ -43,6 +43,11 @@ export {
   handleStoredValueRedeemed,
   handleGuestPaySucceeded,
   handleTenderReversed,
+  handleSpaCompletedRevenue,
+  handleSpaCheckedOutRevenue,
+  handleSpaPackageSold,
+  handleMembershipInstallmentBilled,
+  handleGlJournalRevenue,
 } from './consumers';
 
 // ── Query Services ────────────────────────────────────────────

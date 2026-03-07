@@ -11,13 +11,19 @@ import {
   taxGroupRates,
   catalogItemLocationTaxGroups,
 } from './schema';
-import type { CatalogItem, CatalogItemWithModifiers, ModifierGroupWithModifiers } from './types';
-import type { CatalogReadApi, ItemTaxInfo, PosItemData } from '@oppsera/core/helpers/catalog-read-api';
+import type {
+  CatalogReadApi,
+  CatalogItemRecord,
+  CatalogItemWithModifiers,
+  ModifierGroupWithModifiers,
+  ItemTaxInfo,
+  PosItemData,
+} from '@oppsera/core/helpers/catalog-read-api';
 
 // ── Implementation ──────────────────────────────────────────────
 
 class DrizzleCatalogReadApi implements CatalogReadApi {
-  async getItem(tenantId: string, itemId: string): Promise<CatalogItem | null> {
+  async getItem(tenantId: string, itemId: string): Promise<CatalogItemRecord | null> {
     return withTenant(tenantId, async (tx) => {
       const [item] = await tx
         .select()
@@ -77,6 +83,7 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
     tenantId: string,
     itemIds: string[],
   ): Promise<CatalogItemWithModifiers[]> {
+    // Drizzle-inferred types are structurally compatible with CatalogItemWithModifiers
     if (itemIds.length === 0) return [];
 
     return withTenant(tenantId, async (tx) => {
@@ -318,6 +325,10 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
       ]);
 
       const unitPriceCents = Math.round(price * 100);
+      if (!Number.isFinite(unitPriceCents)) {
+        console.error(`[getItemForPOS] Non-finite price for item ${itemId} (${item.name}, ${item.itemType}): rawPrice=${price}, cents=${unitPriceCents}`);
+      }
+
       return {
         id: item.id,
         sku: item.sku,
@@ -325,7 +336,7 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
         name: item.name,
         itemType: item.itemType,
         isTrackable: item.isTrackable,
-        unitPriceCents,
+        unitPriceCents: Number.isFinite(unitPriceCents) ? unitPriceCents : 0,
         taxInfo: {
           ...taxInfo,
           calculationMode: item.priceIncludesTax ? 'inclusive' as const : 'exclusive' as const,
@@ -334,6 +345,187 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
         categoryId: item.categoryId ?? null,
         subDepartmentId,
       };
+    });
+  }
+
+  async getItemsForPOS(
+    tenantId: string,
+    locationId: string,
+    itemIds: string[],
+  ): Promise<Map<string, PosItemData>> {
+    if (itemIds.length === 0) return new Map();
+
+    const uniqueIds = [...new Set(itemIds)];
+
+    return withTenant(tenantId, async (tx) => {
+      const items = await tx
+        .select()
+        .from(catalogItems)
+        .where(
+          and(
+            inArray(catalogItems.id, uniqueIds),
+            eq(catalogItems.tenantId, tenantId),
+            isNull(catalogItems.archivedAt),
+          ),
+        );
+
+      if (items.length === 0) return new Map();
+
+      const foundIds = items.map((i) => i.id);
+
+      const [priceOverrides, taxAssignments, subDeptRows] = await Promise.all([
+        tx
+          .select()
+          .from(catalogLocationPrices)
+          .where(
+            and(
+              inArray(catalogLocationPrices.catalogItemId, foundIds),
+              eq(catalogLocationPrices.locationId, locationId),
+              eq(catalogLocationPrices.tenantId, tenantId),
+            ),
+          ),
+        tx
+          .select({
+            catalogItemId: catalogItemLocationTaxGroups.catalogItemId,
+            taxGroupId: catalogItemLocationTaxGroups.taxGroupId,
+          })
+          .from(catalogItemLocationTaxGroups)
+          .where(
+            and(
+              eq(catalogItemLocationTaxGroups.tenantId, tenantId),
+              eq(catalogItemLocationTaxGroups.locationId, locationId),
+              inArray(catalogItemLocationTaxGroups.catalogItemId, foundIds),
+            ),
+          ),
+        tx.execute(sql`
+          SELECT ci.id AS item_id, COALESCE(cat.parent_id, cat.id) AS sub_department_id
+          FROM catalog_items ci
+          JOIN catalog_categories cat ON cat.id = ci.category_id
+          WHERE ci.id = ANY(${foundIds})
+            AND ci.tenant_id = ${tenantId}
+        `),
+      ]);
+
+      const priceMap = new Map<string, number>();
+      for (const row of priceOverrides) {
+        priceMap.set(row.catalogItemId, Number(row.price));
+      }
+
+      const subDeptMap = new Map<string, string>();
+      for (const row of Array.from(subDeptRows as Iterable<Record<string, unknown>>)) {
+        subDeptMap.set(row.item_id as string, row.sub_department_id as string);
+      }
+
+      const allGroupIds = [...new Set(taxAssignments.map((a) => a.taxGroupId))];
+      const taxGroupsMap = new Map<string, { id: string; name: string }>();
+      const taxRatesByGroup = new Map<string, Array<{ id: string; name: string; rateDecimal: number }>>();
+
+      if (allGroupIds.length > 0) {
+        const [groups, groupRateRows] = await Promise.all([
+          tx
+            .select()
+            .from(taxGroups)
+            .where(
+              and(
+                eq(taxGroups.tenantId, tenantId),
+                eq(taxGroups.isActive, true),
+                inArray(taxGroups.id, allGroupIds),
+              ),
+            ),
+          tx
+            .select({
+              taxGroupId: taxGroupRates.taxGroupId,
+              taxRateId: taxGroupRates.taxRateId,
+              sortOrder: taxGroupRates.sortOrder,
+            })
+            .from(taxGroupRates)
+            .where(inArray(taxGroupRates.taxGroupId, allGroupIds))
+            .orderBy(asc(taxGroupRates.sortOrder)),
+        ]);
+
+        for (const g of groups) {
+          taxGroupsMap.set(g.id, { id: g.id, name: g.name });
+        }
+
+        const allRateIds = [...new Set(groupRateRows.map((r) => r.taxRateId))];
+        if (allRateIds.length > 0) {
+          const rateRows = await tx
+            .select()
+            .from(taxRates)
+            .where(and(inArray(taxRates.id, allRateIds), eq(taxRates.isActive, true)));
+
+          const rateMap = new Map<string, { id: string; name: string; rateDecimal: number }>();
+          for (const r of rateRows) {
+            rateMap.set(r.id, { id: r.id, name: r.name, rateDecimal: Number(r.rateDecimal) });
+          }
+
+          for (const gr of groupRateRows) {
+            const rate = rateMap.get(gr.taxRateId);
+            if (!rate) continue;
+            const existing = taxRatesByGroup.get(gr.taxGroupId) ?? [];
+            if (!existing.some((e) => e.id === rate.id)) {
+              existing.push(rate);
+            }
+            taxRatesByGroup.set(gr.taxGroupId, existing);
+          }
+        }
+      }
+
+      const itemTaxGroupIds = new Map<string, string[]>();
+      for (const a of taxAssignments) {
+        const existing = itemTaxGroupIds.get(a.catalogItemId) ?? [];
+        existing.push(a.taxGroupId);
+        itemTaxGroupIds.set(a.catalogItemId, existing);
+      }
+
+      const result = new Map<string, PosItemData>();
+      for (const item of items) {
+        const overridePrice = priceMap.get(item.id);
+        const price = overridePrice ?? Number(item.defaultPrice);
+        const unitPriceCents = Math.round(price * 100);
+
+        const itemGroupIds = itemTaxGroupIds.get(item.id) ?? [];
+        const activeGroups = itemGroupIds
+          .map((gId) => taxGroupsMap.get(gId))
+          .filter((g): g is { id: string; name: string } => g !== undefined);
+
+        const uniqueRates = new Map<string, { id: string; name: string; rateDecimal: number }>();
+        for (const gId of itemGroupIds) {
+          const rates = taxRatesByGroup.get(gId) ?? [];
+          for (const r of rates) {
+            if (!uniqueRates.has(r.id)) uniqueRates.set(r.id, r);
+          }
+        }
+        const taxRatesList = Array.from(uniqueRates.values());
+        const totalRate = taxRatesList.reduce((sum, r) => sum + r.rateDecimal, 0);
+
+        const taxInfo: ItemTaxInfo = {
+          calculationMode: item.priceIncludesTax ? 'inclusive' : 'exclusive',
+          taxGroups: activeGroups,
+          taxRates: taxRatesList,
+          totalRate,
+        };
+
+        if (!Number.isFinite(unitPriceCents)) {
+          console.error(`[getItemsForPOS] Non-finite price for item ${item.id} (${item.name}, ${item.itemType}): rawPrice=${price}, cents=${unitPriceCents}`);
+        }
+
+        result.set(item.id, {
+          id: item.id,
+          sku: item.sku,
+          barcode: item.barcode,
+          name: item.name,
+          itemType: item.itemType,
+          isTrackable: item.isTrackable,
+          unitPriceCents: Number.isFinite(unitPriceCents) ? unitPriceCents : 0,
+          taxInfo,
+          metadata: item.metadata ?? null,
+          categoryId: item.categoryId ?? null,
+          subDepartmentId: subDeptMap.get(item.id) ?? null,
+        });
+      }
+
+      return result;
     });
   }
 
@@ -439,17 +631,3 @@ export function createDrizzleCatalogReadApi(): CatalogReadApi {
   return new DrizzleCatalogReadApi();
 }
 
-// ── Singleton ────────────────────────────────────────────────────
-
-let _catalogReadApi: CatalogReadApi | null = null;
-
-export function getCatalogReadApi(): CatalogReadApi {
-  if (!_catalogReadApi) {
-    _catalogReadApi = new DrizzleCatalogReadApi();
-  }
-  return _catalogReadApi;
-}
-
-export function setCatalogReadApi(api: CatalogReadApi): void {
-  _catalogReadApi = api;
-}

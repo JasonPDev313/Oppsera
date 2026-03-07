@@ -58,26 +58,28 @@ export async function addLineItemsBatch(
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
   }
 
-  // ── Phase 1: Catalog lookups OUTSIDE transaction (parallel) ──────────
+  // ── Phase 1: Catalog lookups OUTSIDE transaction (batch, 1 semaphore slot) ──
 
   const catalogApi = getCatalogReadApi();
+  const itemIds = items.map((i) => i.catalogItemId);
 
   let posItems: PosItemData[];
   try {
-    posItems = await Promise.all(
-      items.map(async (item) => {
-        const posItem = await catalogApi.getItemForPOS(ctx.tenantId, ctx.locationId!, item.catalogItemId);
-        if (!posItem) {
-          console.error(`${logTag} Catalog item not found: catalogItemId=${item.catalogItemId}, tenant=${ctx.tenantId}, location=${ctx.locationId}`);
-          throw new NotFoundError('Catalog item', item.catalogItemId);
-        }
-        return posItem as PosItemData;
-      }),
-    );
+    const posItemMap = await catalogApi.getItemsForPOS(ctx.tenantId, ctx.locationId!, itemIds);
+
+    // Verify all items were found and maintain original order
+    posItems = items.map((item) => {
+      const posItem = posItemMap.get(item.catalogItemId);
+      if (!posItem) {
+        console.error(`${logTag} Catalog item not found: catalogItemId=${item.catalogItemId}, tenant=${ctx.tenantId}, location=${ctx.locationId}`);
+        throw new NotFoundError('Catalog item', item.catalogItemId);
+      }
+      return posItem as PosItemData;
+    });
   } catch (err) {
     if (err instanceof AppError) throw err;
     console.error(`${logTag} Phase 1 (catalog lookup) failed for orderId=${orderId}:`, {
-      itemIds: items.map((i) => i.catalogItemId),
+      itemIds,
       tenant: ctx.tenantId,
       location: ctx.locationId,
       error: err instanceof Error ? err.message : String(err),
@@ -280,14 +282,14 @@ export async function addLineItemsBatch(
           lineSubtotal: orderLines.lineSubtotal,
           lineTax: orderLines.lineTax,
           lineTotal: orderLines.lineTotal,
-        }).from(orderLines).where(eq(orderLines.orderId, orderId)),
+        }).from(orderLines).where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId))),
         tx.select({
           amount: orderCharges.amount,
           taxAmount: orderCharges.taxAmount,
-        }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
+        }).from(orderCharges).where(and(eq(orderCharges.orderId, orderId), eq(orderCharges.tenantId, ctx.tenantId))),
         tx.select({
           amount: orderDiscounts.amount,
-        }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
+        }).from(orderDiscounts).where(and(eq(orderDiscounts.orderId, orderId), eq(orderDiscounts.tenantId, ctx.tenantId))),
       ]);
 
       const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);

@@ -7,16 +7,16 @@ import { computeBusinessDate } from '../business-date';
 
 const guestPaySucceededSchema = z.object({
   sessionId: z.string(),
-  tabId: z.string().optional(),
+  tabId: z.string().nullish(),
   orderId: z.string().nullish(),
   locationId: z.string(),
   amountCents: z.number(),
-  tipCents: z.number().optional(),
+  tipCents: z.number().nullish(),
   paymentMethod: z.string(),
-  memberId: z.string().optional(),
-  memberDisplayName: z.string().optional(),
-  billingAccountId: z.string().optional(),
-  surchargeAmountCents: z.number().optional(),
+  memberId: z.string().nullish(),
+  memberDisplayName: z.string().nullish(),
+  billingAccountId: z.string().nullish(),
+  surchargeAmountCents: z.number().nullish(),
 });
 
 const CONSUMER_NAME = 'reporting.guestPaySucceeded';
