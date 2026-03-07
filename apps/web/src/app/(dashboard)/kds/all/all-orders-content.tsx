@@ -3,15 +3,14 @@
 /**
  * All Orders KDS view — shows ALL active tickets across ALL stations.
  * Useful for managers, small kitchens, or debugging routing.
- * Fetches each station's KDS view and merges/deduplicates by ticketId.
+ * Uses a single backend query instead of per-station fan-out.
  */
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
-import { useStations } from '@/hooks/use-fnb-kitchen';
 import { apiFetch } from '@/lib/api-client';
-import type { KdsView, KdsTicketCard } from '@/types/fnb';
+import type { KdsTicketCard } from '@/types/fnb';
 import { TicketCard } from '@/components/fnb/kitchen/TicketCard';
 import { KitchenBehindBanner } from '@/components/fnb/kitchen/KitchenBehindBanner';
 import { ItemSummaryPanel, ItemSummaryToggle } from '@/components/fnb/kitchen/ItemSummaryPanel';
@@ -23,12 +22,17 @@ import {
 type ViewMode = 'grid' | 'rail';
 type Density = 'compact' | 'standard' | 'comfortable';
 
+interface KdsAllTicketsResponse {
+  tickets: KdsTicketCard[];
+  activeTicketCount: number;
+  stationCount: number;
+}
+
 const POLL_INTERVAL = 10_000; // 10s for all-stations view
 export default function AllOrdersContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
   const locationId = locations?.[0]?.id;
-  const { stations } = useStations({ locationId });
 
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [density, _setDensity] = useState<Density>('standard');
@@ -38,54 +42,35 @@ export default function AllOrdersContent() {
   const [isLoading, setIsLoading] = useState(true);
   const fetchingRef = useRef(false);
 
-  const activeStations = useMemo(
-    () => stations.filter((s) => s.isActive && s.stationType !== 'expo'),
-    [stations],
-  );
-
   const fetchAll = useCallback(async (signal?: AbortSignal) => {
-    if (!locationId || activeStations.length === 0) return;
+    if (!locationId) {
+      setIsLoading(false);
+      return;
+    }
     if (fetchingRef.current) return;
     fetchingRef.current = true;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local timezone
     try {
-      const views = await Promise.all(
-        activeStations.map((s) =>
-          apiFetch<{ data: KdsView }>(
-            `/api/v1/fnb/stations/${s.id}/kds?businessDate=${today}&locationId=${locationId}`,
-            { signal },
-          ).then((r) => r.data).catch(() => null),
-        ),
+      const result = await apiFetch<{ data: KdsAllTicketsResponse }>(
+        `/api/v1/fnb/kitchen/all?businessDate=${today}&locationId=${locationId}`,
+        { signal },
       );
 
       if (signal?.aborted) return;
 
-      // Merge and deduplicate by ticketId (a ticket may appear at multiple stations)
-      const ticketMap = new Map<string, KdsTicketCard>();
-      for (const view of views) {
-        if (!view) continue;
-        for (const ticket of view.tickets) {
-          // Keep the version with more items (the station with the most items for this ticket)
-          const existing = ticketMap.get(ticket.ticketId);
-          if (!existing || ticket.items.length > existing.items.length) {
-            ticketMap.set(ticket.ticketId, ticket);
-          }
-        }
-      }
+      const sorted = result.data.tickets.sort((a, b) => {
+        if (b.priorityLevel !== a.priorityLevel) return b.priorityLevel - a.priorityLevel;
+        return b.elapsedSeconds - a.elapsedSeconds;
+      });
 
-      setAllTickets(
-        Array.from(ticketMap.values()).sort((a, b) => {
-          if (b.priorityLevel !== a.priorityLevel) return b.priorityLevel - a.priorityLevel;
-          return b.elapsedSeconds - a.elapsedSeconds;
-        }),
-      );
+      setAllTickets(sorted);
     } catch {
       // silent — AbortError is rethrown by apiFetch without logging
     } finally {
       fetchingRef.current = false;
       if (!signal?.aborted) setIsLoading(false);
     }
-  }, [locationId, activeStations]);
+  }, [locationId]);
 
   // Initial fetch + polling
   useEffect(() => {

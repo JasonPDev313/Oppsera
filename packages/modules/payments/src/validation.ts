@@ -23,6 +23,11 @@ export const recordTenderSchema = z.object({
       providerRef: z.string().optional(),
       cardLast4: z.string().max(4).optional(),
       cardBrand: z.string().max(20).optional(),
+      // Card-on-file fields (populated by place-and-pay route for stored payment methods)
+      entryMode: z.string().max(30).optional(),
+      storedCardBrand: z.string().max(20).optional(),
+      storedCardLast4: z.string().max(4).optional(),
+      paymentMethodId: z.string().optional(),
       // PMS room charge / folio settlement context
       folioId: z.string().optional(),
       guestId: z.string().optional(),

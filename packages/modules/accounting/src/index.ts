@@ -168,6 +168,7 @@ export {
   handleStoredValueTransferredForAccounting,
 } from './adapters/stored-value-posting-adapter';
 export { handleTenderReversalForAccounting, handleTipAdjustedForAccounting } from './adapters/tender-reversal-posting-adapter';
+export { handleGatewayRefundForAccounting, handleGatewayVoidForAccounting } from './adapters/gateway-refund-posting-adapter';
 export { handleDrawerEventForAccounting } from './adapters/drawer-event-posting-adapter';
 export {
   handleLedgerEntryForAccounting,

@@ -46,7 +46,7 @@ export function useKdsView({
   // aborted fetches don't clobber state (e.g., setting isLoading=false after cleanup).
   const generationRef = useRef(0);
 
-  const today = businessDate ?? new Date().toISOString().slice(0, 10);
+  const today = businessDate ?? new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local timezone
 
   const fetchKds = useCallback(async (force = false) => {
     if (!stationId) return;
@@ -234,7 +234,7 @@ export function useExpoView({
   const consecutiveExpoFailuresRef = useRef(0);
   const expoGenerationRef = useRef(0);
 
-  const today = businessDate ?? new Date().toISOString().slice(0, 10);
+  const today = businessDate ?? new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local timezone
 
   const fetchExpo = useCallback(async (force = false) => {
     if (fetchingExpoRef.current && !force) return;
@@ -344,7 +344,7 @@ export function useExpoHistory({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const today = businessDate ?? new Date().toISOString().slice(0, 10);
+  const today = businessDate ?? new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local timezone
 
   const fetchHistory = useCallback(async () => {
     if (!enabled) return;

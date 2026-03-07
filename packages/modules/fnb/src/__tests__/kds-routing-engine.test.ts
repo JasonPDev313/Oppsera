@@ -112,11 +112,12 @@ function makeStation(overrides: Partial<MockStation> = {}): MockStation {
   };
 }
 
-/** Set up mockExecute to return rules on first call and stations on second. */
+/** Set up mockExecute to return timezone on first call, rules on second, stations on third. */
 function setupMocks(rules: MockRule[], stations: MockStation[]) {
   mockExecute
-    .mockResolvedValueOnce(rules)   // 1st call: routing rules
-    .mockResolvedValueOnce(stations); // 2nd call: stations
+    .mockResolvedValueOnce([{ timezone: 'America/New_York' }]) // 1st call: timezone lookup
+    .mockResolvedValueOnce(rules)   // 2nd call: routing rules
+    .mockResolvedValueOnce(stations); // 3rd call: stations
 }
 
 // ── Tests ──────────────────────────────────────────────────────

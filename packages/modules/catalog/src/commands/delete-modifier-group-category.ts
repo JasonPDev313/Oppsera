@@ -68,7 +68,7 @@ export async function deleteModifierGroupCategory(
 
     await tx
       .delete(catalogModifierGroupCategories)
-      .where(eq(catalogModifierGroupCategories.id, categoryId));
+      .where(and(eq(catalogModifierGroupCategories.id, categoryId), eq(catalogModifierGroupCategories.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'catalog.modifier_group_category.deleted.v1', {
       categoryId,

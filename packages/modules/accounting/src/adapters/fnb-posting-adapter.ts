@@ -356,18 +356,18 @@ function resolveAccountForCategory(
       return m?.liabilityAccountId ?? settings.defaultSalesTaxPayableAccountId ?? null;
     }
 
-    // V2: split tip categories
+    // V2: split tip categories — liability class, never fall back to revenue
     case 'tips_payable_credit': {
       const m = findMapping('tips_credit');
-      return m?.liabilityAccountId ?? settings.defaultTipsPayableAccountId ?? settings.defaultUncategorizedRevenueAccountId ?? null;
+      return m?.liabilityAccountId ?? settings.defaultTipsPayableAccountId ?? null;
     }
     case 'tips_payable_cash': {
       const m = findMapping('tips_cash');
-      return m?.liabilityAccountId ?? settings.defaultTipsPayableAccountId ?? settings.defaultUncategorizedRevenueAccountId ?? null;
+      return m?.liabilityAccountId ?? settings.defaultTipsPayableAccountId ?? null;
     }
     // V1 backward compat
     case 'tips_payable':
-      return settings.defaultTipsPayableAccountId ?? settings.defaultUncategorizedRevenueAccountId ?? null;
+      return settings.defaultTipsPayableAccountId ?? null;
 
     case 'service_charge_revenue': {
       const m = findMapping('service_charge');
@@ -381,7 +381,8 @@ function resolveAccountForCategory(
 
     case 'comp_expense': {
       const m = findMapping('comp');
-      return m?.expenseAccountId ?? settings.defaultUncategorizedRevenueAccountId ?? null;
+      // Expense class — fall back to rounding (expense suspense), never revenue
+      return m?.expenseAccountId ?? settings.defaultRoundingAccountId ?? null;
     }
 
     case 'cash_over_short': {
@@ -391,12 +392,14 @@ function resolveAccountForCategory(
 
     case 'processing_fee': {
       const m = findMapping('processing_fee');
-      return m?.expenseAccountId ?? settings.defaultUncategorizedRevenueAccountId ?? null;
+      // Expense class — fall back to rounding (expense suspense), never revenue
+      return m?.expenseAccountId ?? settings.defaultRoundingAccountId ?? null;
     }
 
     case 'auto_gratuity': {
       const m = findMapping('auto_gratuity');
-      return m?.liabilityAccountId ?? settings.defaultTipsPayableAccountId ?? settings.defaultUncategorizedRevenueAccountId ?? null;
+      // Liability class — never fall back to revenue
+      return m?.liabilityAccountId ?? settings.defaultTipsPayableAccountId ?? null;
     }
 
     default:

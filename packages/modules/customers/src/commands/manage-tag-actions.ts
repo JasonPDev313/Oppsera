@@ -154,7 +154,7 @@ export async function deleteTagAction(
     if (!existing) throw new NotFoundError('Tag Action', actionId);
 
     // Hard delete — actions don't need soft-delete
-    await tx.delete(tagActions).where(eq(tagActions.id, actionId));
+    await tx.delete(tagActions).where(and(eq(tagActions.id, actionId), eq(tagActions.tenantId, tenantId)));
 
     return { deleted: true };
   });

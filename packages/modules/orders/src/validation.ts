@@ -134,6 +134,10 @@ export const createReturnSchema = z.object({
     qty: z.number().positive(),
     reason: z.string().min(1).max(500),
   })).min(1),
+  // Optional: enables the return posting adapter to resolve the correct payment account
+  // instead of always crediting undeposited funds
+  refundMethod: z.string().max(50).optional(),
+  originalTenderId: z.string().max(128).optional(),
 });
 export type CreateReturnInput = z.input<typeof createReturnSchema>;
 

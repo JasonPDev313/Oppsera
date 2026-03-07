@@ -271,6 +271,9 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       // Tender reversal + tip adjustment → reverse GL
       bus.subscribe('tender.reversed.v1', accounting.handleTenderReversalForAccounting, 'accounting/tender.reversed');
       bus.subscribe('tender.tip_adjusted.v1', accounting.handleTipAdjustedForAccounting, 'accounting/tender.tip_adjusted');
+      // Direct gateway refund/void → GL (standalone payment intent operations not via tender reversal)
+      bus.subscribe('payment.gateway.refunded.v1', accounting.handleGatewayRefundForAccounting, 'accounting/payment.gateway.refunded');
+      bus.subscribe('payment.gateway.voided.v1', accounting.handleGatewayVoidForAccounting, 'accounting/payment.gateway.voided');
       // Drawer events → paid_in/paid_out/cash_drop GL
       bus.subscribe('drawer.event.recorded.v1', accounting.handleDrawerEventForAccounting, 'accounting/drawer.event.recorded');
       // Customer financial operations → GL

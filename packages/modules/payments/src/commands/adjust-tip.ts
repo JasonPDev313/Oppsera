@@ -14,6 +14,7 @@ import {
   incrementVersion,
 } from '@oppsera/core/helpers/optimistic-lock';
 import { getDebitAccountForTenderType } from '../helpers/account-mapping';
+import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 
 export async function adjustTip(
   ctx: RequestContext,
@@ -32,6 +33,16 @@ export async function adjustTip(
     throw new ValidationError(
       'clientRequestId is required for tender operations',
     );
+  }
+
+  // Resolve legacy GL setting BEFORE the transaction (same pattern as record-tender)
+  let enableLegacyGl = true;
+  try {
+    const accountingApi = getAccountingPostingApi();
+    const acctSettings = await accountingApi.getSettings(ctx.tenantId);
+    enableLegacyGl = acctSettings.enableLegacyGlPosting ?? true;
+  } catch {
+    // AccountingPostingApi not initialized — legacy behavior
   }
 
   const result = await publishWithOutbox(ctx, async (tx) => {
@@ -117,31 +128,34 @@ export async function adjustTip(
         );
     }
 
-    // 5. Create adjustment GL journal entry for the tip delta
-    const debitAccount = getDebitAccountForTenderType(tender.tenderType);
-    const entries = delta > 0
-      ? [
-          // Tip increase: debit cash/card, credit tips payable
-          { accountCode: debitAccount.code, accountName: debitAccount.name, debit: delta, credit: 0 },
-          { accountCode: '2150', accountName: 'Tips Payable', debit: 0, credit: delta },
-        ]
-      : [
-          // Tip decrease: debit tips payable, credit cash/card
-          { accountCode: '2150', accountName: 'Tips Payable', debit: -delta, credit: 0 },
-          { accountCode: debitAccount.code, accountName: debitAccount.name, debit: 0, credit: -delta },
-        ];
+    // 5. Create legacy GL journal entry for the tip delta (gated behind enableLegacyGlPosting).
+    // When disabled, only the new GL pipeline runs via tender.tip_adjusted.v1 event consumer.
+    if (enableLegacyGl) {
+      const debitAccount = getDebitAccountForTenderType(tender.tenderType);
+      const entries = delta > 0
+        ? [
+            // Tip increase: debit cash/card, credit tips payable
+            { accountCode: debitAccount.code, accountName: debitAccount.name, debit: delta, credit: 0 },
+            { accountCode: '2160', accountName: 'Tips Payable', debit: 0, credit: delta },
+          ]
+        : [
+            // Tip decrease: debit tips payable, credit cash/card
+            { accountCode: '2160', accountName: 'Tips Payable', debit: -delta, credit: 0 },
+            { accountCode: debitAccount.code, accountName: debitAccount.name, debit: 0, credit: -delta },
+          ];
 
-    await tx.insert(paymentJournalEntries).values({
-      tenantId: ctx.tenantId,
-      locationId: ctx.locationId!,
-      referenceType: 'tender',
-      referenceId: tenderId,
-      orderId: tender.orderId,
-      entries,
-      businessDate: tender.businessDate,
-      sourceModule: 'payments',
-      postingStatus: 'posted',
-    });
+      await tx.insert(paymentJournalEntries).values({
+        tenantId: ctx.tenantId,
+        locationId: ctx.locationId!,
+        referenceType: 'tender',
+        referenceId: tenderId,
+        orderId: tender.orderId,
+        entries,
+        businessDate: tender.businessDate,
+        sourceModule: 'payments',
+        postingStatus: 'posted',
+      });
+    }
 
     await incrementVersion(tx, tender.orderId, ctx.tenantId);
 

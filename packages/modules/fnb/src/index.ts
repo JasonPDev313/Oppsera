@@ -197,6 +197,8 @@ export { getStationDetail } from './queries/get-station-detail';
 export type { StationDetail, DisplayConfig } from './queries/get-station-detail';
 export { getKdsView } from './queries/get-kds-view';
 export type { KdsView, KdsTicketCard, KdsTicketItem, KdsCompletedTicket } from './queries/get-kds-view';
+export { getKdsAllTickets } from './queries/get-kds-all-tickets';
+export type { KdsAllTicketsView } from './queries/get-kds-all-tickets';
 export { getExpoView } from './queries/get-expo-view';
 export type { ExpoView, ExpoTicketCard, ExpoTicketItem } from './queries/get-expo-view';
 export { getExpoHistory } from './queries/get-expo-history';

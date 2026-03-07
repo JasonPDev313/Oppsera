@@ -16,7 +16,7 @@ export async function deleteCustomerPreference(ctx: RequestContext, input: Delet
 
     // Delete it
     await (tx as any).delete(customerPreferences)
-      .where(eq(customerPreferences.id, input.preferenceId));
+      .where(and(eq(customerPreferences.id, input.preferenceId), eq(customerPreferences.tenantId, ctx.tenantId)));
 
     return existing!;
   });

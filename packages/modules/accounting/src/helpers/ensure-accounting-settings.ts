@@ -35,16 +35,20 @@ const ACCOUNT_WIRING: Array<{
 ];
 
 /**
- * The GL Suspense account is the ultimate catch-all. When no well-known accounts
- * exist (e.g., tenant imported a COA without standard account numbers), this
- * account is auto-created to guarantee the POS adapter can ALWAYS post GL entries.
+ * Class-specific suspense accounts. Each account class gets its own suspense
+ * account so that fallback postings never cross account classes (e.g., a
+ * revenue fallback never lands in an expense account).
  *
- * Account type is 'expense' — validateJournal rejects 'asset' and 'revenue' types
- * for rounding accounts, so expense is the safe choice. Accountant reviews and
- * journals amounts out to proper accounts later.
+ * Critical control-account mappings (tax payable, gift card liability, AR control,
+ * bank/cash) are NOT auto-wired to suspense — they fail loud so the tenant must
+ * configure them explicitly. Adapters log to gl_unmapped_events and skip.
  */
-const SUSPENSE_ACCOUNT_NUMBER = '99999';
-const SUSPENSE_ACCOUNT_NAME = 'GL Suspense – Unmapped Transactions';
+const SUSPENSE_ACCOUNTS = [
+  { number: '99991', name: 'GL Suspense – Asset', type: 'asset' as const, normalBalance: 'debit' as const },
+  { number: '99992', name: 'GL Suspense – Liability', type: 'liability' as const, normalBalance: 'credit' as const },
+  { number: '99993', name: 'GL Suspense – Revenue', type: 'revenue' as const, normalBalance: 'credit' as const },
+  { number: '99999', name: 'GL Suspense – Expense', type: 'expense' as const, normalBalance: 'debit' as const },
+] as const;
 
 /**
  * Ensure an accounting_settings row exists for a tenant, AND that a
@@ -145,22 +149,26 @@ export async function ensureAccountingSettings(
     (current.defaultRoundingAccountId as string | null);
 
   if (!uncatId || !undepId || !roundingId) {
-    const suspenseId = await ensureSuspenseAccount(tx, tenantId);
-    if (suspenseId) {
-      if (!uncatId) {
-        updates['defaultUncategorizedRevenueAccountId'] = suspenseId;
+    // Create class-specific suspense accounts and wire to correct classes.
+    // Critical mappings (tax payable, gift card liability, AR control) are
+    // intentionally NOT auto-wired — they fail loud so the tenant must configure them.
+    const suspenseMap = await ensureSuspenseAccounts(tx, tenantId);
+
+    if (suspenseMap) {
+      // Revenue class → revenue suspense
+      if (!uncatId && suspenseMap.revenue) {
+        updates['defaultUncategorizedRevenueAccountId'] = suspenseMap.revenue;
       }
-      if (!undepId) {
-        updates['defaultUndepositedFundsAccountId'] = suspenseId;
+      // Asset class → asset suspense (undeposited funds is an asset)
+      if (!undepId && suspenseMap.asset) {
+        updates['defaultUndepositedFundsAccountId'] = suspenseMap.asset;
       }
-      // Also wire tax payable fallback if missing
-      if (!taxPayableId) {
-        updates['defaultSalesTaxPayableAccountId'] = suspenseId;
+      // Expense class → expense suspense (rounding adjustments)
+      if (!roundingId && suspenseMap.expense) {
+        updates['defaultRoundingAccountId'] = suspenseMap.expense;
       }
-      // Wire rounding account so the pre-posting balance guard always works
-      if (!roundingId) {
-        updates['defaultRoundingAccountId'] = suspenseId;
-      }
+      // NOTE: taxPayableId is NOT auto-wired to suspense — fail loud.
+      // Tax liability must be explicitly mapped by the tenant.
     }
   }
 
@@ -211,76 +219,95 @@ async function ensureDefaultPaymentTypeMappings(
 }
 
 /**
- * Ensure the GL Suspense account (99999) exists for a tenant.
- * This is the ultimate catch-all — guarantees the POS adapter always has
- * somewhere to post, even with zero GL mappings configured.
+ * Ensure class-specific GL Suspense accounts exist for a tenant.
+ * Returns a map of account class → account ID.
  *
- * Returns the account ID (existing or newly created).
+ * Each suspense account matches its natural class so fallback postings
+ * never cross account boundaries. The old single-account 99999 is
+ * retained as the expense suspense for backwards compatibility.
  */
-async function ensureSuspenseAccount(
+async function ensureSuspenseAccounts(
   tx: Database,
   tenantId: string,
-): Promise<string | null> {
-  // Check if it already exists
-  const [existing] = await tx
-    .select({ id: glAccounts.id })
+): Promise<Record<string, string> | null> {
+  const suspenseNumbers = SUSPENSE_ACCOUNTS.map((s) => s.number);
+
+  // Check which already exist
+  const existing = await tx
+    .select({
+      id: glAccounts.id,
+      accountNumber: glAccounts.accountNumber,
+      accountType: glAccounts.accountType,
+    })
     .from(glAccounts)
     .where(
       and(
         eq(glAccounts.tenantId, tenantId),
-        eq(glAccounts.accountNumber, SUSPENSE_ACCOUNT_NUMBER),
+        inArray(glAccounts.accountNumber, suspenseNumbers),
       ),
-    )
-    .limit(1);
+    );
 
-  if (existing) {
-    // Fix legacy suspense accounts created as 'asset' type — validateJournal
-    // rejects asset-type accounts for rounding. Update to 'expense' if needed.
+  const numberToId = new Map(existing.map((a) => [a.accountNumber, a.id]));
+  const numberToType = new Map(existing.map((a) => [a.accountNumber, a.accountType]));
+
+  // Fix legacy 99999 accounts created as 'asset' type
+  const legacyId = numberToId.get('99999');
+  if (legacyId && numberToType.get('99999') === 'asset') {
     try {
       await tx.execute(sql`
         UPDATE gl_accounts
         SET account_type = 'expense', updated_at = NOW()
-        WHERE id = ${existing.id}
-          AND account_type = 'asset'
-          AND account_number = ${SUSPENSE_ACCOUNT_NUMBER}
+        WHERE id = ${legacyId} AND account_type = 'asset'
       `);
-    } catch { /* non-critical — existing type may already be expense */ }
-    return existing.id;
+    } catch { /* non-critical */ }
   }
 
-  // Auto-create the suspense account
-  try {
-    const id = generateUlid();
-    await tx.insert(glAccounts).values({
-      id,
-      tenantId,
-      accountNumber: SUSPENSE_ACCOUNT_NUMBER,
-      name: SUSPENSE_ACCOUNT_NAME,
-      accountType: 'expense',
-      normalBalance: 'debit',
-      isActive: true,
-      isControlAccount: false,
-      allowManualPosting: true,
-      description:
-        'Auto-created catch-all account for unmapped GL transactions. ' +
-        'Review and journal entries out to proper accounts.',
-    });
-    console.info(
-      `[ensure-accounting] Auto-created GL Suspense account (${SUSPENSE_ACCOUNT_NUMBER}) for tenant=${tenantId}`,
-    );
-    return id;
-  } catch {
-    // ON CONFLICT or other DB error — try to read it (race condition)
-    const [retryRow] = await tx
-      .select({ id: glAccounts.id })
-      .from(glAccounts)
-      .where(
-        and(
-          eq(glAccounts.tenantId, tenantId),
-          eq(glAccounts.accountNumber, SUSPENSE_ACCOUNT_NUMBER),
-        ),
-      )
-      .limit(1);
-    return retryRow?.id ?? null;
+  // Create any missing suspense accounts
+  for (const spec of SUSPENSE_ACCOUNTS) {
+    if (numberToId.has(spec.number)) continue;
+
+    try {
+      const id = generateUlid();
+      await tx.insert(glAccounts).values({
+        id,
+        tenantId,
+        accountNumber: spec.number,
+        name: spec.name,
+        accountType: spec.type,
+        normalBalance: spec.normalBalance,
+        isActive: true,
+        isControlAccount: false,
+        allowManualPosting: true,
+        description:
+          `Auto-created ${spec.type} suspense account for unmapped GL transactions. ` +
+          'Review and journal entries out to proper accounts.',
+      });
+      numberToId.set(spec.number, id);
+      console.info(
+        `[ensure-accounting] Auto-created ${spec.name} (${spec.number}) for tenant=${tenantId}`,
+      );
+    } catch {
+      // ON CONFLICT or race condition — try to read it
+      const [retryRow] = await tx
+        .select({ id: glAccounts.id })
+        .from(glAccounts)
+        .where(
+          and(
+            eq(glAccounts.tenantId, tenantId),
+            eq(glAccounts.accountNumber, spec.number),
+          ),
+        )
+        .limit(1);
+      if (retryRow) numberToId.set(spec.number, retryRow.id);
+    }
   }
+
+  // Build class → ID map
+  const result: Record<string, string> = {};
+  for (const spec of SUSPENSE_ACCOUNTS) {
+    const id = numberToId.get(spec.number);
+    if (id) result[spec.type] = id;
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
 }

@@ -15,7 +15,7 @@ export const GET = withMiddleware(
       tenantId: ctx.tenantId,
       stationId,
       locationId: ctx.locationId ?? url.searchParams.get('locationId') ?? '',
-      businessDate: url.searchParams.get('businessDate') || new Date().toISOString().slice(0, 10),
+      businessDate: url.searchParams.get('businessDate') || new Date().toISOString().slice(0, 10), // UTC fallback — client should always send businessDate
     });
 
     return NextResponse.json({ data: view });

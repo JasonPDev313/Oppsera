@@ -30,10 +30,10 @@ export async function removeLineItem(ctx: RequestContext, orderId: string, input
     }
 
     // Delete tax rows for this line
-    await tx.delete(orderLineTaxes).where(eq(orderLineTaxes.orderLineId, input.lineItemId));
+    await tx.delete(orderLineTaxes).where(and(eq(orderLineTaxes.orderLineId, input.lineItemId), eq(orderLineTaxes.tenantId, ctx.tenantId)));
 
     // Delete the line
-    await tx.delete(orderLines).where(eq(orderLines.id, input.lineItemId));
+    await tx.delete(orderLines).where(and(eq(orderLines.id, input.lineItemId), eq(orderLines.tenantId, ctx.tenantId)));
 
     // Recalculate totals
     const [allLines, allCharges, allDiscounts] = await Promise.all([

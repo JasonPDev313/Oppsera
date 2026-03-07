@@ -136,7 +136,7 @@ describe('generateJournalEntry', () => {
       expect(debitEntry!.debit).toBe(1200);
 
       // Tips Payable credit
-      const tipEntry = entries.find(e => e.accountCode === '2150');
+      const tipEntry = entries.find(e => e.accountCode === '2160');
       expect(tipEntry).toBeDefined();
       expect(tipEntry!.credit).toBe(200);
     });

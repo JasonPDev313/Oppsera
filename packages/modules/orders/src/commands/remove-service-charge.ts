@@ -28,7 +28,7 @@ export async function removeServiceCharge(ctx: RequestContext, orderId: string, 
       throw new NotFoundError('Service charge', input.chargeId);
     }
 
-    await tx.delete(orderCharges).where(eq(orderCharges.id, input.chargeId));
+    await tx.delete(orderCharges).where(and(eq(orderCharges.id, input.chargeId), eq(orderCharges.tenantId, ctx.tenantId)));
 
     // Recalculate totals
     const [allLines, allCharges, allDiscounts] = await Promise.all([

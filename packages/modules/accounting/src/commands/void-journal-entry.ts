@@ -6,6 +6,8 @@ import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idem
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glJournalEntries, glJournalLines } from '@oppsera/db';
 import { generateUlid, NotFoundError, AppError } from '@oppsera/shared';
+import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { PeriodLockedError } from '../errors';
 import { generateJournalNumber } from '../helpers/generate-journal-number';
 import { ACCOUNTING_EVENTS } from '../events/types';
 
@@ -42,6 +44,14 @@ export async function voidJournalEntry(
         `Cannot void journal entry with status '${entry.status}'. Only posted entries can be voided.`,
         409,
       );
+    }
+
+    // 1b. Locked-period check — cannot void entries in closed periods
+    if (entry.postingPeriod) {
+      const settings = await getAccountingSettings(tx, ctx.tenantId);
+      if (settings?.lockPeriodThrough && entry.postingPeriod <= settings.lockPeriodThrough) {
+        throw new PeriodLockedError(entry.postingPeriod);
+      }
     }
 
     // 2. Load original lines

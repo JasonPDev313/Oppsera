@@ -33,7 +33,7 @@ export const MODULE_TABLES = [
 import './events/contracts';
 
 // Commands
-export { recordTender, reverseTender, adjustTip } from './commands';
+export { recordTender, reverseTender, confirmTenderReversal, failTenderReversal, adjustTip } from './commands';
 export { purchaseVoucher, redeemVoucher, expireVouchers } from './commands';
 export { recordChargeback, resolveChargeback } from './commands';
 export { authorizePayment, capturePayment, salePayment, voidPayment, refundPayment } from './commands';

@@ -17,7 +17,7 @@ export async function deleteCustomerFile(ctx: RequestContext, input: DeleteCusto
 
     // Delete the document record
     await (tx as any).delete(customerDocuments)
-      .where(eq(customerDocuments.id, input.documentId));
+      .where(and(eq(customerDocuments.id, input.documentId), eq(customerDocuments.tenantId, ctx.tenantId)));
 
     // Activity log
     await (tx as any).insert(customerActivityLog).values({

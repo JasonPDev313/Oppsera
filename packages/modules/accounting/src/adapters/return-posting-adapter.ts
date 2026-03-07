@@ -2,6 +2,7 @@ import type { EventEnvelope } from '@oppsera/shared';
 import { db } from '@oppsera/db';
 import {
   resolveSubDepartmentAccounts,
+  resolvePaymentTypeAccounts,
   logUnmappedEvent,
 } from '../helpers/resolve-mapping';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
@@ -33,6 +34,8 @@ interface OrderReturnedPayload {
   businessDate: string;
   customerId: string | null;
   returnTotal: number; // positive cents — total refund value
+  refundMethod: string | null; // optional — enables correct payment account resolution
+  originalTenderId: string | null; // optional — links return to original tender for account lookup
   lines: ReturnLine[];
 }
 
@@ -278,7 +281,19 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
       0,
     );
     const refundDollars = (actualDebitCents / 100).toFixed(2);
-    const refundAccountId = settings.defaultUndepositedFundsAccountId;
+
+    // Resolve refund account: prefer payment type mapping from the original tender's
+    // payment method, fall back to undeposited funds
+    let refundAccountId: string | null = null;
+    if (data.refundMethod) {
+      try {
+        const paymentAccounts = await resolvePaymentTypeAccounts(db, event.tenantId, data.refundMethod);
+        refundAccountId = paymentAccounts?.depositAccountId ?? paymentAccounts?.clearingAccountId ?? null;
+      } catch { /* best-effort */ }
+    }
+    if (!refundAccountId) {
+      refundAccountId = settings.defaultUndepositedFundsAccountId;
+    }
 
     if (refundAccountId && glLines.length > 0) {
       glLines.push({

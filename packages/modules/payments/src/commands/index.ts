@@ -1,5 +1,5 @@
 export { recordTender } from './record-tender';
-export { reverseTender } from './reverse-tender';
+export { reverseTender, confirmTenderReversal, failTenderReversal } from './reverse-tender';
 export { adjustTip } from './adjust-tip';
 export { purchaseVoucher } from './purchase-voucher';
 export { redeemVoucher } from './redeem-voucher';

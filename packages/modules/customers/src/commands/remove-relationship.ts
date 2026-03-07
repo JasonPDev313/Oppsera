@@ -17,7 +17,7 @@ export async function removeCustomerRelationship(ctx: RequestContext, input: Rem
 
     // Delete the relationship
     await (tx as any).delete(customerRelationships)
-      .where(eq(customerRelationships.id, input.relationshipId));
+      .where(and(eq(customerRelationships.id, input.relationshipId), eq(customerRelationships.tenantId, ctx.tenantId)));
 
     // Activity log for the parent customer
     await (tx as any).insert(customerActivityLog).values({

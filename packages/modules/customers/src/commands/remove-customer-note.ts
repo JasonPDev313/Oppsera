@@ -16,7 +16,7 @@ export async function removeCustomerNote(ctx: RequestContext, input: RemoveCusto
 
     // Delete the note
     await (tx as any).delete(customerNotes)
-      .where(eq(customerNotes.id, input.noteId));
+      .where(and(eq(customerNotes.id, input.noteId), eq(customerNotes.tenantId, ctx.tenantId)));
 
     // Activity log
     await (tx as any).insert(customerActivityLog).values({

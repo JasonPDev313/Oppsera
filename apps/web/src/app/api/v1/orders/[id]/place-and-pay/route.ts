@@ -35,6 +35,17 @@ export const POST = withMiddleware(
     const body = await request.json();
     const tenderType = body.tenderType as string | undefined;
 
+    // Validate tender schema BEFORE any gateway/external calls.
+    // This ensures invalid input never triggers a real payment charge.
+    body.employeeId = body.employeeId || ctx.user.id;
+    const tenderParsed = recordTenderSchema.safeParse(body);
+    if (!tenderParsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Validation failed', details: tenderParsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })) } },
+        { status: 400 },
+      );
+    }
+
     // Card-on-file: resolve paymentMethodId → stored token before gateway call
     if (tenderType === 'card' && body.paymentMethodId && !body.token && !body.paymentIntentId) {
       const methods = await listPaymentMethods(ctx.tenantId, body.customerId);
@@ -82,29 +93,15 @@ export const POST = withMiddleware(
         );
       }
 
-      // Enrich tender metadata with gateway details
-      body.metadata = {
+      // Enrich validated tender metadata with gateway details
+      tenderParsed.data.metadata = {
+        ...(tenderParsed.data.metadata ?? {}),
         ...(body.metadata ?? {}),
         paymentIntentId: gatewayResult.id,
         providerRef: gatewayResult.providerRef,
         cardLast4: gatewayResult.cardLast4,
         cardBrand: gatewayResult.cardBrand,
       };
-
-      // Remove card token fields before passing to recordTender
-      delete body.token;
-      delete body.paymentMethodId;
-      delete body.customerId;
-    }
-
-    // Parse tender data
-    body.employeeId = body.employeeId || ctx.user.id;
-    const tenderParsed = recordTenderSchema.safeParse(body);
-    if (!tenderParsed.success) {
-      return NextResponse.json(
-        { error: { code: 'VALIDATION_ERROR', message: 'Validation failed', details: tenderParsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })) } },
-        { status: 400 },
-      );
     }
 
     const placeBody = { clientRequestId: body.placeClientRequestId ?? crypto.randomUUID() };

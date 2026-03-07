@@ -44,6 +44,11 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
     try { await ensureAccountingSettings(db, event.tenantId); } catch { /* non-fatal */ }
 
     const settings = await getAccountingSettings(db, event.tenantId);
+
+    // Skip new GL posting when legacy GL is still active — the inline path in
+    // reverse-tender already wrote to paymentJournalEntries.
+    if (settings?.enableLegacyGlPosting) return;
+
     if (!settings) {
       try {
         await logUnmappedEvent(db, event.tenantId, {
@@ -61,7 +66,8 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
 
     // Try to look up the original tender GL entry and reverse its specific accounts
     // instead of posting a generic Dr UncategorizedRevenue / Cr Payment entry
-    const origSourceRef = `tender-${data.originalTenderId}`;
+    // POS adapter posts with sourceReferenceId = raw tenderId (no prefix)
+    const origSourceRef = data.originalTenderId;
     const origEntries = await db
       .select({ id: glJournalEntries.id })
       .from(glJournalEntries)
@@ -97,14 +103,30 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
         .where(eq(glJournalLines.journalEntryId, origEntries[0]!.id));
 
       if (origLines.length > 0) {
-        const reversalLines = origLines.map((line) => ({
-          accountId: line.accountId,
-          debitAmount: String(Number(line.creditAmount ?? 0).toFixed(2)),
-          creditAmount: String(Number(line.debitAmount ?? 0).toFixed(2)),
-          locationId: line.locationId ?? undefined,
-          customerId: line.customerId ?? undefined,
-          memo: `Reversal of tender ${data.originalTenderId}`,
-        }));
+        // Calculate proration ratio for partial reversals.
+        // Original total = sum of all debit amounts on the original entry.
+        const origTotalDollars = origLines.reduce(
+          (sum, l) => sum + Number(l.debitAmount ?? 0) + Number(l.creditAmount ?? 0),
+          0,
+        ) / 2; // total debits == total credits in a balanced entry
+        const reversalDollars = Number(amountDollars);
+        const ratio = origTotalDollars > 0
+          ? Math.min(reversalDollars / origTotalDollars, 1)
+          : 1;
+        const isPartial = ratio < 1;
+
+        const reversalLines = origLines.map((line) => {
+          const origDebit = Number(line.creditAmount ?? 0); // swap
+          const origCredit = Number(line.debitAmount ?? 0); // swap
+          return {
+            accountId: line.accountId,
+            debitAmount: String((origDebit * ratio).toFixed(2)),
+            creditAmount: String((origCredit * ratio).toFixed(2)),
+            locationId: line.locationId ?? undefined,
+            customerId: line.customerId ?? undefined,
+            memo: `${isPartial ? 'Partial reversal' : 'Reversal'} of tender ${data.originalTenderId}`,
+          };
+        });
 
         await postingApi.postEntry(ctx, {
           businessDate: new Date().toISOString().split('T')[0]!,
@@ -132,8 +154,8 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
     } catch { /* best-effort */ }
 
     if (!paymentAccountId) {
-      paymentAccountId = settings.defaultUndepositedFundsAccountId
-        ?? settings.defaultUncategorizedRevenueAccountId;
+      // Payment account must stay within asset class — never fall back to revenue
+      paymentAccountId = settings.defaultUndepositedFundsAccountId ?? null;
     }
 
     if (!revenueAccountId || !paymentAccountId) {
@@ -214,6 +236,11 @@ export async function handleTipAdjustedForAccounting(event: EventEnvelope): Prom
     try { await ensureAccountingSettings(db, event.tenantId); } catch { /* non-fatal */ }
 
     const settings = await getAccountingSettings(db, event.tenantId);
+
+    // Skip new GL posting when legacy GL is still active — the inline path in
+    // adjust-tip already wrote to paymentJournalEntries.
+    if (settings?.enableLegacyGlPosting) return;
+
     if (!settings) {
       try {
         await logUnmappedEvent(db, event.tenantId, {
@@ -230,8 +257,8 @@ export async function handleTipAdjustedForAccounting(event: EventEnvelope): Prom
     }
 
     const tipsPayableAccountId = settings.defaultTipsPayableAccountId;
-    const cashAccountId = settings.defaultUndepositedFundsAccountId
-      ?? settings.defaultUncategorizedRevenueAccountId;
+    // Cash/payment account must stay within asset class — never fall back to revenue
+    const cashAccountId = settings.defaultUndepositedFundsAccountId;
 
     if (!tipsPayableAccountId || !cashAccountId) {
       try {
@@ -260,7 +287,9 @@ export async function handleTipAdjustedForAccounting(event: EventEnvelope): Prom
       {
         businessDate: new Date().toISOString().split('T')[0]!,
         sourceModule: 'payments',
-        sourceReferenceId: `tip-adjust-${data.tenderId}-${event.eventId}`,
+        // Use deterministic sourceReferenceId — event.eventId changes on retry (outbox re-dispatch)
+        // which would create duplicate GL entries. The tip amounts are stable and unique per adjustment.
+        sourceReferenceId: `tip-adjust-${data.tenderId}-${data.previousTipAmount}-${data.newTipAmount}`,
         memo: `Tip ${isIncrease ? 'increase' : 'decrease'}: $${absDollars} on tender ${data.tenderId}`,
         lines: isIncrease
           ? [

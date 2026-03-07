@@ -15,7 +15,7 @@ export async function removeCustomerEmail(ctx: RequestContext, input: RemoveCust
       .limit(1);
     if (!emailRow) throw new NotFoundError('CustomerEmail', input.emailId);
 
-    await (tx as any).delete(customerEmails).where(eq(customerEmails.id, input.emailId));
+    await (tx as any).delete(customerEmails).where(and(eq(customerEmails.id, input.emailId), eq(customerEmails.tenantId, ctx.tenantId)));
 
     // Activity log
     await (tx as any).insert(customerActivityLog).values({

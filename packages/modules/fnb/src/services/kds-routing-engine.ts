@@ -34,6 +34,7 @@ export interface RoutingContext {
   locationId: string;
   orderType?: string;  // dine_in | takeout | delivery | bar
   channel?: string;    // pos | online | kiosk | third_party
+  timezone?: string;   // IANA timezone (e.g. 'America/New_York') for time-window routing
 }
 
 export interface RoutableItem {
@@ -81,9 +82,17 @@ interface StationMeta {
 
 // ── Condition Helpers ───────────────────────────────────────────
 
-/** Returns current time as "HH:MM" string. */
-function getCurrentTimeHHMM(): string {
+/** Returns current time as "HH:MM" string in the given IANA timezone. */
+function getCurrentTimeHHMM(timezone?: string): string {
   const now = new Date();
+  if (timezone) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(now);
+    const hh = parts.find((p) => p.type === 'hour')?.value ?? '00';
+    const mm = parts.find((p) => p.type === 'minute')?.value ?? '00';
+    return `${hh}:${mm}`;
+  }
   const hh = String(now.getHours()).padStart(2, '0');
   const mm = String(now.getMinutes()).padStart(2, '0');
   return `${hh}:${mm}`;
@@ -104,9 +113,9 @@ function ruleMatchesConditions(rule: RoutingRule, context: RoutingContext): bool
       return false;
     }
   }
-  // Time window condition
+  // Time window condition (uses venue timezone when available)
   if (rule.timeConditionStart && rule.timeConditionEnd) {
-    const now = getCurrentTimeHHMM();
+    const now = getCurrentTimeHHMM(context.timezone);
     const start = rule.timeConditionStart;
     const end = rule.timeConditionEnd;
     // Handle overnight ranges (e.g. 22:00 – 06:00)
@@ -123,11 +132,13 @@ function ruleMatchesConditions(rule: RoutingRule, context: RoutingContext): bool
 /** Check if a station accepts the given order type and channel. */
 function stationAcceptsOrder(station: StationMeta, context: RoutingContext): boolean {
   if (station.pauseReceiving) return false;
-  if (station.allowedOrderTypes.length > 0 && context.orderType) {
-    if (!station.allowedOrderTypes.includes(context.orderType)) return false;
+  // If station restricts order types, reject when context is missing or doesn't match
+  if (station.allowedOrderTypes.length > 0) {
+    if (!context.orderType || !station.allowedOrderTypes.includes(context.orderType)) return false;
   }
-  if (station.allowedChannels.length > 0 && context.channel) {
-    if (!station.allowedChannels.includes(context.channel)) return false;
+  // If station restricts channels, reject when context is missing or doesn't match
+  if (station.allowedChannels.length > 0) {
+    if (!context.channel || !station.allowedChannels.includes(context.channel)) return false;
   }
   return true;
 }
@@ -318,6 +329,24 @@ export async function resolveStationRouting(
   if (items.length === 0) return [];
 
   return withTenant(context.tenantId, async (tx) => {
+    // Auto-fetch venue timezone for time-window routing when not provided.
+    // Runs inside the existing withTenant to avoid an extra connection checkout.
+    if (!context.timezone) {
+      try {
+        const tzRows = await tx.execute(
+          sql`SELECT timezone FROM locations
+              WHERE id = ${context.locationId} AND tenant_id = ${context.tenantId}
+              LIMIT 1`,
+        );
+        const tz = Array.from(tzRows as Iterable<Record<string, unknown>>)[0];
+        if (tz?.timezone) {
+          context = { ...context, timezone: tz.timezone as string };
+        }
+      } catch {
+        // Non-critical — falls back to server clock timezone
+      }
+    }
+
     // Fetch all active routing rules for this tenant+location, ordered by
     // priority descending so the highest-priority rule comes first in each
     // rule type group.

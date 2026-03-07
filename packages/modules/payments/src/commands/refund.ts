@@ -3,7 +3,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
-import { paymentIntents, paymentTransactions } from '@oppsera/db';
+import { paymentIntents, paymentTransactions, tenders, tenderReversals } from '@oppsera/db';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import type { RefundPaymentInput } from '../gateway-validation';
 import type { PaymentIntentResult } from '../types/gateway-results';
@@ -114,6 +114,45 @@ export async function refundPayment(
         `Refund amount ${refundAmountCents} exceeds remaining refundable amount ${captured - alreadyRefunded}`,
         400,
       );
+    }
+
+    // 4b. Cross-check: prevent double-refund if tender reversals already exist for this payment intent.
+    // A card payment can be refunded via both tender reversal (POS flow) and direct refundPayment (API flow).
+    // Without this guard, the same money could be refunded twice at the gateway level.
+    const [linkedTender] = await tx
+      .select({ id: tenders.id, amount: tenders.amount })
+      .from(tenders)
+      .where(
+        and(
+          eq(tenders.tenantId, ctx.tenantId),
+          eq(tenders.paymentIntentId, input.paymentIntentId),
+        ),
+      )
+      .limit(1);
+
+    if (linkedTender) {
+      const existingReversals = await tx
+        .select({ amount: tenderReversals.amount, status: tenderReversals.status })
+        .from(tenderReversals)
+        .where(
+          and(
+            eq(tenderReversals.tenantId, ctx.tenantId),
+            eq(tenderReversals.originalTenderId, linkedTender.id),
+          ),
+        );
+
+      const reversedCents = existingReversals
+        .filter((r) => r.status !== 'refund_failed')
+        .reduce((sum, r) => sum + r.amount, 0);
+
+      if (reversedCents + refundAmountCents > linkedTender.amount) {
+        throw new AppError(
+          'OVER_REFUND',
+          `This payment already has ${reversedCents} cents reversed via tender reversals. ` +
+          `Adding ${refundAmountCents} cents would exceed the original ${linkedTender.amount} cent payment.`,
+          409,
+        );
+      }
     }
 
     // 5. Get latest provider ref

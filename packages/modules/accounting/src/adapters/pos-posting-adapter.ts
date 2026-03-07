@@ -101,7 +101,7 @@ interface GlLine {
  *   - Missing sub-department → defaultUncategorizedRevenueAccountId
  *   - Missing tax group → defaultSalesTaxPayableAccountId
  *   - Missing service charge account → defaultUncategorizedRevenueAccountId
- *   - Missing tips payable account → defaultUncategorizedRevenueAccountId
+ *   - Missing tips payable account → skipped + logged (liability class, no cross-class fallback)
  * Unmapped events are ALWAYS logged regardless of whether a fallback was used.
  *
  * NEVER blocks tenders — all failures are logged and swallowed.
@@ -138,6 +138,11 @@ async function handleTenderForAccountingInner(
   // Check if accounting is enabled for this tenant — auto-create if missing,
   // or auto-wire critical fallback accounts if they're null.
   let settings = await getAccountingSettings(db, tenantId);
+
+  // Skip new GL posting when legacy GL is still active — the inline path in
+  // record-tender already wrote to paymentJournalEntries. Running both would
+  // create duplicate GL entries across the two ledgers.
+  if (settings?.enableLegacyGlPosting) return;
 
   const needsEnsure = !settings
     || !settings.defaultRoundingAccountId
@@ -622,10 +627,9 @@ async function handleTenderForAccountingInner(
   }
 
   // ── 5. CREDIT: Tips payable (per-tender, not proportional) ─────
+  // Liability class — never fall back to revenue
   if (tipAmount > 0) {
-    const tipAccountId = settings.defaultTipsPayableAccountId
-      ?? settings.defaultUncategorizedRevenueAccountId
-      ?? null;
+    const tipAccountId = settings.defaultTipsPayableAccountId ?? null;
     if (tipAccountId) {
       glLines.push({
         accountId: tipAccountId,
@@ -634,15 +638,10 @@ async function handleTenderForAccountingInner(
         locationId: data.locationId,
         terminalId: data.terminalId,
         channel: 'pos',
-        memo: settings.defaultTipsPayableAccountId
-          ? 'Tips payable'
-          : 'Tips payable (fallback: uncategorized)',
+        memo: 'Tips payable',
       });
-      if (!settings.defaultTipsPayableAccountId) {
-        missingMappings.push('tips_payable_account:missing');
-      }
     } else {
-      missingMappings.push('tips_payable_account_null:no_fallback_available');
+      missingMappings.push('tips_payable_account:missing');
     }
   }
 

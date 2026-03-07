@@ -17,7 +17,7 @@ export async function removeServiceFlag(ctx: RequestContext, input: RemoveServic
 
     // Delete the flag
     await (tx as any).delete(customerServiceFlags)
-      .where(eq(customerServiceFlags.id, input.flagId));
+      .where(and(eq(customerServiceFlags.id, input.flagId), eq(customerServiceFlags.tenantId, ctx.tenantId)));
 
     // Activity log
     await (tx as any).insert(customerActivityLog).values({

@@ -222,6 +222,10 @@ export async function createReturn(
       businessDate,
       customerId: originalOrder.customerId ?? null,
       returnTotal: -returnTotal, // positive amount representing refund value
+      // Optional payment linkage — allows return posting adapter to resolve
+      // the correct payment account instead of always crediting undeposited funds
+      refundMethod: input.refundMethod ?? null,
+      originalTenderId: input.originalTenderId ?? null,
       lines: returnLineDetails.map(rl => ({
         catalogItemId: rl.catalogItemId,
         catalogItemName: rl.catalogItemName,

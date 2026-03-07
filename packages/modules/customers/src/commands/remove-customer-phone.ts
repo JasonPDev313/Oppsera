@@ -14,7 +14,7 @@ export async function removeCustomerPhone(ctx: RequestContext, input: RemoveCust
       .limit(1);
     if (!phoneRow) throw new NotFoundError('CustomerPhone', input.phoneId);
 
-    await (tx as any).delete(customerPhones).where(eq(customerPhones.id, input.phoneId));
+    await (tx as any).delete(customerPhones).where(and(eq(customerPhones.id, input.phoneId), eq(customerPhones.tenantId, ctx.tenantId)));
 
     const event = buildEventFromContext(ctx, 'customer.phone.removed.v1', {
       customerId: phoneRow.customerId,

@@ -68,6 +68,19 @@ export async function createKitchenTicket(
 
   const prepTimeMap = await getStationPrepTimesForItems(ctx.tenantId, prepTimeLookups);
 
+  // Defense-in-depth: warn if a single ticket has items for multiple stations
+  const resolvedStationIds = new Set<string>();
+  for (const item of input.items) {
+    const sid = item.stationId ?? routingMap.get(item.orderLineId)?.stationId;
+    if (sid) resolvedStationIds.add(sid);
+  }
+  if (resolvedStationIds.size > 1) {
+    logger.warn('[kds] createKitchenTicket: ticket has items for multiple stations — callers should group by station', {
+      domain: 'kds', tenantId: ctx.tenantId, locationId: ctx.locationId,
+      stationIds: Array.from(resolvedStationIds), itemCount: input.items.length,
+    });
+  }
+
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'createKitchenTicket',

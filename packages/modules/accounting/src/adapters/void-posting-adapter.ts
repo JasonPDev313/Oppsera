@@ -1,6 +1,6 @@
 import { db } from '@oppsera/db';
-import { glJournalEntries } from '@oppsera/db';
-import { eq, and, sql } from 'drizzle-orm';
+import { glJournalEntries, tenders } from '@oppsera/db';
+import { eq, and, inArray } from 'drizzle-orm';
 import type { EventEnvelope } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
@@ -81,28 +81,27 @@ export async function handleOrderVoidForAccounting(event: EventEnvelope): Promis
   } as RequestContext;
 
   try {
-    // Find all posted GL entries for this order.
-    // POS adapter creates entries with sourceModule='pos' and memo exactly
-    // matching 'POS Sale - Order {orderId}'. Use exact memo match (deterministic)
-    // instead of LIKE pattern which is fragile against memo format changes.
-    // Only status='posted' entries are candidates — already voided entries are skipped.
-    const exactMemo = `POS Sale - Order ${data.orderId}`;
-    const postedEntries = await db
-      .select({ id: glJournalEntries.id })
-      .from(glJournalEntries)
+    // Find all posted GL entries for this order by structural relation:
+    // 1. Query tenders table for all tender IDs belonging to this order
+    // 2. Find GL entries where source_reference_id matches those tender IDs
+    // This is a reliable FK-style lookup, not dependent on memo format.
+    const orderTenders = await db
+      .select({ id: tenders.id })
+      .from(tenders)
       .where(
         and(
-          eq(glJournalEntries.tenantId, tenantId),
-          eq(glJournalEntries.sourceModule, 'pos'),
-          eq(glJournalEntries.status, 'posted'),
-          eq(glJournalEntries.memo, exactMemo),
+          eq(tenders.tenantId, tenantId),
+          eq(tenders.orderId, data.orderId),
         ),
       );
 
-    if (postedEntries.length === 0) {
-      // Fallback: try LIKE pattern for backward compatibility with GL entries
-      // posted before the memo format was standardized.
-      const fallbackEntries = await db
+    const tenderIds = orderTenders.map((t) => t.id);
+
+    let postedEntries: Array<{ id: string }> = [];
+
+    if (tenderIds.length > 0) {
+      // Find GL entries posted by POS adapter for these tenders
+      postedEntries = await db
         .select({ id: glJournalEntries.id })
         .from(glJournalEntries)
         .where(
@@ -110,45 +109,27 @@ export async function handleOrderVoidForAccounting(event: EventEnvelope): Promis
             eq(glJournalEntries.tenantId, tenantId),
             eq(glJournalEntries.sourceModule, 'pos'),
             eq(glJournalEntries.status, 'posted'),
-            sql`${glJournalEntries.memo} LIKE ${'%Order ' + data.orderId + '%'}`,
+            inArray(glJournalEntries.sourceReferenceId, tenderIds),
           ),
         );
+    }
 
-      if (fallbackEntries.length > 0) {
-        // Process fallback entries
-        for (const entry of fallbackEntries) {
-          try {
-            await voidJournalEntry(
-              ctx,
-              entry.id,
-              `Order voided: ${data.reason || 'No reason provided'}`,
-            );
-          } catch (error) {
-            console.error(`Failed to void GL entry ${entry.id} for order ${data.orderId}:`, error);
-            await logUnmappedEvent(db, tenantId, {
-              eventType: 'order.voided.v1',
-              sourceModule: 'pos',
-              sourceReferenceId: data.orderId,
-              entityType: 'void_gl_error',
-              entityId: entry.id,
-              reason: `GL void failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            });
-          }
-        }
-        return;
-      }
-
-      // No entries found by either method — log unmapped event for admin visibility
+    if (postedEntries.length === 0) {
+      // No GL entries found — log unmapped event for admin visibility
       if (data.total > 0) {
-        console.warn(`No GL entries found to void for order ${data.orderId} (total=${data.total})`);
-        await logUnmappedEvent(db, tenantId, {
-          eventType: 'order.voided.v1',
-          sourceModule: 'pos',
-          sourceReferenceId: data.orderId,
-          entityType: 'void_gl_missing',
-          entityId: data.orderId,
-          reason: `No posted GL entries found to void for order (total=${data.total}). POS adapter may have failed or been disabled.`,
-        });
+        console.warn(`No GL entries found to void for order ${data.orderId} (total=${data.total}, tenders=${tenderIds.length})`);
+        try {
+          await logUnmappedEvent(db, tenantId, {
+            eventType: 'order.voided.v1',
+            sourceModule: 'pos',
+            sourceReferenceId: data.orderId,
+            entityType: 'void_gl_missing',
+            entityId: data.orderId,
+            reason: `No posted GL entries found to void for order (total=${data.total}, tenders=${tenderIds.length}). POS adapter may have failed or been disabled.`,
+          });
+        } catch {
+          // never block void
+        }
       }
       return;
     }
@@ -164,14 +145,18 @@ export async function handleOrderVoidForAccounting(event: EventEnvelope): Promis
       } catch (error) {
         // Log individual void failures but continue processing others
         console.error(`Failed to void GL entry ${entry.id} for order ${data.orderId}:`, error);
-        await logUnmappedEvent(db, tenantId, {
-          eventType: 'order.voided.v1',
-          sourceModule: 'pos',
-          sourceReferenceId: data.orderId,
-          entityType: 'void_gl_error',
-          entityId: entry.id,
-          reason: `GL void failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        });
+        try {
+          await logUnmappedEvent(db, tenantId, {
+            eventType: 'order.voided.v1',
+            sourceModule: 'pos',
+            sourceReferenceId: data.orderId,
+            entityType: 'void_gl_error',
+            entityId: entry.id,
+            reason: `GL void failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          });
+        } catch {
+          // never block remaining voids
+        }
       }
     }
   } catch (error) {

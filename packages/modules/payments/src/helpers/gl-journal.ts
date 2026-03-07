@@ -110,7 +110,7 @@ export async function generateJournalEntry(
     // Tips (always exact -- no proration needed)
     if (tender.tipAmount > 0) {
       entries.push({
-        accountCode: '2150',
+        accountCode: '2160',
         accountName: 'Tips Payable',
         debit: 0,
         credit: tender.tipAmount,
@@ -183,7 +183,7 @@ export async function generateJournalEntry(
 
     if (tender.tipAmount > 0) {
       entries.push({
-        accountCode: '2150',
+        accountCode: '2160',
         accountName: 'Tips Payable',
         debit: 0,
         credit: tender.tipAmount,
@@ -292,7 +292,8 @@ function aggregatePreviousPostings(
       if (entry.credit > 0) {
         if (entry.accountCode === '2100') {
           tax += entry.credit;
-        } else if (entry.accountCode === '2150') {
+        } else if (entry.accountCode === '2160' || entry.accountCode === '2150') {
+          // Accept both old (2150) and new (2160) Tips Payable codes during transition
           tips += entry.credit;
         } else if (entry.accountCode === '4500') {
           serviceCharge += entry.credit;
