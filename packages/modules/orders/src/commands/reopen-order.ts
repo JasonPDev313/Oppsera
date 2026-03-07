@@ -9,6 +9,18 @@ import type { ReopenOrderInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
 
+/**
+ * Reopen a voided order (status recovery only).
+ *
+ * WARNING: This does NOT reverse side effects triggered by the original void:
+ * - Payment reversals (gateway voids, tender reversal records) remain
+ * - GL journal entry reversals remain posted
+ * - Inventory void_reversal movements remain
+ * - Register tab clearing is not restored
+ *
+ * Operators must manually re-capture payments, re-post GL entries, and
+ * adjust inventory if full reversal is needed.
+ */
 export async function reopenOrder(ctx: RequestContext, orderId: string, input: ReopenOrderInput) {
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);

@@ -10,10 +10,8 @@ import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 
 export async function updateOrder(ctx: RequestContext, orderId: string, input: UpdateOrderInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
-    if (input.clientRequestId) {
-      const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'updateOrder');
-      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
-    }
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'updateOrder');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
 
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
@@ -36,9 +34,7 @@ export async function updateOrder(ctx: RequestContext, orderId: string, input: U
     await tx.update(orders).set(updates).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
     await incrementVersion(tx, orderId, ctx.tenantId);
 
-    if (input.clientRequestId) {
-      await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'updateOrder', { orderId });
-    }
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'updateOrder', { orderId });
 
     const event = buildEventFromContext(ctx, 'order.updated.v1', {
       orderId,

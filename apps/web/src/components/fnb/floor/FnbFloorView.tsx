@@ -342,7 +342,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
     try {
       const tab = await openTabApi({
         serverUserId: userId,
-        businessDate: new Date().toISOString().slice(0, 10),
+        businessDate: new Date().toLocaleDateString('en-CA'),
         tableId: seatTargetTable.tableId,
         tabType: 'dine_in',
         partySize,

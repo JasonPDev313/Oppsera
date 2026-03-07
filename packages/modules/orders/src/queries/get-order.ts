@@ -103,6 +103,17 @@ export async function getOrder(tenantId: string, orderId: string): Promise<Order
         .where(inArray(orderLineTaxes.orderLineId, lineIds));
     }
 
+    // Group taxes by line ID once (O(taxes)) instead of filtering per line (O(lines × taxes))
+    const taxesByLineId = new Map<string, Array<{ taxName: string; rateDecimal: string; amount: number }>>();
+    for (const t of lineTaxes) {
+      let arr = taxesByLineId.get(t.orderLineId);
+      if (!arr) {
+        arr = [];
+        taxesByLineId.set(t.orderLineId, arr);
+      }
+      arr.push({ taxName: t.taxName, rateDecimal: t.rateDecimal, amount: t.amount });
+    }
+
     return {
       ...order,
       lines: lines.map((l) => ({
@@ -125,13 +136,7 @@ export async function getOrder(tenantId: string, orderId: string): Promise<Order
         packageComponents: l.packageComponents ?? null,
         notes: l.notes ?? null,
         sortOrder: l.sortOrder,
-        taxes: lineTaxes
-          .filter((t) => t.orderLineId === l.id)
-          .map((t) => ({
-            taxName: t.taxName,
-            rateDecimal: t.rateDecimal,
-            amount: t.amount,
-          })),
+        taxes: taxesByLineId.get(l.id) ?? [],
       })),
       charges: charges.map((c) => ({
         id: c.id,

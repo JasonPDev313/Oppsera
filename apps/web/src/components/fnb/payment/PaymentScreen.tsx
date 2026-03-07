@@ -55,7 +55,7 @@ interface PaymentScreenProps {
   tab: FnbTabDetail;
   check: CheckSummary;
   preauths: PreAuth[];
-  onTender: (type: TenderType, amountCents: number, tipCents: number) => Promise<TenderResult>;
+  onTender: (type: TenderType, amountCents: number, tipCents: number, cardToken?: string | null) => Promise<TenderResult>;
   onVoidLastTender: () => Promise<TenderResult>;
   onCapturePreAuth: (preauthId: string, captureAmountCents: number, tipCents: number) => Promise<void>;
   onVoidPreAuth: (preauthId: string) => Promise<void>;
@@ -112,6 +112,11 @@ export function PaymentScreen({
   const [errorSuggestedAction, setErrorSuggestedAction] = useState<string | null>(null);
   const [manualCardEntry, setManualCardEntry] = useState(false);
   const [cardToken, setCardToken] = useState<string | null>(null);
+  // Track locally-applied tender amounts so displayed remaining updates immediately
+  const [localPaidCents, setLocalPaidCents] = useState(0);
+
+  const effectiveRemainingCents = Math.max(0, check.remainingCents - localPaidCents);
+  const effectivePaidCents = check.paidCents + localPaidCents;
 
   const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
@@ -161,6 +166,8 @@ export function PaymentScreen({
         const tender: RecordedTender = { type: 'cash', amountCents, tipCents: 0 };
         setTenders((prev) => [...prev, tender]);
         setLastTenderAmount(amountCents);
+        // Cap local paid at remaining so overpay (cash change) doesn't go negative
+        setLocalPaidCents((prev) => prev + Math.min(amountCents, effectiveRemainingCents));
         setStep(result.isFullyPaid ? 'receipt' : 'partial_summary');
       } catch (err: unknown) {
         const e = err as Record<string, unknown> | Error;
@@ -175,7 +182,7 @@ export function PaymentScreen({
     } else {
       setStep('confirm');
     }
-  }, [skipConfirm, onTender]);
+  }, [skipConfirm, onTender, effectiveRemainingCents]);
 
   // ── Step: cash_keypad → confirm ───────────────────────────────
   const handleCashSubmit = useCallback((amountCents: number) => {
@@ -195,10 +202,10 @@ export function PaymentScreen({
   const handleTipSelect = useCallback(
     (tip: number) => {
       setPendingTip(tip);
-      setPendingAmount(check.remainingCents);
+      setPendingAmount(effectiveRemainingCents);
       setStep('confirm');
     },
-    [check.remainingCents],
+    [effectiveRemainingCents],
   );
 
   // ── Step: confirm → execute tender → receipt or partial_summary
@@ -207,7 +214,8 @@ export function PaymentScreen({
     setIsProcessing(true);
     setErrorMessage('');
     try {
-      const result = await onTender(selectedTender, pendingAmount, pendingTip);
+      const tokenForCard = selectedTender === 'card' ? cardToken : null;
+      const result = await onTender(selectedTender, pendingAmount, pendingTip, tokenForCard);
       const tender: RecordedTender = {
         type: selectedTender,
         amountCents: pendingAmount,
@@ -215,6 +223,9 @@ export function PaymentScreen({
       };
       setTenders((prev) => [...prev, tender]);
       setLastTenderAmount(pendingAmount);
+      setLocalPaidCents((prev) => prev + Math.min(pendingAmount, effectiveRemainingCents));
+      // Clear card token after successful use
+      if (tokenForCard) setCardToken(null);
 
       if (result.isFullyPaid) {
         setStep('receipt');
@@ -231,7 +242,7 @@ export function PaymentScreen({
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedTender, pendingAmount, pendingTip, onTender]);
+  }, [selectedTender, pendingAmount, pendingTip, onTender, effectiveRemainingCents]);
 
   // ── Step: confirm → cancel back to tender_select ──────────────
   const handleCancelConfirm = useCallback(() => {
@@ -253,6 +264,8 @@ export function PaymentScreen({
     setIsProcessing(true);
     try {
       await onVoidLastTender();
+      const voided = tenders[tenders.length - 1]!;
+      setLocalPaidCents((prev) => Math.max(0, prev - voided.amountCents));
       setTenders((prev) => prev.slice(0, -1));
       setStep('tender_select');
     } catch (err: unknown) {
@@ -477,7 +490,7 @@ export function PaymentScreen({
             style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}
           >
             <span style={{ color: 'var(--fnb-text-primary)' }}>
-              {check.paidCents > 0 ? 'Remaining' : 'Total'}
+              {effectivePaidCents > 0 ? 'Remaining' : 'Total'}
             </span>
             <span
               className="font-mono"
@@ -486,10 +499,10 @@ export function PaymentScreen({
                 fontFamily: 'var(--fnb-font-mono)',
               }}
             >
-              {formatMoney(check.remainingCents)}
+              {formatMoney(effectiveRemainingCents)}
             </span>
           </div>
-          {check.paidCents > 0 && (
+          {effectivePaidCents > 0 && (
             <div className="flex justify-between text-[10px] mt-0.5">
               <span style={{ color: 'var(--fnb-text-muted)' }}>Paid</span>
               <span
@@ -499,7 +512,7 @@ export function PaymentScreen({
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatMoney(check.paidCents)}
+                {formatMoney(effectivePaidCents)}
               </span>
             </div>
           )}
@@ -520,7 +533,7 @@ export function PaymentScreen({
                 className="text-[10px] font-bold uppercase mb-1"
                 style={{ color: 'var(--fnb-text-muted)' }}
               >
-                {check.paidCents > 0 ? 'Remaining Balance' : 'Total Due'}
+                {effectivePaidCents > 0 ? 'Remaining Balance' : 'Total Due'}
               </div>
               <div
                 className="font-mono font-black"
@@ -531,14 +544,14 @@ export function PaymentScreen({
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatMoney(check.remainingCents)}
+                {formatMoney(effectiveRemainingCents)}
               </div>
             </div>
 
             <TenderGrid
               onSelect={handleTenderSelect}
               onFastCash={handleFastCash}
-              totalCents={check.remainingCents}
+              totalCents={effectiveRemainingCents}
               disabled={disabled || isProcessing}
             />
 
@@ -608,7 +621,7 @@ export function PaymentScreen({
                 />
                 <PreAuthCapture
                   preauths={preauths}
-                  totalCents={check.remainingCents}
+                  totalCents={effectiveRemainingCents}
                   onCapture={handleCapturePreAuth}
                   onVoid={handleVoidPreAuth}
                   disabled={disabled || isProcessing}
@@ -739,7 +752,7 @@ export function PaymentScreen({
         {step === 'cash_keypad' && (
           <div className="w-full max-w-md">
             <CashKeypad
-              totalCents={check.remainingCents}
+              totalCents={effectiveRemainingCents}
               onSubmit={handleCashSubmit}
               onBack={() => setStep('tender_select')}
               disabled={disabled || isProcessing}
@@ -762,7 +775,7 @@ export function PaymentScreen({
         {step === 'gift_card_panel' && (
           <div className="w-full max-w-md">
             <GiftCardPanel
-              remainingCents={check.remainingCents}
+              remainingCents={effectiveRemainingCents}
               onTender={handleSpecialtyTender}
               disabled={disabled || isProcessing}
             />
@@ -773,7 +786,7 @@ export function PaymentScreen({
         {step === 'house_account_panel' && (
           <div className="w-full max-w-md">
             <HouseAccountPanel
-              remainingCents={check.remainingCents}
+              remainingCents={effectiveRemainingCents}
               onTender={handleSpecialtyTender}
               disabled={disabled || isProcessing}
             />
@@ -828,7 +841,7 @@ export function PaymentScreen({
                   </span>
                 </div>
               )}
-              {selectedTender === 'cash' && pendingAmount > check.remainingCents && (
+              {selectedTender === 'cash' && pendingAmount > effectiveRemainingCents && (
                 <div className="flex justify-between text-xs">
                   <span style={{ color: 'var(--fnb-status-available)' }}>Change Due</span>
                   <span
@@ -838,7 +851,7 @@ export function PaymentScreen({
                       fontFamily: 'var(--fnb-font-mono)',
                     }}
                   >
-                    {formatMoney(pendingAmount - check.remainingCents)}
+                    {formatMoney(pendingAmount - effectiveRemainingCents)}
                   </span>
                 </div>
               )}
@@ -919,7 +932,7 @@ export function PaymentScreen({
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatMoney(check.remainingCents)}
+                {formatMoney(effectiveRemainingCents)}
               </div>
             </div>
 

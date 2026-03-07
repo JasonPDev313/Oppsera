@@ -9,6 +9,14 @@ import type { CloneOrderInput } from '../validation';
 import { getNextOrderNumber } from '../helpers/order-number';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 
+/**
+ * Clone an order's line items into a new open order.
+ *
+ * Copies lines (with prices, taxes, modifiers) but intentionally zeroes
+ * service charges and discounts — these are contextual to the original
+ * transaction and must be re-applied manually on the new order.
+ * Total = subtotal + taxTotal (no charges/discounts).
+ */
 export async function cloneOrder(ctx: RequestContext, sourceOrderId: string, input: CloneOrderInput) {
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);

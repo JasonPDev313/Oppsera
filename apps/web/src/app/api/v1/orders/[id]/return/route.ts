@@ -31,11 +31,18 @@ export const POST = withMiddleware(
       const lineIds = parsed.data.returnLines.map((l) => l.originalLineId);
       const lines = await withTenant(ctx.tenantId, async (tx) => {
         return tx
-          .select({ id: orderLines.id, lineSubtotal: orderLines.lineSubtotal })
+          .select({ id: orderLines.id, qty: orderLines.qty, lineSubtotal: orderLines.lineSubtotal })
           .from(orderLines)
           .where(and(eq(orderLines.tenantId, ctx.tenantId), inArray(orderLines.id, lineIds)));
       });
-      const totalCents = lines.reduce((sum, l) => sum + l.lineSubtotal, 0);
+      // Calculate proportional refund exposure based on return qty, not full line subtotal
+      const totalCents = lines.reduce((sum, l) => {
+        const returnLine = parsed.data.returnLines.find((r) => r.originalLineId === l.id);
+        const returnQty = returnLine?.qty ?? 0;
+        const lineQty = Number(l.qty);
+        if (lineQty <= 0) return sum;
+        return sum + Math.round((l.lineSubtotal / lineQty) * returnQty);
+      }, 0);
       assertImpersonationCanRefund(ctx, totalCents);
     }
 

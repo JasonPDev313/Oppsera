@@ -151,3 +151,8 @@ export const OrderTaxExemptChangedDataSchema = z.object({
   taxExempt: z.boolean(),
   taxExemptReason: z.string().nullable().optional(),
 });
+
+export const OrderServiceChargeExemptChangedDataSchema = z.object({
+  orderId: z.string(),
+  serviceChargeExempt: z.boolean(),
+});

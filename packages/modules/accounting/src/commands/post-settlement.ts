@@ -10,6 +10,20 @@ import { NotFoundError } from '@oppsera/shared';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import type { PostSettlementInput } from '../validation';
 
+/**
+ * Post GL journal entry for a settlement (accounting module path).
+ *
+ * This is the LEGACY settlement posting path, kept for admin force-posting
+ * of unmatched settlements. For normal matched-settlement posting, prefer
+ * postSettlementGl() in the payments module — it uses 3-phase design that
+ * avoids Vercel connection pool exhaustion and calculates from line-level cents.
+ *
+ * Key differences from payments postSettlementGl():
+ * - Allows force-posting with unmatched lines (force=true)
+ * - Uses dollar amounts from settlement header (NUMERIC strings)
+ * - Runs inside publishWithOutbox (single transaction)
+ * - Has formal clientRequestId idempotency
+ */
 export async function postSettlement(
   ctx: RequestContext,
   input: PostSettlementInput,

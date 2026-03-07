@@ -18,7 +18,21 @@ export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const orderId = extractOrderId(request);
     const body = await request.json();
+
+    // Validate request body BEFORE any gateway calls to prevent
+    // external payment side effects on malformed requests
+    body.employeeId = body.employeeId || ctx.user.id;
     const tenderType = body.tenderType as string | undefined;
+
+    // For card tenders, we need to validate the non-gateway fields first.
+    // Build a preliminary body (without gateway metadata) to validate shape.
+    const parsed = recordTenderSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new ValidationError(
+        'Validation failed',
+        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+      );
+    }
 
     // Card tenders with token/paymentMethodId go through the gateway
     if (tenderType === 'card' && (body.token || body.paymentMethodId) && hasPaymentsGateway()) {
@@ -59,15 +73,15 @@ export const POST = withMiddleware(
       delete body.customerId;
     }
 
-    body.employeeId = body.employeeId || ctx.user.id;
-    const parsed = recordTenderSchema.safeParse(body);
-    if (!parsed.success) {
+    // Re-parse with gateway metadata merged in (for card tenders)
+    const finalParsed = recordTenderSchema.safeParse(body);
+    if (!finalParsed.success) {
       throw new ValidationError(
         'Validation failed',
-        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+        finalParsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
       );
     }
-    const result = await recordTender(ctx, orderId, parsed.data);
+    const result = await recordTender(ctx, orderId, finalParsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
   { entitlement: 'payments', permission: 'tenders.create' , writeAccess: true },

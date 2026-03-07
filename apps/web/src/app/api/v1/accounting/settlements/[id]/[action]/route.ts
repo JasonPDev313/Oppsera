@@ -51,13 +51,15 @@ export const POST = withMiddleware(
       }
       case 'post': {
         let force = false;
+        let clientRequestId: string | undefined;
         try {
           const body = await request.json();
           force = body.force === true;
+          clientRequestId = body.clientRequestId;
         } catch {
           // No body is fine — defaults to force=false
         }
-        const result = await postSettlement(ctx, { settlementId, force });
+        const result = await postSettlement(ctx, { settlementId, force, clientRequestId });
         return NextResponse.json({ data: result });
       }
       case 'void': {

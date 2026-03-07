@@ -28,9 +28,71 @@ export async function setServiceChargeExempt(
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
     if (input.serviceChargeExempt) {
-      // Remove all service charges when exempt
+      // Archive existing charges in order metadata before deleting,
+      // so they can be restored if exempt is later set back to false
+      const existingCharges = await tx
+        .select()
+        .from(orderCharges)
+        .where(and(eq(orderCharges.orderId, orderId), eq(orderCharges.tenantId, ctx.tenantId)));
+
+      if (existingCharges.length > 0) {
+        const currentMetadata = (order.metadata as Record<string, unknown>) ?? {};
+        await tx.update(orders).set({
+          metadata: {
+            ...currentMetadata,
+            _archivedServiceCharges: existingCharges.map((c) => ({
+              chargeType: c.chargeType,
+              name: c.name,
+              calculationType: c.calculationType,
+              value: c.value,
+              amount: c.amount,
+              taxAmount: c.taxAmount,
+              isTaxable: c.isTaxable,
+              createdBy: c.createdBy,
+            })),
+          },
+        }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
+      }
+
+      // Remove all service charges (with tenantId for defense-in-depth)
       await tx.delete(orderCharges)
-        .where(eq(orderCharges.orderId, orderId));
+        .where(and(eq(orderCharges.orderId, orderId), eq(orderCharges.tenantId, ctx.tenantId)));
+    } else {
+      // Un-exempting: restore archived charges if available
+      const currentMetadata = (order.metadata as Record<string, unknown>) ?? {};
+      const archived = currentMetadata._archivedServiceCharges as Array<{
+        chargeType: string;
+        name: string;
+        calculationType: string;
+        value: number;
+        amount: number;
+        taxAmount: number;
+        isTaxable?: boolean;
+        createdBy?: string;
+      }> | undefined;
+
+      if (archived && archived.length > 0) {
+        await tx.insert(orderCharges).values(
+          archived.map((c) => ({
+            tenantId: ctx.tenantId,
+            orderId,
+            chargeType: c.chargeType,
+            name: c.name,
+            calculationType: c.calculationType,
+            value: c.value,
+            amount: c.amount,
+            taxAmount: c.taxAmount ?? 0,
+            isTaxable: c.isTaxable ?? false,
+            createdBy: c.createdBy ?? ctx.user.id,
+          })),
+        );
+
+        // Clear the archive from metadata
+        const { _archivedServiceCharges: _, ...restMetadata } = currentMetadata;
+        await tx.update(orders).set({
+          metadata: Object.keys(restMetadata).length > 0 ? restMetadata : null,
+        }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
+      }
     }
 
     // Recalculate order totals after service charge lines may have changed

@@ -85,6 +85,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     failSession,
     recordTender,
     voidLastTender,
+    processCardPayment,
   } = usePaymentSession({ tabId: tabId ?? '', locationId });
   const { preauths, capturePreauth, voidPreauth } = usePreAuth({ tabId: tabId ?? undefined });
   const { adjustTip } = useTipActions();
@@ -225,7 +226,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
 
   // ── Main tender handler (Phase 0A + 0B + 0D fix) ─────────────
   const handleTender = useCallback(
-    async (type: TenderType, amountCents: number, tipCents: number): Promise<TenderResult> => {
+    async (type: TenderType, amountCents: number, tipCents: number, cardToken?: string | null): Promise<TenderResult> => {
       if (!tab) return { isFullyPaid: false, remainingCents: 0 };
 
       // Phase 0D: prevent double-click race
@@ -262,19 +263,34 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
         }
 
         // Record the tender — server response includes updated amounts
-        const result = await recordTender({
-          sessionId,
-          tenderId: crypto.randomUUID(),
-          amountCents,
-          tenderType: type,
-          clientRequestId: crypto.randomUUID(),
-        });
+        // Card tenders with a token go through the dedicated card gateway route
+        const effectiveOrderId = tab.primaryOrderId ?? preparedOrderIdRef.current;
+        const result = (type === 'card' && cardToken)
+          ? await processCardPayment({
+              sessionId,
+              amountCents,
+              tipCents,
+              token: cardToken,
+              orderId: effectiveOrderId ?? undefined,
+              clientRequestId: crypto.randomUUID(),
+            })
+          : await recordTender({
+              sessionId,
+              tenderId: crypto.randomUUID(),
+              amountCents,
+              tenderType: type,
+              clientRequestId: crypto.randomUUID(),
+            });
 
         // Adjust tip — must await to prevent Vercel fire-and-forget zombie connections
-        if (tipCents > 0) {
+        // Skip for card gateway payments — tip is already included in the gateway charge
+        const tipHandledByGateway = type === 'card' && !!cardToken;
+        if (tipCents > 0 && !tipHandledByGateway) {
           try {
+            const tenderIdFromResult = ((result as Record<string, unknown>)?.tenderId as string) ?? undefined;
             await adjustTip({
               tabId: tab.id,
+              tenderId: tenderIdFromResult,
               originalTipCents: 0,
               adjustedTipCents: tipCents,
               adjustmentReason: 'Customer tip',
@@ -308,7 +324,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
         isActingRef.current = false;
       }
     },
-    [tab, check, displayCheck, sessions, startSession, recordTender, adjustTip, completeSession],
+    [tab, check, displayCheck, sessions, startSession, recordTender, processCardPayment, adjustTip, completeSession],
   );
 
   // ── Void last tender handler (Phase 1C) ───────────────────────
@@ -357,11 +373,12 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
         // Fire-and-forget — never block POS on print
         printReceiptDocument(doc).catch(() => {});
       }
-      if (action === 'email' && tab?.id && email) {
+      const receiptOrderId = tab?.primaryOrderId ?? preparedOrderIdRef.current;
+      if (action === 'email' && receiptOrderId && email) {
         // Fire-and-forget — email receipt via API
         apiFetch('/api/v1/receipts/email', {
           method: 'POST',
-          body: JSON.stringify({ orderId: tab.id, email, variant: 'standard' }),
+          body: JSON.stringify({ orderId: receiptOrderId, email, variant: 'standard' }),
         }).catch(() => {});
       }
     },

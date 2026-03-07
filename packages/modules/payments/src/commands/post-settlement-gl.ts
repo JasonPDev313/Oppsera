@@ -26,7 +26,20 @@ export interface PostSettlementGlResult {
 }
 
 /**
- * Post GL journal entry for a settlement batch.
+ * Post GL journal entry for a settlement batch (payments module path).
+ *
+ * This is the CANONICAL settlement GL posting path. It:
+ * - Requires 'matched' status (all lines reconciled)
+ * - Calculates from line-level cents (integer math)
+ * - Uses 3-phase design to avoid Vercel connection pool exhaustion
+ * - Accepts bankAccountId per-request (explicit bank selection)
+ * - Idempotent via settlement.glJournalEntryId + status checks
+ *
+ * The accounting module also has postSettlement() which:
+ * - Allows force-posting unmatched settlements
+ * - Uses dollar amounts from settlement header (NUMERIC strings)
+ * - Uses publishWithOutbox (single transaction — not Vercel-safe for large settlements)
+ * - Has formal clientRequestId idempotency
  *
  * Standard settlement GL:
  *   DR Bank Account ........... net amount (gross - fees)
@@ -36,12 +49,6 @@ export interface PostSettlementGlResult {
  * If chargebacks exist:
  *   DR Chargeback Loss ........ chargeback amount
  *   CR Bank Account ........... chargeback amount
- *
- * Settlement must be in 'matched' status. All lines must be matched.
- * Uses the existing AccountingPostingApi singleton.
- *
- * GL adapter pattern: never throws — GL failures log but don't block.
- * However, settlement GL is explicit (admin-initiated), so we DO throw on failure.
  */
 export async function postSettlementGl(
   ctx: RequestContext,
