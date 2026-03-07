@@ -25,6 +25,7 @@
     "@oppsera/db": "workspace:*",
     "@oppsera/module-accounting": "workspace:*",
     "@oppsera/module-ap": "workspace:*",
+    "@oppsera/module-business-types": "workspace:*",
     "@oppsera/module-ar": "workspace:*",
     "@oppsera/module-catalog": "workspace:*",
     "@oppsera/module-customers": "workspace:*",

@@ -38,6 +38,8 @@ import {
   Wallet,
   ClipboardCheck,
   Search,
+  Blocks,
+  Rocket,
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useCommandPalette } from './search/CommandPaletteProvider';
@@ -68,6 +70,15 @@ const MODULES: NavModule[] = [
       { href: '/users/staff', label: 'Staff', icon: UserCog },
       { href: '/users/customers', label: 'Customers', icon: Users },
       { href: '/users/roles', label: 'Roles & Permissions', icon: Shield },
+    ],
+  },
+  {
+    label: 'Business Manager',
+    icon: Blocks,
+    prefix: '/business-types',
+    children: [
+      { href: '/business-types', label: 'Business Types', icon: List },
+      { href: '/business-types/provisioning', label: 'Provisioning Runs', icon: Rocket },
     ],
   },
   {

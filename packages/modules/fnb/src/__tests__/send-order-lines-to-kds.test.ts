@@ -177,7 +177,7 @@ describe('sendOrderLinesToKds', () => {
     const ctx = makeCtx();
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
 
-    expect(result).toEqual({ sentCount: 0 });
+    expect(result).toEqual({ sentCount: 0, failedCount: 0, totalStations: 0 });
     // Should not query existing ticket items when there are no lines
     expect(mockWithTenant).toHaveBeenCalledTimes(1);
     expect(mockCreateKitchenTicket).not.toHaveBeenCalled();
@@ -198,7 +198,7 @@ describe('sendOrderLinesToKds', () => {
     const ctx = makeCtx();
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
 
-    expect(result).toEqual({ sentCount: 0 });
+    expect(result).toEqual({ sentCount: 0, failedCount: 0, totalStations: 0 });
     expect(mockWithTenant).toHaveBeenCalledTimes(2);
     expect(mockCreateKitchenTicket).not.toHaveBeenCalled();
     expect(logger.debug).toHaveBeenCalledWith(
@@ -221,7 +221,7 @@ describe('sendOrderLinesToKds', () => {
     const ctx = makeCtx();
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
 
-    expect(result).toEqual({ sentCount: 0 });
+    expect(result).toEqual({ sentCount: 0, failedCount: 0, totalStations: 0 });
     expect(mockCreateKitchenTicket).not.toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('no stations resolved'),
@@ -244,7 +244,7 @@ describe('sendOrderLinesToKds', () => {
     const ctx = makeCtx();
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
 
-    expect(result).toEqual({ sentCount: 1 });
+    expect(result).toEqual({ sentCount: 1, failedCount: 0, totalStations: 1 });
     expect(mockCreateKitchenTicket).toHaveBeenCalledTimes(1);
     expect(mockCreateKitchenTicket).toHaveBeenCalledWith(
       ctx,
@@ -279,7 +279,7 @@ describe('sendOrderLinesToKds', () => {
     const ctx = makeCtx();
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
 
-    expect(result).toEqual({ sentCount: 2 });
+    expect(result).toEqual({ sentCount: 2, failedCount: 0, totalStations: 2 });
     expect(mockCreateKitchenTicket).toHaveBeenCalledTimes(2);
 
     // Verify tickets were created for each station
@@ -330,7 +330,7 @@ describe('sendOrderLinesToKds', () => {
       makeRoutingResult('line-2', 'station-salad'),
     ]);
 
-    // First ticket (station-grill) fails; second (station-salad) succeeds
+    // First ticket (station-grill) fails (non-transient, no retry); second (station-salad) succeeds
     mockCreateKitchenTicket
       .mockRejectedValueOnce(new Error('DB timeout'))
       .mockResolvedValueOnce({ id: 'ticket-2' });
@@ -341,8 +341,10 @@ describe('sendOrderLinesToKds', () => {
 
     // Only the second station's item was sent successfully
     expect(result.sentCount).toBe(1);
+    expect(result.failedCount).toBe(1);
+    expect(result.totalStations).toBe(2);
     expect(mockCreateKitchenTicket).toHaveBeenCalledTimes(2);
-    expect(logger.warn).toHaveBeenCalledWith(
+    expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining('failed to create ticket for station'),
       expect.objectContaining({ orderId: ORDER_ID }),
     );
@@ -358,12 +360,14 @@ describe('sendOrderLinesToKds', () => {
       makeRoutingResult('line-1', 'station-grill'),
     ]);
 
-    mockCreateKitchenTicket.mockRejectedValueOnce(new Error('Connection refused'));
+    // Non-transient failure — no retries
+    mockCreateKitchenTicket
+      .mockRejectedValueOnce(new Error('Connection refused'));
 
     const ctx = makeCtx();
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
 
-    expect(result).toEqual({ sentCount: 0 });
+    expect(result).toEqual({ sentCount: 0, failedCount: 1, totalStations: 1 });
   });
 
   // ── Modifier extraction ────────────────────────────────────────
@@ -445,7 +449,7 @@ describe('sendOrderLinesToKds', () => {
       TENANT,
       [expect.objectContaining({ orderLineId: 'line-2' })],
     );
-    expect(result).toEqual({ sentCount: 1 });
+    expect(result).toEqual({ sentCount: 1, failedCount: 0, totalStations: 1 });
   });
 
   // ── Routing context ────────────────────────────────────────────

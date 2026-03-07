@@ -48,8 +48,9 @@ export async function GET(
     // Resolve tenant from slug to enforce tenant isolation
     const resolved = await resolveWaitlistTenant(tenantSlug);
     if (!resolved) {
+      console.warn(`[waitlist-status] Tenant resolution failed for slug: ${tenantSlug}`);
       return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Waitlist not found' } },
+        { error: { code: 'TENANT_NOT_FOUND', message: 'Waitlist not found' } },
         { status: 404 },
       );
     }
@@ -78,8 +79,9 @@ export async function GET(
 
     const entry = Array.from(rows as Iterable<Record<string, unknown>>)[0];
     if (!entry) {
+      console.warn(`[waitlist-status] Entry not found for token (tenant: ${resolved.tenantId}, slug: ${tenantSlug})`);
       return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Waitlist entry not found' } },
+        { error: { code: 'ENTRY_NOT_FOUND', message: 'Waitlist entry not found' } },
         { status: 404 },
       );
     }

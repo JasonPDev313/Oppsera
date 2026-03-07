@@ -481,11 +481,11 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
   // Sends unsent food/bev items to KDS without placing the order.
   // Drains pending batch items first so all lines are on the server.
 
-  const sendToKds = useCallback(async (): Promise<{ sentCount: number }> => {
+  const sendToKds = useCallback(async (): Promise<{ sentCount: number; failedCount: number; totalStations: number }> => {
     const order = await ensureOrderReady();
     setIsLoading(true);
     try {
-      const res = await apiFetch<{ data: { sentCount: number } }>(
+      const res = await apiFetch<{ data: { sentCount: number; failedCount: number; totalStations: number } }>(
         `/api/v1/orders/${order.id}/send-to-kds`,
         {
           method: 'POST',

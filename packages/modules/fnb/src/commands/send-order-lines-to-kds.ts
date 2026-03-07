@@ -35,7 +35,7 @@ export async function sendOrderLinesToKds(
   ctx: RequestContext,
   orderId: string,
   businessDate: string,
-): Promise<{ sentCount: number }> {
+): Promise<{ sentCount: number; failedCount: number; totalStations: number }> {
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
   }
@@ -67,7 +67,7 @@ export async function sendOrderLinesToKds(
     logger.debug('[kds] sendOrderLinesToKds: no food/bev lines for order', {
       domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
     });
-    return { sentCount: 0 };
+    return { sentCount: 0, failedCount: 0, totalStations: 0 };
   }
 
   // 2. Check which lines already have KDS ticket items
@@ -94,7 +94,7 @@ export async function sendOrderLinesToKds(
       domain: 'kds', tenantId: ctx.tenantId, orderId, totalLines: lines.length,
       alreadySent: alreadySentIds.size,
     });
-    return { sentCount: 0 };
+    return { sentCount: 0, failedCount: 0, totalStations: 0 };
   }
 
   logger.info('[kds] sendOrderLinesToKds: routing new lines', {
@@ -166,33 +166,57 @@ export async function sendOrderLinesToKds(
     logger.warn('[kds] sendOrderLinesToKds: no stations resolved — no tickets created', {
       domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
     });
-    return { sentCount: 0 };
+    return { sentCount: 0, failedCount: 0, totalStations: 0 };
   }
 
   // 6. Create one ticket per station (serial to avoid pool exhaustion)
   // Use line-based idempotency: key includes sorted line IDs so re-sends are safe
+  // Retry up to 3x with exponential backoff on transient errors (pool exhaustion, timeouts)
   let actualSentCount = 0;
+  const failedStations: string[] = [];
   for (const [stationId, ticketItems] of stationGroups) {
     const sortedLineIds = ticketItems.map((i) => i.orderLineId).sort().join(',');
-    try {
-      await createKitchenTicket(ctx, {
-        clientRequestId: `retail-kds-send-${orderId}-${stationId}-${sortedLineIds}`,
-        orderId,
-        businessDate,
-        channel: 'pos',
-        items: ticketItems,
-      });
-      actualSentCount += ticketItems.length;
-    } catch (err) {
-      logger.warn('[kds] sendOrderLinesToKds: failed to create ticket for station', {
-        domain: 'kds', tenantId: ctx.tenantId, orderId, stationId, locationId: ctx.locationId,
-        itemCount: ticketItems.length,
-        error: { message: err instanceof Error ? err.message : String(err) },
-      });
+    let sent = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await createKitchenTicket(ctx, {
+          clientRequestId: `retail-kds-send-${orderId}-${stationId}-${sortedLineIds}`,
+          orderId,
+          businessDate,
+          channel: 'pos',
+          items: ticketItems,
+        });
+        actualSentCount += ticketItems.length;
+        sent = true;
+        break;
+      } catch (err) {
+        const isTransient = isTransientError(err);
+        if (isTransient && attempt < 3) {
+          const delayMs = 500 * Math.pow(2, attempt - 1); // 500ms, 1s, 2s
+          logger.warn('[kds] sendOrderLinesToKds: transient error, retrying', {
+            domain: 'kds', tenantId: ctx.tenantId, orderId, stationId,
+            attempt, delayMs,
+            error: { message: err instanceof Error ? err.message : String(err) },
+          });
+          await sleep(delayMs);
+        } else {
+          logger.error('[kds] sendOrderLinesToKds: failed to create ticket for station', {
+            domain: 'kds', tenantId: ctx.tenantId, orderId, stationId, locationId: ctx.locationId,
+            itemCount: ticketItems.length, attempt, isTransient,
+            error: { message: err instanceof Error ? err.message : String(err) },
+          });
+          break; // Non-transient or final attempt — stop retrying this station
+        }
+      }
     }
+    if (!sent) failedStations.push(stationId);
   }
 
-  return { sentCount: actualSentCount };
+  return {
+    sentCount: actualSentCount,
+    failedCount: failedStations.length,
+    totalStations: stationGroups.size,
+  };
 }
 
 /** Extract modifier IDs from the JSONB modifiers array. */
@@ -224,4 +248,27 @@ function formatModifierSummary(modifiers: unknown): string | null {
     }
   }
   return parts.length > 0 ? parts.join(', ') : null;
+}
+
+/** Detect transient errors that are safe to retry (pool exhaustion, timeouts, connection errors). */
+function isTransientError(err: unknown): boolean {
+  const msg = String((err as Error)?.message ?? '').toLowerCase();
+  const code = (err as { code?: string })?.code;
+  return (
+    code === 'CIRCUIT_BREAKER_OPEN' ||
+    code === 'QUEUE_TIMEOUT' ||
+    code === 'QUERY_TIMEOUT' ||
+    code === '53300' || // postgres too_many_connections
+    msg.includes('too many clients') ||
+    msg.includes('connection slots') ||
+    (msg.includes('timeout') && msg.includes('connect')) ||
+    msg.includes('pool') ||
+    msg.includes('econnrefused') ||
+    msg.includes('econnreset') ||
+    msg.includes('circuit breaker')
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -1185,8 +1185,9 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
 
   // Track whether all KDS-eligible items have been sent (no new unsent items)
   const [lastSentLineCount, setLastSentLineCount] = useState(0);
+  const [kdsSendFailed, setKdsSendFailed] = useState(false);
   const currentOrderId = pos.currentOrder?.id;
-  useEffect(() => { setLastSentLineCount(0); }, [currentOrderId]);
+  useEffect(() => { setLastSentLineCount(0); setKdsSendFailed(false); }, [currentOrderId]);
   const fnbLineCount = useMemo(() => {
     return (pos.currentOrder?.lines ?? []).filter(
       (l) => (l.itemType === 'food' || l.itemType === 'beverage') && !l.id.startsWith('temp-'),
@@ -1196,8 +1197,17 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
 
   const handleSendOrder = useCallback(async () => {
     try {
+      setKdsSendFailed(false);
       const result = await posRef.current.sendToKds();
-      if (result.sentCount > 0) {
+      if (result.failedCount > 0) {
+        // Some stations failed after retries — show warning, allow re-press
+        setKdsSendFailed(true);
+        if (result.sentCount > 0) {
+          toast.error(`Partially sent — ${result.failedCount} station(s) failed. Press Send to retry.`);
+        } else {
+          toast.error('Kitchen send failed — press Send to retry');
+        }
+      } else if (result.sentCount > 0) {
         toast.success('Order sent to kitchen');
       } else {
         toast.info('All items already sent');
@@ -1205,7 +1215,9 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       // Track total sent so UI can show "Sent" state
       setLastSentLineCount((prev) => prev + result.sentCount);
     } catch {
-      // Error already handled by POS hook
+      // Network/API error — allow retry
+      setKdsSendFailed(true);
+      toast.error('Kitchen send failed — press Send to retry');
     }
   }, [toast]);
 
@@ -1974,15 +1986,17 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                     <button
                       type="button"
                       onClick={handleSendOrder}
-                      disabled={!hasItems || !hasFnbItems || allSentToKds || pos.isLoading}
+                      disabled={!hasItems || !hasFnbItems || (allSentToKds && !kdsSendFailed) || pos.isLoading}
                       className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-base font-semibold transition-colors disabled:cursor-not-allowed ${
-                        hasFnbItems && hasItems && !allSentToKds
-                          ? 'bg-amber-500 text-white hover:bg-amber-600 disabled:bg-amber-300'
-                          : 'border border-border text-foreground hover:bg-accent disabled:opacity-40'
+                        kdsSendFailed
+                          ? 'bg-red-600 text-white hover:bg-red-700 animate-pulse'
+                          : hasFnbItems && hasItems && !allSentToKds
+                            ? 'bg-amber-500 text-white hover:bg-amber-600 disabled:bg-amber-300'
+                            : 'border border-border text-foreground hover:bg-accent disabled:opacity-40'
                       }`}
                     >
                       <Send aria-hidden="true" className="h-4 w-4" />
-                      {pos.isLoading ? 'Sending…' : allSentToKds ? 'Sent' : 'Send'}
+                      {pos.isLoading ? 'Sending…' : kdsSendFailed ? 'Retry Send' : allSentToKds ? 'Sent' : 'Send'}
                     </button>
                   )}
 

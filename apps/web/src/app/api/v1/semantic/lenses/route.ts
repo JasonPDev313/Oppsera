@@ -20,12 +20,15 @@ export const GET = withMiddleware(
     const includeInactive = url.searchParams.get('includeInactive') === 'true';
     const includeDisabled = url.searchParams.get('includeDisabled') === 'true';
 
-    const [systemLenses, customLenses, preferences, tenantRows] = await Promise.all([
-      includeSystem ? listLenses(domain) : Promise.resolve([]),
-      listCustomLenses({ tenantId: ctx.tenantId, domain, includeInactive }),
-      getTenantLensPreferences(ctx.tenantId),
-      db.select({ businessVertical: tenants.businessVertical }).from(tenants).where(eq(tenants.id, ctx.tenantId)).limit(1),
-    ]);
+    // Sequenced instead of Promise.all to avoid hitting 4 unguarded DB queries
+    // in parallel against pool max=2. Under pool pressure, parallel unguarded
+    // queries queue at the postgres.js level with no timeout control, causing
+    // cascading failures. System lenses come from an in-memory cache (no DB hit
+    // after warm-up), so only 3 sequential DB queries remain.
+    const systemLenses = includeSystem ? await listLenses(domain) : [];
+    const customLenses = await listCustomLenses({ tenantId: ctx.tenantId, domain, includeInactive });
+    const preferences = await getTenantLensPreferences(ctx.tenantId);
+    const tenantRows = await db.select({ businessVertical: tenants.businessVertical }).from(tenants).where(eq(tenants.id, ctx.tenantId)).limit(1);
 
     const businessVertical = tenantRows[0]?.businessVertical ?? 'general';
 

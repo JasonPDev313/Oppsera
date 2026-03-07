@@ -15,6 +15,7 @@
   "dependencies": {
     "@oppsera/core": "workspace:*",
     "@oppsera/db": "workspace:*",
+    "@oppsera/module-business-types": "workspace:*",
     "@oppsera/module-semantic": "workspace:*",
     "@oppsera/shared": "workspace:*",
     "dotenv": "^16.4.0",

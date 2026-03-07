@@ -21,7 +21,7 @@ export async function addTabItems(
     const uniqueItemIds = [...new Set(input.items.map((i) => i.catalogItemId))];
     const results = await Promise.all(
       uniqueItemIds.map((id) =>
-        catalogApi.getItemForPOS(ctx.tenantId, id, ctx.locationId ?? '').catch(() => null),
+        catalogApi.getItemForPOS(ctx.tenantId, ctx.locationId ?? '', id).catch(() => null),
       ),
     );
     for (let i = 0; i < uniqueItemIds.length; i++) {

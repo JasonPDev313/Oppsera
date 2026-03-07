@@ -57,7 +57,9 @@ export async function GET() {
       const state = String(conn.state ?? 'unknown');
       stateCounts[state] = (stateCounts[state] ?? 0) + 1;
       const dur = Number(conn.state_duration_secs ?? 0);
-      if (dur > 60 && (state === 'idle in transaction' || state === 'idle')) {
+      const waitEvent = String(conn.wait_event ?? '');
+      if (dur > 60 && (state === 'idle in transaction' || state === 'idle' ||
+          (state === 'active' && waitEvent === 'ClientRead'))) {
         stuckCount++;
       }
       if (String(conn.wait_event_type ?? '') === 'Lock') {

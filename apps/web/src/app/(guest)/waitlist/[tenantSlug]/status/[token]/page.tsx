@@ -42,14 +42,22 @@ function safeColor(c: string, fallback: string): string {
   return HEX_COLOR_RE.test(c) ? c : fallback;
 }
 
-async function fetchStatus(tenantSlug: string, token: string, signal?: AbortSignal): Promise<WaitlistStatus | null> {
+interface FetchResult {
+  data: WaitlistStatus | null;
+  errorCode: string | null;
+}
+
+async function fetchStatus(tenantSlug: string, token: string, signal?: AbortSignal): Promise<FetchResult> {
   try {
     const res = await fetch(`/api/v1/fnb/public/${tenantSlug}/waitlist/status/${token}`, { signal });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
+      return { data: null, errorCode: json?.error?.code ?? 'UNKNOWN' };
+    }
     const json = await res.json();
-    return json.data;
+    return { data: json.data, errorCode: null };
   } catch {
-    return null;
+    return { data: null, errorCode: 'NETWORK_ERROR' };
   }
 }
 
@@ -136,6 +144,7 @@ export default function BrandedWaitlistStatusPage() {
   const [data, setData] = useState<WaitlistStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [invalid, setInvalid] = useState(false);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [leaveError, setLeaveError] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -148,8 +157,8 @@ export default function BrandedWaitlistStatusPage() {
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
 
   const load = useCallback(async () => {
-    const result = await fetchStatus(tenantSlug, token);
-    if (!result) { setInvalid(true); setLoading(false); return; }
+    const { data: result, errorCode: ec } = await fetchStatus(tenantSlug, token);
+    if (!result) { setInvalid(true); setErrorCode(ec); setLoading(false); return; }
     // Detect position change for animation
     if (prevPosition.current !== null && prevPosition.current !== result.position) {
       const didMoveUp = result.position < prevPosition.current;
@@ -245,11 +254,24 @@ export default function BrandedWaitlistStatusPage() {
   }
 
   if (invalid || !data) {
+    const isTenantIssue = errorCode === 'TENANT_NOT_FOUND';
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
         <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-lg font-bold text-foreground mb-2">Link No Longer Valid</h2>
-        <p className="text-sm text-muted-foreground">This waitlist link has expired or been removed.</p>
+        <h2 className="text-lg font-bold text-foreground mb-2">
+          {isTenantIssue ? 'Waitlist Not Available' : 'Link No Longer Valid'}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {isTenantIssue
+            ? 'This waitlist is not currently active. Please check back later.'
+            : 'This waitlist link has expired or been removed.'}
+        </p>
+        {isTenantIssue && (
+          <a href={`/waitlist/${tenantSlug}`}
+            className="mt-4 text-sm font-semibold text-indigo-400 hover:text-indigo-300 underline">
+            Try joining the waitlist
+          </a>
+        )}
       </div>
     );
   }

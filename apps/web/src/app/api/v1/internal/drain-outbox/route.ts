@@ -83,22 +83,27 @@ export async function GET(request: Request) {
     // indefinitely. Neither statement_timeout nor idle_in_transaction_session_timeout
     // catch this — only external monitoring can detect and kill these zombies.
     // Threshold: 60s (normal idle_timeout is 10s, so 60s is clearly a zombie).
+    // Catch both idle AND active zombies. Active+ClientRead means the query
+    // completed on Postgres but the frozen Vercel client never read the response.
     const zombies = await db.execute(sql`
       SELECT pid,
+             state,
              EXTRACT(EPOCH FROM (NOW() - state_change))::int AS idle_seconds,
              LEFT(query, 150) AS query_prefix
       FROM pg_stat_activity
       WHERE datname = current_database()
         AND pid != pg_backend_pid()
-        AND state = 'idle'
+        AND backend_type = 'client backend'
+        AND state IN ('idle', 'active')
         AND wait_event_type = 'Client'
         AND wait_event = 'ClientRead'
         AND NOW() - state_change > INTERVAL '60 seconds'
         AND query NOT ILIKE '%LISTEN%'
         AND query NOT ILIKE '%archive_mode%'
         AND query NOT ILIKE '%get_auth%'
-    `) as unknown as Array<{ pid: number; idle_seconds: number; query_prefix: string }>;
-    const zombieArr = Array.from(zombies as Iterable<{ pid: number; idle_seconds: number; query_prefix: string }>);
+        AND query NOT ILIKE '%pg_stat_wal_receiver%'
+    `) as unknown as Array<{ pid: number; idle_seconds: number; query_prefix: string; state: string }>;
+    const zombieArr = Array.from(zombies as Iterable<{ pid: number; idle_seconds: number; query_prefix: string; state: string }>);
 
     results.zombieConnectionsFound = zombieArr.length;
     results.zombieConnectionsKilled = 0;
@@ -196,7 +201,52 @@ export async function GET(request: Request) {
       results.auditPartitionsChecked = false;
     }
 
-    // 10. Flush usage tracking buffer to DB.
+    // 10. KDS reconciliation sweep — find orders with food/bev lines but no KDS tickets.
+    // This catches orders that failed to send to KDS due to pool exhaustion, circuit breaker,
+    // or any transient error. Only checks orders from the last 30 minutes to keep the query fast.
+    // No vendor in the industry does automated reconciliation — this is a reliability differentiator.
+    try {
+      const orphanedOrders = await db.execute(sql`
+        SELECT DISTINCT o.id AS order_id, o.tenant_id, o.business_date,
+               l.location_id
+        FROM orders o
+        INNER JOIN order_lines ol ON ol.order_id = o.id AND ol.tenant_id = o.tenant_id
+        LEFT JOIN fnb_kitchen_ticket_items kti ON kti.order_line_id = ol.id AND kti.tenant_id = o.tenant_id
+        LEFT JOIN locations l ON l.id = o.location_id AND l.tenant_id = o.tenant_id
+        WHERE o.status = 'open'
+          AND ol.item_type IN ('food', 'beverage')
+          AND kti.id IS NULL
+          AND o.created_at > NOW() - INTERVAL '30 minutes'
+          AND o.created_at < NOW() - INTERVAL '2 minutes'
+        LIMIT 20
+      `) as unknown as Array<{ order_id: string; tenant_id: string; business_date: string; location_id: string }>;
+
+      const orphanArr = Array.from(orphanedOrders as Iterable<{ order_id: string; tenant_id: string; business_date: string; location_id: string }>);
+      results.kdsOrphanedOrders = orphanArr.length;
+
+      if (orphanArr.length > 0) {
+        console.warn(`[drain-outbox] KDS reconciliation: found ${orphanArr.length} orders with unsent food/bev items`);
+        // Log for operator awareness — actual resend happens when cashier presses Send
+        // (idempotent, safe to retry). We don't auto-create tickets here because we lack
+        // the full RequestContext (user, permissions) needed by createKitchenTicket.
+        for (const o of orphanArr) {
+          console.warn(JSON.stringify({
+            level: 'warn',
+            event: 'kds_orphaned_order',
+            orderId: o.order_id,
+            tenantId: o.tenant_id,
+            locationId: o.location_id,
+            businessDate: o.business_date,
+            source: 'drain-outbox-cron',
+          }));
+        }
+      }
+    } catch (reconErr) {
+      console.warn('[drain-outbox] KDS reconciliation sweep failed:', reconErr);
+      results.kdsOrphanedOrders = -1;
+    }
+
+    // 11. Flush usage tracking buffer to DB.
     // The usage tracker accumulates events in-memory. Flushing here is safe because
     // the DB transaction completes BEFORE the response is sent (no fire-and-forget).
     try {

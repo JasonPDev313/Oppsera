@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { MapPin, Building2, Store, Monitor, Shield, ChevronLeft, Settings, Plus } from 'lucide-react';
 import { useTerminalSelection } from '@/hooks/use-terminal-selection';
@@ -49,12 +49,22 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
     setPhase('role');
   };
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     const session = terminalSelection.buildSession();
     if (session) {
       setSession(session);
     }
-  };
+  }, [terminalSelection, setSession]);
+
+  // Auto-continue when there's only one possible selection at every level
+  // (e.g. fresh account with a single default profit center + terminal).
+  // Skips the selection screen entirely — zero friction.
+  const { canContinue, isLoading: termLoading } = terminalSelection;
+  useEffect(() => {
+    if (!termLoading && canContinue && !roleSelection.isLoading && !roleSelection.hasMultipleRoles) {
+      handleContinue();
+    }
+  }, [termLoading, canContinue, roleSelection.isLoading, roleSelection.hasMultipleRoles, handleContinue]);
 
   if (roleSelection.isLoading) {
     return (
@@ -182,12 +192,10 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
     setSelectedProfitCenterId,
     setSelectedTerminalId,
     effectiveLocationId,
-    canContinue,
-    isLoading: terminalLoading,
     noProfitCentersExist,
   } = terminalSelection;
 
-  if (terminalLoading) {
+  if (termLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-indigo-600" />

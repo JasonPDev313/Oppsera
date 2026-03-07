@@ -191,31 +191,150 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
     locationId: string,
     itemId: string,
   ): Promise<PosItemData | null> {
-    const item = await this.getItem(tenantId, itemId);
-    if (!item) return null;
+    // Consolidated into a SINGLE withTenant call (1 semaphore slot) instead of
+    // 4 separate withTenant calls. See core/catalog-read-api.ts for full explanation.
+    return withTenant(tenantId, async (tx) => {
+      // ── getItem ──
+      const [item] = await tx
+        .select()
+        .from(catalogItems)
+        .where(
+          and(
+            eq(catalogItems.id, itemId),
+            eq(catalogItems.tenantId, tenantId),
+            isNull(catalogItems.archivedAt),
+          ),
+        )
+        .limit(1);
 
-    const [price, taxInfo, subDepartmentId] = await Promise.all([
-      this.getEffectivePrice(tenantId, itemId, locationId),
-      this.getItemTaxes(tenantId, locationId, itemId),
-      this.getSubDepartmentForItem(tenantId, itemId),
-    ]);
+      if (!item) return null;
 
-    return {
-      id: item.id,
-      sku: item.sku,
-      barcode: item.barcode,
-      name: item.name,
-      itemType: item.itemType,
-      isTrackable: item.isTrackable,
-      unitPriceCents: Math.round(price * 100),
-      taxInfo: {
-        ...taxInfo,
-        calculationMode: item.priceIncludesTax ? 'inclusive' as const : 'exclusive' as const,
-      },
-      metadata: item.metadata ?? null,
-      categoryId: item.categoryId ?? null,
-      subDepartmentId,
-    };
+      // ── parallel: effectivePrice + taxInfo + subDepartment (same tx) ──
+      const [price, taxInfo, subDepartmentId] = await Promise.all([
+        // getEffectivePrice
+        (async () => {
+          const [override] = await tx
+            .select()
+            .from(catalogLocationPrices)
+            .where(
+              and(
+                eq(catalogLocationPrices.catalogItemId, itemId),
+                eq(catalogLocationPrices.locationId, locationId),
+                eq(catalogLocationPrices.tenantId, tenantId),
+              ),
+            )
+            .limit(1);
+          if (override) return Number(override.price);
+          return Number(item.defaultPrice);
+        })(),
+        // getItemTaxes
+        (async (): Promise<ItemTaxInfo> => {
+          const assignments = await tx
+            .select({ taxGroupId: catalogItemLocationTaxGroups.taxGroupId })
+            .from(catalogItemLocationTaxGroups)
+            .where(
+              and(
+                eq(catalogItemLocationTaxGroups.tenantId, tenantId),
+                eq(catalogItemLocationTaxGroups.locationId, locationId),
+                eq(catalogItemLocationTaxGroups.catalogItemId, itemId),
+              ),
+            );
+
+          const defaultMode = 'exclusive' as const;
+          if (assignments.length === 0) {
+            return { calculationMode: defaultMode, taxGroups: [], taxRates: [], totalRate: 0 };
+          }
+
+          const groupIds = assignments.map((a) => a.taxGroupId);
+          const groups = await tx
+            .select()
+            .from(taxGroups)
+            .where(
+              and(
+                eq(taxGroups.tenantId, tenantId),
+                eq(taxGroups.isActive, true),
+                inArray(taxGroups.id, groupIds),
+              ),
+            );
+
+          if (groups.length === 0) {
+            return { calculationMode: defaultMode, taxGroups: [], taxRates: [], totalRate: 0 };
+          }
+
+          const activeGroupIds = groups.map((g) => g.id);
+          const groupRateRows = await tx
+            .select({
+              taxRateId: taxGroupRates.taxRateId,
+              sortOrder: taxGroupRates.sortOrder,
+            })
+            .from(taxGroupRates)
+            .where(inArray(taxGroupRates.taxGroupId, activeGroupIds))
+            .orderBy(asc(taxGroupRates.sortOrder));
+
+          if (groupRateRows.length === 0) {
+            return {
+              calculationMode: defaultMode,
+              taxGroups: groups.map((g) => ({ id: g.id, name: g.name })),
+              taxRates: [],
+              totalRate: 0,
+            };
+          }
+
+          const rateIds = [...new Set(groupRateRows.map((r) => r.taxRateId))];
+          const rateRows = await tx
+            .select()
+            .from(taxRates)
+            .where(and(inArray(taxRates.id, rateIds), eq(taxRates.isActive, true)));
+
+          const uniqueRates = new Map<string, { id: string; name: string; rateDecimal: number }>();
+          for (const r of rateRows) {
+            if (!uniqueRates.has(r.id)) {
+              uniqueRates.set(r.id, { id: r.id, name: r.name, rateDecimal: Number(r.rateDecimal) });
+            }
+          }
+
+          const taxRatesList = Array.from(uniqueRates.values());
+          const totalRate = taxRatesList.reduce((sum, r) => sum + r.rateDecimal, 0);
+          return {
+            calculationMode: defaultMode,
+            taxGroups: groups.map((g) => ({ id: g.id, name: g.name })),
+            taxRates: taxRatesList,
+            totalRate,
+          };
+        })(),
+        // getSubDepartmentForItem
+        (async () => {
+          const rows = await tx.execute(sql`
+            SELECT COALESCE(cat.parent_id, cat.id) AS sub_department_id
+            FROM catalog_items ci
+            JOIN catalog_categories cat ON cat.id = ci.category_id
+            WHERE ci.id = ${itemId}
+              AND ci.tenant_id = ${tenantId}
+            LIMIT 1
+          `);
+          const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+          return arr.length > 0 ? (arr[0]!.sub_department_id as string) : null;
+        })(),
+      ]);
+
+      const unitPriceCents = Math.round(price * 100);
+      return {
+        id: item.id,
+        sku: item.sku,
+        barcode: item.barcode,
+        name: item.name,
+        itemType: item.itemType,
+        isTrackable: item.isTrackable,
+        unitPriceCents,
+        taxInfo: {
+          ...taxInfo,
+          calculationMode: item.priceIncludesTax ? 'inclusive' as const : 'exclusive' as const,
+        },
+        metadata: item.metadata ?? null,
+        categoryId: item.categoryId ?? null,
+        subDepartmentId,
+      };
+    });
   }
 
   async getItemTaxes(

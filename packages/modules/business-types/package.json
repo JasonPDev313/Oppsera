@@ -1,0 +1,27 @@
+{
+  "name": "@oppsera/module-business-types",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./provisioning": "./src/provisioning/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@oppsera/core": "workspace:*",
+    "@oppsera/db": "workspace:*",
+    "@oppsera/shared": "workspace:*",
+    "drizzle-orm": "^0.37.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
+  }
+}

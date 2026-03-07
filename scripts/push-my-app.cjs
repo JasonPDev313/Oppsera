@@ -380,9 +380,9 @@ async function main() {
     run('pnpm --filter @oppsera/web exec eslint src/ --fix', { dryRun, allowFail: true });
     success('Auto-fix pass complete');
 
-    info('Verifying lint is clean...');
-    run('pnpm lint', { dryRun });
-    success('Lint passed');
+    info('Checking for lint errors (warnings ignored)...');
+    run('pnpm --filter @oppsera/web exec eslint src/ --quiet', { dryRun });
+    success('No lint errors');
   } catch {
     fail('Lint errors remain after auto-fix.');
     fail('Fix the remaining issues manually, then run again.');

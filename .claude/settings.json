@@ -73,7 +73,14 @@
       "Bash(xargs grep -n \"\\\\.write\\(\")",
       "Bash(git -C /c/Users/Jason/Dev/Oppsera log --all --oneline --grep=\"stream\\\\|write\" -- \"apps/web/src/app/api/v1/semantic/ask/stream/route.ts\")",
       "Bash(git -C /c/Users/Jason/Dev/Oppsera show 5334cf88:apps/web/src/app/api/v1/semantic/ask/stream/route.ts)",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "WebSearch",
+      "Bash(npx tsc --noEmit --pretty apps/web/src/app/\\\\\\(dashboard\\\\\\)/settings/user-management-tab.tsx)",
+      "Bash(node -e \"console.log\\(Date.now\\(\\)\\)\")",
+      "Bash(cat /c/Users/Jason/Dev/Oppsera/apps/admin/src/app/\\\\\\(admin\\\\\\)/tenants/page.tsx)",
+      "Bash(cat /c/Users/Jason/Dev/Oppsera/apps/admin/src/app/\\\\\\(admin\\\\\\)/audit/page.tsx)",
+      "Bash(cat /c/Users/Jason/Dev/Oppsera/apps/admin/src/app/\\\\\\(admin\\\\\\)/health/page.tsx)",
+      "Bash(ls \"c:/Users/Jason/Dev/Oppsera/apps/admin/src/app/\\(admin\\)/\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",

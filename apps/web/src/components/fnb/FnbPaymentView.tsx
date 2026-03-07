@@ -134,18 +134,23 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   // ── Auto-prepare check: create order from tab items if needed ──
   const prepareAbortRef = useRef<AbortController | null>(null);
 
+  // Derive stable scalars from tab so the effect doesn't re-run (and abort its
+  // own in-flight request) every time the tab object reference changes on re-fetch.
+  const stableTabId = tab?.id;
+  const stableHasPrimaryOrder = !!tab?.primaryOrderId;
+  const stableHasActiveLines = tab?.lines?.some((l) => l.status !== 'voided') ?? false;
+
   useEffect(() => {
-    if (!tab || tab.primaryOrderId) return;
+    if (!stableTabId || stableHasPrimaryOrder) return;
     // Only call once per tabId — NOT reset on error (Retry button resets manually)
-    if (prepareCalledRef.current === tab.id) return;
-    const activeLines = tab.lines.filter((l) => l.status !== 'voided');
-    if (activeLines.length === 0) return;
+    if (prepareCalledRef.current === stableTabId) return;
+    if (!stableHasActiveLines) return;
     if (!locationId) {
       setCheckError('No location selected — cannot prepare check');
       return;
     }
 
-    prepareCalledRef.current = tab.id;
+    prepareCalledRef.current = stableTabId;
     setCheckError(null);
 
     // Cancel any prior in-flight request
@@ -153,32 +158,42 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     const ac = new AbortController();
     prepareAbortRef.current = ac;
 
-    const promise = apiFetch<{ data: { orderId: string; check: CheckSummary } }>(
-      `/api/v1/fnb/tabs/${tab.id}/prepare-check`,
-      { method: 'POST', signal: ac.signal, headers: locationId ? { 'X-Location-Id': locationId } : undefined },
-    )
-      .then((res) => {
+    // Retry helper — transient failures (network, pool pressure, 5xx) get up to
+    // 2 automatic retries with exponential backoff before surfacing to the user.
+    const MAX_RETRIES = 2;
+    const attempt = async (retry = 0): Promise<{ orderId: string; check: CheckSummary } | null> => {
+      try {
+        const res = await apiFetch<{ data: { orderId: string; check: CheckSummary } }>(
+          `/api/v1/fnb/tabs/${stableTabId}/prepare-check`,
+          { method: 'POST', signal: ac.signal, headers: locationId ? { 'X-Location-Id': locationId } : undefined },
+        );
         preparedOrderIdRef.current = res.data.orderId;
         setCheck(res.data.check);
         setCheckError(null);
-        // Refresh tab to pick up the server-set primaryOrderId
         refreshTab();
         return res.data;
-      })
-      .catch((e) => {
-        // Ignore aborted requests (user navigated away)
+      } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') return null;
+        // Don't retry 4xx (client errors) — only transient/server failures
+        const is4xx = e instanceof Error && 'status' in e && (e as { status: number }).status >= 400 && (e as { status: number }).status < 500;
+        if (!is4xx && retry < MAX_RETRIES && !ac.signal.aborted) {
+          const delay = 1000 * 2 ** retry; // 1s, 2s
+          console.warn(`[FnbPayment] prepare-check retry ${retry + 1}/${MAX_RETRIES} in ${delay}ms`);
+          await new Promise((r) => setTimeout(r, delay));
+          if (ac.signal.aborted) return null;
+          return attempt(retry + 1);
+        }
         const msg = e instanceof Error ? e.message : 'Failed to prepare check';
         console.error('[FnbPayment] prepare-check failed:', msg, e);
         setCheckError(msg);
-        // Do NOT reset prepareCalledRef here — that causes an infinite retry loop.
-        // The Retry button resets it manually.
         return null;
-      });
+      }
+    };
+    const promise = attempt();
     preparePromiseRef.current = promise;
 
     return () => { ac.abort(); };
-  }, [tab, refreshTab]);
+  }, [stableTabId, stableHasPrimaryOrder, stableHasActiveLines, locationId, refreshTab]);
 
   // Initial check fetch (only when primaryOrderId already exists)
   useEffect(() => {
