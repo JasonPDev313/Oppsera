@@ -37,6 +37,9 @@ const nextConfig: NextConfig = {
   output: process.env.DOCKER_BUILD ? 'standalone' : undefined,
   transpilePackages: ['@oppsera/shared', '@oppsera/core', '@oppsera/module-import'],
   poweredByHeader: false,
+  // Node.js-only packages that must not be bundled by webpack (breaks Edge runtime).
+  // jsonwebtoken uses crypto/stream which aren't available in Edge — keep it external.
+  serverExternalPackages: ['jsonwebtoken'],
   eslint: {
     // Lint runs as a separate CI step — skip during `next build` to avoid
     // platform-specific (Windows vs Linux) ESLint differences on Vercel.
