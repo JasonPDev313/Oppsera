@@ -25,6 +25,11 @@ const POOL_RESET_THRESHOLD = 3;
 // After this many consecutive trips, force breaker closed (dead man's switch).
 // Better to let some requests through and fail naturally than to stay dead forever.
 const DEAD_MANS_SWITCH_THRESHOLD = 50;
+// Failure window: require N failures within this window before tripping.
+// A single ECONNRESET on Vercel unfreeze won't trip — it needs a second failure
+// within 5s to confirm the DB is genuinely down vs. one stale socket.
+const TRIP_FAILURE_THRESHOLD = 2;
+const TRIP_FAILURE_WINDOW_MS = 5_000;
 const QUEUE_WARN_THRESHOLD = 5;
 const SLOW_QUERY_THRESHOLD_MS = 5_000;
 const QUERY_TIMEOUT_MS = parseInt(process.env.DB_QUERY_TIMEOUT || '15000', 10);
@@ -228,6 +233,54 @@ function tryClaimHalfOpenProbe(): boolean {
   return true;
 }
 
+// ── Failure window ───────────────────────────────────────────────────────────
+// Tracks recent pool exhaustion failures. The breaker only trips when N+ failures
+// occur within a short window. A single ECONNRESET on Vercel unfreeze (stale socket)
+// records a failure but doesn't trip — it needs a second failure to confirm the DB
+// is genuinely down. This eliminates false trips from transient stale connections.
+const _recentFailures: number[] = [];
+let _failuresAbsorbed = 0;
+
+function recordFailure(): void {
+  _recentFailures.push(Date.now());
+}
+
+function shouldTrip(): boolean {
+  const now = Date.now();
+  // Prune failures outside the window
+  while (_recentFailures.length > 0 && now - _recentFailures[0]! > TRIP_FAILURE_WINDOW_MS) {
+    _recentFailures.shift();
+  }
+  if (_recentFailures.length >= TRIP_FAILURE_THRESHOLD) {
+    // Clear the window — the trip consumes these failures
+    _recentFailures.length = 0;
+    return true;
+  }
+  _failuresAbsorbed++;
+  return false;
+}
+
+// ── Stale connection detection ───────────────────────────────────────────────
+// Connection-level errors that indicate a dead socket (Vercel freeze, Supavisor
+// timeout). These are safe to retry because the query never reached Postgres —
+// the TCP connection was already dead. Distinguished from "too many clients"
+// (real exhaustion) and QUERY_TIMEOUT (query may have executed).
+function isStaleConnection(err: unknown): boolean {
+  const code = (err as { code?: string })?.code;
+  const msg = String((err as Error)?.message ?? '').toLowerCase();
+  return (
+    code === 'ECONNRESET' ||
+    code === 'ECONNREFUSED' ||
+    code === 'EPIPE' ||
+    code === '57P01' || // admin_shutdown (DB restarted)
+    msg.includes('connection terminated unexpectedly') ||
+    msg.includes('broken pipe') ||
+    msg.includes('connection refused')
+  );
+}
+
+let _silentRetryCount = 0;
+
 // ── Pool exhaustion detection ────────────────────────────────────────────────
 // Covers postgres.js, pg, pgBouncer, Supavisor, native Postgres errors,
 // connection-level failures (ECONNREFUSED/ECONNRESET/EPIPE), and our own
@@ -269,7 +322,10 @@ let _opIdCounter = 0;
  * - If circuit breaker is open, rejects immediately (fail-fast)
  * - If concurrency limit is reached, queues the operation (with queue timeout)
  * - If queued longer than QUEUE_TIMEOUT_MS, rejects with QUEUE_TIMEOUT (fast-fail)
- * - If pool exhaustion is detected in the error, trips the circuit breaker
+ * - On stale connection error (ECONNRESET/EPIPE), retries once silently before
+ *   recording a failure — catches dead sockets from Vercel freeze/unfreeze
+ * - On pool exhaustion, records a failure; only trips breaker when 2+ failures
+ *   occur within a 5s window (prevents single-error false trips)
  * - If a query exceeds QUERY_TIMEOUT_MS, the Promise rejects and the semaphore is released
  * - Logs slow queries (>5s) and queue depth warnings
  * - Tracks active ops for diagnostics
@@ -323,49 +379,80 @@ export async function guardedQuery<T>(opName: string, fn: () => Promise<T>): Pro
   const opId = String(++_opIdCounter);
   _activeOps.set(opId, { opName, startedAt: start });
 
+  // Per-query timeout — shared across all attempts. Prevents a stuck query from
+  // holding a pool connection forever. The timeout spans both the initial attempt
+  // and the stale-connection retry (if any), so total wall time never exceeds limit.
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const err = new Error(
+        `[pool-guard] Query timeout: ${opName} exceeded ${QUERY_TIMEOUT_MS}ms`,
+      );
+      (err as { code?: string }).code = 'QUERY_TIMEOUT';
+      console.error(err.message);
+      reject(err);
+    }, QUERY_TIMEOUT_MS);
+  });
+
   try {
-    // Per-query timeout — prevents a stuck query from holding a pool connection forever
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const result = await Promise.race([
-      fn(),
-      new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          const err = new Error(
-            `[pool-guard] Query timeout: ${opName} exceeded ${QUERY_TIMEOUT_MS}ms`,
+    // Stale connection retry: ECONNRESET/EPIPE mean the query never reached Postgres
+    // (dead socket from Vercel freeze). Safe to retry once — postgres.js picks a
+    // different connection. Prevents a single stale socket from tripping the breaker.
+    // Probes don't retry — they're already a recovery mechanism.
+    const maxAttempts = isProbe ? 1 : 2;
+    let lastErr: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await Promise.race([fn(), timeoutPromise]);
+
+        const duration = Date.now() - start;
+        if (duration > SLOW_QUERY_THRESHOLD_MS) {
+          console.warn(`[pool-guard] Slow DB op: ${opName} took ${duration}ms`);
+        }
+
+        // Probe succeeded — close the breaker
+        if (isProbe) {
+          console.warn(`[pool-guard] Half-open probe succeeded (${opName}, ${duration}ms) — breaker CLOSED`);
+          closeBreaker();
+        }
+
+        return result;
+      } catch (err) {
+        lastErr = err;
+        // Only retry on stale connection errors (query never reached DB = safe to retry).
+        // Don't retry QUERY_TIMEOUT (query may have executed) or "too many clients" (real
+        // exhaustion where retrying just adds pressure).
+        if (attempt < maxAttempts && isStaleConnection(err)) {
+          _silentRetryCount++;
+          console.warn(
+            `[pool-guard] Stale connection in ${opName} — silent retry (attempt ${attempt + 1})`,
           );
-          (err as { code?: string }).code = 'QUERY_TIMEOUT';
-          console.error(err.message);
-          reject(err);
-        }, QUERY_TIMEOUT_MS);
-      }),
-    ]).finally(() => {
-      if (timeoutId) clearTimeout(timeoutId);
-    });
-
-    const duration = Date.now() - start;
-    if (duration > SLOW_QUERY_THRESHOLD_MS) {
-      console.warn(`[pool-guard] Slow DB op: ${opName} took ${duration}ms`);
+          continue;
+        }
+        break;
+      }
     }
 
-    // Probe succeeded — close the breaker
-    if (isProbe) {
-      console.warn(`[pool-guard] Half-open probe succeeded (${opName}, ${duration}ms) — breaker CLOSED`);
-      closeBreaker();
-    }
-
-    return result;
-  } catch (err) {
+    // All attempts exhausted — decide whether to trip the breaker
     const duration = Date.now() - start;
-    if (isPoolExhaustion(err)) {
+    if (isPoolExhaustion(lastErr)) {
       console.error(`[pool-guard] Pool exhaustion detected in ${opName} after ${duration}ms`);
-      tripBreaker();
+      // Record failure into the sliding window. Only trip when 2+ failures land
+      // within 5s — a single ECONNRESET that survived the retry isn't enough to
+      // declare the DB down (could be two stale sockets cleaned up in sequence).
+      recordFailure();
+      if (shouldTrip()) {
+        tripBreaker();
+      }
     } else if (isProbe) {
       // Non-pool error during probe — still re-trip to be safe
       console.error(`[pool-guard] Half-open probe failed (${opName}, ${duration}ms) — breaker re-OPEN`);
       tripBreaker();
     }
-    throw err;
+    throw lastErr;
   } finally {
+    if (timeoutId) clearTimeout(timeoutId);
     _activeOps.delete(opId);
     semaphore.release();
   }
@@ -445,6 +532,8 @@ export function getPoolGuardStats() {
     breakerOpen: getBreakerState() !== 'closed',
     breakerTripCount,
     consecutiveTrips: _consecutiveTrips,
+    silentRetryCount: _silentRetryCount,
+    failuresAbsorbed: _failuresAbsorbed,
     poolResetCount: _poolResetCount,
     deadMansSwitchCount: _deadMansSwitchCount,
     concurrencyLimit: CONCURRENCY_LIMIT,
