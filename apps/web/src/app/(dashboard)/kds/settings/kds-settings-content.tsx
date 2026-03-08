@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { KdsSettingsPanel } from '@/components/fnb/kds-settings-panel';
 import { useStations } from '@/hooks/use-fnb-kitchen';
@@ -8,8 +9,13 @@ import Link from 'next/link';
 import { Wand2, MapPin, Info } from 'lucide-react';
 
 export default function KdsSettingsContent() {
+  const searchParams = useSearchParams();
   const { locations } = useAuthContext();
-  const [locationId, setLocationId] = useState(locations?.[0]?.id);
+  const [locationId, setLocationId] = useState(() => {
+    const fromUrl = searchParams.get('locationId');
+    if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
+    return locations?.[0]?.id;
+  });
   const hasMultipleLocations = (locations?.length ?? 0) > 1;
   const locationName = locations?.find((l) => l.id === locationId)?.name ?? '';
   const { stations, isLoading: stationsLoading } = useStations({ locationId });

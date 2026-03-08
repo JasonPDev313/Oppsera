@@ -6,7 +6,7 @@ import {
   Monitor, Plus, Trash2, AlertTriangle, ArrowLeft, Settings2, ExternalLink,
   MapPin, Info,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
 import { apiFetch } from '@/lib/api-client';
@@ -188,9 +188,16 @@ function guessItemType(name: string): 'food' | 'beverage' | null {
 
 export default function KdsSetupContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { locations } = useAuthContext();
-  const [locationId, setLocationId] = useState(locations?.[0]?.id ?? '');
+
+  // Default to query param locationId (e.g. when arriving from POS dialog), else first location
+  const [locationId, setLocationId] = useState(() => {
+    const fromUrl = searchParams.get('locationId');
+    if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
+    return locations?.[0]?.id ?? '';
+  });
   const hasMultipleLocations = (locations?.length ?? 0) > 1;
   const locationName = locations?.find((l) => l.id === locationId)?.name ?? '';
 

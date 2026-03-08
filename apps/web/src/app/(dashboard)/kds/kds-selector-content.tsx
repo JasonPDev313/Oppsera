@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { useStations } from '@/hooks/use-fnb-kitchen';
 import { ArrowLeft, MapPin, AlertTriangle, Settings2 } from 'lucide-react';
@@ -24,8 +24,13 @@ function getStationColor(stationType: string): string {
 
 export default function KdsSelectorContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { locations } = useAuthContext();
-  const [locationId, setLocationId] = useState(locations?.[0]?.id ?? '');
+  const [locationId, setLocationId] = useState(() => {
+    const fromUrl = searchParams.get('locationId');
+    if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
+    return locations?.[0]?.id ?? '';
+  });
   const { stations, isLoading } = useStations({ locationId });
 
   const locationName = locations?.find((l) => l.id === locationId)?.name ?? '';

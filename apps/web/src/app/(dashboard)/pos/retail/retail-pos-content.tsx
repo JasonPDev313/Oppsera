@@ -2603,4 +2603,10 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         onClose={() => setShowKdsNotConfigured(false)}
         locationId={locationId}
         locationName={locations[0]?.name}
-        canSetup={can('fnb.manage')}
+        canSetup={can('fnb.manage')}
+      />
+    </div>
+  );
+}
+
+export default memo(RetailPOSPage);

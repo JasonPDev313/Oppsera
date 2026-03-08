@@ -93,6 +93,9 @@ import { TabActionBar } from './TabActionBar';
 import { FnbMenuNav, FnbMenuContent, FnbMenuError, recordRecentItem } from '@/components/fnb/menu/FnbMenuPanel';
 import { FnbModifierDrawer } from '@/components/fnb/menu/FnbModifierDrawer';
 import { useAuthContext } from '@/components/auth-provider';
+import { usePermissions } from '@/hooks/use-permissions';
+import { useStations } from '@/hooks/use-fnb-kitchen';
+import { KdsNotConfiguredDialog } from '@/components/pos/shared/KdsNotConfiguredDialog';
 import { ManageTabsButton } from '../manage-tabs/ManageTabsButton';
 
 interface FnbTabViewProps {
@@ -224,7 +227,12 @@ function UpsellBanner({ items, onTap: _onTap }: {
 export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = true }: FnbTabViewProps) {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { locations } = useAuthContext();
+  const { can } = usePermissions();
   const locationId = locations?.[0]?.id;
+  const locationName = locations?.[0]?.name;
+  const { stations } = useStations({ locationId });
+  const hasKdsStations = stations.length > 0;
+  const [showKdsNotConfigured, setShowKdsNotConfigured] = useState(false);
   const store = useFnbPosStore();
   const tabId = store.activeTabId;
   const activeSeat = store.activeSeatNumber;
@@ -315,6 +323,12 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
 
   const handleSendAll = async () => {
     if (!tab || !tabId) return;
+
+    // Block send if no KDS stations at this location
+    if (!hasKdsStations) {
+      setShowKdsNotConfigured(true);
+      return;
+    }
 
     // Build a map of existing course statuses
     const existingCourses = new Map(
@@ -989,6 +1003,15 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
           onConfirm={handleModifierConfirm}
         />
       )}
+
+      {/* KDS Not Configured Dialog */}
+      <KdsNotConfiguredDialog
+        open={showKdsNotConfigured}
+        onClose={() => setShowKdsNotConfigured(false)}
+        locationId={locationId}
+        locationName={locationName}
+        canSetup={can('fnb.manage')}
+      />
     </div>
   );
 }
