@@ -2,14 +2,33 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { sql } from 'drizzle-orm';
 import postgres from 'postgres';
 import * as schema from './schema';
-import { guardedQuery } from './pool-guard';
+import { guardedQuery, registerPoolReset } from './pool-guard';
 
 type DrizzleDB = ReturnType<typeof drizzle<typeof schema>>;
+type PostgresClient = ReturnType<typeof postgres>;
 
 // Use globalThis to persist the DB pool across Next.js hot reloads in dev.
 // Without this, each hot reload creates a new pool without closing the old one,
 // eventually exhausting all Supabase connection slots.
-const globalForDb = globalThis as unknown as { __oppsera_db?: DrizzleDB };
+const globalForDb = globalThis as unknown as {
+  __oppsera_db?: DrizzleDB;
+  __oppsera_sql?: PostgresClient;
+};
+
+function createPoolOptions() {
+  return {
+    max: parseInt(process.env.DB_POOL_MAX || '2', 10),
+    // prepare MUST default to false for Supavisor (transaction-mode pooler, port 6543).
+    prepare: process.env.DB_PREPARE_STATEMENTS === 'true',
+    // Shorter lifetimes = faster zombie cleanup when next request hits a warm instance.
+    idle_timeout: 10,
+    max_lifetime: 60,
+    connect_timeout: 10,
+    onnotice: (notice: postgres.Notice) => {
+      console.warn(`[pg-notice] ${notice.severity}: ${notice.message}`);
+    },
+  };
+}
 
 function getDb(): DrizzleDB {
   if (!globalForDb.__oppsera_db) {
@@ -25,28 +44,69 @@ function getDb(): DrizzleDB {
     // NOTE: Do NOT use `connection: { statement_timeout, idle_in_transaction_session_timeout }`
     //   — Supavisor (port 6543) rejects startup parameters and kills the connection.
     //   These timeouts are set at ALTER DATABASE level instead (2026-02-27 outage fix).
-    const client = postgres(connectionString, {
-      max: parseInt(process.env.DB_POOL_MAX || '2', 10),
-      // prepare MUST default to false for Supavisor (transaction-mode pooler, port 6543).
-      // Prepared statements are connection-specific and break under connection pooling.
-      // Only set DB_PREPARE_STATEMENTS=true when connecting directly to Postgres (no pooler).
-      prepare: process.env.DB_PREPARE_STATEMENTS === 'true',
-      // Shorter lifetimes = faster zombie cleanup when next request hits a warm instance.
-      // Even though these timers freeze with the event loop, they fire when Vercel
-      // unfreezes the instance for the next request. 10s idle means a zombie sitting
-      // idle for >10s is cleaned up as soon as the event loop resumes.
-      // Risk: more frequent connection setup (~1ms per connect via Supavisor). Negligible.
-      idle_timeout: 10,
-      max_lifetime: 60,
-      connect_timeout: 10,
-      onnotice: (notice) => {
-        // Log Postgres notices (timeout kills, warnings, etc.)
-        console.warn(`[pg-notice] ${notice.severity}: ${notice.message}`);
-      },
-    });
+    const client = postgres(connectionString, createPoolOptions());
+    globalForDb.__oppsera_sql = client;
     globalForDb.__oppsera_db = drizzle(client, { schema });
+    // Register pool reset so circuit breaker can auto-recover from stale connections
+    registerPoolReset(resetPool);
   }
   return globalForDb.__oppsera_db;
+}
+
+/**
+ * Destroy the current connection pool and force recreation on next access.
+ *
+ * Called automatically by pool-guard after 3 consecutive breaker trips (stale
+ * connections on frozen Vercel instances). The `db` proxy calls `getDb()` on
+ * every access, so nuking the globalThis ref is sufficient — the next query
+ * creates a fresh postgres.js client with new TCP connections.
+ */
+export async function resetPool(): Promise<void> {
+  const oldSql = globalForDb.__oppsera_sql;
+  globalForDb.__oppsera_db = undefined;
+  globalForDb.__oppsera_sql = undefined;
+  if (oldSql) {
+    try {
+      await oldSql.end({ timeout: 2 });
+    } catch (err) {
+      // Best-effort — the connections may already be dead
+      console.warn('[db] Pool end() failed during reset:', (err as Error).message);
+    }
+  }
+  console.warn('[db] Connection pool destroyed — will recreate on next query');
+}
+
+/**
+ * Test DB reachability with a throwaway connection (bypasses the shared pool).
+ *
+ * Used by the health endpoint to get a definitive answer on whether the DB is
+ * reachable, independent of the shared pool's state. Creates a fresh TCP
+ * connection, runs SELECT 1, and tears it down immediately.
+ */
+export async function probeWithFreshConnection(): Promise<{
+  ok: boolean;
+  error?: string;
+  durationMs: number;
+}> {
+  const start = Date.now();
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    return { ok: false, error: 'No DATABASE_URL', durationMs: 0 };
+  }
+  const probe = postgres(connectionString, {
+    max: 1,
+    prepare: false,
+    connect_timeout: 5,
+    idle_timeout: 1,
+  });
+  try {
+    await probe`SELECT 1`;
+    return { ok: true, durationMs: Date.now() - start };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message, durationMs: Date.now() - start };
+  } finally {
+    try { await probe.end({ timeout: 1 }); } catch { /* best-effort cleanup */ }
+  }
 }
 
 export const db: DrizzleDB = new Proxy({} as DrizzleDB, {

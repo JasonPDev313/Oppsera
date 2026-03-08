@@ -6,6 +6,8 @@
  * 2. Tripping a circuit breaker on pool exhaustion errors (fail-fast for 10s)
  * 3. Detecting pool exhaustion across different error patterns
  * 4. Logging slow queries and queue depth warnings
+ * 5. Auto-resetting stale connection pools after consecutive trips
+ * 6. Dead man's switch: force-closing breaker after sustained failure
  *
  * @module
  */
@@ -17,6 +19,12 @@ const POOL_MAX = parseInt(process.env.DB_POOL_MAX || '2', 10);
 // postgres.js pool level where there's no timeout control.
 const CONCURRENCY_LIMIT = parseInt(process.env.DB_CONCURRENCY || String(POOL_MAX + 1), 10);
 const BREAKER_COOLDOWN_MS = 10_000;
+const BREAKER_MAX_COOLDOWN_MS = 60_000;
+// After this many consecutive trips, reset the connection pool (stale connections).
+const POOL_RESET_THRESHOLD = 3;
+// After this many consecutive trips, force breaker closed (dead man's switch).
+// Better to let some requests through and fail naturally than to stay dead forever.
+const DEAD_MANS_SWITCH_THRESHOLD = 50;
 const QUEUE_WARN_THRESHOLD = 5;
 const SLOW_QUERY_THRESHOLD_MS = 5_000;
 const QUERY_TIMEOUT_MS = parseInt(process.env.DB_QUERY_TIMEOUT || '15000', 10);
@@ -110,13 +118,30 @@ class Semaphore {
 
 const semaphore = new Semaphore(CONCURRENCY_LIMIT);
 
-// ── Circuit breaker (with half-open probe) ───────────────────────────────────
+// ── Circuit breaker (with half-open probe + auto-recovery) ──────────────────
 // States: CLOSED (normal) → OPEN (fail-fast) → HALF_OPEN (single probe) → CLOSED
 // Half-open prevents thundering herd: after cooldown, only ONE request probes the DB.
-// If it succeeds → CLOSED. If it fails → OPEN again with fresh cooldown.
+// If it succeeds → CLOSED. If it fails → OPEN again with exponential backoff.
+//
+// Recovery hardening (prevents infinite open loops on frozen Vercel instances):
+// - Exponential backoff: 10s → 20s → 40s → 60s cap (avoids rapid re-tripping)
+// - After 3 consecutive trips: auto-reset connection pool (stale connections)
+// - After 50 consecutive trips: dead man's switch forces breaker closed
 let breakerOpenUntil = 0;
 let breakerTripCount = 0;
+let _consecutiveTrips = 0;
+let _poolResetCount = 0;
+let _deadMansSwitchCount = 0;
 let _halfOpenProbeInFlight = false;
+
+// Callback to reset the postgres.js connection pool. Registered by client.ts.
+let _poolResetFn: (() => Promise<void>) | null = null;
+
+/** Register a callback to destroy and recreate the connection pool.
+ *  Called automatically after POOL_RESET_THRESHOLD consecutive breaker trips. */
+export function registerPoolReset(fn: () => Promise<void>): void {
+  _poolResetFn = fn;
+}
 
 type BreakerState = 'closed' | 'open' | 'half_open';
 
@@ -134,18 +159,56 @@ export function isBreakerOpen(): boolean {
   return getBreakerState() === 'open';
 }
 
-export function tripBreaker(cooldownMs = BREAKER_COOLDOWN_MS): void {
-  breakerOpenUntil = Date.now() + cooldownMs;
+export function tripBreaker(cooldownMs?: number): void {
+  _consecutiveTrips++;
+
+  // Dead man's switch — after sustained failure, force breaker closed.
+  // Rationale: it's better to let requests through (they'll fail with real errors
+  // that clients can retry) than to stay permanently dead with a generic message.
+  if (_consecutiveTrips >= DEAD_MANS_SWITCH_THRESHOLD) {
+    _deadMansSwitchCount++;
+    console.error(
+      `[pool-guard] DEAD MAN'S SWITCH: ${_consecutiveTrips} consecutive trips — ` +
+        `forcing breaker CLOSED. Requests will attempt DB directly.`,
+    );
+    closeBreaker();
+    _consecutiveTrips = 0;
+    return;
+  }
+
+  // Auto pool reset — stale postgres.js connections on frozen Vercel instances
+  // are the #1 cause of infinite breaker loops. Resetting the pool forces fresh
+  // TCP connections on the next query.
+  if (_consecutiveTrips === POOL_RESET_THRESHOLD && _poolResetFn) {
+    _poolResetCount++;
+    console.warn(
+      `[pool-guard] ${_consecutiveTrips} consecutive trips — resetting connection pool`,
+    );
+    // Fire-and-forget is safe here: resetPool() just nulls the globalThis ref
+    // and calls sql.end() with a 2s timeout. The next query creates a fresh pool.
+    _poolResetFn().catch((err) => {
+      console.error('[pool-guard] Pool reset failed:', (err as Error).message);
+    });
+  }
+
+  // Exponential backoff: 10s → 20s → 40s → 60s cap
+  // Prevents rapid re-tripping while still recovering within ~2 minutes.
+  const backoffExponent = Math.min(_consecutiveTrips - 1, 3);
+  const effectiveCooldown = cooldownMs ??
+    Math.min(BREAKER_COOLDOWN_MS * Math.pow(2, backoffExponent), BREAKER_MAX_COOLDOWN_MS);
+
+  breakerOpenUntil = Date.now() + effectiveCooldown;
   breakerTripCount++;
   _halfOpenProbeInFlight = false;
   console.error(
-    `[pool-guard] Circuit breaker OPEN (trip #${breakerTripCount}). ` +
-      `DB operations will fail fast for ${cooldownMs / 1000}s`,
+    `[pool-guard] Circuit breaker OPEN (trip #${breakerTripCount}, consecutive: ${_consecutiveTrips}). ` +
+      `DB operations will fail fast for ${effectiveCooldown / 1000}s`,
   );
 }
 
 function closeBreaker(): void {
   breakerOpenUntil = 0;
+  _consecutiveTrips = 0;
   _halfOpenProbeInFlight = false;
 }
 
@@ -381,6 +444,9 @@ export function getPoolGuardStats() {
     breakerState: getBreakerState(),
     breakerOpen: getBreakerState() !== 'closed',
     breakerTripCount,
+    consecutiveTrips: _consecutiveTrips,
+    poolResetCount: _poolResetCount,
+    deadMansSwitchCount: _deadMansSwitchCount,
     concurrencyLimit: CONCURRENCY_LIMIT,
     maxQueueSize: MAX_QUEUE_SIZE,
     queryTimeoutMs: QUERY_TIMEOUT_MS,

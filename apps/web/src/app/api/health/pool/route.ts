@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, sql, getPoolGuardStats, resetBreaker } from '@oppsera/db';
+import { db, sql, getPoolGuardStats, resetBreaker, resetPool, probeWithFreshConnection } from '@oppsera/db';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -7,8 +7,10 @@ export const runtime = 'nodejs';
 /**
  * Pool health diagnostic endpoint.
  *
- * GET  — Returns pool-guard stats + live pg_stat_activity snapshot.
+ * GET  — Returns pool-guard stats + live pg_stat_activity snapshot + fresh probe result.
  * POST ?action=reset-breaker — Manually close the circuit breaker on this instance.
+ * POST ?action=reset-pool — Destroy and recreate the connection pool on this instance.
+ * POST ?action=reset-all — Reset both breaker and pool.
  *
  * No auth required — returns operational metrics only, no business data.
  */
@@ -80,6 +82,20 @@ export async function GET() {
       message: e.message ?? 'Unknown error',
       code: e.code ?? undefined,
     };
+
+    // Pool query failed — run a fresh probe to determine if the DB is truly
+    // unreachable or if just the shared pool has stale connections.
+    try {
+      const probe = await Promise.race([
+        probeWithFreshConnection(),
+        new Promise<{ ok: false; error: string; durationMs: number }>((_, reject) =>
+          setTimeout(() => reject(new Error('probe timeout')), 6_000),
+        ),
+      ]);
+      response.freshProbe = probe;
+    } catch {
+      response.freshProbe = { ok: false, error: 'probe timed out', durationMs: 6000 };
+    }
   }
 
   return NextResponse.json(response, {
@@ -88,10 +104,10 @@ export async function GET() {
 }
 
 /**
- * POST /api/health/pool?action=reset-breaker
+ * POST /api/health/pool?action=reset-breaker|reset-pool|reset-all
  *
- * Manually resets the circuit breaker on whichever Vercel instance handles
- * this request. Call multiple times to hit different instances.
+ * Emergency recovery actions. Each applies to the single Vercel instance that
+ * handles the request. Call multiple times to hit different instances.
  */
 export async function POST(request: NextRequest) {
   const action = request.nextUrl.searchParams.get('action');
@@ -100,14 +116,37 @@ export async function POST(request: NextRequest) {
     const before = getPoolGuardStats();
     resetBreaker();
     const after = getPoolGuardStats();
-
     return NextResponse.json({
       action: 'reset-breaker',
-      before: { breakerState: before.breakerState, tripCount: before.breakerTripCount },
-      after: { breakerState: after.breakerState, tripCount: after.breakerTripCount },
+      before: { breakerState: before.breakerState, tripCount: before.breakerTripCount, consecutiveTrips: before.consecutiveTrips },
+      after: { breakerState: after.breakerState, tripCount: after.breakerTripCount, consecutiveTrips: after.consecutiveTrips },
       note: 'Reset applied to this instance only. Call multiple times to cover other instances.',
     });
   }
 
-  return NextResponse.json({ error: 'Unknown action. Supported: reset-breaker' }, { status: 400 });
+  if (action === 'reset-pool') {
+    await resetPool();
+    return NextResponse.json({
+      action: 'reset-pool',
+      note: 'Connection pool destroyed on this instance. Next query will create fresh connections.',
+    });
+  }
+
+  if (action === 'reset-all') {
+    const before = getPoolGuardStats();
+    resetBreaker();
+    await resetPool();
+    const after = getPoolGuardStats();
+    return NextResponse.json({
+      action: 'reset-all',
+      before: { breakerState: before.breakerState, tripCount: before.breakerTripCount, consecutiveTrips: before.consecutiveTrips },
+      after: { breakerState: after.breakerState, tripCount: after.breakerTripCount, consecutiveTrips: after.consecutiveTrips },
+      note: 'Breaker closed + pool destroyed on this instance. Call multiple times to cover other instances.',
+    });
+  }
+
+  return NextResponse.json(
+    { error: 'Unknown action. Supported: reset-breaker, reset-pool, reset-all' },
+    { status: 400 },
+  );
 }

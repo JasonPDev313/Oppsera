@@ -1,4 +1,4 @@
-export { db, guardedDb, withTenant, createAdminClient, sql, schema } from './client';
+export { db, guardedDb, withTenant, createAdminClient, resetPool, probeWithFreshConnection, sql, schema } from './client';
 export { sqlArray } from './sql-helpers';
 export type { Database } from './client';
 export {
@@ -10,6 +10,7 @@ export {
   isPoolExhaustion,
   getPoolGuardStats,
   resetBreaker,
+  registerPoolReset,
   recordZombieDetection,
   recordZombieKill,
 } from './pool-guard';
