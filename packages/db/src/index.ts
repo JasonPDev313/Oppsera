@@ -9,6 +9,7 @@ export {
   isBreakerOpen,
   isPoolExhaustion,
   getPoolGuardStats,
+  resetBreaker,
   recordZombieDetection,
   recordZombieKill,
 } from './pool-guard';

@@ -149,6 +149,15 @@ function closeBreaker(): void {
   _halfOpenProbeInFlight = false;
 }
 
+/** Manually reset the circuit breaker to closed state (for emergency recovery via health endpoint). */
+export function resetBreaker(): void {
+  const wasOpen = breakerOpenUntil > 0;
+  closeBreaker();
+  if (wasOpen) {
+    console.warn('[pool-guard] Circuit breaker manually RESET to closed');
+  }
+}
+
 /** Try to claim the half-open probe slot. Returns true if this caller is the probe. */
 function tryClaimHalfOpenProbe(): boolean {
   if (_halfOpenProbeInFlight) return false;

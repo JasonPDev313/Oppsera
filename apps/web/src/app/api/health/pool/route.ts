@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { db, sql, getPoolGuardStats } from '@oppsera/db';
+import { NextRequest, NextResponse } from 'next/server';
+import { db, sql, getPoolGuardStats, resetBreaker } from '@oppsera/db';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -7,17 +7,15 @@ export const runtime = 'nodejs';
 /**
  * Pool health diagnostic endpoint.
  *
- * Returns pool-guard stats (active ops, queued, breaker state, query timeout)
- * plus live pg_stat_activity connection snapshot when DB is reachable.
+ * GET  — Returns pool-guard stats + live pg_stat_activity snapshot.
+ * POST ?action=reset-breaker — Manually close the circuit breaker on this instance.
  *
- * Designed for monitoring dashboards and on-call debugging.
  * No auth required — returns operational metrics only, no business data.
  */
 export async function GET() {
   const poolGuard = getPoolGuardStats();
   const timestamp = new Date().toISOString();
 
-  // Pool guard stats are pure in-memory — always available, no DB needed
   const response: Record<string, unknown> = {
     timestamp,
     poolGuard,
@@ -75,12 +73,41 @@ export async function GET() {
       details: connections,
     };
     response.dbReachable = true;
-  } catch {
+  } catch (err) {
     response.dbReachable = false;
-    response.dbError = 'Could not query pg_stat_activity (pool likely exhausted or timeout)';
+    const e = err as Error & { code?: string };
+    response.dbError = {
+      message: e.message ?? 'Unknown error',
+      code: e.code ?? undefined,
+    };
   }
 
   return NextResponse.json(response, {
     headers: { 'Cache-Control': 'no-store' },
   });
+}
+
+/**
+ * POST /api/health/pool?action=reset-breaker
+ *
+ * Manually resets the circuit breaker on whichever Vercel instance handles
+ * this request. Call multiple times to hit different instances.
+ */
+export async function POST(request: NextRequest) {
+  const action = request.nextUrl.searchParams.get('action');
+
+  if (action === 'reset-breaker') {
+    const before = getPoolGuardStats();
+    resetBreaker();
+    const after = getPoolGuardStats();
+
+    return NextResponse.json({
+      action: 'reset-breaker',
+      before: { breakerState: before.breakerState, tripCount: before.breakerTripCount },
+      after: { breakerState: after.breakerState, tripCount: after.breakerTripCount },
+      note: 'Reset applied to this instance only. Call multiple times to cover other instances.',
+    });
+  }
+
+  return NextResponse.json({ error: 'Unknown action. Supported: reset-breaker' }, { status: 400 });
 }
