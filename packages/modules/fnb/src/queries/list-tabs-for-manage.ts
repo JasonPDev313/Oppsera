@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { withTenant } from '@oppsera/db';
+import { withTenant, sqlArray } from '@oppsera/db';
 import type { ManageTabsQuery } from '../validation';
 
 export interface ManageTabListItem {
@@ -87,11 +87,11 @@ export async function listTabsForManage(
 
     // viewMode presets override explicit statuses
     if (input.viewMode === 'open_only') {
-      conditions.push(sql`t.status = ANY(${OPEN_ONLY_STATUSES})`);
+      conditions.push(sql`t.status = ANY(${sqlArray(OPEN_ONLY_STATUSES)})`);
     } else if (input.viewMode === 'needs_attention') {
-      conditions.push(sql`t.status = ANY(${NEEDS_ATTENTION_STATUSES})`);
+      conditions.push(sql`t.status = ANY(${sqlArray(NEEDS_ATTENTION_STATUSES)})`);
     } else if (input.statuses && input.statuses.length > 0) {
-      conditions.push(sql`t.status = ANY(${input.statuses})`);
+      conditions.push(sql`t.status = ANY(${sqlArray(input.statuses)})`);
     }
 
     if (input.search) {

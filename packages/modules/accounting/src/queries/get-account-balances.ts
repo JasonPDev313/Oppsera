@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { withTenant } from '@oppsera/db';
+import { withTenant, sqlArray } from '@oppsera/db';
 
 export interface AccountBalance {
   accountId: string;
@@ -27,7 +27,7 @@ export async function getAccountBalances(
 ): Promise<AccountBalance[]> {
   return withTenant(input.tenantId, async (tx) => {
     const accountFilter = input.accountIds && input.accountIds.length > 0
-      ? sql`AND a.id = ANY(${input.accountIds})`
+      ? sql`AND a.id = ANY(${sqlArray(input.accountIds)})`
       : sql``;
 
     const dateFilter = input.asOfDate

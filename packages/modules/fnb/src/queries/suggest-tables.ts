@@ -1,4 +1,4 @@
-import { withTenant } from '@oppsera/db';
+import { withTenant, sqlArray } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 import type { SuggestTablesInput, TableSuggestion, AvailableTable, ServerLoad, CustomerTableHistory } from '../services/table-assigner';
 import { computeTableSuggestions } from '../services/table-assigner';
@@ -50,7 +50,7 @@ export async function suggestTables(input: SuggestTablesInput): Promise<TableSug
       SELECT id, seating_preference
       FROM fnb_tables
       WHERE tenant_id = ${input.tenantId}
-        AND id = ANY(${tableIds})
+        AND id = ANY(${sqlArray(tableIds)})
         AND seating_preference IS NOT NULL
     `);
     const tagMap = new Map<string, string[]>();

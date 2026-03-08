@@ -9,6 +9,7 @@ import {
   roleLocationAccess,
   roleProfitCenterAccess,
   roleTerminalAccess,
+  sqlArray,
 } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
 import { getPermissionEngine } from './engine';
@@ -278,7 +279,7 @@ export async function getAccessibleLocationsForRole(tenantId: string, roleId: st
     FROM locations
     WHERE tenant_id = ${tenantId}
       AND is_active = true
-      AND id = ANY(${allowedIds})
+      AND id = ANY(${sqlArray(allowedIds)})
     ORDER BY name
   `) as unknown as {
     id: string;
@@ -369,7 +370,7 @@ export async function getAccessibleProfitCentersForRole(
     WHERE tenant_id = ${tenantId}
       AND location_id = ${locationId}
       AND is_active = true
-      AND id = ANY(${allowedIds})
+      AND id = ANY(${sqlArray(allowedIds)})
     ORDER BY sort_order, title
   `) as unknown as {
     id: string;
@@ -462,7 +463,7 @@ export async function getAccessibleTerminalsForRole(
     WHERE tenant_id = ${tenantId}
       AND terminal_location_id = ${profitCenterId}
       AND is_active = true
-      AND id = ANY(${allowedIds})
+      AND id = ANY(${sqlArray(allowedIds)})
     ORDER BY terminal_number, name
   `) as unknown as {
     id: string;

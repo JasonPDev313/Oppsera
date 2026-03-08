@@ -53,11 +53,25 @@ export default function AddUserModal({ roles, locations, onClose, onSaved }: Pro
     return () => { document.body.style.overflow = prev; document.removeEventListener('keydown', onKey); };
   }, [onClose]);
 
+  const WEAK_4 = new Set(['0000','1111','2222','3333','4444','5555','6666','7777','8888','9999','1234','4321','1212','2121','1122','2211','0123','3210','9876','6789','1010','2020','6969','1357','2468']);
+  const pinError = useMemo(() => {
+    const pin = form.posOverridePin;
+    if (pin && !/^\d{4,8}$/.test(pin)) return 'Override PIN must be 4–8 digits';
+    if (pin && pin.length === 4 && WEAK_4.has(pin)) return 'Override PIN is too easy to guess — avoid common patterns';
+    const idPin = form.uniqueIdentificationPin;
+    if (idPin && !/^\d{4}$/.test(idPin)) return 'Unique ID PIN must be exactly 4 digits';
+    if (idPin && WEAK_4.has(idPin)) return 'Unique ID PIN is too easy to guess — avoid common patterns';
+    if (pin && idPin && pin === idPin) return 'Override PIN must differ from Unique ID PIN';
+    if (pin && idPin && pin.startsWith(idPin)) return 'Override PIN cannot start with your Unique ID PIN — this causes conflicts when verifying';
+    return '';
+  }, [form.posOverridePin, form.uniqueIdentificationPin]);
+
   const canSubmit = useMemo(() => {
     if (!form.firstName || !form.lastName || !form.emailAddress || !form.userName || !form.userRole) return false;
     if (form.password && form.password !== form.confirmPassword) return false;
+    if (pinError) return false;
     return true;
-  }, [form]);
+  }, [form, pinError]);
 
   const submit = useCallback(async () => {
     if (!canSubmit) return;
@@ -106,8 +120,9 @@ export default function AddUserModal({ roles, locations, onClose, onSaved }: Pro
             <option value="active" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Active</option>
             <option value="inactive" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Inactive</option>
           </select>
-          <input placeholder="POS Override PIN" inputMode="numeric" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={form.posOverridePin} onChange={(e) => setForm((p) => ({ ...p, posOverridePin: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
-          <input placeholder="Unique Identification PIN" inputMode="numeric" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={form.uniqueIdentificationPin} onChange={(e) => setForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
+          <input placeholder="POS Override PIN (4–8 digits)" inputMode="numeric" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={form.posOverridePin} onChange={(e) => setForm((p) => ({ ...p, posOverridePin: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
+          <input placeholder="Unique Identification PIN (4 digits)" inputMode="numeric" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={form.uniqueIdentificationPin} onChange={(e) => setForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value.replace(/\D/g, '').slice(0, 4) }))} />
+          {pinError && <p className="md:col-span-2 text-xs text-red-500">{pinError}</p>}
           <div className="rounded-lg border border-border bg-muted px-3 py-2.5 text-sm">
             <label htmlFor="add-user-tab-color" className="mb-1 block text-xs text-muted-foreground">User Tab Color</label>
             <input id="add-user-tab-color" type="color" className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent" value={form.userTabColor} onChange={(e) => setForm((p) => ({ ...p, userTabColor: e.target.value }))} />

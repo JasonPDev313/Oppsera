@@ -7,8 +7,8 @@ import { ValidationError } from '@oppsera/shared';
 import { resetPins } from '@oppsera/core';
 
 const bodySchema = z.object({
-  posOverridePin: z.string().optional().or(z.literal('')).nullable(),
-  uniqueIdentificationPin: z.string().optional().or(z.literal('')).nullable(),
+  posOverridePin: z.string().regex(/^\d{4,8}$/, 'Override PIN must be 4-8 digits').optional().or(z.literal('')).nullable(),
+  uniqueIdentificationPin: z.string().regex(/^\d{4}$/, 'Login PIN must be exactly 4 digits').optional().or(z.literal('')).nullable(),
 });
 
 function extractUserId(request: NextRequest): string {

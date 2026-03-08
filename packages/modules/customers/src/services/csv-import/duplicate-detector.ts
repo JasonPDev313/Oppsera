@@ -13,6 +13,7 @@
 import { sql } from 'drizzle-orm';
 import {
   withTenant,
+  sqlArray,
 } from '@oppsera/db';
 import type { MappedCustomerRow, DuplicateMatch } from './import-types';
 
@@ -64,7 +65,7 @@ export async function detectDuplicates(
         sql`SELECT id, display_name as "displayName", email, phone
             FROM customers
             WHERE tenant_id = ${tenantId}
-              AND LOWER(email) = ANY(${uniqueEmails})
+              AND LOWER(email) = ANY(${sqlArray(uniqueEmails)})
               AND display_name NOT LIKE '[MERGED]%'`,
       );
 
@@ -98,7 +99,7 @@ export async function detectDuplicates(
         sql`SELECT id, display_name as "displayName", email, phone
             FROM customers
             WHERE tenant_id = ${tenantId}
-              AND phone = ANY(${uniquePhones})
+              AND phone = ANY(${sqlArray(uniquePhones)})
               AND display_name NOT LIKE '[MERGED]%'`,
       );
 
@@ -135,7 +136,7 @@ export async function detectDuplicates(
             JOIN customers c ON c.id = ci.customer_id AND c.tenant_id = ci.tenant_id
             WHERE ci.tenant_id = ${tenantId}
               AND ci.type = 'member_number'
-              AND ci.value = ANY(${uniqueMemberNums})
+              AND ci.value = ANY(${sqlArray(uniqueMemberNums)})
               AND c.display_name NOT LIKE '[MERGED]%'`,
       );
 
@@ -173,7 +174,7 @@ export async function detectDuplicates(
             JOIN customers c ON c.id = ce.customer_id AND c.tenant_id = ce.tenant_id
             WHERE ce.tenant_id = ${tenantId}
               AND ce.provider = 'legacy_import'
-              AND ce.external_id = ANY(${uniqueExternalIds})
+              AND ce.external_id = ANY(${sqlArray(uniqueExternalIds)})
               AND c.display_name NOT LIKE '[MERGED]%'`,
       );
 

@@ -1,6 +1,7 @@
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, isNotNull } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { users, memberships, roleAssignments, roles } from '@oppsera/db';
+import { users, memberships, roleAssignments, roles, userSecurity } from '@oppsera/db';
+import { verifySecret } from '@oppsera/core/users';
 import { AppError } from '@oppsera/shared';
 import type { VerifyManagerPinInput } from '../validation';
 
@@ -14,24 +15,22 @@ export interface VerifyPinResult {
 }
 
 /**
- * Verify a manager's PIN for authorizing bulk tab operations.
- *
- * V1: PIN = last 4 digits of user ID (simplified). Replace with real PIN
- * storage when manager PIN infrastructure is built.
+ * Verify a manager's POS override PIN for authorizing bulk tab operations.
+ * Uses hashed PINs from user_security table with timing-safe comparison.
  */
 export async function verifyManagerPin(
   tenantId: string,
   input: VerifyManagerPinInput,
 ): Promise<VerifyPinResult> {
   return withTenant(tenantId, async (tx) => {
-    // Find active members with manager+ roles via roleAssignments → roles
+    // Find active members with manager+ roles who have override PINs set
     const managerRows = await tx
       .select({
         userId: memberships.userId,
         roleName: roles.name,
         displayName: users.displayName,
         email: users.email,
-        overridePin: users.overridePin,
+        pinHash: userSecurity.posOverridePinHash,
       })
       .from(memberships)
       .innerJoin(users, eq(memberships.userId, users.id))
@@ -40,24 +39,25 @@ export async function verifyManagerPin(
         eq(roleAssignments.userId, memberships.userId),
       ))
       .innerJoin(roles, eq(roleAssignments.roleId, roles.id))
+      .innerJoin(userSecurity, eq(userSecurity.userId, memberships.userId))
       .where(and(
         eq(memberships.tenantId, tenantId),
         eq(memberships.status, 'active'),
         inArray(roles.name, MANAGER_ROLES),
+        isNotNull(userSecurity.posOverridePinHash),
       ));
 
-    // Find a manager whose PIN matches
+    // Verify against each manager's hashed PIN (timing-safe)
     for (const m of managerRows) {
-      // Check PIN — use stored overridePin if available, fallback to last 4 of userId
-      const storedPin = m.overridePin ?? m.userId.slice(-4);
-      if (storedPin === input.pin) {
-        return {
-          verified: true,
-          userId: m.userId,
-          userName: m.displayName ?? m.email ?? 'Manager',
-          role: m.roleName,
-        };
-      }
+      if (!m.pinHash) continue;
+      if (!verifySecret(input.pin, m.pinHash)) continue;
+
+      return {
+        verified: true,
+        userId: m.userId,
+        userName: m.displayName ?? m.email ?? 'Manager',
+        role: m.roleName,
+      };
     }
 
     throw new AppError('INVALID_PIN', 'Invalid manager PIN', 401);

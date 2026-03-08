@@ -2771,7 +2771,7 @@ export type EmergencyCleanupInput = z.input<typeof emergencyCleanupSchema>;
 
 export const verifyManagerPinSchema = z.object({
   tenantId: z.string().min(1),
-  pin: z.string().min(4).max(6),
+  pin: z.string().min(4).max(8).regex(/^\d{4,8}$/, 'PIN must be 4-8 digits'),
   actionType: z.enum(['bulk_void', 'bulk_transfer', 'bulk_close', 'emergency_cleanup', 'force_unlock']),
 });
 export type VerifyManagerPinInput = z.input<typeof verifyManagerPinSchema>;

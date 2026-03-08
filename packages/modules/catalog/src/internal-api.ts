@@ -1,5 +1,5 @@
 import { eq, and, inArray, asc, isNull, sql } from 'drizzle-orm';
-import { withTenant } from '@oppsera/db';
+import { withTenant, sqlArray } from '@oppsera/db';
 import {
   catalogItems,
   catalogLocationPrices,
@@ -401,7 +401,7 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
           SELECT ci.id AS item_id, COALESCE(cat.parent_id, cat.id) AS sub_department_id
           FROM catalog_items ci
           JOIN catalog_categories cat ON cat.id = ci.category_id
-          WHERE ci.id = ANY(${foundIds})
+          WHERE ci.id = ANY(${sqlArray(foundIds)})
             AND ci.tenant_id = ${tenantId}
         `),
       ]);

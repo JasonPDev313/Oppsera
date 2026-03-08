@@ -193,9 +193,17 @@ export type { OrderQuoteEmailData } from './email/templates/order-quote-email';
 // ── Security ─────────────────────────────────────────────────────
 export { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from './security';
 export {
+  encryptField, decryptField, isEncrypted,
+  blindIndex, encryptFields, decryptFields,
+} from './security';
+export {
   normalizeEmail,
   normalizeUsername,
   validatePin,
+  validatePinStrength,
+  validateOverridePin,
+  validateOverridePinStrength,
+  validatePasswordStrength,
   hashSecret,
   verifySecret,
   listUsers,

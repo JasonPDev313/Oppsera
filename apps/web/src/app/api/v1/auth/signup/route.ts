@@ -3,12 +3,16 @@ import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getAuthAdapter } from '@oppsera/core/auth/get-adapter';
 import { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from '@oppsera/core/security';
+import { validatePasswordStrength } from '@oppsera/core';
 import { AppError, ValidationError } from '@oppsera/shared';
 import { auditLogSystem } from '@oppsera/core/audit/helpers';
 
 const signupSchema = z.object({
   email: z.string().email().transform((v) => v.toLowerCase().trim()),
-  password: z.string().min(8).max(128),
+  password: z.string().min(8).max(128).refine(
+    (pw) => validatePasswordStrength(pw) === null,
+    (pw) => ({ message: validatePasswordStrength(pw) ?? 'Invalid password' }),
+  ),
   name: z.string().min(1).max(200).transform((v) => v.trim()),
 });
 

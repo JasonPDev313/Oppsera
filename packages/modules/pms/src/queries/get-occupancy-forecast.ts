@@ -2,7 +2,7 @@
  * Forward-looking occupancy forecast from confirmed reservations.
  */
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
-import { withTenant } from '@oppsera/db';
+import { withTenant, sqlArray } from '@oppsera/db';
 import { pmsReservations, pmsRooms } from '@oppsera/db';
 
 export interface OccupancyForecastDay {
@@ -42,7 +42,7 @@ export async function getOccupancyForecast(
           eq(pmsReservations.propertyId, propertyId),
           lte(pmsReservations.checkInDate, endDate),
           gte(pmsReservations.checkOutDate, startDate),
-          sql`${pmsReservations.status} = ANY(${activeStatuses})`,
+          sql`${pmsReservations.status} = ANY(${sqlArray(activeStatuses)})`,
         ),
       );
 

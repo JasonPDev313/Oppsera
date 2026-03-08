@@ -1,121 +1,188 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Lock, Delete } from 'lucide-react';
+import { Lock, Delete, Check } from 'lucide-react';
+
+const MAX_PIN = 8;
+const MIN_PIN = 4;
 
 interface InlinePinPadProps {
   onVerify: (pin: string) => Promise<boolean>;
   onBack: () => void;
   error: string | null;
   title: string;
+  /** Optional description of the action being authorized */
+  actionLabel?: string;
 }
 
-export function InlinePinPad({ onVerify, onBack, error, title }: InlinePinPadProps) {
+export function InlinePinPad({ onVerify, onBack, error, title, actionLabel }: InlinePinPadProps) {
   const [pin, setPin] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [shake, setShake] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [success, setSuccess] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 100);
+    setTimeout(() => containerRef.current?.focus(), 100);
   }, []);
 
   useEffect(() => {
     if (error) {
       setShake(true);
-      setTimeout(() => setShake(false), 500);
+      setPin('');
+      const t = setTimeout(() => setShake(false), 400);
+      return () => clearTimeout(t);
     }
   }, [error]);
 
   const handleDigit = useCallback((digit: string) => {
-    setPin((prev) => (prev.length < 6 ? prev + digit : prev));
+    setPin((prev) => (prev.length < MAX_PIN ? prev + digit : prev));
   }, []);
 
   const handleBackspace = useCallback(() => {
     setPin((prev) => prev.slice(0, -1));
   }, []);
 
+  const handleClear = useCallback(() => {
+    setPin('');
+  }, []);
+
   const handleSubmit = useCallback(async () => {
-    if (pin.length < 4) return;
+    if (pin.length < MIN_PIN) return;
     setIsVerifying(true);
     try {
       const ok = await onVerify(pin);
-      if (!ok) setPin('');
+      if (ok) {
+        setSuccess(true);
+        setTimeout(() => {
+          setSuccess(false);
+          setPin('');
+        }, 600);
+      } else {
+        setPin('');
+      }
     } finally {
       setIsVerifying(false);
     }
   }, [pin, onVerify]);
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onBack();
+    } else if (e.key === 'Backspace') {
+      handleBackspace();
+    } else if (e.key === 'Enter') {
+      handleSubmit();
+    } else if (/^[0-9]$/.test(e.key)) {
+      handleDigit(e.key);
+    }
+  }, [onBack, handleBackspace, handleSubmit, handleDigit]);
+
+  const canSubmit = pin.length >= MIN_PIN && !isVerifying && !success;
+
   return (
-    <div className={`flex flex-col gap-4 ${shake ? 'animate-[shake_0.3s_ease-in-out]' : ''}`}>
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div
+      ref={containerRef}
+      tabIndex={-1}
+      role="group"
+      aria-label={title}
+      className={`flex flex-col gap-3 outline-none ${shake ? 'animate-[shake_0.35s_ease-in-out]' : ''}`}
+      onKeyDown={handleKeyDown}
+    >
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Lock className="h-6 w-6" style={{ color: 'var(--fnb-status-check-presented)' }} />
+        {success ? (
+          <Check className="h-6 w-6" style={{ color: 'var(--fnb-action-send)' }} />
+        ) : (
+          <Lock className="h-6 w-6" style={{ color: 'var(--fnb-status-check-presented)' }} />
+        )}
         <h2 className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
           {title}
         </h2>
       </div>
 
+      {actionLabel && (
+        <p className="text-xs text-center" style={{ color: 'var(--fnb-text-muted)', opacity: 0.8 }}>
+          {actionLabel}
+        </p>
+      )}
+
+      <p className="text-xs text-center" style={{ color: 'var(--fnb-text-muted)' }}>
+        Enter your 4–8 digit PIN
+      </p>
+
       {/* PIN dots */}
-      <div className="flex justify-center gap-4 py-2">
-        {[0, 1, 2, 3].map((i) => (
+      <div className="flex justify-center gap-2 py-1" aria-live="polite" aria-atomic="true">
+        <span className="sr-only">{pin.length} of {MAX_PIN} digits entered</span>
+        {Array.from({ length: MAX_PIN }, (_, i) => (
           <div
             key={i}
-            className="h-5 w-5 rounded-full border-2 transition-colors"
+            className="h-4 w-4 rounded-full border-2 transition-all duration-150"
             style={{
-              borderColor: 'rgba(148, 163, 184, 0.3)',
-              backgroundColor: i < pin.length ? 'var(--fnb-accent-primary)' : 'transparent',
+              borderColor: success
+                ? 'var(--fnb-action-send)'
+                : error && i < pin.length
+                  ? 'var(--fnb-status-unavailable)'
+                  : i < pin.length
+                    ? 'var(--fnb-accent-primary)'
+                    : 'rgba(148, 163, 184, 0.3)',
+              backgroundColor: success
+                ? 'var(--fnb-action-send)'
+                : error && i < pin.length
+                  ? 'var(--fnb-status-unavailable)'
+                  : i < pin.length
+                    ? 'var(--fnb-accent-primary)'
+                    : 'transparent',
+              transform: error && i < pin.length ? 'scale(1.15)' : 'scale(1)',
             }}
           />
         ))}
       </div>
 
+      {/* Digit counter */}
+      <p className="text-center text-[10px] font-medium" style={{
+        color: pin.length >= MIN_PIN ? 'var(--fnb-action-send)' : 'var(--fnb-text-muted)',
+        opacity: pin.length >= MIN_PIN ? 1 : 0.5,
+      }}>
+        {pin.length} / {MAX_PIN}
+      </p>
+
       {error && (
-        <p className="text-sm text-center" style={{ color: 'var(--fnb-status-dirty)' }}>
+        <p className="text-sm text-center font-medium" role="alert" style={{ color: 'var(--fnb-status-dirty)' }}>
           {error}
         </p>
       )}
 
-      {/* Keyboard input */}
-      <input
-        ref={inputRef}
-        type="password"
-        inputMode="numeric"
-        autoComplete="off"
-        placeholder="Type PIN..."
-        value={pin}
-        onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') handleSubmit();
-        }}
-        className="w-full rounded-lg px-4 py-3 text-center text-lg font-mono tracking-[0.5em] outline-none"
-        style={{
-          background: 'var(--fnb-bg-primary)',
-          color: 'var(--fnb-text-primary)',
-          border: '1px solid var(--fnb-border-subtle)',
-        }}
-      />
-
-      {/* Keypad */}
+      {/* Keypad — 48px+ touch targets */}
       <div className="grid grid-cols-3 gap-2">
-        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => (
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'].map((key) => (
           <button
-            key={key || 'empty'}
+            key={key}
             type="button"
+            aria-label={
+              key === 'del' ? 'Delete last digit'
+                : key === 'clear' ? 'Clear all digits'
+                  : `Digit ${key}`
+            }
             onClick={() => {
               if (key === 'del') handleBackspace();
-              else if (key) handleDigit(key);
-              inputRef.current?.focus();
+              else if (key === 'clear') handleClear();
+              else handleDigit(key);
+              containerRef.current?.focus();
             }}
-            disabled={!key || isVerifying}
-            className="flex items-center justify-center rounded-xl text-xl font-bold transition-colors hover:opacity-80 active:scale-95 disabled:opacity-20"
+            disabled={isVerifying || success}
+            className="flex items-center justify-center rounded-xl text-xl font-bold transition-all hover:opacity-80 active:scale-95 disabled:opacity-20"
             style={{
               height: 64,
-              backgroundColor: key ? 'var(--fnb-bg-elevated)' : 'transparent',
-              color: 'var(--fnb-text-primary)',
+              minHeight: 48,
+              backgroundColor: key === 'clear' ? 'transparent' : 'var(--fnb-bg-elevated)',
+              color: key === 'clear' ? 'var(--fnb-text-muted)' : 'var(--fnb-text-primary)',
+              fontSize: key === 'clear' ? '11px' : undefined,
+              fontWeight: key === 'clear' ? 500 : undefined,
             }}
           >
-            {key === 'del' ? <Delete className="h-6 w-6" /> : key}
+            {key === 'del' ? <Delete className="h-6 w-6" /> : key === 'clear' ? 'CLR' : key}
           </button>
         ))}
       </div>
@@ -133,11 +200,13 @@ export function InlinePinPad({ onVerify, onBack, error, title }: InlinePinPadPro
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={pin.length < 4 || isVerifying}
-          className="flex-1 px-4 py-3 rounded-lg text-sm font-bold text-white transition-colors hover:opacity-90 disabled:opacity-40"
-          style={{ backgroundColor: 'var(--fnb-status-seated)' }}
+          disabled={!canSubmit}
+          className="flex-1 px-4 py-3 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+          style={{
+            backgroundColor: success ? 'var(--fnb-action-send)' : 'var(--fnb-status-seated)',
+          }}
         >
-          {isVerifying ? 'Verifying...' : 'Confirm'}
+          {success ? 'Verified' : isVerifying ? 'Verifying...' : 'Confirm'}
         </button>
       </div>
     </div>

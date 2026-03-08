@@ -15,6 +15,7 @@ import {
 } from '@oppsera/db';
 import { ConflictError, NotFoundError, ValidationError } from '@oppsera/shared';
 import { createSupabaseAdmin } from './auth/supabase-client';
+import { encryptField, decryptField } from './security/field-encryption';
 
 export type UserStatus = 'invited' | 'active' | 'inactive' | 'locked';
 
@@ -88,8 +89,86 @@ export function normalizeUsername(value: string): string {
   return value.trim().toLowerCase();
 }
 
+// ── Password Complexity ─────────────────────────────────────────
+
+const COMMON_PASSWORDS = new Set([
+  'password', 'password1', 'password123', '12345678', '123456789',
+  '1234567890', 'qwerty123', 'letmein', 'welcome', 'admin123',
+  'abc12345', 'iloveyou', 'sunshine', 'princess', 'football',
+  'monkey123', 'shadow12', 'master12', 'dragon12', 'trustno1',
+]);
+
+/**
+ * Validate password strength. Returns null if valid, or a rejection reason.
+ * Rules: ≥8 chars, ≤128 chars, ≥1 uppercase, ≥1 lowercase, ≥1 digit,
+ * ≥1 special char, not a common password.
+ */
+export function validatePasswordStrength(password: string): string | null {
+  if (password.length < 8) return 'Password must be at least 8 characters';
+  if (password.length > 128) return 'Password must be at most 128 characters';
+  if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter';
+  if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter';
+  if (!/\d/.test(password)) return 'Password must contain at least one number';
+  if (!/[^A-Za-z0-9]/.test(password)) return 'Password must contain at least one special character';
+  if (COMMON_PASSWORDS.has(password.toLowerCase())) return 'Password is too common — choose something unique';
+  return null;
+}
+
+/** Common PINs that are trivially guessable — rejected at assignment time. */
+const WEAK_PINS = new Set([
+  '0000', '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999',
+  '1234', '4321', '1212', '2121', '1122', '2211',
+  '0123', '3210', '9876', '6789',
+  '1010', '2020', '6969', '1357', '2468',
+]);
+
+function isSequentialRun(pin: string): boolean {
+  let ascending = true;
+  let descending = true;
+  for (let i = 1; i < pin.length; i++) {
+    if (Number(pin[i]) !== Number(pin[i - 1]) + 1) ascending = false;
+    if (Number(pin[i]) !== Number(pin[i - 1]) - 1) descending = false;
+  }
+  return ascending || descending;
+}
+
+function allSameDigit(pin: string): boolean {
+  return pin.split('').every((d) => d === pin[0]);
+}
+
+/**
+ * Validate a unique ID PIN (exactly 4 digits, rejects weak patterns).
+ * Returns `true` if valid, or a rejection reason string if invalid.
+ */
 export function validatePin(pin: string): boolean {
+  return /^\d{4}$/.test(pin);
+}
+
+export function validatePinStrength(pin: string): string | null {
+  if (!/^\d{4}$/.test(pin)) return 'PIN must be exactly 4 digits';
+  if (WEAK_PINS.has(pin) || allSameDigit(pin) || isSequentialRun(pin)) {
+    return 'PIN is too easy to guess — avoid repeated, sequential, or common patterns';
+  }
+  return null;
+}
+
+/**
+ * Validate a manager override PIN (4-8 digits, rejects weak patterns).
+ */
+export function validateOverridePin(pin: string): boolean {
   return /^\d{4,8}$/.test(pin);
+}
+
+export function validateOverridePinStrength(pin: string): string | null {
+  if (!/^\d{4,8}$/.test(pin)) return 'PIN must be 4–8 digits';
+  if (allSameDigit(pin) || isSequentialRun(pin)) {
+    return 'PIN is too easy to guess — avoid repeated or sequential patterns';
+  }
+  // Check the first 4 digits against common weak patterns
+  if (WEAK_PINS.has(pin.slice(0, 4)) && pin.length === 4) {
+    return 'PIN is too easy to guess — avoid common patterns like 1234';
+  }
+  return null;
 }
 
 export function hashSecret(secret: string): string {
@@ -116,19 +195,30 @@ function makeInviteToken(): string {
 }
 
 function validatePinsOrThrow(loginPin?: string, overridePin?: string): void {
-  if (loginPin && !validatePin(loginPin)) {
-    throw new ValidationError('Validation failed', [
-      { field: 'uniqueIdentificationPin', message: 'PIN must be 4-8 digits' },
-    ]);
+  if (loginPin) {
+    const reason = validatePinStrength(loginPin);
+    if (reason) {
+      throw new ValidationError('Validation failed', [
+        { field: 'uniqueIdentificationPin', message: reason },
+      ]);
+    }
   }
-  if (overridePin && !validatePin(overridePin)) {
-    throw new ValidationError('Validation failed', [
-      { field: 'posOverridePin', message: 'PIN must be 4-8 digits' },
-    ]);
+  if (overridePin) {
+    const reason = validateOverridePinStrength(overridePin);
+    if (reason) {
+      throw new ValidationError('Validation failed', [
+        { field: 'posOverridePin', message: reason },
+      ]);
+    }
   }
   if (loginPin && overridePin && loginPin === overridePin) {
     throw new ValidationError('Validation failed', [
       { field: 'posOverridePin', message: 'Override PIN must differ from login PIN' },
+    ]);
+  }
+  if (loginPin && overridePin && overridePin.startsWith(loginPin)) {
+    throw new ValidationError('Validation failed', [
+      { field: 'posOverridePin', message: 'Override PIN cannot start with the same digits as the login PIN — this causes conflicts when verifying' },
     ]);
   }
 }
@@ -249,6 +339,7 @@ export async function listUsers(input: { tenantId: string; limit?: number; curso
     return {
       items: items.map((u) => ({
         ...u,
+        phoneNumber: decryptField(u.phoneNumber),
         roles: rolesByUser.get(u.id) ?? [],
         locations: locationsByUser.get(u.id) ?? [],
       })),
@@ -282,6 +373,7 @@ export async function getUserById(input: { tenantId: string; userId: string }) {
     const { passwordHash: _ph, authProviderId: _ap, ...safeUser } = user;
     return {
       ...safeUser,
+      phone: decryptField(safeUser.phone),
       roles: roleRows,
       locations: locationRows,
     };
@@ -413,6 +505,12 @@ export async function createUser(input: CreateUserInput): Promise<{ userId: stri
   const email = normalizeEmail(input.emailAddress);
   const username = normalizeUsername(input.userName);
   validatePinsOrThrow(input.uniqueIdentificationPin, input.posOverridePin);
+  if (input.password) {
+    const pwReason = validatePasswordStrength(input.password);
+    if (pwReason) {
+      throw new ValidationError('Validation failed', [{ field: 'password', message: pwReason }]);
+    }
+  }
   await ensureRoleInTenant(input.tenantId, input.userRole);
   await ensureUniqueByTenant(input.tenantId, email, username);
   await ensureLocationsInTenant(input.tenantId, input.locationIds ?? []);
@@ -432,7 +530,7 @@ export async function createUser(input: CreateUserInput): Promise<{ userId: stri
       firstName: input.firstName.trim(),
       lastName: input.lastName.trim(),
       displayName,
-      phone: input.phoneNumber?.trim(),
+      phone: encryptField(input.phoneNumber?.trim()),
       status: input.userStatus,
       primaryRoleId: input.userRole,
       tabColor: input.userTabColor?.trim(),
@@ -508,6 +606,12 @@ export async function updateUser(input: UpdateUserInput): Promise<{ userId: stri
   const username = input.userName ? normalizeUsername(input.userName) : normalizeUsername(existing.username ?? existing.email);
   await ensureUniqueByTenant(input.tenantId, email, username, input.userId);
   validatePinsOrThrow(input.uniqueIdentificationPin, input.posOverridePin);
+  if (input.password) {
+    const pwReason = validatePasswordStrength(input.password);
+    if (pwReason) {
+      throw new ValidationError('Validation failed', [{ field: 'password', message: pwReason }]);
+    }
+  }
 
   if (input.userRole) await ensureRoleInTenant(input.tenantId, input.userRole);
   if (input.locationIds) await ensureLocationsInTenant(input.tenantId, input.locationIds);
@@ -554,7 +658,7 @@ export async function updateUser(input: UpdateUserInput): Promise<{ userId: stri
       firstName,
       lastName,
       displayName: displayName || null,
-      phone: input.phoneNumber?.trim(),
+      phone: input.phoneNumber !== undefined ? encryptField(input.phoneNumber.trim()) : existing.phone,
       status: input.userStatus ?? existing.status,
       primaryRoleId: input.userRole ?? existing.primaryRoleId,
       tabColor: input.userTabColor ?? existing.tabColor,
@@ -574,18 +678,31 @@ export async function updateUser(input: UpdateUserInput): Promise<{ userId: stri
     }
 
     if (input.uniqueIdentificationPin !== undefined || input.posOverridePin !== undefined) {
+      const loginPinHash = input.uniqueIdentificationPin
+        ? hashSecret(input.uniqueIdentificationPin)
+        : null;
+      const overridePinHash = input.posOverridePin
+        ? hashSecret(input.posOverridePin)
+        : null;
+      const pinSet: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.uniqueIdentificationPin !== undefined) {
+        pinSet.uniqueLoginPinHash = loginPinHash;
+      }
+      if (input.posOverridePin !== undefined) {
+        pinSet.posOverridePinHash = overridePinHash;
+      }
       await tx
-        .update(userSecurity)
-        .set({
-          uniqueLoginPinHash: input.uniqueIdentificationPin
-            ? hashSecret(input.uniqueIdentificationPin)
-            : undefined,
-          posOverridePinHash: input.posOverridePin
-            ? hashSecret(input.posOverridePin)
-            : undefined,
+        .insert(userSecurity)
+        .values({
+          userId: input.userId,
+          uniqueLoginPinHash: loginPinHash,
+          posOverridePinHash: overridePinHash,
           updatedAt: new Date(),
         })
-        .where(eq(userSecurity.userId, input.userId));
+        .onConflictDoUpdate({
+          target: userSecurity.userId,
+          set: pinSet,
+        });
     }
 
     if (input.userRole) {
@@ -632,15 +749,28 @@ export async function resetPins(input: ResetPinInput): Promise<void> {
     });
     if (!user) throw new NotFoundError('User', input.userId);
 
-    await tx.update(userSecurity).set({
-      uniqueLoginPinHash: input.uniqueIdentificationPin
-        ? hashSecret(input.uniqueIdentificationPin)
-        : null,
-      posOverridePinHash: input.posOverridePin
-        ? hashSecret(input.posOverridePin)
-        : null,
-      updatedAt: new Date(),
-    }).where(eq(userSecurity.userId, input.userId));
+    const loginPinHash = input.uniqueIdentificationPin
+      ? hashSecret(input.uniqueIdentificationPin)
+      : null;
+    const overridePinHash = input.posOverridePin
+      ? hashSecret(input.posOverridePin)
+      : null;
+    await tx
+      .insert(userSecurity)
+      .values({
+        userId: input.userId,
+        uniqueLoginPinHash: loginPinHash,
+        posOverridePinHash: overridePinHash,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: userSecurity.userId,
+        set: {
+          uniqueLoginPinHash: loginPinHash,
+          posOverridePinHash: overridePinHash,
+          updatedAt: new Date(),
+        },
+      });
 
     await tx.update(users).set({
       updatedByUserId: input.updatedByUserId,
@@ -660,6 +790,11 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<{ userId: 
     ),
   });
   if (!invite) throw new ValidationError('Invite token is invalid or expired');
+
+  const pwReason = validatePasswordStrength(input.password);
+  if (pwReason) {
+    throw new ValidationError('Validation failed', [{ field: 'password', message: pwReason }]);
+  }
 
   const user = await db.query.users.findFirst({
     where: and(eq(users.id, invite.userId), eq(users.tenantId, invite.tenantId)),

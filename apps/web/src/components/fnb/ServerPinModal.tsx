@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 
 interface ServerPinModalProps {
   open: boolean;
@@ -23,6 +23,7 @@ export function ServerPinModal({
 }: ServerPinModalProps) {
   const [digits, setDigits] = useState<string[]>([]);
   const [error, setError] = useState(false);
+  const [success, setSuccess] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Reset on open
@@ -30,6 +31,7 @@ export function ServerPinModal({
     if (open) {
       setDigits([]);
       setError(false);
+      setSuccess(false);
     }
   }, [open]);
 
@@ -46,11 +48,17 @@ export function ServerPinModal({
       if (prev.length >= PIN_LENGTH) return prev;
       const next = [...prev, d];
       if (next.length === PIN_LENGTH) {
-        // Auto-submit
+        // Auto-submit after brief visual feedback
         setTimeout(() => {
           const pin = next.join('');
-          const success = onSubmit(pin);
-          if (!success) {
+          const ok = onSubmit(pin);
+          if (ok) {
+            setSuccess(true);
+            setTimeout(() => {
+              setSuccess(false);
+              setDigits([]);
+            }, 500);
+          } else {
             setError(true);
             setDigits([]);
           }
@@ -88,6 +96,9 @@ export function ServerPinModal({
       <div
         ref={containerRef}
         tabIndex={-1}
+        role="dialog"
+        aria-label={title}
+        aria-modal="true"
         className="rounded-2xl p-6 w-[320px] shadow-2xl outline-none"
         style={{
           backgroundColor: 'var(--fnb-bg-surface)',
@@ -105,7 +116,8 @@ export function ServerPinModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 transition-colors"
+            aria-label="Close"
+            className="rounded-lg p-1.5 transition-colors"
             style={{ color: 'var(--fnb-text-muted)' }}
           >
             <X className="h-5 w-5" />
@@ -118,33 +130,52 @@ export function ServerPinModal({
           </p>
         )}
 
+        <p className="text-xs text-center mb-3" style={{ color: 'var(--fnb-text-muted)' }}>
+          Enter your 4-digit PIN
+        </p>
+
         {/* PIN dots */}
-        <div className="flex items-center justify-center gap-3 mb-4">
+        <div className="flex items-center justify-center gap-4 mb-4" aria-live="polite" aria-atomic="true">
+          <span className="sr-only">{digits.length} of {PIN_LENGTH} digits entered</span>
           {Array.from({ length: PIN_LENGTH }, (_, i) => (
             <div
               key={i}
-              className="h-4 w-4 rounded-full transition-all"
+              className="h-5 w-5 rounded-full transition-all duration-150"
               style={{
-                backgroundColor: i < digits.length
-                  ? error ? 'var(--fnb-status-unavailable)' : 'var(--fnb-action-send)'
-                  : 'var(--fnb-bg-elevated)',
+                backgroundColor: success
+                  ? 'var(--fnb-action-send)'
+                  : error
+                    ? i < digits.length ? 'var(--fnb-status-unavailable)' : 'var(--fnb-bg-elevated)'
+                    : i < digits.length ? 'var(--fnb-action-send)' : 'var(--fnb-bg-elevated)',
                 border: `2px solid ${
-                  error ? 'var(--fnb-status-unavailable)'
-                    : i < digits.length ? 'var(--fnb-action-send)' : 'var(--fnb-text-muted)'
+                  success
+                    ? 'var(--fnb-action-send)'
+                    : error
+                      ? 'var(--fnb-status-unavailable)'
+                      : i < digits.length ? 'var(--fnb-action-send)' : 'var(--fnb-text-muted)'
                 }`,
-                transform: error ? 'scale(1.2)' : 'scale(1)',
+                transform: error ? 'scale(1.2)' : success ? 'scale(1.1)' : 'scale(1)',
               }}
             />
           ))}
         </div>
 
         {error && (
-          <p className="text-center text-xs font-semibold mb-3" style={{ color: 'var(--fnb-status-unavailable)' }}>
+          <p className="text-center text-xs font-semibold mb-3" role="alert" style={{ color: 'var(--fnb-status-unavailable)' }}>
             Incorrect PIN
           </p>
         )}
 
-        {/* Keypad */}
+        {success && (
+          <div className="flex items-center justify-center gap-1.5 mb-3">
+            <Check className="h-4 w-4" style={{ color: 'var(--fnb-action-send)' }} />
+            <p className="text-center text-xs font-semibold" style={{ color: 'var(--fnb-action-send)' }}>
+              Verified
+            </p>
+          </div>
+        )}
+
+        {/* Keypad — 48px+ touch targets */}
         <div className="grid grid-cols-3 gap-2">
           {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((key) => {
             if (key === '') return <div key="empty" />;
@@ -152,10 +183,13 @@ export function ServerPinModal({
               <button
                 key={key}
                 type="button"
+                aria-label={key === '⌫' ? 'Delete last digit' : `Digit ${key}`}
                 onClick={() => key === '⌫' ? handleBackspace() : handleDigit(key)}
-                className="flex items-center justify-center rounded-xl text-xl font-semibold transition-colors"
+                disabled={success}
+                className="flex items-center justify-center rounded-xl text-xl font-semibold transition-all active:scale-95 disabled:opacity-30"
                 style={{
                   height: 'var(--fnb-touch-primary, 56px)',
+                  minHeight: 48,
                   backgroundColor: 'var(--fnb-bg-elevated)',
                   color: 'var(--fnb-text-primary)',
                   border: 'var(--fnb-border-subtle)',

@@ -245,7 +245,17 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
           await preparePromiseRef.current;
         }
         if (!tab.primaryOrderId && !preparedOrderIdRef.current) {
-          throw new Error('Order could not be prepared — please go back and try again');
+          const diagnostics = {
+            tabId: tab.id,
+            hasPreparePromise: !!preparePromiseRef.current,
+            checkError,
+          };
+          console.error('[FnbPayment] handleTender: order not prepared', diagnostics);
+          throw new Error(
+            checkError
+              ? `Order could not be prepared: ${checkError}`
+              : 'Order could not be prepared — please go back and try again',
+          );
         }
 
         // Ensure payment session exists (reuse active or create new)
@@ -456,10 +466,14 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     );
   }
 
-  // ── Error state: check failed to load ─────────────────────────
-  if (!displayCheck) {
-    const hasNoItems = tab && tab.lines.filter((l) => l.status !== 'voided').length === 0;
+  // ── Error state: check failed to load OR prepare-check failed ──
+  // IMPORTANT: checkError takes priority over displayCheck. The optimistic check
+  // (computeOptimisticCheck) always returns non-null when the tab has items, which
+  // previously masked prepare-check failures — the user could reach the tender step
+  // and get "Order could not be prepared" with no way to retry.
+  const hasNoItems = tab ? tab.lines.filter((l) => l.status !== 'voided').length === 0 : false;
 
+  if (!displayCheck || checkError) {
     // If tab has items but check isn't ready yet and no error occurred,
     // we're in the brief gap between tab loading and prepare-check/fetch
     // firing — show loading instead of the error screen.
@@ -519,6 +533,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
                 setCheckError(null);
                 prepareCalledRef.current = null;
                 preparePromiseRef.current = null;
+                preparedOrderIdRef.current = null;
                 refreshTab();
               }}
               className="rounded-lg px-4 py-2 text-sm font-bold transition-colors hover:opacity-80"

@@ -1,4 +1,5 @@
 export { db, guardedDb, withTenant, createAdminClient, sql, schema } from './client';
+export { sqlArray } from './sql-helpers';
 export type { Database } from './client';
 export {
   guardedQuery,

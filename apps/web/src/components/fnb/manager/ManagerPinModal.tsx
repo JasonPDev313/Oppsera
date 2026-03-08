@@ -2,7 +2,10 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Lock, X } from 'lucide-react';
+import { Lock, X, Check, Delete } from 'lucide-react';
+
+const MAX_PIN = 8;
+const MIN_PIN = 4;
 
 interface ManagerPinModalProps {
   open: boolean;
@@ -10,64 +13,115 @@ interface ManagerPinModalProps {
   onVerify: (pin: string) => Promise<boolean>;
   error?: string | null;
   title?: string;
+  /** Optional description of the action being authorized */
+  actionLabel?: string;
 }
 
-export function ManagerPinModal({ open, onClose, onVerify, error, title = 'Manager Override' }: ManagerPinModalProps) {
+export function ManagerPinModal({
+  open,
+  onClose,
+  onVerify,
+  error,
+  title = 'Manager Override',
+  actionLabel,
+}: ManagerPinModalProps) {
   const [pin, setPin] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [shake, setShake] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [success, setSuccess] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) {
       setPin('');
-      setTimeout(() => inputRef.current?.focus(), 100);
+      setSuccess(false);
+      setTimeout(() => containerRef.current?.focus(), 100);
     }
   }, [open]);
 
   useEffect(() => {
     if (error) {
       setShake(true);
-      setTimeout(() => setShake(false), 500);
+      setPin('');
+      const t = setTimeout(() => setShake(false), 400);
+      return () => clearTimeout(t);
     }
   }, [error]);
 
   const handleDigit = useCallback((digit: string) => {
-    setPin((prev) => (prev.length < 6 ? prev + digit : prev));
+    setPin((prev) => (prev.length < MAX_PIN ? prev + digit : prev));
   }, []);
 
   const handleBackspace = useCallback(() => {
     setPin((prev) => prev.slice(0, -1));
   }, []);
 
+  const handleClear = useCallback(() => {
+    setPin('');
+  }, []);
+
   const handleSubmit = useCallback(async () => {
-    if (pin.length < 4) return;
+    if (pin.length < MIN_PIN) return;
     setIsVerifying(true);
     try {
-      await onVerify(pin);
+      const ok = await onVerify(pin);
+      if (ok) {
+        setSuccess(true);
+        setTimeout(() => {
+          setSuccess(false);
+          setPin('');
+        }, 600);
+      } else {
+        setPin('');
+      }
     } finally {
       setIsVerifying(false);
-      setPin('');
     }
   }, [pin, onVerify]);
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onClose();
+    } else if (e.key === 'Backspace') {
+      handleBackspace();
+    } else if (e.key === 'Enter') {
+      handleSubmit();
+    } else if (/^[0-9]$/.test(e.key)) {
+      handleDigit(e.key);
+    }
+  }, [onClose, handleBackspace, handleSubmit, handleDigit]);
+
   if (!open) return null;
 
+  const canSubmit = pin.length >= MIN_PIN && !isVerifying && !success;
+
   return createPortal(
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       className="fixed inset-0 flex items-center justify-center"
-      style={{ zIndex: 'var(--fnb-z-modal)' } as React.CSSProperties}
+      style={{ zIndex: 'var(--fnb-z-modal)', backgroundColor: 'rgba(0,0,0,0.65)' } as React.CSSProperties}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onKeyDown={handleKeyDown}
     >
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div
-        className={`relative rounded-2xl p-6 w-80 shadow-2xl ${shake ? 'animate-[shake_0.3s_ease-in-out]' : ''}`}
+        ref={containerRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-label={title}
+        aria-modal="true"
+        className={`relative rounded-2xl p-6 w-80 shadow-2xl outline-none transition-transform ${
+          shake ? 'animate-[shake_0.35s_ease-in-out]' : ''
+        }`}
         style={{ backgroundColor: 'var(--fnb-bg-surface)' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Lock className="h-5 w-5" style={{ color: 'var(--fnb-status-check-presented)' }} />
+            {success ? (
+              <Check className="h-5 w-5" style={{ color: 'var(--fnb-action-send)' }} />
+            ) : (
+              <Lock className="h-5 w-5" style={{ color: 'var(--fnb-status-check-presented)' }} />
+            )}
             <h3 className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
               {title}
             </h3>
@@ -75,65 +129,95 @@ export function ManagerPinModal({ open, onClose, onVerify, error, title = 'Manag
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded hover:opacity-80"
+            aria-label="Close"
+            className="p-1.5 rounded-lg hover:opacity-80"
             style={{ color: 'var(--fnb-text-muted)' }}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
+        {actionLabel && (
+          <p className="text-xs text-center mb-2" style={{ color: 'var(--fnb-text-muted)', opacity: 0.8 }}>
+            {actionLabel}
+          </p>
+        )}
+
+        <p className="text-xs text-center mb-3" style={{ color: 'var(--fnb-text-muted)' }}>
+          Enter your 4–8 digit PIN
+        </p>
+
         {/* PIN dots */}
-        <div className="flex justify-center gap-3 mb-4">
-          {[0, 1, 2, 3].map((i) => (
+        <div className="flex justify-center gap-2 mb-3" aria-live="polite" aria-atomic="true">
+          <span className="sr-only">{pin.length} of {MAX_PIN} digits entered</span>
+          {Array.from({ length: MAX_PIN }, (_, i) => (
             <div
               key={i}
-              className="h-4 w-4 rounded-full border-2"
+              className="h-3.5 w-3.5 rounded-full border-2 transition-all duration-150"
               style={{
-                borderColor: 'rgba(148, 163, 184, 0.3)',
-                backgroundColor: i < pin.length ? 'var(--fnb-accent-primary)' : 'transparent',
+                borderColor: success
+                  ? 'var(--fnb-action-send)'
+                  : error && i < pin.length
+                    ? 'var(--fnb-status-unavailable)'
+                    : i < pin.length
+                      ? 'var(--fnb-accent-primary)'
+                      : 'rgba(148, 163, 184, 0.3)',
+                backgroundColor: success
+                  ? 'var(--fnb-action-send)'
+                  : error && i < pin.length
+                    ? 'var(--fnb-status-unavailable)'
+                    : i < pin.length
+                      ? 'var(--fnb-accent-primary)'
+                      : 'transparent',
+                transform: error && i < pin.length ? 'scale(1.1)' : 'scale(1)',
               }}
             />
           ))}
         </div>
 
+        {/* Digit counter */}
+        <p className="text-center text-[10px] font-medium mb-2" style={{
+          color: pin.length >= MIN_PIN ? 'var(--fnb-action-send)' : 'var(--fnb-text-muted)',
+          opacity: pin.length >= MIN_PIN ? 1 : 0.5,
+        }}>
+          {pin.length} / {MAX_PIN}
+        </p>
+
         {error && (
-          <p className="text-xs text-center mb-3" style={{ color: 'var(--fnb-status-dirty)' }}>
+          <p className="text-xs text-center font-medium mb-2" role="alert" style={{ color: 'var(--fnb-status-dirty)' }}>
             {error}
           </p>
         )}
 
-        {/* Hidden input for keyboard */}
-        <input
-          ref={inputRef}
-          type="password"
-          inputMode="numeric"
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSubmit();
-          }}
-          className="absolute opacity-0 pointer-events-none"
-        />
-
-        {/* Keypad */}
+        {/* Keypad — 48px min touch targets per WCAG 2.5.5 */}
         <div className="grid grid-cols-3 gap-2 mb-3">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => (
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'].map((key) => (
             <button
-              key={key || 'empty'}
+              key={key}
               type="button"
+              aria-label={
+                key === 'del' ? 'Delete last digit'
+                  : key === 'clear' ? 'Clear all digits'
+                    : `Digit ${key}`
+              }
               onClick={() => {
                 if (key === 'del') handleBackspace();
-                else if (key) handleDigit(key);
+                else if (key === 'clear') handleClear();
+                else handleDigit(key);
+                containerRef.current?.focus();
               }}
-              disabled={!key || isVerifying}
-              className="flex items-center justify-center rounded-lg text-lg font-bold transition-colors hover:opacity-80 disabled:opacity-20"
+              disabled={isVerifying || success}
+              className="flex items-center justify-center rounded-lg text-lg font-bold transition-all active:scale-95 hover:opacity-80 disabled:opacity-20"
               style={{
                 height: 48,
-                backgroundColor: key ? 'var(--fnb-bg-elevated)' : 'transparent',
-                color: 'var(--fnb-text-primary)',
+                minHeight: 48,
+                backgroundColor: key === 'clear' ? 'transparent' : 'var(--fnb-bg-elevated)',
+                color: key === 'clear' ? 'var(--fnb-text-muted)' : 'var(--fnb-text-primary)',
+                fontSize: key === 'clear' ? '11px' : undefined,
+                fontWeight: key === 'clear' ? 500 : undefined,
               }}
             >
-              {key === 'del' ? '⌫' : key}
+              {key === 'del' ? <Delete className="h-5 w-5" /> : key === 'clear' ? 'CLR' : key}
             </button>
           ))}
         </div>
@@ -142,11 +226,13 @@ export function ManagerPinModal({ open, onClose, onVerify, error, title = 'Manag
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={pin.length < 4 || isVerifying}
-          className="w-full rounded-lg py-3 text-sm font-bold text-white transition-colors hover:opacity-90 disabled:opacity-40"
-          style={{ backgroundColor: 'var(--fnb-status-seated)' }}
+          disabled={!canSubmit}
+          className="w-full rounded-lg py-3 text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+          style={{
+            backgroundColor: success ? 'var(--fnb-action-send)' : 'var(--fnb-status-seated)',
+          }}
         >
-          {isVerifying ? 'Verifying...' : 'Confirm'}
+          {success ? 'Verified' : isVerifying ? 'Verifying...' : 'Confirm'}
         </button>
       </div>
     </div>,

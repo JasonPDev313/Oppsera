@@ -3,7 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { fnbTabs, fnbTabCourses, fnbTableStatusHistory, fnbTableTurnLog } from '@oppsera/db';
+import { fnbTabs, fnbTabCourses, fnbTableStatusHistory, fnbTableTurnLog, sqlArray } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { FNB_EVENTS } from '../events/types';
@@ -104,7 +104,7 @@ export async function atomicSeatParty(
         t.location_id
       FROM fnb_table_live_status ls
       INNER JOIN fnb_tables t ON t.id = ls.table_id
-      WHERE ls.table_id = ANY(${tableIdList}::text[])
+      WHERE ls.table_id = ANY(${sqlArray(tableIdList)})
         AND ls.tenant_id = ${ctx.tenantId}
       FOR UPDATE
     `);

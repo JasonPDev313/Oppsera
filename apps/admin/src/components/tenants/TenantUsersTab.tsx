@@ -344,8 +344,8 @@ export function TenantUsersTab({ tenantId }: { tenantId: string }) {
                 <option value="inactive">Inactive</option>
               </select>
               <div>
-                <input placeholder="POS Override PIN (optional, 6 digits)" maxLength={6} className={inputCls} value={addForm.posOverridePin} onChange={(e) => setAddForm((p) => ({ ...p, posOverridePin: e.target.value.replace(/\D/g, '').slice(0, 6) }))} />
-                <p className="mt-1 text-xs text-slate-500">6-digit numeric PIN for POS overrides</p>
+                <input placeholder="POS Override PIN (optional, 4–8 digits)" maxLength={8} className={inputCls} value={addForm.posOverridePin} onChange={(e) => setAddForm((p) => ({ ...p, posOverridePin: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
+                <p className="mt-1 text-xs text-slate-500">4–8 digit numeric PIN for POS overrides</p>
               </div>
               <div>
                 <input placeholder="Unique ID PIN (optional, 4 digits)" maxLength={4} className={inputCls} value={addForm.uniqueIdentificationPin} onChange={(e) => setAddForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value.replace(/\D/g, '').slice(0, 4) }))} />
@@ -433,8 +433,8 @@ export function TenantUsersTab({ tenantId }: { tenantId: string }) {
                 <option value="locked">Locked</option>
               </select>
               <div>
-                <input placeholder="POS Override PIN (optional, 6 digits)" maxLength={6} className={inputCls} value={editForm.posOverridePin} onChange={(e) => setEditForm((p) => ({ ...p, posOverridePin: e.target.value.replace(/\D/g, '').slice(0, 6) }))} />
-                <p className="mt-1 text-xs text-slate-500">6-digit numeric PIN — leave blank to keep unchanged</p>
+                <input placeholder="POS Override PIN (optional, 4–8 digits)" maxLength={8} className={inputCls} value={editForm.posOverridePin} onChange={(e) => setEditForm((p) => ({ ...p, posOverridePin: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
+                <p className="mt-1 text-xs text-slate-500">4–8 digit numeric PIN — leave blank to keep unchanged</p>
               </div>
               <div>
                 <input placeholder="Unique ID PIN (optional, 4 digits)" maxLength={4} className={inputCls} value={editForm.uniqueIdentificationPin} onChange={(e) => setEditForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value.replace(/\D/g, '').slice(0, 4) }))} />

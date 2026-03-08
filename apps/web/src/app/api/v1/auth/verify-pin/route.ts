@@ -8,7 +8,7 @@ import { db, userSecurity, users, roleAssignments, rolePermissions } from '@opps
 import { eq, and, inArray } from 'drizzle-orm';
 
 const verifyPinSchema = z.object({
-  pin: z.string().min(4).max(8),
+  pin: z.string().min(4).max(8).regex(/^\d{4,8}$/, 'PIN must be 4-8 digits'),
   requiredPermission: z.string().optional(),
 });
 

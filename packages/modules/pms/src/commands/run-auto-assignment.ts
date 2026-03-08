@@ -9,6 +9,7 @@ import {
   pmsReservations,
   pmsGuests,
   pmsRoomAssignmentPreferences,
+  sqlArray,
 } from '@oppsera/db';
 import type { RunAutoAssignmentInput } from '../validation';
 import { PMS_EVENTS } from '../events/types';
@@ -76,7 +77,7 @@ export async function runAutoAssignment(
       reservationFilter = sql`
         r.tenant_id = ${ctx.tenantId}
         AND r.property_id = ${input.propertyId}
-        AND r.id = ANY(${ids})
+        AND r.id = ANY(${sqlArray(ids)})
         AND r.room_id IS NULL
         AND r.status IN ('CONFIRMED', 'HOLD')
       `;

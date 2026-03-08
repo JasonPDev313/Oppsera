@@ -3,7 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { fnbTabs, fnbTableLiveStatus, fnbManagerOverrides } from '@oppsera/db';
+import { fnbTabs, fnbTableLiveStatus, fnbManagerOverrides, sqlArray } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { BulkCloseTabsInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
@@ -74,9 +74,9 @@ export async function bulkCloseTabs(
             SET status = 'voided', voided_at = NOW(), voided_by = ${ctx.user.id},
                 void_reason = ${`Manager bulk close: ${input.reasonCode}`},
                 updated_at = NOW(), version = version + 1
-            WHERE id = ANY(${orderIdsToVoid}::text[])
+            WHERE id = ANY(${sqlArray(orderIdsToVoid)})
               AND tenant_id = ${ctx.tenantId}
-              AND status = ANY(${VOIDABLE_ORDER_STATUSES}::text[])`,
+              AND status = ANY(${sqlArray(VOIDABLE_ORDER_STATUSES)})`,
       );
     }
 

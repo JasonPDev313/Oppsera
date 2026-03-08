@@ -33,3 +33,8 @@ export type { BotDetectorStore, BotCheckResult } from './bot-detector';
 export {
   requireStepUp, createStepUpToken, StepUpRequiredError,
 } from './step-up-auth';
+
+export {
+  encryptField, decryptField, isEncrypted,
+  blindIndex, encryptFields, decryptFields,
+} from './field-encryption';

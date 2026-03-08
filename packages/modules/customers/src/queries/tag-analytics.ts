@@ -9,7 +9,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { withTenant } from '@oppsera/db';
+import { withTenant, sqlArray } from '@oppsera/db';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -115,7 +115,7 @@ export async function getTagPopulationTrends(
   return withTenant(input.tenantId, async (tx) => {
     // Build tag filter clause
     const tagFilter = input.tagIds?.length
-      ? sql`AND t.id = ANY(${input.tagIds})`
+      ? sql`AND t.id = ANY(${sqlArray(input.tagIds)})`
       : sql``;
 
     // Get daily counts using date_trunc on audit log

@@ -3,7 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { glAccounts, tenantTenderTypes } from '@oppsera/db';
+import { glAccounts, tenantTenderTypes, sqlArray } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
 import type { UpdateTenantTenderTypeInput } from '../validation';
 
@@ -45,7 +45,7 @@ export async function updateTenantTenderType(
         .where(
           and(
             eq(glAccounts.tenantId, ctx.tenantId),
-            sql`${glAccounts.id} = ANY(${accountIds})`,
+            sql`${glAccounts.id} = ANY(${sqlArray(accountIds)})`,
           ),
         );
       const foundIds = new Set(accounts.map((a) => a.id));
