@@ -51,7 +51,9 @@ export const POST = withAdminAuth(
       };
     });
 
-    await db.insert(semanticEvalExamples).values(values);
+    // Use onConflictDoNothing to prevent duplicate rows on retry/double-submit.
+    // The unique question content serves as the natural dedup key.
+    await db.insert(semanticEvalExamples).values(values).onConflictDoNothing();
 
     return NextResponse.json(
       { data: { imported: ids.length, ids } },

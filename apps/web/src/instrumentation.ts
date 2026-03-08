@@ -536,6 +536,9 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('pms.reservation.checked_out.v1', pms.handleOccupancyProjection, 'pms_occupancy/reservation.checked_out');
       bus.subscribe('pms.reservation.no_show.v1', pms.handleOccupancyProjection, 'pms_occupancy/reservation.no_show');
 
+      // Waitlist matcher: auto-match waiting guests when a reservation is cancelled
+      bus.subscribe('pms.reservation.cancelled.v1', pms.handleWaitlistMatch, 'pms_waitlist/reservation.cancelled');
+
       // POS → PMS: room charge + folio settlement via tender events
       bus.subscribe('tender.recorded.v1', pms.handleRoomChargeTender, 'pms/tender.room_charge');
       bus.subscribe('tender.recorded.v1', pms.handleFolioSettlementTender, 'pms/tender.folio_settlement');

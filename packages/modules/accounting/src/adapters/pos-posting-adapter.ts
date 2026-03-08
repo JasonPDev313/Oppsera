@@ -1,4 +1,4 @@
-import { db } from '@oppsera/db';
+import { db, isBreakerOpen } from '@oppsera/db';
 import type { EventEnvelope } from '@oppsera/shared';
 import {
   resolvePaymentTypeAccounts,
@@ -110,6 +110,16 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
   const { tenantId } = event;
   const data = event.data as unknown as TenderRecordedPayload;
 
+  // ── Circuit breaker fast-exit ──────────────────────────────────
+  // GL posting makes 5-10+ DB queries. When the breaker is open, every
+  // one of those would fail individually, queueing up timeouts that
+  // prevent recovery. Bail out immediately — the outbox will retry once
+  // the breaker closes.
+  if (isBreakerOpen()) {
+    console.warn(`[pos-gl] Skipped GL posting for tender ${data.tenderId}: circuit breaker open`);
+    return;
+  }
+
   try {
     await handleTenderForAccountingInner(event, tenantId, data);
   } catch (error) {
@@ -117,16 +127,21 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     // All known failure paths are already caught below, so this only fires on
     // truly unexpected errors (e.g., OOM, network partition, driver bug).
     console.error(`[pos-gl] UNHANDLED: GL posting failed for tender ${data.tenderId}:`, error);
-    try {
-      await logUnmappedEvent(db, tenantId, {
-        eventType: 'tender.recorded.v1',
-        sourceModule: 'pos',
-        sourceReferenceId: data.tenderId,
-        entityType: 'unhandled_error',
-        entityId: data.tenderId,
-        reason: `GL posting failed (unhandled): ${error instanceof Error ? error.message : 'Unknown error'}`,
-      });
-    } catch { /* absolute last resort — swallow */ }
+
+    // Only attempt DB logging if the breaker is still closed — writing
+    // to gl_unmapped_events when the pool is exhausted just adds fuel.
+    if (!isBreakerOpen()) {
+      try {
+        await logUnmappedEvent(db, tenantId, {
+          eventType: 'tender.recorded.v1',
+          sourceModule: 'pos',
+          sourceReferenceId: data.tenderId,
+          entityType: 'unhandled_error',
+          entityId: data.tenderId,
+          reason: `GL posting failed (unhandled): ${error instanceof Error ? error.message : 'Unknown error'}`,
+        });
+      } catch { /* absolute last resort — swallow */ }
+    }
   }
 }
 
@@ -646,7 +661,8 @@ async function handleTenderForAccountingInner(
   }
 
   // ── 6. Handle missing mappings — always log for resolution ─────
-  if (missingMappings.length > 0) {
+  // Skip DB writes when breaker is open to avoid amplifying pool exhaustion
+  if (missingMappings.length > 0 && !isBreakerOpen()) {
     for (const reason of missingMappings) {
       try {
         await logUnmappedEvent(db, tenantId, {
@@ -738,15 +754,18 @@ async function handleTenderForAccountingInner(
   } catch (error) {
     // POS adapter must NEVER block tenders — log and continue
     console.error(`[pos-gl] GL posting failed for tender ${data.tenderId}:`, error);
-    try {
-      await logUnmappedEvent(db, tenantId, {
-        eventType: 'tender.recorded.v1',
-        sourceModule: 'pos',
-        sourceReferenceId: data.tenderId,
-        entityType: 'posting_error',
-        entityId: data.tenderId,
-        reason: `GL posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      });
-    } catch { /* never let error logging propagate */ }
+    // Skip DB logging when breaker is open — don't pile onto an exhausted pool
+    if (!isBreakerOpen()) {
+      try {
+        await logUnmappedEvent(db, tenantId, {
+          eventType: 'tender.recorded.v1',
+          sourceModule: 'pos',
+          sourceReferenceId: data.tenderId,
+          entityType: 'posting_error',
+          entityId: data.tenderId,
+          reason: `GL posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        });
+      } catch { /* never let error logging propagate */ }
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { db } from '@oppsera/db';
+import { db, isBreakerOpen } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { getAccountingSettings } from './get-accounting-settings';
 import { getRemappableTenders } from '../queries/get-remappable-tenders';
@@ -18,6 +18,12 @@ export interface AutoRemapResult {
  * - Returns counts for the caller to include in the API response
  */
 export async function tryAutoRemap(ctx: RequestContext): Promise<AutoRemapResult> {
+  // Skip when circuit breaker is open — auto-remap does N×(void + repost)
+  // DB operations that would pile up timeouts and prevent breaker recovery.
+  if (isBreakerOpen()) {
+    return { remapped: 0, failed: 0 };
+  }
+
   try {
     const settings = await getAccountingSettings(db, ctx.tenantId);
     if (!settings?.enableAutoRemap) {

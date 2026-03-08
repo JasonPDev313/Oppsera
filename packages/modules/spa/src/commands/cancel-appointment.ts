@@ -37,7 +37,7 @@ export async function cancelAppointment(ctx: RequestContext, input: CancelAppoin
       throw new AppError('NOT_FOUND', `Appointment not found: ${parsed.id}`, 404);
     }
 
-    if (parsed.expectedVersion !== undefined && existing.version !== parsed.expectedVersion) {
+    if (existing.version !== parsed.expectedVersion) {
       throw new AppError(
         'VERSION_CONFLICT',
         `Expected version ${parsed.expectedVersion} but found ${existing.version}`,

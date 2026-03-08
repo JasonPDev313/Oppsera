@@ -15,10 +15,9 @@ export async function publishEventsOnly(
   tx: Database,
   events: EventEnvelope[],
 ): Promise<void> {
+  if (events.length === 0) return;
   const outboxWriter = getOutboxWriter();
-  for (const event of events) {
-    await outboxWriter.writeEvent(tx, event);
-  }
+  await outboxWriter.writeEvents(tx, events);
 }
 
 export async function publishWithOutbox<T>(
@@ -47,9 +46,13 @@ export async function publishWithOutbox<T>(
 
       // Defense-in-depth: SET LOCAL statement_timeout inside the transaction.
       // If Vercel freezes the event loop mid-transaction, Postgres will kill the
-      // statement after 15s (vs the database-level 30s default). The guardedQuery
-      // Promise.race timeout (15s) is the primary defense; this is the backup.
-      await tx.execute(sql`SET LOCAL statement_timeout = '15000'`);
+      // statement after the configured timeout (vs the database-level 30s default).
+      // The guardedQuery Promise.race timeout is the primary defense; this is the backup.
+      // Uses DB_QUERY_TIMEOUT env var so local dev (remote Supabase) can use a longer timeout.
+      // SET doesn't accept parameterized values ($1) — must interpolate directly.
+      // Sanitize to digits-only to prevent SQL injection.
+      const stmtTimeout = (process.env.DB_QUERY_TIMEOUT || '15000').replace(/\D/g, '') || '15000';
+      await tx.execute(sql.raw(`SET LOCAL statement_timeout = ${stmtTimeout}`));
 
       // Combine set_config calls into a single SQL statement to save a round-trip
       if (ctx.locationId) {
@@ -60,8 +63,10 @@ export async function publishWithOutbox<T>(
 
       const { result, events } = await operation(txDb);
 
-      for (const event of events) {
-        await outboxWriter.writeEvent(txDb, event);
+      // Batch-insert events in a single query (saves 1 round-trip
+      // per extra event — place-and-pay emits 2 events: order.placed + tender.recorded).
+      if (events.length > 0) {
+        await outboxWriter.writeEvents(txDb, events);
       }
 
       committedEvents = events;

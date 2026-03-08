@@ -112,6 +112,14 @@ export const PMS_EVENTS = {
   LOYALTY_POINTS_EARNED: 'pms.loyalty.points_earned.v1',
   LOYALTY_POINTS_REDEEMED: 'pms.loyalty.points_redeemed.v1',
   LOYALTY_POINTS_ADJUSTED: 'pms.loyalty.points_adjusted.v1',
+
+  // Waitlist
+  WAITLIST_ADDED: 'pms.waitlist.added.v1',
+  WAITLIST_CANCELED: 'pms.waitlist.canceled.v1',
+  WAITLIST_OFFERED: 'pms.waitlist.offered.v1',
+  WAITLIST_ACCEPTED: 'pms.waitlist.accepted.v1',
+  WAITLIST_DECLINED: 'pms.waitlist.declined.v1',
+  WAITLIST_EXPIRED: 'pms.waitlist.expired.v1',
 } as const;
 
 export type PmsEventType = (typeof PMS_EVENTS)[keyof typeof PMS_EVENTS];

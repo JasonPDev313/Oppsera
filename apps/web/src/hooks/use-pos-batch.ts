@@ -39,6 +39,10 @@ export interface POSBatchResult {
   drainBatch: () => Promise<void>;
   batchQueue: React.MutableRefObject<BatchItem[]>;
   batchTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
+  /** Synchronous dirty flag — true from the moment addItem pushes to queue until drainBatch completes. */
+  batchDirtyRef: React.MutableRefObject<boolean>;
+  /** True while drainBatch is running — addItem is blocked during drain. */
+  isDrainingRef: React.MutableRefObject<boolean>;
   /** Increment to ignore batch responses from a prior order after clearOrder. */
   orderGeneration: React.MutableRefObject<number>;
   /** Number of items added but not yet confirmed by the server. Drives Pay button guard. */
@@ -77,6 +81,18 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
   const isFlushing = useRef(false);
   const flushingPromise = useRef<Promise<void> | null>(null);
   const orderGeneration = useRef(0);
+  // Synchronous dirty flag — set immediately in addItem (same microtask) so
+  // ensureOrderReady's fast-path can't slip through between queue push and
+  // the next React render cycle. Cleared when drainBatch finishes.
+  const batchDirtyRef = useRef(false);
+  // True while drainBatch is running — addItem checks this to block new items
+  // during payment preparation. Without this, rapid taps during drain can add
+  // items that slip past ensureOrderReady and never get flushed.
+  const isDrainingRef = useRef(false);
+  // Track the last flush error so drainBatch can propagate it to callers
+  // (e.g. PaymentPanel's ensureOrderReady). Without this, batch API failures
+  // are swallowed inside doFlush and the caller never knows items were lost.
+  const lastFlushErrorRef = useRef<Error | null>(null);
 
   // Reactive count of items that have been added but not yet confirmed by the server.
   // Drives the Pay button disabled state — prevents payment while items are in-flight.
@@ -152,8 +168,11 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
 
         const tempIds = items.map((i) => i.tempId);
 
-        const serverCall = apiFetch<{ data: { order: Order; lines: OrderLine[] } }>(
-          `/api/v1/orders/${order.id}/lines/batch`,
+        // Retry-able fetch for transient errors (ECONNRESET, timeout, 503).
+        // One retry with 500ms backoff — enough to survive a momentary pool hiccup
+        // without adding noticeable latency on the happy path.
+        const fetchBatch = () => apiFetch<{ data: { order: Order; lines: OrderLine[] } }>(
+          `/api/v1/orders/${order!.id}/lines/batch`,
           {
             method: 'POST',
             headers: d.current.locationHeaders,
@@ -172,6 +191,28 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
           },
         );
 
+        const isTransient = (err: unknown): boolean => {
+          if (err instanceof ApiError) {
+            // 500 can be pool-guard timeout, 502/503/504 are gateway/server overload
+            if ([500, 502, 503, 504].includes(err.statusCode)) return true;
+          }
+          if (err instanceof Error) {
+            const msg = err.message.toLowerCase();
+            return msg.includes('econnreset') || msg.includes('timeout') || msg.includes('fetch failed') || msg.includes('network');
+          }
+          return false;
+        };
+
+        // Single promise that handles retry internally — used for both tracking and await
+        const serverCall = fetchBatch().catch(async (firstErr) => {
+          if (isTransient(firstErr) && orderGeneration.current === gen) {
+            console.warn('[POS batch] Transient error, retrying in 500ms:', firstErr instanceof Error ? firstErr.message : firstErr);
+            await new Promise((r) => setTimeout(r, 500));
+            return fetchBatch(); // retry once
+          }
+          throw firstErr; // re-throw non-transient
+        });
+
         // Track in pendingAddItems so placeOrder can await it
         const tracked = serverCall.then(() => {});
         d.current.pendingAddItems.current.push(tracked);
@@ -188,6 +229,7 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
           const updatedOrder = res.data.order;
           const newLines = res.data.lines as OrderLine[];
           console.log(`[POS batch] ${newLines.length} lines confirmed for order ${updatedOrder.id ?? '(unknown)'}`);
+          lastFlushErrorRef.current = null; // success — clear any prior error
 
           // Replace all temp lines from this batch with real server lines
           d.current.setCurrentOrder((prev) => {
@@ -221,6 +263,7 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
           if (orderGeneration.current !== gen) return;
 
           rollBackTempLines(d.current.setCurrentOrder, tempIds);
+          lastFlushErrorRef.current = err instanceof Error ? err : new Error(String(err));
 
           // Items failed — decrement pending count so Pay can re-enable
           if (orderGeneration.current === gen) {
@@ -273,6 +316,14 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
 
   const addItem = useCallback(
     (input: AddLineItemInput): void => {
+      // Block new items while payment is being prepared (drain in progress).
+      // Without this guard, rapid taps during drain can add items that slip
+      // past ensureOrderReady and never get flushed to the server.
+      if (isDrainingRef.current) {
+        console.warn('[POS batch] addItem blocked — drain in progress (payment preparing)');
+        return;
+      }
+
       // ── Optimistic update FIRST — show item in cart immediately ──
       const display = input._display;
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -350,6 +401,7 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
       }
 
       // ── Push to batch queue (no API call yet) ─────────────────────
+      batchDirtyRef.current = true; // sync flag — closes ensureOrderReady fast-path race
       batchQueue.current.push({ input, tempId, reqId: crypto.randomUUID() });
       setPendingItemCount((c) => c + 1);
 
@@ -383,33 +435,48 @@ export function usePOSBatch(deps: POSBatchDeps): POSBatchResult {
   // are on the server.
 
   const drainBatch = useCallback(async () => {
-    // Cancel any pending debounce timer — we'll flush everything now
-    if (batchTimerRef.current) {
-      clearTimeout(batchTimerRef.current);
-      batchTimerRef.current = null;
-    }
+    isDrainingRef.current = true;
+    try {
+      // Cancel any pending debounce timer — we'll flush everything now
+      if (batchTimerRef.current) {
+        clearTimeout(batchTimerRef.current);
+        batchTimerRef.current = null;
+      }
 
-    // Wait for the in-flight flush to complete first
-    if (flushingPromise.current) {
-      await flushingPromise.current;
-    }
-
-    // The in-flight flush's finally block may have already started flushing
-    // the remaining items. Wait for that too if needed.
-    while (batchQueue.current.length > 0 || flushingPromise.current) {
+      // Wait for the in-flight flush to complete first
       if (flushingPromise.current) {
         await flushingPromise.current;
       }
-      if (batchQueue.current.length > 0 && !isFlushing.current) {
-        await flushBatch();
-      }
-    }
 
-    // Finally, wait for all tracked API promises to settle
-    if (d.current.pendingAddItems.current.length > 0) {
-      await Promise.allSettled(d.current.pendingAddItems.current);
+      // The in-flight flush's finally block may have already started flushing
+      // the remaining items. Wait for that too if needed.
+      while (batchQueue.current.length > 0 || flushingPromise.current) {
+        if (flushingPromise.current) {
+          await flushingPromise.current;
+        }
+        if (batchQueue.current.length > 0 && !isFlushing.current) {
+          await flushBatch();
+        }
+      }
+
+      // Finally, wait for all tracked API promises to settle
+      if (d.current.pendingAddItems.current.length > 0) {
+        await Promise.allSettled(d.current.pendingAddItems.current);
+      }
+      batchDirtyRef.current = false;
+
+      // Propagate the last flush error to callers (e.g. PaymentPanel via ensureOrderReady).
+      // Without this, batch API failures are silently swallowed and the caller proceeds
+      // with a $0 order, causing a confusing "no items" → payment screen flow.
+      if (lastFlushErrorRef.current) {
+        const err = lastFlushErrorRef.current;
+        lastFlushErrorRef.current = null; // clear so retry can succeed
+        throw err;
+      }
+    } finally {
+      isDrainingRef.current = false;
     }
   }, [flushBatch]);
 
-  return { addItem, flushBatch, drainBatch, batchQueue, batchTimerRef, orderGeneration, pendingItemCount, resetPendingCount };
+  return { addItem, flushBatch, drainBatch, batchQueue, batchTimerRef, batchDirtyRef, isDrainingRef, orderGeneration, pendingItemCount, resetPendingCount };
 }

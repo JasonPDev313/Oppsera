@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { checkIdempotency } from '@oppsera/core/helpers/idempotency';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -22,7 +22,7 @@ export async function rescheduleAppointment(ctx: RequestContext, input: Reschedu
   const parsed = rescheduleAppointmentSchema.parse(input);
 
   const result = await publishWithOutbox(ctx, async (tx) => {
-    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, undefined, 'rescheduleAppointment');
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, parsed.clientRequestId, 'rescheduleAppointment');
     if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
 
     // Fetch existing appointment
@@ -51,7 +51,7 @@ export async function rescheduleAppointment(ctx: RequestContext, input: Reschedu
     }
 
     // Optimistic locking
-    if (parsed.expectedVersion !== undefined && existing.version !== parsed.expectedVersion) {
+    if (existing.version !== parsed.expectedVersion) {
       throw new AppError(
         'VERSION_CONFLICT',
         `Expected version ${parsed.expectedVersion} but found ${existing.version}`,
@@ -78,6 +78,7 @@ export async function rescheduleAppointment(ctx: RequestContext, input: Reschedu
         customerId: existing.customerId ?? undefined,
         resourceIds,
         excludeAppointmentId: parsed.id,
+        tx,
       });
 
       if (conflicts.hasConflicts) {
@@ -167,6 +168,10 @@ export async function rescheduleAppointment(ctx: RequestContext, input: Reschedu
       newProviderId: parsed.newProviderId,
       reason: parsed.reason,
     });
+
+    if (parsed.clientRequestId) {
+      await saveIdempotencyKey(tx, ctx.tenantId, parsed.clientRequestId, 'rescheduleAppointment', updated!);
+    }
 
     return { result: updated!, events: [event] };
   });

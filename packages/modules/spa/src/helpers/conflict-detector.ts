@@ -2,6 +2,8 @@ import { and, eq, not, inArray, lt, gt, sql } from 'drizzle-orm';
 import { withTenant, spaAppointments, spaProviderAvailability, spaProviderTimeOff, spaResources } from '@oppsera/db';
 import { CONFLICT_EXCLUDED_STATUSES } from './appointment-transitions';
 
+type Tx = Parameters<Parameters<typeof withTenant>[1]>[0];
+
 // ══════════════════════════════════════════════════════════════════
 // Conflict Detection for Spa Appointment Scheduling
 // ══════════════════════════════════════════════════════════════════
@@ -26,6 +28,9 @@ export interface ConflictCheckParams {
   customerId?: string;
   resourceIds?: string[];
   excludeAppointmentId?: string; // For reschedule — exclude current appointment
+  /** Pass the parent transaction to run conflict checks in the same snapshot
+   *  as the INSERT — prevents TOCTOU double-booking race. */
+  tx?: Tx;
 }
 
 export interface ConflictResult {
@@ -48,12 +53,12 @@ export interface ConflictDetail {
  * detailed descriptions for each conflict found.
  */
 export async function detectConflicts(params: ConflictCheckParams): Promise<ConflictResult> {
-  const { tenantId, providerId, startTime, endTime, locationId, customerId, resourceIds, excludeAppointmentId } = params;
+  const { tenantId, providerId, startTime, endTime, locationId, customerId, resourceIds, excludeAppointmentId, tx: parentTx } = params;
 
-  const conflicts: ConflictDetail[] = await withTenant(tenantId, async (tx) => {
-    const results: ConflictDetail[] = [];
-
-    // Run all conflict checks in parallel for performance
+  // When a parent transaction is passed, run checks in its snapshot —
+  // this ensures the conflict check and the subsequent INSERT see the
+  // same data, preventing TOCTOU double-booking races.
+  const runChecks = async (tx: Tx): Promise<ConflictDetail[]> => {
     const [
       availabilityConflicts,
       timeOffConflicts,
@@ -72,14 +77,18 @@ export async function detectConflicts(params: ConflictCheckParams): Promise<Conf
         : Promise.resolve([]),
     ]);
 
-    results.push(...availabilityConflicts);
-    results.push(...timeOffConflicts);
-    results.push(...providerConflicts);
-    results.push(...resourceConflicts);
-    results.push(...customerConflicts);
+    return [
+      ...availabilityConflicts,
+      ...timeOffConflicts,
+      ...providerConflicts,
+      ...resourceConflicts,
+      ...customerConflicts,
+    ];
+  };
 
-    return results;
-  });
+  const conflicts = parentTx
+    ? await runChecks(parentTx)
+    : await withTenant(tenantId, runChecks);
 
   return {
     hasConflicts: conflicts.length > 0,
@@ -88,8 +97,6 @@ export async function detectConflicts(params: ConflictCheckParams): Promise<Conf
 }
 
 // ── Internal Check Functions ──────────────────────────────────────
-
-type Tx = Parameters<Parameters<typeof withTenant>[1]>[0];
 
 /**
  * Check 1: Provider Availability (working hours)

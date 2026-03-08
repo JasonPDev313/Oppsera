@@ -25,8 +25,7 @@ import { useAuthContext } from '@/components/auth-provider';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
 import {
   WEB_APP_REGISTRY,
-  WEB_APP_CATEGORY_LABELS,
-  getSortedWebApps,
+  getWebAppsGroupedByModule,
   type WebAppDefinition,
   type WebAppCategory,
 } from '@oppsera/shared';
@@ -68,7 +67,6 @@ function resolveAppUrl(
   if (app.urlSource === 'env' && app.envVar) {
     const base = ENV_VALUES[app.envVar] || '';
     if (!base) return null;
-    // Member portal appends tenant slug
     if (app.key === 'member-portal' && tenantSlug) return `${base}/${tenantSlug}`;
     return base;
   }
@@ -92,10 +90,15 @@ function resolveStatus(app: WebAppDefinition, url: string | null): AppStatus {
   return 'active';
 }
 
-// ── Module name resolution ──
+// ── Module helpers ──
 function getModuleName(moduleKey: string): string {
   const def = MODULE_REGISTRY.find((m) => m.key === moduleKey);
   return def?.name ?? moduleKey;
+}
+
+function getModuleDescription(moduleKey: string): string | undefined {
+  const def = MODULE_REGISTRY.find((m) => m.key === moduleKey);
+  return def?.description;
 }
 
 // ── Subcomponents ──
@@ -134,10 +137,13 @@ function StatusBadge({ status }: { status: AppStatus }) {
   );
 }
 
-function ModuleTag({ moduleKey }: { moduleKey: string }) {
+function CategoryTag({ category }: { category: string }) {
+  const label = category === 'customer_facing' ? 'Customer-Facing'
+    : category === 'staff_tools' ? 'Staff Tool'
+    : 'Integration';
   return (
     <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-      {getModuleName(moduleKey)}
+      {label}
     </span>
   );
 }
@@ -176,11 +182,8 @@ function WebAppCard({ app, tenantSlug, locationId }: WebAppCardProps) {
 
       <p className="text-sm text-muted-foreground mb-3">{app.description}</p>
 
-      {/* Module tags */}
       <div className="flex flex-wrap gap-1 mb-4">
-        {app.associatedModules.map((m) => (
-          <ModuleTag key={m} moduleKey={m} />
-        ))}
+        <CategoryTag category={app.category} />
       </div>
 
       <div className="mt-auto">
@@ -232,33 +235,62 @@ function WebAppCard({ app, tenantSlug, locationId }: WebAppCardProps) {
   );
 }
 
-// ── Filter bar ──
+// ── Category filter ──
 
-interface FilterBarProps {
+const CATEGORY_OPTIONS: { value: WebAppCategory | null; label: string }[] = [
+  { value: null, label: 'All' },
+  { value: 'customer_facing', label: 'Customer-Facing' },
+  { value: 'staff_tools', label: 'Staff Tools' },
+];
+
+interface CategoryFilterProps {
+  selected: WebAppCategory | null;
+  onSelect: (cat: WebAppCategory | null) => void;
+  counts: { all: number; customer_facing: number; staff_tools: number };
+}
+
+function CategoryFilter({ selected, onSelect, counts }: CategoryFilterProps) {
+  return (
+    <div className="flex gap-1 bg-muted rounded-lg p-1">
+      {CATEGORY_OPTIONS.map((opt) => {
+        const count = opt.value === null ? counts.all
+          : opt.value === 'customer_facing' ? counts.customer_facing
+          : counts.staff_tools;
+        if (count === 0 && opt.value !== null) return null;
+        return (
+          <button
+            key={opt.value ?? 'all'}
+            onClick={() => onSelect(opt.value)}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              selected === opt.value
+                ? 'bg-surface text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {opt.label}
+            <span className="ml-1.5 text-xs opacity-70">{count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Module filter bar ──
+
+interface ModuleFilterBarProps {
   selectedModule: string | null;
   onSelect: (moduleKey: string | null) => void;
   moduleCounts: Record<string, number>;
-  enabledModules: Set<string>;
+  totalCount: number;
 }
 
-function FilterBar({ selectedModule, onSelect, moduleCounts, enabledModules }: FilterBarProps) {
-  // Get all module keys that have visible apps, sorted by module name
+function ModuleFilterBar({ selectedModule, onSelect, moduleCounts, totalCount }: ModuleFilterBarProps) {
   const moduleKeys = useMemo(() => {
-    return Object.keys(moduleCounts)
-      .filter((k) => enabledModules.has(k))
-      .sort((a, b) => getModuleName(a).localeCompare(getModuleName(b)));
-  }, [moduleCounts, enabledModules]);
-
-  const totalCount = useMemo(() => {
-    // Count unique visible apps across all enabled modules
-    const seen = new Set<string>();
-    for (const app of WEB_APP_REGISTRY) {
-      if (app.requiredModules.some((m) => enabledModules.has(m))) {
-        seen.add(app.key);
-      }
-    }
-    return seen.size;
-  }, [enabledModules]);
+    return Object.keys(moduleCounts).sort((a, b) =>
+      getModuleName(a).localeCompare(getModuleName(b)),
+    );
+  }, [moduleCounts]);
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -270,7 +302,7 @@ function FilterBar({ selectedModule, onSelect, moduleCounts, enabledModules }: F
             : 'bg-muted text-muted-foreground hover:bg-accent'
         }`}
       >
-        All
+        All Modules
         <span className="ml-1.5 text-xs opacity-70">{totalCount}</span>
       </button>
       {moduleKeys.map((moduleKey) => (
@@ -291,23 +323,25 @@ function FilterBar({ selectedModule, onSelect, moduleCounts, enabledModules }: F
   );
 }
 
-// ── Category section ──
+// ── Module section ──
 
-interface CategorySectionProps {
-  category: WebAppCategory;
+interface ModuleSectionProps {
+  moduleKey: string;
   apps: WebAppDefinition[];
   tenantSlug: string | undefined;
   locationId: string | undefined;
 }
 
-function CategorySection({ category, apps, tenantSlug, locationId }: CategorySectionProps) {
+function ModuleSection({ moduleKey, apps, tenantSlug, locationId }: ModuleSectionProps) {
   if (apps.length === 0) return null;
+  const desc = getModuleDescription(moduleKey);
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-foreground mb-3">
-        {WEB_APP_CATEGORY_LABELS[category]}
-      </h2>
+      <div className="mb-3">
+        <h2 className="text-lg font-semibold text-foreground">{getModuleName(moduleKey)}</h2>
+        {desc && <p className="text-sm text-muted-foreground">{desc}</p>}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {apps.map((app) => (
           <WebAppCard key={app.key} app={app} tenantSlug={tenantSlug} locationId={locationId} />
@@ -323,98 +357,99 @@ export default function WebAppsContent() {
   const { tenant, locations } = useAuthContext();
   const locationId = locations?.[0]?.id;
   const { isModuleEnabled } = useEntitlementsContext();
+  const [selectedCategory, setSelectedCategory] = useState<WebAppCategory | null>(null);
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
-
-  // Build the set of enabled modules (for filtering pills and visibility)
-  const enabledModules = useMemo(() => {
-    const set = new Set<string>();
-    for (const app of WEB_APP_REGISTRY) {
-      for (const m of app.associatedModules) {
-        if (isModuleEnabled(m)) set.add(m);
-      }
-    }
-    return set;
-  }, [isModuleEnabled]);
 
   // Visible apps = those with at least one requiredModule enabled
   const visibleApps = useMemo(() => {
-    return getSortedWebApps().filter((app) =>
+    return WEB_APP_REGISTRY.filter((app) =>
       app.requiredModules.some((m) => isModuleEnabled(m)),
     );
   }, [isModuleEnabled]);
 
-  // Per-module counts (how many visible apps list that module)
+  // Category counts (computed from all visible apps, before module filter)
+  const categoryCounts = useMemo(() => {
+    let customerFacing = 0;
+    let staffTools = 0;
+    for (const app of visibleApps) {
+      if (app.category === 'customer_facing') customerFacing++;
+      else if (app.category === 'staff_tools') staffTools++;
+    }
+    return { all: visibleApps.length, customer_facing: customerFacing, staff_tools: staffTools };
+  }, [visibleApps]);
+
+  // Filter by category first
+  const categoryFilteredApps = useMemo(() => {
+    if (selectedCategory === null) return visibleApps;
+    return visibleApps.filter((app) => app.category === selectedCategory);
+  }, [visibleApps, selectedCategory]);
+
+  // Group by primary module (after category filter)
+  const moduleGroups = useMemo(() => {
+    return getWebAppsGroupedByModule([...categoryFilteredApps]);
+  }, [categoryFilteredApps]);
+
+  // Per-module counts for filter pills (reflects current category filter)
   const moduleCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const app of visibleApps) {
-      for (const m of app.associatedModules) {
-        if (enabledModules.has(m)) {
-          counts[m] = (counts[m] ?? 0) + 1;
-        }
-      }
+    for (const group of moduleGroups) {
+      counts[group.moduleKey] = group.apps.length;
     }
     return counts;
-  }, [visibleApps, enabledModules]);
+  }, [moduleGroups]);
 
-  // Filtered apps based on selected module
-  const filteredApps = useMemo(() => {
-    if (selectedModule === null) return visibleApps;
-    return visibleApps.filter((app) => app.associatedModules.includes(selectedModule));
-  }, [visibleApps, selectedModule]);
+  const totalCount = useMemo(() => {
+    return categoryFilteredApps.length;
+  }, [categoryFilteredApps]);
 
-  // Group by category for "All" view
-  const categories: WebAppCategory[] = ['customer_facing', 'staff_tools', 'integrations'];
-  const appsByCategory = useMemo(() => {
-    const map: Record<WebAppCategory, WebAppDefinition[]> = {
-      customer_facing: [],
-      staff_tools: [],
-      integrations: [],
-    };
-    for (const app of filteredApps) {
-      map[app.category].push(app);
-    }
-    return map;
-  }, [filteredApps]);
+  // Filtered groups based on selected module
+  const filteredGroups = useMemo(() => {
+    if (selectedModule === null) return moduleGroups;
+    return moduleGroups.filter((g) => g.moduleKey === selectedModule);
+  }, [moduleGroups, selectedModule]);
+
+  // Reset module filter when category changes and the module no longer has apps
+  function handleCategoryChange(cat: WebAppCategory | null) {
+    setSelectedCategory(cat);
+    setSelectedModule(null);
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Web Apps</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage customer-facing and staff web applications. Filter by module to find relevant apps.
+          Manage customer-facing and staff web applications, organized by module.
         </p>
       </div>
 
-      <FilterBar
-        selectedModule={selectedModule}
-        onSelect={setSelectedModule}
-        moduleCounts={moduleCounts}
-        enabledModules={enabledModules}
-      />
+      <div className="space-y-3">
+        <CategoryFilter
+          selected={selectedCategory}
+          onSelect={handleCategoryChange}
+          counts={categoryCounts}
+        />
+        <ModuleFilterBar
+          selectedModule={selectedModule}
+          onSelect={setSelectedModule}
+          moduleCounts={moduleCounts}
+          totalCount={totalCount}
+        />
+      </div>
 
-      {selectedModule === null ? (
-        // Grouped by category
-        <div className="space-y-8">
-          {categories.map((cat) => (
-            <CategorySection
-              key={cat}
-              category={cat}
-              apps={appsByCategory[cat]}
-              tenantSlug={tenant?.slug}
-              locationId={locationId}
-            />
-          ))}
-        </div>
-      ) : (
-        // Flat grid for module filter
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredApps.map((app) => (
-            <WebAppCard key={app.key} app={app} tenantSlug={tenant?.slug} locationId={locationId} />
-          ))}
-        </div>
-      )}
+      <div className="space-y-8">
+        {filteredGroups.map((group) => (
+          <ModuleSection
+            key={group.moduleKey}
+            moduleKey={group.moduleKey}
+            apps={group.apps}
+            tenantSlug={tenant?.slug}
+            locationId={locationId}
+          />
+        ))}
+      </div>
 
-      {filteredApps.length === 0 && (
+      {filteredGroups.length === 0 && (
         <div className="text-center py-12">
           <Globe className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
           <p className="text-muted-foreground text-sm">

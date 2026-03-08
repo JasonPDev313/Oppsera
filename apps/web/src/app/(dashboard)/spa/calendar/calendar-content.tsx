@@ -50,6 +50,7 @@ interface CalendarAppointment {
   status: AppointmentStatus;
   providerId: string | null;
   orderId: string | null;
+  totalCents: number;
   notes?: string;
 }
 
@@ -184,10 +185,13 @@ export default function SpaCalendarContent() {
   const locationId = (locations.find(l => l.locationType === 'venue') ?? locations[0])?.id;
 
   // ── Page view state (persisted to localStorage) ──────────────────
-  const [pageView, setPageView] = useState<PageView>(() => {
-    if (typeof window === 'undefined') return 'quick';
-    return (localStorage.getItem('spa_view_mode') as PageView) ?? 'quick';
-  });
+  const [pageView, setPageView] = useState<PageView>('quick');
+
+  // Read localStorage after mount to avoid hydration mismatch
+  useEffect(() => {
+    const stored = localStorage.getItem('spa_view_mode') as PageView | null;
+    if (stored === 'quick' || stored === 'calendar') setPageView(stored);
+  }, []);
 
   const handlePageViewChange = useCallback((view: PageView) => {
     setPageView(view);
@@ -246,7 +250,7 @@ export default function SpaCalendarContent() {
 
   // Map hook data to local CalendarProviderColumn shape
   const providers: CalendarProviderColumn[] = useMemo(() => {
-    return (calendarData?.providers ?? []).map((p: any, idx: number) => ({
+    return (Array.isArray(calendarData?.providers) ? calendarData.providers : []).map((p: any, idx: number) => ({
       id: p.providerId as string,
       name: p.providerName as string,
       color: (p.providerColor as string) || PROVIDER_COLORS[idx % PROVIDER_COLORS.length]!,
@@ -262,6 +266,9 @@ export default function SpaCalendarContent() {
         status: a.status as AppointmentStatus,
         providerId: (a.providerId as string) ?? null,
         orderId: (a.orderId as string) ?? null,
+        totalCents: Array.isArray(a.services)
+          ? (a.services as Array<Record<string, unknown>>).reduce((sum: number, s) => sum + (Number(s.finalPriceCents) || 0), 0)
+          : 0,
       })),
     }));
   }, [calendarData]);
@@ -281,6 +288,9 @@ export default function SpaCalendarContent() {
       status: a.status as AppointmentStatus,
       providerId: (a.providerId as string) ?? null,
       orderId: (a.orderId as string) ?? null,
+      totalCents: Array.isArray(a.services)
+        ? (a.services as Array<Record<string, unknown>>).reduce((sum: number, s) => sum + (Number(s.finalPriceCents) || 0), 0)
+        : 0,
     }));
   }, [calendarData]);
 
@@ -381,7 +391,7 @@ export default function SpaCalendarContent() {
     router.push(`/pos/retail?orderId=${result.orderId}`);
   }, [router]);
 
-  const handlePaymentComplete = useCallback(() => {
+  const handlePaymentComplete = useCallback((_result: { isFullyPaid: boolean; orderId: string }) => {
     setPayNowAppointment(null);
     queryClient.invalidateQueries({ queryKey: ['spa-calendar'] });
   }, [queryClient]);
@@ -569,10 +579,10 @@ export default function SpaCalendarContent() {
       {pageView === 'quick' && (
         <>
           {availLoading && <CondensedSkeleton />}
-          {!availLoading && availabilityData && (
+          {!availLoading && availabilityData && Array.isArray(availabilityData.days) && (
             <SpaCondensedView
               days={availabilityData.days}
-              categories={availabilityData.categories}
+              categories={availabilityData.categories ?? []}
               onSelectDate={handleQuickSelect}
             />
           )}
@@ -649,6 +659,7 @@ export default function SpaCalendarContent() {
           appointmentId={payNowAppointment.id}
           appointmentStatus={payNowAppointment.status}
           serviceName={payNowAppointment.serviceName}
+          totalCents={payNowAppointment.totalCents}
           existingOrderId={payNowAppointment.orderId}
           onPaymentComplete={handlePaymentComplete}
         />
@@ -661,7 +672,7 @@ export default function SpaCalendarContent() {
           onClose={() => setSendToPosAppointment(null)}
           appointmentId={sendToPosAppointment.id}
           serviceName={sendToPosAppointment.serviceName}
-          totalCents={0}
+          totalCents={sendToPosAppointment.totalCents}
           onSuccess={handleCheckoutSuccess}
         />
       )}

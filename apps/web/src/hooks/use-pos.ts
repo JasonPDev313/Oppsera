@@ -442,6 +442,8 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
       batch.batchTimerRef.current = null;
     }
     batch.batchQueue.current = [];
+    batch.batchDirtyRef.current = false;
+    batch.isDrainingRef.current = false;
     batch.resetPendingCount();
 
     // Clear promise refs so the next order starts with a clean slate
@@ -457,6 +459,18 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
 
   const ensureOrderReady = useCallback(async (): Promise<Order> => {
     let order = orderRef.current;
+
+    // Fast path: if order has a server ID and nothing is pending, return immediately.
+    // This makes the Pay panel's on-mount drain instant when all items are confirmed.
+    // batchDirtyRef is a synchronous guard set in addItem's same microtask — it
+    // closes the race window where queue/timer refs haven't updated yet.
+    if (order && order.id
+        && !batch.batchDirtyRef.current
+        && batch.batchQueue.current.length === 0
+        && !batch.batchTimerRef.current
+        && pendingAddItems.current.length === 0) {
+      return order;
+    }
 
     // Wait for openOrder to finish if we still have a placeholder (id === '')
     if (order && !order.id && openOrderPromise.current) {

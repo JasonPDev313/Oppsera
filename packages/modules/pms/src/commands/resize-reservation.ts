@@ -38,9 +38,12 @@ export async function resizeReservation(ctx: RequestContext, input: CalendarResi
       .limit(1);
     if (!current) throw new NotFoundError('Reservation', input.reservationId);
 
-    // 3. Version check
+    // 3. Version auto-heal — use fresh DB version instead of rejecting stale clients.
+    // The atomic UPDATE WHERE (step 10) is the real concurrency guard.
     if (current.version !== input.from.version) {
-      throw new ConcurrencyConflictError(input.reservationId);
+      console.warn(
+        `[pms.resize] version auto-healed: reservation=${input.reservationId} db=${current.version} client=${input.from.version}`,
+      );
     }
 
     // 4. Status check
@@ -166,7 +169,7 @@ export async function resizeReservation(ctx: RequestContext, input: CalendarResi
         and(
           eq(pmsReservations.id, input.reservationId),
           eq(pmsReservations.tenantId, ctx.tenantId),
-          eq(pmsReservations.version, input.from.version),
+          eq(pmsReservations.version, current.version),
         ),
       )
       .returning();

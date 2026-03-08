@@ -30,7 +30,7 @@ import {
 } from '@oppsera/db';
 import type { InferSelectModel } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { eq, and, inArray, sql } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '@oppsera/core/helpers/optimistic-lock';
@@ -280,34 +280,11 @@ export async function placeAndRecordTender(
     });
 
     // ========== ENRICH FOR EVENTS ==========
-    // Discount breakdown by classification (mirrors record-tender.ts)
-    const discountRows = await tx
-      .select({
-        classification: orderDiscounts.discountClassification,
-        amount: orderDiscounts.amount,
-      })
-      .from(orderDiscounts)
-      .where(and(eq(orderDiscounts.orderId, orderId), eq(orderDiscounts.tenantId, ctx.tenantId)));
-
-    const discountBreakdownMap = new Map<string, number>();
-    for (const row of discountRows) {
-      const key = row.classification ?? 'manual_discount';
-      discountBreakdownMap.set(key, (discountBreakdownMap.get(key) ?? 0) + row.amount);
-    }
-    const discountBreakdown = Array.from(discountBreakdownMap.entries()).map(
-      ([classification, amountCents]) => ({ classification, amountCents }),
+    // Price override loss: compute from already-fetched placedLines (no extra query)
+    const priceOverrideLossCents = placedLines.reduce(
+      (sum, l) => sum + (l.priceOverrideDiscountCents ?? 0), 0,
     );
 
-    // Price override loss total (mirrors record-tender.ts)
-    const priceOverrideLossRows = await tx
-      .select({
-        total: sql<number>`COALESCE(SUM(price_override_discount_cents), 0)::int`,
-      })
-      .from(orderLines)
-      .where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId)));
-    const priceOverrideLossCents = priceOverrideLossRows[0]?.total ?? 0;
-
-    // ========== BUILD EVENTS ==========
     // Resolve category names from subDepartmentId for reporting/AI chat enrichment
     const subDeptIds = [...new Set(placedLines.map((l) => l.subDepartmentId).filter(Boolean))] as string[];
     const catalogItemIds = [...new Set(placedLines.map((l) => l.catalogItemId).filter(Boolean))] as string[];
@@ -315,15 +292,33 @@ export async function placeAndRecordTender(
     let assignedGroupsMap = new Map<string, string[]>();
     const modGroupMetaMap = new Map<string, { name: string; isRequired: boolean }>();
     let resolvedCustomerName: string | null = null;
+    // Discount breakdown by classification — runs in parallel with other enrichments
+    const discountBreakdownMap = new Map<string, number>();
 
-    // Run all enrichments concurrently (mirrors place-order.ts)
+    // Run ALL enrichment reads concurrently — discount breakdown now parallelized
+    // with category/modifier/customer lookups instead of running sequentially before them.
     await Promise.all([
+      // Discount breakdown (was sequential, now parallel)
+      tx.select({
+        classification: orderDiscounts.discountClassification,
+        amount: orderDiscounts.amount,
+      })
+        .from(orderDiscounts)
+        .where(and(eq(orderDiscounts.orderId, orderId), eq(orderDiscounts.tenantId, ctx.tenantId)))
+        .then((rows) => {
+          for (const row of rows) {
+            const key = row.classification ?? 'manual_discount';
+            discountBreakdownMap.set(key, (discountBreakdownMap.get(key) ?? 0) + row.amount);
+          }
+        }),
+      // Category names
       subDeptIds.length > 0
         ? tx.select({ id: catalogCategories.id, name: catalogCategories.name })
             .from(catalogCategories)
             .where(inArray(catalogCategories.id, subDeptIds))
             .then((cats) => { for (const c of cats) categoryNameMap.set(c.id, c.name); })
         : Promise.resolve(),
+      // Modifier groups
       catalogItemIds.length > 0 && !isAlreadyPlaced
         ? (async () => {
             try {
@@ -343,6 +338,7 @@ export async function placeAndRecordTender(
             }
           })()
         : Promise.resolve(),
+      // Customer name
       order.customerId && !isAlreadyPlaced
         ? tx.select({ displayName: customers.displayName })
             .from(customers)
@@ -350,6 +346,10 @@ export async function placeAndRecordTender(
             .then((rows) => { if (rows[0]) resolvedCustomerName = rows[0].displayName; })
         : Promise.resolve(),
     ]);
+
+    const discountBreakdown = Array.from(discountBreakdownMap.entries()).map(
+      ([classification, amountCents]) => ({ classification, amountCents }),
+    );
 
     const events = [];
 

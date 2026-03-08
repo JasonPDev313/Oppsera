@@ -17,4 +17,22 @@ export class DrizzleOutboxWriter implements OutboxWriter {
       publishedAt: null,
     });
   }
+
+  /** Batch-insert multiple events in a single query (saves 1 round-trip per extra event). */
+  async writeEvents(tx: Database, events: EventEnvelope[]): Promise<void> {
+    if (events.length === 0) return;
+    if (events.length === 1) return this.writeEvent(tx, events[0]!);
+    await tx.insert(eventOutbox).values(
+      events.map((event) => ({
+        id: generateUlid(),
+        tenantId: event.tenantId,
+        eventType: event.eventType,
+        eventId: event.eventId,
+        idempotencyKey: event.idempotencyKey,
+        payload: event,
+        occurredAt: new Date(event.occurredAt),
+        publishedAt: null,
+      })),
+    );
+  }
 }

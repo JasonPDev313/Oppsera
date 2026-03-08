@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ShoppingCart,
@@ -97,6 +97,31 @@ export function CheckoutToPosDialog({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  // Track mounted state to prevent setState on unmounted component
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  // Reset stale state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setIsSubmitting(false);
+      setError(null);
+    }
+  }, [open]);
+
+  // Escape key to close
+  useEffect(() => {
+    if (!open || isSubmitting) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, isSubmitting, onClose]);
 
   // Determine selected terminal ID — prefer the existing terminal session for fast path
   const selectedTerminalId = existingSession?.terminalId ?? termSel.selectedTerminalId;
@@ -116,6 +141,7 @@ export function CheckoutToPosDialog({
       },
       {
         onSuccess: (result: unknown) => {
+          if (!mountedRef.current) return;
           setIsSubmitting(false);
           const data = (result as { data?: { orderId?: string; tabNumber?: number; totalCents?: number } })?.data;
           onSuccess({
@@ -126,6 +152,7 @@ export function CheckoutToPosDialog({
           });
         },
         onError: (err) => {
+          if (!mountedRef.current) return;
           setIsSubmitting(false);
           setError(err instanceof Error ? err.message : 'Failed to send to POS');
         },

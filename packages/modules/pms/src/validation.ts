@@ -969,3 +969,67 @@ export const adjustLoyaltyPointsSchema = z.object({
   clientRequestId: z.string().optional(),
 });
 export type AdjustLoyaltyPointsInput = z.input<typeof adjustLoyaltyPointsSchema>;
+
+// ── Waitlist ────────────────────────────────────────────────────────
+
+export const addToWaitlistSchema = z.object({
+  propertyId: z.string().min(1),
+  guestId: z.string().optional(),
+  guestName: z.string().max(200).optional(),
+  guestEmail: z.string().email().max(320).optional(),
+  guestPhone: z.string().max(30).optional(),
+  roomTypeId: z.string().optional(),
+  adults: z.number().int().min(1).max(20).default(1),
+  children: z.number().int().min(0).max(20).default(0),
+  checkInDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  checkOutDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  flexibility: z.enum(['exact_dates', 'flexible_1_day', 'flexible_3_days', 'flexible_week', 'any_dates']).default('flexible_3_days'),
+  priority: z.number().int().min(0).max(100).default(0),
+  loyaltyTier: z.string().optional(),
+  hasDeposit: z.boolean().default(false),
+  ratePlanId: z.string().optional(),
+  notes: z.string().max(2000).optional(),
+  source: z.enum(['direct', 'phone', 'email', 'online', 'webapp']).default('direct'),
+  clientRequestId: z.string().optional(),
+});
+export type AddToWaitlistInput = z.input<typeof addToWaitlistSchema>;
+
+export const updateWaitlistConfigSchema = z.object({
+  propertyId: z.string().min(1),
+  isEnabled: z.boolean().optional(),
+  offerExpiryHours: z.number().int().min(1).max(168).optional(),
+  maxOffersPerSlot: z.number().int().min(1).max(10).optional(),
+  autoOfferEnabled: z.boolean().optional(),
+  welcomeHeadline: z.string().max(200).optional(),
+  welcomeSubtitle: z.string().max(500).optional(),
+  logoUrl: z.string().url().max(2000).nullish(),
+  primaryColor: z.string().max(20).optional(),
+  secondaryColor: z.string().max(20).optional(),
+  accentColor: z.string().max(20).optional(),
+  fontFamily: z.string().max(100).optional(),
+  footerText: z.string().max(500).nullish(),
+  requireEmail: z.boolean().optional(),
+  requirePhone: z.boolean().optional(),
+  showRates: z.boolean().optional(),
+  maxAdvanceDays: z.number().int().min(1).max(730).optional(),
+  termsText: z.string().max(5000).nullish(),
+  offerSmsTemplate: z.string().max(500).nullish(),
+  offerEmailSubject: z.string().max(200).nullish(),
+  offerEmailTemplate: z.string().max(10000).nullish(),
+  confirmationTemplate: z.string().max(10000).nullish(),
+});
+export type UpdateWaitlistConfigInput = z.input<typeof updateWaitlistConfigSchema>;
+
+export const publicJoinWaitlistSchema = z.object({
+  guestName: z.string().min(1).max(200),
+  guestEmail: z.string().email().max(320).optional(),
+  guestPhone: z.string().max(30).optional(),
+  roomTypeId: z.string().optional(),
+  adults: z.number().int().min(1).max(20).default(1),
+  children: z.number().int().min(0).max(20).default(0),
+  checkInDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  checkOutDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  flexibility: z.enum(['exact_dates', 'flexible_1_day', 'flexible_3_days', 'flexible_week', 'any_dates']).default('exact_dates'),
+  notes: z.string().max(2000).optional(),
+  source: z.enum(['online', 'webapp']).default('online'),
+});

@@ -99,6 +99,8 @@ export {
   pmsLoyaltyMembers,
   pmsLoyaltyTransactions,
   pmsCleaningTypes,
+  pmsWaitlist,
+  pmsWaitlistConfig,
 } from '@oppsera/db';
 
 // Validation schemas
@@ -197,6 +199,10 @@ export {
   earnLoyaltyPointsSchema,
   redeemLoyaltyPointsSchema,
   adjustLoyaltyPointsSchema,
+  // Waitlist
+  addToWaitlistSchema,
+  updateWaitlistConfigSchema,
+  publicJoinWaitlistSchema,
 } from './validation';
 
 export type {
@@ -294,6 +300,9 @@ export type {
   EarnLoyaltyPointsInput,
   RedeemLoyaltyPointsInput,
   AdjustLoyaltyPointsInput,
+  // Waitlist
+  AddToWaitlistInput,
+  UpdateWaitlistConfigInput,
 } from './validation';
 
 // Permissions
@@ -327,7 +336,7 @@ export {
 // Events
 export { PMS_EVENTS } from './events/types';
 export type { PmsEventType } from './events/types';
-export { handleCalendarProjection, handleOccupancyProjection, handleRoomChargeTender, handleFolioSettlementTender } from './events/consumers';
+export { handleCalendarProjection, handleOccupancyProjection, handleWaitlistMatch, handleRoomChargeTender, handleFolioSettlementTender } from './events/consumers';
 export type * from './events/payloads';
 
 // Errors
@@ -439,6 +448,8 @@ export { earnLoyaltyPoints } from './commands/earn-loyalty-points';
 export { redeemLoyaltyPoints } from './commands/redeem-loyalty-points';
 export type { RedemptionResult } from './commands/redeem-loyalty-points';
 export { adjustLoyaltyPoints } from './commands/adjust-loyalty-points';
+// Waitlist commands
+export { addToWaitlist, removeFromWaitlist, offerWaitlistSlot, acceptWaitlistOffer, declineWaitlistOffer, expireWaitlistOffers, updateWaitlistConfig } from './commands/manage-waitlist';
 
 // Pricing engine helper
 export { computeDynamicRate, evaluateConditions, applyAdjustment } from './helpers/pricing-engine';
@@ -528,6 +539,15 @@ export {
   // Utilization Grid
   getUtilizationGrid,
   getUtilizationGridByRoom,
+  // Move Room
+  getAvailableRoomsForMove,
+  // Room Availability Counts
+  countAvailableRoomsByType,
+  // Waitlist
+  listWaitlist,
+  getWaitlistConfig,
+  getWaitlistStats,
+  getWaitlistByToken,
 } from './queries';
 
 export type {
@@ -550,6 +570,7 @@ export type {
   SearchGuestsResult,
   GuestDetail,
   GuestReservationSummary,
+  SuggestedRoom,
   CalendarWeekResponse,
   CalendarRoom,
   CalendarSegment,
@@ -635,6 +656,11 @@ export type {
   UtilizationByRoomResponse,
   UtilizationRoom,
   UtilizationRoomCell,
+  // Move Room
+  AvailableRoomForMove,
+  AvailableRoomsForMoveResult,
+  // Room Availability Counts
+  RoomTypeAvailabilityCount,
 } from './queries';
 
 // POS Integration Queries
@@ -650,9 +676,11 @@ export {
   runNightlyChargePosting,
   runNoShowMarking,
   runHousekeepingAutoDirty,
+  runExpireWaitlistOffers,
 } from './jobs';
 export type {
   NightlyChargeResult,
   NoShowResult,
   AutoDirtyResult,
+  ExpireWaitlistResult,
 } from './jobs';

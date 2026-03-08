@@ -1320,3 +1320,89 @@ export const pmsLoyaltyTransactions = pgTable(
     index('idx_pms_loyalty_transactions_member').on(table.tenantId, table.memberId),
   ],
 );
+
+// ── PMS Waitlist ────────────────────────────────────────────────────
+export const pmsWaitlist = pgTable(
+  'pms_waitlist',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    propertyId: text('property_id').notNull(),
+    guestId: text('guest_id'),
+    guestName: text('guest_name'),
+    guestEmail: text('guest_email'),
+    guestPhone: text('guest_phone'),
+    roomTypeId: text('room_type_id'),
+    adults: integer('adults').notNull().default(1),
+    children: integer('children').notNull().default(0),
+    checkInDate: date('check_in_date'),
+    checkOutDate: date('check_out_date'),
+    flexibility: text('flexibility').notNull().default('flexible_3_days'),
+    status: text('status').notNull().default('waiting'),
+    offeredReservationId: text('offered_reservation_id'),
+    offeredRateCents: integer('offered_rate_cents'),
+    offerExpiresAt: timestamp('offer_expires_at', { withTimezone: true }),
+    priority: integer('priority').notNull().default(0),
+    loyaltyTier: text('loyalty_tier'),
+    hasDeposit: boolean('has_deposit').notNull().default(false),
+    rateLockCents: integer('rate_lock_cents'),
+    ratePlanId: text('rate_plan_id'),
+    notes: text('notes'),
+    source: text('source').notNull().default('direct'),
+    guestToken: text('guest_token'),
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
+    bookedAt: timestamp('booked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by'),
+  },
+  (table) => [
+    index('idx_pms_waitlist_tenant').on(table.tenantId),
+    index('idx_pms_waitlist_property').on(table.tenantId, table.propertyId),
+    index('idx_pms_waitlist_status').on(table.tenantId, table.propertyId, table.status),
+    index('idx_pms_waitlist_guest').on(table.tenantId, table.guestId),
+    index('idx_pms_waitlist_room_type').on(table.tenantId, table.propertyId, table.roomTypeId, table.status),
+    index('idx_pms_waitlist_dates').on(table.tenantId, table.propertyId, table.checkInDate, table.checkOutDate),
+    uniqueIndex('uq_pms_waitlist_token').on(table.guestToken),
+  ],
+);
+
+// ── PMS Waitlist Config ─────────────────────────────────────────────
+export const pmsWaitlistConfig = pgTable(
+  'pms_waitlist_config',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    propertyId: text('property_id').notNull(),
+    isEnabled: boolean('is_enabled').notNull().default(true),
+    offerExpiryHours: integer('offer_expiry_hours').notNull().default(24),
+    maxOffersPerSlot: integer('max_offers_per_slot').notNull().default(3),
+    autoOfferEnabled: boolean('auto_offer_enabled').notNull().default(false),
+    welcomeHeadline: text('welcome_headline').notNull().default('Room Waitlist'),
+    welcomeSubtitle: text('welcome_subtitle').notNull().default('Get notified when your preferred room becomes available.'),
+    logoUrl: text('logo_url'),
+    primaryColor: text('primary_color').notNull().default('#6366f1'),
+    secondaryColor: text('secondary_color').notNull().default('#3b82f6'),
+    accentColor: text('accent_color').notNull().default('#10b981'),
+    fontFamily: text('font_family').notNull().default('system-ui, sans-serif'),
+    footerText: text('footer_text'),
+    requireEmail: boolean('require_email').notNull().default(true),
+    requirePhone: boolean('require_phone').notNull().default(false),
+    showRates: boolean('show_rates').notNull().default(true),
+    maxAdvanceDays: integer('max_advance_days').notNull().default(365),
+    termsText: text('terms_text'),
+    offerSmsTemplate: text('offer_sms_template'),
+    offerEmailSubject: text('offer_email_subject').default('Great news — your room is available!'),
+    offerEmailTemplate: text('offer_email_template'),
+    confirmationTemplate: text('confirmation_template'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_pms_waitlist_config_property').on(table.tenantId, table.propertyId),
+  ],
+);

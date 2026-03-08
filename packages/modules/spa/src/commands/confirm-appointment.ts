@@ -37,7 +37,7 @@ export async function confirmAppointment(ctx: RequestContext, input: ConfirmAppo
     }
 
     // Optimistic locking
-    if (input.expectedVersion !== undefined && existing.version !== input.expectedVersion) {
+    if (existing.version !== input.expectedVersion) {
       throw new AppError(
         'VERSION_CONFLICT',
         `Expected version ${input.expectedVersion} but found ${existing.version}`,

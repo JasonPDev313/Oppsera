@@ -101,6 +101,7 @@ export async function createAppointment(ctx: RequestContext, input: CreateAppoin
             resourceIds: parsed.resourceId
               ? [parsed.resourceId, ...itemResourceIds]
               : itemResourceIds,
+            tx, // Use parent transaction to prevent TOCTOU double-booking
           }),
         ),
       );

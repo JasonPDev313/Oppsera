@@ -36,17 +36,31 @@ export async function saveAccountingTemplate(
 
   const now = new Date();
 
-  // Upsert accounting template
-  const [existing] = await db
-    .select()
-    .from(businessTypeAccountingTemplates)
-    .where(eq(businessTypeAccountingTemplates.businessTypeVersionId, versionId))
-    .limit(1);
+  // Atomic upsert — eliminates the read-then-write race where two concurrent
+  // saves could both see no existing record and both try to INSERT.
+  const upsertValues = {
+    id: generateUlid(),
+    businessTypeVersionId: versionId,
+    coaTemplateRef: validData.coaTemplateRef ?? null,
+    revenueCategories: validData.revenueCategories,
+    paymentGlMappings: validData.paymentGlMappings,
+    taxBehavior: validData.taxBehavior,
+    deferredRevenue: validData.deferredRevenue,
+    cogsBehavior: validData.cogsBehavior,
+    fiscalSettings: validData.fiscalSettings,
+    workflowDefaults: validData.workflowDefaults,
+    validationStatus,
+    validationErrors,
+    createdAt: now,
+    updatedAt: now,
+  };
 
-  if (existing) {
-    await db
-      .update(businessTypeAccountingTemplates)
-      .set({
+  const [result] = await db
+    .insert(businessTypeAccountingTemplates)
+    .values(upsertValues)
+    .onConflictDoUpdate({
+      target: businessTypeAccountingTemplates.businessTypeVersionId,
+      set: {
         coaTemplateRef: validData.coaTemplateRef ?? null,
         revenueCategories: validData.revenueCategories,
         paymentGlMappings: validData.paymentGlMappings,
@@ -58,32 +72,9 @@ export async function saveAccountingTemplate(
         validationStatus,
         validationErrors,
         updatedAt: now,
-      })
-      .where(eq(businessTypeAccountingTemplates.id, existing.id));
-  } else {
-    await db.insert(businessTypeAccountingTemplates).values({
-      id: generateUlid(),
-      businessTypeVersionId: versionId,
-      coaTemplateRef: validData.coaTemplateRef ?? null,
-      revenueCategories: validData.revenueCategories,
-      paymentGlMappings: validData.paymentGlMappings,
-      taxBehavior: validData.taxBehavior,
-      deferredRevenue: validData.deferredRevenue,
-      cogsBehavior: validData.cogsBehavior,
-      fiscalSettings: validData.fiscalSettings,
-      workflowDefaults: validData.workflowDefaults,
-      validationStatus,
-      validationErrors,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
-
-  const [result] = await db
-    .select()
-    .from(businessTypeAccountingTemplates)
-    .where(eq(businessTypeAccountingTemplates.businessTypeVersionId, versionId))
-    .limit(1);
+      },
+    })
+    .returning();
 
   return result!;
 }

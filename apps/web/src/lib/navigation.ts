@@ -53,7 +53,7 @@ import {
   UserCheck,
   ClipboardCheck,
   Monitor,
-  Flag,
+  // Flag, // Golf module hidden — non-compete
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
 
@@ -207,16 +207,17 @@ export const navigation: NavItem[] = [
       { name: 'History', href: '/insights/history', icon: Clock, requiredPermission: 'semantic.view' },
     ],
   },
-  {
-    name: 'Golf',
-    href: '/golf/analytics',
-    icon: Flag,
-    moduleKey: 'golf',
-    requiredPermission: 'golf.view',
-    children: [
-      { name: 'Analytics', href: '/golf/analytics', icon: BarChart3, requiredPermission: 'golf.view' },
-    ],
-  },
+  // Golf module hidden — non-compete in golf vertical (re-enable ~March 2027)
+  // {
+  //   name: 'Golf',
+  //   href: '/golf/analytics',
+  //   icon: Flag,
+  //   moduleKey: 'golf',
+  //   requiredPermission: 'golf.view',
+  //   children: [
+  //     { name: 'Analytics', href: '/golf/analytics', icon: BarChart3, requiredPermission: 'golf.view' },
+  //   ],
+  // },
   {
     name: 'Property Mgmt',
     href: '/pms',

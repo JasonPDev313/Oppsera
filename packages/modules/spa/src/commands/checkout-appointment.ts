@@ -39,7 +39,7 @@ export async function checkoutAppointment(ctx: RequestContext, input: CheckoutAp
       throw new AppError('NOT_FOUND', `Appointment not found: ${input.id}`, 404);
     }
 
-    if (input.expectedVersion !== undefined && existing.version !== input.expectedVersion) {
+    if (existing.version !== input.expectedVersion) {
       throw new AppError(
         'VERSION_CONFLICT',
         `Expected version ${input.expectedVersion} but found ${existing.version}`,

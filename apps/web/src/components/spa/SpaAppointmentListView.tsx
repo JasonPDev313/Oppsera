@@ -1,0 +1,474 @@
+'use client';
+
+import { useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  Search,
+  Calendar,
+  CalendarCheck,
+  Eye,
+  XCircle,
+  CheckCircle,
+  Clock,
+} from 'lucide-react';
+import { DataTable } from '@/components/ui/data-table';
+import { SearchInput } from '@/components/ui/search-input';
+import { Select } from '@/components/ui/select';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ActionMenu } from '@/components/ui/action-menu';
+import type { ActionMenuItem } from '@/components/ui/action-menu';
+import { useSpaAppointments, useSpaProviders } from '@/hooks/use-spa';
+import { useAuthContext } from '@/components/auth-provider';
+
+// ── Types ───────────────────────────────────────────────────────
+
+interface AppointmentService {
+  id: string;
+  serviceName: string;
+  priceCents: number;
+  finalPriceCents: number;
+  status: string;
+}
+
+interface SpaAppointment {
+  id: string;
+  appointmentNumber: string;
+  startAt: string;
+  endAt: string;
+  customerId: string | null;
+  guestName: string | null;
+  services: AppointmentService[];
+  providerName: string | null;
+  providerId: string | null;
+  status: string;
+  notes: string | null;
+  createdAt: string;
+}
+
+type AppointmentRow = SpaAppointment & Record<string, unknown>;
+
+// ── Constants ───────────────────────────────────────────────────
+
+const STATUS_TABS = [
+  { value: '', label: 'All' },
+  { value: 'upcoming', label: 'Upcoming' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'checked_in', label: 'Checked In' },
+  { value: 'in_service', label: 'In Service' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'canceled', label: 'Canceled' },
+] as const;
+
+// ── Helpers ─────────────────────────────────────────────────────
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function formatMoney(cents: number): string {
+  return (cents / 100).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  });
+}
+
+// ── Status Badge ────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    draft: 'bg-gray-500/10 text-gray-500',
+    reserved: 'bg-blue-500/10 text-blue-500',
+    confirmed: 'bg-blue-500/10 text-blue-500',
+    checked_in: 'bg-amber-500/10 text-amber-500',
+    in_service: 'bg-purple-500/10 text-purple-500',
+    completed: 'bg-green-500/10 text-green-500',
+    checked_out: 'bg-green-500/10 text-green-500',
+    canceled: 'bg-red-500/10 text-red-500',
+    no_show: 'bg-red-500/10 text-red-500',
+  };
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] ?? 'bg-gray-500/10 text-gray-500'}`}
+    >
+      {status.replace(/_/g, ' ')}
+    </span>
+  );
+}
+
+// ── Props ───────────────────────────────────────────────────────
+
+interface SpaAppointmentListViewProps {
+  onNewAppointment?: () => void;
+}
+
+// ── Main Component ──────────────────────────────────────────────
+
+export default function SpaAppointmentListView({ onNewAppointment }: SpaAppointmentListViewProps) {
+  const router = useRouter();
+  const { locations } = useAuthContext();
+  const locationId = (locations.find(l => l.locationType === 'venue') ?? locations[0])?.id;
+
+  // ── Filter state ────────────────────────────────────────────
+  const [statusFilter, setStatusFilter] = useState('');
+  const [showPast, setShowPast] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [provider, setProvider] = useState('');
+  const [search, setSearch] = useState('');
+
+  // Default startDate to today unless "Show past" is on or user set a custom dateFrom
+  const effectiveStartDate = useMemo(() => {
+    if (showPast) return dateFrom || undefined;
+    if (dateFrom) return dateFrom;
+    return new Date().toISOString().split('T')[0]!;
+  }, [showPast, dateFrom]);
+
+  // ── Data ────────────────────────────────────────────────────
+  const {
+    items,
+    meta,
+    isLoading,
+    error,
+    refetch,
+  } = useSpaAppointments({
+    status: statusFilter || undefined,
+    locationId,
+    startDate: effectiveStartDate,
+    endDate: dateTo || undefined,
+    providerId: provider || undefined,
+    search: search || undefined,
+  });
+  const { items: providersList } = useSpaProviders({ locationId });
+
+  // ── Provider options (memoized) ─────────────────────────────
+  const providerOptions = useMemo(
+    () => [
+      { value: '', label: 'All Providers' },
+      ...providersList.map((p) => ({
+        value: p.id,
+        label: p.displayName,
+      })),
+    ],
+    [providersList],
+  );
+
+  // ── Filter helpers ──────────────────────────────────────────
+  const hasFilters = !!search || !!statusFilter || !!dateFrom || !!dateTo || !!provider || showPast;
+
+  const clearFilters = useCallback(() => {
+    setSearch('');
+    setStatusFilter('');
+    setShowPast(false);
+    setDateFrom('');
+    setDateTo('');
+    setProvider('');
+  }, []);
+
+  // ── Row actions ─────────────────────────────────────────────
+  const buildActions = useCallback(
+    (row: SpaAppointment): ActionMenuItem[] => {
+      const actions: ActionMenuItem[] = [
+        {
+          key: 'view',
+          label: 'View Details',
+          icon: Eye,
+          onClick: () => router.push(`/spa/appointments/${row.id}`),
+        },
+      ];
+
+      if (row.status === 'confirmed' || row.status === 'reserved') {
+        actions.push({
+          key: 'check-in',
+          label: 'Check In',
+          icon: CheckCircle,
+          onClick: () => router.push(`/spa/appointments/${row.id}?action=checkin`),
+        });
+      }
+
+      if (row.status === 'checked_in') {
+        actions.push({
+          key: 'start-service',
+          label: 'Start Service',
+          icon: Clock,
+          onClick: () => router.push(`/spa/appointments/${row.id}?action=start`),
+        });
+      }
+
+      if (
+        row.status !== 'completed' &&
+        row.status !== 'canceled' &&
+        row.status !== 'no_show' &&
+        row.status !== 'checked_out'
+      ) {
+        actions.push({
+          key: 'cancel',
+          label: 'Cancel',
+          icon: XCircle,
+          destructive: true,
+          dividerBefore: true,
+          onClick: () => router.push(`/spa/appointments/${row.id}?action=cancel`),
+        });
+      }
+
+      return actions;
+    },
+    [router],
+  );
+
+  // ── Columns ─────────────────────────────────────────────────
+  const columns = useMemo(
+    () => [
+      {
+        key: 'appointmentNumber',
+        header: 'Appointment #',
+        width: '140px',
+        render: (row: AppointmentRow) => (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/spa/appointments/${row.id}`);
+            }}
+            className="text-sm font-medium text-indigo-500 hover:text-indigo-400 hover:underline"
+          >
+            {row.appointmentNumber}
+          </button>
+        ),
+      },
+      {
+        key: 'startAt',
+        header: 'Date & Time',
+        width: '180px',
+        render: (row: AppointmentRow) => (
+          <div className="flex flex-col">
+            <span className="text-sm text-foreground">{formatDate(row.startAt)}</span>
+            <span className="text-xs text-muted-foreground">
+              {formatTime(row.startAt)}
+              {row.endAt ? ` \u2013 ${formatTime(row.endAt)}` : ''}
+            </span>
+          </div>
+        ),
+      },
+      {
+        key: 'guestName',
+        header: 'Customer',
+        render: (row: AppointmentRow) => (
+          <span className="text-sm text-foreground">
+            {row.guestName || '\u2014'}
+          </span>
+        ),
+      },
+      {
+        key: 'services',
+        header: 'Service(s)',
+        render: (row: AppointmentRow) => {
+          const names = row.services?.map((s: AppointmentService) => s.serviceName) ?? [];
+          if (names.length === 0) return <span className="text-sm text-muted-foreground">{'\u2014'}</span>;
+          return (
+            <div className="flex flex-wrap gap-1">
+              {names.length <= 2 ? (
+                <span className="text-sm text-foreground">{names.join(', ')}</span>
+              ) : (
+                <>
+                  <span className="text-sm text-foreground">{names[0]}</span>
+                  <span className="inline-flex items-center rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-xs font-medium text-indigo-500">
+                    +{names.length - 1}
+                  </span>
+                </>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        key: 'providerName',
+        header: 'Provider',
+        width: '140px',
+        render: (row: AppointmentRow) => (
+          <span className="text-sm text-foreground">
+            {row.providerName || '\u2014'}
+          </span>
+        ),
+      },
+      {
+        key: 'total',
+        header: 'Total',
+        width: '100px',
+        render: (row: AppointmentRow) => {
+          const totalCents = row.services?.reduce((sum: number, s: AppointmentService) => sum + (s.finalPriceCents ?? 0), 0) ?? 0;
+          return (
+            <span className="text-sm font-medium tabular-nums text-foreground">
+              {totalCents > 0 ? formatMoney(totalCents) : '\u2014'}
+            </span>
+          );
+        },
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        width: '120px',
+        render: (row: AppointmentRow) => <StatusBadge status={row.status} />,
+      },
+      {
+        key: 'actions',
+        header: '',
+        width: '48px',
+        render: (row: AppointmentRow) => (
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+          <div onClick={(e) => e.stopPropagation()}>
+            <ActionMenu items={buildActions(row)} />
+          </div>
+        ),
+      },
+    ],
+    [router, buildActions],
+  );
+
+  // ── Row click ───────────────────────────────────────────────
+  const handleRowClick = useCallback(
+    (row: AppointmentRow) => {
+      router.push(`/spa/appointments/${row.id}`);
+    },
+    [router],
+  );
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-lg border border-red-500/30 bg-red-500/10 py-12">
+        <p className="text-sm text-red-400">Failed to load appointments.</p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="mt-3 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Status tabs */}
+      <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-surface p-1">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => setStatusFilter(tab.value)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              statusFilter === tab.value
+                ? 'bg-indigo-600 text-white'
+                : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Secondary filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search customer, appointment #..."
+          className="w-full md:w-72"
+        />
+
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            aria-label="Date from"
+            className="rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          />
+          <span className="text-muted-foreground">&ndash;</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            aria-label="Date to"
+            className="rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          />
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showPast}
+            onChange={(e) => setShowPast(e.target.checked)}
+            className="h-4 w-4 rounded border-border bg-surface text-indigo-600 focus:ring-indigo-500"
+          />
+          Show past
+        </label>
+
+        <Select
+          options={providerOptions}
+          value={provider}
+          onChange={(v) => setProvider(v as string)}
+          placeholder="All Providers"
+          className="w-full md:w-48"
+        />
+      </div>
+
+      {/* Table / Empty state */}
+      {!isLoading && items.length === 0 && !hasFilters ? (
+        <EmptyState
+          icon={CalendarCheck}
+          title="No appointments found"
+          description="Spa appointments will appear here once they are scheduled."
+          action={onNewAppointment ? {
+            label: 'Schedule Appointment',
+            onClick: onNewAppointment,
+          } : undefined}
+        />
+      ) : !isLoading && items.length === 0 && hasFilters ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-12">
+          <Search className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
+          <p className="mt-3 text-sm font-medium text-foreground">No appointments match your filters</p>
+          <p className="mt-1 text-sm text-muted-foreground">Try adjusting your search or filters.</p>
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="mt-4 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            Clear all filters
+          </button>
+        </div>
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            data={items as unknown as AppointmentRow[]}
+            isLoading={isLoading}
+            emptyMessage="No appointments found"
+            onRowClick={handleRowClick}
+          />
+
+          {/* Pagination hint */}
+          {meta.hasMore && (
+            <div className="flex justify-center">
+              <p className="text-sm text-muted-foreground">
+                Showing first page of results. Refine filters to narrow down.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

@@ -4,6 +4,7 @@
  */
 export { handleCalendarProjection } from './projectors/calendar-projector';
 export { handleOccupancyProjection } from './projectors/occupancy-projector';
+export { handleWaitlistMatch } from './projectors/waitlist-match-projector';
 
 // POS → PMS integration consumers (tender.recorded.v1)
 export { handleRoomChargeTender, handleFolioSettlementTender } from '../consumers/pos-tender-consumer';

@@ -7,6 +7,7 @@ import {
   FileText,
   Ticket,
   ArrowLeft,
+  Loader2,
 } from 'lucide-react';
 import { flushSync } from 'react-dom';
 import { Numpad } from './Numpad';
@@ -79,6 +80,32 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
   // No preemptive place call — place-and-pay handles open orders atomically.
   // Pre-emptive place calls compete for the same FOR UPDATE lock and exhaust
   // the Vercel connection pool (max 2), causing the real tender to stall.
+
+  // Drain pending batch items on mount so totals (incl. tax) are accurate
+  // before the user interacts.  handlePayClick no longer awaits this — the
+  // payment panel opens instantly and drains in the background.
+  const [isDraining, setIsDraining] = useState(!!ensureOrderReady);
+  const [drainError, setDrainError] = useState(false);
+  const ensureOrderReadyRef = useRef(ensureOrderReady);
+  ensureOrderReadyRef.current = ensureOrderReady;
+
+  const retryDrain = useCallback(() => {
+    if (!ensureOrderReadyRef.current) return;
+    setDrainError(false);
+    setIsDraining(true);
+    ensureOrderReadyRef.current()
+      .then(() => setIsDraining(false))
+      .catch(() => { setDrainError(true); setIsDraining(false); });
+  }, []);
+
+  useEffect(() => {
+    if (!ensureOrderReady) return;
+    let cancelled = false;
+    ensureOrderReady()
+      .catch(() => { if (!cancelled) setDrainError(true); })
+      .finally(() => { if (!cancelled) setIsDraining(false); });
+    return () => { cancelled = true; };
+  }, []); // intentionally run once on mount
 
   // Fetch existing tenders when a type is selected (for split payments)
   useEffect(() => {
@@ -265,21 +292,50 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          <p className="text-xs font-medium uppercase text-muted-foreground">Select Payment Method</p>
-          {TENDER_TYPES.map(({ type, label, icon: Icon, color }) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => {
-                setSelectedType(type);
-                if (type === 'check' || type === 'card') setAmount((remaining / 100).toFixed(2));
-              }}
-              className={`flex w-full items-center gap-3 rounded-xl border px-4 py-4 text-left transition-all active:scale-[0.98] ${color}`}
-            >
-              <Icon className="h-6 w-6" />
-              <span className="text-base font-semibold">{label}</span>
-            </button>
-          ))}
+          {isDraining ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+              <p className="text-sm text-muted-foreground">Preparing order...</p>
+            </div>
+          ) : drainError ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <p className="text-sm text-red-400">Failed to prepare order — items could not be added</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
+                >
+                  Back to Cart
+                </button>
+                <button
+                  type="button"
+                  onClick={retryDrain}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs font-medium uppercase text-muted-foreground">Select Payment Method</p>
+              {TENDER_TYPES.map(({ type, label, icon: Icon, color }) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => {
+                    setSelectedType(type);
+                    if (type === 'check' || type === 'card') setAmount((remaining / 100).toFixed(2));
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-xl border px-4 py-4 text-left transition-all active:scale-[0.98] ${color}`}
+                >
+                  <Icon className="h-6 w-6" />
+                  <span className="text-base font-semibold">{label}</span>
+                </button>
+              ))}
+            </>
+          )}
         </div>
       </div>
     );

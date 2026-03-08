@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, Loader2 } from 'lucide-react';
+import { CalendarDays, Loader2, Undo2 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { useProperties } from '@/hooks/use-pms';
 import { apiFetch } from '@/lib/api-client';
@@ -42,17 +42,18 @@ export default function CalendarContent() {
   const { locations } = useAuthContext();
 
   // ── Page-level view (calendar vs list) ─────────────────────────
-  const [pageView, setPageView] = useState<'quick' | 'calendar' | 'list'>(() => {
-    if (typeof window !== 'undefined') {
-      const param = new URLSearchParams(window.location.search).get('view');
-      if (param === 'list') return 'list';
-      if (param === 'calendar') return 'calendar';
+  const [pageView, setPageView] = useState<'quick' | 'calendar' | 'list'>('quick');
+
+  // Read URL/localStorage after mount to avoid hydration mismatch
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get('view');
+    if (param === 'list') { setPageView('list'); }
+    else if (param === 'calendar') { setPageView('calendar'); }
+    else {
       const stored = localStorage.getItem('pms_view_mode');
-      if (stored === 'list' || stored === 'calendar' || stored === 'quick') return stored;
-      return 'quick';
+      if (stored === 'list' || stored === 'calendar' || stored === 'quick') setPageView(stored);
     }
-    return 'quick';
-  });
+  }, []);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [createPrefill, setCreatePrefill] = useState<{
     checkIn?: string; checkOut?: string; roomTypeId?: string; roomId?: string;
@@ -81,22 +82,9 @@ export default function CalendarContent() {
   const [viewRange, setViewRange] = useState<ViewRange>(7);
   const [propertyId, setPropertyId] = useState('');
   const [weekStart, setWeekStart] = useState<Date>(() => {
-    // Quick View (default) anchors on today; Calendar Grid anchors on Monday
-    const initialView = (() => {
-      if (typeof window !== 'undefined') {
-        const param = new URLSearchParams(window.location.search).get('view');
-        if (param === 'list' || param === 'calendar') return param;
-        const stored = localStorage.getItem('pms_view_mode');
-        if (stored === 'list' || stored === 'calendar' || stored === 'quick') return stored;
-      }
-      return 'quick';
-    })();
-    if (initialView === 'quick') {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      return d;
-    }
-    return getMonday(new Date());
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
   });
   const [selectedDate, setSelectedDate] = useState<string>(() => formatDate(new Date()));
   const [weekData, setWeekData] = useState<CalendarWeekData | null>(null);
@@ -108,6 +96,37 @@ export default function CalendarContent() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [isPostingToPos, setIsPostingToPos] = useState(false);
   const lastUpdatedRef = useRef<string | null>(null);
+
+  // Mutation errors show as a dismissible toast — don't hide the calendar
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const mutationErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showMutationError = useCallback((msg: string) => {
+    if (mutationErrorTimer.current) clearTimeout(mutationErrorTimer.current);
+    setMutationError(msg);
+    mutationErrorTimer.current = setTimeout(() => setMutationError(null), 5000);
+  }, []);
+
+  // ── Optimistic move + mutation lock + undo ─────────────────────
+  const [isMutating, setIsMutating] = useState(false);
+  const [optimisticMove, setOptimisticMove] = useState<{
+    reservationId: string; fromRoomId: string; toRoomId: string;
+  } | null>(null);
+  const [undoAction, setUndoAction] = useState<{
+    guestName: string;
+    roomNumber: string;
+    reverseInput: {
+      reservationId: string;
+      from: { roomId: string; checkInDate: string; checkOutDate: string; version: number };
+      to: { roomId: string; checkInDate: string };
+    };
+  } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearUndo = useCallback(() => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndoAction(null);
+  }, []);
 
   // POS config from localStorage
   const [terminalId, setTerminalId] = useState('POS-01');
@@ -296,8 +315,8 @@ export default function CalendarContent() {
     if (pageView === 'calendar' && viewMode === 'day') return dayData?.occupancy ?? null;
     // Quick View + Calendar grid both use weekData
     if (!weekData) return null;
-    const todayStr = formatDate(new Date());
-    const todayOcc = weekData.meta.occupancyByDate[todayStr];
+    const today = formatDate(new Date());
+    const todayOcc = weekData.meta.occupancyByDate[today];
     if (todayOcc) return todayOcc;
     const first = dates[0];
     return first ? weekData.meta.occupancyByDate[first] ?? null : null;
@@ -310,20 +329,57 @@ export default function CalendarContent() {
       from: { roomId: string; checkInDate: string; checkOutDate: string; version: number };
       to: { roomId: string; checkInDate: string };
     }) => {
+      setIsMutating(true);
+      setOptimisticMove({ reservationId: input.reservationId, fromRoomId: input.from.roomId, toRoomId: input.to.roomId });
+      clearUndo();
+
       try {
-        await apiFetch('/api/v1/pms/calendar/move', {
+        const result = await apiFetch<{
+          data: { id: string; roomId: string; checkInDate: string; checkOutDate: string; version: number };
+        }>('/api/v1/pms/calendar/move', {
           method: 'POST',
           body: JSON.stringify({
             ...input,
             idempotencyKey: `move-${input.reservationId}-${Date.now()}`,
           }),
         });
-        fetchGrid(true);
+        await fetchGrid(true);
+
+        // Build undo action
+        const seg = weekData?.segments.find((s) => s.reservationId === input.reservationId);
+        const toRoom = weekData?.rooms.find((r) => r.roomId === input.to.roomId);
+        if (seg && toRoom) {
+          setUndoAction({
+            guestName: seg.guestName,
+            roomNumber: toRoom.roomNumber,
+            reverseInput: {
+              reservationId: input.reservationId,
+              from: {
+                roomId: result.data.roomId,
+                checkInDate: result.data.checkInDate,
+                checkOutDate: result.data.checkOutDate,
+                version: result.data.version,
+              },
+              to: { roomId: input.from.roomId, checkInDate: input.from.checkInDate },
+            },
+          });
+          if (undoTimer.current) clearTimeout(undoTimer.current);
+          undoTimer.current = setTimeout(() => setUndoAction(null), 6000);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Move failed');
+        const msg = err instanceof Error ? err.message : 'Move failed';
+        if (msg.includes('modified by another') || msg.includes('CONCURRENCY_CONFLICT')) {
+          await fetchGrid(true);
+          showMutationError('Reservation was updated elsewhere. Calendar refreshed — please try again.');
+        } else {
+          showMutationError(msg);
+        }
+      } finally {
+        setOptimisticMove(null);
+        setIsMutating(false);
       }
     },
-    [fetchGrid],
+    [fetchGrid, showMutationError, clearUndo, weekData],
   );
 
   const handleResize = useCallback(
@@ -333,6 +389,8 @@ export default function CalendarContent() {
       from: { checkInDate: string; checkOutDate: string; roomId: string; version: number };
       to: { checkInDate?: string; checkOutDate?: string };
     }) => {
+      if (isMutating) return;
+      setIsMutating(true);
       try {
         await apiFetch('/api/v1/pms/calendar/resize', {
           method: 'POST',
@@ -341,12 +399,20 @@ export default function CalendarContent() {
             idempotencyKey: `resize-${input.reservationId}-${Date.now()}`,
           }),
         });
-        fetchGrid(true);
+        await fetchGrid(true);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Resize failed');
+        const msg = err instanceof Error ? err.message : 'Resize failed';
+        if (msg.includes('modified by another') || msg.includes('CONCURRENCY_CONFLICT')) {
+          await fetchGrid(true);
+          showMutationError('Reservation was updated elsewhere. Calendar refreshed — please try again.');
+        } else {
+          showMutationError(msg);
+        }
+      } finally {
+        setIsMutating(false);
       }
     },
-    [fetchGrid],
+    [fetchGrid, showMutationError, isMutating],
   );
 
   // ── POS check-in ──────────────────────────────────────────────
@@ -373,13 +439,13 @@ export default function CalendarContent() {
         localStorage.setItem(PMS_RESERVATION_CATALOG_ITEM_KEY, reservationCatalogItemId.trim());
         router.push(`/pos/retail?terminal=${encodeURIComponent(result.data.terminalId)}`);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to check in to POS');
+        showMutationError(err instanceof Error ? err.message : 'Failed to check in to POS');
       } finally {
         setIsPostingToPos(false);
         setContextMenu(null);
       }
     },
-    [locations, reservationCatalogItemId, terminalId, router],
+    [locations, reservationCatalogItemId, terminalId, router, showMutationError],
   );
 
   // ── Quick actions from context menu ───────────────────────────
@@ -400,13 +466,18 @@ export default function CalendarContent() {
         if (pageView === 'quick' || (pageView === 'calendar' && viewMode !== 'day')) fetchGrid(true);
         else if (pageView === 'calendar' && viewMode === 'day') fetchDay(true);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Check-in failed');
+        const msg = err instanceof Error ? err.message : 'Check-in failed';
+        if (msg.includes('modified by another') || msg.includes('CONCURRENCY_CONFLICT')) {
+          if (pageView === 'quick' || (pageView === 'calendar' && viewMode !== 'day')) await fetchGrid(true);
+          else if (pageView === 'calendar' && viewMode === 'day') await fetchDay(true);
+        }
+        showMutationError(msg);
       } finally {
         setIsActing(false);
         setContextMenu(null);
       }
     },
-    [contextMenu, pageView, viewMode, fetchGrid, fetchDay, router],
+    [contextMenu, pageView, viewMode, fetchGrid, fetchDay, router, showMutationError],
   );
 
   const handleCheckOut = useCallback(
@@ -421,16 +492,21 @@ export default function CalendarContent() {
           method: 'POST',
           body: JSON.stringify({ version: contextMenu.version }),
         });
-        if (pageView === 'quick' || (pageView === 'calendar' && viewMode !== 'day')) fetchGrid(true);
-        else if (pageView === 'calendar' && viewMode === 'day') fetchDay(true);
+        if (pageView === 'quick' || (pageView === 'calendar' && viewMode !== 'day')) await fetchGrid(true);
+        else if (pageView === 'calendar' && viewMode === 'day') await fetchDay(true);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Check-out failed');
+        const msg = err instanceof Error ? err.message : 'Check-out failed';
+        if (msg.includes('modified by another') || msg.includes('CONCURRENCY_CONFLICT')) {
+          if (pageView === 'quick' || (pageView === 'calendar' && viewMode !== 'day')) await fetchGrid(true);
+          else if (pageView === 'calendar' && viewMode === 'day') await fetchDay(true);
+        }
+        showMutationError(msg);
       } finally {
         setIsActing(false);
         setContextMenu(null);
       }
     },
-    [contextMenu, pageView, viewMode, fetchGrid, fetchDay, router],
+    [contextMenu, pageView, viewMode, fetchGrid, fetchDay, router, showMutationError],
   );
 
   const handleCancel = useCallback(
@@ -445,16 +521,21 @@ export default function CalendarContent() {
           method: 'POST',
           body: JSON.stringify({ reason: 'Cancelled from calendar', version: contextMenu.version }),
         });
-        if (pageView === 'quick' || (pageView === 'calendar' && viewMode !== 'day')) fetchGrid(true);
-        else if (pageView === 'calendar' && viewMode === 'day') fetchDay(true);
+        if (pageView === 'quick' || (pageView === 'calendar' && viewMode !== 'day')) await fetchGrid(true);
+        else if (pageView === 'calendar' && viewMode === 'day') await fetchDay(true);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Cancel failed');
+        const msg = err instanceof Error ? err.message : 'Cancel failed';
+        if (msg.includes('modified by another') || msg.includes('CONCURRENCY_CONFLICT')) {
+          if (pageView === 'quick' || (pageView === 'calendar' && viewMode !== 'day')) await fetchGrid(true);
+          else if (pageView === 'calendar' && viewMode === 'day') await fetchDay(true);
+        }
+        showMutationError(msg);
       } finally {
         setIsActing(false);
         setContextMenu(null);
       }
     },
-    [contextMenu, pageView, viewMode, fetchGrid, fetchDay, router],
+    [contextMenu, pageView, viewMode, fetchGrid, fetchDay, router, showMutationError],
   );
 
   // ── Date click (grid header -> day view) ──────────────────────
@@ -604,6 +685,31 @@ export default function CalendarContent() {
           {error && (
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">{error}</div>
           )}
+
+          {mutationError && (
+            <button
+              type="button"
+              onClick={() => { if (mutationErrorTimer.current) clearTimeout(mutationErrorTimer.current); setMutationError(null); }}
+              className="flex w-full items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left text-sm text-amber-400 hover:bg-amber-500/15 transition-colors"
+            >
+              <span>{mutationError}</span>
+              <span className="ml-3 shrink-0 text-xs text-amber-500/60">click to dismiss</span>
+            </button>
+          )}
+
+          {undoAction && (
+            <div className="flex items-center justify-between rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-400">
+              <span>Moved <strong>{undoAction.guestName}</strong> to room {undoAction.roomNumber}</span>
+              <button
+                type="button"
+                onClick={() => { clearUndo(); handleMove(undoAction.reverseInput); }}
+                className="ml-3 flex shrink-0 items-center gap-1 rounded-md bg-indigo-500/20 px-2.5 py-1 text-xs font-medium text-indigo-300 hover:bg-indigo-500/30 transition-colors"
+              >
+                <Undo2 className="h-3 w-3" />
+                Undo
+              </button>
+            </div>
+          )}
         </>
       )}
 
@@ -649,6 +755,8 @@ export default function CalendarContent() {
               occupancyByDate={weekData.meta.occupancyByDate}
               totalRooms={weekData.meta.totalRooms}
               filters={filters}
+              isMutating={isMutating}
+              optimisticMove={optimisticMove}
               onDateClick={handleDateClick}
               onContextMenu={handleContextMenu}
               onMove={handleMove}

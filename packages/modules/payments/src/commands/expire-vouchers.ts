@@ -66,82 +66,96 @@ export async function expireVouchers(
       const remainingBalanceCents = voucher.voucherAmountCents - voucher.redeemedAmountCents;
       if (remainingBalanceCents <= 0) continue;
 
-      const now = new Date();
+      // Wrap per-voucher work in a transaction to prevent partial state.
+      // The atomic UPDATE with WHERE guard prevents double-expiration
+      // if the cron fires concurrently.
+      await db.transaction(async (tx) => {
+        const now = new Date();
 
-      // Fetch voucher type for GL references
-      const [vType] = voucher.voucherTypeId
-        ? await db
-            .select()
-            .from(voucherTypes)
-            .where(eq(voucherTypes.id, voucher.voucherTypeId))
-        : [null];
+        // Fetch voucher type for GL references
+        const [vType] = voucher.voucherTypeId
+          ? await tx
+              .select()
+              .from(voucherTypes)
+              .where(eq(voucherTypes.id, voucher.voucherTypeId))
+          : [null];
 
-      // 1. Update voucher status
-      await db.update(vouchers).set({
-        redemptionStatus: 'expired',
-        updatedAt: now,
-      }).where(and(eq(vouchers.id, voucher.id), eq(vouchers.tenantId, voucher.tenantId)));
+        // 1. Atomically update voucher status — WHERE guard prevents double-expiration.
+        // If another instance already expired this voucher, 0 rows returned → skip.
+        const [updated] = await tx.update(vouchers).set({
+          redemptionStatus: 'expired',
+          updatedAt: now,
+        }).where(
+          and(
+            eq(vouchers.id, voucher.id),
+            eq(vouchers.tenantId, voucher.tenantId),
+            sql`${vouchers.redemptionStatus} != 'expired'`,
+          ),
+        ).returning({ id: vouchers.id });
 
-      // 2. Create expiration income record
-      const expirationId = generateUlid();
-      await db.insert(voucherExpirationIncome).values({
-        id: expirationId,
-        tenantId: voucher.tenantId,
-        voucherId: voucher.id,
-        voucherNumber: voucher.voucherNumber,
-        expirationDate: today,
-        expirationAmountCents: remainingBalanceCents,
-        createdAt: now,
-        updatedAt: now,
-      });
+        if (!updated) return; // Already expired by concurrent request
 
-      // 3. Create final ledger entry
-      const ledgerEntryId = generateUlid();
-      await db.insert(voucherLedgerEntries).values({
-        id: ledgerEntryId,
-        tenantId: voucher.tenantId,
-        voucherId: voucher.id,
-        description: 'Voucher expired — breakage income',
-        balanceCents: 0,
-        amountCents: -remainingBalanceCents,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      // 4. Emit event
-      const event = buildEvent({
-        eventType: 'voucher.expired.v1',
-        tenantId: voucher.tenantId,
-        data: {
+        // 2. Create expiration income record
+        const expirationId = generateUlid();
+        await tx.insert(voucherExpirationIncome).values({
+          id: expirationId,
+          tenantId: voucher.tenantId,
           voucherId: voucher.id,
           voucherNumber: voucher.voucherNumber,
+          expirationDate: today,
           expirationAmountCents: remainingBalanceCents,
-          expirationDate: today,
-          liabilityChartOfAccountId: vType?.liabilityChartOfAccountId ?? null,
-          expirationIncomeChartOfAccountId: vType?.expirationIncomeChartOfAccountId ?? null,
-        },
-      });
+          createdAt: now,
+          updatedAt: now,
+        });
 
-      await bus.publish(event);
+        // 3. Create final ledger entry
+        const ledgerEntryId = generateUlid();
+        await tx.insert(voucherLedgerEntries).values({
+          id: ledgerEntryId,
+          tenantId: voucher.tenantId,
+          voucherId: voucher.id,
+          description: 'Voucher expired — breakage income',
+          balanceCents: 0,
+          amountCents: -remainingBalanceCents,
+          createdAt: now,
+          updatedAt: now,
+        });
 
-      await auditLogSystem(
-        voucher.tenantId,
-        'payment.voucher.expired',
-        'voucher',
-        voucher.id,
-        {
-          amountCents: remainingBalanceCents,
+        // 4. Emit event
+        const event = buildEvent({
+          eventType: 'voucher.expired.v1',
+          tenantId: voucher.tenantId,
+          data: {
+            voucherId: voucher.id,
+            voucherNumber: voucher.voucherNumber,
+            expirationAmountCents: remainingBalanceCents,
+            expirationDate: today,
+            liabilityChartOfAccountId: vType?.liabilityChartOfAccountId ?? null,
+            expirationIncomeChartOfAccountId: vType?.expirationIncomeChartOfAccountId ?? null,
+          },
+        });
+
+        await bus.publish(event);
+
+        await auditLogSystem(
+          voucher.tenantId,
+          'payment.voucher.expired',
+          'voucher',
+          voucher.id,
+          {
+            amountCents: remainingBalanceCents,
+            voucherNumber: voucher.voucherNumber,
+            expirationDate: today,
+          },
+        );
+
+        results.push({
+          voucherId: voucher.id,
           voucherNumber: voucher.voucherNumber,
-          expirationDate: today,
-        },
-      );
-
-      results.push({
-        voucherId: voucher.id,
-        voucherNumber: voucher.voucherNumber,
-        tenantId: voucher.tenantId,
-        locationId: null,
-        expirationAmountCents: remainingBalanceCents,
+          tenantId: voucher.tenantId,
+          locationId: null,
+          expirationAmountCents: remainingBalanceCents,
+        });
       });
     } catch (err) {
       // Log and continue — don't let one failure stop the batch

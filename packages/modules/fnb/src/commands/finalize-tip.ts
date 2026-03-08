@@ -31,18 +31,9 @@ export async function finalizeTip(
     const tabRows = Array.from(tabs as Iterable<Record<string, unknown>>);
     if (tabRows.length === 0) throw new TabNotFoundError(input.tabId);
 
-    // Check if already finalized
-    const existingFinal = await tx.execute(
-      sql`SELECT COUNT(*) as cnt FROM fnb_tip_adjustments
-          WHERE tab_id = ${input.tabId} AND tenant_id = ${ctx.tenantId}
-            AND is_final = true`,
-    );
-    const finalRows = Array.from(existingFinal as Iterable<Record<string, unknown>>);
-    if (Number(finalRows[0]!.cnt) > 0) {
-      throw new TipAlreadyFinalizedError(input.tabId);
-    }
-
-    // Finalize all unfinalised adjustments for this tab
+    // Atomically finalize all unfinalised adjustments for this tab.
+    // The WHERE is_final = false guard prevents double-finalization:
+    // if another request already finalized, this returns 0 rows.
     const updated = await tx.execute(
       sql`UPDATE fnb_tip_adjustments
           SET is_final = true, finalized_at = NOW()
@@ -51,6 +42,20 @@ export async function finalizeTip(
           RETURNING id, adjusted_tip_cents`,
     );
     const updatedRows = Array.from(updated as Iterable<Record<string, unknown>>);
+
+    // If no rows updated, tips were already finalized by a concurrent request
+    if (updatedRows.length === 0) {
+      // Check if there are finalized rows (already done) vs no adjustments at all
+      const existingFinal = await tx.execute(
+        sql`SELECT COUNT(*) as cnt FROM fnb_tip_adjustments
+            WHERE tab_id = ${input.tabId} AND tenant_id = ${ctx.tenantId}
+              AND is_final = true`,
+      );
+      const finalRows = Array.from(existingFinal as Iterable<Record<string, unknown>>);
+      if (Number(finalRows[0]!.cnt) > 0) {
+        throw new TipAlreadyFinalizedError(input.tabId);
+      }
+    }
 
     // Finalize pre-auths that are in captured/adjusted status
     await tx.execute(

@@ -42,7 +42,7 @@ export async function addAppointmentService(ctx: RequestContext, input: AddAppoi
       throw new AppError('NOT_FOUND', `Appointment not found: ${input.appointmentId}`, 404);
     }
 
-    if (input.expectedVersion !== undefined && existing.version !== input.expectedVersion) {
+    if (existing.version !== input.expectedVersion) {
       throw new AppError(
         'VERSION_CONFLICT',
         `Expected version ${input.expectedVersion} but found ${existing.version}`,
@@ -77,6 +77,7 @@ export async function addAppointmentService(ctx: RequestContext, input: AddAppoi
         customerId: existing.customerId ?? undefined,
         resourceIds,
         excludeAppointmentId: input.appointmentId,
+        tx,
       });
 
       if (conflicts.hasConflicts) {

@@ -37,6 +37,7 @@ export type { GuestDetail, GuestReservationSummary } from './get-guest';
 export { listReservations } from './list-reservations';
 export { getReservation } from './get-reservation';
 export { suggestAvailableRooms } from './suggest-rooms';
+export type { SuggestedRoom } from './suggest-rooms';
 export { listHousekeepingRooms } from './list-housekeeping-rooms';
 export { getFolio } from './get-folio';
 export { getFolioByReservation } from './get-folio-by-reservation';
@@ -204,3 +205,17 @@ export type { UtilizationGridResponse, UtilizationRoomType, UtilizationCell } fr
 
 export { getUtilizationGridByRoom } from './get-utilization-grid-by-room';
 export type { UtilizationByRoomResponse, UtilizationRoom, UtilizationRoomCell } from './get-utilization-grid-by-room';
+
+// ── Move Room ──────────────────────────────────────────────────────
+export { getAvailableRoomsForMove } from './get-available-rooms-for-move';
+export type { AvailableRoomForMove, AvailableRoomsForMoveResult } from './get-available-rooms-for-move';
+
+// ── Room Availability Counts ───────────────────────────────────────
+export { countAvailableRoomsByType } from './count-available-rooms-by-type';
+export type { RoomTypeAvailabilityCount } from './count-available-rooms-by-type';
+
+// ── Waitlist ─────────────────────────────────────────────────────────
+export { listWaitlist } from './list-waitlist';
+export { getWaitlistConfig } from './get-waitlist-config';
+export { getWaitlistStats } from './get-waitlist-stats';
+export { getWaitlistByToken } from './get-waitlist-by-token';

@@ -250,6 +250,7 @@ export type UpdateAppointmentInput = z.infer<typeof updateAppointmentSchema>;
 
 export const rescheduleAppointmentSchema = z.object({
   id: z.string(),
+  clientRequestId: z.string().optional(),
   expectedVersion: z.number().int().optional(),
   newStartAt: z.string(),
   newEndAt: z.string(),

@@ -79,16 +79,19 @@ export const POST = withMiddleware(
     // Build the SSE ReadableStream
     const encoder = new TextEncoder();
     let cancelled = false;
+    let controllerRef: ReadableStreamDefaultController | null = null;
     const stream = new ReadableStream({
       async start(controller) {
+        controllerRef = controller;
         const sendEvent = (event: SSEEvent) => {
-          if (cancelled) return;
+          if (cancelled || !controllerRef) return;
           const line = `data: ${JSON.stringify(event)}\n\n`;
           try {
-            controller.enqueue(encoder.encode(line));
+            controllerRef.enqueue(encoder.encode(line));
           } catch {
             // Stream may already be closed if client disconnected
             cancelled = true;
+            controllerRef = null;
           }
         };
 
@@ -124,14 +127,16 @@ export const POST = withMiddleware(
           });
         } finally {
           try {
-            controller.close();
+            controllerRef?.close();
           } catch {
             // Already closed
           }
+          controllerRef = null;
         }
       },
       cancel() {
         cancelled = true;
+        controllerRef = null;
       },
     });
 

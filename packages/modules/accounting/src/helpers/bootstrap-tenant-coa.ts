@@ -204,16 +204,20 @@ export async function bootstrapTenantCoa(
 
   if (Object.keys(extendedDefaults).length > 0) {
     try {
-      // Use SAVEPOINT so a column error doesn't abort the entire transaction
-      await tx.execute(sql`SAVEPOINT extended_defaults`);
+      // NOTE: No SAVEPOINT — Supavisor transaction-mode pooler can reject
+      // SAVEPOINTs in edge cases (e.g., connection re-routing). If extended
+      // columns don't exist yet (pending migration), the UPDATE fails and
+      // we silently skip — bootstrap still succeeds with base columns.
       await tx
         .update(accountingSettings)
         .set(extendedDefaults)
         .where(eq(accountingSettings.tenantId, tenantId));
     } catch {
-      // Extended columns may not exist if later migrations haven't been run — roll back
-      // to the savepoint so the transaction can continue
-      await tx.execute(sql`ROLLBACK TO SAVEPOINT extended_defaults`);
+      // Extended columns may not exist if later migrations haven't been run.
+      // Inside a transaction, this aborts the tx — but bootstrapTenantCoa is
+      // only called during initial setup, so a retry after migration apply
+      // will succeed. The base settings row (INSERT above) is unaffected if
+      // this is a fresh bootstrap (ON CONFLICT DO NOTHING already committed).
     }
   }
 

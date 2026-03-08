@@ -80,16 +80,21 @@ export async function getAccountingSettings(
   tenantId: string,
 ): Promise<AccountingSettings | null> {
   try {
-    // Use a SAVEPOINT so that if the Drizzle ORM query fails (e.g., column
-    // from a pending migration doesn't exist yet), the enclosing transaction
-    // is NOT aborted and the raw-SQL fallback can still execute.
-    await tx.execute(sql`SAVEPOINT settings_drizzle`);
+    // NOTE: No SAVEPOINT here. The previous SAVEPOINT guard caused production
+    // outages (#25P01) when callers passed bare `db` instead of a transaction
+    // (e.g., pos-posting-adapter, try-auto-remap). Supavisor transaction-mode
+    // pooler rejects SAVEPOINT outside BEGIN...COMMIT blocks, and the resulting
+    // errors exhausted the pool → tripped the circuit breaker → cascading 500s.
+    //
+    // If the Drizzle query fails due to a missing column (schema mismatch during
+    // deployment), the raw SQL fallback handles it. Inside a transaction, the
+    // failed query aborts the tx — but schema mismatches only occur during the
+    // brief window between code deploy and migration apply, which is acceptable.
     const [row] = await tx
       .select()
       .from(accountingSettings)
       .where(eq(accountingSettings.tenantId, tenantId))
       .limit(1);
-    await tx.execute(sql`RELEASE SAVEPOINT settings_drizzle`);
 
     if (!row) {
       return null;
@@ -100,9 +105,10 @@ export async function getAccountingSettings(
     const msg = String((err as Error)?.message ?? '').toLowerCase();
     if (msg.includes('column') && msg.includes('does not exist')) {
       // Schema mismatch — Drizzle schema has columns the DB doesn't.
-      // Roll back to the savepoint to restore the transaction, then
-      // fall back to raw SQL which only reads columns that actually exist.
-      await tx.execute(sql`ROLLBACK TO SAVEPOINT settings_drizzle`);
+      // Fall back to raw SQL which only reads columns that actually exist.
+      // Outside a transaction this works cleanly. Inside a transaction the
+      // tx is already aborted, so this will also fail — acceptable since
+      // schema mismatches are transient deployment artifacts.
       return getAccountingSettingsRaw(tx, tenantId);
     }
     throw err;

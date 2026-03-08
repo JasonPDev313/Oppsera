@@ -29,29 +29,31 @@ export async function adjustTip(
       if (check.isDuplicate) return { result: check.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    // Check if tips for this tab are already finalized
-    const existingFinal = await tx.execute(
-      sql`SELECT COUNT(*) as cnt FROM fnb_tip_adjustments
-          WHERE tab_id = ${input.tabId} AND tenant_id = ${ctx.tenantId}
-            AND is_final = true`,
-    );
-    const finalRows = Array.from(existingFinal as Iterable<Record<string, unknown>>);
-    if (Number(finalRows[0]!.cnt) > 0) {
-      throw new TipAlreadyFinalizedError(input.tabId);
-    }
-
-    // Insert tip adjustment
+    // Atomically check finalization + insert adjustment in one statement.
+    // The NOT EXISTS subquery prevents the INSERT if any row is already finalized,
+    // eliminating the TOCTOU race of separate SELECT-then-INSERT.
     const rows = await tx.execute(
       sql`INSERT INTO fnb_tip_adjustments (tenant_id, tab_id, preauth_id, tender_id,
             original_tip_cents, adjusted_tip_cents, adjustment_reason, adjusted_by)
-          VALUES (${ctx.tenantId}, ${input.tabId}, ${input.preauthId ?? null},
+          SELECT ${ctx.tenantId}, ${input.tabId}, ${input.preauthId ?? null},
             ${input.tenderId ?? null}, ${input.originalTipCents}, ${input.adjustedTipCents},
-            ${input.adjustmentReason ?? null}, ${ctx.user.id})
+            ${input.adjustmentReason ?? null}, ${ctx.user.id}
+          WHERE NOT EXISTS (
+            SELECT 1 FROM fnb_tip_adjustments
+            WHERE tab_id = ${input.tabId} AND tenant_id = ${ctx.tenantId}
+              AND is_final = true
+          )
           RETURNING id`,
     );
-    const created = Array.from(rows as Iterable<Record<string, unknown>>)[0]!;
+    const insertedRows = Array.from(rows as Iterable<Record<string, unknown>>);
+    if (insertedRows.length === 0) {
+      throw new TipAlreadyFinalizedError(input.tabId);
+    }
+    const created = insertedRows[0]!;
 
-    // If pre-auth based, update the pre-auth tip and final amounts
+    // If pre-auth based, update the pre-auth tip and final amounts.
+    // WHERE status IN (...) prevents state machine violation — only adjust
+    // preauths that are in a valid state for tip adjustment.
     if (input.preauthId) {
       await tx.execute(
         sql`UPDATE fnb_tab_preauths
@@ -60,7 +62,8 @@ export async function adjustTip(
                 status = 'adjusted',
                 adjusted_at = NOW(),
                 updated_at = NOW()
-            WHERE id = ${input.preauthId} AND tenant_id = ${ctx.tenantId}`,
+            WHERE id = ${input.preauthId} AND tenant_id = ${ctx.tenantId}
+              AND status IN ('authorized', 'captured', 'adjusted')`,
       );
     }
 

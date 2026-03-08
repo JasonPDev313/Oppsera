@@ -293,7 +293,8 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
                 <div className="grid grid-cols-3 gap-2">
                   {MONTHS_SHORT.map((m, i) => {
                     const isCurrentMonth = i === valueParts.month && cursorYear === valueParts.year;
-                    const isNowMonth = i === new Date().getMonth() && cursorYear === new Date().getFullYear();
+                    const now = new Date();
+                    const isNowMonth = i === now.getMonth() && cursorYear === now.getFullYear();
 
                     return (
                       <button

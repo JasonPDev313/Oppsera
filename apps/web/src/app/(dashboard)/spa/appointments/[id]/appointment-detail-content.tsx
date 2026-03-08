@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -19,11 +19,14 @@ import {
   Hash,
   Loader2,
   Sparkles,
+  CreditCard,
 } from 'lucide-react';
 import { useSpaAppointment, useAppointmentAction } from '@/hooks/use-spa';
 import type { SpaAppointmentDetail } from '@/hooks/use-spa';
 import { CheckoutToPosDialog } from '@/components/spa/checkout-to-pos-dialog';
 import type { CheckoutToPosResult } from '@/components/spa/checkout-to-pos-dialog';
+import { SpaPayNowDialog } from '@/components/spa/spa-pay-now-dialog';
+import type { PayNowResult } from '@/components/spa/spa-pay-now-dialog';
 
 // ═══════════════════════════════════════════════════════════════════
 // Helpers
@@ -118,12 +121,16 @@ function isTerminal(status: string): boolean {
 // Action config — defines which actions are available per status
 // ═══════════════════════════════════════════════════════════════════
 
+type ActionGroup = 'workflow' | 'payment' | 'negative';
+
 interface ActionConfig {
   key: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  variant: 'primary' | 'secondary' | 'destructive';
+  variant: 'primary' | 'secondary' | 'destructive' | 'success';
   confirmMessage?: string;
+  description?: string;
+  group: ActionGroup;
 }
 
 function getAvailableActions(status: string): ActionConfig[] {
@@ -138,6 +145,7 @@ function getAvailableActions(status: string): ActionConfig[] {
         label: 'Confirm Appointment',
         icon: CheckCircle,
         variant: 'primary',
+        group: 'workflow',
       });
       break;
     case 'confirmed':
@@ -146,6 +154,7 @@ function getAvailableActions(status: string): ActionConfig[] {
         label: 'Check In',
         icon: LogIn,
         variant: 'primary',
+        group: 'workflow',
       });
       break;
     case 'checked_in':
@@ -154,6 +163,7 @@ function getAvailableActions(status: string): ActionConfig[] {
         label: 'Start Service',
         icon: Play,
         variant: 'primary',
+        group: 'workflow',
       });
       break;
     case 'in_service':
@@ -162,14 +172,42 @@ function getAvailableActions(status: string): ActionConfig[] {
         label: 'Complete Service',
         icon: Square,
         variant: 'primary',
+        group: 'workflow',
+      });
+      // Payment options — auto-complete then open
+      actions.push({
+        key: 'pay-now',
+        label: 'Pay Now',
+        icon: CreditCard,
+        variant: 'success',
+        description: 'Complete service and accept payment',
+        group: 'payment',
+      });
+      actions.push({
+        key: 'checkout-to-pos',
+        label: 'Send to POS',
+        icon: ShoppingCart,
+        variant: 'secondary',
+        description: 'Complete and send to retail register',
+        group: 'payment',
       });
       break;
     case 'completed':
+      actions.push({
+        key: 'pay-now',
+        label: 'Pay Now',
+        icon: CreditCard,
+        variant: 'success',
+        description: 'Accept payment for this service',
+        group: 'payment',
+      });
       actions.push({
         key: 'checkout-to-pos',
         label: 'Send to POS',
         icon: ShoppingCart,
         variant: 'primary',
+        description: 'Send to retail register for add-ons',
+        group: 'payment',
       });
       break;
   }
@@ -182,6 +220,7 @@ function getAvailableActions(status: string): ActionConfig[] {
       icon: AlertTriangle,
       variant: 'secondary',
       confirmMessage: 'Mark this appointment as a no-show? This cannot be undone.',
+      group: 'negative',
     });
     actions.push({
       key: 'cancel',
@@ -189,6 +228,7 @@ function getAvailableActions(status: string): ActionConfig[] {
       icon: XCircle,
       variant: 'destructive',
       confirmMessage: 'Are you sure you want to cancel this appointment? This cannot be undone.',
+      group: 'negative',
     });
   }
 
@@ -462,45 +502,71 @@ function ActionsCard({
     );
   }
 
+  // Group actions by their group field, preserving order
+  const groups: ActionGroup[] = [];
+  const groupMap = new Map<ActionGroup, ActionConfig[]>();
+  for (const action of actions) {
+    if (!groupMap.has(action.group)) {
+      groups.push(action.group);
+      groupMap.set(action.group, []);
+    }
+    groupMap.get(action.group)!.push(action);
+  }
+
   return (
     <Card title="Actions" icon={Play}>
       <div className="space-y-3">
-        {actions.map((action) => {
-          const Icon = action.icon;
-          const isPending = isActionPending && pendingAction === action.key;
+        {groups.map((group, gi) => (
+          <div key={group}>
+            {gi > 0 && <div className="border-t border-border my-3" />}
+            <div className="space-y-2">
+              {groupMap.get(group)!.map((action) => {
+                const Icon = action.icon;
+                const isPending = isActionPending && pendingAction === action.key;
 
-          let buttonClass: string;
-          switch (action.variant) {
-            case 'primary':
-              buttonClass =
-                'w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
-              break;
-            case 'destructive':
-              buttonClass =
-                'w-full flex items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/20 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
-              break;
-            default:
-              buttonClass =
-                'w-full flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
-          }
+                let buttonClass: string;
+                switch (action.variant) {
+                  case 'primary':
+                    buttonClass =
+                      'w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
+                    break;
+                  case 'success':
+                    buttonClass =
+                      'w-full flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-500 focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
+                    break;
+                  case 'destructive':
+                    buttonClass =
+                      'w-full flex items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/20 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
+                    break;
+                  default:
+                    buttonClass =
+                      'w-full flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
+                }
 
-          return (
-            <button
-              key={action.key}
-              type="button"
-              disabled={isActionPending}
-              onClick={() => onAction(action.key, action.confirmMessage)}
-              className={buttonClass}
-            >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <Icon className="h-4 w-4" aria-hidden="true" />
-              )}
-              {isPending ? 'Processing...' : action.label}
-            </button>
-          );
-        })}
+                return (
+                  <div key={action.key}>
+                    <button
+                      type="button"
+                      disabled={isActionPending}
+                      onClick={() => onAction(action.key, action.confirmMessage)}
+                      className={buttonClass}
+                    >
+                      {isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                      )}
+                      {isPending ? 'Processing...' : action.label}
+                    </button>
+                    {action.description && (
+                      <p className="text-xs text-muted-foreground text-center mt-1">{action.description}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </Card>
   );
@@ -636,13 +702,63 @@ export default function AppointmentDetailContent() {
   } | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
+  const [showPayNowDialog, setShowPayNowDialog] = useState(false);
+  const autoCompletedRef = useRef(false);
+
+  // Reset autoCompletedRef when viewing a different appointment
+  useEffect(() => {
+    autoCompletedRef.current = false;
+  }, [appointmentId]);
+
+  // ── Auto-complete helper for in_service → payment dialogs ────
+  const completeAndOpen = useCallback(
+    (actionKey: string, openFn: () => void) => {
+      if (data?.status === 'in_service' && !autoCompletedRef.current) {
+        setFeedback(null);
+        setPendingAction(actionKey);
+        appointmentAction.mutate(
+          { id: appointmentId, action: 'complete' },
+          {
+            onSuccess: () => {
+              autoCompletedRef.current = true;
+              setPendingAction(null);
+              refetch();
+              openFn();
+            },
+            onError: (err) => {
+              const msg = err instanceof Error ? err.message : '';
+              // Tolerate stale status — another tab or request may have already completed it
+              if (msg.includes('INVALID_STATUS_TRANSITION') || msg.includes('Cannot transition')) {
+                autoCompletedRef.current = true;
+                setPendingAction(null);
+                refetch();
+                openFn();
+                return;
+              }
+              setPendingAction(null);
+              setFeedback({ type: 'error', message: msg || 'Failed to complete service' });
+            },
+          },
+        );
+      } else {
+        openFn();
+      }
+    },
+    [data?.status, appointmentId, appointmentAction, refetch],
+  );
 
   // ── Action handler ────────────────────────────────────────────
   const handleAction = useCallback(
     (actionKey: string, confirmMessage?: string) => {
-      // Intercept checkout-to-pos — open terminal picker dialog instead
+      // Intercept pay-now — auto-complete if in_service, then open dialog
+      if (actionKey === 'pay-now') {
+        completeAndOpen('pay-now', () => setShowPayNowDialog(true));
+        return;
+      }
+
+      // Intercept checkout-to-pos — auto-complete if in_service, then open dialog
       if (actionKey === 'checkout-to-pos') {
-        setShowCheckoutDialog(true);
+        completeAndOpen('checkout-to-pos', () => setShowCheckoutDialog(true));
         return;
       }
 
@@ -675,20 +791,47 @@ export default function AppointmentDetailContent() {
         },
       );
     },
+    [appointmentId, appointmentAction, refetch, completeAndOpen],
+  );
+
+  // ── Pay Now complete handler ───────────────────────────────
+  const handlePayNowComplete = useCallback(
+    (result: PayNowResult) => {
+      setShowPayNowDialog(false);
+      if (result.isFullyPaid) {
+        // Auto-checkout: completed → checked_out
+        appointmentAction.mutate(
+          { id: appointmentId, action: 'checkout', body: { orderId: result.orderId } },
+          {
+            onSuccess: () => {
+              setFeedback({ type: 'success', message: 'Payment received. Appointment checked out.' });
+              refetch();
+            },
+            onError: () => {
+              setFeedback({ type: 'success', message: 'Payment received successfully.' });
+              refetch();
+            },
+          },
+        );
+      } else {
+        setFeedback({ type: 'success', message: 'Partial payment recorded.' });
+        refetch();
+      }
+    },
     [appointmentId, appointmentAction, refetch],
   );
 
   // ── Checkout-to-POS success handler ───────────────────────────
   const handleCheckoutSuccess = useCallback(
-    (_result: CheckoutToPosResult) => {
+    (result: CheckoutToPosResult) => {
       setShowCheckoutDialog(false);
       setFeedback({
         type: 'success',
         message: 'Order created. Redirecting to POS...',
       });
       refetch();
-      // Navigate to Retail POS — the register tab is auto-discovered via SWR
-      router.push('/pos/retail');
+      // Navigate to Retail POS with orderId so POS opens the correct tab
+      router.push(result.orderId ? `/pos/retail?orderId=${result.orderId}` : '/pos/retail');
     },
     [router, refetch],
   );
@@ -793,8 +936,20 @@ export default function AppointmentDetailContent() {
         />
       )}
 
+      {/* Pay Now dialog */}
+      <SpaPayNowDialog
+        open={showPayNowDialog}
+        onClose={() => setShowPayNowDialog(false)}
+        appointmentId={data.id}
+        appointmentStatus={data.status}
+        serviceName={data.items?.[0]?.serviceName ?? 'Spa Service'}
+        totalCents={data.items?.reduce((sum, i) => sum + i.finalPriceCents, 0) ?? 0}
+        existingOrderId={data.orderId ?? null}
+        onPaymentComplete={handlePayNowComplete}
+      />
+
       {/* Checkout-to-POS terminal picker dialog */}
-      {data.status === 'completed' && (
+      {(data.status === 'completed' || data.status === 'in_service') && (
         <CheckoutToPosDialog
           open={showCheckoutDialog}
           onClose={() => setShowCheckoutDialog(false)}

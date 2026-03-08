@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useCalendarScroll } from './use-calendar-scroll';
@@ -46,6 +46,12 @@ interface BarInfo {
   span: number;
 }
 
+export interface OptimisticMove {
+  reservationId: string;
+  fromRoomId: string;
+  toRoomId: string;
+}
+
 interface CalendarGridProps {
   rooms: CalendarRoom[];
   segments: CalendarSegment[];
@@ -55,6 +61,8 @@ interface CalendarGridProps {
   occupancyByDate: Record<string, OccupancyByDate>;
   totalRooms: number;
   filters: CalendarFilters;
+  isMutating?: boolean;
+  optimisticMove?: OptimisticMove | null;
   onDateClick: (date: string) => void;
   onContextMenu: (state: ContextMenuState) => void;
   onMove: (input: {
@@ -85,6 +93,8 @@ export default function CalendarGrid({
   occupancyByDate,
   totalRooms,
   filters,
+  isMutating,
+  optimisticMove,
   onDateClick,
   onContextMenu,
   onMove,
@@ -99,7 +109,8 @@ export default function CalendarGrid({
   const [activeSegment, setActiveSegment] = useState<CalendarSegment | null>(null);
   const [tooltip, setTooltip] = useState<{ segment: CalendarSegment; x: number; y: number } | null>(null);
   const tooltipTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const todayStr = formatDate(new Date());
+  const [todayStr, setTodayStr] = useState('');
+  useEffect(() => { setTodayStr(formatDate(new Date())); }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -110,16 +121,30 @@ export default function CalendarGrid({
     onNavigateNext,
   });
 
+  // ── Optimistic rendering ────────────────────────────────────────
+
+  const effectiveSegments = useMemo(() => {
+    if (!optimisticMove) return segments;
+    return segments.map((seg) => {
+      if (seg.reservationId === optimisticMove.reservationId && seg.roomId === optimisticMove.fromRoomId) {
+        return { ...seg, roomId: optimisticMove.toRoomId };
+      }
+      return seg;
+    });
+  }, [segments, optimisticMove]);
+
+  const isDragActive = !!activeSegment;
+
   // ── Computed data ───────────────────────────────────────────────
 
   const segmentsByRoomDate = useMemo(() => {
     const map = new Map<string, Map<string, CalendarSegment>>();
-    for (const seg of segments) {
+    for (const seg of effectiveSegments) {
       if (!map.has(seg.roomId)) map.set(seg.roomId, new Map());
       map.get(seg.roomId)!.set(seg.businessDate, seg);
     }
     return map;
-  }, [segments]);
+  }, [effectiveSegments]);
 
   const oooByRoomDate = useMemo(() => {
     const map = new Map<string, Map<string, OooBlock>>();
@@ -179,33 +204,31 @@ export default function CalendarGrid({
     if (filters.search) {
       const q = filters.search.toLowerCase();
       const matchingRoomIds = new Set<string>();
-      // Include rooms matching by room number
       for (const r of result) {
         if (r.roomNumber.toLowerCase().includes(q)) matchingRoomIds.add(r.roomId);
       }
-      // Include rooms with matching guest names
-      for (const seg of segments) {
+      for (const seg of effectiveSegments) {
         if (seg.guestName.toLowerCase().includes(q)) matchingRoomIds.add(seg.roomId);
       }
       result = result.filter((r) => matchingRoomIds.has(r.roomId));
     }
     if (filters.statuses.size > 0) {
       const roomsWithStatus = new Set<string>();
-      for (const seg of segments) {
+      for (const seg of effectiveSegments) {
         if (filters.statuses.has(seg.status)) roomsWithStatus.add(seg.roomId);
       }
       result = result.filter((r) => roomsWithStatus.has(r.roomId));
     }
     if (filters.sources.size > 0) {
       const roomsWithSource = new Set<string>();
-      for (const seg of segments) {
+      for (const seg of effectiveSegments) {
         if (filters.sources.has(seg.sourceType)) roomsWithSource.add(seg.roomId);
       }
       result = result.filter((r) => roomsWithSource.has(r.roomId));
     }
 
     return result;
-  }, [rooms, segments, filters]);
+  }, [rooms, effectiveSegments, filters]);
 
   // Group rooms by type
   const roomTypeGroups = useMemo(() => {
@@ -248,6 +271,7 @@ export default function CalendarGrid({
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
+      if (isMutating) return;
       const segId = String(event.active.id);
       const [roomId, resId] = segId.split(':');
       if (!roomId || !resId) return;
@@ -255,12 +279,13 @@ export default function CalendarGrid({
       if (seg) setActiveSegment(seg);
       hideTooltip();
     },
-    [segments, hideTooltip],
+    [segments, hideTooltip, isMutating],
   );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       setActiveSegment(null);
+      if (isMutating) return;
       if (!event.over) return;
 
       const dragId = String(event.active.id);
@@ -287,7 +312,7 @@ export default function CalendarGrid({
         },
       });
     },
-    [segments, onMove],
+    [segments, onMove, isMutating],
   );
 
   // ── Column sizing ────────────────────────────────────────────
@@ -360,6 +385,7 @@ export default function CalendarGrid({
                   onHideTooltip={hideTooltip}
                   onEmptyCellClick={onEmptyCellClick}
                   onEmptyCellContextMenu={onEmptyCellContextMenu}
+                  isDragActive={isDragActive}
                 />
               );
             })}
@@ -421,6 +447,7 @@ function RoomTypeSection({
   onHideTooltip,
   onEmptyCellClick,
   onEmptyCellContextMenu,
+  isDragActive,
 }: {
   group: RoomTypeGroup;
   isCollapsed: boolean;
@@ -440,6 +467,7 @@ function RoomTypeSection({
   onHideTooltip: () => void;
   onEmptyCellClick?: (roomId: string, date: string, roomTypeId: string) => void;
   onEmptyCellContextMenu?: (e: React.MouseEvent, roomId: string, date: string, roomTypeId: string) => void;
+  isDragActive?: boolean;
 }) {
   return (
     <>
@@ -488,6 +516,7 @@ function RoomTypeSection({
             onHideTooltip={onHideTooltip}
             onEmptyCellClick={onEmptyCellClick}
             onEmptyCellContextMenu={onEmptyCellContextMenu}
+            isDragActive={isDragActive}
           />
         ))}
     </>
@@ -514,6 +543,7 @@ function RoomRow({
   onHideTooltip,
   onEmptyCellClick,
   onEmptyCellContextMenu,
+  isDragActive,
 }: {
   room: CalendarRoom;
   roomTypeId: string;
@@ -532,6 +562,7 @@ function RoomRow({
   onHideTooltip: () => void;
   onEmptyCellClick?: (roomId: string, date: string, roomTypeId: string) => void;
   onEmptyCellContextMenu?: (e: React.MouseEvent, roomId: string, date: string, roomTypeId: string) => void;
+  isDragActive?: boolean;
 }) {
   return (
     <tr className="group">
@@ -569,6 +600,7 @@ function RoomRow({
             onHideTooltip={onHideTooltip}
             onEmptyCellClick={onEmptyCellClick}
             onEmptyCellContextMenu={onEmptyCellContextMenu}
+            isDragActive={isDragActive}
           />
         );
       })}
@@ -595,6 +627,7 @@ function DateCell({
   onHideTooltip,
   onEmptyCellClick,
   onEmptyCellContextMenu,
+  isDragActive,
 }: {
   roomId: string;
   roomTypeId: string;
@@ -612,10 +645,20 @@ function DateCell({
   onHideTooltip: () => void;
   onEmptyCellClick?: (roomId: string, date: string, roomTypeId: string) => void;
   onEmptyCellContextMenu?: (e: React.MouseEvent, roomId: string, date: string, roomTypeId: string) => void;
+  isDragActive?: boolean;
 }) {
   const dropId = `${roomId}:${date}`;
   const { setNodeRef, isOver } = useDroppable({ id: dropId });
   const isEmpty = !bar && !oooBlock;
+
+  // Drop-target highlighting during drag
+  const dragHint = isDragActive
+    ? isEmpty
+      ? 'ring-1 ring-inset ring-green-500/25 bg-green-500/5'
+      : oooBlock
+        ? 'ring-1 ring-inset ring-red-500/20 bg-red-500/5'
+        : ''
+    : '';
 
   return (
     <td
@@ -623,7 +666,7 @@ function DateCell({
       colSpan={bar ? bar.span : 1}
       className={`${colWidth} border-b border-border px-0.5 py-0.5 ${
         date === todayStr ? 'bg-indigo-500/5' : ''
-      } ${isOver ? 'bg-green-500/10' : ''} ${isEmpty ? 'group/empty cursor-pointer hover:bg-accent/80' : ''}`}
+      } ${isOver ? 'bg-green-500/20 ring-2 ring-inset ring-green-500/40' : dragHint} ${isEmpty && !isDragActive ? 'group/empty cursor-pointer hover:bg-accent/80' : ''}`}
       onClick={isEmpty ? () => onEmptyCellClick?.(roomId, date, roomTypeId) : undefined}
       onContextMenu={isEmpty ? (e) => { e.preventDefault(); onEmptyCellContextMenu?.(e, roomId, date, roomTypeId); } : undefined}
     >

@@ -216,7 +216,10 @@ export function usePOSApi(deps: POSApiDeps) {
         .then((res) => {
           // Only apply server response if user is still viewing this order
           if (d.current.orderRef.current?.id === patchedOrderId) {
-            d.current.setCurrentOrder(res.data);
+            // Use functional updater to preserve temp lines — direct replacement
+            // (setCurrentOrder(res.data)) would wipe optimistic lines if the PATCH
+            // response arrives while batch items are still in-flight.
+            mergeWithTempLines(d.current.setCurrentOrder, res.data);
           }
         })
         .catch((err) => {
@@ -259,7 +262,7 @@ export function usePOSApi(deps: POSApiDeps) {
       .then((res) => {
         // Only apply server response if user is still viewing this order
         if (d.current.orderRef.current?.id === patchedOrderId) {
-          d.current.setCurrentOrder(res.data);
+          mergeWithTempLines(d.current.setCurrentOrder, res.data);
         }
       })
       .catch((err) => {

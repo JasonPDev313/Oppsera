@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { db, createAdminClient, auditLog as auditLogTable } from '@oppsera/db';
+import { db, createAdminClient, auditLog as auditLogTable, guardedQuery } from '@oppsera/db';
 import type { Database } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import type { AuditEntry, AuditLogger } from './index';
@@ -11,18 +11,20 @@ export class DrizzleAuditLogger implements AuditLogger {
         ? createAdminClient()
         : (db as Database);
 
-      await connection.insert(auditLogTable).values({
-        id: generateUlid(),
-        tenantId: entry.tenantId,
-        locationId: entry.locationId ?? null,
-        actorUserId: entry.actorUserId ?? null,
-        actorType: entry.actorType ?? 'user',
-        action: entry.action,
-        entityType: entry.entityType,
-        entityId: entry.entityId,
-        changes: entry.changes ?? null,
-        metadata: entry.metadata ?? null,
-      });
+      await guardedQuery('audit_log.insert', () =>
+        connection.insert(auditLogTable).values({
+          id: generateUlid(),
+          tenantId: entry.tenantId,
+          locationId: entry.locationId ?? null,
+          actorUserId: entry.actorUserId ?? null,
+          actorType: entry.actorType ?? 'user',
+          action: entry.action,
+          entityType: entry.entityType,
+          entityId: entry.entityId,
+          changes: entry.changes ?? null,
+          metadata: entry.metadata ?? null,
+        }),
+      );
     } catch (error) {
       console.error('Failed to write audit log entry:', error);
     }

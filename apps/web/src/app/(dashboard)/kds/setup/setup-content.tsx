@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   CheckCircle, ChevronRight, ChevronLeft, ChefHat, Sparkles,
   Monitor, Plus, Trash2, AlertTriangle, ArrowLeft, Settings2, ExternalLink,
+  MapPin, Info,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/toast';
@@ -189,7 +190,9 @@ export default function KdsSetupContent() {
   const router = useRouter();
   const { toast } = useToast();
   const { locations } = useAuthContext();
-  const locationId = locations?.[0]?.id ?? '';
+  const [locationId, setLocationId] = useState(locations?.[0]?.id ?? '');
+  const hasMultipleLocations = (locations?.length ?? 0) > 1;
+  const locationName = locations?.find((l) => l.id === locationId)?.name ?? '';
 
   // Stable local ID generator (useRef survives HMR + StrictMode double-mount)
   const nextLocalId = useRef(1);
@@ -475,12 +478,19 @@ export default function KdsSetupContent() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-semibold text-foreground">KDS Setup Wizard</h1>
           <p className="text-sm text-muted-foreground">
             Get your kitchen display system up and running
           </p>
         </div>
+        {/* Persistent location badge — always visible so users know which location they're configuring */}
+        {step > 0 && locationName && (
+          <div className="flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1">
+            <MapPin className="h-3.5 w-3.5 text-indigo-400" />
+            <span className="text-xs font-medium text-indigo-400">{locationName}</span>
+          </div>
+        )}
       </div>
 
       {/* Progress */}
@@ -523,10 +533,45 @@ export default function KdsSetupContent() {
             We&apos;ll walk you through creating kitchen stations, making sure your menu items are
             configured correctly, and setting up order routing — all in a few simple steps.
           </p>
+
+          {/* Location selector */}
+          <div className="mx-auto max-w-sm rounded-lg border-2 border-indigo-500/30 bg-indigo-500/5 p-5 text-left">
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin className="h-5 w-5 text-indigo-400" />
+              <span className="text-sm font-semibold text-foreground">
+                Which location is this KDS for?
+              </span>
+            </div>
+            {hasMultipleLocations ? (
+              <>
+                <select
+                  id="kds-setup-location"
+                  value={locationId}
+                  onChange={(e) => setLocationId(e.target.value)}
+                  className="w-full rounded-lg border border-input bg-surface px-3 py-2.5 text-sm font-medium text-foreground focus:border-indigo-500 focus:outline-none"
+                >
+                  {locations?.map((loc) => (
+                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                  ))}
+                </select>
+                <div className="mt-3 flex gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5">
+                  <Info className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                  <p className="text-xs text-amber-300/90 leading-relaxed">
+                    KDS stations only show orders from the <strong>same location</strong>. Pick the
+                    location where your POS terminals ring up orders. Each location needs its own setup.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm font-semibold text-indigo-400">{locationName}</p>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={() => setStep(1)}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-medium text-white hover:bg-indigo-500"
+            disabled={!locationId}
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             Get Started <ChevronRight className="h-4 w-4" />
           </button>
@@ -932,6 +977,11 @@ export default function KdsSetupContent() {
             <h2 className="mt-4 text-xl font-semibold text-foreground">
               {canLaunch ? 'KDS is Ready!' : 'Almost There'}
             </h2>
+            {locationName && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Kitchen display for <strong className="text-foreground">{locationName}</strong>
+              </p>
+            )}
           </div>
 
           {/* Verification checks */}

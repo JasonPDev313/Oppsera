@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -967,8 +967,14 @@ export default function NewAppointmentContent() {
     setErrorMessage(null);
   }, []);
 
+  // Ref guard prevents double-submit on rapid clicks. React's isPending state
+  // may not update synchronously between clicks, but refs are immediate.
+  const submitGuardRef = useRef(false);
+
   const handleSubmit = useCallback(() => {
     if (!canSubmit || !selectedSlot || !selectedService) return;
+    if (submitGuardRef.current) return; // Already submitting
+    submitGuardRef.current = true;
     setErrorMessage(null);
 
     // Prefer the slot's assigned providerId (from availability engine),
@@ -1010,9 +1016,11 @@ export default function NewAppointmentContent() {
       },
       {
         onSuccess: (data) => {
+          submitGuardRef.current = false;
           router.push(`/spa/appointments/${data.id}`);
         },
         onError: (err) => {
+          submitGuardRef.current = false;
           const msg =
             err instanceof Error ? err.message : 'Failed to book appointment.';
           setErrorMessage(msg);

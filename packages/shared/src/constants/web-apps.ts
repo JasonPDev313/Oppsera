@@ -13,6 +13,8 @@ export interface WebAppDefinition {
   icon: string;
   /** Grouping category */
   category: WebAppCategory;
+  /** Primary module this app belongs to (used for module-grouped view) */
+  primaryModule: string;
   /** Module keys shown as tags on the card */
   associatedModules: string[];
   /** At least one must be enabled for the app to be visible */
@@ -43,6 +45,7 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     description: 'Self-service portal for members — billing, statements, spending analysis.',
     icon: 'UserCircle',
     category: 'customer_facing',
+    primaryModule: 'customers',
     associatedModules: ['customers', 'club_membership'],
     requiredModules: ['customers'],
     urlSource: 'env',
@@ -58,6 +61,7 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     description: 'QR code payment — guests scan to view check, add tip, and pay.',
     icon: 'QrCode',
     category: 'customer_facing',
+    primaryModule: 'payments',
     associatedModules: ['pos_fnb', 'pos_retail', 'payments'],
     requiredModules: ['payments'],
     urlSource: 'origin',
@@ -68,10 +72,11 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
   },
   {
     key: 'guest-waitlist',
-    name: 'Guest Waitlist',
-    description: 'Public waitlist — guests join and track their position in real time.',
+    name: 'F&B Waitlist',
+    description: 'Public waitlist — restaurant guests join and track their position in real time.',
     icon: 'ClipboardList',
     category: 'customer_facing',
+    primaryModule: 'pos_fnb',
     associatedModules: ['pos_fnb'],
     requiredModules: ['pos_fnb'],
     urlSource: 'origin',
@@ -79,6 +84,36 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     helpTextActive: 'Guests can join the waitlist and see their position from their phone. Share this link or print as a QR code.',
     sortOrder: 30,
     defaultStatus: 'active',
+    settingsRoute: '/host/waitlist-config',
+  },
+  {
+    key: 'hotel-waitlist',
+    name: 'Hotel Waitlist',
+    description: 'Public waitlist — guests join when rooms are unavailable and get notified when space opens.',
+    icon: 'Hotel',
+    category: 'customer_facing',
+    primaryModule: 'pms',
+    associatedModules: ['pms'],
+    requiredModules: ['pms'],
+    urlSource: 'origin',
+    urlPath: '/waitlist/{tenantSlug}/pms',
+    helpTextActive: 'Guests can join the waitlist when no rooms are available and receive offers when space opens up.',
+    sortOrder: 35,
+    defaultStatus: 'active',
+    settingsRoute: '/pms/waitlist',
+  },
+  {
+    key: 'spa-waitlist',
+    name: 'Spa Waitlist',
+    description: 'Public waitlist — guests request preferred services and get notified when slots open.',
+    icon: 'CalendarDays',
+    category: 'customer_facing',
+    primaryModule: 'spa',
+    associatedModules: ['spa'],
+    requiredModules: ['spa'],
+    sortOrder: 37,
+    defaultStatus: 'coming_soon',
+    urlSource: 'origin',
   },
   {
     key: 'online-shop',
@@ -86,6 +121,7 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     description: 'E-commerce storefront for retail items and gift cards.',
     icon: 'ShoppingCart',
     category: 'customer_facing',
+    primaryModule: 'pos_retail',
     associatedModules: ['catalog', 'pos_retail'],
     requiredModules: ['catalog'],
     sortOrder: 40,
@@ -98,6 +134,7 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     description: 'Public event sign-up, ticketing, and guest management.',
     icon: 'CalendarCheck',
     category: 'customer_facing',
+    primaryModule: 'customers',
     associatedModules: ['customers'],
     requiredModules: ['customers'],
     sortOrder: 50,
@@ -110,6 +147,7 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     description: 'Pre-check-in, folio review, and self-service for hotel guests.',
     icon: 'Hotel',
     category: 'customer_facing',
+    primaryModule: 'pms',
     associatedModules: ['pms'],
     requiredModules: ['pms'],
     sortOrder: 60,
@@ -122,6 +160,7 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     description: 'Appointment scheduling and service booking for spa and wellness.',
     icon: 'CalendarDays',
     category: 'customer_facing',
+    primaryModule: 'spa',
     associatedModules: ['spa'],
     requiredModules: ['spa'],
     sortOrder: 70,
@@ -137,6 +176,7 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     description: 'Online table reservations with real-time availability.',
     icon: 'UtensilsCrossed',
     category: 'customer_facing',
+    primaryModule: 'pos_fnb',
     associatedModules: ['pos_fnb'],
     requiredModules: ['pos_fnb'],
     sortOrder: 80,
@@ -151,6 +191,7 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     description: 'Kitchen display screen — ticket queue, bump bar, timers.',
     icon: 'Monitor',
     category: 'staff_tools',
+    primaryModule: 'kds',
     associatedModules: ['kds'],
     requiredModules: ['kds'],
     urlSource: 'origin',
@@ -165,6 +206,7 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     description: 'Expeditor screen — cross-station order readiness and plating.',
     icon: 'LayoutGrid',
     category: 'staff_tools',
+    primaryModule: 'kds',
     associatedModules: ['kds'],
     requiredModules: ['kds'],
     urlSource: 'origin',
@@ -179,6 +221,7 @@ export const WEB_APP_REGISTRY: readonly WebAppDefinition[] = [
     description: 'Waitlist, reservations, table assignments, and guest notifications.',
     icon: 'DoorOpen',
     category: 'staff_tools',
+    primaryModule: 'pos_fnb',
     associatedModules: ['pos_fnb'],
     requiredModules: ['pos_fnb'],
     urlSource: 'origin',
@@ -231,4 +274,28 @@ export function getWebAppsByCategory(category: WebAppCategory): WebAppDefinition
   return WEB_APP_REGISTRY.filter((a) => a.category === category).sort(
     (a, b) => a.sortOrder - b.sortOrder,
   );
+}
+
+/** Group web apps by primaryModule, returning ordered sections */
+export function getWebAppsGroupedByModule(
+  apps: WebAppDefinition[],
+): { moduleKey: string; apps: WebAppDefinition[] }[] {
+  const map = new Map<string, WebAppDefinition[]>();
+  for (const app of apps) {
+    const group = map.get(app.primaryModule) ?? [];
+    group.push(app);
+    map.set(app.primaryModule, group);
+  }
+  // Sort apps within each group: active first, then by sortOrder
+  const sections: { moduleKey: string; apps: WebAppDefinition[] }[] = [];
+  for (const [moduleKey, groupApps] of map) {
+    groupApps.sort((a, b) => {
+      const statusOrder = (s: WebAppStatus) => (s === 'active' ? 0 : 1);
+      const sd = statusOrder(a.defaultStatus) - statusOrder(b.defaultStatus);
+      if (sd !== 0) return sd;
+      return a.sortOrder - b.sortOrder;
+    });
+    sections.push({ moduleKey, apps: groupApps });
+  }
+  return sections;
 }

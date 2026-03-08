@@ -9,7 +9,6 @@ import {
   Search,
   User,
   UserCheck,
-  Users,
   Calendar,
 } from 'lucide-react';
 import {
@@ -103,7 +102,7 @@ export default function SpaQuickBookDialog({
     categoryId: prefillCategoryId !== '__all__' ? prefillCategoryId : undefined,
   });
 
-  const { items: providers } = useSpaProviders({
+  const { items: _providers } = useSpaProviders({
     locationId: locationId || undefined,
   });
 

@@ -168,8 +168,11 @@ export default function KdsContent() {
   if (error && !kdsView) {
     return (
       <div className="flex h-screen items-center justify-center" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
-        <div className="text-center">
-          <p className="text-sm mb-2" style={{ color: 'var(--fnb-status-dirty)' }}>{error}</p>
+        <div className="text-center max-w-sm">
+          <p className="text-sm mb-1" style={{ color: 'var(--fnb-status-dirty)' }}>{error}</p>
+          <p className="text-xs mb-4" style={{ color: 'var(--fnb-text-muted)' }}>
+            This station may not exist at the current location. Check that your POS and KDS are using the same location.
+          </p>
           <button type="button" onClick={() => router.push('/kds')}
             className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
             style={{ backgroundColor: 'var(--fnb-status-seated)' }}>

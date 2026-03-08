@@ -37,12 +37,19 @@ export async function voidPreauth(
       throw new PreauthStatusConflictError(input.preauthId, status, 'void');
     }
 
-    // Void the pre-auth
-    await tx.execute(
+    // Atomically void the pre-auth — WHERE status = 'authorized' prevents
+    // double-void race where two concurrent requests both read 'authorized'.
+    const voided = await tx.execute(
       sql`UPDATE fnb_tab_preauths
           SET status = 'voided', voided_at = NOW(), updated_at = NOW()
-          WHERE id = ${input.preauthId} AND tenant_id = ${ctx.tenantId}`,
+          WHERE id = ${input.preauthId} AND tenant_id = ${ctx.tenantId}
+            AND status = 'authorized'
+          RETURNING id`,
     );
+    const voidedRows = Array.from(voided as Iterable<Record<string, unknown>>);
+    if (voidedRows.length === 0) {
+      throw new PreauthStatusConflictError(input.preauthId, 'unknown', 'void');
+    }
 
     // Check if tab has any remaining authorized pre-auths
     const remaining = await tx.execute(

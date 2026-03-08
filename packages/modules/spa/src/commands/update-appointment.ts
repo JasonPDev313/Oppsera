@@ -51,7 +51,7 @@ export async function updateAppointment(ctx: RequestContext, input: UpdateAppoin
     }
 
     // Optimistic locking
-    if (parsed.expectedVersion !== undefined && existing.version !== parsed.expectedVersion) {
+    if (existing.version !== parsed.expectedVersion) {
       throw new AppError(
         'VERSION_CONFLICT',
         `Expected version ${parsed.expectedVersion} but found ${existing.version}`,
@@ -77,6 +77,7 @@ export async function updateAppointment(ctx: RequestContext, input: UpdateAppoin
         locationId: existing.locationId ?? undefined,
         customerId: existing.customerId ?? undefined,
         excludeAppointmentId: parsed.id,
+        tx,
       });
 
       if (conflicts.hasConflicts) {

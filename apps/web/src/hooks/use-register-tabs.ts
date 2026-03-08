@@ -246,6 +246,11 @@ export function useRegisterTabs({
   );
 
   // ── Sync current order back into cache + active tab ────────────────
+  // Debounce mount: skip server patches for 500ms after mount to avoid
+  // HMR-induced storms where all effects re-fire simultaneously, each
+  // sending PATCH requests that exhaust the DB connection pool.
+  const mountedAtRef = useRef(Date.now());
+  useEffect(() => { mountedAtRef.current = Date.now(); }, []);
 
   useEffect(() => {
     if (isSwitching.current || !hasLoaded.current) return;
@@ -265,8 +270,11 @@ export function useRegisterTabs({
             t.tabNumber === activeTabNumber ? { ...t, orderId: order.id } : t,
           ),
         );
-        // Sync to server (skip pending tabs that don't have a real server id yet)
-        patchTab(currentActiveTab.id, { orderId: order.id }, currentActiveTab.version);
+        // Sync to server — skip during HMR mount burst (< 500ms after mount)
+        // to avoid exhausting the DB pool with stale-version PATCHes.
+        if (Date.now() - mountedAtRef.current > 500) {
+          patchTab(currentActiveTab.id, { orderId: order.id }, currentActiveTab.version);
+        }
       }
     }
     // IMPORTANT: orderId clearing is handled ONLY by clearActiveTab() which is

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import {
@@ -137,8 +137,8 @@ export default function DashboardContent() {
   const [prefs] = useState<DashboardPrefs>(() => loadPrefs());
   const [notes, setNotes] = useState(() => loadNotes());
   const [selectedLocationId, setSelectedLocationId] = useState(''); // '' = all locations
-  const today = getTodayBusinessDate();
-  const fromDate = getSevenDaysAgo();
+  const today = useMemo(() => getTodayBusinessDate(), []);
+  const fromDate = useMemo(() => getSevenDaysAgo(), []);
 
   // Derive the display name for the selected location
   const selectedLocationName = selectedLocationId
@@ -200,7 +200,7 @@ export default function DashboardContent() {
     saveNotes(value);
   }, []);
 
-  const greeting = getGreeting();
+  const greeting = useMemo(() => getGreeting(), []);
 
   // Derive display values — prefer reporting metrics, fall back to order data
   const salesLabel = 'Revenue (Last 7 Days)';

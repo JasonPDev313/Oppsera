@@ -30,6 +30,11 @@ type PaymentType = 'cash' | 'card' | 'check' | 'voucher';
 
 type DialogStep = 'select' | 'creating' | 'tender';
 
+export interface PayNowResult {
+  isFullyPaid: boolean;
+  orderId: string;
+}
+
 interface SpaPayNowDialogProps {
   open: boolean;
   onClose: () => void;
@@ -37,14 +42,24 @@ interface SpaPayNowDialogProps {
   appointmentStatus: string;
   /** Service description to display */
   serviceName: string;
+  /** Total price of appointment services in cents */
+  totalCents: number;
   /** If appointment already has an order, skip creation */
   existingOrderId: string | null;
-  onPaymentComplete: () => void;
+  /** Called after tender is recorded. isFullyPaid indicates whether the entire balance was covered. */
+  onPaymentComplete: (result: PayNowResult) => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════════
+
+function formatMoney(cents: number): string {
+  return (cents / 100).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  });
+}
 
 function SelectField({
   label,
@@ -101,6 +116,7 @@ export function SpaPayNowDialog({
   appointmentId,
   appointmentStatus: _appointmentStatus,
   serviceName,
+  totalCents,
   existingOrderId,
   onPaymentComplete,
 }: SpaPayNowDialogProps) {
@@ -151,6 +167,16 @@ export function SpaPayNowDialog({
       return () => clearTimeout(timer);
     }
   }, [open]);
+
+  // Escape key to close
+  useEffect(() => {
+    if (!open || step === 'creating') return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, step, onClose]);
 
   // ── Step 2: Create order via checkout-to-pos, then fetch full Order ──
 
@@ -229,11 +255,16 @@ export function SpaPayNowDialog({
 
   // ── Payment complete handler ──
 
-  const handlePaymentComplete = useCallback((_result: RecordTenderResult) => {
-    toast.success(`${serviceName} has been paid.`);
-    onPaymentComplete();
+  const handlePaymentComplete = useCallback((result: RecordTenderResult) => {
+    const orderId = order?.id ?? '';
+    toast.success(
+      result.isFullyPaid
+        ? `${serviceName} has been paid in full.`
+        : `Partial payment recorded. Remaining: ${formatMoney(result.remainingBalance)}`,
+    );
+    onPaymentComplete({ isFullyPaid: result.isFullyPaid, orderId });
     onClose();
-  }, [serviceName, onPaymentComplete, onClose, toast]);
+  }, [serviceName, onPaymentComplete, onClose, toast, order]);
 
   if (!open) return null;
 
@@ -300,11 +331,15 @@ export function SpaPayNowDialog({
           /* ── Select terminal + payment type ── */
           <>
             <div className="px-5 py-4 space-y-4">
-              {/* Service info */}
+              {/* Service info with total */}
               <div className="rounded-lg border border-border bg-surface p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Service</span>
                   <span className="text-sm font-medium text-foreground">{serviceName}</span>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-sm text-muted-foreground">Total</span>
+                  <span className="text-sm font-semibold tabular-nums text-foreground">{formatMoney(totalCents)}</span>
                 </div>
               </div>
 

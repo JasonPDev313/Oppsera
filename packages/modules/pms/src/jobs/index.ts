@@ -6,3 +6,6 @@ export type { NoShowResult } from './no-show-marking';
 
 export { runHousekeepingAutoDirty } from './housekeeping-auto-dirty';
 export type { AutoDirtyResult } from './housekeeping-auto-dirty';
+
+export { runExpireWaitlistOffers } from './expire-waitlist-offers';
+export type { ExpireWaitlistResult } from './expire-waitlist-offers';

@@ -171,8 +171,10 @@ export async function postSettlement(
       forcePost: true,
     });
 
-    // Update settlement status
-    await tx
+    // Update settlement status — atomic guard: only transition draft→posted.
+    // Prevents double-post race where two concurrent requests both read 'draft'
+    // and both create GL entries. The loser's UPDATE matches 0 rows.
+    const [posted] = await tx
       .update(paymentSettlements)
       .set({
         status: 'posted',
@@ -183,8 +185,14 @@ export async function postSettlement(
         and(
           eq(paymentSettlements.tenantId, ctx.tenantId),
           eq(paymentSettlements.id, input.settlementId),
+          eq(paymentSettlements.status, 'draft'),
         ),
-      );
+      )
+      .returning({ id: paymentSettlements.id });
+
+    if (!posted) {
+      throw new Error('Settlement was already posted by a concurrent request');
+    }
 
     const event = buildEventFromContext(ctx, 'payment.settlement.posted.v1', {
       settlementId: settlement.id,

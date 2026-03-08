@@ -77,6 +77,7 @@ import { SplitTenderPanel } from '@/components/pos/shared/SplitTenderPanel';
 import { GiftCardTenderDialog } from '@/components/pos/shared/GiftCardTenderDialog';
 import { POSSearchBar } from '@/components/pos/shared/POSSearchBar';
 import { OfflineSyncBadge } from '@/components/pos/shared/OfflineSyncBadge';
+import { KdsNotConfiguredDialog } from '@/components/pos/shared/KdsNotConfiguredDialog';
 import { QuickMenuGrid } from '@/components/pos/shared/QuickMenuGrid';
 import type { QuickMenuPage } from '@/components/pos/shared/QuickMenuGrid';
 import { initOfflineSync } from '@/lib/pos-offline-sync';
@@ -1186,6 +1187,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   // Track whether all KDS-eligible items have been sent (no new unsent items)
   const [lastSentLineCount, setLastSentLineCount] = useState(0);
   const [kdsSendFailed, setKdsSendFailed] = useState(false);
+  const [showKdsNotConfigured, setShowKdsNotConfigured] = useState(false);
   const currentOrderId = pos.currentOrder?.id;
   useEffect(() => { setLastSentLineCount(0); setKdsSendFailed(false); }, [currentOrderId]);
   const fnbLineCount = useMemo(() => {
@@ -1209,6 +1211,10 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         }
       } else if (result.sentCount > 0) {
         toast.success('Order sent to kitchen');
+      } else if (result.totalStations === 0) {
+        // No stations configured at this location — show explainer dialog
+        setShowKdsNotConfigured(true);
+        setKdsSendFailed(true);
       } else {
         toast.info('All items already sent');
       }
@@ -1221,16 +1227,12 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     }
   }, [toast]);
 
-  const handlePayClick = useCallback(async () => {
-    // Flush any queued batch items and wait for server totals (incl. tax) before
-    // showing the payment panel.  Without the await, "Pay Exact" could use a stale
-    // pre-tax total from optimistic temp lines.
-    try {
-      await posRef.current.ensureOrderReady();
-    } catch {
-      // Order creation failure is non-fatal here — payment panel handles it via
-      // its own ensureOrderReady fallback.
-    }
+  const handlePayClick = useCallback(() => {
+    // Switch to payment view IMMEDIATELY — don't await ensureOrderReady here.
+    // Awaiting the drain caused a multi-second delay during which the Cart
+    // re-renders as temp lines are replaced with server lines, making items
+    // visually disappear and reappear (#POS-cart-flash).
+    // PaymentPanel now drains on mount and blocks interaction until ready.
     setPosView('payment');
   }, []);
 
@@ -2594,8 +2596,11 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
           businessName={tenant?.name ?? 'Our Business'}
         />
       )}
-    </div>
-  );
-}
 
-export default memo(RetailPOSPage);
+      {/* KDS Not Configured Dialog */}
+      <KdsNotConfiguredDialog
+        open={showKdsNotConfigured}
+        onClose={() => setShowKdsNotConfigured(false)}
+        locationId={locationId}
+        locationName={locations[0]?.name}
+        canSetup={can('fnb.manage')}

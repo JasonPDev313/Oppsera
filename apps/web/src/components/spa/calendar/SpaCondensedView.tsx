@@ -61,7 +61,8 @@ export default function SpaCondensedView({
     ? `${formatDateShort(days[0]!.date)} \u2013 ${formatDateShort(days[days.length - 1]!.date)}`
     : '';
 
-  const todayStr = formatDate(new Date());
+  const [todayStr, setTodayStr] = useState('');
+  useEffect(() => { setTodayStr(formatDate(new Date())); }, []);
   const todayRowRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 

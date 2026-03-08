@@ -53,9 +53,13 @@ export async function addLineItemsBatch(
   items: AddLineItemInput[],
 ) {
   const logTag = '[addLineItemsBatch]';
+  const MAX_BATCH_SIZE = 50;
 
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
+  }
+  if (items.length > MAX_BATCH_SIZE) {
+    throw new AppError('BATCH_TOO_LARGE', `Batch size ${items.length} exceeds maximum of ${MAX_BATCH_SIZE} items`, 400);
   }
 
   // ── Phase 1: Catalog lookups OUTSIDE transaction (batch, 1 semaphore slot) ──
@@ -169,9 +173,10 @@ export async function addLineItemsBatch(
         .where(eq(orderLines.orderId, orderId));
       let nextSort = ((sortResult[0]?.maxSort as number | null) ?? -1) + 1;
 
-      // Insert all new lines
-      const createdLines: Record<string, unknown>[] = [];
-      const events: ReturnType<typeof buildEventFromContext>[] = [];
+      // ── Prepare all line values + tax calculations in memory (no DB calls) ──
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- batch insert values built dynamically
+      const lineValues: any[] = [];
+      const taxResults: ReturnType<typeof calculateTaxes>[] = [];
 
       for (const origIdx of newIndices) {
         const item = items[origIdx]!;
@@ -198,83 +203,102 @@ export async function addLineItemsBatch(
           throw new AppError('CALCULATION_ERROR', `Invalid price calculation for item "${posItem.name}" (${posItem.itemType}). unitPrice=${unitPrice}, lineSubtotal=${lineSubtotal}`, 500);
         }
 
-        try {
-          const [line] = await tx.insert(orderLines).values({
+        taxResults.push(taxResult);
+        lineValues.push({
+          tenantId: ctx.tenantId,
+          locationId: ctx.locationId!,
+          orderId,
+          sortOrder: nextSort++,
+          catalogItemId: item.catalogItemId,
+          catalogItemName: posItem.name,
+          catalogItemSku: posItem.sku,
+          itemType: posItem.itemType,
+          subDepartmentId: posItem.subDepartmentId ?? null,
+          taxGroupId: posItem.taxInfo.taxGroups[0]?.id ?? null,
+          qty: String(item.qty),
+          unitPrice,
+          originalUnitPrice: item.priceOverride ? posItem.unitPriceCents : null,
+          priceOverrideReason: item.priceOverride?.reason ?? null,
+          priceOverriddenBy: item.priceOverride?.approvedBy ?? null,
+          priceOverrideDiscountCents: item.priceOverride
+            ? Math.max(0, Math.round((posItem.unitPriceCents - item.priceOverride.unitPrice) * Number(item.qty)))
+            : 0,
+          lineSubtotal: taxResult.subtotal,
+          lineTax: taxResult.taxTotal,
+          lineTotal: taxResult.total,
+          taxCalculationMode: posItem.taxInfo.calculationMode,
+          modifiers: item.modifiers ?? null,
+          specialInstructions: item.specialInstructions ?? null,
+          selectedOptions: item.selectedOptions ?? null,
+          packageComponents: components,
+          notes: item.notes ?? null,
+        });
+      }
+
+      // ── Batch insert: 1 query for ALL lines instead of N sequential inserts ──
+      // IMPORTANT: Postgres does NOT guarantee RETURNING order matches VALUES order.
+      // We sort by sortOrder (which we control via nextSort++) to restore the
+      // correspondence with lineValues/taxResults/newIndices arrays.
+      let insertedLines: (typeof orderLines.$inferSelect)[];
+      try {
+        const rawInserted = await tx.insert(orderLines).values(lineValues).returning();
+        insertedLines = rawInserted.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      } catch (lineErr) {
+        console.error(`${logTag} Failed to batch-insert order lines:`, {
+          orderId,
+          itemCount: newIndices.length,
+          error: lineErr instanceof Error ? lineErr.message : String(lineErr),
+          stack: lineErr instanceof Error ? lineErr.stack : undefined,
+        });
+        throw lineErr;
+      }
+
+      // ── Batch insert: 1 query for ALL tax breakdown rows ──
+      const allTaxRows: { tenantId: string; orderLineId: string; taxRateId: string | null; taxName: string; rateDecimal: string; amount: number }[] = [];
+      for (let i = 0; i < insertedLines.length; i++) {
+        const breakdown = taxResults[i]!.breakdown;
+        for (const b of breakdown) {
+          allTaxRows.push({
             tenantId: ctx.tenantId,
-            locationId: ctx.locationId!,
-            orderId,
-            sortOrder: nextSort++,
-            catalogItemId: item.catalogItemId,
-            catalogItemName: posItem.name,
-            catalogItemSku: posItem.sku,
-            itemType: posItem.itemType,
-            subDepartmentId: posItem.subDepartmentId ?? null,
-            taxGroupId: posItem.taxInfo.taxGroups[0]?.id ?? null,
-            qty: String(item.qty),
-            unitPrice,
-            originalUnitPrice: item.priceOverride ? posItem.unitPriceCents : null,
-            priceOverrideReason: item.priceOverride?.reason ?? null,
-            priceOverriddenBy: item.priceOverride?.approvedBy ?? null,
-            priceOverrideDiscountCents: item.priceOverride
-              ? Math.max(0, Math.round((posItem.unitPriceCents - item.priceOverride.unitPrice) * Number(item.qty)))
-              : 0,
-            lineSubtotal: taxResult.subtotal,
-            lineTax: taxResult.taxTotal,
-            lineTotal: taxResult.total,
-            taxCalculationMode: posItem.taxInfo.calculationMode,
-            modifiers: item.modifiers ?? null,
-            specialInstructions: item.specialInstructions ?? null,
-            selectedOptions: item.selectedOptions ?? null,
-            packageComponents: components,
-            notes: item.notes ?? null,
-          }).returning();
-
-          // Tax breakdown rows
-          if (taxResult.breakdown.length > 0) {
-            await tx.insert(orderLineTaxes).values(
-              taxResult.breakdown.map((b) => ({
-                tenantId: ctx.tenantId,
-                orderLineId: line!.id,
-                taxRateId: b.taxRateId,
-                taxName: b.taxName,
-                rateDecimal: String(b.rateDecimal),
-                amount: b.amount,
-              })),
-            );
-          }
-
-          await saveIdempotencyKey(tx, ctx.tenantId, item.clientRequestId, 'addLineItem', { lineId: line!.id });
-
-          createdLines.push({ ...line!, qty: Number(line!.qty) });
-
-          events.push(buildEventFromContext(ctx, 'order.line_added.v1', {
-            orderId,
-            lineId: line!.id,
-            catalogItemId: item.catalogItemId,
-            catalogItemName: posItem.name,
-            itemType: posItem.itemType,
-            qty: item.qty,
-            unitPrice,
-            lineSubtotal: taxResult.subtotal,
-            lineTax: taxResult.taxTotal,
-            lineTotal: taxResult.total,
-          }));
-        } catch (lineErr) {
-          console.error(`${logTag} Failed to insert order line:`, {
-            orderId,
-            catalogItemId: item.catalogItemId,
-            itemType: posItem.itemType,
-            itemName: posItem.name,
-            unitPrice,
-            lineSubtotal,
-            taxResult: { subtotal: taxResult.subtotal, taxTotal: taxResult.taxTotal, total: taxResult.total },
-            qty: item.qty,
-            error: lineErr instanceof Error ? lineErr.message : String(lineErr),
-            stack: lineErr instanceof Error ? lineErr.stack : undefined,
+            orderLineId: insertedLines[i]!.id,
+            taxRateId: b.taxRateId,
+            taxName: b.taxName,
+            rateDecimal: String(b.rateDecimal),
+            amount: b.amount,
           });
-          throw lineErr;
         }
       }
+      if (allTaxRows.length > 0) {
+        await tx.insert(orderLineTaxes).values(allTaxRows);
+      }
+
+      // ── Batch save idempotency keys ──
+      await Promise.all(
+        newIndices.map((origIdx, i) =>
+          saveIdempotencyKey(tx, ctx.tenantId, items[origIdx]!.clientRequestId, 'addLineItem', { lineId: insertedLines[i]!.id }),
+        ),
+      );
+
+      // ── Build results + events from inserted lines ──
+      const createdLines: Record<string, unknown>[] = insertedLines.map((line) => ({ ...line, qty: Number(line.qty) }));
+      const events: ReturnType<typeof buildEventFromContext>[] = insertedLines.map((line, i) => {
+        const origIdx = newIndices[i]!;
+        const item = items[origIdx]!;
+        const posItem = posItems[origIdx]!;
+        const taxResult = taxResults[i]!;
+        return buildEventFromContext(ctx, 'order.line_added.v1', {
+          orderId,
+          lineId: line.id,
+          catalogItemId: item.catalogItemId,
+          catalogItemName: posItem.name,
+          itemType: posItem.itemType,
+          qty: item.qty,
+          unitPrice: line.unitPrice,
+          lineSubtotal: taxResult.subtotal,
+          lineTax: taxResult.taxTotal,
+          lineTotal: taxResult.total,
+        });
+      });
 
       // ONE total recalculation for the entire batch
       const [allLines, allCharges, allDiscounts] = await Promise.all([

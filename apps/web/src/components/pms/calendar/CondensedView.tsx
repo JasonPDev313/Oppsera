@@ -108,7 +108,8 @@ export default function CondensedView({
     ? `${formatDateShort(dates[0]!)} \u2013 ${formatDateShort(dates[dates.length - 1]!)}`
     : '';
 
-  const todayStr = formatDate(new Date());
+  const [todayStr, setTodayStr] = useState('');
+  useEffect(() => { setTodayStr(formatDate(new Date())); }, []);
   const todayRowRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 

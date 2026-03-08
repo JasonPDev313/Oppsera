@@ -2017,6 +2017,62 @@
       "when": 1772980332869,
       "tag": "0287_fix_kds_rls_setting_name",
       "breakpoints": true
+    },
+    {
+      "idx": 288,
+      "version": "7",
+      "when": 1772997541900,
+      "tag": "0288_business_type_super_admin_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 289,
+      "version": "7",
+      "when": 1772997541901,
+      "tag": "0289_tax_exempt_gl_mapping",
+      "breakpoints": true
+    },
+    {
+      "idx": 290,
+      "version": "7",
+      "when": 1772997541902,
+      "tag": "0290_backfill_order_tender_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 291,
+      "version": "7",
+      "when": 1772997541903,
+      "tag": "0291_pms_waitlist",
+      "breakpoints": true
+    },
+    {
+      "idx": 292,
+      "version": "7",
+      "when": 1772997541904,
+      "tag": "0292_feature_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 293,
+      "version": "7",
+      "when": 1772997541905,
+      "tag": "0293_feature_request_enhancements",
+      "breakpoints": true
+    },
+    {
+      "idx": 294,
+      "version": "7",
+      "when": 1772997541906,
+      "tag": "0294_feature_request_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 295,
+      "version": "7",
+      "when": 1772998256291,
+      "tag": "0295_race_condition_guards",
+      "breakpoints": true
     }
   ]
 }

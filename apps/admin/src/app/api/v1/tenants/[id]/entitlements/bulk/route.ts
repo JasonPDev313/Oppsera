@@ -42,27 +42,31 @@ export const POST = withAdminAuth(async (req: NextRequest, session, params) => {
   const changedByLabel = `admin:${session.adminId}`;
   const applied: { moduleKey: string; previousMode: string; newMode: string }[] = [];
 
-  for (const c of changes) {
-    const previousMode = currentModes.get(c.moduleKey) ?? 'off';
-    if (previousMode === c.accessMode) continue;
+  // Wrap in a transaction to prevent partial state if a mid-loop failure
+  // leaves some entitlements changed but others not.
+  await db.transaction(async (tx) => {
+    for (const c of changes) {
+      const previousMode = currentModes.get(c.moduleKey) ?? 'off';
+      if (previousMode === c.accessMode) continue;
 
-    const isEnabled = c.accessMode !== 'off';
-    await db.execute(sql`
-      INSERT INTO entitlements (id, tenant_id, module_key, plan_tier, is_enabled, access_mode, activated_at, changed_by, change_reason, previous_mode)
-      VALUES (${generateUlid()}, ${tenantId}, ${c.moduleKey}, 'standard', ${isEnabled}, ${c.accessMode}, NOW(), ${changedByLabel}, ${reason ?? null}, ${previousMode})
-      ON CONFLICT (tenant_id, module_key)
-      DO UPDATE SET is_enabled = ${isEnabled}, access_mode = ${c.accessMode}, changed_by = ${changedByLabel},
-        change_reason = ${reason ?? null}, previous_mode = entitlements.access_mode, updated_at = NOW()
-    `);
+      const isEnabled = c.accessMode !== 'off';
+      await tx.execute(sql`
+        INSERT INTO entitlements (id, tenant_id, module_key, plan_tier, is_enabled, access_mode, activated_at, changed_by, change_reason, previous_mode)
+        VALUES (${generateUlid()}, ${tenantId}, ${c.moduleKey}, 'standard', ${isEnabled}, ${c.accessMode}, NOW(), ${changedByLabel}, ${reason ?? null}, ${previousMode})
+        ON CONFLICT (tenant_id, module_key)
+        DO UPDATE SET is_enabled = ${isEnabled}, access_mode = ${c.accessMode}, changed_by = ${changedByLabel},
+          change_reason = ${reason ?? null}, previous_mode = entitlements.access_mode, updated_at = NOW()
+      `);
 
-    await db.execute(sql`
-      INSERT INTO entitlement_change_log (id, tenant_id, module_key, previous_mode, new_mode, changed_by, change_reason, change_source)
-      VALUES (${generateUlid()}, ${tenantId}, ${c.moduleKey}, ${previousMode}, ${c.accessMode}, ${changedByLabel}, ${reason ?? null}, ${source})
-    `);
+      await tx.execute(sql`
+        INSERT INTO entitlement_change_log (id, tenant_id, module_key, previous_mode, new_mode, changed_by, change_reason, change_source)
+        VALUES (${generateUlid()}, ${tenantId}, ${c.moduleKey}, ${previousMode}, ${c.accessMode}, ${changedByLabel}, ${reason ?? null}, ${source})
+      `);
 
-    applied.push({ moduleKey: c.moduleKey, previousMode, newMode: c.accessMode });
-    currentModes.set(c.moduleKey, c.accessMode);
-  }
+      applied.push({ moduleKey: c.moduleKey, previousMode, newMode: c.accessMode });
+      currentModes.set(c.moduleKey, c.accessMode);
+    }
+  });
 
   await getEntitlementEngine().invalidateEntitlements(tenantId);
 

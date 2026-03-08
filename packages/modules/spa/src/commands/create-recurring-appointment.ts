@@ -164,6 +164,7 @@ export async function createRecurringAppointment(ctx: RequestContext, input: Cre
           resourceIds: input.resourceId
             ? [input.resourceId, ...itemResourceIds]
             : itemResourceIds,
+          tx,
         });
 
         if (conflicts.hasConflicts) {

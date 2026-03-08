@@ -324,31 +324,126 @@ function CancelDialog({
 
 // ── Move Room Dialog ─────────────────────────────────────────────
 
+interface AvailableRoom {
+  roomId: string;
+  roomNumber: string;
+  roomTypeId: string;
+  roomTypeName: string;
+  floor: string | null;
+  viewType: string | null;
+  wing: string | null;
+  status: string;
+}
+
+interface CurrentRoomInfo {
+  roomId: string;
+  roomNumber: string;
+  roomTypeName: string;
+}
+
+const ROOM_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  VACANT_INSPECTED: { label: 'Inspected', color: 'bg-blue-500' },
+  VACANT_CLEAN: { label: 'Clean', color: 'bg-emerald-500' },
+  VACANT_DIRTY: { label: 'Dirty', color: 'bg-amber-500' },
+  OCCUPIED: { label: 'Occupied', color: 'bg-red-500' },
+};
+
+function formatRoomStatus(status: string): string {
+  return ROOM_STATUS_CONFIG[status]?.label ?? status.replace(/_/g, ' ').toLowerCase();
+}
+
+function RoomStatusDot({ status }: { status: string }) {
+  const config = ROOM_STATUS_CONFIG[status];
+  const colorClass = config?.color ?? 'bg-gray-400';
+  return (
+    <span
+      className={`inline-block h-2 w-2 shrink-0 rounded-full ${colorClass}`}
+      title={formatRoomStatus(status)}
+      aria-hidden="true"
+    />
+  );
+}
+
 function MoveRoomDialog({
   open,
   onClose,
   reservationId,
+  version,
   onSuccess,
 }: {
   open: boolean;
   onClose: () => void;
   reservationId: string;
+  version: number;
   onSuccess: () => void;
 }) {
   const { toast } = useToast();
-  const [newRoomId, setNewRoomId] = useState('');
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState('');
+  const [selectedRoomId, setSelectedRoomId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [roomTypes, setRoomTypes] = useState<Array<{ id: string; name: string }>>([]);
+  const [allRooms, setAllRooms] = useState<AvailableRoom[]>([]);
+  const [currentRoom, setCurrentRoom] = useState<CurrentRoomInfo | null>(null);
+
+  // Fetch available rooms when dialog opens
+  useEffect(() => {
+    if (!open) {
+      setSelectedRoomTypeId('');
+      setSelectedRoomId('');
+      setRoomTypes([]);
+      setAllRooms([]);
+      setCurrentRoom(null);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+
+    apiFetch<{
+      data: {
+        currentRoom: CurrentRoomInfo | null;
+        roomTypes: Array<{ id: string; name: string }>;
+        rooms: AvailableRoom[];
+      };
+    }>(`/api/v1/pms/reservations/${reservationId}/available-rooms`)
+      .then((res) => {
+        if (cancelled) return;
+        setCurrentRoom(res.data.currentRoom);
+        setRoomTypes(res.data.roomTypes);
+        setAllRooms(res.data.rooms);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const e = err instanceof Error ? err : new Error('Failed to load rooms');
+        toast.error(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [open, reservationId, toast]);
+
+  // Filter rooms by selected room type
+  const filteredRooms = selectedRoomTypeId
+    ? allRooms.filter((r) => r.roomTypeId === selectedRoomTypeId)
+    : allRooms;
+
+  // Reset room selection when room type changes
+  useEffect(() => {
+    setSelectedRoomId('');
+  }, [selectedRoomTypeId]);
 
   const handleSubmit = useCallback(async () => {
-    if (!newRoomId.trim()) return;
+    if (!selectedRoomId) return;
     setIsSubmitting(true);
     try {
       await apiFetch(`/api/v1/pms/reservations/${reservationId}/move-room`, {
         method: 'POST',
-        body: JSON.stringify({ newRoomId: newRoomId.trim() }),
+        body: JSON.stringify({ newRoomId: selectedRoomId, version }),
       });
       toast.success('Room moved successfully');
-      setNewRoomId('');
       onSuccess();
       onClose();
     } catch (err) {
@@ -357,7 +452,10 @@ function MoveRoomDialog({
     } finally {
       setIsSubmitting(false);
     }
-  }, [reservationId, newRoomId, toast, onSuccess, onClose]);
+  }, [reservationId, selectedRoomId, version, toast, onSuccess, onClose]);
+
+  const selectClasses =
+    'mt-1 block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none';
 
   return (
     <ConfirmDialog
@@ -368,19 +466,130 @@ function MoveRoomDialog({
       confirmLabel="Move"
       isLoading={isSubmitting}
     >
-      <div className="mt-4">
-        <label htmlFor="move-room-id" className="block text-sm font-medium text-foreground">
-          New Room ID
-        </label>
-        <input
-          id="move-room-id"
-          type="text"
-          value={newRoomId}
-          onChange={(e) => setNewRoomId(e.target.value)}
-          placeholder="Enter the new room ID"
-          className="mt-1 block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-        />
-      </div>
+      {isLoading ? (
+        <div className="mt-4 flex items-center justify-center py-8">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading available rooms...</span>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-4">
+          {/* Current Room */}
+          {currentRoom && (
+            <div className="rounded-lg border border-border bg-muted/50 p-3 text-sm">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Current Room</div>
+              <div className="mt-1 font-medium text-foreground">
+                Room {currentRoom.roomNumber} — {currentRoom.roomTypeName}
+              </div>
+            </div>
+          )}
+
+          {allRooms.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No available rooms found for the remaining stay dates.</p>
+          ) : (
+            <>
+              {/* Room Type Filter */}
+              <div>
+                <label htmlFor="move-room-type" className="block text-sm font-medium text-foreground">
+                  Room Type
+                </label>
+                <select
+                  id="move-room-type"
+                  value={selectedRoomTypeId}
+                  onChange={(e) => setSelectedRoomTypeId(e.target.value)}
+                  className={selectClasses}
+                >
+                  <option value="">All Room Types ({allRooms.length} available)</option>
+                  {roomTypes.map((rt) => {
+                    const count = allRooms.filter((r) => r.roomTypeId === rt.id).length;
+                    return (
+                      <option key={rt.id} value={rt.id}>
+                        {rt.name} ({count} available)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Room Selection */}
+              <div>
+                <label htmlFor="move-room-select" className="block text-sm font-medium text-foreground">
+                  Room
+                </label>
+                <select
+                  id="move-room-select"
+                  value={selectedRoomId}
+                  onChange={(e) => setSelectedRoomId(e.target.value)}
+                  className={selectClasses}
+                >
+                  <option value="">Select a room...</option>
+                  {filteredRooms.map((room) => (
+                    <option key={room.roomId} value={room.roomId}>
+                      {formatRoomStatus(room.status) === 'Inspected' ? '\u2713 ' : formatRoomStatus(room.status) === 'Clean' ? '\u25cf ' : '\u25cb '}
+                      Room {room.roomNumber}
+                      {room.floor ? ` \u2014 Floor ${room.floor}` : ''}
+                      {!selectedRoomTypeId ? ` \u2014 ${room.roomTypeName}` : ''}
+                      {` (${formatRoomStatus(room.status)})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Selected Room Details + Confirmation Summary */}
+              {selectedRoomId && (() => {
+                const room = allRooms.find((r) => r.roomId === selectedRoomId);
+                if (!room) return null;
+                const isDifferentType = currentRoom && room.roomTypeName !== currentRoom.roomTypeName;
+                return (
+                  <>
+                    <div className="rounded-lg border border-border bg-muted/50 p-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <RoomStatusDot status={room.status} />
+                        <span className="font-medium text-foreground">Room {room.roomNumber}</span>
+                      </div>
+                      <div className="mt-1 space-y-0.5 text-muted-foreground">
+                        <div>Type: {room.roomTypeName}</div>
+                        <div className="flex items-center gap-1.5">
+                          Status: <RoomStatusDot status={room.status} /> {formatRoomStatus(room.status)}
+                        </div>
+                        {room.floor && <div>Floor: {room.floor}</div>}
+                        {room.viewType && <div>View: {room.viewType}</div>}
+                        {room.wing && <div>Wing: {room.wing}</div>}
+                      </div>
+                    </div>
+
+                    {/* Rate difference warning */}
+                    {isDifferentType && (
+                      <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-400">
+                        <span className="mt-0.5 shrink-0">&#9888;</span>
+                        <span>
+                          Moving from <strong>{currentRoom.roomTypeName}</strong> to{' '}
+                          <strong>{room.roomTypeName}</strong> — nightly rate may need adjustment after the move.
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Confirmation summary */}
+                    <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-3 text-sm text-foreground">
+                      <div className="font-medium">Confirm Move</div>
+                      <div className="mt-1 text-muted-foreground">
+                        {currentRoom ? (
+                          <>
+                            Room {currentRoom.roomNumber} ({currentRoom.roomTypeName})
+                            {' \u2192 '}
+                            Room {room.roomNumber} ({room.roomTypeName})
+                          </>
+                        ) : (
+                          <>Move guest to Room {room.roomNumber} ({room.roomTypeName})</>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </>
+          )}
+        </div>
+      )}
     </ConfirmDialog>
   );
 }
@@ -945,6 +1154,7 @@ export default function ReservationDetailContent() {
         open={showMoveRoom}
         onClose={() => setShowMoveRoom(false)}
         reservationId={reservationId}
+        version={reservation.version}
         onSuccess={fetchReservation}
       />
     </div>

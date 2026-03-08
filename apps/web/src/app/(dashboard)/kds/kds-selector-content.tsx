@@ -1,9 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { useStations } from '@/hooks/use-fnb-kitchen';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MapPin, AlertTriangle, Settings2 } from 'lucide-react';
 
 const STATION_TYPE_COLORS: Record<string, string> = {
   prep: '#6366f1',
@@ -24,8 +25,11 @@ function getStationColor(stationType: string): string {
 export default function KdsSelectorContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
-  const locationId = locations?.[0]?.id;
+  const [locationId, setLocationId] = useState(locations?.[0]?.id ?? '');
   const { stations, isLoading } = useStations({ locationId });
+
+  const locationName = locations?.find((l) => l.id === locationId)?.name ?? '';
+  const hasMultipleLocations = (locations?.length ?? 0) > 1;
 
   const kdsStations = stations.filter(
     (s) => s.isActive && s.stationType !== 'expo',
@@ -50,6 +54,40 @@ export default function KdsSelectorContent() {
         <h1 className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
           Select KDS Station
         </h1>
+        <div className="ml-auto flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4" style={{ color: 'var(--fnb-text-muted)' }} />
+            {hasMultipleLocations ? (
+              <select
+                value={locationId}
+                onChange={(e) => setLocationId(e.target.value)}
+                className="rounded-lg border px-3 py-1.5 text-sm font-medium"
+                style={{
+                  backgroundColor: 'var(--fnb-bg-elevated)',
+                  borderColor: 'rgba(148, 163, 184, 0.15)',
+                  color: 'var(--fnb-text-primary)',
+                }}
+              >
+                {locations?.map((loc) => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-sm font-medium" style={{ color: 'var(--fnb-text-secondary)' }}>
+                {locationName}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push('/kds/settings')}
+            className="flex items-center justify-center rounded-lg h-10 w-10 transition-colors hover:opacity-80"
+            style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-secondary)' }}
+            aria-label="KDS Settings"
+          >
+            <Settings2 className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Station grid */}
@@ -60,20 +98,38 @@ export default function KdsSelectorContent() {
               style={{ borderColor: 'var(--fnb-text-muted)', borderTopColor: 'var(--fnb-status-seated)' }} />
           </div>
         ) : kdsStations.length === 0 && !hasExpo ? (
-          <div className="text-center py-16">
-            <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>
-              No KDS stations configured
+          <div className="flex flex-col items-center py-16 max-w-md mx-auto text-center">
+            <div
+              className="flex items-center justify-center rounded-full mb-4"
+              style={{
+                width: '56px',
+                height: '56px',
+                backgroundColor: 'rgba(234, 179, 8, 0.15)',
+              }}
+            >
+              <AlertTriangle className="h-7 w-7" style={{ color: '#eab308' }} />
+            </div>
+            <p className="text-sm font-medium" style={{ color: 'var(--fnb-text-primary)' }}>
+              No KDS stations at {locationName || 'this location'}
             </p>
-            <p className="text-xs mt-2" style={{ color: 'var(--fnb-text-muted)' }}>
+            <p className="text-xs mt-2 leading-relaxed" style={{ color: 'var(--fnb-text-muted)' }}>
+              KDS stations are per-location. Orders sent from POS will only appear on stations
+              configured for the same location.
+            </p>
+            <div className="flex flex-col gap-2 mt-5 w-full max-w-xs">
               <a
                 href="/kds/setup"
-                className="underline hover:opacity-80"
-                style={{ color: 'var(--fnb-status-seated)' }}
+                className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white"
+                style={{ backgroundColor: '#6366f1' }}
               >
-                Run the KDS Setup Wizard
+                Set Up KDS for {locationName || 'this location'}
               </a>
-              {' '}to get started
-            </p>
+              {hasMultipleLocations && (
+                <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
+                  Or switch locations above to see stations at another location.
+                </p>
+              )}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-3xl mx-auto">

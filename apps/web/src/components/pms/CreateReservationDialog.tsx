@@ -34,6 +34,28 @@ interface Room {
   roomTypeId: string;
 }
 
+interface SuggestedRoom {
+  roomId: string;
+  roomNumber: string;
+  floor: string | null;
+  status: string;
+}
+
+const ROOM_STATUS_LABELS: Record<string, { label: string; icon: string }> = {
+  VACANT_INSPECTED: { label: 'Inspected', icon: '\u2713' },
+  VACANT_CLEAN: { label: 'Clean', icon: '\u25cf' },
+  VACANT_DIRTY: { label: 'Dirty', icon: '\u25cb' },
+  OCCUPIED: { label: 'Occupied', icon: '\u25cb' },
+};
+
+function formatStatus(status: string): string {
+  return ROOM_STATUS_LABELS[status]?.label ?? status.replace(/_/g, ' ').toLowerCase();
+}
+
+function statusIcon(status: string): string {
+  return ROOM_STATUS_LABELS[status]?.icon ?? '';
+}
+
 interface CustomerResult {
   id: string;
   displayName: string;
@@ -116,6 +138,9 @@ export default function CreateReservationDialog({
   const [ratePlanBaseRate, setRatePlanBaseRate] = useState<number | null>(null);
   const [isLoadingRate, setIsLoadingRate] = useState(false);
 
+  // Room type availability counts (keyed by roomTypeId)
+  const [availabilityCounts, setAvailabilityCounts] = useState<Record<string, number>>({});
+
   // Track whether prefills have been applied (reset when dialog opens)
   const prefillAppliedRef = useRef(false);
 
@@ -183,7 +208,36 @@ export default function CreateReservationDialog({
     return () => { controller.abort(); };
   }, [open, propertyId, prefillRoomTypeId]);
 
-  // ── Load available rooms when room type changes ─────────────────
+  // ── Fetch room type availability counts when dates change ───────
+  useEffect(() => {
+    if (!open || !propertyId || !formCheckIn || !formCheckOut || formCheckOut <= formCheckIn) {
+      setAvailabilityCounts({});
+      return;
+    }
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const qs = buildQueryString({ propertyId, checkInDate: formCheckIn, checkOutDate: formCheckOut });
+        const res = await apiFetch<{ data: Array<{ roomTypeId: string; availableCount: number }> }>(
+          `/api/v1/pms/reservations/available-counts${qs}`,
+          { signal: controller.signal },
+        );
+        if (controller.signal.aborted) return;
+        const counts: Record<string, number> = {};
+        for (const row of res.data ?? []) {
+          counts[row.roomTypeId] = row.availableCount;
+        }
+        setAvailabilityCounts(counts);
+      } catch {
+        if (!controller.signal.aborted) setAvailabilityCounts({});
+      }
+    })();
+    return () => { controller.abort(); };
+  }, [open, propertyId, formCheckIn, formCheckOut]);
+
+  // ── Load available rooms when room type or dates change ─────────
+  // When dates are set: use suggest-rooms API (date-filtered, sorted by readiness)
+  // When dates are missing: fall back to /pms/rooms (all rooms of that type)
   useEffect(() => {
     if (!formRoomTypeId || !propertyId) {
       setRooms([]);
@@ -192,18 +246,55 @@ export default function CreateReservationDialog({
     }
     const controller = new AbortController();
     setRoomsLoading(true);
+
+    const hasDates = formCheckIn && formCheckOut && formCheckOut > formCheckIn;
+
     (async () => {
       try {
-        const qs = buildQueryString({ propertyId, roomTypeId: formRoomTypeId, limit: 100 });
-        const res = await apiFetch<{ data: Room[] }>(`/api/v1/pms/rooms${qs}`, { signal: controller.signal });
-        if (controller.signal.aborted) return;
-        const available = (res.data ?? []).filter((r) => !r.isOutOfOrder);
-        setRooms(available);
-        // Auto-select prefilled room if available
-        if (prefillRoomId && available.some((r) => r.id === prefillRoomId)) {
-          setFormRoomId(prefillRoomId);
+        if (hasDates) {
+          // Date-filtered: only rooms available for the requested stay
+          const qs = buildQueryString({
+            propertyId,
+            roomTypeId: formRoomTypeId,
+            checkInDate: formCheckIn,
+            checkOutDate: formCheckOut,
+          });
+          const res = await apiFetch<{ data: SuggestedRoom[] }>(
+            `/api/v1/pms/reservations/suggest-rooms${qs}`,
+            { signal: controller.signal },
+          );
+          if (controller.signal.aborted) return;
+          const suggested = res.data ?? [];
+          // Map to Room shape for consistent handling
+          const mapped: Room[] = suggested.map((s) => ({
+            id: s.roomId,
+            roomNumber: s.roomNumber,
+            floor: s.floor,
+            status: s.status,
+            isOutOfOrder: false,
+            roomTypeId: formRoomTypeId,
+          }));
+          setRooms(mapped);
+          if (prefillRoomId && mapped.some((r) => r.id === prefillRoomId)) {
+            setFormRoomId(prefillRoomId);
+          } else if (mapped.length === 1) {
+            // Auto-select when exactly one room is available
+            setFormRoomId(mapped[0]!.id);
+          } else {
+            setFormRoomId('');
+          }
         } else {
-          setFormRoomId('');
+          // No dates: show all non-OOO rooms of this type
+          const qs = buildQueryString({ propertyId, roomTypeId: formRoomTypeId, limit: 100 });
+          const res = await apiFetch<{ data: Room[] }>(`/api/v1/pms/rooms${qs}`, { signal: controller.signal });
+          if (controller.signal.aborted) return;
+          const available = (res.data ?? []).filter((r) => !r.isOutOfOrder);
+          setRooms(available);
+          if (prefillRoomId && available.some((r) => r.id === prefillRoomId)) {
+            setFormRoomId(prefillRoomId);
+          } else {
+            setFormRoomId('');
+          }
         }
       } catch {
         if (!controller.signal.aborted) setRooms([]);
@@ -212,7 +303,7 @@ export default function CreateReservationDialog({
       }
     })();
     return () => { controller.abort(); };
-  }, [formRoomTypeId, propertyId, prefillRoomId]);
+  }, [formRoomTypeId, propertyId, prefillRoomId, formCheckIn, formCheckOut]);
 
   // ── Auto-populate nightly rate from rate plan ───────────────────
   useEffect(() => {
@@ -367,6 +458,22 @@ export default function CreateReservationDialog({
     formNotes, formGuestId, propertyId, onSuccess,
   ]);
 
+  // ── Keyboard shortcut: Enter to submit ─────────────────────────
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onClose();
+      return;
+    }
+    if (e.key === 'Enter' && !e.shiftKey && !isSubmitting) {
+      // Don't submit if focus is in textarea (allow newlines)
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'TEXTAREA') return;
+      e.preventDefault();
+      handleCreateReservation();
+    }
+  }, [isSubmitting, handleCreateReservation, onClose]);
+
   // ── Render ──────────────────────────────────────────────────────
 
   if (!open) return null;
@@ -377,7 +484,8 @@ export default function CreateReservationDialog({
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       {/* Panel */}
-      <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-xl">
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+      <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-xl" onKeyDown={handleKeyDown}>
         <div className="mb-4 flex items-center justify-between">
           <h2 id="create-reservation-dialog-title" className="text-lg font-semibold text-foreground">New Reservation</h2>
           <button
@@ -574,10 +682,20 @@ export default function CreateReservationDialog({
                 </p>
               ) : (
                 <Select
-                  options={roomTypes.map((rt) => ({
-                    value: rt.id,
-                    label: `${rt.name} (${rt.code})`,
-                  }))}
+                  options={roomTypes.map((rt) => {
+                    const hasDates = formCheckIn && formCheckOut && formCheckOut > formCheckIn;
+                    const count = availabilityCounts[rt.id];
+                    const hasCountData = hasDates && count != null;
+                    const countSuffix = hasCountData
+                      ? count === 0
+                        ? ' — 0 available ⚠'
+                        : ` — ${count} available`
+                      : '';
+                    return {
+                      value: rt.id,
+                      label: `${rt.name} (${rt.code})${countSuffix}`,
+                    };
+                  })}
                   value={formRoomTypeId}
                   onChange={(v) => setFormRoomTypeId(v as string)}
                   placeholder="Select room type"
@@ -590,6 +708,11 @@ export default function CreateReservationDialog({
               <div>
                 <label htmlFor="reservation-room" className="mb-1 block text-sm font-medium text-foreground">
                   Room (optional)
+                  {!roomsLoading && rooms.length > 0 && (
+                    <span className="ml-1 font-normal text-muted-foreground">
+                      — {rooms.length} available
+                    </span>
+                  )}
                 </label>
                 {roomsLoading ? (
                   <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
@@ -597,16 +720,23 @@ export default function CreateReservationDialog({
                     Loading rooms...
                   </div>
                 ) : rooms.length === 0 ? (
-                  <p className="py-2 text-xs text-muted-foreground">
-                    No rooms available for this type
-                  </p>
+                  <div className="py-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      {formCheckIn && formCheckOut
+                        ? 'No rooms available for the selected dates'
+                        : 'No rooms available for this type'}
+                    </p>
+                    <p className="text-xs text-amber-500">
+                      Reservation will be created without a room assignment
+                    </p>
+                  </div>
                 ) : (
                   <Select
                     options={[
                       { value: '', label: 'Unassigned (assign later)' },
                       ...rooms.map((r) => ({
                         value: r.id,
-                        label: `Room ${r.roomNumber}${r.floor ? ` (Floor ${r.floor})` : ''} — ${r.status.replace(/_/g, ' ').toLowerCase()}`,
+                        label: `${statusIcon(r.status)} Room ${r.roomNumber}${r.floor ? ` — Floor ${r.floor}` : ''} (${formatStatus(r.status)})`,
                       })),
                     ]}
                     value={formRoomId}

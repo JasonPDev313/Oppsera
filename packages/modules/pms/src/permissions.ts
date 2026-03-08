@@ -78,6 +78,9 @@ export const PMS_PERMISSIONS = {
   // Loyalty
   LOYALTY_VIEW: 'pms.loyalty.view',
   LOYALTY_MANAGE: 'pms.loyalty.manage',
+  // Waitlist
+  WAITLIST_VIEW: 'pms.waitlist.view',
+  WAITLIST_MANAGE: 'pms.waitlist.manage',
 } as const;
 
 export type PmsPermission = (typeof PMS_PERMISSIONS)[keyof typeof PMS_PERMISSIONS];
@@ -119,6 +122,8 @@ export const PMS_ROLE_PERMISSIONS: Record<string, PmsPermission[]> = {
     PMS_PERMISSIONS.PORTAL_MANAGE,
     PMS_PERMISSIONS.LOYALTY_VIEW,
     PMS_PERMISSIONS.LOYALTY_MANAGE,
+    PMS_PERMISSIONS.WAITLIST_VIEW,
+    PMS_PERMISSIONS.WAITLIST_MANAGE,
   ],
 
   'PMS Housekeeping': [
@@ -180,6 +185,7 @@ export const PMS_ROLE_PERMISSIONS: Record<string, PmsPermission[]> = {
     PMS_PERMISSIONS.ASSIGNMENT_VIEW,
     PMS_PERMISSIONS.PORTAL_VIEW,
     PMS_PERMISSIONS.LOYALTY_VIEW,
+    PMS_PERMISSIONS.WAITLIST_VIEW,
   ],
 };
 

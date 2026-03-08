@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
@@ -24,15 +24,18 @@ export async function closeTab(
       return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    const [tab] = await tx
-      .select()
-      .from(fnbTabs)
-      .where(and(
-        eq(fnbTabs.id, tabId),
-        eq(fnbTabs.tenantId, ctx.tenantId),
-      ))
-      .limit(1);
-    if (!tab) throw new TabNotFoundError(tabId);
+    // FOR UPDATE prevents stale reads between status check and version-guarded UPDATE.
+    // Without it, two concurrent close requests could both read the same status/version,
+    // though only one would win the version check. FOR UPDATE serializes the reads.
+    const tabRows = await tx.execute(
+      sql`SELECT * FROM fnb_tabs
+          WHERE id = ${tabId} AND tenant_id = ${ctx.tenantId}
+          LIMIT 1
+          FOR UPDATE`,
+    );
+    const tabArr = Array.from(tabRows as Iterable<Record<string, unknown>>);
+    if (tabArr.length === 0) throw new TabNotFoundError(tabId);
+    const tab = tabArr[0]! as typeof fnbTabs.$inferSelect;
 
     if (!CLOSEABLE_STATUSES.includes(tab.status)) {
       throw new TabStatusConflictError(tabId, tab.status, 'close');
