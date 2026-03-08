@@ -49,20 +49,33 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['@oppsera/shared', '@oppsera/core', '@oppsera/module-import', 'lucide-react'],
   },
   // Webpack config: watcher + Edge runtime polyfill fallbacks.
-  webpack: (config, { nextRuntime }) => {
-    // Edge runtime: jsonwebtoken (used by impersonation.ts) requires Node.js crypto/stream
-    // which aren't available in Edge. The code paths are behind NEXT_RUNTIME === 'nodejs'
-    // checks so they never execute in Edge — tell webpack to provide empty fallbacks.
+  webpack: (config, { nextRuntime, webpack }) => {
+    // Edge runtime: instrumentation.ts is compiled for both Node.js and Edge runtimes.
+    // Dynamic imports (postgres.js, jsonwebtoken, pms, etc.) pull in Node.js built-ins
+    // that don't exist in Edge. The code paths are behind NEXT_RUNTIME === 'nodejs'
+    // checks so they never execute in Edge — provide empty fallbacks for all built-ins.
     if (nextRuntime === 'edge') {
+      const nodeBuiltins = [
+        'crypto', 'stream', 'util', 'net', 'tls', 'fs', 'os', 'path',
+        'perf_hooks', 'child_process', 'dns', 'http', 'https', 'zlib',
+        'events', 'buffer', 'url', 'querystring', 'string_decoder', 'assert',
+        'http2', 'dgram', 'cluster', 'worker_threads', 'vm', 'readline',
+      ];
+      // Bare module names (require('crypto')) → resolve.fallback = empty module
+      const fallback: Record<string, false> = {};
+      for (const mod of nodeBuiltins) {
+        fallback[mod] = false;
+      }
       config.resolve = {
         ...config.resolve,
-        fallback: {
-          ...(config.resolve?.fallback ?? {}),
-          crypto: false,
-          stream: false,
-          util: false,
-        },
+        fallback: { ...(config.resolve?.fallback ?? {}), ...fallback },
       };
+      // node: URI scheme (import from 'node:crypto') → strip prefix so it hits fallback
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(/^node:/, (resource: { request: string }) => {
+          resource.request = resource.request.replace(/^node:/, '');
+        }),
+      );
     }
 
     // Watcher config (production builds only — Turbopack ignores this in dev).
