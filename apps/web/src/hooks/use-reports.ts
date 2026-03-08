@@ -81,7 +81,8 @@ export function useReportsDashboard(locationId?: string) {
         `/api/v1/reports/dashboard?${params.toString()}`,
       ).then((r) => r.data);
     },
-    refetchInterval: 60_000,
+    refetchInterval: () => (document.hidden ? false : 60_000),
+    refetchOnWindowFocus: true,
   });
 
   return {

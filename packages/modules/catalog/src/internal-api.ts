@@ -1,7 +1,8 @@
 import { eq, and, inArray, asc, isNull, sql } from 'drizzle-orm';
-import { withTenant, sqlArray } from '@oppsera/db';
+import { withTenant } from '@oppsera/db';
 import {
   catalogItems,
+  catalogCategories,
   catalogLocationPrices,
   catalogItemModifierGroups,
   catalogModifierGroups,
@@ -397,13 +398,19 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
               inArray(catalogItemLocationTaxGroups.catalogItemId, foundIds),
             ),
           ),
-        tx.execute(sql`
-          SELECT ci.id AS item_id, COALESCE(cat.parent_id, cat.id) AS sub_department_id
-          FROM catalog_items ci
-          JOIN catalog_categories cat ON cat.id = ci.category_id
-          WHERE ci.id = ANY(${sqlArray(foundIds)})
-            AND ci.tenant_id = ${tenantId}
-        `),
+        tx
+          .select({
+            itemId: catalogItems.id,
+            subDepartmentId: sql<string>`COALESCE(${catalogCategories.parentId}, ${catalogCategories.id})`,
+          })
+          .from(catalogItems)
+          .innerJoin(catalogCategories, eq(catalogCategories.id, catalogItems.categoryId))
+          .where(
+            and(
+              eq(catalogItems.tenantId, tenantId),
+              inArray(catalogItems.id, foundIds),
+            ),
+          ),
       ]);
 
       const priceMap = new Map<string, number>();
@@ -412,8 +419,10 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
       }
 
       const subDeptMap = new Map<string, string>();
-      for (const row of Array.from(subDeptRows as Iterable<Record<string, unknown>>)) {
-        subDeptMap.set(row.item_id as string, row.sub_department_id as string);
+      for (const row of subDeptRows) {
+        if (row.subDepartmentId) {
+          subDeptMap.set(row.itemId, row.subDepartmentId);
+        }
       }
 
       const allGroupIds = [...new Set(taxAssignments.map((a) => a.taxGroupId))];

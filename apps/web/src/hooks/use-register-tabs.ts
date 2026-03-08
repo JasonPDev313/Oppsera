@@ -342,7 +342,8 @@ export function useRegisterTabs({
     // If we already fetched from server this mount, skip (cache was shown above)
     if (hasFetchedTabs.current) return;
 
-    let cancelled = false;
+    const controller = new AbortController();
+    const { signal } = controller;
 
     // Block sync-back during rehydration so it doesn't auto-clear orderId
     isSwitching.current = true;
@@ -359,13 +360,13 @@ export function useRegisterTabs({
     async function prefetchOrders(tabsWithOrders: RegisterTab[]) {
       const CONCURRENCY = 2;
       for (let i = 0; i < tabsWithOrders.length; i += CONCURRENCY) {
-        if (cancelled) return;
+        if (signal.aborted) return;
         const batch = tabsWithOrders.slice(i, i + CONCURRENCY);
         await Promise.allSettled(
           batch.map(async (tab) => {
             try {
               const order = await pos.fetchOrder(tab.orderId!);
-              if (cancelled) return;
+              if (signal.aborted) return;
               if (order.status === 'open') {
                 orderCache.current.set(tab.orderId!, order);
                 if (activeTabRef.current === tab.tabNumber) {
@@ -375,7 +376,7 @@ export function useRegisterTabs({
                 clearTabOrder(tab);
               }
             } catch {
-              if (!cancelled) clearTabOrder(tab);
+              if (!signal.aborted) clearTabOrder(tab);
             }
           }),
         );
@@ -387,9 +388,10 @@ export function useRegisterTabs({
       try {
         const resp = await apiFetch<{ data: ServerTab[] }>(
           `/api/v1/register-tabs?terminalId=${encodeURIComponent(terminalId)}`,
+          { signal },
         );
 
-        if (cancelled) return;
+        if (signal.aborted) return;
 
         let serverTabs = resp.data.map(toRegisterTab);
 
@@ -400,9 +402,10 @@ export function useRegisterTabs({
             {
               method: 'POST',
               body: JSON.stringify({ terminalId, tabNumber: 1, employeeId, employeeName }),
+              signal,
             },
           );
-          if (cancelled) return;
+          if (signal.aborted) return;
           serverTabs = [toRegisterTab(createResp.data)];
         }
 
@@ -442,7 +445,7 @@ export function useRegisterTabs({
         });
       } catch {
         // If server load fails and no cached data, create a local fallback tab
-        if (!cancelled && !cached) {
+        if (!signal.aborted && !cached) {
           setTabs([{ id: 'local-1', tabNumber: 1, orderId: null, employeeId, employeeName, version: 1 }]);
           setActiveTabNumber(1);
           hasLoaded.current = true;
@@ -455,7 +458,7 @@ export function useRegisterTabs({
     loadTabs();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [terminalId, isActive]);
 

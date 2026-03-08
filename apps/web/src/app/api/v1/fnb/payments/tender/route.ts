@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { sql } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { hasPaymentsGateway, getPaymentsGatewayApi } from '@oppsera/core/helpers/payments-gateway-api';
 import { broadcastFnb } from '@oppsera/core/realtime';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { AppError, ValidationError } from '@oppsera/shared';
+import { withTenant } from '@oppsera/db';
 import { recordSplitTender, recordSplitTenderSchema } from '@oppsera/module-fnb';
+import { validateHouseAccountCharge } from '@oppsera/module-fnb/helpers/house-account-validation';
 
 /**
  * POST /api/v1/fnb/payments/tender — record a split tender
  *
  * For card tenders: if a token or paymentMethodId is included and gateway is configured,
  * processes through PaymentsGatewayApi.sale() before recording.
- * For cash/gift_card/house_account: records directly without gateway.
+ * For house_account: CMAA re-validation before recording (credit, status, limits, hours, tip cap).
+ * For cash/gift_card: records directly without gateway.
  */
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -27,6 +32,46 @@ export const POST = withMiddleware(
     }
 
     const input = parsed.data;
+
+    // ── House account: CMAA re-validation at charge time ──
+    if (input.tenderType === 'house_account') {
+      if (!input.billingAccountId || !input.customerId) {
+        throw new AppError(
+          'MISSING_HOUSE_ACCOUNT_DATA',
+          'billingAccountId and customerId are required for house account tenders',
+          400,
+        );
+      }
+
+      // Re-validate all CMAA gates (account status, collections, credit, limits, hours, tip cap)
+      await validateHouseAccountCharge(ctx, {
+        billingAccountId: input.billingAccountId,
+        customerId: input.customerId,
+        amountCents: input.amountCents,
+        tipCents: input.tipCents ?? 0,
+      });
+
+      // Store house account metadata + signature on the payment session
+      await withTenant(ctx.tenantId, async (tx) => {
+        await tx.execute(
+          sql`UPDATE fnb_payment_sessions
+              SET house_account_id = ${input.billingAccountId},
+                  house_customer_id = ${input.customerId},
+                  house_signature_data = ${input.signatureData ?? null},
+                  updated_at = NOW()
+              WHERE id = ${input.sessionId}
+                AND tenant_id = ${ctx.tenantId}`,
+        );
+      });
+
+      auditLogDeferred(ctx, 'house_account.charge_validated', 'billing_account', input.billingAccountId, undefined, {
+        amountCents: input.amountCents,
+        tipCents: input.tipCents ?? 0,
+        customerId: input.customerId,
+        sessionId: input.sessionId,
+        hasSignature: !!input.signatureData,
+      });
+    }
 
     // Card tenders with token/paymentMethodId go through the gateway
     if (input.tenderType === 'card' && (body.token || body.paymentMethodId) && hasPaymentsGateway()) {

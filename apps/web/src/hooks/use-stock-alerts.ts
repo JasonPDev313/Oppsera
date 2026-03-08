@@ -69,7 +69,8 @@ export function useStockAlerts(options: UseStockAlertsOptions = {}) {
       );
     },
     staleTime: 60_000, // 1 minute
-    refetchInterval: 5 * 60_000, // auto-refresh every 5 minutes
+    refetchInterval: () => (document.hidden ? false : 5 * 60_000), // auto-refresh every 5 minutes, pause when hidden
+    refetchOnWindowFocus: true,
   });
 
   const mutate = useCallback(() => {

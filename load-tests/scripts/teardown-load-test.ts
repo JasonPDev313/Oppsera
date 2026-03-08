@@ -145,7 +145,7 @@ async function main() {
     try {
       const result = await db.execute(sql`
         DELETE FROM ${sql.identifier(table)}
-        WHERE tenant_id = ANY(${tenantIds})
+        WHERE tenant_id = ANY(ARRAY[${sql.join(tenantIds.map((id: string) => sql`${id}`), sql`, `)}]::text[])
       `);
       const count = (result as any)?.rowCount ?? (result as any)?.count ?? '?';
       if (count !== 0 && count !== '?') {

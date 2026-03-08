@@ -357,7 +357,7 @@ export function useHostDashboard({
     },
     enabled: !!locationId,
     staleTime: 10_000,
-    refetchInterval: pollIntervalMs,
+    refetchInterval: () => (document.hidden ? false : pollIntervalMs),
     refetchOnWindowFocus: true,
   });
 
@@ -399,7 +399,8 @@ export function useHostTables(locationId: string | null) {
     },
     enabled: !!locationId,
     staleTime: 15_000,
-    refetchInterval: 60_000, // reduced from 30s — realtime broadcast is primary
+    refetchInterval: () => (document.hidden ? false : 60_000), // reduced from 30s — realtime broadcast is primary
+    refetchOnWindowFocus: true,
   });
 
   // Subscribe to realtime broadcast notifications

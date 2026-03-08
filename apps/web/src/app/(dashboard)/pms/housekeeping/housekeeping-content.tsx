@@ -1336,22 +1336,22 @@ export default function HousekeepingContent() {
   // ── Fetch all property-scoped data in parallel ─────────────────
   useEffect(() => {
     if (!selectedPropertyId) return;
-    let cancelled = false;
+    const controller = new AbortController();
     const qs = buildQueryString({ propertyId: selectedPropertyId });
     Promise.all([
       fetchRooms(),
       fetchAssignments(),
-      apiFetch<{ data: Housekeeper[] }>(`/api/v1/pms/housekeepers${qs}`),
-      apiFetch<{ data: CleaningType[] }>(`/api/v1/pms/housekeeping/cleaning-types${qs}`),
+      apiFetch<{ data: Housekeeper[] }>(`/api/v1/pms/housekeepers${qs}`, { signal: controller.signal }),
+      apiFetch<{ data: CleaningType[] }>(`/api/v1/pms/housekeeping/cleaning-types${qs}`, { signal: controller.signal }),
     ]).then(([, , hkRes, ctRes]) => {
-      if (!cancelled) {
+      if (!controller.signal.aborted) {
         setHousekeepers(hkRes.data ?? []);
         setCleaningTypes(ctRes.data ?? []);
       }
     }).catch(() => {
       // non-critical
     });
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [fetchRooms, fetchAssignments, selectedPropertyId]);
 
   // ── Auto-refresh every 30s ──────────────────────────────────────

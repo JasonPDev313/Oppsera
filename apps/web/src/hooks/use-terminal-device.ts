@@ -45,7 +45,8 @@ export function useTerminalDevice(terminalId: string | null) {
       return res.data;
     },
     enabled: !!terminalId,
-    refetchInterval: 60_000, // poll every 60s
+    refetchInterval: () => (document.hidden ? false : 60_000), // poll every 60s, pause when hidden
+    refetchOnWindowFocus: true,
     retry: false,
     staleTime: 30_000,
   });

@@ -15,17 +15,20 @@ export function useKdsStationsForNav(locationId?: string): SubNavItem[] {
 
   useEffect(() => {
     if (!locationId) return;
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         const params = `?locationId=${locationId}`;
-        const json = await apiFetch<{ data: FnbStation[] }>(`/api/v1/fnb/stations${params}`);
-        if (!cancelled) setStations(json.data ?? []);
+        const json = await apiFetch<{ data: FnbStation[] }>(
+          `/api/v1/fnb/stations${params}`,
+          { signal: controller.signal },
+        );
+        if (!controller.signal.aborted) setStations(json.data ?? []);
       } catch {
         // Silently fail — stations will just not appear in nav
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [locationId]);
 
   return useMemo(() => {

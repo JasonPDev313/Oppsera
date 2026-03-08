@@ -117,20 +117,20 @@ export default function RatePlanDetailContent() {
   // ── Fetch room types (for Set Rate dialog) ────────────────────
   useEffect(() => {
     if (!ratePlan?.propertyId) return;
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         const qs = buildQueryString({ propertyId: ratePlan.propertyId });
         const res = await apiFetch<{
           data: RoomType[];
-        }>(`/api/v1/pms/room-types${qs}`);
-        if (!cancelled) setRoomTypes(res.data ?? []);
+        }>(`/api/v1/pms/room-types${qs}`, { signal: controller.signal });
+        if (!controller.signal.aborted) setRoomTypes(res.data ?? []);
       } catch {
         // silently handle
       }
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [ratePlan?.propertyId]);
 

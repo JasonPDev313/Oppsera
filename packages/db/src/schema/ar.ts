@@ -2,6 +2,7 @@ import {
   pgTable,
   text,
   integer,
+  bigint,
   timestamp,
   date,
   numeric,
@@ -11,6 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { generateUlid } from '@oppsera/shared';
 import { tenants } from './core';
+import { billingAccounts, customers } from './customers';
 
 // ── ar_invoices ────────────────────────────────────────────────
 export const arInvoices = pgTable(
@@ -124,5 +126,79 @@ export const arReceiptAllocations = pgTable(
     primaryKey({ columns: [table.receiptId, table.invoiceId] }),
     index('idx_ar_receipt_alloc_receipt').on(table.receiptId),
     index('idx_ar_receipt_alloc_invoice').on(table.invoiceId),
+  ],
+);
+
+// ── ar_disputes (CMAA member dispute flow, migration 0286) ────
+export const arDisputes = pgTable(
+  'ar_disputes',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    locationId: text('location_id'),
+    billingAccountId: text('billing_account_id')
+      .notNull()
+      .references(() => billingAccounts.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    invoiceId: text('invoice_id').references(() => arInvoices.id),
+    disputeNumber: text('dispute_number').notNull(),
+    status: text('status').notNull().default('open'), // open, under_review, resolved, rejected
+    reason: text('reason').notNull(),
+    amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+    resolutionNotes: text('resolution_notes'),
+    resolvedBy: text('resolved_by'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_ar_disputes_tenant_number').on(table.tenantId, table.disputeNumber),
+    index('idx_ar_disputes_tenant_status').on(table.tenantId, table.status),
+    index('idx_ar_disputes_tenant_customer').on(table.tenantId, table.customerId),
+    index('idx_ar_disputes_tenant_billing_account').on(table.tenantId, table.billingAccountId),
+  ],
+);
+
+// ── billing_account_statements (CMAA statement generation, migration 0286) ──
+export const billingAccountStatements = pgTable(
+  'billing_account_statements',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    locationId: text('location_id'),
+    billingAccountId: text('billing_account_id')
+      .notNull()
+      .references(() => billingAccounts.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    statementNumber: text('statement_number').notNull(),
+    periodStart: date('period_start').notNull(),
+    periodEnd: date('period_end').notNull(),
+    openingBalanceCents: bigint('opening_balance_cents', { mode: 'number' }).notNull().default(0),
+    chargesCents: bigint('charges_cents', { mode: 'number' }).notNull().default(0),
+    paymentsCents: bigint('payments_cents', { mode: 'number' }).notNull().default(0),
+    adjustmentsCents: bigint('adjustments_cents', { mode: 'number' }).notNull().default(0),
+    lateFeesCents: bigint('late_fees_cents', { mode: 'number' }).notNull().default(0),
+    closingBalanceCents: bigint('closing_balance_cents', { mode: 'number' }).notNull().default(0),
+    dueDate: date('due_date').notNull(),
+    status: text('status').notNull().default('draft'), // draft, finalized, sent, paid, overdue, void
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_statements_tenant_number').on(table.tenantId, table.statementNumber),
+    index('idx_statements_tenant_billing_account').on(table.tenantId, table.billingAccountId),
+    index('idx_statements_tenant_customer').on(table.tenantId, table.customerId),
+    index('idx_statements_tenant_status').on(table.tenantId, table.status),
+    index('idx_statements_tenant_due_date').on(table.tenantId, table.dueDate),
   ],
 );

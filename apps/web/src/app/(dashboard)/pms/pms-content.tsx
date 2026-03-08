@@ -112,11 +112,11 @@ export default function PmsContent() {
 
   // ── Load properties ─────────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
-        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties');
-        if (cancelled) return;
+        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties', { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const items = res.data ?? [];
         setProperties(items);
         if (items.length > 0 && !selectedPropertyId) {
@@ -126,7 +126,7 @@ export default function PmsContent() {
         // silently handle — properties will be empty
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, []);
 
   // ── Load dashboard data when property selected ──────────────────
@@ -135,7 +135,7 @@ export default function PmsContent() {
       setIsLoading(false);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setIsLoading(true);
 
     (async () => {
@@ -148,12 +148,14 @@ export default function PmsContent() {
               startDate: today,
               endDate: today,
             })}`,
+            { signal: controller.signal },
           ),
           apiFetch<{ data: Reservation[] }>(
             `/api/v1/pms/reservations${buildQueryString({
               propertyId: selectedPropertyId,
               status: 'CHECKED_IN',
             })}`,
+            { signal: controller.signal },
           ),
           apiFetch<{ data: OccupancyDay[] }>(
             `/api/v1/pms/occupancy${buildQueryString({
@@ -161,10 +163,11 @@ export default function PmsContent() {
               startDate: today,
               endDate: today,
             })}`,
+            { signal: controller.signal },
           ),
         ]);
 
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setArrivals(arrivalsRes.data ?? []);
         setOccupiedReservations(occupiedRes.data ?? []);
         const days = occupancyRes.data ?? [];
@@ -172,11 +175,11 @@ export default function PmsContent() {
       } catch {
         // silently handle
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [selectedPropertyId, today]);
 
   // ── Derived KPIs ────────────────────────────────────────────────

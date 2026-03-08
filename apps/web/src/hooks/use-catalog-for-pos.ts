@@ -207,12 +207,13 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
 
   // ── Fetch fresh catalog from API ────────────────────────────────
 
-  const fetchCatalog = useCallback(async (showLoading: boolean) => {
+  const fetchCatalog = useCallback(async (showLoading: boolean, signal?: AbortSignal) => {
     if (showLoading) setIsLoading(true);
     try {
       const res = await apiFetch<{
         data: { items: POSRawItem[]; categories: POSRawCategory[]; onHandByCatalogItemId?: Record<string, number> };
-      }>('/api/v1/catalog/pos');
+      }>('/api/v1/catalog/pos', signal ? { signal } : undefined);
+      if (signal?.aborted) return;
       saveCachedCatalog(locationId, res.data.items, res.data.categories, res.data.onHandByCatalogItemId);
       const { posItems, categories, catMap } = processCatalogData(
         res.data.items,
@@ -240,7 +241,7 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
   const hasFetchedCatalog = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
     // 1. Always hydrate from cache (even when inactive)
     const cached = loadCachedCatalog(locationId);
@@ -257,22 +258,22 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
     }
 
     // 2. Defer server fetch until active
-    if (!isActive) return;
+    if (!isActive) return () => { controller.abort(); };
 
     async function loadCatalog() {
       if (cached) {
         // Background refresh — don't show loading spinner
-        if (!cancelled) await fetchCatalog(false);
+        if (!controller.signal.aborted) await fetchCatalog(false, controller.signal);
       } else {
         // No cache — fetch and show loading
-        if (!cancelled) await fetchCatalog(true);
+        if (!controller.signal.aborted) await fetchCatalog(true, controller.signal);
       }
       hasFetchedCatalog.current = true;
     }
 
     loadCatalog();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [locationId, fetchCatalog, isActive]);
 

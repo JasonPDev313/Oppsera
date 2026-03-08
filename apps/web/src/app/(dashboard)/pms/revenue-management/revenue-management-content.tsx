@@ -174,11 +174,11 @@ export default function RevenueManagementContent() {
 
   // ── Load properties ──────────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
-        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties');
-        if (cancelled) return;
+        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties', { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const items = res.data ?? [];
         setProperties(items);
         if (items.length > 0 && !selectedPropertyId) {
@@ -188,18 +188,18 @@ export default function RevenueManagementContent() {
         // silently handle
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, []);
 
   // ── Load room types ──────────────────────────────────────────────
   useEffect(() => {
     if (!selectedPropertyId) return;
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         const qs = buildQueryString({ propertyId: selectedPropertyId });
-        const res = await apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${qs}`);
-        if (cancelled) return;
+        const res = await apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${qs}`, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const items = res.data ?? [];
         setRoomTypes(items);
         if (items.length > 0) {
@@ -209,7 +209,7 @@ export default function RevenueManagementContent() {
         // silently handle
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [selectedPropertyId]);
 
   // ── Load pricing rules ───────────────────────────────────────────

@@ -177,23 +177,24 @@ function OverviewTab({
       setIsLoading(false);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setIsLoading(true);
     (async () => {
       try {
         const qs = buildQueryString({ propertyId, businessDate });
         const res = await apiFetch<{ data: ManagerFlash }>(
           `/api/v1/pms/reports/manager-flash${qs}`,
+          { signal: controller.signal },
         );
-        if (!cancelled) setData(res.data ?? null);
+        if (!controller.signal.aborted) setData(res.data ?? null);
       } catch {
-        if (!cancelled) setData(null);
+        if (!controller.signal.aborted) setData(null);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [propertyId, businessDate]);
 
@@ -311,23 +312,24 @@ function RevenueTab({
       setIsLoading(false);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setIsLoading(true);
     (async () => {
       try {
         const qs = buildQueryString({ propertyId, startDate, endDate });
         const res = await apiFetch<{ data: RevenueByRoomType[] }>(
           `/api/v1/pms/reports/revenue-by-room-type${qs}`,
+          { signal: controller.signal },
         );
-        if (!cancelled) setData(res.data ?? []);
+        if (!controller.signal.aborted) setData(res.data ?? []);
       } catch {
-        if (!cancelled) setData([]);
+        if (!controller.signal.aborted) setData([]);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [propertyId, startDate, endDate]);
 
@@ -422,23 +424,24 @@ function OperationsTab({
       setIsLoading(false);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setIsLoading(true);
     (async () => {
       try {
         const qs = buildQueryString({ propertyId, startDate, endDate });
         const res = await apiFetch<{ data: NoShowRecord[] }>(
           `/api/v1/pms/reports/no-show${qs}`,
+          { signal: controller.signal },
         );
-        if (!cancelled) setData(res.data ?? []);
+        if (!controller.signal.aborted) setData(res.data ?? []);
       } catch {
-        if (!cancelled) setData([]);
+        if (!controller.signal.aborted) setData([]);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [propertyId, startDate, endDate]);
 
@@ -533,23 +536,24 @@ function HousekeepingTab({
       setIsLoading(false);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setIsLoading(true);
     (async () => {
       try {
         const qs = buildQueryString({ propertyId, startDate, endDate });
         const res = await apiFetch<{ data: HousekeepingProductivity[] }>(
           `/api/v1/pms/reports/housekeeping-productivity${qs}`,
+          { signal: controller.signal },
         );
-        if (!cancelled) setData(res.data ?? []);
+        if (!controller.signal.aborted) setData(res.data ?? []);
       } catch {
-        if (!cancelled) setData([]);
+        if (!controller.signal.aborted) setData([]);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [propertyId, startDate, endDate]);
 
@@ -649,13 +653,14 @@ export default function ReportsContent() {
 
   // ── Load properties on mount ────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         const res = await apiFetch<{ data: Property[] }>(
           '/api/v1/pms/properties',
+          { signal: controller.signal },
         );
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         const items = res.data ?? [];
         setProperties(items);
         if (items.length > 0 && !selectedPropertyId) {
@@ -666,7 +671,7 @@ export default function ReportsContent() {
       }
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, []);
 

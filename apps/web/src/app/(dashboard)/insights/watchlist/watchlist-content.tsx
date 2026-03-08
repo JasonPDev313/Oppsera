@@ -58,17 +58,17 @@ function AddMetricDialog({
   // Fetch registry on open
   useEffect(() => {
     if (!open) return;
-    let cancelled = false;
+    const controller = new AbortController();
 
     async function load() {
       setIsLoadingRegistry(true);
       try {
-        const res = await apiFetch<{ data: RegistryMetric[] }>('/api/v1/semantic/metrics');
-        if (!cancelled) setRegistryMetrics(res.data.length > 0 ? res.data : FALLBACK_METRICS);
+        const res = await apiFetch<{ data: RegistryMetric[] }>('/api/v1/semantic/metrics', { signal: controller.signal });
+        if (!controller.signal.aborted) setRegistryMetrics(res.data.length > 0 ? res.data : FALLBACK_METRICS);
       } catch {
-        if (!cancelled) setRegistryMetrics(FALLBACK_METRICS);
+        if (!controller.signal.aborted) setRegistryMetrics(FALLBACK_METRICS);
       } finally {
-        if (!cancelled) setIsLoadingRegistry(false);
+        if (!controller.signal.aborted) setIsLoadingRegistry(false);
       }
     }
 
@@ -76,7 +76,7 @@ function AddMetricDialog({
     // Auto-focus search
     setTimeout(() => searchRef.current?.focus(), 100);
 
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [open]);
 
   const handlePin = useCallback(async (metric: RegistryMetric) => {

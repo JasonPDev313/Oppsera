@@ -572,7 +572,69 @@ export function useSpaCalendar(params: SpaCalendarParams | null) {
     },
     enabled: !!params?.startDate && !!params?.endDate,
     staleTime: 30_000,
-    refetchInterval: 30_000,
+    // Pause polling when tab is hidden to reduce DB connection pressure.
+    // React Query calls this function on each interval tick; returning false skips the refetch.
+    refetchInterval: () => (document.hidden ? false : 30_000),
+    refetchOnWindowFocus: true,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+// ── useSpaAvailabilitySummary ────────────────────────────────────
+
+export interface SpaAvailabilitySummaryParams {
+  locationId?: string;
+  startDate: string;
+  endDate: string;
+  categoryId?: string;
+}
+
+export interface DaySlotSummary {
+  date: string;
+  totalMinutes: number;
+  bookedMinutes: number;
+  availableMinutes: number;
+  availableSlots: number;
+  totalSlots: number;
+  providerCount: number;
+}
+
+export interface AvailabilityCategorySummary {
+  id: string;
+  name: string;
+  serviceCount: number;
+}
+
+export interface SpaAvailabilitySummaryResult {
+  days: DaySlotSummary[];
+  categories: AvailabilityCategorySummary[];
+}
+
+export function useSpaAvailabilitySummary(params: SpaAvailabilitySummaryParams | null) {
+  const result = useQuery({
+    queryKey: ['spa-availability-summary', params],
+    queryFn: ({ signal }) => {
+      const qs = buildQueryString({
+        locationId: params!.locationId,
+        startDate: params!.startDate,
+        endDate: params!.endDate,
+        categoryId: params!.categoryId,
+      });
+      return apiFetch<{ data: SpaAvailabilitySummaryResult }>(
+        `/api/v1/spa/appointments/availability-summary${qs}`,
+        { signal },
+      ).then((r) => r.data);
+    },
+    enabled: !!params?.locationId && !!params?.startDate && !!params?.endDate,
+    staleTime: 30_000,
+    refetchInterval: () => (document.hidden ? false : 60_000),
+    refetchOnWindowFocus: true,
   });
 
   return {

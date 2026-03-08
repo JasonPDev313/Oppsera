@@ -189,21 +189,21 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
   const [metricsLoading, setMetricsLoading] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     async function load() {
       setMetricsLoading(true);
       try {
-        const res = await apiFetch<{ data: RegistryMetric[] }>('/api/v1/semantic/metrics');
-        if (!cancelled) setMetrics(res.data.length > 0 ? res.data : FALLBACK_METRICS);
+        const res = await apiFetch<{ data: RegistryMetric[] }>('/api/v1/semantic/metrics', { signal: controller.signal });
+        if (!controller.signal.aborted) setMetrics(res.data.length > 0 ? res.data : FALLBACK_METRICS);
       } catch {
         // API unavailable — use hardcoded fallback so tools are still usable
-        if (!cancelled) setMetrics(FALLBACK_METRICS);
+        if (!controller.signal.aborted) setMetrics(FALLBACK_METRICS);
       } finally {
-        if (!cancelled) setMetricsLoading(false);
+        if (!controller.signal.aborted) setMetricsLoading(false);
       }
     }
     load();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, []);
 
   // ── Filter metrics for time-series tools ──

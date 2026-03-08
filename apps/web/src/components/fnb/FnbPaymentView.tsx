@@ -13,6 +13,7 @@ import { PaymentScreen } from './payment/PaymentScreen';
 import type { CheckSummary } from '@/types/fnb';
 import type { FnbTabDetail } from '@/types/fnb';
 import type { TenderType } from './payment/TenderGrid';
+import type { HouseAccountMeta } from './payment/PaymentScreen';
 import type { ReceiptAction } from './payment/ReceiptOptions';
 import type { TenderResult } from './payment/PaymentScreen';
 import { useTokenizerConfig } from '@/hooks/use-tokenizer-config';
@@ -226,7 +227,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
 
   // ── Main tender handler (Phase 0A + 0B + 0D fix) ─────────────
   const handleTender = useCallback(
-    async (type: TenderType, amountCents: number, tipCents: number, cardToken?: string | null): Promise<TenderResult> => {
+    async (type: TenderType, amountCents: number, tipCents: number, cardToken?: string | null, houseAccountMeta?: HouseAccountMeta): Promise<TenderResult> => {
       if (!tab) return { isFullyPaid: false, remainingCents: 0 };
 
       // Phase 0D: prevent double-click race
@@ -289,7 +290,14 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
               tenderId: crypto.randomUUID(),
               amountCents,
               tenderType: type,
+              tipCents: tipCents > 0 ? tipCents : undefined,
               clientRequestId: crypto.randomUUID(),
+              // House account CMAA metadata
+              ...(houseAccountMeta && {
+                billingAccountId: houseAccountMeta.billingAccountId,
+                customerId: houseAccountMeta.customerId,
+                signatureData: houseAccountMeta.signatureData,
+              }),
             });
 
         // Adjust tip — must await to prevent Vercel fire-and-forget zombie connections

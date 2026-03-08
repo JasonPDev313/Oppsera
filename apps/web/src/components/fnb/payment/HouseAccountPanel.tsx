@@ -1,22 +1,28 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Building2, Search, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Building2, Search, AlertTriangle, ShieldCheck, Ban } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { ManagerPinModal } from '../manager/ManagerPinModal';
+import { SignaturePad } from './SignaturePad';
+import type { HouseAccountMeta } from './PaymentScreen';
 
 interface HouseAccountPanelProps {
   remainingCents: number;
-  onTender: (amountCents: number) => void;
+  onTender: (amountCents: number, meta?: HouseAccountMeta) => void;
   disabled?: boolean;
 }
 
 interface CustomerAccount {
   customerId: string;
   customerName: string;
+  memberNumber: string | null;
+  billingAccountId: string;
+  accountName: string;
   creditLimitCents: number;
   outstandingBalanceCents: number;
-  availableCreditCents: number;
+  availableCreditCents: number | null; // null = unlimited
+  spendingLimitCents: number | null;   // null = no per-member cap
 }
 
 export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseAccountPanelProps) {
@@ -26,6 +32,7 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
   const [error, setError] = useState('');
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
+  const [signatureData, setSignatureData] = useState<string | null>(null);
 
   const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
@@ -34,29 +41,62 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
     setIsSearching(true);
     setError('');
     setAccount(null);
+    setSignatureData(null);
     try {
       const res = await apiFetch<{ data: CustomerAccount }>(
         `/api/v1/fnb/payments/house-account/lookup?q=${encodeURIComponent(searchQuery.trim())}`,
       );
       setAccount(res.data);
-    } catch {
-      setError('Customer not found or no house account on file');
+    } catch (err: unknown) {
+      // Surface specific block reasons from the API (403 = CMAA compliance gate)
+      if (err instanceof Error && err.message) {
+        setError(err.message);
+      } else {
+        setError('Customer not found or no house account on file');
+      }
     } finally {
       setIsSearching(false);
     }
   }, [searchQuery]);
 
+  // Effective charge ceiling: min of available credit and per-member spending limit
+  const effectiveAvailableCents = account
+    ? (() => {
+        const caps: number[] = [];
+        if (account.availableCreditCents != null) caps.push(account.availableCreditCents);
+        if (account.spendingLimitCents != null) caps.push(account.spendingLimitCents);
+        return caps.length > 0 ? Math.min(...caps) : null; // null = unlimited
+      })()
+    : null;
+
+  const chargeAmount = account
+    ? effectiveAvailableCents != null
+      ? Math.min(effectiveAvailableCents, remainingCents)
+      : remainingCents // unlimited account — charge full remaining
+    : 0;
+
+  const exceedsCredit = account && effectiveAvailableCents != null
+    ? remainingCents > effectiveAvailableCents
+    : false;
+
+  const buildMeta = useCallback((): HouseAccountMeta | undefined => {
+    if (!account) return undefined;
+    return {
+      billingAccountId: account.billingAccountId,
+      customerId: account.customerId,
+      signatureData: signatureData ?? undefined,
+    };
+  }, [account, signatureData]);
+
   const handleCharge = useCallback(() => {
-    if (!account) return;
-    const chargeAmount = Math.min(account.availableCreditCents, remainingCents);
-    if (chargeAmount <= 0) return;
-    onTender(chargeAmount);
-  }, [account, remainingCents, onTender]);
+    if (!account || chargeAmount <= 0) return;
+    onTender(chargeAmount, buildMeta());
+  }, [account, chargeAmount, onTender, buildMeta]);
 
   // Override: charge even if exceeds available credit (requires manager PIN)
   const handleOverrideCharge = useCallback(async () => {
-    onTender(remainingCents);
-  }, [remainingCents, onTender]);
+    onTender(remainingCents, buildMeta());
+  }, [remainingCents, onTender, buildMeta]);
 
   const handleVerifyPin = useCallback(
     async (pin: string): Promise<boolean> => {
@@ -81,10 +121,6 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
     [handleOverrideCharge],
   );
 
-  const exceedsCredit = account
-    ? remainingCents > account.availableCreditCents
-    : false;
-
   return (
     <>
       <div className="flex flex-col gap-3">
@@ -104,7 +140,7 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Customer name, email, or phone"
+            placeholder="Member #, name, email, or phone"
             className="flex-1 rounded-lg px-3 py-2 text-sm outline-none"
             style={{
               backgroundColor: 'var(--fnb-bg-elevated)',
@@ -128,11 +164,15 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
           </button>
         </div>
 
-        {/* Error */}
+        {/* Error / block reason */}
         {error && (
-          <p className="text-xs" style={{ color: 'var(--fnb-danger)' }}>
+          <div
+            className="flex items-center gap-1.5 text-xs"
+            style={{ color: 'var(--fnb-danger)' }}
+          >
+            <Ban className="h-3 w-3 shrink-0" />
             {error}
-          </p>
+          </div>
         )}
 
         {/* Account info */}
@@ -147,6 +187,23 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
                 {account.customerName}
               </span>
             </div>
+            {account.memberNumber && (
+              <div className="flex justify-between text-xs">
+                <span style={{ color: 'var(--fnb-text-muted)' }}>Member #</span>
+                <span
+                  className="font-mono"
+                  style={{ color: 'var(--fnb-text-secondary)', fontFamily: 'var(--fnb-font-mono)' }}
+                >
+                  {account.memberNumber}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between text-xs">
+              <span style={{ color: 'var(--fnb-text-muted)' }}>Account</span>
+              <span style={{ color: 'var(--fnb-text-secondary)' }}>
+                {account.accountName}
+              </span>
+            </div>
             <div className="flex justify-between text-xs">
               <span style={{ color: 'var(--fnb-text-muted)' }}>Credit Limit</span>
               <span
@@ -156,7 +213,7 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatMoney(account.creditLimitCents)}
+                {account.creditLimitCents > 0 ? formatMoney(account.creditLimitCents) : 'Unlimited'}
               </span>
             </div>
             <div className="flex justify-between text-xs">
@@ -176,25 +233,44 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
               <span
                 className="font-mono"
                 style={{
-                  color: account.availableCreditCents > 0
+                  color: account.availableCreditCents == null || account.availableCreditCents > 0
                     ? 'var(--fnb-tender-house)'
                     : 'var(--fnb-danger)',
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatMoney(account.availableCreditCents)}
+                {account.availableCreditCents != null
+                  ? formatMoney(account.availableCreditCents)
+                  : 'Unlimited'}
               </span>
             </div>
+            {account.spendingLimitCents != null && (
+              <div className="flex justify-between text-xs">
+                <span style={{ color: 'var(--fnb-text-muted)' }}>Member Limit</span>
+                <span
+                  className="font-mono"
+                  style={{
+                    color: 'var(--fnb-text-secondary)',
+                    fontFamily: 'var(--fnb-font-mono)',
+                  }}
+                >
+                  {formatMoney(account.spendingLimitCents)}
+                </span>
+              </div>
+            )}
+
+            {/* CMAA: Signature capture (signed chit requirement) */}
+            <SignaturePad onSignature={setSignatureData} />
 
             {/* Warning if charge exceeds available credit */}
-            {exceedsCredit && (
+            {exceedsCredit && effectiveAvailableCents != null && (
               <div
                 className="flex items-center gap-1.5 text-[10px]"
                 style={{ color: 'var(--fnb-warning)' }}
               >
                 <AlertTriangle className="h-3 w-3 shrink-0" />
                 Charge exceeds available credit by{' '}
-                {formatMoney(remainingCents - account.availableCreditCents)}
+                {formatMoney(remainingCents - effectiveAvailableCents)}
               </div>
             )}
 
@@ -202,11 +278,11 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
               <button
                 type="button"
                 onClick={handleCharge}
-                disabled={disabled || account.availableCreditCents <= 0}
+                disabled={disabled || chargeAmount <= 0 || !signatureData}
                 className="flex-1 rounded-lg py-2 text-xs font-bold text-white transition-colors hover:opacity-90 disabled:opacity-40"
                 style={{ backgroundColor: 'var(--fnb-tender-house)' }}
               >
-                Charge {formatMoney(Math.min(account.availableCreditCents, remainingCents))}
+                {!signatureData ? 'Sign to Charge' : `Charge ${formatMoney(chargeAmount)}`}
               </button>
 
               {/* Override button for when exceeds credit */}
@@ -214,7 +290,7 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
                 <button
                   type="button"
                   onClick={() => setShowPinModal(true)}
-                  disabled={disabled}
+                  disabled={disabled || !signatureData}
                   className="flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-[10px] font-bold transition-colors hover:opacity-80 disabled:opacity-40"
                   style={{
                     backgroundColor: 'var(--fnb-payment-partial-bg)',

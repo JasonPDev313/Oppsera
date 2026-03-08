@@ -97,21 +97,21 @@ export default function RoomsContent() {
 
   // ── Load properties ─────────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
-        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties');
-        if (cancelled) return;
+        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties', { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const items = res.data ?? [];
         setProperties(items);
         if (items.length > 0 && !selectedPropertyId) {
           setSelectedPropertyId(items[0]!.id);
         }
       } catch (err) {
-        console.error('[PMS Rooms] Failed to load properties:', err);
+        if (!controller.signal.aborted) console.error('[PMS Rooms] Failed to load properties:', err);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, []);
 
   // ── Load rooms ──────────────────────────────────────────────────
@@ -146,21 +146,21 @@ export default function RoomsContent() {
   // ── Load room types when create dialog opens ──────────────────
   useEffect(() => {
     if (!isDialogOpen || !selectedPropertyId) return;
-    let cancelled = false;
+    const controller = new AbortController();
     setRoomTypesLoading(true);
     (async () => {
       try {
         const qs = buildQueryString({ propertyId: selectedPropertyId });
-        const res = await apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${qs}`);
-        if (cancelled) return;
+        const res = await apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${qs}`, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         setRoomTypes(res.data ?? []);
       } catch (err) {
-        console.error('[PMS Rooms] Failed to load room types:', err);
+        if (!controller.signal.aborted) console.error('[PMS Rooms] Failed to load room types:', err);
       } finally {
-        if (!cancelled) setRoomTypesLoading(false);
+        if (!controller.signal.aborted) setRoomTypesLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [isDialogOpen, selectedPropertyId]);
 
   // Reset create form when dialog opens/closes
@@ -176,21 +176,21 @@ export default function RoomsContent() {
   // ── Load room types when edit dialog opens ────────────────────
   useEffect(() => {
     if (!editingRoom || !selectedPropertyId) return;
-    let cancelled = false;
+    const controller = new AbortController();
     setEditRoomTypesLoading(true);
     (async () => {
       try {
         const qs = buildQueryString({ propertyId: selectedPropertyId });
-        const res = await apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${qs}`);
-        if (cancelled) return;
+        const res = await apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${qs}`, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         setEditRoomTypes(res.data ?? []);
       } catch (err) {
-        console.error('[PMS Rooms] Failed to load room types for edit:', err);
+        if (!controller.signal.aborted) console.error('[PMS Rooms] Failed to load room types for edit:', err);
       } finally {
-        if (!cancelled) setEditRoomTypesLoading(false);
+        if (!controller.signal.aborted) setEditRoomTypesLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [editingRoom, selectedPropertyId]);
 
   const closeDialog = useCallback(() => {

@@ -61,22 +61,22 @@ export function SalesSummaryView({ userId: _userId }: { userId: string }) {
 
   useEffect(() => {
     if (!locationId) return;
-    let cancelled = false;
+    const controller = new AbortController();
     async function load() {
       try {
-        const res = await apiFetch<{ data: SalesKpi }>(`/api/v1/fnb/reports/dashboard?locationId=${locationId}`);
-        if (!cancelled) setKpi(res.data);
+        const res = await apiFetch<{ data: SalesKpi }>(`/api/v1/fnb/reports/dashboard?locationId=${locationId}`, { signal: controller.signal });
+        if (!controller.signal.aborted) setKpi(res.data);
       } catch {
         // Fallback to zeros
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setKpi({ totalSalesCents: 0, totalCovers: 0, openTabCount: 0, avgCheckCents: 0 });
         }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     }
     load();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [locationId]);
 
   if (isLoading) {

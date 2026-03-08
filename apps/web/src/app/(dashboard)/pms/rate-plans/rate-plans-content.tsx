@@ -68,11 +68,11 @@ export default function RatePlansContent() {
 
   // ── Load properties ───────────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
-        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties');
-        if (cancelled) return;
+        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties', { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const items = res.data ?? [];
         setProperties(items);
         if (items.length > 0 && !selectedPropertyId) {
@@ -82,7 +82,7 @@ export default function RatePlansContent() {
         // silently handle
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
 
   }, []);
 

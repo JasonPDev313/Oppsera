@@ -22,19 +22,19 @@ export function ClosedTicketsView({ userId: _userId }: { userId: string }) {
 
   useEffect(() => {
     if (!locationId) return;
-    let cancelled = false;
+    const controller = new AbortController();
     async function load() {
       try {
-        const res = await apiFetch<{ data: FnbTabListItem[] }>(`/api/v1/fnb/tabs?status=closed&locationId=${locationId}`);
-        if (!cancelled) setTabs(res.data ?? []);
+        const res = await apiFetch<{ data: FnbTabListItem[] }>(`/api/v1/fnb/tabs?status=closed&locationId=${locationId}`, { signal: controller.signal });
+        if (!controller.signal.aborted) setTabs(res.data ?? []);
       } catch {
         // Silently handle
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     }
     load();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [locationId]);
 
   if (isLoading) {

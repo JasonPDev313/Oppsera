@@ -26,7 +26,8 @@ export function useCashDashboard(
     },
     enabled: !!locationId && !!startDate && !!endDate,
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    refetchInterval: () => (document.hidden ? false : 30_000),
+    refetchOnWindowFocus: true,
   });
 }
 

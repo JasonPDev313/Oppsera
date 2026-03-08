@@ -21,6 +21,13 @@ export interface TenderResult {
   remainingCents: number;
 }
 
+/** House account metadata passed through the tender flow (CMAA compliance) */
+export interface HouseAccountMeta {
+  billingAccountId: string;
+  customerId: string;
+  signatureData?: string;
+}
+
 type PaymentStep =
   | 'tender_select'
   | 'card_entry'
@@ -55,7 +62,7 @@ interface PaymentScreenProps {
   tab: FnbTabDetail;
   check: CheckSummary;
   preauths: PreAuth[];
-  onTender: (type: TenderType, amountCents: number, tipCents: number, cardToken?: string | null) => Promise<TenderResult>;
+  onTender: (type: TenderType, amountCents: number, tipCents: number, cardToken?: string | null, houseAccountMeta?: HouseAccountMeta) => Promise<TenderResult>;
   onVoidLastTender: () => Promise<TenderResult>;
   onCapturePreAuth: (preauthId: string, captureAmountCents: number, tipCents: number) => Promise<void>;
   onVoidPreAuth: (preauthId: string) => Promise<void>;
@@ -112,6 +119,7 @@ export function PaymentScreen({
   const [errorSuggestedAction, setErrorSuggestedAction] = useState<string | null>(null);
   const [manualCardEntry, setManualCardEntry] = useState(false);
   const [cardToken, setCardToken] = useState<string | null>(null);
+  const [houseAccountMeta, setHouseAccountMeta] = useState<HouseAccountMeta | null>(null);
   // Track locally-applied tender amounts so displayed remaining updates immediately
   const [localPaidCents, setLocalPaidCents] = useState(0);
 
@@ -192,9 +200,10 @@ export function PaymentScreen({
   }, []);
 
   // ── Step: gift_card_panel / house_account_panel → confirm ───
-  const handleSpecialtyTender = useCallback((amountCents: number) => {
+  const handleSpecialtyTender = useCallback((amountCents: number, meta?: HouseAccountMeta) => {
     setPendingAmount(amountCents);
     setPendingTip(0);
+    if (meta) setHouseAccountMeta(meta);
     setStep('confirm');
   }, []);
 
@@ -215,7 +224,8 @@ export function PaymentScreen({
     setErrorMessage('');
     try {
       const tokenForCard = selectedTender === 'card' ? cardToken : null;
-      const result = await onTender(selectedTender, pendingAmount, pendingTip, tokenForCard);
+      const metaForHouse = selectedTender === 'house_account' ? houseAccountMeta ?? undefined : undefined;
+      const result = await onTender(selectedTender, pendingAmount, pendingTip, tokenForCard, metaForHouse);
       const tender: RecordedTender = {
         type: selectedTender,
         amountCents: pendingAmount,
@@ -242,7 +252,7 @@ export function PaymentScreen({
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedTender, pendingAmount, pendingTip, onTender, effectiveRemainingCents]);
+  }, [selectedTender, pendingAmount, pendingTip, onTender, effectiveRemainingCents, houseAccountMeta, cardToken]);
 
   // ── Step: confirm → cancel back to tender_select ──────────────
   const handleCancelConfirm = useCallback(() => {

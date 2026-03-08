@@ -237,3 +237,12 @@ export type {
   OnlineBookingStats,
   RecentOnlineBooking,
 } from './get-online-booking-stats';
+
+// Availability Summary (Quick Reserve)
+export { getAvailabilitySummary } from './get-availability-summary';
+export type {
+  GetAvailabilitySummaryInput,
+  DaySlotSummary,
+  AvailabilityCategorySummary,
+  GetAvailabilitySummaryResult,
+} from './get-availability-summary';

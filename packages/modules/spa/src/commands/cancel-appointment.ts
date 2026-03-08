@@ -117,6 +117,7 @@ export async function cancelAppointment(ctx: RequestContext, input: CancelAppoin
       customerId: updated!.customerId,
       providerId: updated!.providerId,
       locationId: updated!.locationId,
+      businessDate: new Date(existing.startAt).toISOString().slice(0, 10),
       canceledAt: now.toISOString(),
       canceledBy: ctx.user.id,
       reason: parsed.reason,

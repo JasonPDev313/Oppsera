@@ -157,19 +157,19 @@ export default function CorporateContent() {
 
   // ── Load properties ─────────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
-        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties');
-        if (cancelled) return;
+        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties', { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const items = res.data ?? [];
         setProperties(items);
         // Don't auto-select — null = cross-property
       } catch {
-        if (!cancelled) setError('Failed to load properties');
+        if (!controller.signal.aborted) setError('Failed to load properties');
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, []);
 
   // ── Debounced search ────────────────────────────────────────────
@@ -232,18 +232,18 @@ export default function CorporateContent() {
   // ── Load rate plans when dialog opens ───────────────────────────
   useEffect(() => {
     if (!dialogOpen) return;
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         const propId = editingAccount?.propertyId ?? selectedPropertyId;
         const qs = propId ? buildQueryString({ propertyId: propId, limit: 100 }) : '?limit=100';
-        const res = await apiFetch<{ data: RatePlan[] }>(`/api/v1/pms/rate-plans${qs}`);
-        if (!cancelled) setRatePlans(res.data ?? []);
+        const res = await apiFetch<{ data: RatePlan[] }>(`/api/v1/pms/rate-plans${qs}`, { signal: controller.signal });
+        if (!controller.signal.aborted) setRatePlans(res.data ?? []);
       } catch {
-        if (!cancelled) setRatePlans([]);
+        if (!controller.signal.aborted) setRatePlans([]);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [dialogOpen, editingAccount, selectedPropertyId]);
 
   // ── Dialog handlers ─────────────────────────────────────────────

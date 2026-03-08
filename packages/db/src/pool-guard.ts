@@ -24,6 +24,8 @@ const QUERY_TIMEOUT_MS = parseInt(process.env.DB_QUERY_TIMEOUT || '15000', 10);
 // fail fast with 503 instead of hanging until query timeout (15s) or statement
 // timeout (30s). Turns "whole app hangs" into "fast fail + client retry."
 const QUEUE_TIMEOUT_MS = parseInt(process.env.DB_QUEUE_TIMEOUT || '5000', 10);
+// Maximum queue depth before rejecting immediately (prevents OOM under sustained load).
+const MAX_QUEUE_SIZE = parseInt(process.env.DB_MAX_QUEUE || '50', 10);
 
 // ── Semaphore with acquire timeout ───────────────────────────────────────────
 // Supports optional timeout on acquire() so callers fail fast under pool pressure
@@ -37,14 +39,27 @@ interface QueueEntry {
 class Semaphore {
   private queue: QueueEntry[] = [];
   private current = 0;
+  private _maxQueue: number;
 
-  constructor(private max: number) {}
+  constructor(private max: number, maxQueue = MAX_QUEUE_SIZE) {
+    this._maxQueue = maxQueue;
+  }
 
   async acquire(timeoutMs?: number): Promise<void> {
     if (this.current < this.max) {
       this.current++;
       return;
     }
+
+    // Reject immediately if the queue is full — prevents OOM under sustained load
+    if (this.queue.length >= this._maxQueue) {
+      const err = new Error(
+        `[pool-guard] Queue full: ${this.queue.length} waiting, ${this.current} active — rejecting immediately`,
+      );
+      (err as { code?: string }).code = 'QUEUE_FULL';
+      throw err;
+    }
+
     return new Promise<void>((resolve, reject) => {
       const entry: QueueEntry = { resolve, reject };
 
@@ -69,6 +84,13 @@ class Semaphore {
   }
 
   release(): void {
+    // Guard against double-release driving current below zero
+    if (this.current <= 0) {
+      console.error(
+        `[pool-guard] Semaphore release called with current=${this.current} — ignoring to prevent corruption`,
+      );
+      return;
+    }
     this.current--;
     const next = this.queue.shift();
     if (next) {
@@ -88,39 +110,79 @@ class Semaphore {
 
 const semaphore = new Semaphore(CONCURRENCY_LIMIT);
 
-// ── Circuit breaker ──────────────────────────────────────────────────────────
+// ── Circuit breaker (with half-open probe) ───────────────────────────────────
+// States: CLOSED (normal) → OPEN (fail-fast) → HALF_OPEN (single probe) → CLOSED
+// Half-open prevents thundering herd: after cooldown, only ONE request probes the DB.
+// If it succeeds → CLOSED. If it fails → OPEN again with fresh cooldown.
 let breakerOpenUntil = 0;
 let breakerTripCount = 0;
+let _halfOpenProbeInFlight = false;
+
+type BreakerState = 'closed' | 'open' | 'half_open';
+
+export function getBreakerState(): BreakerState {
+  const now = Date.now();
+  if (now >= breakerOpenUntil && breakerOpenUntil > 0) {
+    // Cooldown expired — transition to half-open (unless already probing)
+    return 'half_open';
+  }
+  if (now < breakerOpenUntil) return 'open';
+  return 'closed';
+}
 
 export function isBreakerOpen(): boolean {
-  return Date.now() < breakerOpenUntil;
+  return getBreakerState() === 'open';
 }
 
 export function tripBreaker(cooldownMs = BREAKER_COOLDOWN_MS): void {
   breakerOpenUntil = Date.now() + cooldownMs;
   breakerTripCount++;
+  _halfOpenProbeInFlight = false;
   console.error(
     `[pool-guard] Circuit breaker OPEN (trip #${breakerTripCount}). ` +
       `DB operations will fail fast for ${cooldownMs / 1000}s`,
   );
 }
 
+function closeBreaker(): void {
+  breakerOpenUntil = 0;
+  _halfOpenProbeInFlight = false;
+}
+
+/** Try to claim the half-open probe slot. Returns true if this caller is the probe. */
+function tryClaimHalfOpenProbe(): boolean {
+  if (_halfOpenProbeInFlight) return false;
+  _halfOpenProbeInFlight = true;
+  return true;
+}
+
 // ── Pool exhaustion detection ────────────────────────────────────────────────
 // Covers postgres.js, pg, pgBouncer, Supavisor, native Postgres errors,
-// and our own QUERY_TIMEOUT / QUEUE_TIMEOUT codes (strong signals of pool pressure).
+// connection-level failures (ECONNREFUSED/ECONNRESET/EPIPE), and our own
+// QUERY_TIMEOUT / QUEUE_TIMEOUT / QUEUE_FULL codes (strong signals of pool pressure).
 export function isPoolExhaustion(err: unknown): boolean {
   const msg = String((err as Error)?.message ?? '').toLowerCase();
   const code = (err as { code?: string })?.code;
   return (
     msg.includes('too many clients') ||
+    msg.includes('max client connections') || // Supavisor pool limit
     msg.includes('connection slots') ||
     (msg.includes('timeout') && msg.includes('connect')) ||
     (msg.includes('acquire') && msg.includes('connection')) ||
     (msg.includes('pool') && msg.includes('exhaust')) ||
     msg.includes('remaining connection slots are reserved') ||
+    msg.includes('connection terminated unexpectedly') ||
+    msg.includes('connection refused') ||
+    msg.includes('broken pipe') ||
     code === '53300' || // postgres too_many_connections
+    code === '57P01' || // postgres admin_shutdown (DB restarting)
+    code === '57P03' || // postgres cannot_connect_now
+    code === 'ECONNREFUSED' || // DB or pooler down
+    code === 'ECONNRESET' || // Connection dropped mid-flight
+    code === 'EPIPE' || // Write to closed socket
     code === 'QUERY_TIMEOUT' || // our per-query timeout (connection likely stuck)
-    code === 'QUEUE_TIMEOUT' // our semaphore queue timeout (all slots occupied)
+    code === 'QUEUE_TIMEOUT' || // our semaphore queue timeout (all slots occupied)
+    code === 'QUEUE_FULL' // our queue is at capacity
   );
 }
 
@@ -142,10 +204,24 @@ let _opIdCounter = 0;
  */
 export async function guardedQuery<T>(opName: string, fn: () => Promise<T>): Promise<T> {
   // Circuit breaker — fail fast during pool exhaustion recovery
-  if (isBreakerOpen()) {
+  const state = getBreakerState();
+  let isProbe = false;
+
+  if (state === 'open') {
     const err = new Error(`[pool-guard] Circuit breaker open — DB temporarily unavailable (op: ${opName})`);
     (err as { code?: string }).code = 'CIRCUIT_BREAKER_OPEN';
     throw err;
+  }
+
+  if (state === 'half_open') {
+    // Only one probe request passes through; the rest fail fast
+    isProbe = tryClaimHalfOpenProbe();
+    if (!isProbe) {
+      const err = new Error(`[pool-guard] Circuit breaker half-open — probe in flight, rejecting (op: ${opName})`);
+      (err as { code?: string }).code = 'CIRCUIT_BREAKER_OPEN';
+      throw err;
+    }
+    console.warn(`[pool-guard] Circuit breaker HALF-OPEN — probing with: ${opName}`);
   }
 
   // Log when queue is backing up
@@ -161,8 +237,13 @@ export async function guardedQuery<T>(opName: string, fn: () => Promise<T>): Pro
   try {
     await semaphore.acquire(QUEUE_TIMEOUT_MS);
   } catch (err) {
-    if ((err as { code?: string })?.code === 'QUEUE_TIMEOUT') {
+    const code = (err as { code?: string })?.code;
+    if (code === 'QUEUE_TIMEOUT' || code === 'QUEUE_FULL') {
       console.error(`[pool-guard] ${(err as Error).message} (op: ${opName})`);
+    }
+    if (isProbe) {
+      // Probe failed to acquire — re-trip breaker
+      tripBreaker();
     }
     throw err;
   }
@@ -193,11 +274,22 @@ export async function guardedQuery<T>(opName: string, fn: () => Promise<T>): Pro
     if (duration > SLOW_QUERY_THRESHOLD_MS) {
       console.warn(`[pool-guard] Slow DB op: ${opName} took ${duration}ms`);
     }
+
+    // Probe succeeded — close the breaker
+    if (isProbe) {
+      console.warn(`[pool-guard] Half-open probe succeeded (${opName}, ${duration}ms) — breaker CLOSED`);
+      closeBreaker();
+    }
+
     return result;
   } catch (err) {
     const duration = Date.now() - start;
     if (isPoolExhaustion(err)) {
       console.error(`[pool-guard] Pool exhaustion detected in ${opName} after ${duration}ms`);
+      tripBreaker();
+    } else if (isProbe) {
+      // Non-pool error during probe — still re-trip to be safe
+      console.error(`[pool-guard] Half-open probe failed (${opName}, ${duration}ms) — breaker re-OPEN`);
       tripBreaker();
     }
     throw err;
@@ -210,12 +302,25 @@ export async function guardedQuery<T>(opName: string, fn: () => Promise<T>): Pro
 // ── Single-flight deduplication ──────────────────────────────────────────────
 // Prevents cache stampedes: when N concurrent requests need the same uncached key,
 // only the first executes the DB query — the others await the same Promise.
+// On error, the key is removed immediately so the next caller retries fresh
+// instead of receiving a stale rejection.
 const _inFlight = new Map<string, Promise<unknown>>();
 
 export async function singleFlight<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const existing = _inFlight.get(key);
   if (existing) return existing as Promise<T>;
-  const p = fn().finally(() => _inFlight.delete(key));
+  const p = fn().then(
+    (result) => {
+      _inFlight.delete(key);
+      return result;
+    },
+    (err) => {
+      // Remove immediately on error so next caller retries instead of
+      // getting the cached rejection
+      _inFlight.delete(key);
+      throw err;
+    },
+  );
   _inFlight.set(key, p);
   return p;
 }
@@ -264,9 +369,11 @@ export function getPoolGuardStats() {
   return {
     active: semaphore.active,
     queued: semaphore.pending,
-    breakerOpen: isBreakerOpen(),
+    breakerState: getBreakerState(),
+    breakerOpen: getBreakerState() !== 'closed',
     breakerTripCount,
     concurrencyLimit: CONCURRENCY_LIMIT,
+    maxQueueSize: MAX_QUEUE_SIZE,
     queryTimeoutMs: QUERY_TIMEOUT_MS,
     queueTimeoutMs: QUEUE_TIMEOUT_MS,
     zombieDetectCount: _zombieDetectCount,

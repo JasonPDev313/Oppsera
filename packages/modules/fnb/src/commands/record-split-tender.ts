@@ -37,20 +37,44 @@ export async function recordSplitTender(
       throw new PaymentSessionStatusConflictError(input.sessionId, status, 'record tender on');
     }
 
-    const newPaidAmount = Number(session.paid_amount_cents) + input.amountCents;
-    const newRemaining = Number(session.total_amount_cents) - newPaidAmount;
-    const newStatus = newRemaining <= 0 ? 'completed' : 'in_progress';
+    const currentPaid = Number(session.paid_amount_cents);
+    const totalAmount = Number(session.total_amount_cents);
+    const newPaidAmount = currentPaid + input.amountCents;
+    const newRemaining = totalAmount - newPaidAmount;
 
-    // Update session amounts
-    await tx.execute(
+    // Reject tenders that would overpay the session
+    if (newRemaining < 0) {
+      throw new PaymentSessionStatusConflictError(
+        input.sessionId,
+        status,
+        `tender ${input.amountCents} cents (remaining: ${totalAmount - currentPaid} cents) on`,
+      );
+    }
+
+    // Do NOT auto-complete the session here — completePaymentSession handles
+    // tab closing, table status reset, and the PAYMENT_COMPLETED event.
+    // Setting status to 'completed' here would cause the frontend to skip
+    // the explicit completeSession call, leaving the tab stuck in 'paying'.
+
+    // Optimistic lock: WHERE paid_amount_cents = currentPaid prevents double-counting
+    // if two concurrent tenders race on the same session.
+    const updateResult = await tx.execute(
       sql`UPDATE fnb_payment_sessions
           SET paid_amount_cents = ${newPaidAmount},
-              remaining_amount_cents = ${Math.max(0, newRemaining)},
-              status = ${newStatus},
-              completed_at = ${newRemaining <= 0 ? sql`NOW()` : sql`NULL`},
+              remaining_amount_cents = ${newRemaining},
               updated_at = NOW()
-          WHERE id = ${input.sessionId} AND tenant_id = ${ctx.tenantId}`,
+          WHERE id = ${input.sessionId}
+            AND tenant_id = ${ctx.tenantId}
+            AND paid_amount_cents = ${currentPaid}`,
     );
+    const updatedCount = Number((updateResult as { count?: number }).count ?? 0);
+    if (updatedCount === 0) {
+      throw new PaymentSessionStatusConflictError(
+        input.sessionId,
+        status,
+        'record tender on (concurrent modification detected — please retry)',
+      );
+    }
 
     const payload: TenderAppliedPayload = {
       paymentSessionId: input.sessionId,
@@ -69,7 +93,7 @@ export async function recordSplitTender(
       tenderId: input.tenderId,
       paidAmountCents: newPaidAmount,
       remainingAmountCents: Math.max(0, newRemaining),
-      sessionStatus: newStatus,
+      sessionStatus: 'in_progress',
     };
 
     if (input.clientRequestId) {

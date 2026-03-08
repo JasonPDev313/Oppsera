@@ -3301,18 +3301,19 @@ function AddPrepTimeDialog({
       setBrowseItems([]);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setIsBrowseLoading(true);
     apiFetch<{ data: CatalogItemSearchResult[]; meta: { cursor: string | null; hasMore: boolean } }>(
       `/api/v1/catalog/items?categoryId=${activeCategoryId}&limit=200`,
+      { signal: controller.signal },
     ).then((res) => {
-      if (!cancelled) setBrowseItems(res.data ?? []);
+      if (!controller.signal.aborted) setBrowseItems(res.data ?? []);
     }).catch(() => {
-      if (!cancelled) setBrowseItems([]);
+      if (!controller.signal.aborted) setBrowseItems([]);
     }).finally(() => {
-      if (!cancelled) setIsBrowseLoading(false);
+      if (!controller.signal.aborted) setIsBrowseLoading(false);
     });
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [targetType, pickerMode, activeCategoryId]);
 
   // Filter browse items by inline search

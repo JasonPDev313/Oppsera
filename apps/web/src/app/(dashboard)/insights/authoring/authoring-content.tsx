@@ -38,17 +38,17 @@ export default function AuthoringContent({ embedded }: { embedded?: boolean }) {
 
   // ── Fetch metrics + dimensions on mount ──
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
     async function load() {
       setIsLoading(true);
       try {
         const [metricsRes, dimensionsRes] = await Promise.all([
-          apiFetch<{ data: MetricApiItem[] }>('/api/v1/semantic/metrics'),
-          apiFetch<{ data: DimensionApiItem[] }>('/api/v1/semantic/dimensions'),
+          apiFetch<{ data: MetricApiItem[] }>('/api/v1/semantic/metrics', { signal: controller.signal }),
+          apiFetch<{ data: DimensionApiItem[] }>('/api/v1/semantic/dimensions', { signal: controller.signal }),
         ]);
 
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
 
         setMetrics(
           metricsRes.data.map((m) => ({
@@ -74,17 +74,17 @@ export default function AuthoringContent({ embedded }: { embedded?: boolean }) {
 
         setError(null);
       } catch (err) {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : 'Failed to load semantic definitions');
       } finally {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setIsLoading(false);
         }
       }
     }
 
     load();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, []);
 
   // ── Save handlers ──

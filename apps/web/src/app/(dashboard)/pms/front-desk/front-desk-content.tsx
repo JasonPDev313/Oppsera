@@ -80,7 +80,7 @@ function RoomPicker({
 
   // Fetch available rooms for this reservation's room type + dates
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setIsLoadingRooms(true);
     setFetchError(null);
 
@@ -93,22 +93,23 @@ function RoomPicker({
 
     apiFetch<{ data: AvailableRoom[] }>(
       `/api/v1/pms/reservations/suggest-rooms?${qs}`,
+      { signal: controller.signal },
     )
       .then((res) => {
-        if (!cancelled) setRooms(res.data);
+        if (!controller.signal.aborted) setRooms(res.data);
       })
       .catch((err) => {
-        if (!cancelled)
+        if (!controller.signal.aborted)
           setFetchError(
             err instanceof ApiError ? err.message : 'Failed to load rooms',
           );
       })
       .finally(() => {
-        if (!cancelled) setIsLoadingRooms(false);
+        if (!controller.signal.aborted) setIsLoadingRooms(false);
       });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [reservation]);
 

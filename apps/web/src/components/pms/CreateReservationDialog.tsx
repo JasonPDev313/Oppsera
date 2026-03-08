@@ -151,16 +151,16 @@ export default function CreateReservationDialog({
   // ── Load room types + rate plans when dialog opens ──────────────
   useEffect(() => {
     if (!open || !propertyId) return;
-    let cancelled = false;
+    const controller = new AbortController();
     setDialogDataLoading(true);
     (async () => {
       try {
         const qs = buildQueryString({ propertyId, limit: 100 });
         const [rtRes, rpRes] = await Promise.all([
-          apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${qs}`),
-          apiFetch<{ data: RatePlan[] }>(`/api/v1/pms/rate-plans${qs}`),
+          apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${qs}`, { signal: controller.signal }),
+          apiFetch<{ data: RatePlan[] }>(`/api/v1/pms/rate-plans${qs}`, { signal: controller.signal }),
         ]);
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         const types = rtRes.data ?? [];
         setRoomTypes(types);
         const plans = rpRes.data ?? [];
@@ -175,12 +175,12 @@ export default function CreateReservationDialog({
           prefillAppliedRef.current = true;
         }
       } catch (err) {
-        console.error('[PMS] Failed to load dialog data:', err);
+        if (!controller.signal.aborted) console.error('[PMS] Failed to load dialog data:', err);
       } finally {
-        if (!cancelled) setDialogDataLoading(false);
+        if (!controller.signal.aborted) setDialogDataLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [open, propertyId, prefillRoomTypeId]);
 
   // ── Load available rooms when room type changes ─────────────────
@@ -190,13 +190,13 @@ export default function CreateReservationDialog({
       setFormRoomId('');
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setRoomsLoading(true);
     (async () => {
       try {
         const qs = buildQueryString({ propertyId, roomTypeId: formRoomTypeId, limit: 100 });
-        const res = await apiFetch<{ data: Room[] }>(`/api/v1/pms/rooms${qs}`);
-        if (cancelled) return;
+        const res = await apiFetch<{ data: Room[] }>(`/api/v1/pms/rooms${qs}`, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const available = (res.data ?? []).filter((r) => !r.isOutOfOrder);
         setRooms(available);
         // Auto-select prefilled room if available
@@ -206,12 +206,12 @@ export default function CreateReservationDialog({
           setFormRoomId('');
         }
       } catch {
-        setRooms([]);
+        if (!controller.signal.aborted) setRooms([]);
       } finally {
-        if (!cancelled) setRoomsLoading(false);
+        if (!controller.signal.aborted) setRoomsLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [formRoomTypeId, propertyId, prefillRoomId]);
 
   // ── Auto-populate nightly rate from rate plan ───────────────────
@@ -220,13 +220,13 @@ export default function CreateReservationDialog({
       setRatePlanBaseRate(null);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setIsLoadingRate(true);
     (async () => {
       try {
         const qs = buildQueryString({ ratePlanId: formRatePlanId, roomTypeId: formRoomTypeId, date: formCheckIn });
-        const res = await apiFetch<{ data: { nightlyBaseCents: number } | null }>(`/api/v1/pms/rate-plans/nightly-rate${qs}`);
-        if (cancelled) return;
+        const res = await apiFetch<{ data: { nightlyBaseCents: number } | null }>(`/api/v1/pms/rate-plans/nightly-rate${qs}`, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         if (res.data) {
           const dollars = (res.data.nightlyBaseCents / 100).toFixed(2);
           setRatePlanBaseRate(res.data.nightlyBaseCents);
@@ -235,12 +235,12 @@ export default function CreateReservationDialog({
           setRatePlanBaseRate(null);
         }
       } catch {
-        setRatePlanBaseRate(null);
+        if (!controller.signal.aborted) setRatePlanBaseRate(null);
       } finally {
-        if (!cancelled) setIsLoadingRate(false);
+        if (!controller.signal.aborted) setIsLoadingRate(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [formRatePlanId, formRoomTypeId, formCheckIn]);
 
   // ── Customer search with debounce ───────────────────────────────

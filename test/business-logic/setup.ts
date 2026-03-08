@@ -18,6 +18,7 @@ import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { sql } from 'drizzle-orm';
 import * as schema from '@oppsera/db/schema';
+import { sqlArray } from '@oppsera/db';
 
 // ── Connections ──
 const ADMIN_URL = process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL;
@@ -118,7 +119,7 @@ afterAll(async () => {
     for (const table of tables) {
       try {
         await adminDb.execute(
-          sql`DELETE FROM ${sql.identifier(table)} WHERE tenant_id = ANY(${testTenantIds})`,
+          sql`DELETE FROM ${sql.identifier(table)} WHERE tenant_id = ANY(${sqlArray(testTenantIds)})`,
         );
       } catch {
         // Table might not exist or have no tenant_id — skip

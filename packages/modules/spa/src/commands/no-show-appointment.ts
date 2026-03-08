@@ -105,6 +105,7 @@ export async function noShowAppointment(ctx: RequestContext, input: NoShowAppoin
       customerId: updated!.customerId,
       providerId: updated!.providerId,
       locationId: updated!.locationId,
+      businessDate: new Date(existing.startAt).toISOString().slice(0, 10),
       previousStatus: existing.status,
       chargeNoShowFee: input.chargeNoShowFee ?? false,
       depositAmountCents: existing.depositAmountCents,

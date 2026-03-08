@@ -2,15 +2,16 @@ import { NextResponse } from 'next/server';
 import { withAdminPermission } from '@/lib/with-admin-permission';
 import { withAdminDb } from '@/lib/admin-db';
 import { sql } from 'drizzle-orm';
+import { sqlArray } from '@oppsera/db';
 
 // ── GET /api/v1/finance/orders/[id] — Full order detail aggregation ──
 
 export const GET = withAdminPermission(
   async (_req, _session, params) => {
     const orderId = params?.id;
-    if (!orderId) {
+    if (!orderId || typeof orderId !== 'string' || orderId.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(orderId)) {
       return NextResponse.json(
-        { error: { code: 'VALIDATION_ERROR', message: 'Order ID is required' } },
+        { error: { code: 'VALIDATION_ERROR', message: 'Order ID is required and must be a valid identifier' } },
         { status: 400 },
       );
     }
@@ -151,7 +152,7 @@ export const GET = withAdminPermission(
             ga.account_type
           FROM gl_journal_lines jl
           LEFT JOIN gl_accounts ga ON ga.id = jl.account_id
-          WHERE jl.journal_entry_id = ANY(${jeIds})
+          WHERE jl.journal_entry_id = ANY(${sqlArray(jeIds as string[])})
           ORDER BY jl.sort_order ASC
         `);
         journalLines = Array.from(glLineRows as Iterable<Record<string, unknown>>);

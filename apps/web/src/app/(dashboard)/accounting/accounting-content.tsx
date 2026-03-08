@@ -108,7 +108,8 @@ export default function AccountingDashboardContent() {
         .then((r) => r.data)
         .catch(() => null),
     staleTime: 60_000,
-    refetchInterval: 60_000,
+    refetchInterval: () => (document.hidden ? false : 60_000),
+    refetchOnWindowFocus: true,
   });
 
   const dateRange = getDefaultDateRange();

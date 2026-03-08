@@ -4070,7 +4070,8 @@ export function useFrontDesk(propertyId: string | null) {
       }>(`/api/v1/pms/front-desk?propertyId=${propertyId}`, { signal }),
     enabled: !!propertyId,
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    refetchInterval: () => (document.hidden ? false : 30_000),
+    refetchOnWindowFocus: true,
   });
 
   return {

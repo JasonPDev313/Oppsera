@@ -83,18 +83,19 @@ export function CustomerAttachment({
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
     apiFetch<{ data: { displayName: string } }>(
       `/api/v1/customers/${encodeURIComponent(customerId)}`,
+      { signal: controller.signal },
     )
       .then((res) => {
-        if (!cancelled && res.data.displayName) {
+        if (!controller.signal.aborted && res.data.displayName) {
           setAttachedName(res.data.displayName);
         }
       })
       .catch(() => {});
 
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [customerId, customerName, attachedName, allCustomers]);
 
   // Client-side filter (instant) + debounced server fallback for incomplete cache

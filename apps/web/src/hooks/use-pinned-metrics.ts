@@ -82,7 +82,7 @@ export function usePinnedMetrics() {
   useEffect(() => {
     if (metrics.length === 0) return;
 
-    let cancelled = false;
+    const controller = new AbortController();
 
     async function enrichWithSparklines() {
       const today = new Date();
@@ -106,6 +106,7 @@ export function usePinnedMetrics() {
                 sort: [{ metricSlug: 'date', direction: 'asc' }],
                 limit: 7,
               }),
+              signal: controller.signal,
             });
 
             const rows = res.data.rows ?? [];
@@ -137,13 +138,13 @@ export function usePinnedMetrics() {
         }),
       );
 
-      if (!cancelled && mountedRef.current) {
+      if (!controller.signal.aborted && mountedRef.current) {
         setMetrics(enriched);
       }
     }
 
     enrichWithSparklines();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
     // Only re-run when metric IDs change, not when sparklines are enriched
   }, [metrics.map((m) => m.id).join(',')]);
 

@@ -178,11 +178,11 @@ export default function ReservationsContent() {
 
   // ── Load properties ─────────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
-        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties');
-        if (cancelled) return;
+        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties', { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const items = res.data ?? [];
         setProperties(items);
         if (items.length > 0 && !selectedPropertyId) {
@@ -192,7 +192,7 @@ export default function ReservationsContent() {
         // silently handle
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, []);
 
   // ── Load reservations ───────────────────────────────────────────
@@ -250,17 +250,17 @@ export default function ReservationsContent() {
   // ── Load room types + rate plans when dialog opens ─────────────
   useEffect(() => {
     if (!isDialogOpen || !selectedPropertyId) return;
-    let cancelled = false;
+    const controller = new AbortController();
     setDialogDataLoading(true);
     (async () => {
       try {
         const rtQs = buildQueryString({ propertyId: selectedPropertyId, limit: 100 });
         const rpQs = buildQueryString({ propertyId: selectedPropertyId, limit: 100 });
         const [rtRes, rpRes] = await Promise.all([
-          apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${rtQs}`),
-          apiFetch<{ data: RatePlan[] }>(`/api/v1/pms/rate-plans${rpQs}`),
+          apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${rtQs}`, { signal: controller.signal }),
+          apiFetch<{ data: RatePlan[] }>(`/api/v1/pms/rate-plans${rpQs}`, { signal: controller.signal }),
         ]);
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setRoomTypes(rtRes.data ?? []);
         const plans = rpRes.data ?? [];
         setRatePlans(plans);
@@ -268,12 +268,12 @@ export default function ReservationsContent() {
         const defaultPlan = plans.find((p) => p.isDefault);
         if (defaultPlan) setFormRatePlanId(defaultPlan.id);
       } catch (err) {
-        console.error('[PMS Reservations] Failed to load dialog data:', err);
+        if (!controller.signal.aborted) console.error('[PMS Reservations] Failed to load dialog data:', err);
       } finally {
-        if (!cancelled) setDialogDataLoading(false);
+        if (!controller.signal.aborted) setDialogDataLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [isDialogOpen, selectedPropertyId]);
 
   // Rate plan base rate tracking
@@ -315,13 +315,13 @@ export default function ReservationsContent() {
       setFormRoomId('');
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setRoomsLoading(true);
     (async () => {
       try {
         const qs = buildQueryString({ propertyId: selectedPropertyId, roomTypeId: formRoomTypeId, limit: 100 });
-        const res = await apiFetch<{ data: Room[] }>(`/api/v1/pms/rooms${qs}`);
-        if (cancelled) return;
+        const res = await apiFetch<{ data: Room[] }>(`/api/v1/pms/rooms${qs}`, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         // Filter to available rooms (not out of order)
         const available = (res.data ?? []).filter((r) => !r.isOutOfOrder);
         setRooms(available);
@@ -329,10 +329,10 @@ export default function ReservationsContent() {
       } catch {
         setRooms([]);
       } finally {
-        if (!cancelled) setRoomsLoading(false);
+        if (!controller.signal.aborted) setRoomsLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [formRoomTypeId, selectedPropertyId]);
 
   // Auto-populate nightly rate from rate plan when rate plan + room type + check-in date change
@@ -341,13 +341,13 @@ export default function ReservationsContent() {
       setRatePlanBaseRate(null);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setIsLoadingRate(true);
     (async () => {
       try {
         const qs = buildQueryString({ ratePlanId: formRatePlanId, roomTypeId: formRoomTypeId, date: formCheckIn });
-        const res = await apiFetch<{ data: { nightlyBaseCents: number } | null }>(`/api/v1/pms/rate-plans/nightly-rate${qs}`);
-        if (cancelled) return;
+        const res = await apiFetch<{ data: { nightlyBaseCents: number } | null }>(`/api/v1/pms/rate-plans/nightly-rate${qs}`, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         if (res.data) {
           const dollars = (res.data.nightlyBaseCents / 100).toFixed(2);
           setRatePlanBaseRate(res.data.nightlyBaseCents);
@@ -361,10 +361,10 @@ export default function ReservationsContent() {
       } catch {
         setRatePlanBaseRate(null);
       } finally {
-        if (!cancelled) setIsLoadingRate(false);
+        if (!controller.signal.aborted) setIsLoadingRate(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [formRatePlanId, formRoomTypeId, formCheckIn]);
 
   // Customer search with debounce

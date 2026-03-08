@@ -37,6 +37,9 @@ export const LOCK_KEYS = {
 
   /** F&B daily batch auto-close and GL post cron */
   FNB_AUTO_CLOSE_BATCHES: 'fnb-auto-close-batches',
+
+  /** AR statement generation cron (CMAA billing) */
+  AR_STATEMENT_GENERATION: 'ar-statement-generation',
 } as const;
 
 export type LockKey = (typeof LOCK_KEYS)[keyof typeof LOCK_KEYS];

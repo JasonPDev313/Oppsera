@@ -23,13 +23,13 @@ export function TransferTargetPicker({ locationId, excludeServerIds, onSelect, o
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
-    apiFetch<{ data: ServerOption[] }>(`/api/v1/fnb/sections/servers${locationId ? `?locationId=${locationId}` : ''}`)
-      .then((res) => { if (!cancelled) setAllServers(res.data); })
-      .catch(() => { if (!cancelled) setAllServers([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    apiFetch<{ data: ServerOption[] }>(`/api/v1/fnb/sections/servers${locationId ? `?locationId=${locationId}` : ''}`, { signal: controller.signal })
+      .then((res) => { if (!controller.signal.aborted) setAllServers(res.data); })
+      .catch(() => { if (!controller.signal.aborted) setAllServers([]); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => { controller.abort(); };
   }, [locationId]);
 
   // Filter out excluded servers and apply search — outside useEffect to avoid re-fetch

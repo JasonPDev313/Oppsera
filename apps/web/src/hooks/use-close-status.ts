@@ -16,7 +16,8 @@ export function useCloseStatus(locationId: string | null, businessDate: string |
     },
     enabled: !!locationId && !!businessDate,
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    refetchInterval: () => (document.hidden ? false : 30_000),
+    refetchOnWindowFocus: true,
   });
 
   return {

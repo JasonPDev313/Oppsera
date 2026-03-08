@@ -1529,13 +1529,14 @@ function EnrollDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         const res = await apiFetch<{ data: LoyaltyProgram[] }>(
           '/api/v1/pms/loyalty/programs',
+          { signal: controller.signal },
         );
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         const active = (res.data ?? []).filter((p) => p.isActive);
         setPrograms(active);
         if (active.length > 0 && !programId) {
@@ -1544,10 +1545,10 @@ function EnrollDialog({
       } catch {
         // silently handle
       } finally {
-        if (!cancelled) setIsLoadingPrograms(false);
+        if (!controller.signal.aborted) setIsLoadingPrograms(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, []);  
 
   const handleSubmit = useCallback(async () => {

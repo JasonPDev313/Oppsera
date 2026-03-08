@@ -12,17 +12,22 @@ import {
   DollarSign,
   ShoppingCart,
   Eye,
+  Zap,
 } from 'lucide-react';
-import { useSpaCalendar } from '@/hooks/use-spa';
+import { useSpaCalendar, useSpaAvailabilitySummary } from '@/hooks/use-spa';
 import { useAuthContext } from '@/components/auth-provider';
 import { useQueryClient } from '@tanstack/react-query';
 import { SpaPayNowDialog } from '@/components/spa/spa-pay-now-dialog';
 import { CheckoutToPosDialog } from '@/components/spa/checkout-to-pos-dialog';
 import type { CheckoutToPosResult } from '@/components/spa/checkout-to-pos-dialog';
+import SpaCondensedView from '@/components/spa/calendar/SpaCondensedView';
+import SpaQuickBookDialog from '@/components/spa/calendar/SpaQuickBookDialog';
 
 // ── Types ─────────────────────────────────────────────────────────────
 
+type PageView = 'quick' | 'calendar';
 type ViewMode = 'day' | 'week';
+type ViewRange = 7 | 14 | 30;
 
 type AppointmentStatus =
   | 'draft'
@@ -178,18 +183,42 @@ export default function SpaCalendarContent() {
   const { locations } = useAuthContext();
   const locationId = (locations.find(l => l.locationType === 'venue') ?? locations[0])?.id;
 
+  // ── Page view state (persisted to localStorage) ──────────────────
+  const [pageView, setPageView] = useState<PageView>(() => {
+    if (typeof window === 'undefined') return 'quick';
+    return (localStorage.getItem('spa_view_mode') as PageView) ?? 'quick';
+  });
+
+  const handlePageViewChange = useCallback((view: PageView) => {
+    setPageView(view);
+    localStorage.setItem('spa_view_mode', view);
+  }, []);
+
+  // Calendar view state
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>([]);
   const [providerFilterOpen, setProviderFilterOpen] = useState(false);
+
+  // Quick Reserve view state
+  const [viewRange, setViewRange] = useState<ViewRange>(14);
+
+  // Quick Book dialog state
+  const [quickBookDate, setQuickBookDate] = useState('');
+  const [quickBookCategoryId, setQuickBookCategoryId] = useState('');
+  const [showQuickBookDialog, setShowQuickBookDialog] = useState(false);
 
   // Context menu + dialog state
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [payNowAppointment, setPayNowAppointment] = useState<CalendarAppointment | null>(null);
   const [sendToPosAppointment, setSendToPosAppointment] = useState<CalendarAppointment | null>(null);
 
-  // Compute date range based on view mode
-  const { startDate, endDate } = useMemo(() => {
+  // ── Quick Reserve date range ────────────────────────────────────
+  const quickStartDate = useMemo(() => formatISODate(currentDate), [currentDate]);
+  const quickEndDate = useMemo(() => formatISODate(addDays(currentDate, viewRange - 1)), [currentDate, viewRange]);
+
+  // ── Calendar date range ─────────────────────────────────────────
+  const { startDate: calStartDate, endDate: calEndDate } = useMemo(() => {
     if (viewMode === 'day') {
       const dayStr = formatISODate(currentDate);
       return { startDate: dayStr, endDate: dayStr };
@@ -199,8 +228,15 @@ export default function SpaCalendarContent() {
     return { startDate: formatISODate(monday), endDate: formatISODate(sunday) };
   }, [viewMode, currentDate]);
 
-  const { data: calendarData, isLoading, error } = useSpaCalendar(
-    { locationId, startDate, endDate },
+  // ── Data hooks ──────────────────────────────────────────────────
+  // Calendar data (only when in calendar view)
+  const { data: calendarData, isLoading: calLoading, error: calError } = useSpaCalendar(
+    pageView === 'calendar' ? { locationId, startDate: calStartDate, endDate: calEndDate } : null,
+  );
+
+  // Availability summary (only when in quick reserve view)
+  const { data: availabilityData, isLoading: availLoading } = useSpaAvailabilitySummary(
+    pageView === 'quick' ? { locationId, startDate: quickStartDate, endDate: quickEndDate } : null,
   );
 
   const PROVIDER_COLORS = [
@@ -208,8 +244,7 @@ export default function SpaCalendarContent() {
     '#a78bfa', '#fb923c', '#2dd4bf',
   ];
 
-  // Map hook data to local CalendarProviderColumn shape.
-  // Backend returns startAt/endAt/guestName/services[] — map to startTime/endTime/customerName/serviceName.
+  // Map hook data to local CalendarProviderColumn shape
   const providers: CalendarProviderColumn[] = useMemo(() => {
     return (calendarData?.providers ?? []).map((p: any, idx: number) => ({
       id: p.providerId as string,
@@ -231,7 +266,6 @@ export default function SpaCalendarContent() {
     }));
   }, [calendarData]);
 
-  // Map unassigned appointments from the API response
   const unassigned: CalendarAppointment[] = useMemo(() => {
     const raw = calendarData?.unassigned;
     if (!Array.isArray(raw)) return [];
@@ -250,26 +284,32 @@ export default function SpaCalendarContent() {
     }));
   }, [calendarData]);
 
-  // Filter providers based on selection
   const visibleProviders = useMemo(() => {
     if (selectedProviderIds.length === 0) return providers;
     return providers.filter((p) => selectedProviderIds.includes(p.id));
   }, [providers, selectedProviderIds]);
 
-  // All unique provider names for filter dropdown
   const allProviders = useMemo(() => {
     return providers.map((p) => ({ id: p.id, name: p.name, color: p.color }));
   }, [providers]);
 
-  // ── Navigation ────────────────────────────────────────────────────
+  // ── Navigation ──────────────────────────────────────────────────
 
   const goToPrev = useCallback(() => {
-    setCurrentDate((prev) => addDays(prev, viewMode === 'day' ? -1 : -7));
-  }, [viewMode]);
+    if (pageView === 'quick') {
+      setCurrentDate((prev) => addDays(prev, -viewRange));
+    } else {
+      setCurrentDate((prev) => addDays(prev, viewMode === 'day' ? -1 : -7));
+    }
+  }, [pageView, viewMode, viewRange]);
 
   const goToNext = useCallback(() => {
-    setCurrentDate((prev) => addDays(prev, viewMode === 'day' ? 1 : 7));
-  }, [viewMode]);
+    if (pageView === 'quick') {
+      setCurrentDate((prev) => addDays(prev, viewRange));
+    } else {
+      setCurrentDate((prev) => addDays(prev, viewMode === 'day' ? 1 : 7));
+    }
+  }, [pageView, viewMode, viewRange]);
 
   const goToToday = useCallback(() => {
     setCurrentDate(new Date());
@@ -283,11 +323,22 @@ export default function SpaCalendarContent() {
     );
   }, []);
 
-  // Week days for week view
   const weekDays = useMemo(() => {
     const monday = getMonday(currentDate);
     return getWeekDays(monday);
   }, [currentDate]);
+
+  // ── Quick Reserve handlers ──────────────────────────────────────
+
+  const handleQuickSelect = useCallback((date: string, categoryId: string) => {
+    setQuickBookDate(date);
+    setQuickBookCategoryId(categoryId);
+    setShowQuickBookDialog(true);
+  }, []);
+
+  const handleQuickBookClose = useCallback(() => {
+    setShowQuickBookDialog(false);
+  }, []);
 
   // ── Appointment click / context menu handlers ───────────────────
 
@@ -300,7 +351,6 @@ export default function SpaCalendarContent() {
     setContextMenu({ x: e.clientX, y: e.clientY, appointment: appt });
   }, []);
 
-  // Click-away dismiss
   useEffect(() => {
     if (!contextMenu) return;
     const handleClick = () => setContextMenu(null);
@@ -336,7 +386,15 @@ export default function SpaCalendarContent() {
     queryClient.invalidateQueries({ queryKey: ['spa-calendar'] });
   }, [queryClient]);
 
-  // ── Render ────────────────────────────────────────────────────────
+  // ── Date display helpers ────────────────────────────────────────
+
+  const quickRangeLabel = useMemo(() => {
+    const s = formatDateShort(currentDate);
+    const e = formatDateShort(addDays(currentDate, viewRange - 1));
+    return `${s} \u2013 ${e}`;
+  }, [currentDate, viewRange]);
+
+  // ── Render ──────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col gap-4">
@@ -348,6 +406,44 @@ export default function SpaCalendarContent() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Page view toggle (Quick Reserve / Calendar) */}
+          <div className="flex rounded-lg border border-border bg-surface">
+            {([
+              { view: 'quick' as const, label: 'Quick Reserve', Icon: Zap },
+              { view: 'calendar' as const, label: 'Calendar', Icon: CalendarDays },
+            ]).map(({ view, label, Icon }, i) => (
+              <button
+                key={view}
+                onClick={() => handlePageViewChange(view)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                  i === 0 ? 'rounded-l-lg' : ''
+                }${i === 1 ? 'rounded-r-lg' : ''} ${
+                  pageView === view ? 'bg-indigo-600 text-white' : 'text-muted-foreground hover:bg-accent/50'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Quick Reserve: range selector */}
+          {pageView === 'quick' && (
+            <div className="flex rounded-lg border border-border bg-surface">
+              {([7, 14, 30] as ViewRange[]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setViewRange(r)}
+                  className={`px-2.5 py-1.5 text-xs font-medium transition-colors first:rounded-l-lg last:rounded-r-lg ${
+                    viewRange === r ? 'bg-indigo-600 text-white' : 'text-muted-foreground hover:bg-accent/50'
+                  }`}
+                >
+                  {r}d
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Date navigation */}
           <div className="flex items-center gap-1 rounded-lg border border-border bg-surface p-1">
             <button
@@ -372,135 +468,165 @@ export default function SpaCalendarContent() {
             </button>
           </div>
 
-          {/* Day / Week toggle */}
-          <div className="flex items-center rounded-lg border border-border bg-surface p-1">
-            <button
-              onClick={() => setViewMode('day')}
-              className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
-                viewMode === 'day'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-              }`}
-            >
-              Day
-            </button>
-            <button
-              onClick={() => setViewMode('week')}
-              className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
-                viewMode === 'week'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-              }`}
-            >
-              Week
-            </button>
-          </div>
+          {/* Calendar view: Day / Week toggle */}
+          {pageView === 'calendar' && (
+            <div className="flex items-center rounded-lg border border-border bg-surface p-1">
+              <button
+                onClick={() => setViewMode('day')}
+                className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+                  viewMode === 'day'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                }`}
+              >
+                Day
+              </button>
+              <button
+                onClick={() => setViewMode('week')}
+                className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+                  viewMode === 'week'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                }`}
+              >
+                Week
+              </button>
+            </div>
+          )}
 
-          {/* Provider filter */}
-          <div className="relative">
-            <button
-              onClick={() => setProviderFilterOpen(!providerFilterOpen)}
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground hover:bg-accent"
-            >
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span>
-                {selectedProviderIds.length === 0
-                  ? 'All Providers'
-                  : `${selectedProviderIds.length} Selected`}
-              </span>
-            </button>
-            {providerFilterOpen && (
-              <>
-                {/* Backdrop */}
-                {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setProviderFilterOpen(false)}
-                />
-                <div className="absolute right-0 top-full z-20 mt-1 min-w-[200px] rounded-lg border border-border bg-surface p-2 shadow-lg">
-                  <button
-                    onClick={() => {
-                      setSelectedProviderIds([]);
-                      setProviderFilterOpen(false);
-                    }}
-                    className="mb-1 w-full rounded px-3 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-                  >
-                    Show All
-                  </button>
-                  <div className="border-t border-border pt-1">
-                    {allProviders.map((provider) => (
-                      <label
-                        key={provider.id}
-                        className="flex cursor-pointer items-center gap-2 rounded px-3 py-1.5 text-sm text-foreground hover:bg-accent"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedProviderIds.includes(provider.id)}
-                          onChange={() => toggleProvider(provider.id)}
-                          className="rounded border-border"
-                        />
-                        <span
-                          className="h-2.5 w-2.5 rounded-full"
-                          style={{ backgroundColor: provider.color }}
-                        />
-                        {provider.name}
-                      </label>
-                    ))}
+          {/* Calendar view: Provider filter */}
+          {pageView === 'calendar' && (
+            <div className="relative">
+              <button
+                onClick={() => setProviderFilterOpen(!providerFilterOpen)}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground hover:bg-accent"
+              >
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span>
+                  {selectedProviderIds.length === 0
+                    ? 'All Providers'
+                    : `${selectedProviderIds.length} Selected`}
+                </span>
+              </button>
+              {providerFilterOpen && (
+                <>
+                  {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setProviderFilterOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full z-20 mt-1 min-w-[200px] rounded-lg border border-border bg-surface p-2 shadow-lg">
+                    <button
+                      onClick={() => {
+                        setSelectedProviderIds([]);
+                        setProviderFilterOpen(false);
+                      }}
+                      className="mb-1 w-full rounded px-3 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                    >
+                      Show All
+                    </button>
+                    <div className="border-t border-border pt-1">
+                      {allProviders.map((provider) => (
+                        <label
+                          key={provider.id}
+                          className="flex cursor-pointer items-center gap-2 rounded px-3 py-1.5 text-sm text-foreground hover:bg-accent"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedProviderIds.includes(provider.id)}
+                            onChange={() => toggleProvider(provider.id)}
+                            className="rounded border-border"
+                          />
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: provider.color }}
+                          />
+                          {provider.name}
+                        </label>
+                      ))}
+                    </div>
+                    {allProviders.length === 0 && (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">No providers found</p>
+                    )}
                   </div>
-                  {allProviders.length === 0 && (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">No providers found</p>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Date display */}
       <div className="text-sm text-muted-foreground">
-        {viewMode === 'day'
-          ? formatDateDisplay(currentDate)
-          : `${formatDateShort(weekDays[0]!)} - ${formatDateShort(weekDays[6]!)}`}
+        {pageView === 'quick'
+          ? quickRangeLabel
+          : viewMode === 'day'
+            ? formatDateDisplay(currentDate)
+            : `${formatDateShort(weekDays[0]!)} - ${formatDateShort(weekDays[6]!)}`}
       </div>
 
-      {/* Loading state */}
-      {isLoading && <CalendarSkeleton />}
-
-      {/* Error state */}
-      {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
-          {error?.message ?? 'An error occurred'}
-        </div>
+      {/* ── Quick Reserve View ─────────────────────────────────────── */}
+      {pageView === 'quick' && (
+        <>
+          {availLoading && <CondensedSkeleton />}
+          {!availLoading && availabilityData && (
+            <SpaCondensedView
+              days={availabilityData.days}
+              categories={availabilityData.categories}
+              onSelectDate={handleQuickSelect}
+            />
+          )}
+          {!availLoading && !availabilityData && (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <Zap className="mb-3 h-10 w-10" />
+              <p className="text-sm">No availability data. Configure providers and services first.</p>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Day view */}
-      {!isLoading && !error && viewMode === 'day' && (
-        <DayView
-          providers={visibleProviders}
-          unassigned={unassigned}
-          onAppointmentClick={handleAppointmentClick}
-          onAppointmentContextMenu={handleContextMenu}
-        />
-      )}
+      {/* ── Calendar View ──────────────────────────────────────────── */}
+      {pageView === 'calendar' && (
+        <>
+          {/* Loading state */}
+          {calLoading && <CalendarSkeleton />}
 
-      {/* Week view */}
-      {!isLoading && !error && viewMode === 'week' && (
-        <WeekView
-          providers={visibleProviders}
-          unassigned={unassigned}
-          weekDays={weekDays}
-          onAppointmentClick={handleAppointmentClick}
-          onAppointmentContextMenu={handleContextMenu}
-        />
-      )}
+          {/* Error state */}
+          {calError && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+              {calError?.message ?? 'An error occurred'}
+            </div>
+          )}
 
-      {/* Empty state */}
-      {!isLoading && !error && visibleProviders.length === 0 && unassigned.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <CalendarDays className="mb-3 h-10 w-10" />
-          <p className="text-sm">No appointments scheduled for this period.</p>
-        </div>
+          {/* Day view */}
+          {!calLoading && !calError && viewMode === 'day' && (
+            <DayView
+              providers={visibleProviders}
+              unassigned={unassigned}
+              onAppointmentClick={handleAppointmentClick}
+              onAppointmentContextMenu={handleContextMenu}
+            />
+          )}
+
+          {/* Week view */}
+          {!calLoading && !calError && viewMode === 'week' && (
+            <WeekView
+              providers={visibleProviders}
+              unassigned={unassigned}
+              weekDays={weekDays}
+              onAppointmentClick={handleAppointmentClick}
+              onAppointmentContextMenu={handleContextMenu}
+            />
+          )}
+
+          {/* Empty state */}
+          {!calLoading && !calError && visibleProviders.length === 0 && unassigned.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <CalendarDays className="mb-3 h-10 w-10" />
+              <p className="text-sm">No appointments scheduled for this period.</p>
+            </div>
+          )}
+        </>
       )}
 
       {/* Context menu */}
@@ -537,6 +663,17 @@ export default function SpaCalendarContent() {
           serviceName={sendToPosAppointment.serviceName}
           totalCents={0}
           onSuccess={handleCheckoutSuccess}
+        />
+      )}
+
+      {/* Quick Book dialog */}
+      {showQuickBookDialog && locationId && (
+        <SpaQuickBookDialog
+          open={showQuickBookDialog}
+          onClose={handleQuickBookClose}
+          locationId={locationId}
+          prefillDate={quickBookDate}
+          prefillCategoryId={quickBookCategoryId}
         />
       )}
     </div>
@@ -626,7 +763,6 @@ function DayView({
                 const height = Math.max(getHeight(appt.startTime, appt.endTime), 20);
                 const colors = STATUS_COLORS[appt.status] ?? STATUS_COLORS.confirmed;
 
-                // Skip appointments outside visible range
                 if (top + height < 0 || top > TOTAL_HEIGHT_PX) return null;
 
                 return (
@@ -681,7 +817,6 @@ function WeekView({
   onAppointmentClick: (appt: CalendarAppointment) => void;
   onAppointmentContextMenu: (e: React.MouseEvent, appt: CalendarAppointment) => void;
 }) {
-  // Collect all appointments across providers + unassigned
   const allAppointments = useMemo(() => {
     const list: CalendarAppointment[] = [];
     for (const provider of providers) {
@@ -691,7 +826,6 @@ function WeekView({
     return list;
   }, [providers, unassigned]);
 
-  // Group by day
   const appointmentsByDay = useMemo(() => {
     const map = new Map<string, CalendarAppointment[]>();
     for (const day of weekDays) {
@@ -704,7 +838,6 @@ function WeekView({
         existing.push(appt);
       }
     }
-    // Sort each day's appointments by start time
     for (const [, appts] of map) {
       appts.sort(
         (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
@@ -713,7 +846,6 @@ function WeekView({
     return map;
   }, [allAppointments, weekDays]);
 
-  // Lookup provider color by ID
   const providerColorMap = useMemo(() => {
     const map = new Map<string | null, string>();
     for (const p of providers) {
@@ -739,7 +871,6 @@ function WeekView({
                 isToday ? 'bg-indigo-500/5' : ''
               }`}
             >
-              {/* Day header */}
               <div className="border-b border-border px-2 py-2 text-center">
                 <div className="text-xs text-muted-foreground">
                   {day.toLocaleDateString('en-US', { weekday: 'short' })}
@@ -753,7 +884,6 @@ function WeekView({
                 </div>
               </div>
 
-              {/* Appointments */}
               <div className="min-h-[200px] space-y-1 p-1">
                 {appts.map((appt) => {
                   const colors = STATUS_COLORS[appt.status] ?? STATUS_COLORS.confirmed;
@@ -825,7 +955,6 @@ function AppointmentContextMenu({
   const canSendToPos = appointment.status === 'completed' && !appointment.orderId;
   const alreadyCheckedOut = !!appointment.orderId;
 
-  // Clamp menu position so it doesn't overflow the viewport
   const [pos, setPos] = useState({ left: x, top: y });
   useEffect(() => {
     const el = menuRef.current;
@@ -905,13 +1034,12 @@ function AppointmentContextMenu({
   );
 }
 
-// ── Loading Skeleton ──────────────────────────────────────────────────
+// ── Loading Skeletons ─────────────────────────────────────────────────
 
 function CalendarSkeleton() {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-surface">
       <div className="flex">
-        {/* Time column skeleton */}
         <div className="w-20 shrink-0 border-r border-border">
           <div className="h-12 border-b border-border" />
           <div className="space-y-6 p-2">
@@ -920,8 +1048,6 @@ function CalendarSkeleton() {
             ))}
           </div>
         </div>
-
-        {/* Provider column skeletons */}
         {Array.from({ length: 3 }).map((_, colIdx) => (
           <div key={colIdx} className="min-w-[180px] flex-1 border-r border-border last:border-r-0">
             <div className="flex h-12 items-center gap-2 border-b border-border px-3">
@@ -942,6 +1068,31 @@ function CalendarSkeleton() {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function CondensedSkeleton() {
+  return (
+    <div className="flex min-h-[400px] gap-0 rounded-lg border border-border bg-surface">
+      <div className="w-64 shrink-0 border-r border-border p-4 space-y-3">
+        <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-12 animate-pulse rounded-lg bg-muted/30" />
+        ))}
+      </div>
+      <div className="flex-1 p-5 space-y-4">
+        <div className="grid grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-20 animate-pulse rounded-lg border border-border bg-muted/30" />
+          ))}
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-12 animate-pulse rounded bg-muted/20" />
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -970,6 +970,11 @@ export const recordSplitTenderSchema = z.object({
   tenderId: z.string().min(1),
   amountCents: z.number().int().min(1),
   tenderType: z.enum(FNB_TENDER_TYPES),
+  // House account metadata (required when tenderType === 'house_account')
+  billingAccountId: z.string().min(1).optional(),
+  customerId: z.string().min(1).optional(),
+  tipCents: z.number().int().min(0).optional(),
+  signatureData: z.string().max(100_000).optional(), // base64 SVG signature (CMAA signed chit)
 });
 
 export type RecordSplitTenderInput = z.input<typeof recordSplitTenderSchema>;

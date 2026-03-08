@@ -38,7 +38,7 @@ export function useTokenizerConfig(options: UseTokenizerConfigOptions = {}): Use
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
     setIsLoading(true);
     setError(null);
 
@@ -46,16 +46,16 @@ export function useTokenizerConfig(options: UseTokenizerConfigOptions = {}): Use
       try {
         const base = apiUrl ?? '/api/v1/payments/tokenizer-config';
         const url = locationId ? `${base}?locationId=${encodeURIComponent(locationId)}` : base;
-        const res = await apiFetch<{ data: TokenizerClientConfig }>(url);
-        if (!cancelled) setConfig(res.data);
+        const res = await apiFetch<{ data: TokenizerClientConfig }>(url, { signal: controller.signal });
+        if (!controller.signal.aborted) setConfig(res.data);
       } catch {
-        if (!cancelled) setError('Card payments are not configured for this location.');
+        if (!controller.signal.aborted) setError('Card payments are not configured for this location.');
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [locationId, apiUrl, enabled]);
 
   return { config, isLoading, error };

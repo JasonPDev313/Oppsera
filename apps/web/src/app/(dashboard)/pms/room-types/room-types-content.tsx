@@ -74,13 +74,13 @@ export default function RoomTypesContent() {
 
   // ── Load properties ─────────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       setPropertiesLoading(true);
       setPropertiesError(null);
       try {
-        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties');
-        if (cancelled) return;
+        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties', { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const items = res.data ?? [];
         setProperties(items);
         if (items.length > 0) {
@@ -89,16 +89,16 @@ export default function RoomTypesContent() {
           setPropertiesError('No property found — try refreshing');
         }
       } catch (err) {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           const msg = err instanceof Error ? err.message : 'Failed to load properties';
           console.error('[PMS] Failed to load properties:', msg);
           setPropertiesError(msg);
         }
       } finally {
-        if (!cancelled) setPropertiesLoading(false);
+        if (!controller.signal.aborted) setPropertiesLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, []);
 
   // ── Load room types ───────────────────────────────────────────

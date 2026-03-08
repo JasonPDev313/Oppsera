@@ -96,6 +96,7 @@ export {
   getOnlineBookingStats,
 } from './queries';
 export { getAvailableSlots as getAvailableSlotsQuery } from './queries';
+export { getAvailabilitySummary } from './queries';
 
 export type {
   ServiceCategoryRow,
@@ -200,6 +201,10 @@ export type {
   OnlineBookingStatsInput,
   OnlineBookingStats,
   RecentOnlineBooking,
+  GetAvailabilitySummaryInput,
+  DaySlotSummary,
+  AvailabilityCategorySummary,
+  GetAvailabilitySummaryResult,
 } from './queries';
 
 // Helpers — Availability Engine

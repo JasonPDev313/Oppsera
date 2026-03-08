@@ -2003,6 +2003,20 @@
       "when": 1772909226965,
       "tag": "0285_strict_period_close",
       "breakpoints": true
+    },
+    {
+      "idx": 286,
+      "version": "7",
+      "when": 1772980123983,
+      "tag": "0286_cmaa_house_account_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 287,
+      "version": "7",
+      "when": 1772980332869,
+      "tag": "0287_fix_kds_rls_setting_name",
+      "breakpoints": true
     }
   ]
 }

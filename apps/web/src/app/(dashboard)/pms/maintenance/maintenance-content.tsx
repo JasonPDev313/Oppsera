@@ -493,17 +493,18 @@ export default function MaintenanceContent() {
   // ── Load rooms for the create dialog ──────────────────────────────
   useEffect(() => {
     if (!selectedPropertyId) return;
-    let cancelled = false;
+    const controller = new AbortController();
     apiFetch<{ data: Room[] }>(
       `/api/v1/pms/rooms${buildQueryString({ propertyId: selectedPropertyId, limit: 500 })}`,
+      { signal: controller.signal },
     )
       .then((res) => {
-        if (!cancelled) setRooms(res.data ?? []);
+        if (!controller.signal.aborted) setRooms(res.data ?? []);
       })
       .catch(() => {
         /* silently handle */
       });
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [selectedPropertyId]);
 
   // ── Debounced search ──────────────────────────────────────────────

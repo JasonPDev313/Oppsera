@@ -109,14 +109,15 @@ export function useShift(locationId: string, terminalId: string, isActive = true
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
 
     async function fetchActive() {
       try {
         const resp = await apiFetch<{ data: ServerDrawerSession | null }>(
           `/api/v1/drawer-sessions?terminalId=${encodeURIComponent(terminalId)}&active=true`,
+          { signal: controller.signal },
         );
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
 
         if (resp.data) {
           const shift = serverToShift(resp.data);
@@ -129,7 +130,7 @@ export function useShift(locationId: string, terminalId: string, isActive = true
         hasFetchedRef.current = true;
       } catch {
         // Offline — fall back to localStorage
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         const stored = loadShiftFromStorage(locationId, terminalId);
         if (stored && stored.status === 'open') {
           setCurrentShift(stored);
@@ -137,7 +138,7 @@ export function useShift(locationId: string, terminalId: string, isActive = true
           setCurrentShift(null);
         }
       } finally {
-        if (!cancelled && mountedRef.current) {
+        if (!controller.signal.aborted && mountedRef.current) {
           setIsLoading(false);
         }
       }
@@ -146,7 +147,7 @@ export function useShift(locationId: string, terminalId: string, isActive = true
     fetchActive();
 
     return () => {
-      cancelled = true;
+      controller.abort();
       mountedRef.current = false;
     };
   }, [locationId, terminalId, isActive]);

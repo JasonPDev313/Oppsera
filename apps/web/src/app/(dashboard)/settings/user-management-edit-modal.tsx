@@ -79,15 +79,15 @@ export default function EditUserModal({ userId, roles, locations, onClose, onSav
 
   // Fetch user detail on mount
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         const [userRes, hkRes, propsRes] = await Promise.all([
-          apiFetch<{ data: UserDetail }>(`/api/v1/users/${userId}`),
-          apiFetch<{ data: Array<{ id: string; propertyId: string; isActive: boolean }> }>(`/api/v1/pms/housekeepers/by-user?userId=${userId}`).catch(() => ({ data: [] as Array<{ id: string; propertyId: string; isActive: boolean }> })),
-          apiFetch<{ data: PMSProperty[] }>('/api/v1/pms/properties').catch(() => ({ data: [] as PMSProperty[] })),
+          apiFetch<{ data: UserDetail }>(`/api/v1/users/${userId}`, { signal: controller.signal }),
+          apiFetch<{ data: Array<{ id: string; propertyId: string; isActive: boolean }> }>(`/api/v1/pms/housekeepers/by-user?userId=${userId}`, { signal: controller.signal }).catch(() => ({ data: [] as Array<{ id: string; propertyId: string; isActive: boolean }> })),
+          apiFetch<{ data: PMSProperty[] }>('/api/v1/pms/properties', { signal: controller.signal }).catch(() => ({ data: [] as PMSProperty[] })),
         ]);
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         const u = userRes.data;
         const populated: EditForm = {
           firstName: u.firstName ?? '', lastName: u.lastName ?? '',
@@ -110,14 +110,14 @@ export default function EditUserModal({ userId, roles, locations, onClose, onSav
           existingId: activeHk?.id ?? null,
         });
       } catch (error) {
-        if (!cancelled && error instanceof ApiError) toast.error(error.message);
-        if (!cancelled) onClose();
+        if (!controller.signal.aborted && error instanceof ApiError) toast.error(error.message);
+        if (!controller.signal.aborted) onClose();
         return;
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [userId, toast, onClose]);
 
   const WEAK_4 = new Set(['0000','1111','2222','3333','4444','5555','6666','7777','8888','9999','1234','4321','1212','2121','1122','2211','0123','3210','9876','6789','1010','2020','6969','1357','2468']);

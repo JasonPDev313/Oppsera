@@ -193,6 +193,7 @@ export async function createAppointment(ctx: RequestContext, input: CreateAppoin
       customerId: parsed.customerId,
       providerId: parsed.providerId,
       locationId: parsed.locationId,
+      businessDate: startTime.toISOString().slice(0, 10),
       startAt: parsed.startAt,
       endAt: parsed.endAt,
       bookingSource: parsed.bookingSource,

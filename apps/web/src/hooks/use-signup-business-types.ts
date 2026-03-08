@@ -18,29 +18,29 @@ export function useSignupBusinessTypes() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
     async function load() {
       try {
-        const res = await fetch('/api/v1/public/signup-types');
+        const res = await fetch('/api/v1/public/signup-types', { signal: controller.signal });
         if (!res.ok) throw new Error(`Failed to load business types: ${res.status}`);
         const json = await res.json();
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setData(json.data ?? []);
         }
       } catch (err) {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setError(err instanceof Error ? err : new Error('Unknown error'));
         }
       } finally {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setIsLoading(false);
         }
       }
     }
 
     void load();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, []);
 
   return { data, isLoading, error };

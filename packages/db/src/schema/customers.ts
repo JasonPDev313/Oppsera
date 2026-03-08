@@ -368,6 +368,14 @@ export const billingAccounts = pgTable(
     autopayFixedAmountCents: bigint('autopay_fixed_amount_cents', { mode: 'number' }),
     autopayPaymentMethodId: text('autopay_payment_method_id'),
 
+    // ── CMAA house account controls (migration 0286) ──
+    minChargeCents: bigint('min_charge_cents', { mode: 'number' }),
+    maxTipPercentage: numeric('max_tip_percentage', { precision: 5, scale: 2 }),
+    dailyLimitCents: bigint('daily_limit_cents', { mode: 'number' }),
+    monthlyLimitCents: bigint('monthly_limit_cents', { mode: 'number' }),
+    chargingHoursStart: text('charging_hours_start'),
+    chargingHoursEnd: text('charging_hours_end'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

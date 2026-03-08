@@ -121,11 +121,11 @@ export default function GroupsContent() {
 
   // ── Load properties ─────────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
-        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties');
-        if (cancelled) return;
+        const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties', { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const items = res.data ?? [];
         setProperties(items);
         if (items.length > 0 && !selectedPropertyId) {
@@ -135,7 +135,7 @@ export default function GroupsContent() {
         // silently handle
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, []);
 
   // ── Load groups ───────────────────────────────────────────────
@@ -190,21 +190,23 @@ export default function GroupsContent() {
   // ── Load rate plans when dialog opens ───────────────────────────
   useEffect(() => {
     if (!isDialogOpen || !selectedPropertyId) return;
-    let cancelled = false;
+    const controller = new AbortController();
     setDialogDataLoading(true);
     (async () => {
       try {
         const qs = buildQueryString({ propertyId: selectedPropertyId, limit: 100 });
-        const res = await apiFetch<{ data: RatePlan[] }>(`/api/v1/pms/rate-plans${qs}`);
-        if (cancelled) return;
+        const res = await apiFetch<{ data: RatePlan[] }>(`/api/v1/pms/rate-plans${qs}`, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         setRatePlans(res.data ?? []);
       } catch (err) {
-        console.error('[PMS Groups] Failed to load rate plans:', err);
+        if (!controller.signal.aborted) {
+          console.error('[PMS Groups] Failed to load rate plans:', err);
+        }
       } finally {
-        if (!cancelled) setDialogDataLoading(false);
+        if (!controller.signal.aborted) setDialogDataLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [isDialogOpen, selectedPropertyId]);
 
   // ── Reset form when dialog opens ───────────────────────────────
