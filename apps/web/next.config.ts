@@ -48,9 +48,24 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@oppsera/shared', '@oppsera/core', '@oppsera/module-import', 'lucide-react'],
   },
-  // Webpack watcher config (production builds only — Turbopack ignores this in dev).
-  // Uses native FS events (no polling) with broad ignore patterns to reduce overhead.
-  webpack: (config) => {
+  // Webpack config: watcher + Edge runtime polyfill fallbacks.
+  webpack: (config, { nextRuntime }) => {
+    // Edge runtime: jsonwebtoken (used by impersonation.ts) requires Node.js crypto/stream
+    // which aren't available in Edge. The code paths are behind NEXT_RUNTIME === 'nodejs'
+    // checks so they never execute in Edge — tell webpack to provide empty fallbacks.
+    if (nextRuntime === 'edge') {
+      config.resolve = {
+        ...config.resolve,
+        fallback: {
+          ...(config.resolve?.fallback ?? {}),
+          crypto: false,
+          stream: false,
+          util: false,
+        },
+      };
+    }
+
+    // Watcher config (production builds only — Turbopack ignores this in dev).
     const prev = config.watchOptions ?? {};
     const existing = prev.ignored;
     const kept: string[] = [];
