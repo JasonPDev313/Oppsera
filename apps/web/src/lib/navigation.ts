@@ -194,7 +194,7 @@ export const navigation: NavItem[] = [
       { name: 'Dashboards', href: '/dashboards', icon: LayoutGrid, requiredPermission: 'reports.custom.view' },
     ],
   },
-  { name: 'Feature Requests', href: '/roadmap', icon: Lightbulb, requiredPermission: 'dashboard.view' },
+  // Feature Requests moved under Settings (+ dashboard widget)
   {
     name: 'AI Insights',
     href: '/insights',
@@ -316,6 +316,7 @@ export const navigation: NavItem[] = [
       { name: 'Room Layouts', href: '/settings/room-layouts', icon: LayoutDashboard, moduleKey: 'room_layouts', requiredPermission: 'room_layouts.view' },
       { name: 'Data Imports', href: '/settings/data-imports', icon: Upload, requiredPermission: 'settings.update' },
       { name: 'Web Apps', href: '/settings/web-apps', icon: Globe, requiredPermission: 'settings.update' },
+      { name: 'Feature Requests', href: '/roadmap', icon: Lightbulb, requiredPermission: 'dashboard.view' },
     ],
   },
 ];
