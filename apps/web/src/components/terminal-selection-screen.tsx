@@ -75,19 +75,12 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
   // terminal ID and flag that a quick resume is pending. The useEffect below
   // waits for the state to settle (selectedTerminalId matches) then continues.
   const quickResumeRef = useRef<string | null>(null);
-  const didContinueRef = useRef(false);
-
-  // Reset guard on mount (or when re-entering the screen, e.g. terminal switch)
-  useEffect(() => {
-    didContinueRef.current = false;
-  }, [isSwitching]);
+  const autoContinuedRef = useRef(false);
 
   const { buildSession } = terminalSelection;
   const handleContinue = useCallback(() => {
-    if (didContinueRef.current) return; // prevent double-fire
     const session = buildSession();
     if (session) {
-      didContinueRef.current = true;
       saveLastTerminal({
         terminalId: session.terminalId,
         terminalName: session.terminalName,
@@ -116,11 +109,12 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
   // (e.g. fresh account with a single default profit center + terminal).
   // Skips the selection screen entirely — zero friction.
   // Disabled during mid-session switching so user can always choose manually.
+  // Uses a ref to fire only once per mount — manual clicks are never blocked.
   const { canContinue, isLoading: termLoading } = terminalSelection;
   useEffect(() => {
-    if (isSwitching || didContinueRef.current) return;
+    if (isSwitching || autoContinuedRef.current) return;
     if (!termLoading && canContinue && !roleSelection.isLoading && !roleSelection.hasMultipleRoles) {
-      didContinueRef.current = true;
+      autoContinuedRef.current = true;
       handleContinue();
     }
   }, [termLoading, canContinue, roleSelection.isLoading, roleSelection.hasMultipleRoles, handleContinue, isSwitching]);
