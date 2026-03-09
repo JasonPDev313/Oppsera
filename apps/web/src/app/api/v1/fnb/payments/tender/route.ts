@@ -114,7 +114,7 @@ export const POST = withMiddleware(
       result = await recordSplitTender(ctx, ctx.locationId, input);
     } catch (err) {
       if (gatewayCharged && hasPaymentsGateway()) {
-        try { await getPaymentsGatewayApi().void(ctx, { paymentIntentId: input.tenderId! }); } catch { /* best-effort */ }
+        try { await getPaymentsGatewayApi().void(ctx, { paymentIntentId: input.tenderId!, clientRequestId: `void-${input.clientRequestId}` }); } catch { /* best-effort */ }
       }
       throw err;
     }

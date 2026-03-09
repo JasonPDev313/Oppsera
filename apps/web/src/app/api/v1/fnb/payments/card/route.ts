@@ -90,7 +90,7 @@ export const POST = withMiddleware(
         clientRequestId: `tender-${input.clientRequestId}`,
       });
     } catch (err) {
-      try { await gateway.void(ctx, { paymentIntentId: gatewayResult.id }); } catch { /* best-effort */ }
+      try { await gateway.void(ctx, { paymentIntentId: gatewayResult.id, clientRequestId: `void-${input.clientRequestId}` }); } catch { /* best-effort */ }
       throw err;
     }
 
