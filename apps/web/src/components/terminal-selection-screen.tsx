@@ -77,6 +77,11 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
   const quickResumeRef = useRef<string | null>(null);
   const didContinueRef = useRef(false);
 
+  // Reset guard on mount (or when re-entering the screen, e.g. terminal switch)
+  useEffect(() => {
+    didContinueRef.current = false;
+  }, [isSwitching]);
+
   const { buildSession } = terminalSelection;
   const handleContinue = useCallback(() => {
     if (didContinueRef.current) return; // prevent double-fire
