@@ -76,21 +76,25 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
   // waits for the state to settle (selectedTerminalId matches) then continues.
   const quickResumeRef = useRef<string | null>(null);
   const autoContinuedRef = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { buildSession } = terminalSelection;
   const handleContinue = useCallback(() => {
     const session = buildSession();
-    if (session) {
-      saveLastTerminal({
-        terminalId: session.terminalId,
-        terminalName: session.terminalName,
-        locationName: session.locationName,
-      });
-      setSession(session);
-      const registerLabel = session.terminalName || 'your register';
-      const locationLabel = session.locationName ? ` at ${session.locationName}` : '';
-      toast.success(`You're now on ${registerLabel}${locationLabel}`);
+    if (!session) {
+      toast.error('Unable to build session — please re-select your register.');
+      return;
     }
+    setIsSubmitting(true);
+    saveLastTerminal({
+      terminalId: session.terminalId,
+      terminalName: session.terminalName,
+      locationName: session.locationName,
+    });
+    setSession(session);
+    const registerLabel = session.terminalName || 'your register';
+    const locationLabel = session.locationName ? ` at ${session.locationName}` : '';
+    toast.success(`You're now on ${registerLabel}${locationLabel}`);
   }, [buildSession, setSession, toast]);
 
   // Quick-resume: wait for cascade to settle, then continue
@@ -245,6 +249,8 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
     setSelectedProfitCenterId,
     setSelectedTerminalId,
     effectiveLocationId,
+    error: termError,
+    retry: termRetry,
     noProfitCentersExist,
   } = terminalSelection;
 
@@ -252,6 +258,41 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-indigo-600" />
+      </div>
+    );
+  }
+
+  // ── Error: Terminal data fetch failed ─────────────────────────────
+  if (termError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8 shadow-lg">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10">
+              <Monitor className="h-6 w-6 text-red-500" />
+            </div>
+            <h1 className="text-xl font-bold text-foreground">Unable to Load Registers</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{termError}</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={termRetry}
+              className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+            >
+              Retry
+            </button>
+            {onSkip && (
+              <button
+                type="button"
+                onClick={onSkip}
+                className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent"
+              >
+                Skip
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
@@ -483,11 +524,11 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
         <button
           type="button"
           onClick={handleContinue}
-          disabled={!canContinue}
+          disabled={!canContinue || isSubmitting}
           className="w-full rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           style={{ minHeight: '44px' }}
         >
-          Continue
+          {isSubmitting ? 'Starting...' : 'Continue'}
         </button>
       </div>
     </div>

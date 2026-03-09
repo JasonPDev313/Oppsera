@@ -44,39 +44,45 @@ export function useTerminalSelection(options?: UseTerminalSelectionOptions) {
 
   const [allData, setAllData] = useState<AllData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [selectedProfitCenterId, setSelectedProfitCenterId] = useState<string | null>(null);
   const [selectedTerminalId, setSelectedTerminalId] = useState<string | null>(null);
 
-  // Single fetch on mount (or when roleId changes)
-  useEffect(() => {
+  const fetchAll = useCallback(async (role: string | null) => {
     setSelectedSiteId(null);
     setSelectedVenueId(null);
     setSelectedProfitCenterId(null);
     setSelectedTerminalId(null);
     setIsLoading(true);
+    setError(null);
 
-    (async () => {
-      try {
-        const roleParam = roleId ? `?roleId=${roleId}` : '';
-        const res = await apiFetch<{ data: AllData }>(
-          `/api/v1/terminal-session/all${roleParam}`,
-        );
-        setAllData(res.data);
+    try {
+      const roleParam = role ? `?roleId=${role}` : '';
+      const res = await apiFetch<{ data: AllData }>(
+        `/api/v1/terminal-session/all${roleParam}`,
+      );
+      setAllData(res.data);
 
-        // Auto-select single site
-        const siteList = res.data.locations.filter((l) => l.locationType === 'site');
-        if (siteList.length === 1) {
-          setSelectedSiteId(siteList[0]!.id);
-        }
-      } catch {
-        /* handle error */
+      // Auto-select single site
+      const siteList = res.data.locations.filter((l) => l.locationType === 'site');
+      if (siteList.length === 1) {
+        setSelectedSiteId(siteList[0]!.id);
       }
-      setIsLoading(false);
-    })();
-  }, [roleId]);
+    } catch (err) {
+      console.error('[useTerminalSelection] fetch failed:', err);
+      setAllData(null);
+      setError(err instanceof Error ? err.message : 'Failed to load terminal data');
+    }
+    setIsLoading(false);
+  }, []);
+
+  // Single fetch on mount (or when roleId changes)
+  useEffect(() => {
+    fetchAll(roleId);
+  }, [roleId, fetchAll]);
 
   // Derived: sites
   const sites = useMemo(
@@ -179,10 +185,13 @@ export function useTerminalSelection(options?: UseTerminalSelectionOptions) {
   const buildSession = useCallback((): TerminalSession | null => {
     if (!canContinue || !effectiveLocationId || !allData) return null;
 
-    const loc = allData.locations.find((l) => l.id === effectiveLocationId)!;
+    const loc = allData.locations.find((l) => l.id === effectiveLocationId);
     const site = selectedSiteId ? allData.locations.find((l) => l.id === selectedSiteId) : null;
-    const pc = profitCenters.find((p) => p.id === selectedProfitCenterId)!;
-    const term = terminals.find((t) => t.id === selectedTerminalId)!;
+    const pc = profitCenters.find((p) => p.id === selectedProfitCenterId);
+    const term = terminals.find((t) => t.id === selectedTerminalId);
+
+    // Guard against stale IDs that don't match loaded data
+    if (!loc || !pc || !term) return null;
 
     const isVenue = loc.locationType === 'venue';
 
@@ -229,6 +238,8 @@ export function useTerminalSelection(options?: UseTerminalSelectionOptions) {
     canContinue,
     buildSession,
     isLoading,
+    error,
+    retry: () => fetchAll(roleId),
     noProfitCentersExist,
   };
 }
