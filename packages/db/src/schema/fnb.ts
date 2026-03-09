@@ -1055,6 +1055,32 @@ export const fnbKdsItemPrepTimes = pgTable(
   ],
 );
 
+// ── F&B KDS Location Settings ───────────────────────────────────
+export const fnbKdsLocationSettings = pgTable(
+  'fnb_kds_location_settings',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    locationId: text('location_id')
+      .notNull()
+      .references(() => locations.id),
+    /** How to handle tickets from previous business dates */
+    staleTicketMode: text('stale_ticket_mode').notNull().default('persist'), // persist | auto_clear
+    /** Time of day to auto-clear stale tickets (HH:MM, 24h). Only used when staleTicketMode = 'auto_clear'. */
+    autoClearTime: text('auto_clear_time').default('04:00'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_fnb_kds_location_settings_tenant_location').on(
+      table.tenantId,
+      table.locationId,
+    ),
+  ],
+);
+
 // ═══════════════════════════════════════════════════════════════════
 // SESSION 6 — Modifiers, 86 Board & Menu Availability
 // ═══════════════════════════════════════════════════════════════════
@@ -2657,6 +2683,112 @@ export const fnbKdsTerminalHeartbeats = pgTable(
   (table) => [
     uniqueIndex('uq_fnb_kds_heartbeat_terminal').on(table.tenantId, table.locationId, table.terminalId),
     index('idx_fnb_kds_heartbeat_station').on(table.stationId),
+  ],
+);
+
+// ── KDS Send Tracking (delivery lifecycle per ticket per station) ─
+export const fnbKdsSendTracking = pgTable(
+  'fnb_kds_send_tracking',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull(),
+    orderId: text('order_id'),
+    ticketId: text('ticket_id').notNull(),
+    ticketNumber: integer('ticket_number').notNull(),
+    courseId: text('course_id'),
+    courseNumber: integer('course_number'),
+    stationId: text('station_id').notNull(),
+    stationName: text('station_name').notNull(),
+    terminalId: text('terminal_id'),
+    terminalName: text('terminal_name'),
+    employeeId: text('employee_id'),
+    employeeName: text('employee_name'),
+    /** Unique token per send attempt — never reused on retry */
+    sendToken: text('send_token').notNull(),
+    /** For retries: links back to the original failed send */
+    priorSendToken: text('prior_send_token'),
+    /** initial | retry | manual_resend | fire_course | recall | reroute */
+    sendType: text('send_type').notNull().default('initial'),
+    /** Why this station was chosen (routing_rule | manual | fallback | expo) */
+    routingReason: text('routing_reason'),
+    /** Delivery lifecycle: queued | sent | delivered | displayed | failed | orphaned | resolved | deleted */
+    status: text('status').notNull().default('queued'),
+    /** Kitchen operational status: pending | in_progress | ready | served | voided */
+    kdsOperationalStatus: text('kds_operational_status'),
+    /** Machine-readable failure code */
+    errorCode: text('error_code'),
+    /** Human-readable failure detail */
+    errorDetail: text('error_detail'),
+    /** Number of items sent to this station */
+    itemCount: integer('item_count').notNull().default(0),
+    /** Order type snapshot (dine_in | takeout | delivery | bar | pickup) */
+    orderType: text('order_type'),
+    /** Table/seat/guest info snapshots */
+    tableName: text('table_name'),
+    guestName: text('guest_name'),
+    queuedAt: timestamp('queued_at', { withTimezone: true }),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+    displayedAt: timestamp('displayed_at', { withTimezone: true }),
+    firstInteractionAt: timestamp('first_interaction_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    failedAt: timestamp('failed_at', { withTimezone: true }),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    deletedByEmployeeId: text('deleted_by_employee_id'),
+    deleteReason: text('delete_reason'),
+    retryCount: integer('retry_count').notNull().default(0),
+    lastRetryAt: timestamp('last_retry_at', { withTimezone: true }),
+    /** Computed: true if stuck / needs manager attention */
+    needsAttention: boolean('needs_attention').notNull().default(false),
+    stuckReason: text('stuck_reason'),
+    businessDate: date('business_date').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_fnb_kds_send_token').on(table.tenantId, table.sendToken),
+    index('idx_fnb_kds_send_tracking_tenant_location').on(table.tenantId, table.locationId, table.businessDate),
+    index('idx_fnb_kds_send_tracking_ticket').on(table.ticketId),
+    index('idx_fnb_kds_send_tracking_station').on(table.stationId, table.status),
+    index('idx_fnb_kds_send_tracking_status').on(table.tenantId, table.locationId, table.status),
+    index('idx_fnb_kds_send_tracking_attention').on(table.tenantId, table.locationId, table.needsAttention)
+      .where(sql`needs_attention = true`),
+  ],
+);
+
+// ── KDS Send Events (append-only timeline per send) ─────────────
+export const fnbKdsSendEvents = pgTable(
+  'fnb_kds_send_events',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull(),
+    sendTrackingId: text('send_tracking_id').notNull(),
+    sendToken: text('send_token').notNull(),
+    ticketId: text('ticket_id').notNull(),
+    stationId: text('station_id').notNull(),
+    /** Event types: queued | dispatched | sent | delivery_ack | display_ack | interaction |
+     *  status_change | retry | failed | resolved | deleted | error */
+    eventType: text('event_type').notNull(),
+    eventAt: timestamp('event_at', { withTimezone: true }).notNull().defaultNow(),
+    /** system | employee | kds_client */
+    actorType: text('actor_type').notNull().default('system'),
+    actorId: text('actor_id'),
+    actorName: text('actor_name'),
+    /** Previous status before this event */
+    previousStatus: text('previous_status'),
+    /** New status after this event */
+    newStatus: text('new_status'),
+    /** Structured event metadata */
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_kds_send_events_tracking').on(table.sendTrackingId),
+    index('idx_fnb_kds_send_events_token').on(table.tenantId, table.sendToken),
+    index('idx_fnb_kds_send_events_ticket').on(table.ticketId),
   ],
 );
 

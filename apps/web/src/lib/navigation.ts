@@ -54,6 +54,7 @@ import {
   ClipboardCheck,
   Monitor,
   Lightbulb,
+  Activity,
   // Flag, // Golf module hidden — non-compete
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
@@ -130,6 +131,7 @@ export const navigation: NavItem[] = [
     children: [
       { name: 'Expo', href: '/expo', icon: PackageCheck, requiredPermission: 'kds.view' },
       { name: 'All Orders', href: '/kds/all', icon: LayoutList, requiredPermission: 'kds.view' },
+      { name: 'Order Status', href: '/kds/order-status', icon: Activity, group: 'Config', requiredPermission: 'kds.manage' },
       { name: 'KDS Settings', href: '/kds/settings', icon: Settings, group: 'Config', requiredPermission: 'kds.settings.manage' },
     ],
   },

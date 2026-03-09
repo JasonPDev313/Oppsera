@@ -744,6 +744,62 @@ export const getStationMetricsSchema = z.object({
 
 export type GetStationMetricsInput = z.input<typeof getStationMetricsSchema>;
 
+// ── KDS Order Status ────────────────────────────────────────────
+
+export const KDS_SEND_STATUSES = ['queued', 'sent', 'delivered', 'displayed', 'failed', 'orphaned', 'resolved', 'deleted'] as const;
+export const KDS_SEND_TYPES = ['initial', 'retry', 'manual_resend', 'fire_course', 'recall', 'reroute'] as const;
+
+export const listKdsSendsSchema = z.object({
+  tab: z.enum(['active', 'needs_attention', 'history', 'all']).optional().default('active'),
+  status: z.enum(KDS_SEND_STATUSES).optional(),
+  stationId: z.string().optional(),
+  terminalId: z.string().optional(),
+  employeeId: z.string().optional(),
+  sendType: z.enum(KDS_SEND_TYPES).optional(),
+  errorCode: z.string().optional(),
+  ticketNumber: z.coerce.number().int().positive().optional(),
+  sendToken: z.string().optional(),
+  businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  orderType: z.string().optional(),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional().default(50),
+});
+
+export type ListKdsSendsInput = z.input<typeof listKdsSendsSchema>;
+
+export const bulkSoftDeleteKdsSendsSchema = z.object({
+  sendIds: z.array(z.string().min(1)).min(1).max(100),
+  reason: z.string().max(500).optional(),
+});
+
+export const bulkResolveKdsSendsSchema = z.object({
+  sendIds: z.array(z.string().min(1)).min(1).max(100),
+  reason: z.string().max(500).optional(),
+});
+
+export const ackKdsSendSchema = z.object({
+  sendToken: z.string().min(1),
+  ackType: z.enum(['delivery', 'display', 'interaction']),
+  actorId: z.string().optional(),
+  actorName: z.string().optional(),
+});
+
+export type AckKdsSendInput = z.input<typeof ackKdsSendSchema>;
+
+export const retryKdsSendSchema = z.object({
+  sendId: z.string().min(1),
+});
+
+export const resolveKdsSendSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+
+export const softDeleteKdsSendSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+
 // ═══════════════════════════════════════════════════════════════════
 // Session 6: Modifiers, 86 Board & Menu Availability
 // ═══════════════════════════════════════════════════════════════════
@@ -2036,6 +2092,14 @@ export const getKdsViewEnhancedSchema = z.object({
   viewMode: z.enum(['ticket', 'grid', 'split', 'all_day']).default('ticket'),
 });
 export type GetKdsViewEnhancedInput = z.input<typeof getKdsViewEnhancedSchema>;
+
+// KDS location settings (stale ticket mode)
+export const upsertKdsLocationSettingsSchema = z.object({
+  staleTicketMode: z.enum(['persist', 'auto_clear']),
+  autoClearTime: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:MM format'),
+  clientRequestId: z.string().min(1),
+});
+export type UpsertKdsLocationSettingsInput = z.input<typeof upsertKdsLocationSettingsSchema>;
 
 // ═══════════════════════════════════════════════════════════════════
 // SESSION 13 — Real-Time Sync, Concurrency & Offline

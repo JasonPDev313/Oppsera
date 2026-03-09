@@ -359,6 +359,8 @@ export interface KdsTicketCard {
   terminalId?: string | null;
   /** ISO datetime when the order was placed */
   orderTimestamp?: string | null;
+  /** Business date the ticket belongs to (YYYY-MM-DD) — stale if < today */
+  businessDate?: string | null;
 }
 
 export interface KdsCompletedTicket {
@@ -1011,4 +1013,91 @@ export interface SplitItemFraction {
   fraction: number; // e.g. 0.5 for half
   amountCents: number;
   createdAt: string;
+}
+
+// ── KDS Order Status / Send Tracking ────────────────────────────
+
+export type KdsSendStatus = 'queued' | 'sent' | 'delivered' | 'displayed' | 'failed' | 'orphaned' | 'resolved' | 'deleted';
+export type KdsSendType = 'initial' | 'retry' | 'manual_resend' | 'fire_course' | 'recall' | 'reroute';
+
+export interface KdsSendListItem {
+  id: string;
+  ticketId: string;
+  ticketNumber: number;
+  orderId: string | null;
+  stationId: string;
+  stationName: string;
+  terminalName: string | null;
+  employeeName: string | null;
+  sendToken: string;
+  sendType: string;
+  status: KdsSendStatus;
+  kdsOperationalStatus: string | null;
+  errorCode: string | null;
+  errorDetail: string | null;
+  itemCount: number;
+  orderType: string | null;
+  tableName: string | null;
+  guestName: string | null;
+  retryCount: number;
+  needsAttention: boolean;
+  stuckReason: string | null;
+  businessDate: string;
+  queuedAt: string | null;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  displayedAt: string | null;
+  failedAt: string | null;
+  resolvedAt: string | null;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  ageSinceSentSeconds: number | null;
+}
+
+export interface KdsSendEvent {
+  id: string;
+  eventType: string;
+  eventAt: string;
+  actorType: string;
+  actorId: string | null;
+  actorName: string | null;
+  previousStatus: string | null;
+  newStatus: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface KdsSendTicketItem {
+  id: string;
+  itemName: string;
+  kitchenLabel: string | null;
+  quantity: number;
+  itemStatus: string;
+  seatNumber: number | null;
+  courseName: string | null;
+  modifierSummary: string | null;
+  specialInstructions: string | null;
+  isRush: boolean;
+  isAllergy: boolean;
+  isVip: boolean;
+}
+
+export interface KdsSendDetail extends KdsSendListItem {
+  courseId: string | null;
+  courseNumber: number | null;
+  terminalId: string | null;
+  employeeId: string | null;
+  sendType: string;
+  priorSendToken: string | null;
+  routingReason: string | null;
+  firstInteractionAt: string | null;
+  completedAt: string | null;
+  deletedByEmployeeId: string | null;
+  deleteReason: string | null;
+  lastRetryAt: string | null;
+  ageSinceSentSeconds: number | null;
+  deliveryLatencyMs: number | null;
+  displayLatencyMs: number | null;
+  events: KdsSendEvent[];
+  ticketItems: KdsSendTicketItem[];
 }

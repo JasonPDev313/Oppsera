@@ -1,4 +1,4 @@
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { orderLines, fnbKitchenTicketItems } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -7,6 +7,7 @@ import { logger } from '@oppsera/core/observability';
 import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from './create-kitchen-ticket';
+import { recordKdsSend, markKdsSendSent, markKdsSendFailed } from './record-kds-send';
 
 const KDS_ITEM_TYPES = ['food', 'beverage'];
 
@@ -169,6 +170,23 @@ export async function sendOrderLinesToKds(
     return { sentCount: 0, failedCount: 0, totalStations: 0 };
   }
 
+  // 6a. Pre-fetch station names for send tracking (non-critical, batch query)
+  const stationNameMap = new Map<string, string>();
+  try {
+    const stationIds = Array.from(stationGroups.keys());
+    const stationNameRows = await withTenant(ctx.tenantId, (tx) =>
+      tx.execute(sql`
+        SELECT id, display_name FROM fnb_kitchen_stations
+        WHERE tenant_id = ${ctx.tenantId} AND id IN (${sql.join(stationIds.map((id) => sql`${id}`), sql`, `)})
+      `),
+    );
+    for (const row of Array.from(stationNameRows as Iterable<Record<string, unknown>>)) {
+      stationNameMap.set(row.id as string, (row.display_name as string) ?? 'Unknown');
+    }
+  } catch {
+    // Non-critical — send tracking will use fallback names
+  }
+
   // 6. Create one ticket per station (serial to avoid pool exhaustion)
   // Use line-based idempotency: key includes sorted line IDs so re-sends are safe
   // Retry up to 3x with exponential backoff on transient errors (pool exhaustion, timeouts)
@@ -179,7 +197,7 @@ export async function sendOrderLinesToKds(
     let sent = false;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        await createKitchenTicket(ctx, {
+        const ticket = await createKitchenTicket(ctx, {
           clientRequestId: `retail-kds-send-${orderId}-${stationId}-${sortedLineIds}`,
           orderId,
           businessDate,
@@ -188,6 +206,37 @@ export async function sendOrderLinesToKds(
         });
         actualSentCount += ticketItems.length;
         sent = true;
+
+        // Record send tracking (non-critical — failures don't block ticket creation)
+        try {
+          const sendToken = `${ticket.id}-${stationId}-${Date.now()}`;
+          const tracked = await recordKdsSend({
+            tenantId: ctx.tenantId,
+            locationId: ctx.locationId!,
+            orderId,
+            ticketId: ticket.id,
+            ticketNumber: ticket.ticketNumber,
+            courseId: undefined,
+            courseNumber: ticket.courseNumber ?? undefined,
+            stationId,
+            stationName: stationNameMap.get(stationId) ?? stationId,
+            employeeId: ctx.user.id,
+            employeeName: ctx.user.name,
+            sendToken,
+            sendType: 'initial',
+            routingReason: 'routing_rule',
+            itemCount: ticketItems.length,
+            orderType: ticket.orderType ?? undefined,
+            businessDate,
+          });
+          await markKdsSendSent(ctx.tenantId, tracked.sendToken);
+        } catch (trackErr) {
+          logger.warn('[kds] send tracking failed (non-critical)', {
+            domain: 'kds', tenantId: ctx.tenantId, ticketId: ticket.id, stationId,
+            error: { message: trackErr instanceof Error ? trackErr.message : String(trackErr) },
+          });
+        }
+
         break;
       } catch (err) {
         const isTransient = isTransientError(err);
@@ -209,7 +258,32 @@ export async function sendOrderLinesToKds(
         }
       }
     }
-    if (!sent) failedStations.push(stationId);
+    if (!sent) {
+      failedStations.push(stationId);
+      // Track the failure (non-critical)
+      try {
+        const failToken = `fail-${orderId}-${stationId}-${Date.now()}`;
+        const tracked = await recordKdsSend({
+          tenantId: ctx.tenantId,
+          locationId: ctx.locationId!,
+          orderId,
+          ticketId: `unresolved-${orderId}`,
+          ticketNumber: 0,
+          stationId,
+          stationName: stationNameMap.get(stationId) ?? stationId,
+          employeeId: ctx.user.id,
+          employeeName: ctx.user.name,
+          sendToken: failToken,
+          sendType: 'initial',
+          routingReason: 'routing_rule',
+          itemCount: ticketItems.length,
+          businessDate,
+        });
+        await markKdsSendFailed(ctx.tenantId, tracked.sendToken, 'TICKET_CREATION_FAILED', 'All retry attempts exhausted');
+      } catch {
+        // Non-critical
+      }
+    }
   }
 
   return {

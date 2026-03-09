@@ -71,6 +71,8 @@ export const MODULE_TABLES = [
   'fnb_waitlist_config',
   'fnb_kitchen_actions',
   'fnb_kds_terminal_heartbeats',
+  'fnb_kds_send_tracking',
+  'fnb_kds_send_events',
 ] as const;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -208,6 +210,16 @@ export { getStationMetrics } from './queries/get-station-metrics';
 export type { StationMetrics } from './queries/get-station-metrics';
 export { listKdsTerminalHeartbeats } from './queries/list-kds-terminal-heartbeats';
 export type { KdsTerminalStatus } from './queries/list-kds-terminal-heartbeats';
+
+// KDS Order Status — Send Tracking
+export { recordKdsSend, markKdsSendSent, markKdsSendFailed } from './commands/record-kds-send';
+export type { RecordKdsSendInput, RecordKdsSendResult } from './commands/record-kds-send';
+export { ackKdsSendDelivery, ackKdsSendDisplay, ackKdsSendInteraction } from './commands/ack-kds-send';
+export { retryKdsSend, resolveKdsSend, softDeleteKdsSend, bulkSoftDeleteKdsSends, bulkResolveKdsSends, updateKdsSendOperationalStatus } from './commands/manage-kds-send';
+export { listKdsSends } from './queries/list-kds-sends';
+export type { KdsSendListItem, KdsSendListResult, KdsSendStatus, KdsSendType } from './queries/list-kds-sends';
+export { getKdsSendDetail } from './queries/get-kds-send-detail';
+export type { KdsSendDetail, KdsSendEvent, KdsSendTicketItem } from './queries/get-kds-send-detail';
 
 // ═══════════════════════════════════════════════════════════════════
 // Session 6: Modifiers, 86 Board & Menu Availability
@@ -636,6 +648,7 @@ export {
   heartbeatKdsTerminalSchema,
   listStationsFilterSchema, getStationDetailSchema,
   getKdsViewSchema, getExpoViewSchema, getStationMetricsSchema,
+  listKdsSendsSchema, ackKdsSendSchema, retryKdsSendSchema, resolveKdsSendSchema, softDeleteKdsSendSchema, bulkSoftDeleteKdsSendsSchema, bulkResolveKdsSendsSchema,
   // Session 6
   eightySixItemSchema, restoreItemSchema,
   createMenuPeriodSchema, updateMenuPeriodSchema,
@@ -1233,6 +1246,9 @@ export { upsertAlertProfile } from './commands/upsert-alert-profile';
 export { updateAlertProfile } from './commands/update-alert-profile';
 export { upsertPerformanceTarget } from './commands/upsert-performance-target';
 export { upsertItemPrepTime, bulkUpsertItemPrepTimes } from './commands/upsert-item-prep-time';
+export { upsertKdsLocationSettings } from './commands/upsert-kds-location-settings';
+export { kdsAutoClearStale } from './commands/kds-auto-clear-stale';
+export type { KdsAutoClearResult } from './commands/kds-auto-clear-stale';
 
 // Queries
 export {
@@ -1247,6 +1263,8 @@ export type {
   PerformanceTargetItem, ItemPrepTimeItem,
   KdsStationSettings,
 } from './queries/list-kds-settings';
+export { getKdsLocationSettings } from './queries/get-kds-location-settings';
+export type { KdsLocationSettings } from './queries/get-kds-location-settings';
 
 // Routing Engine
 export {
@@ -1268,6 +1286,7 @@ export {
   upsertItemPrepTimeSchema, bulkUpsertItemPrepTimesSchema,
   createKdsRoutingRuleSchema, updateKdsRoutingRuleSchema,
   getKdsViewEnhancedSchema,
+  upsertKdsLocationSettingsSchema,
 } from './validation';
 
 // Re-export reconciliation methods (used by ReconciliationReadApi)
