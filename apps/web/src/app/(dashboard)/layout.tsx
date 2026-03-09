@@ -1083,8 +1083,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <CustomerProfileDrawer />
       {/* Item Edit Drawer — always mounted, renders when open */}
       <ItemEditDrawer />
-      {/* Feature Request floating widget */}
-      <FeatureRequestWidget />
+      {/* Feature Request floating widget — dashboard only */}
+      {pathname === '/dashboard' && <FeatureRequestWidget />}
       </div>
     </div>
 
