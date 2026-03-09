@@ -34,7 +34,10 @@ const MAX_CALLS_PER_WINDOW = 2;
 // LRU cap — prevent unbounded Map growth on long-lived instances
 const MAX_TRACKED_TENANTS = 500;
 
-function checkBackfillRate(tenantId: string): { allowed: boolean; retryAfterMs?: number } {
+function checkBackfillRate(
+  tenantId: string,
+  isContinuation = false,
+): { allowed: boolean; retryAfterMs?: number } {
   const now = Date.now();
   let state = _tenantBackfillState.get(tenantId);
 
@@ -53,15 +56,19 @@ function checkBackfillRate(tenantId: string): { allowed: boolean; retryAfterMs?:
     return { allowed: false, retryAfterMs: 10_000 };
   }
 
-  // Sliding window check
-  state.lastCalls = state.lastCalls.filter((t) => now - t < RATE_WINDOW_MS);
-  if (state.lastCalls.length >= MAX_CALLS_PER_WINDOW) {
-    const oldestInWindow = state.lastCalls[0]!;
-    const retryAfterMs = RATE_WINDOW_MS - (now - oldestInWindow);
-    return { allowed: false, retryAfterMs };
+  // Continuation batches (cursor-based) skip the sliding window —
+  // they're sequential follow-ups from the same logical backfill run
+  if (!isContinuation) {
+    // Sliding window check (initial requests only)
+    state.lastCalls = state.lastCalls.filter((t) => now - t < RATE_WINDOW_MS);
+    if (state.lastCalls.length >= MAX_CALLS_PER_WINDOW) {
+      const oldestInWindow = state.lastCalls[0]!;
+      const retryAfterMs = RATE_WINDOW_MS - (now - oldestInWindow);
+      return { allowed: false, retryAfterMs };
+    }
+    state.lastCalls.push(now);
   }
 
-  state.lastCalls.push(now);
   state.inProgress = true;
   return { allowed: true };
 }
@@ -84,8 +91,24 @@ export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const { tenantId } = ctx;
 
-    // Rate limit (Fix 6)
-    const rateCheck = checkBackfillRate(tenantId);
+    // Parse optional cursor from request body (before rate check — cursor
+    // presence determines whether this is an initial or continuation batch)
+    let afterTenderId: string | undefined;
+    try {
+      const body = await request.json();
+      if (body?.afterTenderId && typeof body.afterTenderId === 'string') {
+        afterTenderId = body.afterTenderId;
+      }
+    } catch {
+      // Empty body or invalid JSON — proceed without cursor
+    }
+
+    // Rate limit (Fix 6) — only initial requests (no cursor) count against
+    // the sliding window. Continuation batches (with afterTenderId) are exempt
+    // so multi-batch backfills can complete without being rate-limited mid-run.
+    // The inProgress flag still prevents truly concurrent backfills.
+    const isContinuation = !!afterTenderId;
+    const rateCheck = checkBackfillRate(tenantId, isContinuation);
     if (!rateCheck.allowed) {
       return NextResponse.json(
         { error: { code: 'RATE_LIMITED', message: 'Backfill rate limit exceeded. Try again shortly.' } },
@@ -97,17 +120,6 @@ export const POST = withMiddleware(
     }
 
     try {
-      // Parse optional cursor from request body
-      let afterTenderId: string | undefined;
-      try {
-        const body = await request.json();
-        if (body?.afterTenderId && typeof body.afterTenderId === 'string') {
-          afterTenderId = body.afterTenderId;
-        }
-      } catch {
-        // Empty body or invalid JSON — proceed without cursor
-      }
-
       // 1. Run backfill (limit 500 to stay within Vercel 30s timeout)
       const backfill = await withTenant(tenantId, async (tx) =>
         backfillGlFromTenders(tx, tenantId, { limit: 500, afterTenderId }),

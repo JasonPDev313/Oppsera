@@ -152,7 +152,16 @@ async function handleTenderForAccountingInner(
 ): Promise<void> {
   // Check if accounting is enabled for this tenant — auto-create if missing,
   // or auto-wire critical fallback accounts if they're null.
-  let settings = await getAccountingSettings(db, tenantId);
+  // Wrapped in try-catch: transient Supavisor/Drizzle errors (e.g., SAVEPOINT
+  // outside transaction block) should not skip GL posting entirely — retry once,
+  // then fall through to the ensureAccountingSettings path which has its own guard.
+  let settings: Awaited<ReturnType<typeof getAccountingSettings>> = null;
+  try {
+    settings = await getAccountingSettings(db, tenantId);
+  } catch (err) {
+    console.warn(`[pos-gl] getAccountingSettings failed for tenant=${tenantId}, will retry via ensure path:`, err instanceof Error ? err.message : err);
+    // Fall through — needsEnsure will be true, which calls ensureAccountingSettings
+  }
 
   // Skip new GL posting when legacy GL is still active — the inline path in
   // record-tender already wrote to paymentJournalEntries. Running both would
