@@ -8,7 +8,7 @@ import {
   Plus, ChevronDown, ChevronRight, Settings2, Pencil,
   Volume2, VolumeX, AlertTriangle, CheckCircle2,
   Trash2, Power, X as XIcon, Wand2, Check,
-  Search, Layers, ChevronLeft,
+  Search, Layers, ChevronLeft, MapPin,
 } from 'lucide-react';
 import {
   KDS_VIEW_MODES, KDS_VIEW_MODE_LABELS, KDS_VIEW_MODE_DETAILS,
@@ -129,6 +129,7 @@ const COLOR_STYLES = {
 
 interface KdsSettingsPanelProps {
   locationId?: string;
+  locationName?: string;
 }
 
 type KdsSubTab = 'stations' | 'routing' | 'bump-bars' | 'alerts' | 'performance' | 'prep-times';
@@ -166,7 +167,7 @@ const KDS_ROUTING_MODE_OPTIONS: Array<{
   },
 ];
 
-export function KdsSettingsPanel({ locationId }: KdsSettingsPanelProps) {
+export function KdsSettingsPanel({ locationId, locationName }: KdsSettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<KdsSubTab>('stations');
   const { settings: kitchenSettings, isActing: isSavingMode, updateSetting } = useFnbSettings({
     moduleKey: 'fnb_kitchen',
@@ -188,9 +189,9 @@ export function KdsSettingsPanel({ locationId }: KdsSettingsPanelProps) {
       {/* KDS Routing Mode — prominent top-level setting */}
       <div className="rounded-lg border border-border bg-surface">
         <div className="px-4 py-3 border-b border-border">
-          <h3 className="text-sm font-semibold">KDS Routing Mode</h3>
+          <h3 className="text-sm font-semibold">Which registers send orders to the kitchen?</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Controls which POS solutions display Send and Fire buttons for kitchen routing.
+            Choose which POS terminals show the &ldquo;Send to Kitchen&rdquo; button.
           </p>
         </div>
         <div className="p-4 flex flex-col gap-2">
@@ -246,7 +247,7 @@ export function KdsSettingsPanel({ locationId }: KdsSettingsPanelProps) {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'stations' && <StationsTab locationId={locationId} />}
+      {activeTab === 'stations' && <StationsTab locationId={locationId} locationName={locationName} />}
       {activeTab === 'routing' && <RoutingTab locationId={locationId} />}
       {activeTab === 'bump-bars' && <BumpBarsTab locationId={locationId} />}
       {activeTab === 'alerts' && <AlertsTab locationId={locationId} />}
@@ -480,12 +481,23 @@ function ThemeDetailCard({ theme }: { theme: KdsTheme }) {
 
 // ── Stations Tab ───────────────────────────────────────────────
 
-function StationsTab({ locationId }: { locationId?: string }) {
-  const { stations, isLoading, isActing, createStation, updateStation, deactivateStation } = useStationManagement({ locationId });
+/** Format seconds into a human-readable duration like "8 min" or "1 min 30s" */
+function formatThreshold(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  const rem = seconds % 60;
+  return rem > 0 ? `${mins} min ${rem}s` : `${mins} min`;
+}
+
+function StationsTab({ locationId, locationName }: { locationId?: string; locationName?: string }) {
+  const { stations, isLoading, isActing, createStation, updateStation, deactivateStation, deleteStation } = useStationManagement({ locationId });
   const { settings: kitchenSettings, updateSettings } = useFnbSettings({ moduleKey: 'fnb_kitchen', locationId });
+  const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingStation, setEditingStation] = useState<typeof stations[number] | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [showDisplaySettings, setShowDisplaySettings] = useState(false);
 
   const handleCreate = useCallback(async (input: {
     name: string;
@@ -507,8 +519,17 @@ function StationsTab({ locationId }: { locationId?: string }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">KDS Stations</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">Configure kitchen display stations and their behavior</p>
+          <h3 className="text-sm font-semibold text-foreground">
+            KDS Stations{locationName ? <> &mdash; {locationName}</> : ''}
+            {stations.length > 0 && (
+              <span className="ml-2 text-[10px] font-normal px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                {stations.length} station{stations.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Each station is a kitchen screen that displays orders &mdash; e.g. Grill, Bar, Expo
+          </p>
         </div>
         <button
           type="button"
@@ -525,7 +546,7 @@ function StationsTab({ locationId }: { locationId?: string }) {
       {!locationId && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          Select a location to manage KDS settings.
+          Select a location above to manage its KDS stations.
         </div>
       )}
 
@@ -537,187 +558,110 @@ function StationsTab({ locationId }: { locationId?: string }) {
         />
       )}
 
-      {/* Global KDS settings */}
-      <div className="bg-surface border border-border rounded-lg p-3 space-y-3">
-        <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">Global KDS Settings</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* Default View Mode — card selector */}
-          <div className="space-y-1">
-            <span className="text-xs text-muted-foreground">Default View Mode</span>
-            <div className="space-y-1.5">
-              {KDS_VIEW_MODES.map((m) => {
-                const isSelected = ((kitchenSettings?.kds_default_view_mode as string) ?? 'ticket') === m;
-                const detail = KDS_VIEW_MODE_DETAILS[m as KdsViewMode];
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => updateSettings({ ...kitchenSettings, kds_default_view_mode: m })}
-                    className={`w-full text-left px-2.5 py-2 rounded-md border transition-all ${
-                      isSelected
-                        ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/40'
-                        : 'border-border bg-surface hover:border-indigo-500/30 hover:bg-indigo-500/5'
-                    }`}
-                  >
-                    <span className={`text-xs ${isSelected ? 'font-bold text-indigo-400' : 'font-medium text-foreground'}`}>
-                      {KDS_VIEW_MODE_LABELS[m as KdsViewMode] ?? m}
-                    </span>
-                    {detail && (
-                      <p className={`text-[10px] mt-0.5 leading-snug ${isSelected ? 'text-indigo-400/80' : 'text-muted-foreground'}`}>
-                        {detail.summary}
-                      </p>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Screen Communication — card selector */}
-          <div className="space-y-1">
-            <span className="text-xs text-muted-foreground">Screen Communication</span>
-            <div className="space-y-1.5">
-              {SCREEN_COMM_MODES.map((m) => {
-                const isSelected = ((kitchenSettings?.default_screen_comm_mode as string) ?? 'independent') === m;
-                const detail = SCREEN_COMM_MODE_DETAILS[m as ScreenCommMode];
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => updateSettings({ ...kitchenSettings, default_screen_comm_mode: m })}
-                    className={`w-full text-left px-2.5 py-2 rounded-md border transition-all ${
-                      isSelected
-                        ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/40'
-                        : 'border-border bg-surface hover:border-indigo-500/30 hover:bg-indigo-500/5'
-                    }`}
-                  >
-                    <span className={`text-xs ${isSelected ? 'font-bold text-indigo-400' : 'font-medium text-foreground'}`}>
-                      {SCREEN_COMM_MODE_LABELS[m as ScreenCommMode] ?? m}
-                    </span>
-                    {detail && (
-                      <p className={`text-[10px] mt-0.5 leading-snug ${isSelected ? 'text-indigo-400/80' : 'text-muted-foreground'}`}>
-                        {detail.summary}
-                      </p>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Default Theme + Input Mode column */}
-          <div className="space-y-3">
-            {/* Default Theme — card selector */}
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground">Default Theme</span>
-              <div className="space-y-1.5">
-                {KDS_THEMES.map((m) => {
-                  const isSelected = ((kitchenSettings?.kds_default_theme as string) ?? 'dark') === m;
-                  const detail = KDS_THEME_DETAILS[m as KdsTheme];
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => updateSettings({ ...kitchenSettings, kds_default_theme: m })}
-                      className={`w-full text-left px-2.5 py-2 rounded-md border transition-all ${
-                        isSelected
-                          ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/40'
-                          : 'border-border bg-surface hover:border-indigo-500/30 hover:bg-indigo-500/5'
-                      }`}
-                    >
-                      <span className={`text-xs ${isSelected ? 'font-bold text-indigo-400' : 'font-medium text-foreground'}`}>
-                        {KDS_THEME_LABELS[m as KdsTheme] ?? m}
-                      </span>
-                      {detail && (
-                        <p className={`text-[10px] mt-0.5 leading-snug ${isSelected ? 'text-indigo-400/80' : 'text-muted-foreground'}`}>
-                          {detail.summary}
-                        </p>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Input Mode — stays as dropdown (only 2 basic options) */}
-            <label className="space-y-1 block">
-              <span className="text-xs text-muted-foreground">Input Mode</span>
-              <select
-                className="w-full bg-surface border border-input rounded-md px-2 py-1.5 text-xs text-foreground"
-                value={(kitchenSettings?.kds_default_input_mode as string) ?? 'touch'}
-                onChange={(e) => updateSettings({ ...kitchenSettings, kds_default_input_mode: e.target.value })}
-              >
-                {KDS_INPUT_MODES.map((m) => (
-                  <option key={m} value={m}>{INPUT_MODE_LABELS[m] ?? m}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </div>
-
-        {/* View mode detail card */}
-        <ViewModeDetailCard mode={(kitchenSettings?.kds_default_view_mode as KdsViewMode) ?? 'ticket'} />
-
-        {/* Screen communication mode detail card */}
-        <ScreenCommModeDetailCard mode={(kitchenSettings?.default_screen_comm_mode as ScreenCommMode) ?? 'independent'} />
-
-        {/* Theme detail card */}
-        <ThemeDetailCard theme={(kitchenSettings?.kds_default_theme as KdsTheme) ?? 'dark'} />
-      </div>
-
-      {/* Station list */}
+      {/* ── Station list (THE MAIN THING) ──────────────────────── */}
       {stations.length === 0 ? (
-        <div className="py-8 text-center">
-          <Monitor className="h-8 w-8 mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground">No KDS stations configured</p>
-          <p className="text-xs text-muted-foreground mt-1">Add a station to get started</p>
+        <div className="rounded-lg border-2 border-dashed border-border py-12 text-center">
+          <Monitor className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" aria-hidden="true" />
+          <p className="text-base font-semibold text-foreground">No kitchen screens set up yet</p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+            Each station is a screen in your kitchen &mdash; for example a &ldquo;Grill&rdquo; screen, a &ldquo;Bar&rdquo; screen, or an &ldquo;Expo&rdquo; screen that shows everything.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowCreateDialog(true)}
+            disabled={!locationId || isActing}
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" />
+            Add Your First Station
+          </button>
         </div>
       ) : (
         <div className="space-y-2">
-          {stations.map((station) => (
-            <div key={station.id} className="bg-surface border border-border rounded-lg p-3 flex items-center gap-3">
+          {stations.map((station) => {
+            const isInactive = station.isActive === false;
+            return (
               <div
-                className="h-8 w-8 rounded-md flex items-center justify-center text-white text-xs font-bold shrink-0"
-                style={{ backgroundColor: station.color || '#6366f1' }}
+                key={station.id}
+                className={`bg-surface border rounded-lg p-3 flex items-center gap-3 ${
+                  isInactive ? 'border-border/50 opacity-60' : 'border-border'
+                }`}
               >
-                {(station.displayName || station.name).charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-foreground truncate">{station.displayName || station.name}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/30">
-                    {STATION_TYPE_LABELS[station.stationType] ?? station.stationType}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-[10px] text-muted-foreground">
-                    Warning: {station.warningThresholdSeconds}s
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Critical: {station.criticalThresholdSeconds}s
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setEditingStation(station)}
-                  className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                  title="Edit Station"
+                <div
+                  className="h-8 w-8 rounded-md flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  style={{ backgroundColor: isInactive ? '#6b7280' : (station.color || '#6366f1') }}
                 >
-                  <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDeactivate(station.id)}
-                  className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
-                  title="Deactivate Station"
-                >
-                  <Power className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
+                  {(station.displayName || station.name).charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-foreground truncate">{station.displayName || station.name}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/30">
+                      {STATION_TYPE_LABELS[station.stationType] ?? station.stationType}
+                    </span>
+                    {isInactive && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                        Inactive
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <span className="text-[10px] text-amber-500/70">
+                      Warning at {formatThreshold(station.warningThresholdSeconds)}
+                    </span>
+                    <span className="text-[10px] text-red-500/70">
+                      Critical at {formatThreshold(station.criticalThresholdSeconds)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditingStation(station)}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors text-[10px]"
+                    title="Edit Station"
+                  >
+                    <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className="hidden sm:inline">Edit</span>
+                  </button>
+                  {!isInactive ? (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeactivate(station.id)}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-amber-500/10 text-muted-foreground hover:text-amber-500 transition-colors text-[10px]"
+                      title="Disable this station (can re-enable later)"
+                    >
+                      <Power className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span className="hidden sm:inline">Disable</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await updateStation(station.id, { isActive: true });
+                        toast.success(`${station.displayName || station.name} re-enabled`);
+                      }}
+                      disabled={isActing}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-green-500/10 text-muted-foreground hover:text-green-500 transition-colors text-[10px]"
+                      title="Re-enable this station"
+                    >
+                      <Power className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span className="hidden sm:inline">Enable</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(station.id)}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors text-[10px]"
+                    title="Permanently delete this station and its settings"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className="hidden sm:inline">Delete</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -733,46 +677,281 @@ function StationsTab({ locationId }: { locationId?: string }) {
         />
       )}
 
-      {confirmDeactivate && createPortal(
-        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-          onClick={() => setConfirmDeactivate(null)}
-        >
-          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+      {confirmDeactivate && (() => {
+        const target = stations.find((s) => s.id === confirmDeactivate);
+        const targetName = target?.displayName || target?.name || 'this station';
+        return createPortal(
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
           <div
-            className="bg-surface border border-border rounded-lg w-full max-w-sm mx-4 shadow-xl p-4 space-y-3"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+            onClick={() => setConfirmDeactivate(null)}
           >
-            <h3 className="text-sm font-semibold text-foreground">Deactivate Station?</h3>
-            <p className="text-xs text-muted-foreground">
-              This station will be hidden from the KDS. Existing tickets routed to it will remain visible until bumped.
-              You can reactivate it later by editing the station.
-            </p>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmDeactivate(null)}
-                className="px-3 py-1.5 text-xs font-medium rounded-md border border-border text-foreground hover:bg-accent transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isActing}
-                onClick={async () => {
-                  await deactivateStation(confirmDeactivate);
-                  setConfirmDeactivate(null);
-                }}
-                className="px-4 py-1.5 text-xs font-medium rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
-              >
-                {isActing ? 'Deactivating...' : 'Deactivate'}
-              </button>
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+            <div
+              className="bg-surface border border-border rounded-lg w-full max-w-sm mx-4 shadow-xl p-4 space-y-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-sm font-semibold text-foreground">Disable &ldquo;{targetName}&rdquo;?</h3>
+              <ul className="text-sm text-foreground/80 leading-relaxed space-y-1 mt-2">
+                <li className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+                  New orders will stop being sent to this station
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+                  Tickets already on screen will stay until bumped
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-400" />
+                  You can re-enable it at any time
+                </li>
+              </ul>
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeactivate(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-accent transition-colors"
+                  style={{ minHeight: '44px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isActing}
+                  onClick={async () => {
+                    await deactivateStation(confirmDeactivate);
+                    toast.info(`${targetName} disabled`);
+                    setConfirmDeactivate(null);
+                  }}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors disabled:opacity-50"
+                  style={{ minHeight: '44px' }}
+                >
+                  {isActing ? 'Disabling...' : 'Disable Station'}
+                </button>
+              </div>
             </div>
+          </div>,
+          document.body,
+        );
+      })()}
+
+      {confirmDelete && (() => {
+        const target = stations.find((s) => s.id === confirmDelete);
+        const targetName = target?.displayName || target?.name || 'this station';
+        return createPortal(
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+            onClick={() => setConfirmDelete(null)}
+          >
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+            <div
+              className="bg-surface border border-border rounded-lg w-full max-w-sm mx-4 shadow-xl p-5 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Warning icon */}
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/15">
+                <Trash2 className="h-6 w-6 text-red-400" />
+              </div>
+              <h3 className="text-base font-semibold text-red-400 text-center">Delete &ldquo;{targetName}&rdquo;?</h3>
+              <div className="text-sm text-foreground/80 leading-relaxed space-y-2">
+                <p className="font-medium">This will permanently remove:</p>
+                <ul className="space-y-1 ml-1">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />
+                    The station and all its display settings
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />
+                    All routing rules pointing to this station
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />
+                    Performance metrics and history
+                  </li>
+                </ul>
+                <p className="text-foreground/60 text-xs pt-1">
+                  If you just want to temporarily hide it, use <strong>Disable</strong> instead.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-accent transition-colors"
+                  style={{ minHeight: '44px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isActing}
+                  onClick={async () => {
+                    try {
+                      await deleteStation(confirmDelete);
+                      toast.success(`${targetName} deleted`);
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : 'Failed to delete station');
+                    }
+                    setConfirmDelete(null);
+                  }}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                  style={{ minHeight: '44px' }}
+                >
+                  {isActing ? 'Deleting...' : 'Delete Permanently'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        );
+      })()}
+
+      {/* ── Display Settings (collapsed by default) ───────────── */}
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowDisplaySettings((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-accent/50 transition-colors"
+        >
+          <div>
+            <h4 className="text-sm font-semibold text-foreground">Display Settings</h4>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              View mode, theme, screen communication &mdash; most kitchens can leave these as-is
+            </p>
           </div>
-        </div>,
-        document.body,
-      )}
+          {showDisplaySettings
+            ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+            : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          }
+        </button>
+
+        {showDisplaySettings && (
+          <div className="border-t border-border p-3 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Default View Mode — card selector */}
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground">Default View Mode</span>
+                <div className="space-y-1.5">
+                  {KDS_VIEW_MODES.map((m) => {
+                    const isSelected = ((kitchenSettings?.kds_default_view_mode as string) ?? 'ticket') === m;
+                    const detail = KDS_VIEW_MODE_DETAILS[m as KdsViewMode];
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => updateSettings({ ...kitchenSettings, kds_default_view_mode: m })}
+                        className={`w-full text-left px-2.5 py-2 rounded-md border transition-all ${
+                          isSelected
+                            ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/40'
+                            : 'border-border bg-surface hover:border-indigo-500/30 hover:bg-indigo-500/5'
+                        }`}
+                      >
+                        <span className={`text-xs ${isSelected ? 'font-bold text-indigo-400' : 'font-medium text-foreground'}`}>
+                          {KDS_VIEW_MODE_LABELS[m as KdsViewMode] ?? m}
+                        </span>
+                        {detail && (
+                          <p className={`text-[10px] mt-0.5 leading-snug ${isSelected ? 'text-indigo-400/80' : 'text-muted-foreground'}`}>
+                            {detail.summary}
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Screen Communication — card selector */}
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground">Screen Communication</span>
+                <div className="space-y-1.5">
+                  {SCREEN_COMM_MODES.map((m) => {
+                    const isSelected = ((kitchenSettings?.default_screen_comm_mode as string) ?? 'independent') === m;
+                    const detail = SCREEN_COMM_MODE_DETAILS[m as ScreenCommMode];
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => updateSettings({ ...kitchenSettings, default_screen_comm_mode: m })}
+                        className={`w-full text-left px-2.5 py-2 rounded-md border transition-all ${
+                          isSelected
+                            ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/40'
+                            : 'border-border bg-surface hover:border-indigo-500/30 hover:bg-indigo-500/5'
+                        }`}
+                      >
+                        <span className={`text-xs ${isSelected ? 'font-bold text-indigo-400' : 'font-medium text-foreground'}`}>
+                          {SCREEN_COMM_MODE_LABELS[m as ScreenCommMode] ?? m}
+                        </span>
+                        {detail && (
+                          <p className={`text-[10px] mt-0.5 leading-snug ${isSelected ? 'text-indigo-400/80' : 'text-muted-foreground'}`}>
+                            {detail.summary}
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Default Theme + Input Mode column */}
+              <div className="space-y-3">
+                {/* Default Theme — card selector */}
+                <div className="space-y-1">
+                  <span className="text-xs text-muted-foreground">Default Theme</span>
+                  <div className="space-y-1.5">
+                    {KDS_THEMES.map((m) => {
+                      const isSelected = ((kitchenSettings?.kds_default_theme as string) ?? 'dark') === m;
+                      const detail = KDS_THEME_DETAILS[m as KdsTheme];
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => updateSettings({ ...kitchenSettings, kds_default_theme: m })}
+                          className={`w-full text-left px-2.5 py-2 rounded-md border transition-all ${
+                            isSelected
+                              ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/40'
+                              : 'border-border bg-surface hover:border-indigo-500/30 hover:bg-indigo-500/5'
+                          }`}
+                        >
+                          <span className={`text-xs ${isSelected ? 'font-bold text-indigo-400' : 'font-medium text-foreground'}`}>
+                            {KDS_THEME_LABELS[m as KdsTheme] ?? m}
+                          </span>
+                          {detail && (
+                            <p className={`text-[10px] mt-0.5 leading-snug ${isSelected ? 'text-indigo-400/80' : 'text-muted-foreground'}`}>
+                              {detail.summary}
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Input Mode */}
+                <label className="space-y-1 block">
+                  <span className="text-xs text-muted-foreground">Input Mode</span>
+                  <select
+                    className="w-full bg-surface border border-input rounded-md px-2 py-1.5 text-xs text-foreground"
+                    value={(kitchenSettings?.kds_default_input_mode as string) ?? 'touch'}
+                    onChange={(e) => updateSettings({ ...kitchenSettings, kds_default_input_mode: e.target.value })}
+                  >
+                    {KDS_INPUT_MODES.map((m) => (
+                      <option key={m} value={m}>{INPUT_MODE_LABELS[m] ?? m}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            {/* View mode detail card */}
+            <ViewModeDetailCard mode={(kitchenSettings?.kds_default_view_mode as KdsViewMode) ?? 'ticket'} />
+            {/* Screen communication mode detail card */}
+            <ScreenCommModeDetailCard mode={(kitchenSettings?.default_screen_comm_mode as ScreenCommMode) ?? 'independent'} />
+            {/* Theme detail card */}
+            <ThemeDetailCard theme={(kitchenSettings?.kds_default_theme as KdsTheme) ?? 'dark'} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -784,6 +963,12 @@ const STATION_COLOR_OPTIONS = [
   '#f97316', '#eab308', '#22c55e', '#14b8a6',
   '#06b6d4', '#3b82f6',
 ];
+
+const COLOR_NAMES: Record<string, string> = {
+  '#6366f1': 'Indigo', '#8b5cf6': 'Purple', '#ec4899': 'Pink', '#ef4444': 'Red',
+  '#f97316': 'Orange', '#eab308': 'Yellow', '#22c55e': 'Green', '#14b8a6': 'Teal',
+  '#06b6d4': 'Cyan', '#3b82f6': 'Blue',
+};
 
 function CreateStationDialog({
   onSubmit,
@@ -813,11 +998,18 @@ function CreateStationDialog({
 
   useEffect(() => {
     nameRef.current?.focus();
-  }, []);
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose]);
 
   const handleSubmit = useCallback(async () => {
     const trimmedName = name.trim();
     if (!trimmedName) return;
+    if (criticalSeconds <= warningSeconds) {
+      setError('Critical threshold must be greater than warning threshold.');
+      return;
+    }
     setError(null);
     try {
       await onSubmit({
@@ -914,7 +1106,7 @@ function CreateStationDialog({
                       color === c ? 'border-foreground scale-110' : 'border-transparent'
                     }`}
                     style={{ backgroundColor: c }}
-                    aria-label={`Select color ${c}`}
+                    aria-label={`Select color ${COLOR_NAMES[c] ?? c}`}
                   />
                 ))}
               </div>
@@ -995,9 +1187,21 @@ function EditStationDialog({
   const [color, setColor] = useState(station.color || '#6366f1');
   const [warningSeconds, setWarningSeconds] = useState(station.warningThresholdSeconds);
   const [criticalSeconds, setCriticalSeconds] = useState(station.criticalThresholdSeconds);
+  const [error, setError] = useState<string | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   const handleSubmit = useCallback(async () => {
+    if (criticalSeconds <= warningSeconds) {
+      setError('Critical threshold must be greater than warning threshold.');
+      return;
+    }
+    setError(null);
     await onSubmit({
       displayName: displayName.trim(),
       stationType,
@@ -1062,7 +1266,7 @@ function EditStationDialog({
                       color === c ? 'border-foreground scale-110' : 'border-transparent'
                     }`}
                     style={{ backgroundColor: c }}
-                    aria-label={`Select color ${c}`}
+                    aria-label={`Select color ${COLOR_NAMES[c] ?? c}`}
                   />
                 ))}
               </div>
@@ -1095,6 +1299,11 @@ function EditStationDialog({
           </div>
         </div>
 
+        {error && (
+          <div className="mx-4 mb-0 rounded-md bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400">
+            {error}
+          </div>
+        )}
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
           <button
             type="button"

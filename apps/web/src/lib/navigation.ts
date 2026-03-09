@@ -53,6 +53,7 @@ import {
   UserCheck,
   ClipboardCheck,
   Monitor,
+  Lightbulb,
   // Flag, // Golf module hidden — non-compete
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
@@ -191,6 +192,7 @@ export const navigation: NavItem[] = [
       { name: 'Dashboards', href: '/dashboards', icon: LayoutGrid, requiredPermission: 'reports.custom.view' },
     ],
   },
+  { name: 'Feature Requests', href: '/roadmap', icon: Lightbulb, requiredPermission: 'dashboard.view' },
   {
     name: 'AI Insights',
     href: '/insights',

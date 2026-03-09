@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { KdsSettingsPanel } from '@/components/fnb/kds-settings-panel';
@@ -16,6 +16,17 @@ export default function KdsSettingsContent() {
     if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
     return locations?.[0]?.id;
   });
+
+  // Sync locationId when locations load after initial render (race condition guard)
+  useEffect(() => {
+    const firstId = locations?.[0]?.id;
+    if (!locationId && firstId) {
+      const fromUrl = searchParams.get('locationId');
+      const match = fromUrl && locations?.some((l) => l.id === fromUrl) ? fromUrl : firstId;
+      setLocationId(match);
+    }
+  }, [locationId, locations, searchParams]);
+
   const hasMultipleLocations = (locations?.length ?? 0) > 1;
   const locationName = locations?.find((l) => l.id === locationId)?.name ?? '';
   const { stations, isLoading: stationsLoading } = useStations({ locationId });
@@ -23,65 +34,76 @@ export default function KdsSettingsContent() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">KDS Settings</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage kitchen stations, routing rules, bump bar profiles, and alert configurations.
-          </p>
-        </div>
+      {/* Page header */}
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">Kitchen Display Screens</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Set up the screens in your kitchen that show incoming orders.
+        </p>
+      </div>
+
+      {/* Location bar — prominent, full-width */}
+      <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-            {hasMultipleLocations ? (
+          <MapPin className="h-5 w-5 text-indigo-400" />
+          {hasMultipleLocations ? (
+            <label className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Location:</span>
               <select
                 value={locationId}
                 onChange={(e) => setLocationId(e.target.value)}
-                className="rounded-lg border border-input bg-surface px-3 py-1.5 text-sm font-medium text-foreground focus:border-indigo-500 focus:outline-none"
+                className="rounded-lg border border-input bg-surface px-3 py-1.5 text-sm font-semibold text-foreground focus:border-indigo-500 focus:outline-none"
               >
                 {locations?.map((loc) => (
                   <option key={loc.id} value={loc.id}>{loc.name}</option>
                 ))}
               </select>
-            ) : (
-              <span className="text-sm font-medium text-muted-foreground">
-                {locations?.find((l) => l.id === locationId)?.name ?? 'No location'}
-              </span>
-            )}
-          </div>
-          <Link
-            href="/kds/setup"
-            className="inline-flex items-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
-          >
-            <Wand2 className="h-4 w-4" />
-            Setup Wizard
-          </Link>
+            </label>
+          ) : (
+            <span className="text-sm font-semibold text-foreground">
+              {locations?.find((l) => l.id === locationId)?.name ?? 'No location'}
+            </span>
+          )}
         </div>
+        <Link
+          href={`/kds/setup${locationId ? `?locationId=${locationId}` : ''}`}
+          className="inline-flex items-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
+        >
+          <Wand2 className="h-4 w-4" />
+          Setup Wizard
+        </Link>
       </div>
       {!stationsLoading && !hasStations && (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
-          <Info className="h-5 w-5 shrink-0 text-amber-400 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-amber-300">
-              No KDS stations at {locationName || 'this location'}
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Info className="h-5 w-5 shrink-0 text-amber-400" />
+            <p className="text-sm font-semibold text-amber-300">
+              No kitchen screens at {locationName || 'this location'}
             </p>
-            <p className="mt-1 text-xs text-amber-300/70 leading-relaxed">
-              KDS stations are per-location — orders from POS only appear on stations at the same location.
-              {hasMultipleLocations
-                ? ' Switch the location above or run the setup wizard to create stations here.'
-                : ' Run the setup wizard to create your first stations.'}
-            </p>
-            <Link
-              href="/kds/setup"
-              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/30"
-            >
-              <Wand2 className="h-3.5 w-3.5" />
-              Run Setup Wizard
-            </Link>
           </div>
+          <ul className="ml-7 space-y-1">
+            <li className="flex items-start gap-2 text-sm text-amber-300/90">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400/60" />
+              Orders from registers only show up on screens at the same location
+            </li>
+            <li className="flex items-start gap-2 text-sm text-amber-300/90">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400/60" />
+              {hasMultipleLocations
+                ? 'Switch the location above, or run the setup wizard to get started'
+                : 'Run the setup wizard to create your first kitchen screens'}
+            </li>
+          </ul>
+          <Link
+            href={`/kds/setup${locationId ? `?locationId=${locationId}` : ''}`}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-500/20 px-4 py-2 text-sm font-medium text-amber-300 hover:bg-amber-500/30"
+            style={{ minHeight: '44px' }}
+          >
+            <Wand2 className="h-4 w-4" />
+            Run Setup Wizard
+          </Link>
         </div>
       )}
-      <KdsSettingsPanel locationId={locationId} />
+      <KdsSettingsPanel locationId={locationId} locationName={locationName} />
     </div>
   );
 }

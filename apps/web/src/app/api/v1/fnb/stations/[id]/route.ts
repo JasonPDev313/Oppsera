@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
-import { getStationDetail, updateStation, updateStationSchema } from '@oppsera/module-fnb';
+import { getStationDetail, updateStation, updateStationSchema, deleteStation } from '@oppsera/module-fnb';
 
 // GET /api/v1/fnb/stations/[id] — get station detail
 export const GET = withMiddleware(
@@ -35,6 +35,18 @@ export const PATCH = withMiddleware(
 
     const station = await updateStation(ctx, stationId, parsed.data);
     return NextResponse.json({ data: station });
+  },
+  { entitlement: 'kds', permission: 'kds.manage', writeAccess: true },
+);
+
+// DELETE /api/v1/fnb/stations/[id] — permanently delete station
+export const DELETE = withMiddleware(
+  async (request: NextRequest, ctx) => {
+    const parts = request.nextUrl.pathname.split('/');
+    const stationId = parts[parts.length - 1]!;
+
+    await deleteStation(ctx, stationId);
+    return NextResponse.json({ data: { deleted: true } });
   },
   { entitlement: 'kds', permission: 'kds.manage', writeAccess: true },
 );

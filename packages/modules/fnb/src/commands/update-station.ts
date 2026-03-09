@@ -22,15 +22,27 @@ export async function updateStation(
       return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
+    const conditions = [
+      eq(fnbKitchenStations.id, stationId),
+      eq(fnbKitchenStations.tenantId, ctx.tenantId),
+    ];
+    // Scope to location if available (prevents cross-location updates)
+    if (ctx.locationId) {
+      conditions.push(eq(fnbKitchenStations.locationId, ctx.locationId));
+    }
     const [station] = await tx
       .select()
       .from(fnbKitchenStations)
-      .where(and(
-        eq(fnbKitchenStations.id, stationId),
-        eq(fnbKitchenStations.tenantId, ctx.tenantId),
-      ))
+      .where(and(...conditions))
       .limit(1);
     if (!station) throw new StationNotFoundError(stationId);
+
+    // Validate thresholds (use incoming value or existing DB value)
+    const warn = input.warningThresholdSeconds ?? station.warningThresholdSeconds;
+    const crit = input.criticalThresholdSeconds ?? station.criticalThresholdSeconds;
+    if (crit <= warn) {
+      throw new Error('Critical threshold must be greater than warning threshold.');
+    }
 
     const setFields: Record<string, unknown> = { updatedAt: new Date() };
     const changes: Record<string, unknown> = {};

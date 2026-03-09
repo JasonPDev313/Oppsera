@@ -99,6 +99,14 @@ const MODULES: NavModule[] = [
     ],
   },
   {
+    label: 'Feature Requests',
+    icon: MessageSquare,
+    prefix: '/feature-requests',
+    children: [
+      { href: '/feature-requests', label: 'All Requests', icon: Lightbulb },
+    ],
+  },
+  {
     label: 'Finance',
     icon: Wallet,
     prefix: '/finance',

@@ -5,12 +5,36 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant, featureRequests, featureRequestVotes } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 
+// ── Rate limit: 1 vote toggle per user per 5 seconds ─────────────
+const VOTE_COOLDOWN_MS = 5_000;
+const voteCooldowns = new Map<string, number>();
+
+/** Lazily prune stale entries on each check — no setInterval on Vercel (gotcha #2) */
+function pruneVoteCooldowns(now: number) {
+  for (const [key, ts] of voteCooldowns) {
+    if (now - ts > VOTE_COOLDOWN_MS * 2) voteCooldowns.delete(key);
+  }
+}
+
 // ── POST: toggle vote ────────────────────────────────────────────
 
 export const POST = withMiddleware(
   async (_request: NextRequest, ctx) => {
     const segments = new URL(_request.url).pathname.split('/').filter(Boolean);
     const featureRequestId = segments[segments.indexOf('feature-requests') + 1]!;
+
+    // Cooldown check (lazy prune instead of setInterval)
+    const now = Date.now();
+    pruneVoteCooldowns(now);
+    const cooldownKey = `${ctx.user.id}:${featureRequestId}`;
+    const lastVoteAt = voteCooldowns.get(cooldownKey) ?? 0;
+    if (now - lastVoteAt < VOTE_COOLDOWN_MS) {
+      return NextResponse.json(
+        { error: { code: 'RATE_LIMITED', message: 'Please wait a few seconds before voting again' } },
+        { status: 429 },
+      );
+    }
+    voteCooldowns.set(cooldownKey, now);
 
     const result = await withTenant(ctx.tenantId, async (tx) => {
       // Verify the feature request exists in this tenant

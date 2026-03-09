@@ -6,6 +6,18 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant, featureRequests, featureRequestAttachments } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 
+// ── Rate limit: 10 uploads per user per hour ────────────────────
+const UPLOAD_WINDOW_MS = 3_600_000;
+const MAX_UPLOADS_PER_WINDOW = 10;
+const uploadRateMap = new Map<string, { count: number; windowStart: number }>();
+
+/** Lazily prune stale entries on each check — no setInterval on Vercel (gotcha #2) */
+function pruneUploadRateMap(now: number) {
+  for (const [key, entry] of uploadRateMap) {
+    if (now - entry.windowStart > UPLOAD_WINDOW_MS * 2) uploadRateMap.delete(key);
+  }
+}
+
 // ── Validation ──────────────────────────────────────────────────
 
 const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const;
@@ -23,6 +35,22 @@ const uploadAttachmentSchema = z.object({
 
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
+    // Rate limit check (lazy prune instead of setInterval)
+    const now = Date.now();
+    pruneUploadRateMap(now);
+    const rateEntry = uploadRateMap.get(ctx.user.id);
+    if (rateEntry && now - rateEntry.windowStart < UPLOAD_WINDOW_MS) {
+      if (rateEntry.count >= MAX_UPLOADS_PER_WINDOW) {
+        return NextResponse.json(
+          { error: { code: 'RATE_LIMITED', message: 'Upload limit reached. Please try again later.' } },
+          { status: 429 },
+        );
+      }
+      rateEntry.count++;
+    } else {
+      uploadRateMap.set(ctx.user.id, { count: 1, windowStart: now });
+    }
+
     const segments = new URL(request.url).pathname.split('/').filter(Boolean);
     const featureRequestId = segments[segments.indexOf('feature-requests') + 1]!;
 

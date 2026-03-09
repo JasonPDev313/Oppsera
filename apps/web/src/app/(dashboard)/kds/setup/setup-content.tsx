@@ -198,6 +198,17 @@ export default function KdsSetupContent() {
     if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
     return locations?.[0]?.id ?? '';
   });
+
+  // Sync locationId when locations load after initial render (race condition guard)
+  useEffect(() => {
+    const firstId = locations?.[0]?.id;
+    if (!locationId && firstId) {
+      const fromUrl = searchParams.get('locationId');
+      const match = fromUrl && locations?.some((l) => l.id === fromUrl) ? fromUrl : firstId;
+      setLocationId(match);
+    }
+  }, [locationId, locations, searchParams]);
+
   const hasMultipleLocations = (locations?.length ?? 0) > 1;
   const locationName = locations?.find((l) => l.id === locationId)?.name ?? '';
 
@@ -479,7 +490,7 @@ export default function KdsSetupContent() {
       {/* Header */}
       <div className="mb-6 flex items-center gap-3">
         <Link
-          href="/kds/settings"
+          href={`/kds/settings${locationId ? `?locationId=${locationId}` : ''}`}
           className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
           aria-label="Back to KDS Settings"
         >
@@ -492,7 +503,7 @@ export default function KdsSetupContent() {
           </p>
         </div>
         {/* Persistent location badge — always visible so users know which location they're configuring */}
-        {step > 0 && locationName && (
+        {locationName && (
           <div className="flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1">
             <MapPin className="h-3.5 w-3.5 text-indigo-400" />
             <span className="text-xs font-medium text-indigo-400">{locationName}</span>
@@ -501,22 +512,33 @@ export default function KdsSetupContent() {
       </div>
 
       {/* Progress */}
-      <div className="mb-8 flex items-center gap-2">
+      <div className="mb-8 flex items-center gap-2" role="navigation" aria-label="Setup steps">
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-2">
-            <div
-              className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
-                i < step
-                  ? 'bg-green-500/15 text-green-500'
-                  : i === step
+            {i < step ? (
+              <button
+                type="button"
+                onClick={() => { setStep(i); setErrorDetail(null); }}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium bg-green-500/15 text-green-500 hover:bg-green-500/25 transition-colors cursor-pointer"
+                aria-label={`Go back to step ${i + 1}: ${s}`}
+              >
+                <CheckCircle className="h-5 w-5" />
+              </button>
+            ) : (
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+                  i === step
                     ? 'bg-indigo-600 text-white'
                     : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {i < step ? <CheckCircle className="h-5 w-5" /> : i + 1}
-            </div>
+                }`}
+                aria-label={`Step ${i + 1}: ${s}${i === step ? ' (current)' : ''}`}
+                aria-current={i === step ? 'step' : undefined}
+              >
+                {i + 1}
+              </div>
+            )}
             {i < STEPS.length - 1 && (
-              <div className={`h-0.5 w-8 ${i < step ? 'bg-green-500/40' : 'bg-muted'}`} />
+              <div className={`h-0.5 w-8 ${i < step ? 'bg-green-500/40' : 'bg-muted'}`} aria-hidden="true" />
             )}
           </div>
         ))}
@@ -545,9 +567,9 @@ export default function KdsSetupContent() {
           <div className="mx-auto max-w-sm rounded-lg border-2 border-indigo-500/30 bg-indigo-500/5 p-5 text-left">
             <div className="flex items-center gap-2 mb-3">
               <MapPin className="h-5 w-5 text-indigo-400" />
-              <span className="text-sm font-semibold text-foreground">
+              <label htmlFor="kds-setup-location" className="text-sm font-semibold text-foreground">
                 Which location is this KDS for?
-              </span>
+              </label>
             </div>
             {hasMultipleLocations ? (
               <>
@@ -561,12 +583,21 @@ export default function KdsSetupContent() {
                     <option key={loc.id} value={loc.id}>{loc.name}</option>
                   ))}
                 </select>
-                <div className="mt-3 flex gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5">
-                  <Info className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
-                  <p className="text-xs text-amber-300/90 leading-relaxed">
-                    KDS stations only show orders from the <strong>same location</strong>. Pick the
-                    location where your POS terminals ring up orders. Each location needs its own setup.
-                  </p>
+                <div className="mt-3 rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Info className="h-4 w-4 shrink-0 text-amber-400" />
+                    <span className="text-xs font-semibold text-amber-300">Important</span>
+                  </div>
+                  <ul className="ml-6 space-y-1">
+                    <li className="flex items-start gap-2 text-xs text-amber-300/90 leading-relaxed">
+                      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-400/60" />
+                      Kitchen screens only show orders from the same location
+                    </li>
+                    <li className="flex items-start gap-2 text-xs text-amber-300/90 leading-relaxed">
+                      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-400/60" />
+                      Pick the location where your registers ring up orders
+                    </li>
+                  </ul>
                 </div>
               </>
             ) : (
@@ -1026,7 +1057,7 @@ export default function KdsSetupContent() {
               <ExternalLink className="h-3.5 w-3.5" />
             </button>
             <Link
-              href="/kds/settings"
+              href={`/kds/settings${locationId ? `?locationId=${locationId}` : ''}`}
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent"
             >
               <Settings2 className="h-4 w-4" /> Go to KDS Settings

@@ -16,6 +16,11 @@ export async function createStation(
   if (!ctx.locationId) {
     throw new Error('Location ID is required to create a station');
   }
+  const warn = input.warningThresholdSeconds ?? 480;
+  const crit = input.criticalThresholdSeconds ?? 720;
+  if (crit <= warn) {
+    throw new Error('Critical threshold must be greater than warning threshold.');
+  }
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'createStation',
@@ -34,7 +39,14 @@ export async function createStation(
         eq(fnbKitchenStations.name, input.name),
       ))
       .limit(1);
-    if (existing) throw new DuplicateStationNameError(input.name);
+    if (existing) {
+      if (existing.isActive) throw new DuplicateStationNameError(input.name);
+      // Inactive station with this name — rename it to free the name for reuse
+      await tx
+        .update(fnbKitchenStations)
+        .set({ name: `${existing.name}_archived_${Date.now()}` })
+        .where(eq(fnbKitchenStations.id, existing.id));
+    }
 
     const [created] = await tx
       .insert(fnbKitchenStations)

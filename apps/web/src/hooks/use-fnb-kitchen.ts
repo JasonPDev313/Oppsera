@@ -384,12 +384,17 @@ export function useStations({ locationId }: UseStationsOptions) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!locationId) {
+      setStations([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
     const controller = new AbortController();
     (async () => {
       try {
-        const params = locationId ? `?locationId=${locationId}` : '';
         const json = await apiFetch<{ data: FnbStation[] }>(
-          `/api/v1/fnb/stations${params}`,
+          `/api/v1/fnb/stations?locationId=${locationId}`,
           { signal: controller.signal },
         );
         setStations(json.data ?? []);
@@ -432,9 +437,14 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
   }, [locationId]);
 
   useEffect(() => {
+    if (!locationId) {
+      setStations([]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     fetchStations();
-  }, [fetchStations]);
+  }, [fetchStations, locationId]);
 
   const createStation = useCallback(async (input: {
     name: string;
@@ -498,5 +508,18 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
     await updateStation(stationId, { isActive: false });
   }, [updateStation]);
 
-  return { stations, isLoading, isActing, createStation, updateStation, deactivateStation, refresh: fetchStations };
+  const deleteStation = useCallback(async (stationId: string) => {
+    setIsActing(true);
+    try {
+      const params = locationId ? `?locationId=${locationId}` : '';
+      await apiFetch(`/api/v1/fnb/stations/${stationId}${params}`, {
+        method: 'DELETE',
+      });
+      await fetchStations();
+    } finally {
+      setIsActing(false);
+    }
+  }, [fetchStations, locationId]);
+
+  return { stations, isLoading, isActing, createStation, updateStation, deactivateStation, deleteStation, refresh: fetchStations };
 }

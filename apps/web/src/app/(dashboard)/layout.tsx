@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -16,6 +17,10 @@ import {
   Clock,
   Maximize2,
   Minimize2,
+  MapPin,
+  Monitor,
+  ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/components/auth-provider';
@@ -25,6 +30,7 @@ import { QueryProvider } from '@/components/query-provider';
 import { useTheme } from '@/components/theme-provider';
 import { ContextMenuProvider } from '@/components/context-menu-provider';
 import { ProfileDrawerProvider, CustomerProfileDrawer } from '@/components/customer-profile-drawer';
+import { FeatureRequestWidget } from '@/components/feedback/FeatureRequestWidget';
 import { ItemEditDrawerProvider } from '@/components/inventory/ItemEditDrawerContext';
 import { ItemEditDrawer } from '@/components/inventory/ItemEditDrawer';
 import { NavigationGuardProvider, useNavigationGuard } from '@/hooks/use-navigation-guard';
@@ -42,6 +48,8 @@ import { useErpConfig } from '@/hooks/use-erp-config';
 import { filterNavByTier } from '@/lib/navigation-filter';
 import { AiAssistantStub } from '@/components/ai-assistant-stub';
 import { useKdsStationsForNav } from '@/hooks/use-kds-stations-nav';
+import { FirstTimeWalkthrough } from '@/components/first-time-walkthrough';
+import { SessionTimeoutWarning } from '@/components/session-timeout-warning';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
 
@@ -255,6 +263,8 @@ function SidebarContent({
   collapsed,
   isPinned,
   onToggleCollapse,
+  terminalSession,
+  onChangeTerminal,
 }: {
   pathname: string;
   onLinkClick?: (e: React.MouseEvent) => void;
@@ -264,6 +274,8 @@ function SidebarContent({
   isModuleEnabled: (key: string) => boolean;
   can: (permission: string) => boolean;
   navItems: NavItem[];
+  terminalSession?: import('@oppsera/core/profit-centers').TerminalSession | null;
+  onChangeTerminal?: () => void;
   collapsed?: boolean;
   isPinned?: boolean;
   onToggleCollapse?: () => void;
@@ -630,7 +642,64 @@ function SidebarContent({
       )}
 
       {/* Sidebar footer */}
-      <div className={`border-t border-border ${collapsed ? 'p-2' : 'p-4'}`}>
+      <div className={`border-t border-border ${collapsed ? 'p-2' : 'px-3 py-3'}`}>
+        {/* Terminal session context — compact pill above user info */}
+        {!collapsed && terminalSession && (
+          <div className="mb-2 rounded-lg bg-muted/50 px-3 py-2.5">
+            <div className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-indigo-400" />
+              <span className="truncate text-xs font-medium text-foreground">
+                {terminalSession.locationName}
+              </span>
+            </div>
+            {terminalSession.profitCenterName && (
+              <p className="mt-0.5 truncate pl-5 text-xs text-foreground/70">
+                {terminalSession.profitCenterName}
+              </p>
+            )}
+            {terminalSession.terminalName && (
+              <div className="mt-0.5 flex items-center gap-1.5 pl-5">
+                <Monitor className="h-3 w-3 shrink-0 text-emerald-400" />
+                <span className="truncate text-xs font-medium text-emerald-400">
+                  {terminalSession.terminalName}
+                  {terminalSession.terminalNumber != null && ` #${terminalSession.terminalNumber}`}
+                </span>
+              </div>
+            )}
+            {onChangeTerminal && (
+              <button
+                type="button"
+                onClick={onChangeTerminal}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-400 transition-colors hover:bg-indigo-500/20"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Change Register
+              </button>
+            )}
+          </div>
+        )}
+        {!collapsed && !terminalSession && onChangeTerminal && (
+          <button
+            type="button"
+            onClick={onChangeTerminal}
+            className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-xs font-medium text-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <Monitor className="h-3.5 w-3.5" />
+            Select Register
+          </button>
+        )}
+        {collapsed && terminalSession && (
+          <div className="mb-2 flex justify-center" title={`${terminalSession.locationName} › ${terminalSession.profitCenterName ?? ''} › ${terminalSession.terminalName ?? ''}\nClick to change register`}>
+            <button
+              type="button"
+              onClick={onChangeTerminal}
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/50 transition-colors hover:bg-accent"
+              aria-label="Change register"
+            >
+              <MapPin className="h-4 w-4 text-indigo-400" />
+            </button>
+          </div>
+        )}
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600" title={collapsed ? userName : undefined}>
             <span className="text-sm font-medium text-white">{getInitials(userName)}</span>
@@ -644,10 +713,11 @@ function SidebarContent({
               <button
                 type="button"
                 onClick={onLogout}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-foreground/70 hover:bg-accent hover:text-foreground"
                 aria-label="Sign out"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
+                <span>Sign Out</span>
               </button>
             </>
           )}
@@ -829,6 +899,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Derive display values — use fallbacks during auth loading so the
   // sidebar renders immediately and the user can navigate right away.
+  const { session: terminalSession, clearSession } = useTerminalSession();
+  const [showTerminalPicker, setShowTerminalPicker] = useState(false);
+  const handleChangeTerminal = useCallback(() => setShowTerminalPicker(true), []);
+  const handleTerminalPickerDone = useCallback(() => setShowTerminalPicker(false), []);
+
   const tenantName = tenant?.name || 'OppsEra';
   const userName = user?.name || 'User';
   const userEmail = user?.email || '';
@@ -880,6 +955,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           isModuleEnabled={checkModule}
           can={checkPermission}
           navItems={navWithDynamic}
+          terminalSession={terminalSession}
+          onChangeTerminal={handleChangeTerminal}
         />
       </div>
 
@@ -911,6 +988,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             collapsed={visuallyCollapsed}
             isPinned={!collapsed}
             onToggleCollapse={toggleCollapse}
+            terminalSession={terminalSession}
+            onChangeTerminal={handleChangeTerminal}
           />
         </div>
       </div>
@@ -932,10 +1011,38 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             >
               <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
-            <span className="truncate text-sm font-semibold text-foreground md:hidden">{tenantName}</span>
-            <span className="hidden text-sm font-semibold text-foreground md:block">
-              {tenantName}
-            </span>
+            {/* Mobile: tenant name + location */}
+            <div className="flex min-w-0 items-center gap-1.5 md:hidden">
+              <span className="shrink-0 text-sm font-semibold text-foreground">{tenantName}</span>
+              {terminalSession && (
+                <>
+                  <ChevronRight className="h-3 w-3 shrink-0 opacity-60 text-foreground/70" />
+                  <MapPin className="h-3 w-3 shrink-0 text-indigo-400" />
+                  <span className="truncate text-xs font-medium text-foreground/70">{terminalSession.locationName}</span>
+                </>
+              )}
+            </div>
+            {/* Desktop: tenant name + session breadcrumb */}
+            <div className="hidden min-w-0 items-center gap-2 md:flex">
+              <span className="shrink-0 text-sm font-semibold text-foreground">{tenantName}</span>
+              {terminalSession && (
+                <div className="flex min-w-0 items-center gap-1.5 text-sm text-foreground/70">
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-indigo-400" />
+                  <span className="truncate">{terminalSession.locationName}</span>
+                  {terminalSession.terminalName && (
+                    <>
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                      <Monitor className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                      <span className="truncate font-medium text-foreground">
+                        {terminalSession.terminalName}
+                        {terminalSession.terminalNumber != null && ` #${terminalSession.terminalNumber}`}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-2 md:gap-4">
             <div className="hidden sm:block">
@@ -973,11 +1080,62 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <CustomerProfileDrawer />
       {/* Item Edit Drawer — always mounted, renders when open */}
       <ItemEditDrawer />
+      {/* Feature Request floating widget */}
+      <FeatureRequestWidget />
       </div>
     </div>
+
+    {/* First-time walkthrough — guides new users through key UI elements */}
+    <FirstTimeWalkthrough />
+
+    {/* Session timeout warning — alerts when token is expiring */}
+    <SessionTimeoutWarning />
+
+    {/* Terminal Picker overlay — reuses the same full-screen selection flow */}
+    {showTerminalPicker && createPortal(
+      <TerminalPickerOverlay
+        onDone={handleTerminalPickerDone}
+        onCancel={handleTerminalPickerDone}
+      />,
+      document.body,
+    )}
+
     </ItemEditDrawerProvider>
     </ProfileDrawerProvider>
     </ContextMenuProvider>
+  );
+}
+
+/**
+ * Overlay that wraps TerminalSelectionScreen for mid-session terminal switching.
+ * Detects when a new session is selected and calls onDone to close.
+ */
+function TerminalPickerOverlay({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+  const { session } = useTerminalSession();
+  const initialTerminalIdRef = useRef(session?.terminalId ?? null);
+
+  // When the user picks a new (or different) terminal, close the overlay
+  useEffect(() => {
+    if (session && session.terminalId !== initialTerminalIdRef.current) {
+      onDone();
+    }
+  }, [session, onDone]);
+
+  return (
+    <div className="fixed inset-0 z-60 bg-background">
+      {/* Close / cancel bar */}
+      <div className="absolute right-4 top-4 z-10">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-border bg-surface px-5 py-2.5 text-sm font-medium text-foreground/70 shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+          style={{ minHeight: '44px' }}
+        >
+          Cancel
+        </button>
+      </div>
+      <TerminalSelectionScreen onSkip={onCancel} />
+    </div>
   );
 }
 

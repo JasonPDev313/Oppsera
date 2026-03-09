@@ -181,6 +181,7 @@ export type { RoutingRuleListItem } from './queries/list-routing-rules';
 // Commands
 export { createStation } from './commands/create-station';
 export { updateStation } from './commands/update-station';
+export { deleteStation } from './commands/delete-station';
 export { upsertDisplayConfig } from './commands/upsert-display-config';
 export { bumpItem } from './commands/bump-item';
 export { recallItem } from './commands/recall-item';
@@ -857,7 +858,7 @@ export type {
   TicketItemStatusChangedPayload, TicketVoidedPayload,
   DeltaChitCreatedPayload,
   // Session 5
-  StationCreatedPayload, StationUpdatedPayload,
+  StationCreatedPayload, StationUpdatedPayload, StationDeletedPayload,
   ItemBumpedPayload, ItemRecalledPayload,
   TicketBumpedPayload, ItemCalledBackPayload,
   // Session 6

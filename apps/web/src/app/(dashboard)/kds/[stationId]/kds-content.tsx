@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
 import { useAuthContext } from '@/components/auth-provider';
+import { useTerminalSession } from '@/components/terminal-session-provider';
 import { useKdsView } from '@/hooks/use-fnb-kitchen';
 import { StationHeader } from '@/components/fnb/kitchen/StationHeader';
 import { TicketCard } from '@/components/fnb/kitchen/TicketCard';
@@ -13,7 +14,7 @@ import { KitchenBehindBanner } from '@/components/fnb/kitchen/KitchenBehindBanne
 import {
   ArrowLeft, LayoutGrid, LayoutList, SplitSquareHorizontal,
   Keyboard as KeyboardIcon, Hand, Pause, Play,
-  Minimize2, Maximize2, History,
+  Minimize2, Maximize2, History, MapPin,
 } from 'lucide-react';
 
 type ViewMode = 'ticket_rail' | 'grid' | 'split';
@@ -30,6 +31,7 @@ export default function KdsContent() {
   const stationId = params.stationId as string;
   const { locations } = useAuthContext();
   const locationId = locations?.[0]?.id;
+  const { session: terminalSession } = useTerminalSession();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>('ticket_rail');
@@ -197,6 +199,16 @@ export default function KdsContent() {
         <div className="flex-1">
           <StationHeader kdsView={kdsView} />
         </div>
+        {/* Location badge — always visible so users know which location this KDS serves */}
+        {terminalSession?.locationName && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 shrink-0"
+            style={{ backgroundColor: 'var(--fnb-bg-surface)', borderLeft: '1px solid rgba(148, 163, 184, 0.15)' }}>
+            <MapPin className="h-3.5 w-3.5 text-indigo-400" />
+            <span className="text-xs font-medium" style={{ color: 'var(--fnb-text-secondary)' }}>
+              {terminalSession.locationName}
+            </span>
+          </div>
+        )}
 
         {/* Toolbar */}
         <div className="flex items-center gap-1 px-2" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>

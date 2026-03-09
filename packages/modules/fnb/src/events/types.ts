@@ -36,6 +36,7 @@ export const FNB_EVENTS = {
   // Session 5 — KDS Stations & Expo
   STATION_CREATED: 'fnb.station.created.v1',
   STATION_UPDATED: 'fnb.station.updated.v1',
+  STATION_DELETED: 'fnb.station.deleted.v1',
   ITEM_BUMPED: 'fnb.kds.item_bumped.v1',
   ITEM_RECALLED: 'fnb.kds.item_recalled.v1',
   TICKET_BUMPED: 'fnb.kds.ticket_bumped.v1',
@@ -348,6 +349,13 @@ export interface StationUpdatedPayload {
   stationId: string;
   locationId: string;
   changes: Record<string, unknown>;
+}
+
+export interface StationDeletedPayload {
+  stationId: string;
+  locationId: string;
+  name: string;
+  stationType: string;
 }
 
 export interface ItemBumpedPayload {

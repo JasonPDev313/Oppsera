@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   Lightbulb,
   X,
@@ -198,6 +199,11 @@ function clearDraft() {
 // ── Main Widget ──────────────────────────────────────────────────
 
 export function FeatureRequestWidget() {
+  const pathname = usePathname();
+
+  // Hide on POS / KDS / Expo routes — the floating widget obstructs these full-screen UIs
+  const isFullScreenRoute = pathname.startsWith('/pos') || pathname.startsWith('/kds') || pathname.startsWith('/expo');
+
   const [widgetState, setWidgetState] = useState<WidgetState>('collapsed');
   const [step, setStep] = useState<Step>('type');
   const [form, setForm] = useState<FeatureRequestFormData>(() => loadDraft());
@@ -556,12 +562,16 @@ export function FeatureRequestWidget() {
     return () => document.removeEventListener('keydown', handler);
   }, [widgetState, handleClose, canAdvance, step, nextStep, handleSubmit]);
 
+  // ── Hidden on full-screen routes ────────────────────────────
+  if (isFullScreenRoute) return null;
+
   // ── Collapsed card ───────────────────────────────────────────
   if (widgetState === 'collapsed') {
     return (
       <div className="rounded-xl bg-surface shadow-sm ring-1 ring-gray-950/5">
         <button
           type="button"
+          data-feature-widget
           onClick={handleOpen}
           className="flex w-full items-center gap-3 rounded-xl px-6 py-4 text-left transition-colors hover:bg-accent"
         >
