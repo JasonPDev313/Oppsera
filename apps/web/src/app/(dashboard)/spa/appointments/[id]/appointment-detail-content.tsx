@@ -711,6 +711,7 @@ export default function AppointmentDetailContent() {
   }, [appointmentId]);
 
   // ── Auto-complete helper for in_service → payment dialogs ────
+  // Awaits refetch after complete so the dialog opens with fresh version data.
   const completeAndOpen = useCallback(
     (actionKey: string, openFn: () => void) => {
       if (data?.status === 'in_service' && !autoCompletedRef.current) {
@@ -719,19 +720,23 @@ export default function AppointmentDetailContent() {
         appointmentAction.mutate(
           { id: appointmentId, action: 'complete', body: { expectedVersion: data?.version } },
           {
-            onSuccess: () => {
+            onSuccess: async () => {
               autoCompletedRef.current = true;
               setPendingAction(null);
-              refetch();
+              await refetch();
               openFn();
             },
-            onError: (err) => {
+            onError: async (err) => {
               const msg = err instanceof Error ? err.message : '';
-              // Tolerate stale status — another tab or request may have already completed it
-              if (msg.includes('INVALID_STATUS_TRANSITION') || msg.includes('Cannot transition')) {
+              // Tolerate stale status/version — another tab may have already completed it
+              if (
+                msg.includes('INVALID_STATUS_TRANSITION') ||
+                msg.includes('Cannot transition') ||
+                msg.includes('VERSION_CONFLICT')
+              ) {
                 autoCompletedRef.current = true;
                 setPendingAction(null);
-                refetch();
+                await refetch();
                 openFn();
                 return;
               }
@@ -782,9 +787,16 @@ export default function AppointmentDetailContent() {
             setPendingAction(null);
             refetch();
           },
-          onError: (err) => {
+          onError: async (err) => {
             const message =
               err instanceof Error ? err.message : 'An unexpected error occurred.';
+            // VERSION_CONFLICT: another tab updated — refetch and let user retry
+            if (message.includes('VERSION_CONFLICT')) {
+              await refetch();
+              setFeedback({ type: 'error', message: 'This appointment was updated elsewhere. Please try again.' });
+              setPendingAction(null);
+              return;
+            }
             setFeedback({ type: 'error', message });
             setPendingAction(null);
           },
@@ -795,19 +807,24 @@ export default function AppointmentDetailContent() {
   );
 
   // ── Pay Now complete handler ───────────────────────────────
+  // Payment already succeeded at this point — checkout is best-effort.
+  // VERSION_CONFLICT on checkout is tolerated because the payment is safe.
   const handlePayNowComplete = useCallback(
-    (result: PayNowResult) => {
+    async (result: PayNowResult) => {
       setShowPayNowDialog(false);
       if (result.isFullyPaid) {
-        // Auto-checkout: completed → checked_out
+        // Refetch to get fresh version before auto-checkout
+        const freshData = await refetch();
+        const freshVersion = freshData.data?.version ?? data?.version;
         appointmentAction.mutate(
-          { id: appointmentId, action: 'checkout', body: { orderId: result.orderId, expectedVersion: data?.version } },
+          { id: appointmentId, action: 'checkout', body: { orderId: result.orderId, expectedVersion: freshVersion } },
           {
             onSuccess: () => {
               setFeedback({ type: 'success', message: 'Payment received. Appointment checked out.' });
               refetch();
             },
             onError: () => {
+              // Payment already succeeded — don't alarm the user
               setFeedback({ type: 'success', message: 'Payment received successfully.' });
               refetch();
             },
