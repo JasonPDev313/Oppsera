@@ -717,7 +717,7 @@ export default function AppointmentDetailContent() {
         setFeedback(null);
         setPendingAction(actionKey);
         appointmentAction.mutate(
-          { id: appointmentId, action: 'complete' },
+          { id: appointmentId, action: 'complete', body: { expectedVersion: data?.version } },
           {
             onSuccess: () => {
               autoCompletedRef.current = true;
@@ -744,7 +744,7 @@ export default function AppointmentDetailContent() {
         openFn();
       }
     },
-    [data?.status, appointmentId, appointmentAction, refetch],
+    [data?.status, data?.version, appointmentId, appointmentAction, refetch],
   );
 
   // ── Action handler ────────────────────────────────────────────
@@ -772,7 +772,7 @@ export default function AppointmentDetailContent() {
       setPendingAction(actionKey);
 
       appointmentAction.mutate(
-        { id: appointmentId, action: actionKey },
+        { id: appointmentId, action: actionKey, body: { expectedVersion: data?.version } },
         {
           onSuccess: () => {
             setFeedback({
@@ -791,7 +791,7 @@ export default function AppointmentDetailContent() {
         },
       );
     },
-    [appointmentId, appointmentAction, refetch, completeAndOpen],
+    [appointmentId, data?.version, appointmentAction, refetch, completeAndOpen],
   );
 
   // ── Pay Now complete handler ───────────────────────────────
@@ -801,7 +801,7 @@ export default function AppointmentDetailContent() {
       if (result.isFullyPaid) {
         // Auto-checkout: completed → checked_out
         appointmentAction.mutate(
-          { id: appointmentId, action: 'checkout', body: { orderId: result.orderId } },
+          { id: appointmentId, action: 'checkout', body: { orderId: result.orderId, expectedVersion: data?.version } },
           {
             onSuccess: () => {
               setFeedback({ type: 'success', message: 'Payment received. Appointment checked out.' });
@@ -818,7 +818,7 @@ export default function AppointmentDetailContent() {
         refetch();
       }
     },
-    [appointmentId, appointmentAction, refetch],
+    [appointmentId, data?.version, appointmentAction, refetch],
   );
 
   // ── Checkout-to-POS success handler ───────────────────────────
