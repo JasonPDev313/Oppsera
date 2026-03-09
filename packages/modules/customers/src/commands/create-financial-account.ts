@@ -19,16 +19,14 @@ export async function createFinancialAccount(ctx: RequestContext, input: CreateF
       tenantId: ctx.tenantId,
       name: input.name,
       primaryCustomerId: input.customerId,
+      accountType: input.accountType ?? 'house',
       creditLimitCents: input.creditLimitCents ?? null,
       billingCycle: input.billingCycle ?? 'monthly',
       dueDays: input.dueDays ?? 30,
       billingEmail: input.billingEmail ?? null,
       billingContactName: input.billingContactName ?? null,
       billingAddress: input.billingAddress ?? null,
-      metadata: {
-        accountType: input.accountType ?? 'house',
-        currency: input.currency ?? 'USD',
-      },
+      currency: input.currency ?? 'USD',
     }).returning();
 
     // Auto-add primary customer as billing account member

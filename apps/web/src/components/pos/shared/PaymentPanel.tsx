@@ -6,11 +6,14 @@ import {
   CreditCard,
   FileText,
   Ticket,
+  Building2,
   ArrowLeft,
   Loader2,
 } from 'lucide-react';
 import { flushSync } from 'react-dom';
 import { Numpad } from './Numpad';
+import { HouseAccountPanel } from './HouseAccountPanel';
+import type { HouseAccountMeta } from './HouseAccountPanel';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
@@ -25,7 +28,7 @@ function todayBusinessDate(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-type TenderType = 'cash' | 'check' | 'voucher' | 'card';
+type TenderType = 'cash' | 'check' | 'voucher' | 'card' | 'house_account';
 
 interface PaymentPanelProps {
   order: Order;
@@ -44,6 +47,7 @@ const TENDER_TYPES: { type: TenderType; label: string; icon: typeof Banknote; co
   { type: 'card', label: 'Card', icon: CreditCard, color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/30 hover:bg-indigo-500/20' },
   { type: 'check', label: 'Check', icon: FileText, color: 'text-blue-500 bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20' },
   { type: 'voucher', label: 'Voucher', icon: Ticket, color: 'text-amber-500 bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20' },
+  { type: 'house_account', label: 'House Acct', icon: Building2, color: 'text-purple-500 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20' },
 ];
 
 // ── Quick Cash Amounts ────────────────────────────────────────────
@@ -338,6 +342,79 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
           )}
         </div>
       </div>
+    );
+  }
+
+  // ── House Account Panel ──────────────────────────────────────
+
+  if (selectedType === 'house_account') {
+    const handleHouseCharge = async (chargeCents: number, meta: HouseAccountMeta) => {
+      if (isSubmittingRef.current) return;
+      let orderId = order.id;
+      if (!orderId && ensureOrderReady) {
+        try {
+          const ready = await ensureOrderReady();
+          orderId = ready.id;
+        } catch {
+          toast.error('Failed to create order — please try again');
+          return;
+        }
+      }
+      if (!orderId) {
+        toast.error('Order is still being created — please wait');
+        return;
+      }
+      isSubmittingRef.current = true;
+      setIsSubmitting(true);
+      try {
+        const body: Record<string, unknown> = {
+          clientRequestId: crypto.randomUUID(),
+          placeClientRequestId: crypto.randomUUID(),
+          orderId,
+          tenderType: 'house_account',
+          amountGiven: chargeCents,
+          tipAmount: 0,
+          terminalId: config.terminalId,
+          employeeId: user?.id ?? '',
+          businessDate: todayBusinessDate(),
+          shiftId: shiftId ?? undefined,
+          posMode: config.posMode,
+          billingAccountId: meta.billingAccountId,
+          customerId: meta.customerId,
+          signatureData: meta.signatureData,
+        };
+        const res = await apiFetch<{ data: RecordTenderResult }>(
+          `/api/v1/orders/${orderId}/place-and-pay`,
+          { method: 'POST', headers: locationHeaders, body: JSON.stringify(body) },
+        );
+        const result = res.data;
+        isPlacedRef.current = true;
+        if (result.isFullyPaid) {
+          setPaymentSuccess(result);
+          toast.success('House account charge complete!');
+        } else {
+          toast.info(`Partial payment. Remaining: ${formatMoney(result.remainingBalance)}`);
+          setSelectedType(null);
+        }
+      } catch (err) {
+        if (err instanceof ApiError && err.statusCode === 403) {
+          toast.error(err.message || 'House account charge not authorized');
+        } else {
+          toast.error(err instanceof Error ? err.message : 'House account charge failed');
+        }
+      } finally {
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+      }
+    };
+
+    return (
+      <HouseAccountPanel
+        remainingCents={remaining}
+        onCharge={handleHouseCharge}
+        onCancel={() => { setSelectedType(null); setAmount(''); }}
+        disabled={isSubmitting || isDraining}
+      />
     );
   }
 

@@ -29,7 +29,7 @@ function loadLastTerminal(): { terminalId: string; terminalName?: string | null;
   return null;
 }
 
-export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
+export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () => void; isSwitching?: boolean }) {
   const roleSelection = useRoleSelection();
   const [phase, setPhase] = useState<'role' | 'terminal'>(
     // Skip role phase if only 1 role (auto-selected)
@@ -75,32 +75,14 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
   // terminal ID and flag that a quick resume is pending. The useEffect below
   // waits for the state to settle (selectedTerminalId matches) then continues.
   const quickResumeRef = useRef<string | null>(null);
+  const didContinueRef = useRef(false);
 
-  useEffect(() => {
-    if (
-      quickResumeRef.current &&
-      terminalSelection.selectedTerminalId === quickResumeRef.current &&
-      terminalSelection.canContinue
-    ) {
-      quickResumeRef.current = null;
-      const session = terminalSelection.buildSession();
-      if (session) {
-        saveLastTerminal({
-          terminalId: session.terminalId,
-          terminalName: session.terminalName,
-          locationName: session.locationName,
-        });
-        setSession(session);
-        const registerLabel = session.terminalName || 'your register';
-        const locationLabel = session.locationName ? ` at ${session.locationName}` : '';
-        toast.success(`You're now on ${registerLabel}${locationLabel}`);
-      }
-    }
-  }, [terminalSelection.selectedTerminalId, terminalSelection.canContinue, terminalSelection, setSession, toast]);
-
+  const { buildSession } = terminalSelection;
   const handleContinue = useCallback(() => {
-    const session = terminalSelection.buildSession();
+    if (didContinueRef.current) return; // prevent double-fire
+    const session = buildSession();
     if (session) {
+      didContinueRef.current = true;
       saveLastTerminal({
         terminalId: session.terminalId,
         terminalName: session.terminalName,
@@ -111,17 +93,32 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
       const locationLabel = session.locationName ? ` at ${session.locationName}` : '';
       toast.success(`You're now on ${registerLabel}${locationLabel}`);
     }
-  }, [terminalSelection, setSession, toast]);
+  }, [buildSession, setSession, toast]);
+
+  // Quick-resume: wait for cascade to settle, then continue
+  useEffect(() => {
+    if (
+      quickResumeRef.current &&
+      terminalSelection.selectedTerminalId === quickResumeRef.current &&
+      terminalSelection.canContinue
+    ) {
+      quickResumeRef.current = null;
+      handleContinue();
+    }
+  }, [terminalSelection.selectedTerminalId, terminalSelection.canContinue, handleContinue]);
 
   // Auto-continue when there's only one possible selection at every level
   // (e.g. fresh account with a single default profit center + terminal).
   // Skips the selection screen entirely — zero friction.
+  // Disabled during mid-session switching so user can always choose manually.
   const { canContinue, isLoading: termLoading } = terminalSelection;
   useEffect(() => {
+    if (isSwitching || didContinueRef.current) return;
     if (!termLoading && canContinue && !roleSelection.isLoading && !roleSelection.hasMultipleRoles) {
+      didContinueRef.current = true;
       handleContinue();
     }
-  }, [termLoading, canContinue, roleSelection.isLoading, roleSelection.hasMultipleRoles, handleContinue]);
+  }, [termLoading, canContinue, roleSelection.isLoading, roleSelection.hasMultipleRoles, handleContinue, isSwitching]);
 
   if (roleSelection.isLoading) {
     return (

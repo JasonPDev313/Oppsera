@@ -2,6 +2,7 @@ import { eq, and, inArray, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
+import { logger } from '@oppsera/core/observability';
 import {
   fnbKitchenStations,
   fnbStationDisplayConfigs,
@@ -36,7 +37,45 @@ export async function deleteStation(
       .limit(1);
     if (!station) throw new StationNotFoundError(stationId);
 
-    // Block deletion if station has in-progress ticket items
+    // Auto-void stale ticket items from previous business dates.
+    // These are orphaned items that are no longer visible on the KDS screen
+    // (which filters by today's business_date) but would block deletion.
+    const today = new Date().toISOString().slice(0, 10);
+    const staleResult = await tx.execute(sql`
+      UPDATE fnb_kitchen_ticket_items kti
+      SET item_status = 'voided', voided_at = NOW(), updated_at = NOW()
+      FROM fnb_kitchen_tickets kt
+      WHERE kti.ticket_id = kt.id
+        AND kti.station_id = ${stationId}
+        AND kti.tenant_id = ${ctx.tenantId}
+        AND kti.item_status IN ('pending', 'cooking')
+        AND kt.business_date < ${today}
+    `);
+    const staleCount = (staleResult as { count?: number }).count ?? 0;
+    if (staleCount > 0) {
+      logger.info('[KDS] Auto-voided stale ticket items from previous business dates', {
+        domain: 'kds',
+        stationId,
+        tenantId: ctx.tenantId,
+        voidedCount: staleCount,
+      });
+    }
+
+    // Also void parent tickets that now have ALL items voided (from the stale cleanup above)
+    await tx.execute(sql`
+      UPDATE fnb_kitchen_tickets kt
+      SET status = 'voided', voided_at = NOW(), updated_at = NOW()
+      WHERE kt.tenant_id = ${ctx.tenantId}
+        AND kt.business_date < ${today}
+        AND kt.status IN ('pending', 'in_progress')
+        AND NOT EXISTS (
+          SELECT 1 FROM fnb_kitchen_ticket_items kti2
+          WHERE kti2.ticket_id = kt.id
+            AND kti2.item_status NOT IN ('voided', 'served', 'ready')
+        )
+    `);
+
+    // Block deletion if station has in-progress ticket items (today only)
     const [activeCount] = await tx
       .select({ count: sql<number>`count(*)::int` })
       .from(fnbKitchenTicketItems)
@@ -47,7 +86,7 @@ export async function deleteStation(
       ));
     if (activeCount && activeCount.count > 0) {
       throw new Error(
-        `Cannot delete station "${station.name}" — it has ${activeCount.count} active ticket item(s). Bump or void them first.`,
+        `Cannot delete station "${station.name}" — it has ${activeCount.count} active ticket item(s) from today. Bump or void them first.`,
       );
     }
 

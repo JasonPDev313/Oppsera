@@ -1,6 +1,6 @@
 'use client';
 
-import { Banknote, CreditCard, Gift, Building2, Smartphone, Wallet, Zap } from 'lucide-react';
+import { Banknote, CreditCard, Gift, Building2, Smartphone, Wallet } from 'lucide-react';
 
 export type TenderType = 'cash' | 'card' | 'gift_card' | 'house_account';
 
@@ -46,12 +46,6 @@ export function TenderGrid({ onSelect, onFastCash, totalCents, disabled }: Tende
       {/* Fast Cash — PRIMARY speed path (one-tap payment) */}
       {onFastCash && (
         <div>
-          <div className="flex items-center gap-1.5 mb-2">
-            <Zap className="h-3.5 w-3.5" style={{ color: 'var(--fnb-tender-cash)' }} />
-            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--fnb-tender-cash)' }}>
-              Quick Pay
-            </span>
-          </div>
           <div className="grid grid-cols-5 gap-2">
             {FAST_CASH.map(({ label, cents, primary }) => (
               <button

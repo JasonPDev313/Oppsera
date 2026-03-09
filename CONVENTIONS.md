@@ -323,7 +323,7 @@
 | §230 | Backup/Restore System | 11857–11902 | Direct connection, FK order, cursor export |
 | §231 | Reporting Consumer Patterns | 11903–11948 | Cents→dollars, ON CONFLICT additive |
 
-### Hardening Patterns (§232–§246) — Added 2026-03-05
+### Hardening Patterns (§232–§246) — Added 2026-03-05, §247 — 2026-03-08
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
@@ -341,7 +341,8 @@
 | §243 | KDS Category-Level Prep Times | 12274–12298 | XOR constraint, partial unique indexes, COALESCE |
 | §244 | Compound Cursor Pagination | 12299–12321 | base64url cursor with sortVal+id, ILIKE escaping |
 | §245 | Dialog State Reset on Re-open | 12322–12338 | useEffect([open]) to clear previous state |
-| §246 | Emergency Cleanup Payment Verification | 12339–12357 | Verify SUM(tenders) >= total, location-scoped locks |
+| §246 | Emergency Cleanup Payment Verification | 12339–12356 | Verify SUM(tenders) >= total, location-scoped locks |
+| §247 | Help Tip Pattern | 12357–12395 | Portal-mounted `?` popover, placement props, first-visit auto-open, 3-cycle pulse |
 
 ---
 
@@ -369,7 +370,7 @@
 | **Onboarding** | §42, §112, §144 |
 | **Payments / Tenders** | §35, §64, §96, §101–§102, §128, §140, §198, §239 |
 | **Infrastructure / Cron** | §47–§49, §83, §157, §161–§162, §167, §206, §226 |
-| **Frontend Patterns** | §15, §57, §228, §234–§237, §245 |
+| **Frontend Patterns** | §15, §57, §228, §234–§237, §245, §247 |
 | **A11y / Accessibility** | §154, §174, §236 |
 | **KDS** | §176, §181, §222, §235, §240, §243 |
 

@@ -39,6 +39,7 @@ export interface ExpoTicketCard {
   sentAt: string;
   estimatedPickupAt: string | null;
   elapsedSeconds: number;
+  businessDate: string | null;
   items: ExpoTicketItem[];
   allItemsReady: boolean;
   readyCount: number;
@@ -55,17 +56,17 @@ export async function getExpoView(
   input: GetExpoViewInput,
 ): Promise<ExpoView> {
   return withTenant(input.tenantId, async (tx) => {
-    // Get all active tickets
+    // Get all active tickets — no business_date filter so stale tickets
+    // from previous days remain visible until bumped or voided.
     const ticketRows = await tx.execute(
       sql`SELECT id, ticket_number, tab_id, course_number, status,
                  priority_level, is_held, order_type, channel,
                  table_number, server_name, customer_name,
-                 sent_at, estimated_pickup_at,
+                 sent_at, estimated_pickup_at, business_date,
                  GREATEST(0, EXTRACT(EPOCH FROM (NOW() - sent_at))::integer) AS elapsed_seconds
           FROM fnb_kitchen_tickets
           WHERE tenant_id = ${input.tenantId}
             AND location_id = ${input.locationId}
-            AND business_date = ${input.businessDate}
             AND status IN ('pending', 'in_progress', 'ready')
           ORDER BY priority_level DESC NULLS LAST, sent_at ASC`,
     );
@@ -148,6 +149,7 @@ export async function getExpoView(
         sentAt: t.sent_at as string,
         estimatedPickupAt: (t.estimated_pickup_at as string) ?? null,
         elapsedSeconds: Number(t.elapsed_seconds),
+        businessDate: (t.business_date as string) ?? null,
         items,
         allItemsReady,
         readyCount,

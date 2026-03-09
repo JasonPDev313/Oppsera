@@ -22,7 +22,7 @@ export async function failPaymentSession(
 
     // Lock session row — prevents double-fail race
     const sessions = await tx.execute(
-      sql`SELECT id, tab_id, order_id, status
+      sql`SELECT id, tab_id, order_id, status, pre_payment_tab_status
           FROM fnb_payment_sessions
           WHERE id = ${input.sessionId} AND tenant_id = ${ctx.tenantId}
           FOR UPDATE`,
@@ -53,10 +53,12 @@ export async function failPaymentSession(
     const updatedRow = updatedRows[0]!;
     const tabId = session.tab_id as string;
 
-    // Revert tab status from 'paying' back to 'open' so it can be re-attempted
+    // Revert tab status from 'paying' back to pre-payment status (not always 'open' —
+    // tab may have been in 'sent_to_kitchen', 'in_progress', etc.)
+    const restoreStatus = (session.pre_payment_tab_status as string) || 'open';
     await tx.execute(
       sql`UPDATE fnb_tabs
-          SET status = 'open', updated_at = NOW(), version = version + 1
+          SET status = ${restoreStatus}, updated_at = NOW(), version = version + 1
           WHERE id = ${tabId} AND tenant_id = ${ctx.tenantId}
             AND status = 'paying'`,
     );

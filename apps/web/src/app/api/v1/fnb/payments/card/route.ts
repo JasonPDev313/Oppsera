@@ -78,13 +78,21 @@ export const POST = withMiddleware(
     }
 
     // 3. Record the tender in the F&B payment session
-    const tenderResult = await recordSplitTender(ctx, ctx.locationId ?? '', {
-      sessionId: input.sessionId,
-      tenderId: gatewayResult.id,
-      amountCents: input.amountCents + input.tipCents,
-      tenderType: 'card',
-      clientRequestId: `tender-${input.clientRequestId}`,
-    });
+    // Gateway void rollback: if recordSplitTender fails after gateway charged,
+    // best-effort void prevents orphaned charges (retail pattern from orders/tenders)
+    let tenderResult;
+    try {
+      tenderResult = await recordSplitTender(ctx, ctx.locationId ?? '', {
+        sessionId: input.sessionId,
+        tenderId: gatewayResult.id,
+        amountCents: input.amountCents + input.tipCents,
+        tenderType: 'card',
+        clientRequestId: `tender-${input.clientRequestId}`,
+      });
+    } catch (err) {
+      try { await gateway.void(ctx, { paymentIntentId: gatewayResult.id }); } catch { /* best-effort */ }
+      throw err;
+    }
 
     broadcastFnb(ctx, 'tabs').catch(() => {});
     return NextResponse.json({

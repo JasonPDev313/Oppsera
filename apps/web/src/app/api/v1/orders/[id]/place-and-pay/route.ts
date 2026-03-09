@@ -5,6 +5,8 @@ import { AppError } from '@oppsera/shared';
 import { placeOrderSchema } from '@oppsera/module-orders';
 import { recordTenderSchema, listPaymentMethods } from '@oppsera/module-payments';
 import { hasPaymentsGateway, getPaymentsGatewayApi } from '@oppsera/core/helpers/payments-gateway-api';
+import { validateHouseAccountCharge } from '@oppsera/module-fnb/helpers/house-account-validation';
+import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { placeAndRecordTender } from './place-and-pay-fast';
 
 function extractOrderId(request: NextRequest): string {
@@ -28,6 +30,11 @@ function extractOrderId(request: NextRequest): string {
  *   3. Token (CNP): `token` — charges via gateway directly.
  *
  * Cash/check/voucher tenders bypass the gateway entirely.
+ *
+ * House account tenders:
+ *   Requires `billingAccountId` + `customerId` (+ optional `signatureData`).
+ *   CMAA validation gates are re-checked at charge time. Creates an AR
+ *   transaction against the billing account inside the same DB transaction.
  */
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -103,6 +110,42 @@ export const POST = withMiddleware(
         cardLast4: gatewayResult.cardLast4,
         cardBrand: gatewayResult.cardBrand,
       };
+    }
+
+    // ── House account: CMAA re-validation at charge time ──
+    if (tenderType === 'house_account') {
+      if (!body.billingAccountId || !body.customerId) {
+        throw new AppError(
+          'MISSING_HOUSE_ACCOUNT_DATA',
+          'billingAccountId and customerId are required for house account tenders',
+          400,
+        );
+      }
+
+      // Re-validate all CMAA gates (account status, collections, credit, limits, hours, tip cap)
+      await validateHouseAccountCharge(ctx, {
+        billingAccountId: body.billingAccountId,
+        customerId: body.customerId,
+        amountCents: tenderParsed.data.amountGiven,
+        tipCents: tenderParsed.data.tipAmount ?? 0,
+      });
+
+      // Store house account metadata on the tender for audit trail
+      tenderParsed.data.metadata = {
+        ...(tenderParsed.data.metadata ?? {}),
+        billingAccountId: body.billingAccountId,
+        customerId: body.customerId,
+        hasSignature: !!body.signatureData,
+      };
+
+      auditLogDeferred(ctx, 'house_account.charge_validated', 'billing_account', body.billingAccountId, undefined, {
+        amountCents: tenderParsed.data.amountGiven,
+        tipCents: tenderParsed.data.tipAmount ?? 0,
+        customerId: body.customerId,
+        orderId,
+        source: 'retail_pos',
+        hasSignature: !!body.signatureData,
+      });
     }
 
     const placeBody = { clientRequestId: body.placeClientRequestId ?? crypto.randomUUID() };

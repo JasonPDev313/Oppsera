@@ -20,11 +20,12 @@ export async function recordSplitTender(
       if (check.isDuplicate) return { result: check.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    // Fetch payment session
+    // Lock session row — prevents concurrent tender races (retail pattern: fetchOrderForMutation)
     const sessions = await tx.execute(
       sql`SELECT id, tab_id, order_id, status, total_amount_cents, paid_amount_cents, remaining_amount_cents
           FROM fnb_payment_sessions
-          WHERE id = ${input.sessionId} AND tenant_id = ${ctx.tenantId}`,
+          WHERE id = ${input.sessionId} AND tenant_id = ${ctx.tenantId}
+          FOR UPDATE`,
     );
     const rows = Array.from(sessions as Iterable<Record<string, unknown>>);
     if (rows.length === 0) throw new PaymentSessionNotFoundError(input.sessionId);

@@ -22,7 +22,7 @@ import type { KdsViewMode, KdsTheme, ScreenCommMode } from '@oppsera/shared';
 import {
   useBumpBarProfiles, useAlertProfiles,
   usePerformanceTargets, useItemPrepTimes,
-  useRoutingRules,
+  useRoutingRules, useKdsLocationSettings,
 } from '@/hooks/use-kds-settings';
 import { useFnbSettings } from '@/hooks/use-fnb-settings';
 import { useStationManagement } from '@/hooks/use-fnb-kitchen';
@@ -132,9 +132,10 @@ interface KdsSettingsPanelProps {
   locationName?: string;
 }
 
-type KdsSubTab = 'stations' | 'routing' | 'bump-bars' | 'alerts' | 'performance' | 'prep-times';
+type KdsSubTab = 'general' | 'stations' | 'routing' | 'bump-bars' | 'alerts' | 'performance' | 'prep-times';
 
 const SUB_TABS: { key: KdsSubTab; label: string; icon: typeof Monitor }[] = [
+  { key: 'general', label: 'General', icon: Settings2 },
   { key: 'stations', label: 'Stations', icon: Monitor },
   { key: 'routing', label: 'Routing', icon: Route },
   { key: 'bump-bars', label: 'Bump Bars', icon: Keyboard },
@@ -247,6 +248,7 @@ export function KdsSettingsPanel({ locationId, locationName }: KdsSettingsPanelP
       </div>
 
       {/* Tab content */}
+      {activeTab === 'general' && <GeneralTab locationId={locationId} />}
       {activeTab === 'stations' && <StationsTab locationId={locationId} locationName={locationName} />}
       {activeTab === 'routing' && <RoutingTab locationId={locationId} />}
       {activeTab === 'bump-bars' && <BumpBarsTab locationId={locationId} />}
@@ -488,6 +490,142 @@ function formatThreshold(seconds: number): string {
   const rem = seconds % 60;
   return rem > 0 ? `${mins} min ${rem}s` : `${mins} min`;
 }
+
+// ── General Tab — Stale Ticket Behavior ──────────────────────
+
+function GeneralTab({ locationId }: { locationId?: string }) {
+  const { settings, isLoading, isActing, update } = useKdsLocationSettings(locationId ?? null);
+  const { toast } = useToast();
+  const [mode, setMode] = useState<'persist' | 'auto_clear'>('persist');
+  const [clearTime, setClearTime] = useState('04:00');
+
+  useEffect(() => {
+    if (settings) {
+      setMode(settings.staleTicketMode);
+      setClearTime(settings.autoClearTime);
+    }
+  }, [settings]);
+
+  const handleSave = useCallback(async () => {
+    try {
+      await update({ staleTicketMode: mode, autoClearTime: clearTime });
+      toast.success('KDS settings saved');
+    } catch {
+      toast.error('Failed to save settings');
+    }
+  }, [mode, clearTime, update, toast]);
+
+  if (isLoading) {
+    return <div className="text-sm" style={{ color: 'var(--color-text-secondary, #94a3b8)' }}>Loading...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--color-text-primary, #e2e8f0)' }}>
+          Stale Ticket Behavior
+        </h3>
+        <p className="text-xs mb-4" style={{ color: 'var(--color-text-secondary, #94a3b8)' }}>
+          Controls what happens to KDS tickets from previous business days that were never bumped or voided.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <label
+          htmlFor="mode-persist"
+          className="flex items-start gap-3 p-3 rounded-lg cursor-pointer border"
+          style={{
+            borderColor: mode === 'persist' ? 'var(--color-accent, #6366f1)' : 'rgba(148, 163, 184, 0.15)',
+            backgroundColor: mode === 'persist' ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+          }}
+        >
+          <input
+            id="mode-persist"
+            type="radio"
+            name="staleTicketMode"
+            value="persist"
+            checked={mode === 'persist'}
+            onChange={() => setMode('persist')}
+            className="mt-0.5"
+          />
+          <div>
+            <div className="text-sm font-medium" style={{ color: 'var(--color-text-primary, #e2e8f0)' }}>
+              Always show until actioned
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary, #94a3b8)' }}>
+              Tickets stay on the KDS screen until they are manually bumped or voided, even across business days.
+              Stale tickets are flagged with a &ldquo;Previous Day&rdquo; banner so staff can action them.
+            </div>
+          </div>
+        </label>
+
+        <label
+          htmlFor="mode-auto-clear"
+          className="flex items-start gap-3 p-3 rounded-lg cursor-pointer border"
+          style={{
+            borderColor: mode === 'auto_clear' ? 'var(--color-accent, #6366f1)' : 'rgba(148, 163, 184, 0.15)',
+            backgroundColor: mode === 'auto_clear' ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+          }}
+        >
+          <input
+            id="mode-auto-clear"
+            type="radio"
+            name="staleTicketMode"
+            value="auto_clear"
+            checked={mode === 'auto_clear'}
+            onChange={() => setMode('auto_clear')}
+            className="mt-0.5"
+          />
+          <div>
+            <div className="text-sm font-medium" style={{ color: 'var(--color-text-primary, #e2e8f0)' }}>
+              Auto-clear at a scheduled time
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary, #94a3b8)' }}>
+              Stale tickets from previous business days are automatically voided at the configured time each day.
+              Useful for high-volume kitchens that want a clean slate each morning.
+            </div>
+          </div>
+        </label>
+      </div>
+
+      {mode === 'auto_clear' && (
+        <div className="pl-8">
+          <label htmlFor="auto-clear-time" className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary, #94a3b8)' }}>
+            Auto-clear time (24h)
+          </label>
+          <input
+            id="auto-clear-time"
+            type="time"
+            value={clearTime}
+            onChange={(e) => setClearTime(e.target.value)}
+            className="px-3 py-1.5 rounded text-sm border"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary, #1e293b)',
+              borderColor: 'rgba(148, 163, 184, 0.15)',
+              color: 'var(--color-text-primary, #e2e8f0)',
+            }}
+          />
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={isActing}
+        className="px-4 py-2 rounded text-sm font-medium"
+        style={{
+          backgroundColor: 'var(--color-accent, #6366f1)',
+          color: '#fff',
+          opacity: isActing ? 0.6 : 1,
+        }}
+      >
+        {isActing ? 'Saving...' : 'Save'}
+      </button>
+    </div>
+  );
+}
+
+// ── Stations Tab ─────────────────────────────────────────────
 
 function StationsTab({ locationId, locationName }: { locationId?: string; locationName?: string }) {
   const { stations, isLoading, isActing, createStation, updateStation, deactivateStation, deleteStation } = useStationManagement({ locationId });

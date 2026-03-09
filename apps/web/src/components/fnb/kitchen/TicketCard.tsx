@@ -60,6 +60,8 @@ export function TicketCard({
   );
   const isDelta = ticket.status === 'pending' && ticket.items.length === 1;
   const hasVoidedItems = ticket.items.some((i) => i.itemStatus === 'voided');
+  // Detect stale tickets from a previous business date
+  const isStale = !!ticket.businessDate && ticket.businessDate < new Date().toISOString().slice(0, 10);
   const hasRush = ticket.items.some((i) => i.isRush);
   const hasAllergy = ticket.items.some((i) => i.isAllergy);
   const hasVip = ticket.items.some((i) => i.isVip);
@@ -118,6 +120,16 @@ export function TicketCard({
         minWidth: cardWidth,
       }}
     >
+      {/* Stale ticket banner — from a previous business date */}
+      {isStale && !isDomTicket && (
+        <div
+          className="flex items-center justify-center gap-1.5 px-3 py-1 text-[10px] font-bold uppercase tracking-wider"
+          style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}
+        >
+          Previous Day — {ticket.businessDate}
+        </div>
+      )}
+
       {/* Color-coded aging header */}
       {isDomTicket ? (
         <div

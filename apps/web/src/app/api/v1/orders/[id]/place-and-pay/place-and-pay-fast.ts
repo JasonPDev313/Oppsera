@@ -27,10 +27,12 @@ import {
   catalogCategories,
   catalogModifierGroups,
   customers,
+  arTransactions,
+  billingAccounts,
 } from '@oppsera/db';
 import type { InferSelectModel } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '@oppsera/core/helpers/optimistic-lock';
@@ -216,6 +218,65 @@ export async function placeAndRecordTender(
       createdBy: ctx.user.id,
     }).returning();
     const tender = created!;
+
+    // ── House account: create AR transaction + update balance ──
+    // Uses SELECT ... FOR UPDATE on billing_accounts to serialize concurrent
+    // charges to the same account (prevents double-charge race conditions).
+    if (tenderInput.tenderType === 'house_account' && tenderInput.metadata?.billingAccountId) {
+      const billingAccountId = tenderInput.metadata.billingAccountId as string;
+      const houseCustomerId = (tenderInput.metadata.customerId as string) ?? null;
+      const chargeTotal = tenderAmount + (tenderInput.tipAmount ?? 0);
+
+      // Lock the billing account row — serializes concurrent charges
+      const lockedRows = await tx.execute(
+        sql`SELECT id, status, current_balance_cents, credit_limit_cents
+            FROM billing_accounts
+            WHERE id = ${billingAccountId}
+              AND tenant_id = ${ctx.tenantId}
+            FOR UPDATE`,
+      );
+      const lockedAccount = Array.from(lockedRows as Iterable<Record<string, unknown>>)[0];
+      if (!lockedAccount) {
+        throw new AppError('BILLING_ACCOUNT_NOT_FOUND', 'Billing account not found', 404);
+      }
+      if (lockedAccount.status !== 'active') {
+        throw new AppError('BILLING_ACCOUNT_INACTIVE', 'Billing account is not active', 403);
+      }
+
+      // Insert AR transaction (charge)
+      await tx.insert(arTransactions).values({
+        tenantId: ctx.tenantId,
+        billingAccountId,
+        type: 'charge',
+        amountCents: chargeTotal,
+        dueDate: tenderInput.businessDate,
+        referenceType: 'tender',
+        referenceId: tender.id,
+        customerId: houseCustomerId,
+        notes: `POS house account charge — Order ${orderId}`,
+        sourceModule: 'pos',
+        businessDate: tenderInput.businessDate,
+        locationId: ctx.locationId!,
+        status: 'posted',
+        postedAt: new Date(),
+        createdBy: ctx.user.id,
+        metaJson: {
+          orderId,
+          tenderId: tender.id,
+          tenderSequence,
+          hasSignature: !!tenderInput.metadata.hasSignature,
+        },
+      });
+
+      // Update billing account balance (row already locked by FOR UPDATE above)
+      await tx.execute(
+        sql`UPDATE billing_accounts
+            SET current_balance_cents = current_balance_cents + ${chargeTotal},
+                updated_at = NOW()
+            WHERE id = ${billingAccountId}
+              AND tenant_id = ${ctx.tenantId}`,
+      );
+    }
 
     // Build GL lines from already-fetched order lines (no duplicate fetch!)
     const orderLinesForGL: OrderLineForGL[] = placedLines.map((l) => ({

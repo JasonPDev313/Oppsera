@@ -106,9 +106,20 @@ export const POST = withMiddleware(
       throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
     }
 
-    const result = await recordSplitTender(ctx, ctx.locationId, input);
+    // Gateway charge rollback: if recordSplitTender fails after gateway charged,
+    // best-effort void prevents orphaned charges (retail pattern from orders/tenders)
+    const gatewayCharged = input.tenderType === 'card' && input.tenderId && (body.token || body.paymentMethodId);
+    let result;
+    try {
+      result = await recordSplitTender(ctx, ctx.locationId, input);
+    } catch (err) {
+      if (gatewayCharged && hasPaymentsGateway()) {
+        try { await getPaymentsGatewayApi().void(ctx, { paymentIntentId: input.tenderId! }); } catch { /* best-effort */ }
+      }
+      throw err;
+    }
     broadcastFnb(ctx, 'tabs').catch(() => {});
-    return NextResponse.json({ data: result }, { status: 201 });
+    return NextResponse.json({ data: result! }, { status: 201 });
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.create', writeAccess: true },
 );

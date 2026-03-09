@@ -488,3 +488,58 @@ export function useKdsStationSettings(stationId: string | null) {
 
   return { settings, isLoading, refresh };
 }
+
+// ── KDS Location Settings ────────────────────────────────────────
+
+export interface KdsLocationSettingsData {
+  id: string;
+  staleTicketMode: 'persist' | 'auto_clear';
+  autoClearTime: string;
+}
+
+export function useKdsLocationSettings(locationId: string | null) {
+  const [settings, setSettings] = useState<KdsLocationSettingsData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isActing, setIsActing] = useState(false);
+
+  const qs = locationId ? `?locationId=${locationId}` : '';
+
+  const refresh = useCallback(async () => {
+    if (!locationId) { setSettings(null); setIsLoading(false); return; }
+    try {
+      const res = await apiFetch<{ data: KdsLocationSettingsData }>(
+        `/api/v1/fnb/kds-settings/location-settings${qs}`,
+      );
+      setSettings(res.data);
+    } catch {
+      // No settings yet — use defaults
+      setSettings({ id: '', staleTicketMode: 'persist', autoClearTime: '04:00' });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [locationId, qs]);
+
+  useEffect(() => { setIsLoading(true); refresh(); }, [refresh]);
+
+  const update = useCallback(async (data: { staleTicketMode: 'persist' | 'auto_clear'; autoClearTime: string }) => {
+    if (!locationId) return;
+    setIsActing(true);
+    try {
+      const res = await apiFetch<{ data: KdsLocationSettingsData }>(
+        `/api/v1/fnb/kds-settings/location-settings${qs}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            ...data,
+            clientRequestId: crypto.randomUUID(),
+          }),
+        },
+      );
+      setSettings(res.data);
+    } finally {
+      setIsActing(false);
+    }
+  }, [locationId, qs]);
+
+  return { settings, isLoading, isActing, update, refresh };
+}

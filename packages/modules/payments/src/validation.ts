@@ -33,6 +33,10 @@ export const recordTenderSchema = z.object({
       guestId: z.string().optional(),
       roomNumber: z.string().optional(),
       reservationId: z.string().optional(),
+      // House account fields (CMAA house account charge)
+      billingAccountId: z.string().optional(),
+      customerId: z.string().optional(),
+      hasSignature: z.boolean().optional(),
     })
     .optional(),
 });

@@ -12354,4 +12354,42 @@ WHERE t.status = 'paying' AND tender_agg.paid >= order_agg.total
 
 Lock release scoped to location — never release locks belonging to other locations.
 
+## §247 — Help Tip Pattern (2026-03-08)
+
+Reusable contextual help popover for explaining UI features. Standard across all modules.
+
+**Component**: `apps/web/src/components/first-time-walkthrough.tsx` (`RegisterHelpTip` is the reference implementation; extract to generic `HelpTip` when a second use-case appears).
+
+**Anatomy**:
+1. **Trigger** — small `?` button using `HelpCircle` icon (lucide-react), 24×24px (`h-6 w-6`), icon itself `h-3.5 w-3.5`, `text-foreground/40 hover:text-foreground/70`.
+2. **Popover** — portaled to `document.body` via `createPortal`, positioned using `getBoundingClientRect()` on the trigger button ref. Never position with CSS-relative inside overflow-hidden containers (sidebar clips).
+3. **Arrow** — CSS rotated `div` (`h-2 w-2 rotate-45`) with matching `bg-surface` + partial `border` to create a triangle pointing at the trigger. Arrow direction matches placement (e.g., `placement: 'right'` → left-pointing arrow on the popover's left edge).
+4. **Content** — `w-52` card, `rounded-lg border border-border bg-surface p-3 shadow-lg`. Bold title (`text-xs font-medium text-foreground`), body text (`text-xs leading-relaxed text-foreground/60`). X dismiss button top-right.
+
+**Behavior**:
+- **First visit**: auto-opens on mount if `localStorage[storageKey]` is absent. Trigger button pulses 3 times (`animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) 3'` via inline style, NOT `animate-pulse` which is infinite).
+- **Dismiss**: outside click, Escape key, or X button — all set `localStorage[storageKey] = 'true'` and clear the first-visit pulse.
+- **Re-open**: `?` button stays permanently visible. Clicking it toggles the popover (no pulse on re-open).
+- **Scroll/resize**: popover repositions via `resize` + `scroll` (capture) event listeners.
+
+**Props for future generic `HelpTip`**:
+| Prop | Type | Default | Purpose |
+|---|---|---|---|
+| `storageKey` | `string` | required | localStorage key for first-visit auto-open |
+| `title` | `string` | required | Bold heading |
+| `description` | `string` | required | Body text (1-2 sentences) |
+| `placement` | `'right' \| 'top' \| 'bottom' \| 'left'` | `'right'` | Popover side relative to trigger |
+
+**Placement → arrow mapping**:
+- `right`: popover to the right of trigger, arrow on popover's left edge (`right-full`, `border-b border-l`)
+- `left`: popover to the left, arrow on right edge (`left-full`, `border-t border-r`)
+- `top`: popover above, arrow on bottom edge (`top-full`, `border-b border-r`)
+- `bottom`: popover below, arrow on top edge (`bottom-full`, `border-t border-l`)
+
+**Rules**:
+- NEVER use a centered modal for help tips — they must be anchored to the feature they describe.
+- Keep text concise: 1 title line + 1-2 sentence description max.
+- One `storageKey` per help tip — never share keys between different tips.
+- Portal to `document.body` — do NOT use CSS-relative positioning inside sidebars, drawers, or other overflow-constrained containers.
+
 

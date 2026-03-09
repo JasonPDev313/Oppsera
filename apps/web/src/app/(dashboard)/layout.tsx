@@ -48,8 +48,8 @@ import { useErpConfig } from '@/hooks/use-erp-config';
 import { filterNavByTier } from '@/lib/navigation-filter';
 import { AiAssistantStub } from '@/components/ai-assistant-stub';
 import { useKdsStationsForNav } from '@/hooks/use-kds-stations-nav';
-import { FirstTimeWalkthrough } from '@/components/first-time-walkthrough';
 import { SessionTimeoutWarning } from '@/components/session-timeout-warning';
+import { RegisterHelpTip } from '@/components/first-time-walkthrough';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
 
@@ -667,14 +667,17 @@ function SidebarContent({
               </div>
             )}
             {onChangeTerminal && (
-              <button
-                type="button"
-                onClick={onChangeTerminal}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-400 transition-colors hover:bg-indigo-500/20"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Change Register
-              </button>
+              <div className="mt-2 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={onChangeTerminal}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-400 transition-colors hover:bg-indigo-500/20"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Change Register
+                </button>
+                <RegisterHelpTip />
+              </div>
             )}
           </div>
         )}
@@ -1085,8 +1088,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       </div>
     </div>
 
-    {/* First-time walkthrough — guides new users through key UI elements */}
-    <FirstTimeWalkthrough />
 
     {/* Session timeout warning — alerts when token is expiring */}
     <SessionTimeoutWarning />
@@ -1112,11 +1113,19 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
  */
 function TerminalPickerOverlay({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
   const { session } = useTerminalSession();
-  const initialTerminalIdRef = useRef(session?.terminalId ?? null);
+  // Capture the session reference at mount — any new setSession() call creates a
+  // new object, so reference inequality means the user picked a terminal (even the same one).
+  const initialSessionRef = useRef(session);
+  const mountedRef = useRef(false);
 
-  // When the user picks a new (or different) terminal, close the overlay
   useEffect(() => {
-    if (session && session.terminalId !== initialTerminalIdRef.current) {
+    // Skip the initial mount render
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    // Session reference changed → user clicked Continue → close overlay
+    if (session && session !== initialSessionRef.current) {
       onDone();
     }
   }, [session, onDone]);
@@ -1134,7 +1143,7 @@ function TerminalPickerOverlay({ onDone, onCancel }: { onDone: () => void; onCan
           Cancel
         </button>
       </div>
-      <TerminalSelectionScreen onSkip={onCancel} />
+      <TerminalSelectionScreen onSkip={onCancel} isSwitching />
     </div>
   );
 }

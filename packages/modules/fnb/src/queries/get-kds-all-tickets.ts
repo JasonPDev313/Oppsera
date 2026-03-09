@@ -23,12 +23,13 @@ export async function getKdsAllTickets(
   input: KdsAllTicketsInput,
 ): Promise<KdsAllTicketsView> {
   return withTenant(input.tenantId, async (tx) => {
-    // 1. Get all active tickets for this location+date (across all stations)
+    // 1. Get all active tickets for this location (across all stations).
+    // No business_date filter — tickets persist until bumped or voided.
     const ticketRows = await tx.execute(
       sql`SELECT DISTINCT kt.id, kt.ticket_number, kt.tab_id, kt.course_number,
                  kt.status, kt.priority_level, kt.is_held, kt.order_type,
                  kt.channel, kt.table_number, kt.server_name, kt.customer_name,
-                 kt.sent_at, kt.estimated_pickup_at,
+                 kt.sent_at, kt.estimated_pickup_at, kt.business_date,
                  EXTRACT(EPOCH FROM (NOW() - kt.sent_at))::integer AS elapsed_seconds,
                  o.source AS order_source, o.terminal_id, o.created_at AS order_timestamp
           FROM fnb_kitchen_tickets kt
@@ -36,7 +37,6 @@ export async function getKdsAllTickets(
             ON o.id = kt.order_id AND o.tenant_id = kt.tenant_id
           WHERE kt.tenant_id = ${input.tenantId}
             AND kt.location_id = ${input.locationId}
-            AND kt.business_date = ${input.businessDate}
             AND kt.status IN ('pending', 'in_progress')
           ORDER BY kt.priority_level DESC NULLS LAST, kt.sent_at ASC
           LIMIT 500`,
@@ -124,6 +124,7 @@ export async function getKdsAllTickets(
         orderSource: (t.order_source as string) ?? null,
         terminalId: (t.terminal_id as string) ?? null,
         orderTimestamp: (t.order_timestamp as string) ?? null,
+        businessDate: (t.business_date as string) ?? null,
       });
     }
 

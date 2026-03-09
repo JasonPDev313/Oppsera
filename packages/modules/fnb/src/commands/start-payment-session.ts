@@ -31,7 +31,8 @@ export async function startPaymentSession(
     if (tabs.length === 0) throw new TabNotFoundError(input.tabId);
 
     const tabStatus = tabs[0]!.status as string;
-    if (tabStatus !== 'open' && tabStatus !== 'paying') {
+    const payableStatuses = ['open', 'ordering', 'sent_to_kitchen', 'in_progress', 'check_requested', 'paying'];
+    if (!payableStatuses.includes(tabStatus)) {
       throw new TabStatusConflictError(input.tabId, tabStatus, 'start payment on');
     }
 
@@ -68,14 +69,17 @@ export async function startPaymentSession(
       }
     }
 
+    // Store pre-payment tab status so fail-payment-session can restore it
     const [created] = await tx.execute(
       sql`INSERT INTO fnb_payment_sessions (
             tenant_id, tab_id, order_id, status,
-            total_amount_cents, paid_amount_cents, remaining_amount_cents
+            total_amount_cents, paid_amount_cents, remaining_amount_cents,
+            pre_payment_tab_status
           )
           VALUES (
             ${ctx.tenantId}, ${input.tabId}, ${input.orderId}, 'pending',
-            ${input.totalAmountCents}, 0, ${input.totalAmountCents}
+            ${input.totalAmountCents}, 0, ${input.totalAmountCents},
+            ${tabStatus}
           )
           RETURNING *`,
     );

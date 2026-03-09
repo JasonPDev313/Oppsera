@@ -16,6 +16,8 @@ import {
   Wallet,
   BarChart3,
   History,
+  Building2,
+  Plus,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
@@ -340,12 +342,14 @@ function AccountSummaryPanel({
   onAdjust,
   onTransfer,
   onHold,
+  onCreateHouseAccount,
 }: {
   accounts: FinancialAccountEntry[];
   totalBalanceCents: number;
   onAdjust: (accountId: string) => void;
   onTransfer: (accountId: string) => void;
   onHold: (accountId: string) => void;
+  onCreateHouseAccount: () => void;
 }) {
   return (
     <div>
@@ -354,11 +358,21 @@ function AccountSummaryPanel({
         title="Accounts"
         badge={<Badge variant="neutral">{accounts.length}</Badge>}
         actions={
-          <span
-            className={`text-sm font-semibold ${totalBalanceCents > 0 ? 'text-red-500' : 'text-green-500'}`}
-          >
-            Total: {formatMoney(totalBalanceCents)}
-          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onCreateHouseAccount}
+              className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-500"
+            >
+              <Plus className="h-3 w-3" />
+              House Account
+            </button>
+            <span
+              className={`text-sm font-semibold ${totalBalanceCents > 0 ? 'text-red-500' : 'text-green-500'}`}
+            >
+              Total: {formatMoney(totalBalanceCents)}
+            </span>
+          </div>
         }
       />
       {accounts.length === 0 ? (
@@ -376,6 +390,188 @@ function AccountSummaryPanel({
               onHold={onHold}
             />
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── House Account Charges Panel ─────────────────────────────────
+
+function HouseChargesPanel({
+  customerId,
+  houseAccounts,
+}: {
+  customerId: string;
+  houseAccounts: FinancialAccountEntry[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [cursorStack, setCursorStack] = useState<string[]>([]);
+
+  // Get all house account IDs
+  const houseAccountIds = useMemo(
+    () => houseAccounts.map((a) => a.id),
+    [houseAccounts],
+  );
+
+  // Use ledger hook filtered to the first house account (primary filter)
+  // If multiple house accounts exist, show all charges across them
+  const selectedAccountId = houseAccountIds.length === 1 ? houseAccountIds[0] : undefined;
+  const { data, isLoading, mutate } = useUnifiedLedger(
+    expanded ? customerId : null,
+    {
+      accountId: selectedAccountId,
+      type: 'charge',
+      cursor: cursorStack[cursorStack.length - 1] || undefined,
+      limit: 15,
+    },
+  );
+
+  const transactions = data?.transactions ?? [];
+
+  // If multiple house accounts, filter client-side
+  const filtered = useMemo(
+    () =>
+      selectedAccountId
+        ? transactions
+        : transactions.filter((tx) => houseAccountIds.includes(tx.accountId)),
+    [transactions, selectedAccountId, houseAccountIds],
+  );
+
+  // Summary stats from visible charges
+  const { totalChargeCents, chargeCount } = useMemo(() => {
+    let total = 0;
+    let count = 0;
+    for (const tx of filtered) {
+      total += tx.amountCents;
+      count++;
+    }
+    return { totalChargeCents: total, chargeCount: count };
+  }, [filtered]);
+
+  // Total outstanding across all house accounts
+  const totalOutstandingCents = useMemo(
+    () => houseAccounts.reduce((sum, a) => sum + (a.currentBalanceCents ?? 0), 0),
+    [houseAccounts],
+  );
+
+  if (houseAccounts.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-border bg-surface">
+      <button
+        type="button"
+        onClick={() => setExpanded((p) => !p)}
+        className="flex w-full items-center justify-between px-5 py-3 text-left"
+      >
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Building2 className="h-4 w-4 text-indigo-500" />
+          House Account Charges
+          <Badge variant="indigo">{houseAccounts.length} {houseAccounts.length === 1 ? 'account' : 'accounts'}</Badge>
+          {totalOutstandingCents > 0 && (
+            <span className="text-xs font-medium text-red-500">
+              {formatMoney(totalOutstandingCents)} outstanding
+            </span>
+          )}
+        </div>
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
+
+      {expanded && (
+        <div className="border-t border-border">
+          {/* Refresh + summary bar */}
+          <div className="flex items-center justify-between border-b border-border bg-muted/30 px-5 py-2">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              {chargeCount > 0 && (
+                <>
+                  <span>{chargeCount} charge{chargeCount !== 1 ? 's' : ''} shown</span>
+                  <span className="font-medium text-red-500">{formatMoney(totalChargeCents)} total</span>
+                </>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => { setCursorStack([]); mutate(); }}
+              disabled={isLoading}
+              className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+
+          {isLoading && filtered.length === 0 ? (
+            <div className="space-y-3 px-5 py-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-10 animate-pulse rounded bg-muted" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center px-5 py-10 text-center">
+              <Building2 className="mb-2 h-8 w-8 text-muted-foreground/40" />
+              <p className="text-sm font-medium text-muted-foreground">No charges yet</p>
+              <p className="mt-1 text-xs text-muted-foreground/70">
+                House account charges from POS registers will appear here automatically.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-border bg-muted/50 text-xs text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-medium">Date</th>
+                      <th className="px-4 py-2 text-left font-medium">Account</th>
+                      <th className="px-4 py-2 text-left font-medium">Description</th>
+                      <th className="px-4 py-2 text-left font-medium">Source</th>
+                      <th className="px-4 py-2 text-right font-medium">Amount</th>
+                      <th className="px-4 py-2 text-left font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filtered.map((tx) => (
+                      <tr key={tx.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
+                          {tx.businessDate ? formatDate(tx.businessDate) : formatDate(tx.createdAt)}
+                        </td>
+                        <td className="px-4 py-2.5 text-foreground">
+                          {tx.accountName}
+                        </td>
+                        <td className="max-w-[200px] truncate px-4 py-2.5 text-foreground">
+                          {tx.notes || '\u2014'}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                          {tx.sourceModule?.replace(/_/g, ' ') || 'POS'}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-2.5 text-right font-mono font-medium text-red-500">
+                          {formatMoney(tx.amountCents)}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <Badge variant={txStatusVariant(tx.status)}>{tx.status}</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {data?.hasMore && (
+                <div className="border-t border-border px-5 py-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => { if (data.cursor) setCursorStack((prev) => [...prev, data.cursor!]); }}
+                    disabled={isLoading}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-500 disabled:opacity-50"
+                  >
+                    {isLoading ? 'Loading...' : 'Load more charges'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -1006,6 +1202,199 @@ function AuditEntry({ entry }: { entry: AuditTrailEntry }) {
   );
 }
 
+// ── Create House Account Form ────────────────────────────────────
+
+function CreateHouseAccountForm({
+  customerId,
+  onClose,
+  onSuccess,
+}: {
+  customerId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const mutations = useFinancialMutations();
+  const [name, setName] = useState('');
+  const [creditLimitStr, setCreditLimitStr] = useState('');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'quarterly' | 'annual' | 'none'>('monthly');
+  const [dueDays, setDueDays] = useState('30');
+  const [billingEmail, setBillingEmail] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [creditError, setCreditError] = useState('');
+
+  function validate(): boolean {
+    let valid = true;
+    if (!name.trim()) {
+      setNameError('Account name is required');
+      valid = false;
+    } else if (name.trim().length < 3) {
+      setNameError('Account name must be at least 3 characters');
+      valid = false;
+    } else {
+      setNameError('');
+    }
+    if (creditLimitStr) {
+      const parsed = parseFloat(creditLimitStr);
+      if (isNaN(parsed) || parsed < 0) {
+        setCreditError('Must be a positive dollar amount');
+        valid = false;
+      } else {
+        setCreditError('');
+      }
+    } else {
+      setCreditError('');
+    }
+    return valid;
+  }
+
+  async function handleSubmit() {
+    if (!validate()) return;
+    const creditLimitDollars = parseFloat(creditLimitStr);
+    const creditLimitCents = creditLimitStr
+      ? isNaN(creditLimitDollars) || creditLimitDollars < 0
+        ? null
+        : Math.round(creditLimitDollars * 100)
+      : null;
+    const parsedDueDays = parseInt(dueDays, 10);
+
+    try {
+      await mutations.createAccount(customerId, {
+        name: name.trim(),
+        accountType: 'house',
+        creditLimitCents: creditLimitCents ?? undefined,
+        billingCycle,
+        dueDays: isNaN(parsedDueDays) ? 30 : parsedDueDays,
+        billingEmail: billingEmail.trim() || undefined,
+      });
+      toast.success('House account created successfully');
+      onSuccess();
+      onClose();
+    } catch {
+      toast.error('Failed to create house account');
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && !mutations.isLoading) {
+      e.preventDefault();
+      handleSubmit();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onClose();
+    }
+  }
+
+  return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-4" onKeyDown={handleKeyDown}>
+      <div className="mb-3 flex items-center justify-between">
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Building2 className="h-4 w-4 text-indigo-500" />
+          Create House Account
+        </h4>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+        >
+          <ChevronUp className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Account Name <span className="text-red-500">*</span>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => { setName(e.target.value); if (nameError) setNameError(''); }}
+              placeholder='e.g. "Smith Family House Account"'
+              className={`rounded border bg-surface px-2 py-1.5 text-sm ${nameError ? 'border-red-500' : 'border-input'}`}
+              // eslint-disable-next-line jsx-a11y/no-autofocus
+              autoFocus
+            />
+            {nameError && <span className="text-[10px] text-red-500">{nameError}</span>}
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Credit Limit ($)
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={creditLimitStr}
+              onChange={(e) => { setCreditLimitStr(e.target.value); if (creditError) setCreditError(''); }}
+              placeholder="Leave blank for unlimited"
+              className={`rounded border bg-surface px-2 py-1.5 text-sm ${creditError ? 'border-red-500' : 'border-input'}`}
+            />
+            {creditError && <span className="text-[10px] text-red-500">{creditError}</span>}
+          </label>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Billing Cycle
+            <select
+              value={billingCycle}
+              onChange={(e) => setBillingCycle(e.target.value as typeof billingCycle)}
+              className="rounded border border-input bg-surface px-2 py-1.5 text-sm"
+            >
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="annual">Annual</option>
+              <option value="none">None</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Due Days
+            <input
+              type="number"
+              min="0"
+              max="365"
+              value={dueDays}
+              onChange={(e) => setDueDays(e.target.value)}
+              className="rounded border border-input bg-surface px-2 py-1.5 text-sm"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Billing Email
+            <input
+              type="email"
+              value={billingEmail}
+              onChange={(e) => setBillingEmail(e.target.value)}
+              placeholder="Optional"
+              className="rounded border border-input bg-surface px-2 py-1.5 text-sm"
+            />
+          </label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          The customer will be automatically added as the primary account member with charge privileges.
+          Press <kbd className="rounded border border-border bg-muted px-1 py-0.5 text-[10px] font-mono">Enter</kbd> to submit.
+        </p>
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={mutations.isLoading || !name.trim()}
+            className="rounded bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
+          >
+            {mutations.isLoading ? 'Creating...' : 'Create House Account'}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={mutations.isLoading}
+            className="rounded border border-input px-4 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ──────────────────────────────────────────────
 
 export default function FinancialTab({
@@ -1017,6 +1406,9 @@ export default function FinancialTab({
   const accountsHook = useFinancialAccounts(customerId);
   const agingHook = useAgingSummary(customerId);
   const mutations = useFinancialMutations();
+
+  // Create house account form state
+  const [createHouseAccountOpen, setCreateHouseAccountOpen] = useState(false);
 
   // Adjustment form state
   const [adjustFormOpen, setAdjustFormOpen] = useState(false);
@@ -1133,6 +1525,15 @@ export default function FinancialTab({
 
   return (
     <div className="space-y-4">
+      {/* Create House Account Form */}
+      {createHouseAccountOpen && (
+        <CreateHouseAccountForm
+          customerId={customerId}
+          onClose={() => setCreateHouseAccountOpen(false)}
+          onSuccess={() => { accountsHook.mutate(); agingHook.mutate(); }}
+        />
+      )}
+
       {/* Account Summary */}
       <AccountSummaryPanel
         accounts={accounts}
@@ -1140,6 +1541,13 @@ export default function FinancialTab({
         onAdjust={handleAdjust}
         onTransfer={handleTransfer}
         onHold={handleHold}
+        onCreateHouseAccount={() => setCreateHouseAccountOpen(true)}
+      />
+
+      {/* House Account Charges */}
+      <HouseChargesPanel
+        customerId={customerId}
+        houseAccounts={accounts.filter((a) => a.accountType === 'house')}
       />
 
       {/* Aging Summary */}
