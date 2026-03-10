@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { useStations, useKdsLocationCounts, useKdsStationCounts } from '@/hooks/use-fnb-kitchen';
@@ -34,22 +34,6 @@ export default function KdsSelectorContent() {
   const { stations, isLoading } = useStations({ locationId });
   const locationCounts = useKdsLocationCounts(locations?.map((l) => l.id) ?? []);
   const stationCounts = useKdsStationCounts(locationId);
-  const autoSelectedRef = useRef(false);
-
-  // Auto-select the location with the most active tickets on first load
-  useEffect(() => {
-    if (autoSelectedRef.current || locationCounts.size === 0) return;
-    // Don't override URL-specified location
-    const fromUrl = searchParams.get('locationId');
-    if (fromUrl) { autoSelectedRef.current = true; return; }
-    autoSelectedRef.current = true;
-    let bestId = '';
-    let bestCount = 0;
-    for (const [id, count] of locationCounts) {
-      if (count > bestCount) { bestId = id; bestCount = count; }
-    }
-    if (bestId && bestCount > 0) setLocationId(bestId);
-  }, [locationCounts, searchParams]);
 
   // Count tickets at OTHER locations (for persistent badge + pulse)
   const otherLocationTickets = useMemo(() => {

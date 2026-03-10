@@ -36,19 +36,6 @@ export default function AllOrdersContent() {
   const [locationId, setLocationId] = useState(() => locations?.[0]?.id ?? '');
   const hasMultipleLocations = (locations?.length ?? 0) > 1;
   const locationCounts = useKdsLocationCounts(locations?.map((l) => l.id) ?? []);
-  const autoSelectedRef = useRef(false);
-
-  // Auto-select the location with the most active tickets on first load
-  useEffect(() => {
-    if (autoSelectedRef.current || locationCounts.size === 0) return;
-    autoSelectedRef.current = true;
-    let bestId = '';
-    let bestCount = 0;
-    for (const [id, count] of locationCounts) {
-      if (count > bestCount) { bestId = id; bestCount = count; }
-    }
-    if (bestId && bestCount > 0) setLocationId(bestId);
-  }, [locationCounts]);
 
   // Count tickets at OTHER locations (for persistent badge + pulse)
   const otherLocationTickets = useMemo(() => {
