@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarDays, Loader2, Undo2 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
+import { useTerminalSession } from '@/components/terminal-session-provider';
 import { useProperties } from '@/hooks/use-pms';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
@@ -40,6 +41,7 @@ const QUICK_LOOKBACK = 7;
 export default function CalendarContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
+  const { session: terminalSession } = useTerminalSession();
 
   // ── Page-level view (calendar vs list) ─────────────────────────
   const [pageView, setPageView] = useState<'quick' | 'calendar' | 'list'>('quick');
@@ -133,11 +135,11 @@ export default function CalendarContent() {
   const [reservationCatalogItemId, setReservationCatalogItemId] = useState('');
 
   useEffect(() => {
-    const t = localStorage.getItem(POS_TERMINAL_KEY);
+    const t = terminalSession?.terminalId ?? localStorage.getItem(POS_TERMINAL_KEY);
     const c = localStorage.getItem(PMS_RESERVATION_CATALOG_ITEM_KEY);
     if (t) setTerminalId(t);
     if (c) setReservationCatalogItemId(c);
-  }, []);
+  }, [terminalSession?.terminalId]);
 
   // ── Auto-select first property ────────────────────────────────
   useEffect(() => {
@@ -620,12 +622,19 @@ export default function CalendarContent() {
       <div className="grid grid-cols-1 gap-2 rounded-lg border border-border bg-surface p-3 md:grid-cols-2 print:hidden">
         <label className="text-xs text-muted-foreground">
           POS Terminal ID
-          <input
-            value={terminalId}
-            onChange={(e) => setTerminalId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-border px-2 py-1.5 text-sm text-foreground"
-            placeholder="POS-01"
-          />
+          {terminalSession ? (
+            <span className="mt-1 flex items-center gap-1">
+              <span className="flex-1 rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground">{terminalId}</span>
+              <span className="text-xs text-green-500">(active session)</span>
+            </span>
+          ) : (
+            <input
+              value={terminalId}
+              onChange={(e) => setTerminalId(e.target.value)}
+              className="mt-1 w-full rounded-md border border-border px-2 py-1.5 text-sm text-foreground"
+              placeholder="POS-01"
+            />
+          )}
         </label>
         <label className="text-xs text-muted-foreground">
           Reservation Charge Catalog Item ID

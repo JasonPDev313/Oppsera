@@ -2,17 +2,13 @@ import { eq, and, inArray, isNotNull } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { users, memberships, roleAssignments, roles, userSecurity } from '@oppsera/db';
 import { verifySecret } from '@oppsera/core/users';
-import { AppError } from '@oppsera/shared';
 import type { VerifyManagerPinInput } from '../validation';
 
 const MANAGER_ROLES = ['owner', 'manager', 'supervisor'];
 
-export interface VerifyPinResult {
-  verified: boolean;
-  userId: string;
-  userName: string;
-  role: string;
-}
+export type VerifyPinResult =
+  | { verified: true; userId: string; userName: string; role: string }
+  | { verified: false; userId: ''; userName: ''; role: '' };
 
 /**
  * Verify a manager's POS override PIN for authorizing bulk tab operations.
@@ -60,6 +56,8 @@ export async function verifyManagerPin(
       };
     }
 
-    throw new AppError('INVALID_PIN', 'Invalid manager PIN', 401);
+    // Return a structured failure — do NOT throw. Throwing causes apiFetch to
+    // see a 401 and trigger a spurious token-refresh cycle on every wrong PIN.
+    return { verified: false, userId: '', userName: '', role: '' };
   });
 }

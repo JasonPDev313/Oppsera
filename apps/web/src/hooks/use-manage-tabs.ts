@@ -171,6 +171,15 @@ export function useManageTabs(locationId: string) {
       setCursor(res.meta.cursor);
       setHasMore(res.meta.hasMore);
       consecutiveErrors.current = 0;
+
+      // Prune ghost selections: IDs that no longer exist in the refreshed tab list
+      // cause the counter to show selected while no card renders a checkbox.
+      const freshIds = new Set(res.data.map((t) => t.id));
+      setSelectedIds((prev) => {
+        if (prev.size === 0) return prev;
+        const pruned = new Set([...prev].filter((id) => freshIds.has(id)));
+        return pruned.size === prev.size ? prev : pruned;
+      });
     } catch (err) {
       consecutiveErrors.current += 1;
       const msg = err instanceof Error ? err.message : 'Failed to load tabs';
@@ -273,17 +282,19 @@ export function useManageTabs(locationId: string) {
     setSelectedIds(new Set());
   }, []);
 
-  const invertSelection = useCallback(() => {
+  // scope: the visible tab IDs to invert within. Defaults to all tabs when not provided.
+  const invertSelection = useCallback((scope?: string[]) => {
     setSelectedIds((prev) => {
-      const all = new Set(tabs.map((t) => t.id));
-      prev.forEach((id) => all.delete(id));
-      return all;
+      const universe = new Set(scope ?? tabs.map((t) => t.id));
+      prev.forEach((id) => universe.delete(id));
+      return universe;
     });
   }, [tabs]);
 
   const selectByIds = useCallback((ids: string[]) => {
-    setSelectedIds(new Set(ids));
-  }, []);
+    const cap = settings?.maxBulkSelection ?? 0;
+    setSelectedIds(new Set(cap > 0 ? ids.slice(0, cap) : ids));
+  }, [settings?.maxBulkSelection]);
 
   // ─── Selection summary ───────────────────────────────────────
   const selectionSummary = useMemo(() => {
@@ -292,7 +303,7 @@ export function useManageTabs(locationId: string) {
     const statuses = Array.from(new Set(selected.map((t) => t.status)));
     const totalBalance = selected.reduce((sum, t) => sum + (t.balance ?? 0), 0);
     return {
-      count: selectedIds.size,
+      count: selected.length,
       totalBalance,
       servers,
       serverCount: servers.length,

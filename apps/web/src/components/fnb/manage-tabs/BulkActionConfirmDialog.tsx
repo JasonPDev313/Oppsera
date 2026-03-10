@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle, XCircle, X, ChevronRight } from 'lucide-react';
+import { ApiError } from '@/lib/api-client';
 import { InlinePinPad } from './InlinePinPad';
 
 type ActionType = 'void' | 'transfer' | 'close';
@@ -70,12 +71,16 @@ export function BulkActionConfirmDialog({
   onVerifyPin,
   onExecute,
 }: BulkActionConfirmDialogProps) {
+  const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<Step>('summary');
   const [pinError, setPinError] = useState<string | null>(null);
   const [reasonCode, setReasonCode] = useState<ReasonCode>('end_of_shift');
   const [reasonText, setReasonText] = useState('');
   const [executing, setExecuting] = useState(false);
   const [result, setResult] = useState<{ succeeded: string[]; failed: Array<{ tabId: string; error: string }> } | null>(null);
+
+  // SSR guard — createPortal requires document.body
+  useEffect(() => { setMounted(true); }, []);
 
   // Reset all internal state when the dialog re-opens to prevent stale state from previous run
   useEffect(() => {
@@ -89,7 +94,18 @@ export function BulkActionConfirmDialog({
     }
   }, [open]);
 
-  if (!open) return null;
+  // Escape key to dismiss (not during active execution)
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !executing) handleDone();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, executing]);
+
+  if (!open || !mounted) return null;
 
   const risk = getRiskLevel(selectedCount, totalBalance);
   const actionLabel = ACTION_LABELS[actionType];
@@ -105,20 +121,29 @@ export function BulkActionConfirmDialog({
 
   async function handlePinVerify(pin: string): Promise<boolean> {
     setPinError(null);
-    const ok = await onVerifyPin(pin);
-    if (ok) {
-      setStep('reason');
-      return true;
+    try {
+      const ok = await onVerifyPin(pin);
+      if (ok) {
+        setStep('reason');
+        return true;
+      }
+      setPinError('Invalid PIN. Please try again.');
+      return false;
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 429 || err.code === 'RATE_LIMITED')) {
+        setPinError('Too many attempts. Please wait before trying again.');
+      } else {
+        setPinError('Verification failed. Please try again.');
+      }
+      return false;
     }
-    setPinError('Invalid PIN');
-    return false;
   }
 
   async function handleExecute() {
     setStep('execute');
     setExecuting(true);
     try {
-      const res = await onExecute(reasonCode, reasonText || undefined);
+      const res = await onExecute(reasonCode, reasonText.trim() || undefined);
       setResult(res);
     } catch {
       setResult({ succeeded: [], failed: [{ tabId: '', error: 'Unexpected error' }] });
@@ -137,10 +162,13 @@ export function BulkActionConfirmDialog({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-70 flex items-center justify-center">
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-      <div className="absolute inset-0 bg-black/60" onClick={step !== 'execute' ? handleDone : undefined} />
+      <div className="absolute inset-0 bg-black/60" onClick={!executing ? handleDone : undefined} />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bulk-action-dialog-title"
         className={`relative w-full rounded-xl shadow-2xl p-6 ${step === 'pin' ? 'max-w-lg' : 'max-w-md'}`}
         style={{ background: 'var(--fnb-bg-surface)' }}
       >
@@ -148,7 +176,8 @@ export function BulkActionConfirmDialog({
           type="button"
           aria-label="Close dialog"
           onClick={handleDone}
-          className="absolute top-4 right-4 p-1"
+          disabled={executing}
+          className="absolute top-4 right-4 p-1 disabled:opacity-40"
           style={{ color: 'var(--fnb-text-muted)' }}
         >
           <X size={18} />
@@ -165,7 +194,7 @@ export function BulkActionConfirmDialog({
                 <AlertTriangle size={20} style={{ color: actionColor }} />
               </div>
               <div>
-                <h2 className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+                <h2 id="bulk-action-dialog-title" className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
                   {actionLabel} {selectedCount} Tab{selectedCount !== 1 ? 's' : ''}
                 </h2>
                 <p className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>Review before proceeding</p>
@@ -218,7 +247,7 @@ export function BulkActionConfirmDialog({
         {/* Step: Reason */}
         {step === 'reason' && (
           <div className="flex flex-col gap-4">
-            <h2 className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>Select Reason</h2>
+            <h2 id="bulk-action-dialog-title" className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>Select Reason</h2>
 
             <div className="flex flex-col gap-2">
               {REASON_OPTIONS.map((opt) => (
@@ -281,7 +310,7 @@ export function BulkActionConfirmDialog({
           <div className="flex flex-col gap-4">
             {executing ? (
               <>
-                <h2 className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+                <h2 id="bulk-action-dialog-title" className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
                   {ACTION_GERUNDS[actionType]} Tabs...
                 </h2>
                 <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--fnb-bg-primary)' }}>
@@ -302,7 +331,7 @@ export function BulkActionConfirmDialog({
                   ) : (
                     <AlertTriangle size={24} style={{ color: '#f59e0b' }} />
                   )}
-                  <h2 className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+                  <h2 id="bulk-action-dialog-title" className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
                     {result.failed.length === 0 ? 'Complete' : 'Partial Success'}
                   </h2>
                 </div>
@@ -322,7 +351,7 @@ export function BulkActionConfirmDialog({
                       </div>
                       <ul className="ml-6 text-xs space-y-0.5" style={{ color: 'var(--fnb-text-muted)' }}>
                         {result.failed.slice(0, 5).map((f, i) => (
-                          <li key={i}>{f.error}</li>
+                          <li key={f.tabId || i}>{f.error}</li>
                         ))}
                         {result.failed.length > 5 && <li>...and {result.failed.length - 5} more</li>}
                       </ul>

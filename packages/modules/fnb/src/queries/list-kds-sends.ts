@@ -85,7 +85,7 @@ export async function listKdsSends(input: ListKdsSendsInput): Promise<KdsSendLis
       conditions.push(sql`s.deleted_at IS NULL`);
       conditions.push(sql`s.resolved_at IS NULL`);
     } else if (input.tab === 'history') {
-      conditions.push(sql`s.status IN ('resolved', 'deleted', 'failed', 'orphaned') OR s.completed_at IS NOT NULL`);
+      conditions.push(sql`(s.status IN ('resolved', 'deleted', 'failed', 'orphaned') OR s.completed_at IS NOT NULL)`);
     }
     // 'all' has no extra tab filter
 

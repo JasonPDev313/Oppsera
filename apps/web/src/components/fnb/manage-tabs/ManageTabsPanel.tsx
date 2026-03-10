@@ -13,11 +13,21 @@ import {
   type ManageTabsViewMode,
   type ManageTabsGroupBy,
 } from '@/hooks/use-manage-tabs';
+import { ApiError } from '@/lib/api-client';
 import { ManageTabCard } from './ManageTabCard';
 import { BulkActionConfirmDialog } from './BulkActionConfirmDialog';
 import { TransferTargetPicker } from './TransferTargetPicker';
 import { EmergencyCleanupDialog } from './EmergencyCleanupDialog';
 import { UndoBanner } from './UndoBanner';
+
+// Maps BulkAction short names to the actionType enum the API schema requires.
+// Defined at module level so it isn't recreated on every render.
+function mapActionType(action: string): string {
+  if (action === 'void') return 'bulk_void';
+  if (action === 'close') return 'bulk_close';
+  if (action === 'transfer') return 'bulk_transfer';
+  return action; // already prefixed (e.g. 'emergency_cleanup')
+}
 
 interface ManageTabsPanelProps {
   locationId: string;
@@ -107,6 +117,13 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
     return [{ key: '__all__', label: '', tabs: filteredTabs }];
   }, [mgr.groupedTabs, filteredTabs]);
 
+  // Flat list of IDs actually rendered on screen (respects groupBy + local search).
+  // Used to scope select-all and invert operations to visible tabs only.
+  const allDisplayedTabIds = useMemo(
+    () => displayGroups.flatMap((g) => g.tabs.map((t) => t.id)),
+    [displayGroups],
+  );
+
   function toggleGroup(key: string) {
     setCollapsedGroups((prev) => {
       const next = new Set(prev);
@@ -144,17 +161,22 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
     mgr.setFilters({ ...mgr.filters, groupBy: val === 'none' ? undefined : val });
   }
 
-  // Fix #8: PIN bridge — captures approver info into state, returns boolean for dialog
+  // Fix #8: PIN bridge — captures approver info into state, returns boolean for dialog.
+  // Re-throws rate-limit ApiErrors so the dialog can show a distinct "Too many attempts"
+  // message instead of the generic "Invalid PIN".
   async function pinBridge(pin: string, actionType: string): Promise<boolean> {
     try {
-      const result = await mgr.verifyPin(pin, actionType);
+      const result = await mgr.verifyPin(pin, mapActionType(actionType));
       if (result.verified) {
         setVerifiedApprover({ userId: result.userId, userName: result.userName });
         return true;
       }
       return false;
-    } catch {
-      return false;
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 429 || err.code === 'RATE_LIMITED')) {
+        throw err; // propagate so BulkActionConfirmDialog can show the right message
+      }
+      return false; // wrong PIN or transient error — caller shows generic message
     }
   }
 
@@ -387,19 +409,18 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
               className="flex items-center gap-3 px-4 py-2 shrink-0"
               style={{ borderBottom: '1px solid var(--fnb-border-subtle)' }}
             >
-              {/* Fix #4: selectAll() takes no args */}
               <button
                 onClick={() => {
-                  if (selCount === filteredTabs.length && selCount > 0) mgr.clearSelection();
-                  else mgr.selectAll();
+                  if (selCount === allDisplayedTabIds.length && selCount > 0) mgr.clearSelection();
+                  else mgr.selectByIds(allDisplayedTabIds);
                 }}
                 className="p-0.5"
                 style={{ color: 'var(--fnb-text-secondary)' }}
-                title={selCount === filteredTabs.length ? 'Deselect all' : 'Select all'}
+                title={selCount === allDisplayedTabIds.length ? 'Deselect all' : 'Select all'}
               >
                 {selCount === 0 ? (
                   <Square size={18} />
-                ) : selCount === filteredTabs.length ? (
+                ) : selCount === allDisplayedTabIds.length ? (
                   <SquareCheck size={18} style={{ color: 'var(--fnb-accent-primary)' }} />
                 ) : (
                   <MinusSquare size={18} style={{ color: 'var(--fnb-accent-primary)' }} />
@@ -412,15 +433,14 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
                 </span>
               ) : (
                 <span className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>
-                  {filteredTabs.length} tab{filteredTabs.length !== 1 ? 's' : ''}
+                  {allDisplayedTabIds.length} tab{allDisplayedTabIds.length !== 1 ? 's' : ''}
                 </span>
               )}
 
               {selCount > 0 && (
                 <>
-                  {/* Fix #5: invertSelection() takes no args */}
                   <button
-                    onClick={() => mgr.invertSelection()}
+                    onClick={() => mgr.invertSelection(allDisplayedTabIds)}
                     className="text-[10px] px-2 py-0.5 rounded"
                     style={{ color: 'var(--fnb-text-secondary)', border: '1px solid var(--fnb-border-subtle)' }}
                   >

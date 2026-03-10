@@ -90,6 +90,17 @@ export async function deleteStation(
       );
     }
 
+    // Null out station_id on all remaining ticket items (served/voided/ready/bumped).
+    // Active items were blocked above. This satisfies the FK before the station row is deleted
+    // while preserving historical ticket data for reporting.
+    await tx
+      .update(fnbKitchenTicketItems)
+      .set({ stationId: null, updatedAt: new Date() })
+      .where(and(
+        eq(fnbKitchenTicketItems.stationId, stationId),
+        eq(fnbKitchenTicketItems.tenantId, ctx.tenantId),
+      ));
+
     // Clean up child records
     await tx
       .delete(fnbStationDisplayConfigs)

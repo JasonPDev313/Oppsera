@@ -5,6 +5,8 @@ import { Lock, Delete, Check } from 'lucide-react';
 
 const MAX_PIN = 8;
 const MIN_PIN = 4;
+const DEFAULT_MAX_ATTEMPTS = 5;
+const DEFAULT_LOCKOUT_SECONDS = 60;
 
 interface InlinePinPadProps {
   onVerify: (pin: string) => Promise<boolean>;
@@ -13,27 +15,63 @@ interface InlinePinPadProps {
   title: string;
   /** Optional description of the action being authorized */
   actionLabel?: string;
+  /** Max consecutive failures before client-side lockout (default 5) */
+  maxAttempts?: number;
+  /** Lockout duration in seconds (default 60) */
+  lockoutSeconds?: number;
 }
 
-export function InlinePinPad({ onVerify, onBack, error, title, actionLabel }: InlinePinPadProps) {
+export function InlinePinPad({
+  onVerify, onBack, error, title, actionLabel,
+  maxAttempts = DEFAULT_MAX_ATTEMPTS,
+  lockoutSeconds = DEFAULT_LOCKOUT_SECONDS,
+}: InlinePinPadProps) {
   const [pin, setPin] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [shake, setShake] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [failureCount, setFailureCount] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setTimeout(() => containerRef.current?.focus(), 100);
   }, []);
 
+  // Shake + clear pin + increment failure counter on each new error
   useEffect(() => {
-    if (error) {
-      setShake(true);
-      setPin('');
-      const t = setTimeout(() => setShake(false), 400);
-      return () => clearTimeout(t);
-    }
-  }, [error]);
+    if (!error) return;
+    setShake(true);
+    setPin('');
+    setFailureCount((prev) => {
+      const next = prev + 1;
+      if (next >= maxAttempts) {
+        setLockedUntil(Date.now() + lockoutSeconds * 1000);
+      }
+      return next;
+    });
+    const t = setTimeout(() => setShake(false), 400);
+    return () => clearTimeout(t);
+  }, [error, maxAttempts, lockoutSeconds]);
+
+  // Countdown timer during lockout
+  useEffect(() => {
+    if (!lockedUntil) { setSecondsLeft(null); return; }
+    const tick = () => {
+      const remaining = Math.ceil((lockedUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setLockedUntil(null);
+        setFailureCount(0);
+        setSecondsLeft(null);
+      } else {
+        setSecondsLeft(remaining);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lockedUntil]);
 
   const handleDigit = useCallback((digit: string) => {
     setPin((prev) => (prev.length < MAX_PIN ? prev + digit : prev));
@@ -78,7 +116,8 @@ export function InlinePinPad({ onVerify, onBack, error, title, actionLabel }: In
     }
   }, [onBack, handleBackspace, handleSubmit, handleDigit]);
 
-  const canSubmit = pin.length >= MIN_PIN && !isVerifying && !success;
+  const isLocked = !!lockedUntil;
+  const canSubmit = pin.length >= MIN_PIN && !isVerifying && !success && !isLocked;
 
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -148,7 +187,13 @@ export function InlinePinPad({ onVerify, onBack, error, title, actionLabel }: In
         {pin.length} / {MAX_PIN}
       </p>
 
-      {error && (
+      {isLocked && secondsLeft != null && (
+        <p className="text-sm text-center font-semibold" role="alert" style={{ color: 'var(--fnb-status-dirty)' }}>
+          Too many attempts — locked for {secondsLeft}s
+        </p>
+      )}
+
+      {!isLocked && error && (
         <p className="text-sm text-center font-medium" role="alert" style={{ color: 'var(--fnb-status-dirty)' }}>
           {error}
         </p>
@@ -206,7 +251,7 @@ export function InlinePinPad({ onVerify, onBack, error, title, actionLabel }: In
             backgroundColor: success ? 'var(--fnb-action-send)' : 'var(--fnb-status-seated)',
           }}
         >
-          {success ? 'Verified' : isVerifying ? 'Verifying...' : 'Confirm'}
+          {success ? 'Verified' : isVerifying ? 'Verifying...' : isLocked ? `Locked (${secondsLeft}s)` : 'Confirm'}
         </button>
       </div>
     </div>

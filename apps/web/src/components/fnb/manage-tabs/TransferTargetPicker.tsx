@@ -21,6 +21,7 @@ export function TransferTargetPicker({ locationId, excludeServerIds, onSelect, o
   const [allServers, setAllServers] = useState<ServerOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<ServerOption | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -57,7 +58,7 @@ export function TransferTargetPicker({ locationId, excludeServerIds, onSelect, o
         }}
       />
 
-      <div className="flex flex-col gap-1 max-h-[300px] overflow-y-auto">
+      <div className="flex flex-col gap-1 max-h-75 overflow-y-auto">
         {loading && (
           <p className="text-sm py-4 text-center" style={{ color: 'var(--fnb-text-muted)' }}>
             Loading servers...
@@ -68,44 +69,61 @@ export function TransferTargetPicker({ locationId, excludeServerIds, onSelect, o
             No servers found
           </p>
         )}
-        {filtered.map((server) => (
-          <button
-            key={server.id}
-            onClick={() => onSelect(server.id, server.name)}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-colors"
-            style={{
-              background: 'var(--fnb-bg-elevated)',
-              color: 'var(--fnb-text-primary)',
-            }}
-          >
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-              style={{ background: 'var(--fnb-accent-primary-muted)' }}
+        {filtered.map((server) => {
+          const isSelected = selected?.id === server.id;
+          return (
+            <button
+              key={server.id}
+              onClick={() => setSelected(isSelected ? null : server)}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-colors"
+              style={{
+                background: isSelected ? 'var(--fnb-accent-primary-muted)' : 'var(--fnb-bg-elevated)',
+                color: 'var(--fnb-text-primary)',
+                outline: isSelected ? '2px solid var(--fnb-accent-primary)' : 'none',
+              }}
             >
-              <User size={16} style={{ color: 'var(--fnb-accent-primary)' }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{server.name}</div>
-              <div className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>
-                {server.openTabCount} open tab{server.openTabCount !== 1 ? 's' : ''}
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: isSelected ? 'var(--fnb-accent-primary)' : 'var(--fnb-accent-primary-muted)' }}
+              >
+                <User size={16} style={{ color: isSelected ? '#fff' : 'var(--fnb-accent-primary)' }} />
               </div>
-            </div>
-            <ChevronRight size={16} style={{ color: 'var(--fnb-text-muted)' }} />
-          </button>
-        ))}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{server.name}</div>
+                <div className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>
+                  {server.openTabCount} open tab{server.openTabCount !== 1 ? 's' : ''}
+                </div>
+              </div>
+              {isSelected && <ChevronRight size={16} style={{ color: 'var(--fnb-accent-primary)' }} />}
+            </button>
+          );
+        })}
       </div>
 
-      <button
-        onClick={onCancel}
-        className="w-full px-3 py-2 rounded-md text-sm font-medium transition-colors"
-        style={{
-          background: 'transparent',
-          color: 'var(--fnb-text-secondary)',
-          border: '1px solid var(--fnb-border-subtle)',
-        }}
-      >
-        Cancel
-      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+          style={{
+            background: 'transparent',
+            color: 'var(--fnb-text-secondary)',
+            border: '1px solid var(--fnb-border-subtle)',
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => selected && onSelect(selected.id, selected.name)}
+          disabled={!selected}
+          className="flex-1 px-3 py-2 rounded-md text-sm font-semibold transition-colors"
+          style={{
+            background: selected ? 'var(--fnb-accent-primary)' : 'var(--fnb-bg-elevated)',
+            color: selected ? '#fff' : 'var(--fnb-text-muted)',
+          }}
+        >
+          {selected ? `Transfer to ${selected.name}` : 'Select a server'}
+        </button>
+      </div>
     </div>
   );
 }
