@@ -130,7 +130,7 @@ export function BulkActionConfirmDialog({
       setPinError('Invalid PIN. Please try again.');
       return false;
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 429 || err.code === 'RATE_LIMITED')) {
+      if (err instanceof ApiError && (err.statusCode === 429 || err.code === 'RATE_LIMITED')) {
         setPinError('Too many attempts. Please wait before trying again.');
       } else {
         setPinError('Verification failed. Please try again.');

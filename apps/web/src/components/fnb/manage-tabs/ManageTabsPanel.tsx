@@ -173,7 +173,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
       }
       return false;
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 429 || err.code === 'RATE_LIMITED')) {
+      if (err instanceof ApiError && (err.statusCode === 429 || err.code === 'RATE_LIMITED')) {
         throw err; // propagate so BulkActionConfirmDialog can show the right message
       }
       return false; // wrong PIN or transient error — caller shows generic message
