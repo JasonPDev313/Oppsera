@@ -15,7 +15,6 @@ import {
   CalendarDays,
   FileBarChart,
   LayoutGrid,
-  LayoutList,
   PackageCheck,
   Truck,
   Sparkles,
@@ -53,8 +52,9 @@ import {
   UserCheck,
   ClipboardCheck,
   Monitor,
-  Lightbulb,
+  LayoutList,
   Activity,
+  Lightbulb,
   // Flag, // Golf module hidden — non-compete
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
@@ -126,7 +126,6 @@ export const navigation: NavItem[] = [
     icon: Monitor,
     moduleKey: 'kds',
     requiredPermission: 'kds.view',
-    /** Dynamic station children are injected at render time by DashboardLayoutInner */
     dynamicChildren: 'kds_stations' as const,
     children: [
       { name: 'Expo', href: '/expo', icon: PackageCheck, requiredPermission: 'kds.view' },
