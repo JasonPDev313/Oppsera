@@ -24,7 +24,7 @@ interface MiddlewareOptions {
   public?: boolean;
   authenticated?: boolean;
   requireTenant?: boolean;
-  permission?: string;
+  permission?: string | string[];
   entitlement?: string;
   /** When true, requires FULL access mode (blocks VIEW). Default: false (allows VIEW through). */
   writeAccess?: boolean;

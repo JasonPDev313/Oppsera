@@ -40,7 +40,7 @@ export const GET = withMiddleware(
     const user = await getUserById({ tenantId: ctx.tenantId, userId });
     return NextResponse.json({ data: user });
   },
-  { entitlement: 'platform_core', permission: 'users.view' },
+  { entitlement: 'platform_core', permission: ['users.view', 'users.manage'] },
 );
 
 export const PATCH = withMiddleware(

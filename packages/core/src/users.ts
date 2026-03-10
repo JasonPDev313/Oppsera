@@ -705,8 +705,8 @@ export async function updateUser(input: UpdateUserInput): Promise<{ userId: stri
         });
     }
 
-    if (input.userRole) {
-      await setRolesForUser(tx, input.tenantId, input.userId, input.userRole, input.additionalRoleIds ?? []);
+    if (input.userRole !== undefined || input.additionalRoleIds !== undefined) {
+      await setRolesForUser(tx, input.tenantId, input.userId, input.userRole ?? existing.primaryRoleId ?? '', input.additionalRoleIds ?? []);
     }
     if (input.locationIds) {
       await setLocationsForUser(tx, input.tenantId, input.userId, input.locationIds);
