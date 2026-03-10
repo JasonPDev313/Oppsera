@@ -21,7 +21,9 @@ interface Property {
 
 interface Reservation {
   id: string;
-  primaryGuestJson: { firstName: string; lastName: string } | null;
+  primaryGuestJson: { firstName?: string; lastName?: string } | null;
+  guestFirstName: string | null;
+  guestLastName: string | null;
   roomTypeId: string;
   roomTypeName: string | null;
   roomId: string | null;
@@ -65,9 +67,12 @@ function formatMoney(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-function guestName(g: { firstName: string; lastName: string } | null): string {
-  if (!g) return '\u2014';
-  return `${g.firstName} ${g.lastName}`;
+function guestName(r: Reservation): string {
+  // Prefer joined pmsGuests columns (always correct); fall back to JSONB snapshot
+  const first = r.guestFirstName || r.primaryGuestJson?.firstName || '';
+  const last = r.guestLastName || r.primaryGuestJson?.lastName || '';
+  if (!first && !last) return '\u2014';
+  return `${first} ${last}`.trim();
 }
 
 function shortId(id: string): string {
@@ -190,7 +195,7 @@ export default function ReservationsContent() {
     if (!search) return reservations;
     const q = search.toLowerCase();
     return reservations.filter((r) => {
-      const name = guestName(r.primaryGuestJson).toLowerCase();
+      const name = guestName(r).toLowerCase();
       const roomNum = (r.roomNumber ?? '').toLowerCase();
       const idShort = shortId(r.id).toLowerCase();
       return name.includes(q) || roomNum.includes(q) || idShort.includes(q);
@@ -221,7 +226,7 @@ export default function ReservationsContent() {
         header: 'Guest Name',
         render: (row: ReservationRow) => (
           <span className="text-sm text-foreground">
-            {guestName((row as Reservation).primaryGuestJson)}
+            {guestName(row as Reservation)}
           </span>
         ),
       },

@@ -1,6 +1,6 @@
 import { and, eq, desc, gte, lte, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { pmsReservations, pmsRooms, pmsRoomTypes } from '@oppsera/db';
+import { pmsReservations, pmsRooms, pmsRoomTypes, pmsGuests } from '@oppsera/db';
 
 interface ListReservationsInput {
   tenantId: string;
@@ -92,10 +92,13 @@ export async function listReservations(input: ListReservationsInput) {
         createdAt: pmsReservations.createdAt,
         roomNumber: pmsRooms.roomNumber,
         roomTypeName: pmsRoomTypes.name,
+        guestFirstName: pmsGuests.firstName,
+        guestLastName: pmsGuests.lastName,
       })
       .from(pmsReservations)
       .leftJoin(pmsRooms, and(eq(pmsReservations.roomId, pmsRooms.id), eq(pmsRooms.tenantId, pmsReservations.tenantId)))
       .leftJoin(pmsRoomTypes, and(eq(pmsReservations.roomTypeId, pmsRoomTypes.id), eq(pmsRoomTypes.tenantId, pmsReservations.tenantId)))
+      .leftJoin(pmsGuests, and(eq(pmsReservations.guestId, pmsGuests.id), eq(pmsGuests.tenantId, pmsReservations.tenantId)))
       .where(and(...conditions))
       .orderBy(desc(pmsReservations.checkInDate), desc(pmsReservations.id))
       .limit(limit + 1);
