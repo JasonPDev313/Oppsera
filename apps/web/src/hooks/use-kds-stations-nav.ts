@@ -1,58 +1,35 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Monitor } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import type { FnbStation } from '@/types/fnb';
 import type { SubNavItem } from '@/lib/navigation';
 
 /**
- * Fetches KDS stations across all user locations and returns them as
+ * Fetches KDS stations for the given location and returns them as
  * SubNavItem[] for sidebar injection. Each active station becomes a
  * clickable nav link under Kitchen Display.
  */
-export function useKdsStationsForNav(locationIds: string[]): SubNavItem[] {
+export function useKdsStationsForNav(locationId?: string): SubNavItem[] {
   const [stations, setStations] = useState<FnbStation[]>([]);
-  // Stabilise the dependency — only re-fetch when the actual IDs change
-  const idsKey = locationIds.join(',');
-  const idsRef = useRef(locationIds);
-  idsRef.current = locationIds;
 
   useEffect(() => {
-    if (!idsRef.current.length) return;
+    if (!locationId) return;
     const controller = new AbortController();
-
     (async () => {
       try {
-        const results = await Promise.all(
-          idsRef.current.map((locId) =>
-            apiFetch<{ data: FnbStation[] }>(
-              `/api/v1/fnb/stations?locationId=${locId}`,
-              { signal: controller.signal },
-            ),
-          ),
+        const json = await apiFetch<{ data: FnbStation[] }>(
+          `/api/v1/fnb/stations?locationId=${locationId}`,
+          { signal: controller.signal },
         );
-        if (!controller.signal.aborted) {
-          // Dedupe by station id in case of overlapping results
-          const seen = new Set<string>();
-          const all: FnbStation[] = [];
-          for (const res of results) {
-            for (const s of res.data ?? []) {
-              if (!seen.has(s.id)) {
-                seen.add(s.id);
-                all.push(s);
-              }
-            }
-          }
-          setStations(all);
-        }
+        if (!controller.signal.aborted) setStations(json.data ?? []);
       } catch {
         // Silently fail — stations will just not appear in nav
       }
     })();
     return () => { controller.abort(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey]);
+  }, [locationId]);
 
   return useMemo(() => {
     return stations

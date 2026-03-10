@@ -885,9 +885,13 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     return filterNavByTier(orderedNav, workflowConfigs);
   }, [orderedNav, workflowConfigs, erpConfigLoading]);
 
-  // Inject dynamic KDS station children into navigation
-  const allLocationIds = useMemo(() => (locations ?? []).map((l) => l.id), [locations]);
-  const kdsStationNav = useKdsStationsForNav(allLocationIds);
+  // Terminal session — needed for KDS station injection and sidebar display
+  const { session: terminalSession, clearSession: _clearSession } = useTerminalSession();
+
+  // Inject dynamic KDS station children into navigation.
+  // Use the terminal session's location (the location the user is logged into).
+  const kdsLocationId = terminalSession?.locationId ?? locations?.[0]?.id;
+  const kdsStationNav = useKdsStationsForNav(kdsLocationId);
   const navWithDynamic = useMemo(() => {
     if (kdsStationNav.length === 0) return filteredNav;
     return filteredNav.map((item) => {
@@ -900,10 +904,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   if (!isLoading && (!isAuthenticated || !user || needsOnboarding)) {
     return null;
   }
-
-  // Derive display values — use fallbacks during auth loading so the
-  // sidebar renders immediately and the user can navigate right away.
-  const { session: terminalSession, clearSession: _clearSession } = useTerminalSession();
   const [showTerminalPicker, setShowTerminalPicker] = useState(false);
   const handleChangeTerminal = useCallback(() => setShowTerminalPicker(true), []);
   const handleTerminalPickerDone = useCallback(() => setShowTerminalPicker(false), []);
