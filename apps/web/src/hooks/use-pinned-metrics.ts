@@ -41,8 +41,14 @@ interface PinMetricResponse {
   data: PinnedMetric;
 }
 
-interface SparklineRow {
-  [key: string]: unknown;
+interface MetricsQueryResponse {
+  data: Record<string, {
+    values: number[];
+    dates: string[];
+    current: number | null;
+    previous: number | null;
+    changePercent: number | null;
+  }>;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────
@@ -78,7 +84,7 @@ export function usePinnedMetrics() {
     return () => { mountedRef.current = false; };
   }, [fetchMetrics]);
 
-  // ── Fetch sparkline data for each pinned metric (last 7 days) ──
+  // ── Fetch sparkline data for all pinned metrics in a single request ──
   useEffect(() => {
     if (metrics.length === 0) return;
 
@@ -92,60 +98,39 @@ export function usePinnedMetrics() {
       const startDate = sevenDaysAgo.toISOString().split('T')[0];
       const endDate = today.toISOString().split('T')[0];
 
-      const enriched = await Promise.all(
-        metrics.map(async (metric) => {
-          try {
-            const res = await apiFetch<{
-              data: { rows: SparklineRow[]; rowCount: number };
-            }>('/api/v1/semantic/query', {
-              method: 'POST',
-              body: JSON.stringify({
-                metrics: [metric.metricSlug],
-                dimensions: ['date'],
-                dateRange: { start: startDate, end: endDate },
-                sort: [{ metricSlug: 'date', direction: 'asc' }],
-                limit: 7,
-              }),
-              signal: controller.signal,
-            });
+      try {
+        const slugs = metrics.map((m) => m.metricSlug);
+        const res = await apiFetch<MetricsQueryResponse>('/api/v1/semantic/metrics-query', {
+          method: 'POST',
+          body: JSON.stringify({ slugs, startDate, endDate }),
+          signal: controller.signal,
+        });
 
-            const rows = res.data.rows ?? [];
-            const values = rows
-              .map((row) => {
-                const val = row[metric.metricSlug];
-                return typeof val === 'number' ? val : Number(val);
-              })
-              .filter((v) => !isNaN(v));
+        const enriched = metrics.map((metric) => {
+          const data = res.data[metric.metricSlug];
+          if (!data) return metric;
 
-            const currentValue = values.length > 0 ? values[values.length - 1]! : null;
-            const previousValue = values.length > 1 ? values[0]! : null;
-            const changePercent =
-              currentValue != null && previousValue != null && previousValue !== 0
-                ? ((currentValue - previousValue) / Math.abs(previousValue)) * 100
-                : null;
+          return {
+            ...metric,
+            sparklineValues: data.values,
+            currentValue: data.current,
+            previousValue: data.previous,
+            changePercent: data.changePercent,
+          };
+        });
 
-            return {
-              ...metric,
-              sparklineValues: values,
-              currentValue,
-              previousValue,
-              changePercent,
-            };
-          } catch {
-            // Sparkline enrichment is best-effort — never block on failure
-            return metric;
-          }
-        }),
-      );
-
-      if (!controller.signal.aborted && mountedRef.current) {
-        setMetrics(enriched);
+        if (!controller.signal.aborted && mountedRef.current) {
+          setMetrics(enriched);
+        }
+      } catch {
+        // Sparkline enrichment is best-effort — never block on failure
       }
     }
 
     enrichWithSparklines();
     return () => { controller.abort(); };
     // Only re-run when metric IDs change, not when sparklines are enriched
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metrics.map((m) => m.id).join(',')]);
 
   // ── Pin a new metric ──
