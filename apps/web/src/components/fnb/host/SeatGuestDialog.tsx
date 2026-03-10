@@ -119,7 +119,7 @@ export function SeatGuestDialog({
   // Filter out suggested tables from the "all" list
   const suggestedIds = new Set(suggestedTables.map((t) => t.tableId));
   const otherTables = allTables.filter(
-    (t) => !suggestedIds.has(t.tableId) && t.currentStatus === 'available'
+    (t) => !suggestedIds.has(t.tableId)
   );
 
   const content = (
@@ -444,6 +444,25 @@ export function SeatGuestDialog({
                             (seats {table.maxCapacity})
                           </span>
                         </div>
+                        {table.currentStatus !== 'available' && (
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '1px 6px',
+                              borderRadius: 'var(--fnb-radius-sm)',
+                              fontSize: 'var(--fnb-text-xs)',
+                              fontWeight: 'var(--fnb-font-medium)',
+                              background: table.currentStatus === 'dirty'
+                                ? 'rgba(234, 179, 8, 0.15)'
+                                : 'rgba(99, 102, 241, 0.12)',
+                              color: table.currentStatus === 'dirty'
+                                ? 'var(--fnb-warning)'
+                                : 'var(--fnb-info)',
+                            }}
+                          >
+                            {table.currentStatus === 'dirty' ? 'Needs bussing' : 'Recently vacated'}
+                          </span>
+                        )}
                         {table.serverName && (
                           <span
                             style={{

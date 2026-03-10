@@ -206,6 +206,13 @@ export default function BrandedWaitlistStatusPage() {
     };
   }, [load]);
 
+  // Update browser tab title with venue name
+  useEffect(() => {
+    if (data?.venueName) {
+      document.title = `${data.venueName} Waitlist`;
+    }
+  }, [data?.venueName]);
+
   useEffect(() => {
     if (!data?.joinedAt || TERMINAL_STATUSES.has(data.status)) return;
     const calc = () => setElapsedMinutes(Math.max(0, Math.floor((Date.now() - new Date(data.joinedAt).getTime()) / 60_000)));

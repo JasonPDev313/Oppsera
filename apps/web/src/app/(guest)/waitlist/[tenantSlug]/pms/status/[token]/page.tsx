@@ -150,6 +150,13 @@ export default function PmsWaitlistStatusPage() {
     }
   }, [tenantSlug, token]);
 
+  // Update browser tab title with property name
+  useEffect(() => {
+    if (data?.propertyName) {
+      document.title = `${data.propertyName} Waitlist`;
+    }
+  }, [data?.propertyName]);
+
   // Adaptive polling: 15s waiting, 5s offered, stop on terminal
   useEffect(() => {
     load();

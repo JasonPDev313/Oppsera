@@ -31,7 +31,8 @@ export async function POST(
   }
 
   try {
-    const resolved = await resolveWaitlistTenant(tenantSlug);
+    // requireEnabled: false — guests can confirm arrival even when waitlist is paused
+    const resolved = await resolveWaitlistTenant(tenantSlug, { requireEnabled: false });
     if (!resolved) {
       return NextResponse.json(
         { error: { code: 'NOT_FOUND', message: 'Waitlist not found' } },

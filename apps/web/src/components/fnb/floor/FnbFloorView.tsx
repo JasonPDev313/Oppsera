@@ -104,6 +104,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [seatModalOpen, setSeatModalOpen] = useState(false);
+  const [addSeatMode, setAddSeatMode] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [seatTargetTable, setSeatTargetTable] = useState<FnbTableWithStatus | null>(null);
   const [actionMenuTable, setActionMenuTable] = useState<FnbTableWithStatus | null>(null);
@@ -128,6 +129,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   useEffect(() => {
     if (!isActive) {
       setSeatModalOpen(false);
+      setAddSeatMode(false);
       setActionMenuOpen(false);
       setSeatTargetTable(null);
       setActionMenuTable(null);
@@ -140,12 +142,6 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   // Derive locationId from the active room (needed for API calls)
   const locationId = activeRoom?.locationId ?? null;
 
-  const selectedTable = useMemo(
-    () => tables.find((t) => t.tableId === selectedTableId) ?? null,
-    [tables, selectedTableId],
-  );
-  // Suppress unused warning — selectedTable will be wired in context sidebar
-  void selectedTable;
 
   // ── Spatial viewport scaling ──────────────────────────────
 
@@ -280,11 +276,11 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
     [statsTables],
   );
   const availableCount = useMemo(
-    () => statsTables.filter((t) => t.status === 'available').length,
+    () => statsTables.filter((t) => t.status === 'available' || t.status === 'dirty' || t.status === 'paid').length,
     [statsTables],
   );
   const seatedCount = useMemo(
-    () => statsTables.filter((t) => !['available', 'dirty', 'blocked'].includes(t.status)).length,
+    () => statsTables.filter((t) => !['available', 'dirty', 'paid', 'blocked'].includes(t.status)).length,
     [statsTables],
   );
   const openRevenueCents = useMemo(
@@ -320,8 +316,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
     setSelectedTableId(tableId);
 
-    if (table.status === 'available') {
-      // Tap available → seat modal
+    const seatableStatuses: ReadonlySet<string> = new Set(['available', 'dirty', 'paid']);
+    if (seatableStatuses.has(table.status)) {
+      // Tap available/dirty/paid → seat modal
       setSeatTargetTable(table);
       setSeatModalOpen(true);
     } else if (table.currentTabId) {
@@ -341,25 +338,39 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   const handleSeatConfirm = useCallback(async (partySize: number) => {
     if (!seatTargetTable) return;
     try {
-      const tab = await openTabApi({
-        serverUserId: userId,
-        businessDate: getBusinessDate(locationTimezone),
-        tableId: seatTargetTable.tableId,
-        tabType: 'dine_in',
-        partySize,
-        serviceType: 'dine_in',
-        locationId: locationId ?? undefined,
-      });
-      setSeatModalOpen(false);
-      store.navigateTo('tab', { tabId: tab.id });
+      if (addSeatMode && seatTargetTable.currentTabId) {
+        // Add seats to existing tab — party size is additive
+        const currentSize = seatTargetTable.partySize ?? 1;
+        const newSize = currentSize + partySize;
+        await apiFetch(`/api/v1/fnb/tabs/${seatTargetTable.currentTabId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ partySize: newSize, expectedVersion: seatTargetTable.version }),
+        });
+        setSeatModalOpen(false);
+        setAddSeatMode(false);
+        store.navigateTo('tab', { tabId: seatTargetTable.currentTabId });
+      } else {
+        const tab = await openTabApi({
+          serverUserId: userId,
+          businessDate: getBusinessDate(locationTimezone),
+          tableId: seatTargetTable.tableId,
+          tabType: 'dine_in',
+          partySize,
+          serviceType: 'dine_in',
+          locationId: locationId ?? undefined,
+        });
+        setSeatModalOpen(false);
+        store.navigateTo('tab', { tabId: tab.id });
+      }
     } catch (err) {
       setSeatModalOpen(false);
+      setAddSeatMode(false);
       const message = err instanceof Error ? err.message : 'Failed to seat guests';
       setToastMessage({ type: 'error', text: message });
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
       toastTimerRef.current = setTimeout(() => setToastMessage(null), 4000);
     }
-  }, [seatTargetTable, userId, store, locationId, locationTimezone]);
+  }, [seatTargetTable, addSeatMode, userId, store, locationId, locationTimezone]);
 
   const handleRoomChange = useCallback((roomId: string) => {
     store.setActiveRoom(roomId);
@@ -370,6 +381,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
     const table = tables.find((t) => t.tableId === tableId);
     if (!table) return;
     setSeatTargetTable(table);
+    if (table.currentTabId) {
+      setAddSeatMode(true);
+    }
     setSeatModalOpen(true);
   }, [tables]);
 
@@ -382,10 +396,10 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   }, [tables]);
 
   const handleNewTab = useCallback(() => {
-    // For now, open seat modal for first available table
-    const available = tables.find((t) => t.status === 'available');
-    if (available) {
-      setSeatTargetTable(available);
+    const seatableStatuses: ReadonlySet<string> = new Set(['available', 'dirty', 'paid']);
+    const open = tables.find((t) => seatableStatuses.has(t.status));
+    if (open) {
+      setSeatTargetTable(open);
       setSeatModalOpen(true);
     }
   }, [tables]);
@@ -766,10 +780,11 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       {/* Modals */}
       <SeatGuestsModal
         open={seatModalOpen}
-        onClose={() => setSeatModalOpen(false)}
+        onClose={() => { setSeatModalOpen(false); setAddSeatMode(false); }}
         tableNumber={seatTargetTable?.tableNumber ?? 0}
         tableCapacity={seatTargetTable?.capacityMax ?? 4}
         onConfirm={handleSeatConfirm}
+        addMode={addSeatMode}
       />
 
       <MySectionDialog
@@ -806,6 +821,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
         onAddTab={() => {
           if (actionMenuTable) {
             setSeatTargetTable(actionMenuTable);
+            if (actionMenuTable.currentTabId) {
+              setAddSeatMode(true);
+            }
             setSeatModalOpen(true);
           }
         }}

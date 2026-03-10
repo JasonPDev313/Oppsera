@@ -1,7 +1,7 @@
 import '@/app/globals.css';
 
 export const metadata = {
-  title: 'Pay Your Check | Powered by OppsEra',
+  title: 'Powered by OppsEra',
 };
 
 export default function GuestLayout({ children }: { children: React.ReactNode }) {

@@ -44,7 +44,8 @@ export async function checkInReservation(
       const table = Array.from(tableRows as Iterable<Record<string, unknown>>)[0];
       if (!table) throw new AppError('NOT_FOUND', 'Table not found', 404);
 
-      if (table.status && table.status !== 'available' && table.status !== 'reserved') {
+      const seatbleStatuses = new Set(['available', 'reserved', 'dirty', 'paid']);
+      if (table.status && !seatbleStatuses.has(String(table.status))) {
         // Table not available — mark as checked_in, will need to wait
         await tx.execute(sql`
           UPDATE fnb_reservations

@@ -12,6 +12,11 @@ import type { WaitlistConfigRow } from '@oppsera/module-fnb';
  *
  * Returns null if tenant doesn't exist, is not active, or waitlist is not enabled.
  *
+ * Options:
+ * - `requireEnabled` (default: true) — When false, returns config even if
+ *   `enabled = false`. Used by status routes so existing guests can check
+ *   their position even when the operator has paused new joins.
+ *
  * Runs OUTSIDE withTenant() — public routes have no RLS context.
  */
 export interface ResolvedWaitlistTenant {
@@ -22,10 +27,18 @@ export interface ResolvedWaitlistTenant {
   config: WaitlistConfigRow;
 }
 
+export interface ResolveOptions {
+  /** When false, match config rows regardless of `enabled` flag. Default: true */
+  requireEnabled?: boolean;
+}
+
 export async function resolveWaitlistTenant(
   slug: string,
+  options?: ResolveOptions,
 ): Promise<ResolvedWaitlistTenant | null> {
+  const requireEnabled = options?.requireEnabled ?? true;
   const adminDb = createAdminClient();
+  const enabledFilter = requireEnabled ? sql`AND wc.enabled = true` : sql``;
 
   // 1. Try slug_override on fnb_waitlist_config
   const configRows = await adminDb.execute(sql`
@@ -34,7 +47,7 @@ export async function resolveWaitlistTenant(
     JOIN tenants t ON t.id = wc.tenant_id
     JOIN locations l ON l.id = wc.location_id
     WHERE wc.slug_override = ${slug}
-      AND wc.enabled = true
+      ${enabledFilter}
       AND t.status = 'active'
       AND l.is_active = true
     LIMIT 1
@@ -50,7 +63,7 @@ export async function resolveWaitlistTenant(
       JOIN fnb_waitlist_config wc ON wc.tenant_id = t.id
       JOIN locations l ON l.id = wc.location_id
       WHERE t.slug = ${slug}
-        AND wc.enabled = true
+        ${enabledFilter}
         AND t.status = 'active'
         AND l.is_active = true
       ORDER BY wc.created_at ASC

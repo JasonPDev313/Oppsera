@@ -37,7 +37,8 @@ export async function seatFromWaitlist(
     `);
     const table = Array.from(tableRows as Iterable<Record<string, unknown>>)[0];
     if (!table) throw new AppError('NOT_FOUND', 'Table not found', 404);
-    if (table.status && table.status !== 'available' && table.status !== 'reserved') {
+    const seatbleStatuses = new Set(['available', 'reserved', 'dirty', 'paid']);
+    if (table.status && !seatbleStatuses.has(String(table.status))) {
       throw new AppError('TABLE_OCCUPIED', 'Table is not available', 409);
     }
 

@@ -111,12 +111,18 @@ export async function getTableAvailability(
       const tableType = String(row.table_type);
       const serverUserId = row.server_user_id ? String(row.server_user_id) : null;
 
-      // Base score for available tables
+      // Base score for available/seatble tables
       let fitScore = 0;
       const reasons: string[] = [];
 
-      if (status === 'available') {
-        fitScore = 50; // Base score for being available
+      // Tables that are physically unoccupied: available, dirty (needs bussing), paid (check settled)
+      const isSeatble = status === 'available' || status === 'dirty' || status === 'paid';
+
+      if (isSeatble) {
+        // Base score: available gets full credit, dirty/paid get partial
+        fitScore = status === 'available' ? 50 : 20;
+        if (status === 'dirty') reasons.push('Needs bussing');
+        if (status === 'paid') reasons.push('Recently vacated');
 
         // Capacity match (0-25 points)
         if (maxCap >= partySize && minCap <= partySize) {
@@ -178,7 +184,8 @@ export async function getTableAvailability(
       mapped.push(entry);
     }
 
-    const available = mapped.filter((t) => t.currentStatus === 'available' && t.fitScore > 0);
+    const seatbleStatuses = new Set(['available', 'dirty', 'paid']);
+    const available = mapped.filter((t) => seatbleStatuses.has(t.currentStatus) && t.fitScore > 0);
     const suggested = [...available]
       .sort((a, b) => b.fitScore - a.fitScore)
       .slice(0, 5);

@@ -45,8 +45,10 @@ export async function GET(
   }
 
   try {
-    // Resolve tenant from slug to enforce tenant isolation
-    const resolved = await resolveWaitlistTenant(tenantSlug);
+    // Resolve tenant from slug to enforce tenant isolation.
+    // requireEnabled: false — existing guests must be able to check their status
+    // even when the operator has paused new waitlist joins.
+    const resolved = await resolveWaitlistTenant(tenantSlug, { requireEnabled: false });
     if (!resolved) {
       console.warn(`[waitlist-status] Tenant resolution failed for slug: ${tenantSlug}`);
       return NextResponse.json(
@@ -185,8 +187,9 @@ export async function DELETE(
   }
 
   try {
-    // Resolve tenant to scope the cancel to the correct tenant
-    const resolved = await resolveWaitlistTenant(tenantSlug);
+    // Resolve tenant to scope the cancel to the correct tenant.
+    // requireEnabled: false — guests can cancel even when waitlist is paused.
+    const resolved = await resolveWaitlistTenant(tenantSlug, { requireEnabled: false });
     if (!resolved) {
       return NextResponse.json(
         { error: { code: 'NOT_FOUND', message: 'Waitlist not found' } },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Minus, Plus } from 'lucide-react';
 
@@ -10,14 +10,23 @@ interface SeatGuestsModalProps {
   tableNumber: number;
   tableCapacity: number;
   onConfirm: (partySize: number) => void;
+  /** When true, the number entered is seats to ADD (not total party size) */
+  addMode?: boolean;
 }
 
-export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onConfirm }: SeatGuestsModalProps) {
-  const [partySize, setPartySize] = useState(2);
+export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onConfirm, addMode }: SeatGuestsModalProps) {
+  const [partySize, setPartySize] = useState(addMode ? 1 : 2);
+
+  // Reset default when modal opens or mode changes
+  useEffect(() => {
+    if (open) setPartySize(addMode ? 1 : 2);
+  }, [open, addMode]);
 
   if (!open) return null;
 
   const quickSizes = [1, 2, 3, 4, 5, 6, 7, 8];
+  const title = addMode ? `Add Seats — Table ${tableNumber}` : `Seat Table ${tableNumber}`;
+  const confirmLabel = addMode ? `Add ${partySize} Seat${partySize !== 1 ? 's' : ''}` : `Seat ${partySize} Guests`;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true" aria-labelledby="seat-guests-dialog-title">
@@ -25,7 +34,7 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h3 id="seat-guests-dialog-title" className="text-lg font-bold text-foreground">
-            Seat Table {tableNumber}
+            {title}
           </h3>
           <button
             type="button"
@@ -39,7 +48,7 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
 
         {/* Party size label */}
         <p className="text-xs mb-3 text-muted-foreground">
-          Capacity: {tableCapacity} &middot; Party size:
+          {addMode ? 'How many seats to add?' : `Capacity: ${tableCapacity} \u00b7 Party size:`}
         </p>
 
         {/* Stepper */}
@@ -95,7 +104,7 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
             onClick={() => { onConfirm(partySize); onClose(); }}
             className="flex-1 rounded-lg py-3 text-sm font-bold text-white transition-colors bg-indigo-600 hover:bg-indigo-500"
           >
-            Seat {partySize} Guests
+            {confirmLabel}
           </button>
         </div>
       </div>

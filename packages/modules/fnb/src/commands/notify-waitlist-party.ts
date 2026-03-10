@@ -94,18 +94,24 @@ export async function notifyWaitlistParty(
       const guestPhone = result.guestPhone;
       const guestName = result.guestName;
 
-      // Look up tenant slug + location name for the status URL and template
+      // Look up tenant slug + location name for the status URL and template.
+      // Prefer waitlist config slug_override (vanity URL) over tenant slug
+      // so the status link matches the slug guests originally joined with.
       const [tenantInfo] = await withTenant(ctx.tenantId, async (tx) => {
         const rows = await tx.execute(sql`
-          SELECT t.slug, l.name AS location_name
+          SELECT t.slug, l.name AS location_name,
+                 wc.slug_override AS waitlist_slug
           FROM tenants t
           LEFT JOIN locations l ON l.id = ${ctx.locationId ?? ''} AND l.tenant_id = t.id
+          LEFT JOIN fnb_waitlist_config wc ON wc.tenant_id = t.id AND wc.location_id = ${ctx.locationId ?? ''}
           WHERE t.id = ${ctx.tenantId}
           LIMIT 1
         `);
         return Array.from(rows as Iterable<Record<string, unknown>>);
       });
-      const tenantSlug = tenantInfo?.slug ? String(tenantInfo.slug) : ctx.tenantId;
+      const tenantSlug = tenantInfo?.waitlist_slug
+        ? String(tenantInfo.waitlist_slug)
+        : tenantInfo?.slug ? String(tenantInfo.slug) : ctx.tenantId;
       const venueName = tenantInfo?.location_name ? String(tenantInfo.location_name) : tenantSlug;
 
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.oppsera.com';
