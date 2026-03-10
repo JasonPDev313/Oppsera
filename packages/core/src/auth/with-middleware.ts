@@ -331,8 +331,8 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
           await recordUsage({
             tenantId: _trackTenantId,
             userId: _trackUserId || 'unknown',
-            moduleKey: resolveModuleKey(options?.entitlement, options?.permission),
-            workflowKey: options?.permission || '',
+            moduleKey: resolveModuleKey(Array.isArray(options?.entitlement) ? options.entitlement[0] : options?.entitlement, Array.isArray(options?.permission) ? options.permission[0] : options?.permission),
+            workflowKey: (Array.isArray(options?.permission) ? options.permission[0] : options?.permission) || '',
             method: request.method,
             statusCode: _trackStatusCode,
             durationMs: Date.now() - startTime,
