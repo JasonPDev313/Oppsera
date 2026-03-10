@@ -609,23 +609,63 @@ async function seed() {
   ]);
   console.log('Tax Categories: 4 created');
 
-  // ── Catalog: Categories ──────────────────────────────────────
-  const catIds = {
-    apparel: generateUlid(),
+  // ── Catalog: Categories (3-level hierarchy) ──────────────────
+  // Level 1 — Departments
+  const deptIds = {
+    fnb: generateUlid(),
+    retail: generateUlid(),
+    golf: generateUlid(),
+  };
+  // Level 2 — Sub-Departments
+  const subDeptIds = {
     food: generateUlid(),
     beverages: generateUlid(),
+    apparel: generateUlid(),
     golfEquip: generateUlid(),
     greenFees: generateUlid(),
+    rentals: generateUlid(),
+  };
+  // Level 3 — Categories (leaf nodes items are assigned to)
+  const catIds = {
+    snacks: generateUlid(),
+    mains: generateUlid(),
+    softDrinks: generateUlid(),
+    alcoholic: generateUlid(),
+    poloShirts: generateUlid(),
+    golfAccessories: generateUlid(),
+    ballsTees: generateUlid(),
+    greenFee18: generateUlid(),
+    greenFee9: generateUlid(),
+    cartRental: generateUlid(),
   };
 
   await db.insert(catalogCategories).values([
-    { id: catIds.apparel, tenantId, name: 'Apparel', sortOrder: 1 },
-    { id: catIds.food, tenantId, name: 'Food & Snacks', sortOrder: 2 },
-    { id: catIds.beverages, tenantId, name: 'Beverages', sortOrder: 3 },
-    { id: catIds.golfEquip, tenantId, name: 'Golf Equipment', sortOrder: 4 },
-    { id: catIds.greenFees, tenantId, name: 'Green Fees', sortOrder: 5 },
+    // Departments
+    { id: deptIds.fnb,    tenantId, name: 'Food & Beverage', sortOrder: 1 },
+    { id: deptIds.retail, tenantId, name: 'Retail',          sortOrder: 2 },
+    { id: deptIds.golf,   tenantId, name: 'Golf Operations', sortOrder: 3 },
+
+    // Sub-Departments
+    { id: subDeptIds.food,      tenantId, parentId: deptIds.fnb,    name: 'Food',           sortOrder: 1 },
+    { id: subDeptIds.beverages, tenantId, parentId: deptIds.fnb,    name: 'Beverages',      sortOrder: 2 },
+    { id: subDeptIds.apparel,   tenantId, parentId: deptIds.retail, name: 'Apparel',        sortOrder: 1 },
+    { id: subDeptIds.golfEquip, tenantId, parentId: deptIds.retail, name: 'Golf Equipment', sortOrder: 2 },
+    { id: subDeptIds.greenFees, tenantId, parentId: deptIds.golf,   name: 'Green Fees',     sortOrder: 1 },
+    { id: subDeptIds.rentals,   tenantId, parentId: deptIds.golf,   name: 'Rentals',        sortOrder: 2 },
+
+    // Categories
+    { id: catIds.snacks,          tenantId, parentId: subDeptIds.food,      name: 'Snacks & Light Bites', sortOrder: 1 },
+    { id: catIds.mains,           tenantId, parentId: subDeptIds.food,      name: 'Mains',                sortOrder: 2 },
+    { id: catIds.softDrinks,      tenantId, parentId: subDeptIds.beverages, name: 'Non-Alcoholic',        sortOrder: 1 },
+    { id: catIds.alcoholic,       tenantId, parentId: subDeptIds.beverages, name: 'Alcoholic',            sortOrder: 2 },
+    { id: catIds.poloShirts,      tenantId, parentId: subDeptIds.apparel,   name: 'Polo Shirts & Tops',   sortOrder: 1 },
+    { id: catIds.golfAccessories, tenantId, parentId: subDeptIds.golfEquip, name: 'Gloves & Accessories', sortOrder: 1 },
+    { id: catIds.ballsTees,       tenantId, parentId: subDeptIds.golfEquip, name: 'Balls & Tees',         sortOrder: 2 },
+    { id: catIds.greenFee18,      tenantId, parentId: subDeptIds.greenFees, name: '18-Hole Rates',        sortOrder: 1 },
+    { id: catIds.greenFee9,       tenantId, parentId: subDeptIds.greenFees, name: '9-Hole Rates',         sortOrder: 2 },
+    { id: catIds.cartRental,      tenantId, parentId: subDeptIds.rentals,   name: 'Cart Rental',          sortOrder: 1 },
   ]);
-  console.log('Catalog Categories: 5 created');
+  console.log('Catalog Categories: 19 created (3 depts, 6 sub-depts, 10 categories)');
 
   // ── Catalog: Items ───────────────────────────────────────────
   const itemIds = {
@@ -645,7 +685,7 @@ async function seed() {
     {
       id: itemIds.polo,
       tenantId,
-      categoryId: catIds.apparel,
+      categoryId: catIds.poloShirts,
       sku: 'POLO-001',
       name: 'Logo Polo Shirt',
       description: 'Sunset Golf & Grill embroidered polo',
@@ -659,7 +699,7 @@ async function seed() {
     {
       id: itemIds.hotdog,
       tenantId,
-      categoryId: catIds.food,
+      categoryId: catIds.snacks,
       sku: 'FOOD-001',
       name: 'Hot Dog',
       itemType: 'food',
@@ -671,7 +711,7 @@ async function seed() {
     {
       id: itemIds.burger,
       tenantId,
-      categoryId: catIds.food,
+      categoryId: catIds.mains,
       sku: 'FOOD-002',
       name: 'Clubhouse Burger',
       description: 'Half-pound Angus burger with fries',
@@ -684,7 +724,7 @@ async function seed() {
     {
       id: itemIds.soda,
       tenantId,
-      categoryId: catIds.beverages,
+      categoryId: catIds.softDrinks,
       sku: 'BEV-001',
       name: 'Fountain Soda',
       itemType: 'beverage',
@@ -696,7 +736,7 @@ async function seed() {
     {
       id: itemIds.beer,
       tenantId,
-      categoryId: catIds.beverages,
+      categoryId: catIds.alcoholic,
       sku: 'BEV-002',
       name: 'Draft Beer',
       description: 'House draft, 16oz',
@@ -709,7 +749,7 @@ async function seed() {
     {
       id: itemIds.gloves,
       tenantId,
-      categoryId: catIds.golfEquip,
+      categoryId: catIds.golfAccessories,
       sku: 'GOLF-001',
       name: 'Golf Glove',
       itemType: 'retail',
@@ -722,7 +762,7 @@ async function seed() {
     {
       id: itemIds.balls,
       tenantId,
-      categoryId: catIds.golfEquip,
+      categoryId: catIds.ballsTees,
       sku: 'GOLF-002',
       name: 'Golf Balls (Dozen)',
       itemType: 'retail',
@@ -735,7 +775,7 @@ async function seed() {
     {
       id: itemIds.greenFee18,
       tenantId,
-      categoryId: catIds.greenFees,
+      categoryId: catIds.greenFee18,
       sku: 'GF-18',
       name: '18-Hole Green Fee',
       itemType: 'green_fee',
@@ -746,7 +786,7 @@ async function seed() {
     {
       id: itemIds.greenFee9,
       tenantId,
-      categoryId: catIds.greenFees,
+      categoryId: catIds.greenFee9,
       sku: 'GF-9',
       name: '9-Hole Green Fee',
       itemType: 'green_fee',
@@ -757,7 +797,7 @@ async function seed() {
     {
       id: itemIds.cartRental,
       tenantId,
-      categoryId: catIds.greenFees,
+      categoryId: catIds.cartRental,
       sku: 'RENT-001',
       name: 'Cart Rental',
       itemType: 'rental',
@@ -1223,16 +1263,16 @@ async function seed() {
 
   // Item catalog for order generation (prices in cents)
   const orderableItems = [
-    { id: itemIds.polo, name: 'Logo Polo Shirt', sku: 'POLO-001', type: 'retail', priceCents: 4999, costCents: 2200, taxRate: RETAIL_TAX_RATE, catName: 'Apparel', catId: catIds.apparel },
-    { id: itemIds.hotdog, name: 'Hot Dog', sku: 'FOOD-001', type: 'food', priceCents: 599, costCents: 150, taxRate: FOOD_TAX_RATE, catName: 'Food & Snacks', catId: catIds.food },
-    { id: itemIds.burger, name: 'Clubhouse Burger', sku: 'FOOD-002', type: 'food', priceCents: 1499, costCents: 500, taxRate: FOOD_TAX_RATE, catName: 'Food & Snacks', catId: catIds.food },
-    { id: itemIds.soda, name: 'Fountain Soda', sku: 'BEV-001', type: 'beverage', priceCents: 299, costCents: 35, taxRate: FOOD_TAX_RATE, catName: 'Beverages', catId: catIds.beverages },
-    { id: itemIds.beer, name: 'Draft Beer', sku: 'BEV-002', type: 'beverage', priceCents: 799, costCents: 200, taxRate: ALCOHOL_TAX_RATE, catName: 'Beverages', catId: catIds.beverages },
-    { id: itemIds.gloves, name: 'Golf Glove', sku: 'GOLF-001', type: 'retail', priceCents: 2499, costCents: 1000, taxRate: RETAIL_TAX_RATE, catName: 'Golf Equipment', catId: catIds.golfEquip },
-    { id: itemIds.balls, name: 'Golf Balls (Dozen)', sku: 'GOLF-002', type: 'retail', priceCents: 3999, costCents: 1800, taxRate: RETAIL_TAX_RATE, catName: 'Golf Equipment', catId: catIds.golfEquip },
-    { id: itemIds.greenFee18, name: '18-Hole Green Fee', sku: 'GF-18', type: 'green_fee', priceCents: 7500, costCents: 0, taxRate: 0, catName: 'Green Fees', catId: catIds.greenFees },
-    { id: itemIds.greenFee9, name: '9-Hole Green Fee', sku: 'GF-9', type: 'green_fee', priceCents: 4500, costCents: 0, taxRate: 0, catName: 'Green Fees', catId: catIds.greenFees },
-    { id: itemIds.cartRental, name: 'Cart Rental', sku: 'RENT-001', type: 'rental', priceCents: 2500, costCents: 0, taxRate: 0, catName: 'Green Fees', catId: catIds.greenFees },
+    { id: itemIds.polo, name: 'Logo Polo Shirt', sku: 'POLO-001', type: 'retail', priceCents: 4999, costCents: 2200, taxRate: RETAIL_TAX_RATE, catName: 'Polo Shirts & Tops', catId: catIds.poloShirts },
+    { id: itemIds.hotdog, name: 'Hot Dog', sku: 'FOOD-001', type: 'food', priceCents: 599, costCents: 150, taxRate: FOOD_TAX_RATE, catName: 'Snacks & Light Bites', catId: catIds.snacks },
+    { id: itemIds.burger, name: 'Clubhouse Burger', sku: 'FOOD-002', type: 'food', priceCents: 1499, costCents: 500, taxRate: FOOD_TAX_RATE, catName: 'Mains', catId: catIds.mains },
+    { id: itemIds.soda, name: 'Fountain Soda', sku: 'BEV-001', type: 'beverage', priceCents: 299, costCents: 35, taxRate: FOOD_TAX_RATE, catName: 'Non-Alcoholic', catId: catIds.softDrinks },
+    { id: itemIds.beer, name: 'Draft Beer', sku: 'BEV-002', type: 'beverage', priceCents: 799, costCents: 200, taxRate: ALCOHOL_TAX_RATE, catName: 'Alcoholic', catId: catIds.alcoholic },
+    { id: itemIds.gloves, name: 'Golf Glove', sku: 'GOLF-001', type: 'retail', priceCents: 2499, costCents: 1000, taxRate: RETAIL_TAX_RATE, catName: 'Gloves & Accessories', catId: catIds.golfAccessories },
+    { id: itemIds.balls, name: 'Golf Balls (Dozen)', sku: 'GOLF-002', type: 'retail', priceCents: 3999, costCents: 1800, taxRate: RETAIL_TAX_RATE, catName: 'Balls & Tees', catId: catIds.ballsTees },
+    { id: itemIds.greenFee18, name: '18-Hole Green Fee', sku: 'GF-18', type: 'green_fee', priceCents: 7500, costCents: 0, taxRate: 0, catName: '18-Hole Rates', catId: catIds.greenFee18 },
+    { id: itemIds.greenFee9, name: '9-Hole Green Fee', sku: 'GF-9', type: 'green_fee', priceCents: 4500, costCents: 0, taxRate: 0, catName: '9-Hole Rates', catId: catIds.greenFee9 },
+    { id: itemIds.cartRental, name: 'Cart Rental', sku: 'RENT-001', type: 'rental', priceCents: 2500, costCents: 0, taxRate: 0, catName: 'Cart Rental', catId: catIds.cartRental },
   ];
 
   // Order templates — realistic combos customers typically buy

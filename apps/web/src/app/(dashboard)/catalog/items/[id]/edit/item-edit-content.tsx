@@ -108,6 +108,11 @@ export default function EditItemPage() {
     const errs: Record<string, string> = {};
     if (!name.trim()) errs.name = 'Name is required';
     if (defaultPrice == null || defaultPrice < 0) errs.defaultPrice = 'Price is required';
+    if (typeGroup === 'fnb' || typeGroup === 'retail') {
+      if (!deptId) errs.deptId = 'Department is required';
+      if (!subDeptId) errs.subDeptId = 'Sub-department is required';
+      if (!categoryId) errs.categoryId = 'Category is required';
+    }
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
@@ -150,7 +155,7 @@ export default function EditItemPage() {
     } finally {
       setSaving(false);
     }
-  }, [item, name, sku, description, categoryId, defaultPrice, cost, isTrackable, typeGroup, allowSpecialInstructions, allowedFractions, defaultModifierGroupIds, optionalModifierGroupIds, optionSets, durationMinutes, requiresBooking, itemId, router, toast]);
+  }, [item, name, sku, description, deptId, subDeptId, categoryId, defaultPrice, cost, isTrackable, typeGroup, allowSpecialInstructions, allowedFractions, defaultModifierGroupIds, optionalModifierGroupIds, optionSets, durationMinutes, requiresBooking, itemId, router, toast]);
 
   if (itemLoading) {
     return (
@@ -228,25 +233,25 @@ export default function EditItemPage() {
           </FormField>
 
           <div className="grid grid-cols-3 gap-3">
-            <FormField label="Department">
+            <FormField label="Department" required={typeGroup === 'fnb' || typeGroup === 'retail'} error={errors.deptId}>
               <Select
                 options={[{ value: '', label: 'None' }, ...departments.map((d) => ({ value: d.id, label: d.name }))]}
                 value={deptId}
-                onChange={(v) => { setDeptId(v as string); setSubDeptId(''); setCategoryId(''); }}
+                onChange={(v) => { setDeptId(v as string); setSubDeptId(''); setCategoryId(''); setErrors((p) => ({ ...p, deptId: '', subDeptId: '', categoryId: '' })); }}
               />
             </FormField>
-            <FormField label="Sub-Department">
+            <FormField label="Sub-Department" required={typeGroup === 'fnb' || typeGroup === 'retail'} error={errors.subDeptId}>
               <Select
                 options={[{ value: '', label: 'None' }, ...subDepartments.map((s) => ({ value: s.id, label: s.name }))]}
                 value={subDeptId}
-                onChange={(v) => { setSubDeptId(v as string); setCategoryId(''); }}
+                onChange={(v) => { setSubDeptId(v as string); setCategoryId(''); setErrors((p) => ({ ...p, subDeptId: '', categoryId: '' })); }}
               />
             </FormField>
-            <FormField label="Category">
+            <FormField label="Category" required={typeGroup === 'fnb' || typeGroup === 'retail'} error={errors.categoryId}>
               <Select
                 options={[{ value: '', label: 'None' }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
                 value={categoryId}
-                onChange={(v) => setCategoryId(v as string)}
+                onChange={(v) => { setCategoryId(v as string); setErrors((p) => ({ ...p, categoryId: '' })); }}
               />
             </FormField>
           </div>

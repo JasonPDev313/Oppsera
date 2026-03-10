@@ -117,11 +117,13 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
     return [{ key: '__all__', label: '', tabs: filteredTabs }];
   }, [mgr.groupedTabs, filteredTabs]);
 
-  // Flat list of IDs actually rendered on screen (respects groupBy + local search).
-  // Used to scope select-all and invert operations to visible tabs only.
+  // Flat list of IDs actually rendered on screen (respects groupBy + local search + collapsed groups).
+  // Collapsed groups are not rendered so their tabs must not be included in select-all.
   const allDisplayedTabIds = useMemo(
-    () => displayGroups.flatMap((g) => g.tabs.map((t) => t.id)),
-    [displayGroups],
+    () => displayGroups
+      .filter((g) => !collapsedGroups.has(g.key))
+      .flatMap((g) => g.tabs.map((t) => t.id)),
+    [displayGroups, collapsedGroups],
   );
 
   function toggleGroup(key: string) {
@@ -162,8 +164,9 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
   }
 
   // Fix #8: PIN bridge — captures approver info into state, returns boolean for dialog.
-  // Re-throws rate-limit ApiErrors so the dialog can show a distinct "Too many attempts"
-  // message instead of the generic "Invalid PIN".
+  // Re-throws rate-limit ApiErrors so the dialog can show a distinct "Too many attempts" message.
+  // Throws a plain Error with code 'NO_ELIGIBLE_MANAGER' when no manager has a PIN configured,
+  // so the dialog can show a more helpful message instead of "Invalid PIN".
   async function pinBridge(pin: string, actionType: string): Promise<boolean> {
     try {
       const result = await mgr.verifyPin(pin, mapActionType(actionType));
@@ -171,12 +174,20 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
         setVerifiedApprover({ userId: result.userId, userName: result.userName });
         return true;
       }
-      return false;
+      if (result.reason === 'no_eligible_manager') {
+        const err = new Error('No manager override PIN is configured for this location. Set one in User Management.');
+        (err as Error & { code: string }).code = 'NO_ELIGIBLE_MANAGER';
+        throw err;
+      }
+      return false; // wrong_pin — caller shows "Invalid PIN"
     } catch (err) {
       if (err instanceof ApiError && (err.statusCode === 429 || err.code === 'RATE_LIMITED')) {
-        throw err; // propagate so BulkActionConfirmDialog can show the right message
+        throw err; // propagate rate-limit so dialog shows "Too many attempts"
       }
-      return false; // wrong PIN or transient error — caller shows generic message
+      if (err instanceof Error && (err as Error & { code?: string }).code === 'NO_ELIGIBLE_MANAGER') {
+        throw err; // propagate so dialog shows configuration message
+      }
+      return false; // wrong PIN or transient error
     }
   }
 

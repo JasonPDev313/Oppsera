@@ -8,7 +8,7 @@ const MANAGER_ROLES = ['owner', 'manager', 'supervisor'];
 
 export type VerifyPinResult =
   | { verified: true; userId: string; userName: string; role: string }
-  | { verified: false; userId: ''; userName: ''; role: '' };
+  | { verified: false; userId: ''; userName: ''; role: ''; reason: 'wrong_pin' | 'no_eligible_manager' };
 
 /**
  * Verify a manager's POS override PIN for authorizing bulk tab operations.
@@ -43,6 +43,11 @@ export async function verifyManagerPin(
         isNotNull(userSecurity.posOverridePinHash),
       ));
 
+    // No eligible managers with a PIN configured — distinct from wrong PIN
+    if (managerRows.length === 0) {
+      return { verified: false, userId: '', userName: '', role: '', reason: 'no_eligible_manager' };
+    }
+
     // Verify against each manager's hashed PIN (timing-safe)
     for (const m of managerRows) {
       if (!m.pinHash) continue;
@@ -58,6 +63,6 @@ export async function verifyManagerPin(
 
     // Return a structured failure — do NOT throw. Throwing causes apiFetch to
     // see a 401 and trigger a spurious token-refresh cycle on every wrong PIN.
-    return { verified: false, userId: '', userName: '', role: '' };
+    return { verified: false, userId: '', userName: '', role: '', reason: 'wrong_pin' };
   });
 }

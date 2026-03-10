@@ -34,27 +34,37 @@ export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
 
 // === Item ===
 
-export const createItemSchema = z.object({
-  sku: z
-    .string()
-    .min(1)
-    .max(50)
-    .transform((v) => v.trim().toUpperCase())
-    .optional(),
-  barcode: z.string().min(1).max(100).trim().optional(),
-  name: z.string().min(1).max(200).transform((v) => v.trim()),
-  description: z.string().max(1000).optional(),
-  itemType: z.enum(['retail', 'food', 'beverage', 'service', 'green_fee', 'rental']),
-  defaultPrice: z.number().positive().multipleOf(0.01),
-  cost: z.number().nonnegative().multipleOf(0.01).optional(),
-  categoryId: z.string().min(1).optional(),
-  taxCategoryId: z.string().min(1).optional(),
-  priceIncludesTax: z.boolean().default(false),
-  isTrackable: z.boolean().default(false),
-  metadata: z.record(z.unknown()).optional(),
-  modifierGroupIds: z.array(z.string().min(1)).optional().default([]),
-  defaultModifierGroupIds: z.array(z.string().min(1)).optional(),
-});
+export const createItemSchema = z
+  .object({
+    sku: z
+      .string()
+      .min(1)
+      .max(50)
+      .transform((v) => v.trim().toUpperCase())
+      .optional(),
+    barcode: z.string().min(1).max(100).trim().optional(),
+    name: z.string().min(1).max(200).transform((v) => v.trim()),
+    description: z.string().max(1000).optional(),
+    itemType: z.enum(['retail', 'food', 'beverage', 'service', 'green_fee', 'rental']),
+    defaultPrice: z.number().positive().multipleOf(0.01),
+    cost: z.number().nonnegative().multipleOf(0.01).optional(),
+    categoryId: z.string().min(1).optional(),
+    taxCategoryId: z.string().min(1).optional(),
+    priceIncludesTax: z.boolean().default(false),
+    isTrackable: z.boolean().default(false),
+    metadata: z.record(z.unknown()).optional(),
+    modifierGroupIds: z.array(z.string().min(1)).optional().default([]),
+    defaultModifierGroupIds: z.array(z.string().min(1)).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (['retail', 'food', 'beverage'].includes(data.itemType) && !data.categoryId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Category is required for F&B and retail items',
+        path: ['categoryId'],
+      });
+    }
+  });
 export type CreateItemInput = z.infer<typeof createItemSchema>;
 
 export const updateItemSchema = z.object({

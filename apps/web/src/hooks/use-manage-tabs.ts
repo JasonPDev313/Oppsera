@@ -59,6 +59,7 @@ interface VerifyPinResult {
   verified: boolean;
   userId: string;
   userName: string;
+  reason?: 'wrong_pin' | 'no_eligible_manager';
 }
 
 interface ManagerOverrideItem {

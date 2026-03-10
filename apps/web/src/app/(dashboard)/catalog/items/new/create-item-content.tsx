@@ -415,6 +415,9 @@ export default function CreateItemContent() {
 
     switch (selectedType) {
       case 'fnb': {
+        if (!departmentId) fieldErrors.departmentId = 'Department is required';
+        if (!subDepartmentId) fieldErrors.subDepartmentId = 'Sub-department is required';
+        if (!categoryId) fieldErrors.categoryId = 'Category is required';
         const fnbResult = fnbSchema.safeParse({
           subType: fnbSubType,
           allowSpecialInstructions,
@@ -438,6 +441,9 @@ export default function CreateItemContent() {
         break;
       }
       case 'retail': {
+        if (!departmentId) fieldErrors.departmentId = 'Department is required';
+        if (!subDepartmentId) fieldErrors.subDepartmentId = 'Sub-department is required';
+        if (!categoryId) fieldErrors.categoryId = 'Category is required';
         const retailResult = retailSchema.safeParse({
           trackInventory,
           optionSets,
@@ -648,41 +654,51 @@ export default function CreateItemContent() {
               </FormField>
 
               {/* Department / Sub-Department / Category cascade */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <FormField label="Department">
-                  <Select
-                    options={deptOptions}
-                    value={departmentId}
-                    onChange={(v) => {
-                      setDepartmentId(v as string);
-                      setSubDepartmentId('');
-                      setCategoryId('');
-                    }}
-                    placeholder="Select..."
-                  />
-                </FormField>
+              {(() => {
+                const hierarchyRequired = selectedType === 'fnb' || selectedType === 'retail';
+                return (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <FormField label="Department" required={hierarchyRequired} error={errors.departmentId}>
+                      <Select
+                        options={deptOptions}
+                        value={departmentId}
+                        onChange={(v) => {
+                          setDepartmentId(v as string);
+                          setSubDepartmentId('');
+                          setCategoryId('');
+                          setErrors((p) => ({ ...p, departmentId: '', subDepartmentId: '', categoryId: '' }));
+                        }}
+                        placeholder="Select..."
+                      />
+                    </FormField>
 
-                <FormField label="Sub-Department">
-                  <Select
-                    options={subDeptOptions}
-                    value={subDepartmentId}
-                    onChange={(v) => {
-                      setSubDepartmentId(v as string);
-                      setCategoryId('');
-                    }}
-                    placeholder="Select..."
-                  />
-                </FormField>
+                    <FormField label="Sub-Department" required={hierarchyRequired} error={errors.subDepartmentId}>
+                      <Select
+                        options={subDeptOptions}
+                        value={subDepartmentId}
+                        onChange={(v) => {
+                          setSubDepartmentId(v as string);
+                          setCategoryId('');
+                          setErrors((p) => ({ ...p, subDepartmentId: '', categoryId: '' }));
+                        }}
+                        placeholder="Select..."
+                      />
+                    </FormField>
 
-                <FormField label="Category">
-                  <Select
-                    options={catOptions}
-                    value={categoryId}
-                    onChange={(v) => setCategoryId(v as string)}
-                    placeholder="Select..."
-                  />
-                </FormField>
-              </div>
+                    <FormField label="Category" required={hierarchyRequired} error={errors.categoryId}>
+                      <Select
+                        options={catOptions}
+                        value={categoryId}
+                        onChange={(v) => {
+                          setCategoryId(v as string);
+                          setErrors((p) => ({ ...p, categoryId: '' }));
+                        }}
+                        placeholder="Select..."
+                      />
+                    </FormField>
+                  </div>
+                );
+              })()}
 
               {/* Price fields — hidden for Package type since it has its own fixed price */}
               {selectedType !== 'package' && (

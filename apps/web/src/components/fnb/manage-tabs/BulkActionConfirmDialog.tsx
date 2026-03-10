@@ -132,6 +132,8 @@ export function BulkActionConfirmDialog({
     } catch (err) {
       if (err instanceof ApiError && (err.statusCode === 429 || err.code === 'RATE_LIMITED')) {
         setPinError('Too many attempts. Please wait before trying again.');
+      } else if (err instanceof Error && (err as Error & { code?: string }).code === 'NO_ELIGIBLE_MANAGER') {
+        setPinError(err.message);
       } else {
         setPinError('Verification failed. Please try again.');
       }
