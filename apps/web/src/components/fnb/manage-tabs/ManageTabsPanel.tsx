@@ -637,8 +637,9 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
           onClose={() => {
             setBulkAction(null);
             setVerifiedApprover(null);
-            mgr.refreshTabs();
-            mgr.clearSelection();
+            // refreshTabs + clearSelection already called by bulkVoid/bulkClose in the hook;
+            // only refresh here for the case where the dialog was cancelled without executing.
+            if (!mgr.isMutating) mgr.refreshTabs();
           }}
           actionType={bulkAction}
           selectedCount={selCount}
@@ -661,8 +662,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
             setTransferTargetId(null);
             setTransferTargetName(null);
             setVerifiedApprover(null);
-            mgr.refreshTabs();
-            mgr.clearSelection();
+            if (!mgr.isMutating) mgr.refreshTabs();
           }}
           actionType="transfer"
           selectedCount={selCount}

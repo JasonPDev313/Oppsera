@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, X, CheckCircle } from 'lucide-react';
+import { ApiError } from '@/lib/api-client';
 import { InlinePinPad } from './InlinePinPad';
 
 interface EmergencyCleanupDialogProps {
@@ -78,8 +79,12 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
         setPinError('Invalid PIN');
       }
       return false;
-    } catch {
-      setPinError('Verification failed');
+    } catch (err) {
+      if (err instanceof ApiError && (err.statusCode === 429 || err.code === 'RATE_LIMITED')) {
+        setPinError('Too many attempts. Please wait before trying again.');
+      } else {
+        setPinError('Verification failed');
+      }
       return false;
     }
   }

@@ -55,12 +55,9 @@ interface EmergencyCleanupResult {
   staleTabsAbandoned: number;
 }
 
-interface VerifyPinResult {
-  verified: boolean;
-  userId: string;
-  userName: string;
-  reason?: 'wrong_pin' | 'no_eligible_manager';
-}
+type VerifyPinResult =
+  | { verified: true; userId: string; userName: string; role: string }
+  | { verified: false; userId: ''; userName: ''; role: ''; reason: 'wrong_pin' | 'no_eligible_manager' };
 
 interface ManagerOverrideItem {
   id: string;
@@ -118,7 +115,7 @@ export function useManageTabs(locationId: string) {
 
   // ─── Tab listing ──────────────────────────────────────────────
   const [tabs, setTabs] = useState<ManageTabItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start true — first render shows spinner, not "No tabs found"
   const [error, setError] = useState<string | null>(null);
   const [filters, setFiltersRaw] = useState<ManageTabsFilters>({
     includeAmounts: true,
@@ -205,8 +202,14 @@ export function useManageTabs(locationId: string) {
   const refreshTabsRef = useRef(refreshTabs);
   refreshTabsRef.current = refreshTabs;
 
+  // Debounce realtime refreshes — bulk operations fire many events in quick succession.
+  // Without debounce, 24 voided tabs = 24 rapid API calls → visible flicker.
+  const realtimeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    return onChannelRefresh('tab', () => { refreshTabsRef.current(); });
+    return onChannelRefresh('tab', () => {
+      if (realtimeDebounce.current) clearTimeout(realtimeDebounce.current);
+      realtimeDebounce.current = setTimeout(() => { refreshTabsRef.current(); }, 500);
+    });
   }, []);
 
   // ─── Polling (15s base — backs off exponentially on repeated errors) ─
