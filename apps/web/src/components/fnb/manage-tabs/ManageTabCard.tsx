@@ -68,7 +68,7 @@ export function ManageTabCard({ tab, selected, onToggle, isStale }: ManageTabCar
           <div
             className="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors"
             style={{
-              borderColor: selected ? 'var(--fnb-accent-primary)' : 'var(--fnb-border-subtle)',
+              borderColor: selected ? 'var(--fnb-accent-primary)' : 'rgba(148, 163, 184, 0.3)',
               background: selected ? 'var(--fnb-accent-primary)' : 'transparent',
             }}
           >

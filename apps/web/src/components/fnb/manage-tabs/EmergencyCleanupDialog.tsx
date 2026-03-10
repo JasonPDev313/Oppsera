@@ -72,7 +72,11 @@ export function EmergencyCleanupDialog({ open, onClose, onExecute, verifyPin }: 
         await executeCleanup(res.userId);
         return true;
       }
-      setPinError('Invalid PIN');
+      if ((res as { reason?: string }).reason === 'no_eligible_manager') {
+        setPinError('No manager override PIN is configured for this location. Set one in User Management.');
+      } else {
+        setPinError('Invalid PIN');
+      }
       return false;
     } catch {
       setPinError('Verification failed');

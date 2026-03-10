@@ -1,7 +1,7 @@
 'use client';
 
 import { lazy, memo, Suspense, useCallback, useMemo, useState } from 'react';
-import { Clock, Edit3, Loader2, Plus, RefreshCw, UserPlus } from 'lucide-react';
+import { Clock, Edit3, Loader2, Plus, RefreshCw, ShieldCheck, UserPlus } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useUsers, useRoles, useMyLocations, useInvalidateSettingsData } from '@/hooks/use-settings-data';
 import type { ManagedUser, RoleOption } from '@/hooks/use-settings-data';
@@ -75,7 +75,12 @@ const UserRow = memo(function UserRow({ user, canManage, onEdit, onDeactivate, o
   const displayName = user.displayName || `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
   return (
     <tr>
-      <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-foreground">{displayName}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          {displayName}
+          {user.hasOverridePin && <span title="Manager override PIN set"><ShieldCheck className="h-3.5 w-3.5 text-green-500" /></span>}
+        </span>
+      </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">{user.email}</td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">{user.roles.map((r) => r.name).join(', ') || 'None'}</td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">{user.status}</td>

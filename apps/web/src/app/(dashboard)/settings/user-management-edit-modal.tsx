@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Loader2, X } from 'lucide-react';
+import { CheckCircle, ChevronDown, Loader2, X } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import type { PMSProperty } from '@/hooks/use-pms';
 import { useToast } from '@/components/ui/toast';
@@ -26,6 +26,8 @@ interface UserDetail {
   externalPayrollEmployeeId: string | null;
   roles: Array<{ id: string; name: string }>;
   locations: Array<{ id: string; name: string }>;
+  hasOverridePin: boolean;
+  hasLoginPin: boolean;
 }
 
 interface EditForm {
@@ -61,6 +63,7 @@ export default function EditUserModal({ userId, roles, locations, onClose, onSav
   const [form, setForm] = useState<EditForm>(emptyForm);
   const original = useRef<EditForm>(emptyForm);
   const [showPasswords, setShowPasswords] = useState(false);
+  const [pinStatus, setPinStatus] = useState({ hasOverridePin: false, hasLoginPin: false });
   const backdropRef = useRef<HTMLDivElement>(null);
 
   // Housekeeper designations
@@ -102,6 +105,7 @@ export default function EditUserModal({ userId, roles, locations, onClose, onSav
         };
         original.current = populated;
         setForm(populated);
+        setPinStatus({ hasOverridePin: u.hasOverridePin ?? false, hasLoginPin: u.hasLoginPin ?? false });
         setHkProperties(propsRes.data);
         const activeHk = hkRes.data.find((h) => h.isActive);
         setDesignations({
@@ -249,8 +253,18 @@ export default function EditUserModal({ userId, roles, locations, onClose, onSav
               </div>
             </div>
           )}
-          <input placeholder="Override PIN, 4–8 digits (blank = keep)" inputMode="numeric" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={form.posOverridePin} onChange={(e) => setForm((p) => ({ ...p, posOverridePin: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
-          <input placeholder="Unique ID PIN, 4 digits (blank = keep)" inputMode="numeric" className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={form.uniqueIdentificationPin} onChange={(e) => setForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value.replace(/\D/g, '').slice(0, 4) }))} />
+          <div className="relative">
+            <input placeholder={pinStatus.hasOverridePin ? 'Override PIN set — enter new to change' : 'Override PIN, 4–8 digits'} inputMode="numeric" className={`w-full rounded-lg border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none pr-8 ${pinStatus.hasOverridePin ? 'border-green-600/40' : 'border-border'}`} value={form.posOverridePin} onChange={(e) => setForm((p) => ({ ...p, posOverridePin: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
+            {pinStatus.hasOverridePin && !form.posOverridePin && (
+              <CheckCircle className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+            )}
+          </div>
+          <div className="relative">
+            <input placeholder={pinStatus.hasLoginPin ? 'Unique ID PIN set — enter new to change' : 'Unique ID PIN, 4 digits'} inputMode="numeric" className={`w-full rounded-lg border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none pr-8 ${pinStatus.hasLoginPin ? 'border-green-600/40' : 'border-border'}`} value={form.uniqueIdentificationPin} onChange={(e) => setForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value.replace(/\D/g, '').slice(0, 4) }))} />
+            {pinStatus.hasLoginPin && !form.uniqueIdentificationPin && (
+              <CheckCircle className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+            )}
+          </div>
           {pinError && <p className="md:col-span-2 text-xs text-red-500">{pinError}</p>}
           <div className="rounded-lg border border-border bg-muted px-3 py-2.5 text-sm">
             <label htmlFor="edit-user-tab-color" className="mb-1 block text-xs text-muted-foreground">User Tab Color</label>

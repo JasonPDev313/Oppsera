@@ -147,6 +147,10 @@
   --fnb-delta-border: #ef4444;
   --fnb-delta-text: #fca5a5;
 
+  /* ── Accent / Brand Color ──────────────────────────────────────── */
+  --fnb-accent-primary: #6366f1;                                /* indigo-500 */
+  --fnb-accent-primary-muted: rgba(99, 102, 241, 0.15);         /* 15% indigo tint */
+
   /* ── Action Button Colors (brand colors, same in dark/light) ──── */
   --fnb-action-send: #2196F3;
   --fnb-action-fire: #FF9800;

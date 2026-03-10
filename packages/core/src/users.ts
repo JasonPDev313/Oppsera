@@ -1,5 +1,5 @@
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
-import { and, desc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import {
   db,
   withTenant,
@@ -289,9 +289,11 @@ export async function listUsers(input: { tenantId: string; limit?: number; curso
         externalPayrollEmployeeId: users.externalPayrollEmployeeId,
         passwordResetRequired: users.passwordResetRequired,
         lastLoginAt: users.lastLoginAt,
+        hasOverridePin: isNotNull(userSecurity.posOverridePinHash).as('has_override_pin'),
       })
       .from(memberships)
       .innerJoin(users, eq(memberships.userId, users.id))
+      .leftJoin(userSecurity, eq(userSecurity.userId, users.id))
       .where(where)
       .orderBy(desc(users.id))
       .limit(limit + 1);
@@ -356,7 +358,7 @@ export async function getUserById(input: { tenantId: string; userId: string }) {
     });
     if (!user) throw new NotFoundError('User', input.userId);
 
-    const [roleRows, locationRows] = await Promise.all([
+    const [roleRows, locationRows, secRow] = await Promise.all([
       tx
         .select({ id: roles.id, name: roles.name })
         .from(userRoles)
@@ -367,6 +369,14 @@ export async function getUserById(input: { tenantId: string; userId: string }) {
         .from(userLocations)
         .innerJoin(locations, eq(userLocations.locationId, locations.id))
         .where(and(eq(userLocations.tenantId, input.tenantId), eq(userLocations.userId, input.userId))),
+      tx
+        .select({
+          hasOverridePin: isNotNull(userSecurity.posOverridePinHash).as('has_override_pin'),
+          hasLoginPin: isNotNull(userSecurity.uniqueLoginPinHash).as('has_login_pin'),
+        })
+        .from(userSecurity)
+        .where(eq(userSecurity.userId, input.userId))
+        .then((rows) => rows[0] ?? null),
     ]);
 
     // Strip sensitive fields before returning
@@ -376,6 +386,8 @@ export async function getUserById(input: { tenantId: string; userId: string }) {
       phone: decryptField(safeUser.phone),
       roles: roleRows,
       locations: locationRows,
+      hasOverridePin: secRow?.hasOverridePin ?? false,
+      hasLoginPin: secRow?.hasLoginPin ?? false,
     };
   });
 }

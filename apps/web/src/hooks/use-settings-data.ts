@@ -25,6 +25,7 @@ export interface ManagedUser {
   lastLoginAt: string | null;
   roles: Array<{ id: string; name: string }>;
   locations: Array<{ id: string; name: string }>;
+  hasOverridePin?: boolean;
 }
 
 export interface LocationOption {
