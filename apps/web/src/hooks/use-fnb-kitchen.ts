@@ -523,3 +523,92 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
 
   return { stations, isLoading, isActing, createStation, updateStation, deactivateStation, deleteStation, refresh: fetchStations };
 }
+
+// ── KDS Location Counts Hook ─────────────────────────────────────
+
+interface KdsLocationCount {
+  locationId: string;
+  activeTicketCount: number;
+}
+
+/**
+ * Fetches active KDS ticket counts per location for selector badges.
+ * Polls every 15s so counts stay fresh without hammering the API.
+ */
+export function useKdsLocationCounts(locationIds: string[]) {
+  const [counts, setCounts] = useState<Map<string, number>>(new Map());
+  const idsKey = locationIds.join(',');
+
+  const fetchCounts = useCallback(async (signal?: AbortSignal) => {
+    if (locationIds.length === 0) return;
+    try {
+      const json = await apiFetch<{ data: KdsLocationCount[] }>(
+        `/api/v1/fnb/kitchen/location-counts?locationIds=${idsKey}`,
+        { signal },
+      );
+      const map = new Map<string, number>();
+      for (const c of json.data) {
+        map.set(c.locationId, c.activeTicketCount);
+      }
+      setCounts(map);
+    } catch {
+      // silent — badge counts are non-critical
+    }
+  }, [idsKey]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchCounts(controller.signal);
+    const interval = setInterval(() => fetchCounts(controller.signal), 15_000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
+  }, [fetchCounts]);
+
+  return counts;
+}
+
+// ── KDS Station Counts Hook ──────────────────────────────────────
+
+interface KdsStationCount {
+  stationId: string;
+  activeTicketCount: number;
+}
+
+/**
+ * Fetches active KDS ticket counts per station for station selector badges.
+ * Polls every 15s.
+ */
+export function useKdsStationCounts(locationId: string) {
+  const [counts, setCounts] = useState<Map<string, number>>(new Map());
+
+  const fetchCounts = useCallback(async (signal?: AbortSignal) => {
+    if (!locationId) return;
+    try {
+      const json = await apiFetch<{ data: KdsStationCount[] }>(
+        `/api/v1/fnb/kitchen/station-counts?locationId=${locationId}`,
+        { signal },
+      );
+      const map = new Map<string, number>();
+      for (const c of json.data) {
+        map.set(c.stationId, c.activeTicketCount);
+      }
+      setCounts(map);
+    } catch {
+      // silent — badge counts are non-critical
+    }
+  }, [locationId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchCounts(controller.signal);
+    const interval = setInterval(() => fetchCounts(controller.signal), 15_000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
+  }, [fetchCounts]);
+
+  return counts;
+}

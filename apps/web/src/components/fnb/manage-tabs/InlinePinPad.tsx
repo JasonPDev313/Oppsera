@@ -30,7 +30,7 @@ export function InlinePinPad({
   const [isVerifying, setIsVerifying] = useState(false);
   const [shake, setShake] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [failureCount, setFailureCount] = useState(0);
+  const [_failureCount, setFailureCount] = useState(0);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);

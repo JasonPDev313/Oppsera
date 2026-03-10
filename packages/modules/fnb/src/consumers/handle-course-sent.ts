@@ -1,10 +1,11 @@
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { fnbTabs, fnbTabItems, fnbTabCourses } from '@oppsera/db';
 import { logger } from '@oppsera/core/observability';
 import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from '../commands/create-kitchen-ticket';
+import { recordKdsSend, markKdsSendSent } from '../commands/record-kds-send';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
 export interface CourseSentConsumerData {
@@ -202,6 +203,23 @@ export async function handleCourseSent(
       routedItemCount: routingResults.filter((r) => r.stationId).length,
     });
 
+    // 7b. Pre-fetch station names for send tracking (non-critical, batch query)
+    const stationNameMap = new Map<string, string>();
+    try {
+      const stationIds = Array.from(stationGroups.keys());
+      const stationNameRows = await withTenant(tenantId, (tx) =>
+        tx.execute(sql`
+          SELECT id, display_name FROM fnb_kitchen_stations
+          WHERE tenant_id = ${tenantId} AND id IN (${sql.join(stationIds.map((id) => sql`${id}`), sql`, `)})
+        `),
+      );
+      for (const row of Array.from(stationNameRows as Iterable<Record<string, unknown>>)) {
+        stationNameMap.set(row.id as string, (row.display_name as string) ?? 'Unknown');
+      }
+    } catch {
+      // Non-critical — send tracking will use fallback names
+    }
+
     // 8. Create one kitchen ticket per station (serial to avoid pool exhaustion — gotcha #466).
     // Each ticket has a deterministic idempotency key (tab+course+station),
     // so replays won't create duplicates.
@@ -216,7 +234,7 @@ export async function handleCourseSent(
     for (const [stationId, ticketItems] of stationGroups) {
       try {
         const clientRequestId = `kds-course-${data.tabId}-${data.courseNumber}-${stationId}`;
-        await createKitchenTicket(syntheticCtx, {
+        const ticket = await createKitchenTicket(syntheticCtx, {
           clientRequestId,
           tabId: data.tabId,
           orderId: tab.primaryOrderId ?? undefined,
@@ -225,6 +243,38 @@ export async function handleCourseSent(
           channel: 'pos',
           items: ticketItems,
         });
+
+        // Record send tracking so orders appear in KDS Order Status
+        try {
+          const sendToken = `${ticket.id}-${stationId}-${Date.now()}`;
+          const tracked = await recordKdsSend({
+            tenantId,
+            locationId,
+            orderId: tab.primaryOrderId ?? undefined,
+            ticketId: ticket.id,
+            ticketNumber: ticket.ticketNumber,
+            courseId: undefined,
+            courseNumber: data.courseNumber,
+            stationId,
+            stationName: stationNameMap.get(stationId) ?? stationId,
+            employeeId: 'system',
+            employeeName: 'System',
+            sendToken,
+            sendType: 'initial',
+            routingReason: 'routing_rule',
+            itemCount: ticketItems.length,
+            orderType: tab.tabType ?? undefined,
+            tableName: undefined,
+            guestName: undefined,
+            businessDate: tab.businessDate,
+          });
+          await markKdsSendSent(tenantId, tracked.sendToken);
+        } catch (trackErr) {
+          logger.warn('[kds] handleCourseSent: send tracking failed (non-critical)', {
+            domain: 'kds', tenantId, ticketId: ticket.id, stationId,
+            error: { message: trackErr instanceof Error ? trackErr.message : String(trackErr) },
+          });
+        }
       } catch (err) {
         // Log but don't throw — idempotency duplicate is expected on replay
         logger.warn('[kds] handleCourseSent: failed to create ticket for station', {

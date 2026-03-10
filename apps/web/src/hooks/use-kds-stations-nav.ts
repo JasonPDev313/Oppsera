@@ -8,7 +8,7 @@ import type { SubNavItem } from '@/lib/navigation';
 
 /**
  * Fetches KDS stations and returns them as SubNavItem[] for sidebar injection.
- * Each active non-expo station becomes a clickable nav link under Kitchen Display.
+ * Each active station becomes a clickable nav link under Kitchen Display.
  */
 export function useKdsStationsForNav(locationId?: string): SubNavItem[] {
   const [stations, setStations] = useState<FnbStation[]>([]);
@@ -33,11 +33,11 @@ export function useKdsStationsForNav(locationId?: string): SubNavItem[] {
 
   return useMemo(() => {
     return stations
-      .filter((s) => s.stationType !== 'expo' && s.isActive)
+      .filter((s) => s.isActive)
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((s) => ({
         name: s.displayName || s.name,
-        href: `/kds/${s.id}`,
+        href: s.stationType === 'expo' ? '/expo' : `/kds/${s.id}`,
         icon: Monitor,
         requiredPermission: 'kds.view',
       }));

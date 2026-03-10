@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
-import { useStations } from '@/hooks/use-fnb-kitchen';
+import { useStations, useKdsLocationCounts, useKdsStationCounts } from '@/hooks/use-fnb-kitchen';
 import { ArrowLeft, MapPin, AlertTriangle, Settings2 } from 'lucide-react';
 
 const STATION_TYPE_COLORS: Record<string, string> = {
@@ -32,6 +32,36 @@ export default function KdsSelectorContent() {
     return locations?.[0]?.id ?? '';
   });
   const { stations, isLoading } = useStations({ locationId });
+  const locationCounts = useKdsLocationCounts(locations?.map((l) => l.id) ?? []);
+  const stationCounts = useKdsStationCounts(locationId);
+  const autoSelectedRef = useRef(false);
+
+  // Auto-select the location with the most active tickets on first load
+  useEffect(() => {
+    if (autoSelectedRef.current || locationCounts.size === 0) return;
+    // Don't override URL-specified location
+    const fromUrl = searchParams.get('locationId');
+    if (fromUrl) { autoSelectedRef.current = true; return; }
+    autoSelectedRef.current = true;
+    let bestId = '';
+    let bestCount = 0;
+    for (const [id, count] of locationCounts) {
+      if (count > bestCount) { bestId = id; bestCount = count; }
+    }
+    if (bestId && bestCount > 0) setLocationId(bestId);
+  }, [locationCounts, searchParams]);
+
+  // Count tickets at OTHER locations (for persistent badge + pulse)
+  const otherLocationTickets = useMemo(() => {
+    let total = 0;
+    for (const [id, count] of locationCounts) {
+      if (id !== locationId) total += count;
+    }
+    return total;
+  }, [locationCounts, locationId]);
+
+  // Total tickets at current location
+  const currentLocationTickets = locationCounts.get(locationId) ?? 0;
 
   const locationName = locations?.find((l) => l.id === locationId)?.name ?? '';
   const hasMultipleLocations = (locations?.length ?? 0) > 1;
@@ -63,20 +93,43 @@ export default function KdsSelectorContent() {
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4" style={{ color: 'var(--fnb-text-muted)' }} />
             {hasMultipleLocations ? (
-              <select
-                value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
-                className="rounded-lg border px-3 py-1.5 text-sm font-medium"
-                style={{
-                  backgroundColor: 'var(--fnb-bg-elevated)',
-                  borderColor: 'rgba(148, 163, 184, 0.15)',
-                  color: 'var(--fnb-text-primary)',
-                }}
-              >
-                {locations?.map((loc) => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
-                ))}
-              </select>
+              <>
+                <select
+                  value={locationId}
+                  onChange={(e) => setLocationId(e.target.value)}
+                  className="rounded-lg border px-3 py-1.5 text-sm font-medium"
+                  style={{
+                    backgroundColor: 'var(--fnb-bg-elevated)',
+                    borderColor: 'rgba(148, 163, 184, 0.15)',
+                    color: 'var(--fnb-text-primary)',
+                  }}
+                >
+                  {locations?.map((loc) => {
+                    const cnt = locationCounts.get(loc.id) ?? 0;
+                    return (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}{cnt > 0 ? ` (${cnt})` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+                {currentLocationTickets > 0 && (
+                  <span
+                    className="rounded-full px-2 py-0.5 text-xs font-bold"
+                    style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#6366f1' }}
+                  >
+                    {currentLocationTickets}
+                  </span>
+                )}
+                {otherLocationTickets > 0 && (
+                  <span
+                    className="rounded-full px-1.5 py-0.5 text-[10px] font-bold animate-pulse"
+                    style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
+                  >
+                    {otherLocationTickets} elsewhere
+                  </span>
+                )}
+              </>
             ) : (
               <span className="text-sm font-medium" style={{ color: 'var(--fnb-text-secondary)' }}>
                 {locationName}
@@ -138,69 +191,95 @@ export default function KdsSelectorContent() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-3xl mx-auto">
-            {hasExpo && (
-              <button
-                type="button"
-                onClick={() => router.push('/expo')}
-                className="flex flex-col items-center justify-center rounded-xl p-6 transition-colors hover:opacity-80"
-                style={{
-                  backgroundColor: 'var(--fnb-bg-surface)',
-                  border: '2px solid rgba(20, 184, 166, 0.4)',
-                  minHeight: '140px',
-                }}
-              >
-                <div
-                  className="flex items-center justify-center rounded-full mb-3"
+            {hasExpo && (() => {
+              // Expo shows all tickets across all stations
+              const expoCount = currentLocationTickets;
+              return (
+                <button
+                  type="button"
+                  onClick={() => router.push('/expo')}
+                  className="relative flex flex-col items-center justify-center rounded-xl p-6 transition-colors hover:opacity-80"
                   style={{
-                    width: '48px',
-                    height: '48px',
-                    backgroundColor: '#14b8a6',
-                    color: '#fff',
+                    backgroundColor: 'var(--fnb-bg-surface)',
+                    border: '2px solid rgba(20, 184, 166, 0.4)',
+                    minHeight: '140px',
                   }}
                 >
-                  <span className="text-lg font-bold">E</span>
-                </div>
-                <span className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
-                  Expo
-                </span>
-                <span className="text-[10px] uppercase mt-1" style={{ color: '#14b8a6' }}>
-                  All Stations
-                </span>
-              </button>
-            )}
-            {kdsStations.map((station) => (
-              <button
-                key={station.id}
-                type="button"
-                onClick={() => router.push(`/kds/${station.id}`)}
-                className="flex flex-col items-center justify-center rounded-xl p-6 transition-colors hover:opacity-80"
-                style={{
-                  backgroundColor: 'var(--fnb-bg-surface)',
-                  border: '1px solid rgba(148, 163, 184, 0.15)',
-                  minHeight: '140px',
-                }}
-              >
-                <div
-                  className="flex items-center justify-center rounded-full mb-3"
-                  style={{
-                    width: '48px',
-                    height: '48px',
-                    backgroundColor: station.color ?? getStationColor(station.stationType),
-                    color: '#fff',
-                  }}
-                >
-                  <span className="text-lg font-bold">
-                    {station.name.charAt(0).toUpperCase()}
+                  {expoCount > 0 && (
+                    <span
+                      className="absolute top-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                      style={{ backgroundColor: 'rgba(20, 184, 166, 0.15)', color: '#14b8a6' }}
+                    >
+                      {expoCount}
+                    </span>
+                  )}
+                  <div
+                    className="flex items-center justify-center rounded-full mb-3"
+                    style={{
+                      width: '48px',
+                      height: '48px',
+                      backgroundColor: '#14b8a6',
+                      color: '#fff',
+                    }}
+                  >
+                    <span className="text-lg font-bold">E</span>
+                  </div>
+                  <span className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+                    Expo
                   </span>
-                </div>
-                <span className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
-                  {station.name}
-                </span>
-                <span className="text-[10px] uppercase mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
-                  {station.stationType}
-                </span>
-              </button>
-            ))}
+                  <span className="text-[10px] uppercase mt-1" style={{ color: '#14b8a6' }}>
+                    All Stations
+                  </span>
+                </button>
+              );
+            })()}
+            {kdsStations.map((station) => {
+              const ticketCount = stationCounts.get(station.id) ?? 0;
+              const stationColor = station.color ?? getStationColor(station.stationType);
+              return (
+                <button
+                  key={station.id}
+                  type="button"
+                  onClick={() => router.push(`/kds/${station.id}`)}
+                  className="relative flex flex-col items-center justify-center rounded-xl p-6 transition-colors hover:opacity-80"
+                  style={{
+                    backgroundColor: 'var(--fnb-bg-surface)',
+                    border: ticketCount > 0
+                      ? `2px solid ${stationColor}40`
+                      : '1px solid rgba(148, 163, 184, 0.15)',
+                    minHeight: '140px',
+                  }}
+                >
+                  {ticketCount > 0 && (
+                    <span
+                      className="absolute top-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                      style={{ backgroundColor: `${stationColor}20`, color: stationColor }}
+                    >
+                      {ticketCount}
+                    </span>
+                  )}
+                  <div
+                    className="flex items-center justify-center rounded-full mb-3"
+                    style={{
+                      width: '48px',
+                      height: '48px',
+                      backgroundColor: stationColor,
+                      color: '#fff',
+                    }}
+                  >
+                    <span className="text-lg font-bold">
+                      {station.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <span className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+                    {station.name}
+                  </span>
+                  <span className="text-[10px] uppercase mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
+                    {station.stationType}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

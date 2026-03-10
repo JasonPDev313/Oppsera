@@ -1,4 +1,4 @@
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { orderLines, fnbKitchenTicketItems } from '@oppsera/db';
 import type { EventEnvelope } from '@oppsera/shared/types/events';
@@ -7,6 +7,7 @@ import { logger } from '@oppsera/core/observability';
 import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from '../commands/create-kitchen-ticket';
+import { recordKdsSend, markKdsSendSent } from '../commands/record-kds-send';
 
 const KDS_ITEM_TYPES = ['food', 'beverage'];
 
@@ -174,6 +175,23 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
       locationId: data.locationId, stationCount: stationGroups.size,
     });
 
+    // 6a. Pre-fetch station names for send tracking (non-critical, batch query)
+    const stationNameMap = new Map<string, string>();
+    try {
+      const stationIds = Array.from(stationGroups.keys());
+      const stationNameRows = await withTenant(event.tenantId, (tx) =>
+        tx.execute(sql`
+          SELECT id, display_name FROM fnb_kitchen_stations
+          WHERE tenant_id = ${event.tenantId} AND id IN (${sql.join(stationIds.map((id) => sql`${id}`), sql`, `)})
+        `),
+      );
+      for (const row of Array.from(stationNameRows as Iterable<Record<string, unknown>>)) {
+        stationNameMap.set(row.id as string, (row.display_name as string) ?? 'Unknown');
+      }
+    } catch {
+      // Non-critical — send tracking will use fallback names
+    }
+
     // 6. Create one ticket per station (serial to avoid pool exhaustion — gotcha #466)
     const syntheticCtx = {
       tenantId: event.tenantId,
@@ -189,7 +207,7 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
 
     for (const [stationId, ticketItems] of stationGroups) {
       try {
-        await createKitchenTicket(syntheticCtx, {
+        const ticket = await createKitchenTicket(syntheticCtx, {
           clientRequestId: `retail-kds-${data.orderId}-${stationId}`,
           orderId: data.orderId,
           businessDate: data.businessDate,
@@ -197,6 +215,38 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
           customerName: data.customerName ?? undefined,
           items: ticketItems,
         });
+
+        // Record send tracking so orders appear in KDS Order Status
+        try {
+          const sendToken = `${ticket.id}-${stationId}-${Date.now()}`;
+          const tracked = await recordKdsSend({
+            tenantId: event.tenantId,
+            locationId: data.locationId,
+            orderId: data.orderId,
+            ticketId: ticket.id,
+            ticketNumber: ticket.ticketNumber,
+            courseId: undefined,
+            courseNumber: ticket.courseNumber ?? undefined,
+            stationId,
+            stationName: stationNameMap.get(stationId) ?? stationId,
+            employeeId: data.employeeId ?? event.actorUserId ?? 'system',
+            employeeName: data.employeeName ?? 'System',
+            sendToken,
+            sendType: 'initial',
+            routingReason: 'routing_rule',
+            itemCount: ticketItems.length,
+            orderType: undefined,
+            tableName: undefined,
+            guestName: data.customerName ?? undefined,
+            businessDate: data.businessDate,
+          });
+          await markKdsSendSent(event.tenantId, tracked.sendToken);
+        } catch (trackErr) {
+          logger.warn('[kds] handleOrderPlacedForKds: send tracking failed (non-critical)', {
+            domain: 'kds', tenantId: event.tenantId, ticketId: ticket.id, stationId,
+            error: { message: trackErr instanceof Error ? trackErr.message : String(trackErr) },
+          });
+        }
       } catch (err) {
         logger.warn('[kds] handleOrderPlacedForKds: failed to create ticket for station', {
           domain: 'kds', tenantId: event.tenantId, orderId: data.orderId,

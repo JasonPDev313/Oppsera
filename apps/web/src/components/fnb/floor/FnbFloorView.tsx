@@ -23,24 +23,72 @@ import { useManagerOverride } from '@/hooks/use-manager-override';
 import { useFnbSettings } from '@/hooks/use-fnb-settings';
 import { ManagerPinModal } from '../manager/ManagerPinModal';
 import { apiFetch } from '@/lib/api-client';
+import { useToast } from '@/components/ui/toast';
+import { useQuery } from '@tanstack/react-query';
 import { ManageTabsButton } from '../manage-tabs/ManageTabsButton';
 
 /** Minimum table size in editor pixels (matches FnbTableNode MIN_TABLE_SIZE) */
 const MIN_TABLE_SIZE = 60;
 
 // ── Turn Time Prediction ────────────────────────────────────────
-// V1: Simple heuristic based on party size and elapsed time.
-// Base turn = 45 min for 2, +8 min per additional guest, +15 min per additional course.
-// V2: ML-based prediction using historical turn times from rm_fnb_table_turns.
+// Uses historical turn-time averages from fnb_table_turn_log (bucketed by party size).
+// Falls back to a simple heuristic when no historical data is available.
 
-function predictTurnMinutes(table: FnbTableWithStatus): number | null {
-  if (table.status !== 'seated') return null;
-  const partySize = table.partySize ?? 2;
-  const courseCount = table.currentCourseNumber ?? 1;
+interface TurnTimeBucket {
+  mealPeriod: string;
+  partySizeBucket: string;
+  avgTurnTimeMinutes: number;
+  dataPointCount: number;
+}
+
+interface TurnStatsData {
+  buckets: TurnTimeBucket[];
+  overallAvgMinutes: number;
+  totalDataPoints: number;
+}
+
+function partySizeToBucket(partySize: number): string {
+  if (partySize <= 2) return 'small';
+  if (partySize <= 4) return 'medium';
+  if (partySize <= 6) return 'large';
+  return 'xlarge';
+}
+
+/** Static fallback when no historical data */
+function heuristicTurnMinutes(partySize: number, courseCount: number): number {
   const baseTurn = 45;
   const perGuest = 8;
   const perCourse = 15;
   return baseTurn + Math.max(0, partySize - 2) * perGuest + Math.max(0, courseCount - 1) * perCourse;
+}
+
+function predictTurnMinutes(
+  table: FnbTableWithStatus,
+  turnStats: TurnStatsData | null,
+): number | null {
+  if (table.status !== 'seated') return null;
+  const partySize = table.partySize ?? 2;
+  const courseCount = table.currentCourseNumber ?? 1;
+
+  if (!turnStats || turnStats.totalDataPoints === 0) {
+    return heuristicTurnMinutes(partySize, courseCount);
+  }
+
+  // Look up the best bucket match: same party-size bucket, any meal period
+  const bucket = partySizeToBucket(partySize);
+  const match = turnStats.buckets.find((b) => b.partySizeBucket === bucket);
+
+  if (match && match.dataPointCount >= 5) {
+    // Use historical average, adjust for extra courses beyond 1
+    return Math.round(match.avgTurnTimeMinutes + Math.max(0, courseCount - 1) * 10);
+  }
+
+  // Fall back to overall average or heuristic
+  if (turnStats.overallAvgMinutes > 0) {
+    return Math.round(turnStats.overallAvgMinutes + Math.max(0, courseCount - 1) * 10);
+  }
+
+  return heuristicTurnMinutes(partySize, courseCount);
 }
 
 /** Compute average turn time from all seated tables */
@@ -109,18 +157,29 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   const [seatTargetTable, setSeatTargetTable] = useState<FnbTableWithStatus | null>(null);
   const [actionMenuTable, setActionMenuTable] = useState<FnbTableWithStatus | null>(null);
   const [syncFeedback, setSyncFeedback] = useState<'success' | 'error' | null>(null);
-  const [toastMessage, setToastMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [lockPinModalOpen, setLockPinModalOpen] = useState(false);
+  const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
+  const displayMenuRef = useRef<HTMLDivElement>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clear timers on unmount to prevent setState on unmounted component
   useEffect(() => {
     return () => {
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
+
+  // Close display-mode menu on outside click
+  useEffect(() => {
+    if (!displayMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (displayMenuRef.current && !displayMenuRef.current.contains(e.target as Node)) {
+        setDisplayMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [displayMenuOpen]);
 
   // Destructure stable callbacks to avoid managerOverride object (new ref each render) in deps
   const { closePinModal: closeManagerPin, requestOverride } = managerOverride;
@@ -134,6 +193,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       setSeatTargetTable(null);
       setActionMenuTable(null);
       setLockPinModalOpen(false);
+      setDisplayMenuOpen(false);
       store.setMySectionEditing(false);
       closeManagerPin();
     }
@@ -142,6 +202,21 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   // Derive locationId from the active room (needed for API calls)
   const locationId = activeRoom?.locationId ?? null;
 
+  // ── Toast (global provider) ─────────────────────────────────
+  const { toast } = useToast();
+
+  // ── Turn-time historical data ─────────────────────────────
+  const { data: turnStats } = useQuery({
+    queryKey: ['fnb-turn-stats', locationId],
+    queryFn: async () => {
+      const json = await apiFetch<{ data: TurnStatsData }>(
+        `/api/v1/fnb/host/turn-stats?days=28`,
+      );
+      return json.data;
+    },
+    enabled: !!locationId && isActive,
+    staleTime: 5 * 60_000, // 5 min — turn stats don't change fast
+  });
 
   // ── Spatial viewport scaling ──────────────────────────────
 
@@ -365,12 +440,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
     } catch (err) {
       setSeatModalOpen(false);
       setAddSeatMode(false);
-      const message = err instanceof Error ? err.message : 'Failed to seat guests';
-      setToastMessage({ type: 'error', text: message });
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => setToastMessage(null), 4000);
+      toast.error(err instanceof Error ? err.message : 'Failed to seat guests');
     }
-  }, [seatTargetTable, addSeatMode, userId, store, locationId, locationTimezone]);
+  }, [seatTargetTable, addSeatMode, userId, store, locationId, locationTimezone, toast]);
 
   const handleRoomChange = useCallback((roomId: string) => {
     store.setActiveRoom(roomId);
@@ -425,17 +497,12 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
         body: JSON.stringify({ reason: 'Deleted from floor view', expectedVersion: tabVersion }),
       });
 
-      setToastMessage({ type: 'success', text: 'Tab deleted' });
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => setToastMessage(null), 3000);
+      toast.success('Tab deleted');
       await refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete tab';
-      setToastMessage({ type: 'error', text: message });
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => setToastMessage(null), 4000);
+      toast.error(err instanceof Error ? err.message : 'Failed to delete tab');
     }
-  }, [actionMenuTable, fnbGeneralSettings, requestOverride, refresh]);
+  }, [actionMenuTable, fnbGeneralSettings, requestOverride, refresh, toast]);
 
   // ── Loading ─────────────────────────────────────────────────
 
@@ -605,9 +672,13 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
               )}
             </div>
             {/* Display mode selector */}
-            <div className="relative group">
+            <div className="relative" ref={displayMenuRef}>
               <button
                 type="button"
+                onClick={() => setDisplayMenuOpen((v) => !v)}
+                onKeyDown={(e) => { if (e.key === 'Escape') setDisplayMenuOpen(false); }}
+                aria-haspopup="true"
+                aria-expanded={displayMenuOpen}
                 className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors bg-muted text-muted-foreground hover:bg-accent"
               >
                 <Eye className="h-3 w-3" />
@@ -616,22 +687,29 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                  store.floorDisplayMode === 'revenue' ? 'Revenue' :
                  store.floorDisplayMode === 'time' ? 'Time' : 'Course'}
               </button>
-              <div className="absolute right-0 top-full mt-1 hidden group-hover:flex flex-col rounded-lg overflow-hidden shadow-lg border border-border bg-surface z-20">
-                {(['status', 'covers', 'revenue', 'time', 'course'] as FloorDisplayMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => store.setFloorDisplayMode(mode)}
-                    className={`px-4 py-2 text-xs font-medium text-left transition-colors whitespace-nowrap ${
-                      store.floorDisplayMode === mode
-                        ? 'bg-indigo-500/10 text-indigo-500'
-                        : 'text-foreground hover:bg-accent'
-                    }`}
-                  >
-                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                  </button>
-                ))}
-              </div>
+              {displayMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full mt-1 flex flex-col rounded-lg overflow-hidden shadow-lg border border-border bg-surface z-20"
+                  onKeyDown={(e) => { if (e.key === 'Escape') setDisplayMenuOpen(false); }}
+                >
+                  {(['status', 'covers', 'revenue', 'time', 'course'] as FloorDisplayMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { store.setFloorDisplayMode(mode); setDisplayMenuOpen(false); }}
+                      className={`px-4 py-2 text-xs font-medium text-left transition-colors whitespace-nowrap ${
+                        store.floorDisplayMode === mode
+                          ? 'bg-indigo-500/10 text-indigo-500'
+                          : 'text-foreground hover:bg-accent'
+                      }`}
+                    >
+                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -644,17 +722,6 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           onTouchMove={store.floorViewMode === 'layout' ? handleTouchMove : undefined}
           onTouchEnd={store.floorViewMode === 'layout' ? handleTouchEnd : undefined}
         >
-          {/* Toast message */}
-          {toastMessage && (
-            <div
-              className={`absolute top-2 left-1/2 -translate-x-1/2 z-20 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-lg ${
-                toastMessage.type === 'error' ? 'bg-red-500' : 'bg-green-600'
-              }`}
-            >
-              {toastMessage.text}
-            </div>
-          )}
-
           {tables.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <div className="text-center">
@@ -743,7 +810,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                           viewScale={effectiveScale}
                           guestPayActive={table.guestPayActive}
                           displayMode={store.floorDisplayMode}
-                          predictedTurnMinutes={predictTurnMinutes(table)}
+                          predictedTurnMinutes={predictTurnMinutes(table, turnStats ?? null)}
                         />
                     ))}
                   </div>
@@ -827,7 +894,14 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
             setSeatModalOpen(true);
           }
         }}
-        onClear={() => actionMenuTable && actions.clearTable(actionMenuTable.tableId)}
+        onClear={() => {
+          if (!actionMenuTable) return;
+          if (actionMenuTable.status === 'dirty') {
+            actions.updateStatus(actionMenuTable.tableId, 'available');
+          } else {
+            actions.clearTable(actionMenuTable.tableId);
+          }
+        }}
         onTransfer={() => {/* Phase 3 */}}
         onCombine={() => {/* Phase 2 extension */}}
         onUncombine={() => actionMenuTable?.combineGroupId && actions.uncombineTables(actionMenuTable.combineGroupId)}

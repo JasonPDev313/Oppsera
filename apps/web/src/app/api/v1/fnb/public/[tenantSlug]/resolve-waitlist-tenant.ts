@@ -1,6 +1,6 @@
 import { createAdminClient } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
-import { mapWaitlistConfigRow } from '@oppsera/module-fnb';
+import { mapWaitlistConfigRow, getDefaultWaitlistConfig } from '@oppsera/module-fnb';
 import type { WaitlistConfigRow } from '@oppsera/module-fnb';
 
 /**
@@ -8,9 +8,11 @@ import type { WaitlistConfigRow } from '@oppsera/module-fnb';
  *
  * Lookup order:
  * 1. Try `fnb_waitlist_config.slug_override` (vanity slug, e.g., "joes-grill")
- * 2. Fall back to `tenants.slug` (tenant-level slug)
+ * 2. Fall back to `tenants.slug` with explicit config row
+ * 3. Fall back to `tenants.slug` with pos_fnb entitlement (no config row needed)
+ *    — uses default config so the waitlist "just works" when the module is on.
  *
- * Returns null if tenant doesn't exist, is not active, or waitlist is not enabled.
+ * Returns null if tenant doesn't exist, is not active, or waitlist is explicitly disabled.
  *
  * Options:
  * - `requireEnabled` (default: true) — When false, returns config even if
@@ -55,7 +57,7 @@ export async function resolveWaitlistTenant(
 
   let row = Array.from(configRows as Iterable<Record<string, unknown>>)[0];
 
-  // 2. Fall back to tenant slug
+  // 2. Fall back to tenant slug with explicit config row
   if (!row) {
     const tenantRows = await adminDb.execute(sql`
       SELECT wc.*, t.name AS tenant_name, l.name AS location_name
@@ -72,13 +74,83 @@ export async function resolveWaitlistTenant(
     row = Array.from(tenantRows as Iterable<Record<string, unknown>>)[0];
   }
 
-  if (!row) return null;
+  if (row) {
+    return {
+      tenantId: String(row.tenant_id),
+      tenantName: String(row.tenant_name),
+      locationId: String(row.location_id),
+      locationName: String(row.location_name),
+      config: mapWaitlistConfigRow(row),
+    };
+  }
+
+  // 3. No config row — check if tenant has pos_fnb entitlement.
+  //    If the module is on, the waitlist works with defaults (no admin config needed).
+  //    Also try matching PMS property slug as a last resort for cross-module slug reuse.
+  const fallbackRows = await adminDb.execute(sql`
+    SELECT t.id AS tenant_id, t.name AS tenant_name,
+           l.id AS location_id, l.name AS location_name
+    FROM tenants t
+    JOIN entitlements e ON e.tenant_id = t.id
+      AND e.module_key = 'pos_fnb'
+      AND e.is_enabled = true
+    JOIN locations l ON l.tenant_id = t.id
+      AND l.is_active = true
+      AND l.location_type = 'venue'
+    WHERE t.slug = ${slug}
+      AND t.status = 'active'
+    ORDER BY l.created_at ASC
+    LIMIT 1
+  `);
+
+  let fallback = Array.from(fallbackRows as Iterable<Record<string, unknown>>)[0];
+
+  // Also try PMS property slug (e.g., "sunset-resort" is pms_properties.slug)
+  if (!fallback) {
+    const pmsRows = await adminDb.execute(sql`
+      SELECT t.id AS tenant_id, t.name AS tenant_name,
+             l.id AS location_id, l.name AS location_name
+      FROM pms_properties p
+      JOIN tenants t ON t.id = p.tenant_id
+      JOIN entitlements e ON e.tenant_id = t.id
+        AND e.module_key = 'pos_fnb'
+        AND e.is_enabled = true
+      JOIN locations l ON l.tenant_id = t.id
+        AND l.is_active = true
+        AND l.location_type = 'venue'
+      WHERE p.slug = ${slug}
+        AND t.status = 'active'
+      ORDER BY l.created_at ASC
+      LIMIT 1
+    `);
+    fallback = Array.from(pmsRows as Iterable<Record<string, unknown>>)[0];
+  }
+
+  if (!fallback) return null;
+
+  // Build a synthetic config row with all defaults
+  const defaults = getDefaultWaitlistConfig();
+  const now = new Date().toISOString();
 
   return {
-    tenantId: String(row.tenant_id),
-    tenantName: String(row.tenant_name),
-    locationId: String(row.location_id),
-    locationName: String(row.location_name),
-    config: mapWaitlistConfigRow(row),
+    tenantId: String(fallback.tenant_id),
+    tenantName: String(fallback.tenant_name),
+    locationId: String(fallback.location_id),
+    locationName: String(fallback.location_name),
+    config: {
+      id: '__default__',
+      tenantId: String(fallback.tenant_id),
+      locationId: String(fallback.location_id),
+      enabled: true,
+      slugOverride: null,
+      formConfig: defaults.formConfig,
+      notificationConfig: defaults.notificationConfig,
+      queueConfig: defaults.queueConfig,
+      branding: defaults.branding,
+      contentConfig: defaults.contentConfig,
+      operatingHours: defaults.operatingHours,
+      createdAt: now,
+      updatedAt: now,
+    },
   };
 }

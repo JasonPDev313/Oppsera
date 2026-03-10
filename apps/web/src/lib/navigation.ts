@@ -128,7 +128,6 @@ export const navigation: NavItem[] = [
     requiredPermission: 'kds.view',
     dynamicChildren: 'kds_stations' as const,
     children: [
-      { name: 'Expo', href: '/expo', icon: PackageCheck, requiredPermission: 'kds.view' },
       { name: 'All Orders', href: '/kds/all', icon: LayoutList, requiredPermission: 'kds.view' },
       { name: 'Order Status', href: '/kds/order-status', icon: Activity, group: 'Config', requiredPermission: 'kds.manage' },
       { name: 'KDS Settings', href: '/kds/settings', icon: Settings, group: 'Config', requiredPermission: 'kds.settings.manage' },

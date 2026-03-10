@@ -102,7 +102,6 @@ export function BulkActionConfirmDialog({
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, executing]);
 
   if (!open || !mounted) return null;

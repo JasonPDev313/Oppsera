@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Loader2, Save, UtensilsCrossed, Monitor } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
+import { useTerminalSession } from '@/components/terminal-session-provider';
 import { useFnbSettings } from '@/hooks/use-fnb-settings';
 
 const KdsSettingsPanel = dynamic(() => import('@/components/fnb/kds-settings-panel').then((m) => ({ default: m.KdsSettingsPanel })), {
@@ -193,7 +194,8 @@ type SettingsTab = 'config' | 'kds';
 export default function FnbSettingsContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
-  const locationId = locations[0]?.id;
+  const { session } = useTerminalSession();
+  const locationId = session?.locationId ?? locations[0]?.id;
   const [activeTab, setActiveTab] = useState<SettingsTab>('config');
 
   const { settings, isLoading, isActing, updateSetting } = useFnbSettings({

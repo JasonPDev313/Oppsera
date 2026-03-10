@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
-import { useExpoView, useExpoHistory } from '@/hooks/use-fnb-kitchen';
+import { useExpoView, useExpoHistory, useKdsLocationCounts } from '@/hooks/use-fnb-kitchen';
 import { ExpoHeader } from '@/components/fnb/kitchen/ExpoHeader';
 import { ExpoTicketCard } from '@/components/fnb/kitchen/ExpoTicketCard';
 import { ExpoHistoryPanel } from '@/components/fnb/kitchen/ExpoHistoryPanel';
@@ -14,7 +14,7 @@ import { formatTimer } from '@/components/fnb/kitchen/TimerBar';
 import { apiFetch } from '@/lib/api-client';
 import {
   ArrowLeft, Search, Flame, Pause, Play,
-  LayoutGrid, LayoutList, Package, Clock, History,
+  LayoutGrid, LayoutList, Package, Clock, History, MapPin,
 } from 'lucide-react';
 
 type ExpoViewMode = 'rail' | 'grid';
@@ -28,7 +28,31 @@ const PAUSED_INTERVAL = 999_999_999;
 export default function ExpoContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
-  const locationId = locations?.[0]?.id;
+  const [locationId, setLocationId] = useState(() => locations?.[0]?.id ?? '');
+  const hasMultipleLocations = (locations?.length ?? 0) > 1;
+  const locationCounts = useKdsLocationCounts(locations?.map((l) => l.id) ?? []);
+  const autoSelectedRef = useRef(false);
+
+  // Auto-select the location with the most active tickets on first load
+  useEffect(() => {
+    if (autoSelectedRef.current || locationCounts.size === 0) return;
+    autoSelectedRef.current = true;
+    let bestId = '';
+    let bestCount = 0;
+    for (const [id, count] of locationCounts) {
+      if (count > bestCount) { bestId = id; bestCount = count; }
+    }
+    if (bestId && bestCount > 0) setLocationId(bestId);
+  }, [locationCounts]);
+
+  // Count tickets at OTHER locations (for persistent badge + pulse)
+  const otherLocationTickets = useMemo(() => {
+    let total = 0;
+    for (const [id, count] of locationCounts) {
+      if (id !== locationId) total += count;
+    }
+    return total;
+  }, [locationCounts, locationId]);
   const [activeTab, setActiveTab] = useState<ExpoTab>('active');
   const [viewMode, setViewMode] = useState<ExpoViewMode>('rail');
   const [filter, setFilter] = useState<ExpoFilter>('all');
@@ -181,6 +205,40 @@ export default function ExpoContent() {
         <div className="flex-1">
           <ExpoHeader expoView={expoView} />
         </div>
+
+        {/* Location selector */}
+        {hasMultipleLocations && (
+          <div className="flex items-center gap-1.5 px-2" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
+            <MapPin className="h-3.5 w-3.5" style={{ color: 'var(--fnb-text-muted)' }} />
+            <select
+              value={locationId}
+              onChange={(e) => setLocationId(e.target.value)}
+              className="rounded-md border px-2 py-1 text-xs font-medium"
+              style={{
+                backgroundColor: 'var(--fnb-bg-elevated)',
+                borderColor: 'rgba(148, 163, 184, 0.15)',
+                color: 'var(--fnb-text-primary)',
+              }}
+            >
+              {locations?.map((loc) => {
+                const cnt = locationCounts.get(loc.id) ?? 0;
+                return (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.name}{cnt > 0 ? ` (${cnt})` : ''}
+                  </option>
+                );
+              })}
+            </select>
+            {otherLocationTickets > 0 && (
+              <span
+                className="rounded-full px-1.5 py-0.5 text-[10px] font-bold animate-pulse"
+                style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
+              >
+                {otherLocationTickets} elsewhere
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Metrics bar */}
         <div className="flex items-center gap-3 px-3" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
