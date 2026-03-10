@@ -50,7 +50,7 @@ function computeAvgTurnMinutes(tables: FnbTableWithStatus[]): number | null {
   const now = Date.now();
   const totalMinutes = seated.reduce((sum, t) => {
     const elapsed = (now - new Date(t.seatedAt!).getTime()) / 60_000;
-    return sum + elapsed;
+    return sum + Math.max(0, elapsed);
   }, 0);
   return Math.round(totalMinutes / seated.length);
 }
