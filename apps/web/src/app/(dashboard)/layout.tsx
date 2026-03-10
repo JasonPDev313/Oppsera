@@ -886,8 +886,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   }, [orderedNav, workflowConfigs, erpConfigLoading]);
 
   // Inject dynamic KDS station children into navigation
-  const locationId = locations?.[0]?.id;
-  const kdsStationNav = useKdsStationsForNav(locationId);
+  const allLocationIds = useMemo(() => (locations ?? []).map((l) => l.id), [locations]);
+  const kdsStationNav = useKdsStationsForNav(allLocationIds);
   const navWithDynamic = useMemo(() => {
     if (kdsStationNav.length === 0) return filteredNav;
     return filteredNav.map((item) => {
