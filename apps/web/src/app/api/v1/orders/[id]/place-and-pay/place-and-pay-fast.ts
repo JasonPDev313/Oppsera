@@ -28,7 +28,6 @@ import {
   catalogModifierGroups,
   customers,
   arTransactions,
-  billingAccounts,
 } from '@oppsera/db';
 import type { InferSelectModel } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';

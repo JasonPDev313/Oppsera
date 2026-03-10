@@ -30,7 +30,10 @@ interface RatePlan {
 interface Group {
   id: string;
   name: string;
-  type: string;
+  groupCode: string | null;
+  confirmationNumber: number | null;
+  groupType: string;
+  type?: string; // legacy alias
   contactName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
@@ -38,9 +41,12 @@ interface Group {
   endDate: string;
   cutoffDate: string | null;
   status: string;
-  roomsBlocked: number;
+  totalRoomsBlocked: number;
+  roomsBlocked?: number; // legacy alias
   roomsPickedUp: number;
-  pickupPercentage: number;
+  pickupPct: number;
+  pickupPercentage?: number; // legacy alias
+  corporateAccountName: string | null;
   ratePlanId: string | null;
   ratePlanName: string | null;
   negotiatedRateCents: number | null;
@@ -97,6 +103,7 @@ export default function GroupsContent() {
 
   // Filter
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
 
   // Create group dialog
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -150,6 +157,7 @@ export default function GroupsContent() {
         const qs = buildQueryString({
           propertyId: selectedPropertyId,
           cursor: cursorVal || undefined,
+          status: statusFilter || undefined,
           limit: 20,
         });
         const res = await apiFetch<{
@@ -174,7 +182,7 @@ export default function GroupsContent() {
         else setIsLoading(false);
       }
     },
-    [selectedPropertyId],
+    [selectedPropertyId, statusFilter],
   );
 
   useEffect(() => {
@@ -245,7 +253,7 @@ export default function GroupsContent() {
     const payload: Record<string, unknown> = {
       propertyId: selectedPropertyId,
       name: formName.trim(),
-      type: formType,
+      groupType: formType,
       startDate: formStartDate,
       endDate: formEndDate,
       billingType: formBillingType,
@@ -310,12 +318,32 @@ export default function GroupsContent() {
         ),
       },
       {
-        key: 'type',
+        key: 'confirmationNumber',
+        header: 'Conf #',
+        width: '90px',
+        render: (row: GroupRow) => (
+          <span className="text-sm text-foreground tabular-nums">
+            {(row as Group).confirmationNumber ?? '\u2014'}
+          </span>
+        ),
+      },
+      {
+        key: 'groupCode',
+        header: 'Group Code',
+        width: '110px',
+        render: (row: GroupRow) => (
+          <span className="text-sm font-mono text-foreground">
+            {(row as Group).groupCode ?? '\u2014'}
+          </span>
+        ),
+      },
+      {
+        key: 'groupType',
         header: 'Type',
         width: '120px',
         render: (row: GroupRow) => (
           <span className="text-sm text-foreground">
-            {formatGroupType((row as Group).type)}
+            {formatGroupType((row as Group).groupType)}
           </span>
         ),
       },
@@ -352,12 +380,12 @@ export default function GroupsContent() {
         },
       },
       {
-        key: 'roomsBlocked',
+        key: 'totalRoomsBlocked',
         header: 'Blocked',
         width: '80px',
         render: (row: GroupRow) => (
           <span className="text-sm text-foreground tabular-nums">
-            {(row as Group).roomsBlocked}
+            {(row as Group).totalRoomsBlocked}
           </span>
         ),
       },
@@ -372,11 +400,11 @@ export default function GroupsContent() {
         ),
       },
       {
-        key: 'pickupPercentage',
+        key: 'pickupPct',
         header: 'Pickup %',
         width: '90px',
         render: (row: GroupRow) => {
-          const pct = (row as Group).pickupPercentage;
+          const pct = (row as Group).pickupPct;
           const color =
             pct >= 75
               ? 'text-green-500'
@@ -438,10 +466,22 @@ export default function GroupsContent() {
           placeholder="Search groups by name or contact..."
           className="w-full md:w-72"
         />
-        {search && (
+        <Select
+          options={[
+            { value: '', label: 'All Statuses' },
+            { value: 'tentative', label: 'Tentative' },
+            { value: 'definite', label: 'Definite' },
+            { value: 'cancelled', label: 'Cancelled' },
+          ]}
+          value={statusFilter}
+          onChange={(v) => setStatusFilter(v as string)}
+          placeholder="All Statuses"
+          className="w-40"
+        />
+        {(search || statusFilter) && (
           <button
             type="button"
-            onClick={() => setSearch('')}
+            onClick={() => { setSearch(''); setStatusFilter(''); }}
             className="text-sm text-muted-foreground hover:text-foreground"
           >
             Clear

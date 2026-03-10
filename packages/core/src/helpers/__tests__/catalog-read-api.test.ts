@@ -77,13 +77,14 @@ function makeTx() {
 
 // ── Import under test ──────────────────────────────────────────
 import { getCatalogReadApi, setCatalogReadApi } from '../catalog-read-api';
+import { createDrizzleCatalogReadApi } from '@oppsera/module-catalog/internal-api';
 
 describe('CatalogReadApi.getItemForPOS — pool guard consolidation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.withTenantCalls.length = 0;
-    // Reset singleton to get a fresh instance
-    setCatalogReadApi(null as never);
+    // Register a fresh instance for each test
+    setCatalogReadApi(createDrizzleCatalogReadApi());
   });
 
   it('uses exactly ONE withTenant call (not four separate ones)', async () => {

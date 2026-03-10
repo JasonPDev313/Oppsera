@@ -1,4 +1,4 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { withTenant, fnbKdsLocationSettings } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared/utils/ulid';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';

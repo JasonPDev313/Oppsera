@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@oppsera/db', () => ({
   db: {},
+  isBreakerOpen: vi.fn().mockReturnValue(false),
 }));
 
 vi.mock('@oppsera/shared', () => ({

@@ -44,6 +44,10 @@ vi.mock('@oppsera/core/helpers/idempotency', () => ({
   saveIdempotencyKey: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('@oppsera/core/users', () => ({
+  verifySecret: vi.fn((pin: string, hash: string) => pin === hash),
+}));
+
 vi.mock('@oppsera/db', () => ({
   withTenant: vi.fn(async (_tenantId: string, fn: any) => fn(mockTx)),
   fnbTabs: { id: 'id', tenantId: 'tenant_id', status: 'status', tableId: 'table_id', serverUserId: 'server_user_id', version: 'version', locationId: 'location_id', openedAt: 'opened_at', metadata: 'metadata' },
@@ -56,6 +60,7 @@ vi.mock('@oppsera/db', () => ({
   users: { id: 'id', displayName: 'display_name', email: 'email', overridePin: 'override_pin' },
   roleAssignments: { tenantId: 'tenant_id', userId: 'user_id', roleId: 'role_id', locationId: 'location_id' },
   roles: { id: 'id', name: 'name' },
+  userSecurity: { userId: 'user_id', tenantId: 'tenant_id', managerPin: 'manager_pin', posOverridePinHash: 'pos_override_pin_hash' },
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -72,6 +77,7 @@ vi.mock('drizzle-orm', () => ({
   lt: vi.fn((...args: any[]) => ({ type: 'lt', args })),
   gte: vi.fn((...args: any[]) => ({ type: 'gte', args })),
   ilike: vi.fn((...args: any[]) => ({ type: 'ilike', args })),
+  isNotNull: vi.fn((col: any) => ({ type: 'isNotNull', col })),
 }));
 
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
@@ -952,7 +958,7 @@ describe('Manage Tabs', () => {
     it('verifies PIN with stored pin', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'mgr-1', roleName: 'manager', displayName: 'Jane', email: 'jane@test.com', overridePin: '9876' },
+        { userId: 'mgr-1', roleName: 'manager', displayName: 'Jane', email: 'jane@test.com', pinHash: '9876' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '9876', actionType: 'bulk_void' });
@@ -963,10 +969,10 @@ describe('Manage Tabs', () => {
       expect(result.role).toBe('manager');
     });
 
-    it('falls back to last 4 of userId when no stored pin', async () => {
+    it('verifies PIN when hash matches supplied PIN', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'user-id-abcd1234', roleName: 'manager', displayName: 'Bob', email: null, overridePin: null },
+        { userId: 'user-id-abcd1234', roleName: 'manager', displayName: 'Bob', email: null, pinHash: '1234' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1234', actionType: 'bulk_void' });
@@ -978,7 +984,7 @@ describe('Manage Tabs', () => {
     it('throws INVALID_PIN when no match', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'user-id-abcd1234', roleName: 'manager', displayName: 'Bob', email: null, overridePin: '5555' },
+        { userId: 'user-id-abcd1234', roleName: 'manager', displayName: 'Bob', email: null, pinHash: '5555' },
       ]);
 
       await expect(
@@ -1000,7 +1006,7 @@ describe('Manage Tabs', () => {
     it('verifies owner role', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'owner-abcd1111', roleName: 'owner', displayName: 'Owner', email: 'owner@test.com', overridePin: '1111' },
+        { userId: 'owner-abcd1111', roleName: 'owner', displayName: 'Owner', email: 'owner@test.com', pinHash: '1111' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1111', actionType: 'emergency_cleanup' });
@@ -1012,7 +1018,7 @@ describe('Manage Tabs', () => {
     it('verifies supervisor role', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'super-abcd2222', roleName: 'supervisor', displayName: null, email: 'sup@test.com', overridePin: '2222' },
+        { userId: 'super-abcd2222', roleName: 'supervisor', displayName: null, email: 'sup@test.com', pinHash: '2222' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '2222', actionType: 'bulk_transfer' });
@@ -1024,7 +1030,7 @@ describe('Manage Tabs', () => {
     it('uses "Manager" as fallback userName', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'mgr-abcd3333', roleName: 'manager', displayName: null, email: null, overridePin: '3333' },
+        { userId: 'mgr-abcd3333', roleName: 'manager', displayName: null, email: null, pinHash: '3333' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '3333', actionType: 'bulk_close' });
@@ -1032,14 +1038,13 @@ describe('Manage Tabs', () => {
       expect(result.userName).toBe('Manager');
     });
 
-    it('stored pin takes priority over userId fallback', async () => {
+    it('rejects PIN that does not match stored pinHash', async () => {
       const verifyManagerPin = await importVerifyPin();
-      // userId ends in '1234' but stored overridePin is '9999'
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'user-id-xxxx1234', roleName: 'manager', displayName: 'Mgr', email: null, overridePin: '9999' },
+        { userId: 'user-id-xxxx1234', roleName: 'manager', displayName: 'Mgr', email: null, pinHash: '9999' },
       ]);
 
-      // PIN '1234' should NOT match because stored overridePin '9999' takes priority
+      // PIN '1234' should NOT match because stored pinHash is '9999'
       await expect(
         verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1234', actionType: 'bulk_void' }),
       ).rejects.toThrow();

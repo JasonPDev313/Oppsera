@@ -37,6 +37,12 @@ export async function moveRoom(
       ]);
     }
 
+    if (current.doNotMove) {
+      throw new ValidationError('Reservation is flagged as Do Not Move', [
+        { field: 'doNotMove', message: 'This reservation has the Do Not Move flag set. Remove the flag before moving.' },
+      ]);
+    }
+
     const oldRoomId = current.roomId;
     if (!oldRoomId) {
       throw new ValidationError('Reservation has no room assigned', [

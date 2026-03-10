@@ -27,6 +27,8 @@ vi.mock('@oppsera/db', () => ({
     where: vi.fn().mockResolvedValue([]),
     execute: vi.fn().mockResolvedValue([]),
   },
+  isBreakerOpen: vi.fn().mockReturnValue(false),
+  tenders: {},
 }));
 
 vi.mock('drizzle-orm', () => ({

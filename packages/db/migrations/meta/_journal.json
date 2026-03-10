@@ -2094,6 +2094,48 @@
       "when": 1773109200000,
       "tag": "0298_fnb_kds_send_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 299,
+      "version": "7",
+      "when": 1773195600000,
+      "tag": "0299_pms_reservation_enhancements",
+      "breakpoints": true
+    },
+    {
+      "idx": 300,
+      "version": "7",
+      "when": 1773282000000,
+      "tag": "0300_pms_checkout_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 301,
+      "version": "7",
+      "when": 1773368400000,
+      "tag": "0301_folio_number_department_code",
+      "breakpoints": true
+    },
+    {
+      "idx": 302,
+      "version": "7",
+      "when": 1773454800000,
+      "tag": "0302_folio_enhancements",
+      "breakpoints": true
+    },
+    {
+      "idx": 303,
+      "version": "7",
+      "when": 1773497999999,
+      "tag": "0303_pms_group_enhancements",
+      "breakpoints": true
+    },
+    {
+      "idx": 304,
+      "version": "7",
+      "when": 1773541200000,
+      "tag": "0304_folio_number_unique",
+      "breakpoints": true
     }
   ]
 }

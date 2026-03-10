@@ -74,7 +74,7 @@ export function GLReadinessBanner() {
           )}
           {status === 'needs_review' && (
             <Link
-              href="/accounting/mappings"
+              href="/accounting/mappings?tab=unmapped"
               className="flex items-center gap-1.5 rounded-md border border-current/20 px-2.5 py-1 text-xs font-medium transition-colors hover:bg-amber-500/10"
             >
               Review mappings

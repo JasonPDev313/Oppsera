@@ -443,7 +443,7 @@ describe('getDashboardMetrics', () => {
   });
 
   it('returns zeros when no data', async () => {
-    // 1st call: tx.execute() — sales from rm_revenue_activity (order_count=0 → triggers all-time fallback)
+    // 1st call: tx.execute() — sales from rm_revenue_activity (order_count=0, todaySales=0)
     mockExecute.mockResolvedValueOnce([{
       net_sales: '0',
       order_count: 0,
@@ -453,23 +453,11 @@ describe('getDashboardMetrics', () => {
       membership_revenue: '0',
       voucher_revenue: '0',
     }]);
-    // 2nd call: tx.execute() — all-time fallback (also order_count=0)
-    mockExecute.mockResolvedValueOnce([{
-      net_sales: '0',
-      order_count: 0,
-      void_count: 0,
-      pms_revenue: '0',
-      ar_revenue: '0',
-      membership_revenue: '0',
-      voucher_revenue: '0',
-    }]);
-    // 3rd call: tx.select() — stock count from rmInventoryOnHand (count=0 → triggers stock fallback)
+    // 2nd call: tx.select() — stock count from rmInventoryOnHand (count=0 → triggers stock fallback)
     mockSelectReturns([{ count: 0 }]);
-    // 4th call: tx.execute() — stock fallback (returns [] → stays 0)
+    // 3rd call: tx.execute() — stock fallback (returns [] → stays 0)
     mockExecute.mockResolvedValueOnce([]);
-    // 5th call: tx.execute() — active customers 7d (cnt=0 → triggers all-time customer fallback)
-    mockExecute.mockResolvedValueOnce([{ cnt: 0 }]);
-    // 6th call: tx.execute() — all-time customer fallback (cnt=0)
+    // 4th call: tx.execute() — active customers 7d (cnt=0)
     mockExecute.mockResolvedValueOnce([{ cnt: 0 }]);
 
     const result = await getDashboardMetrics({

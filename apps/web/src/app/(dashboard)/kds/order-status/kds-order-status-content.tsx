@@ -131,7 +131,7 @@ export default function KdsOrderStatusContent() {
   const [sends, setSends] = useState<KdsSendListItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [cursor, setCursor] = useState<string | null>(null);
+  const cursorRef = useRef<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSend, setSelectedSend] = useState<KdsSendDetail | null>(null);
@@ -159,12 +159,15 @@ export default function KdsOrderStatusContent() {
   // ── Fetch ──────────────────────────────────────────────────────
 
   const fetchSends = useCallback(async (resetCursor = true, signal?: AbortSignal) => {
-    if (!locationId) return;
+    if (!locationId) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setFetchError(null);
     try {
-      const params = new URLSearchParams({ tab });
-      if (!resetCursor && cursor) params.set('cursor', cursor);
+      const params = new URLSearchParams({ tab, locationId });
+      if (!resetCursor && cursorRef.current) params.set('cursor', cursorRef.current);
       if (stationFilter) params.set('stationId', stationFilter);
       if (statusFilter) params.set('status', statusFilter);
       if (showDateFilter) {
@@ -188,7 +191,7 @@ export default function KdsOrderStatusContent() {
         setSends((prev) => [...prev, ...json.data]);
       }
       setTotalCount(json.meta.totalCount);
-      setCursor(json.meta.cursor);
+      cursorRef.current = json.meta.cursor;
       setHasMore(json.meta.hasMore);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
@@ -197,7 +200,7 @@ export default function KdsOrderStatusContent() {
     } finally {
       if (!signal?.aborted) setIsLoading(false);
     }
-  }, [locationId, tab, stationFilter, statusFilter, searchQuery, cursor, showDateFilter, dateFilters.dateFrom, dateFilters.dateTo]);
+  }, [locationId, tab, stationFilter, statusFilter, searchQuery, showDateFilter, dateFilters.dateFrom, dateFilters.dateTo]);
 
   // Initial fetch + safe polling (recursive setTimeout, never setInterval)
   useEffect(() => {
@@ -220,7 +223,7 @@ export default function KdsOrderStatusContent() {
       controller.abort();
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [locationId, tab, stationFilter, statusFilter, dateFilters.dateFrom, dateFilters.dateTo]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [locationId, tab, stationFilter, statusFilter, dateFilters.dateFrom, dateFilters.dateTo]);
 
   // Search handler — debounced via SearchInput component
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -364,14 +367,17 @@ export default function KdsOrderStatusContent() {
   // ── KPI Metrics ────────────────────────────────────────────────
 
   const kpiMetrics = useMemo(() => {
-    const failedCount = sends.filter((s) => s.status === 'failed' || s.status === 'orphaned').length;
-    const deliveredSends = sends.filter((s) => s.ageSinceSentSeconds != null);
-    const avgAge = deliveredSends.length > 0
-      ? Math.round(deliveredSends.reduce((sum, s) => sum + (s.ageSinceSentSeconds ?? 0), 0) / deliveredSends.length)
-      : null;
-    const successCount = sends.filter((s) => ['delivered', 'displayed', 'resolved'].includes(s.status)).length;
-    const successRate = sends.length > 0 ? Math.round((successCount / sends.length) * 100) : 100;
-    return { failedCount, avgAge, successRate };
+    let failedCount = 0, ageSum = 0, ageCount = 0, successCount = 0;
+    for (const s of sends) {
+      if (s.status === 'failed' || s.status === 'orphaned') failedCount++;
+      if (s.ageSinceSentSeconds != null) { ageSum += s.ageSinceSentSeconds; ageCount++; }
+      if (s.status === 'delivered' || s.status === 'displayed' || s.status === 'resolved') successCount++;
+    }
+    return {
+      failedCount,
+      avgAge: ageCount > 0 ? Math.round(ageSum / ageCount) : null,
+      successRate: sends.length > 0 ? Math.round((successCount / sends.length) * 100) : 100,
+    };
   }, [sends]);
 
   const tabs: { key: Tab; label: string; icon: typeof Activity }[] = [
@@ -478,7 +484,7 @@ export default function KdsOrderStatusContent() {
           {/* Location selector (non-report tabs) */}
           {!showDateFilter && (locations?.length ?? 0) > 1 && (
             <select
-              value={locationId}
+              value={locationId ?? ''}
               onChange={(e) => setLocationId(e.target.value)}
               aria-label="Location"
               className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"

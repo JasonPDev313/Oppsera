@@ -33,9 +33,12 @@ export async function applySmartResolutions(
   let mappingsCreated = 0;
   let eventsResolved = 0;
 
+  // Collect posting_error/unhandled_error tender IDs for direct remap (no mapping needed)
+  const retryTenderIds: string[] = [];
+
   await withTenant(tenantId, async (tx) => {
     // Validate all suggested GL accounts exist and are active
-    const accountIds = [...new Set(input.suggestions.map((s) => s.suggestedAccountId))];
+    const accountIds = [...new Set(input.suggestions.map((s) => s.suggestedAccountId).filter((id) => id !== '__retry__'))];
     let validAccountIds = new Set<string>();
     if (accountIds.length > 0) {
       const validRows = await tx.execute(sql`
@@ -51,6 +54,14 @@ export async function applySmartResolutions(
 
     for (const suggestion of input.suggestions) {
       const { entityType, entityId, suggestedAccountId } = suggestion;
+
+      // posting_error / unhandled_error → no mapping needed, just retry the GL posting
+      // entityId may be a single tender ID or comma-separated list (consolidated suggestion)
+      if ((entityType === 'posting_error' || entityType === 'unhandled_error') && suggestedAccountId === '__retry__') {
+        const ids = entityId.split(',').map((id) => id.trim()).filter(Boolean);
+        retryTenderIds.push(...ids);
+        continue;
+      }
 
       // Skip suggestions with invalid/inactive GL accounts
       if (!validAccountIds.has(suggestedAccountId)) continue;
@@ -160,16 +171,38 @@ export async function applySmartResolutions(
   let remapped = 0;
   let failed = 0;
 
+  // Phase 1: Retry posting_error/unhandled_error tenders directly (no mapping change needed)
+  const uniqueRetryIds = [...new Set(retryTenderIds)];
+  if (uniqueRetryIds.length > 0) {
+    try {
+      // Cap per batch — each remap emits events via publishWithOutbox (capped at 50 events/publish)
+      const RETRY_CAP = 50;
+      const batch = uniqueRetryIds.slice(0, RETRY_CAP);
+      if (uniqueRetryIds.length > RETRY_CAP) {
+        console.warn(`[smart-resolve] Retry capped at ${RETRY_CAP}/${uniqueRetryIds.length} tenders — remaining will be picked up on next run`);
+      }
+      const retryResults = await batchRemapGlForTenders(ctx, batch, 'Smart resolution: retry failed posting');
+      remapped += retryResults.filter((r) => r.success).length;
+      failed += retryResults.filter((r) => !r.success).length;
+    } catch (error) {
+      console.error('[smart-resolve] retry phase failed:', error);
+    }
+  }
+
+  // Phase 2: Remap tenders that had missing mappings (now resolved)
   try {
     const settings = await withTenant(tenantId, async (tx) => getAccountingSettings(tx, tenantId));
     if (settings) {
       const tenders = await getRemappableTenders({ tenantId });
       const eligible = tenders.filter((t) => t.canRemap).map((t) => t.tenderId);
-      if (eligible.length > 0) {
-        const batch = eligible.slice(0, 50);
+      // Exclude tenders already retried in phase 1
+      const retrySet = new Set(uniqueRetryIds);
+      const remaining = eligible.filter((id) => !retrySet.has(id));
+      if (remaining.length > 0) {
+        const batch = remaining.slice(0, 50);
         const results = await batchRemapGlForTenders(ctx, batch, 'Smart resolution: auto-remap');
-        remapped = results.filter((r) => r.success).length;
-        failed = results.filter((r) => !r.success).length;
+        remapped += results.filter((r) => r.success).length;
+        failed += results.filter((r) => !r.success).length;
       }
     }
   } catch (error) {

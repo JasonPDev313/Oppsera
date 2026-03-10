@@ -34,9 +34,13 @@ export async function createTerminal(
       throw new NotFoundError('Profit Center', profitCenterId);
     }
 
-    // Auto-increment terminal number if not provided
+    // Auto-increment terminal number if not provided.
+    // Advisory lock serializes concurrent creates for the same profit center.
     let terminalNumber = input.terminalNumber;
     if (!terminalNumber) {
+      await tx.execute(sql`
+        SELECT pg_advisory_xact_lock(hashtext(${ctx.tenantId} || ':terminal:' || ${profitCenterId})::bigint)
+      `);
       const [maxRow] = await tx.execute(
         sql`SELECT COALESCE(MAX(terminal_number), 0) AS max_num
             FROM terminals

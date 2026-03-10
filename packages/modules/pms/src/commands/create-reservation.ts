@@ -228,6 +228,11 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
         sourceType: input.sourceType ?? 'DIRECT',
         internalNotes: input.internalNotes ?? null,
         guestNotes: input.guestNotes ?? null,
+        specialRequests: input.specialRequests ?? null,
+        eta: input.eta ?? null,
+        doNotMove: input.doNotMove ?? false,
+        marketSegment: input.marketSegment ?? null,
+        vehicleJson: input.vehicleJson ?? null,
         restrictionOverride: input.restrictionOverride ?? false,
         version: 1,
         createdBy: ctx.user.id,
@@ -249,14 +254,24 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
       });
     }
 
-    // 11. Auto-create OPEN folio
+    // 11. Auto-create OPEN folio with sequential folio number.
+    // Advisory lock serializes concurrent folio inserts for the same property.
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtext(${ctx.tenantId} || ':folio:' || ${input.propertyId})::bigint)
+    `);
     const folioId = generateUlid();
+    const [{ nextNum }] = await tx.execute(sql`
+      SELECT COALESCE(MAX(folio_number), 0) + 1 AS "nextNum"
+      FROM pms_folios
+      WHERE tenant_id = ${ctx.tenantId} AND property_id = ${input.propertyId}
+    `) as unknown as [{ nextNum: number }];
     await tx.insert(pmsFolios).values({
       id: folioId,
       tenantId: ctx.tenantId,
       propertyId: input.propertyId,
       reservationId: reservationId,
       status: 'OPEN',
+      folioNumber: Number(nextNum),
       subtotalCents: 0,
       taxCents: 0,
       feeCents: 0,

@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
@@ -70,12 +70,28 @@ export async function createGroup(ctx: RequestContext, input: CreateGroupInput) 
       }
     }
 
+    // Acquire a transaction-scoped advisory lock keyed on (tenant, property) to
+    // serialize concurrent group creates and prevent duplicate confirmation numbers.
+    // pg_advisory_xact_lock is released automatically when the transaction ends.
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtext(${ctx.tenantId} || ':grp:' || ${input.propertyId})::bigint)
+    `);
+    const confRows = await tx.execute(sql`
+      SELECT COALESCE(MAX(confirmation_number), 0) + 1 AS next_num
+      FROM pms_groups
+      WHERE tenant_id = ${ctx.tenantId} AND property_id = ${input.propertyId}
+    `);
+    const confArr = Array.from(confRows as Iterable<Record<string, unknown>>);
+    const confirmationNumber = Number(confArr[0]?.next_num ?? 1);
+
     const [created] = await tx
       .insert(pmsGroups)
       .values({
         tenantId: ctx.tenantId,
         propertyId: input.propertyId,
         name: input.name,
+        groupCode: input.groupCode ?? null,
+        confirmationNumber,
         groupType: input.groupType ?? 'other',
         contactName: input.contactName ?? null,
         contactEmail: input.contactEmail ?? null,
@@ -89,8 +105,23 @@ export async function createGroup(ctx: RequestContext, input: CreateGroupInput) 
         status: input.status ?? 'tentative',
         billingType: input.billingType ?? 'individual',
         notes: input.notes ?? null,
+        source: input.source ?? null,
+        market: input.market ?? null,
+        bookingMethod: input.bookingMethod ?? null,
+        salesRepUserId: input.salesRepUserId ?? null,
+        specialRequests: input.specialRequests ?? null,
+        groupComments: input.groupComments ?? null,
+        reservationComments: input.reservationComments ?? null,
+        autoReleaseAtCutoff: input.autoReleaseAtCutoff ?? false,
+        shoulderDatesEnabled: input.shoulderDatesEnabled ?? false,
+        shoulderStartDate: input.shoulderStartDate ?? null,
+        shoulderEndDate: input.shoulderEndDate ?? null,
+        shoulderRateCents: input.shoulderRateCents ?? null,
+        autoRoutePackagesToMaster: input.autoRoutePackagesToMaster ?? false,
+        autoRouteSpecialsToMaster: input.autoRouteSpecialsToMaster ?? false,
         totalRoomsBlocked: 0,
         roomsPickedUp: 0,
+        version: 1,
         createdBy: ctx.user.id,
       })
       .returning();

@@ -93,6 +93,11 @@ export async function updateReservation(
     if (input.ratePlanId !== undefined) updates.ratePlanId = input.ratePlanId;
     if (input.internalNotes !== undefined) updates.internalNotes = input.internalNotes;
     if (input.guestNotes !== undefined) updates.guestNotes = input.guestNotes;
+    if (input.specialRequests !== undefined) updates.specialRequests = input.specialRequests;
+    if (input.eta !== undefined) updates.eta = input.eta;
+    if (input.doNotMove !== undefined) updates.doNotMove = input.doNotMove;
+    if (input.marketSegment !== undefined) updates.marketSegment = input.marketSegment;
+    if (input.vehicleJson !== undefined) updates.vehicleJson = input.vehicleJson;
 
     // Optimistic locking: version check + increment
     const [updated] = await tx

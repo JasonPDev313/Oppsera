@@ -20,6 +20,7 @@ vi.mock('@oppsera/db', () => ({
   tagActions: { id: 'id', tenantId: 'tenant_id', tagId: 'tag_id', isActive: 'is_active' },
   tagActionExecutions: { id: 'id', actionId: 'action_id', status: 'status' },
   customerMetricsLifetime: { tenantId: 'tenant_id', customerId: 'customer_id', totalSpendCents: 'total_spend_cents', totalVisits: 'total_visits' },
+  sqlArray: vi.fn((arr: unknown[]) => arr),
 }));
 
 vi.mock('@oppsera/shared', () => ({

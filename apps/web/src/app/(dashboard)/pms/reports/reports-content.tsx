@@ -12,6 +12,16 @@ import {
   LogOut,
   Ban,
   RefreshCw,
+  CalendarDays,
+  Building2,
+  ChevronDown,
+  ChevronRight,
+  Search,
+  X,
+  AlertTriangle,
+  CheckCircle,
+  Printer,
+  Hash,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
@@ -65,13 +75,85 @@ interface HousekeepingProductivity {
   inspectionPassRate: number;
 }
 
+interface ActivityByDayRow {
+  code: string;
+  description: string;
+  grossCents: number;
+  adjustCents: number;
+  netCents: number;
+  ptdGrossCents: number;
+  ptdAdjustCents: number;
+  ptdNetCents: number;
+  ytdGrossCents: number;
+  ytdAdjustCents: number;
+  ytdNetCents: number;
+}
+
+interface ActivityByDayData {
+  businessDate: string;
+  propertyId: string;
+  rows: ActivityByDayRow[];
+  totals: {
+    grossCents: number;
+    adjustCents: number;
+    netCents: number;
+    ptdGrossCents: number;
+    ptdAdjustCents: number;
+    ptdNetCents: number;
+    ytdGrossCents: number;
+    ytdAdjustCents: number;
+    ytdNetCents: number;
+  };
+}
+
+interface DepartmentAuditEntry {
+  entryId: string;
+  businessDate: string;
+  folioNumber: number | null;
+  roomNumber: string | null;
+  postedAt: string;
+  entryType: string;
+  description: string;
+  grossCents: number;
+  voidCents: number;
+  adjustCents: number;
+  netCents: number;
+  ledger: string;
+  postedBy: string | null;
+}
+
+interface DepartmentAuditGroup {
+  departmentCode: string;
+  entryCount: number;
+  entries: DepartmentAuditEntry[];
+  totalGrossCents: number;
+  totalVoidCents: number;
+  totalAdjustCents: number;
+  totalNetCents: number;
+}
+
+interface DepartmentAuditData {
+  propertyName: string;
+  startDate: string;
+  endDate: string;
+  departments: DepartmentAuditGroup[];
+  grandTotalGrossCents: number;
+  grandTotalVoidCents: number;
+  grandTotalAdjustCents: number;
+  grandTotalNetCents: number;
+  totalEntries: number;
+  truncated: boolean;
+}
+
 // ── Tab definition ──────────────────────────────────────────────
 
-type TabId = 'overview' | 'revenue' | 'operations' | 'housekeeping';
+type TabId = 'overview' | 'revenue' | 'activity' | 'dept-audit' | 'operations' | 'housekeeping';
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
   { id: 'revenue', label: 'Revenue', icon: DollarSign },
+  { id: 'activity', label: 'Activity by Day', icon: CalendarDays },
+  { id: 'dept-audit', label: 'Dept Audit', icon: Building2 },
   { id: 'operations', label: 'Operations', icon: Users },
   { id: 'housekeeping', label: 'Housekeeping', icon: Brush },
 ];
@@ -639,6 +721,847 @@ function HousekeepingTab({
   );
 }
 
+// ── Activity by Day Tab ────────────────────────────────────────
+
+function ActivityByDayTab({
+  propertyId,
+  businessDate,
+}: {
+  propertyId: string;
+  businessDate: string;
+}) {
+  const [data, setData] = useState<ActivityByDayData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    if (!propertyId) {
+      setIsLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setIsLoading(true);
+    (async () => {
+      try {
+        const qs = buildQueryString({ propertyId, businessDate });
+        const res = await apiFetch<{ data: ActivityByDayData }>(
+          `/api/v1/pms/reports/activity-by-day${qs}`,
+          { signal: controller.signal },
+        );
+        if (!controller.signal.aborted) setData(res.data ?? null);
+      } catch {
+        if (!controller.signal.aborted) setData(null);
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false);
+      }
+    })();
+    return () => {
+      controller.abort();
+    };
+  }, [propertyId, businessDate]);
+
+  const filteredRows = useMemo(() => {
+    if (!data) return [];
+    if (!search) return data.rows;
+    const q = search.toLowerCase();
+    return data.rows.filter(
+      (r) =>
+        r.code.toLowerCase().includes(q) ||
+        r.description.toLowerCase().includes(q),
+    );
+  }, [data, search]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-lg border border-border bg-surface p-4">
+              <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+              <div className="mt-2 h-6 w-24 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+        <TabSkeleton rows={8} />
+      </div>
+    );
+  }
+
+  if (!data || data.rows.length === 0)
+    return (
+      <EmptyState message="No activity data for this business date." />
+    );
+
+  return (
+    <div className="space-y-4">
+      {/* Print header — only visible when printing */}
+      <div className="hidden print:block">
+        <h1 className="text-xl font-bold print:text-gray-900">Activity by Day</h1>
+        <p className="text-sm print:text-gray-700">
+          Revenue/Debit Departments &mdash; Business Date: {data.businessDate}
+        </p>
+        <p className="text-xs print:text-gray-500">
+          Generated {new Date().toLocaleString()}
+        </p>
+      </div>
+
+      {/* KPI Summary Cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:grid-cols-4 print:gap-2">
+        <div className="rounded-lg border border-border bg-surface p-4 print:border-gray-300 print:p-2">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-500">
+              <DollarSign className="h-4 w-4" />
+            </div>
+            <p className="text-xs font-medium text-muted-foreground">Day Net</p>
+          </div>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+            {formatCents(data.totals.netCents)}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-surface p-4 print:border-gray-300 print:p-2">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-500">
+              <TrendingUp className="h-4 w-4" />
+            </div>
+            <p className="text-xs font-medium text-muted-foreground">PTD Net</p>
+          </div>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+            {formatCents(data.totals.ptdNetCents)}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-surface p-4 print:border-gray-300 print:p-2">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-500/20 text-purple-500">
+              <BarChart3 className="h-4 w-4" />
+            </div>
+            <p className="text-xs font-medium text-muted-foreground">YTD Net</p>
+          </div>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+            {formatCents(data.totals.ytdNetCents)}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-surface p-4 print:border-gray-300 print:p-2">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <CalendarDays className="h-4 w-4" />
+            </div>
+            <p className="text-xs font-medium text-muted-foreground">Departments</p>
+          </div>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+            {data.rows.length}
+          </p>
+        </div>
+      </div>
+
+      {/* Toolbar — search + print */}
+      <div className="flex flex-wrap items-center gap-3 print:hidden">
+        <div className="relative flex-1 sm:max-w-xs">
+          <input
+            type="text"
+            placeholder="Search departments..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="block w-full rounded-lg border border-border bg-surface py-2 pl-3 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              &times;
+            </button>
+          )}
+        </div>
+        {search && (
+          <span className="text-xs text-muted-foreground">
+            {filteredRows.length} of {data.rows.length} departments
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
+          >
+            Print
+          </button>
+        </div>
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden overflow-x-auto rounded-lg border border-border bg-surface md:block print:block print:border-gray-300">
+        <table className="min-w-full divide-y divide-border print:divide-gray-300">
+          <thead className="bg-muted print:bg-gray-100">
+            <tr>
+              <th className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Code
+              </th>
+              <th className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Description
+              </th>
+              <th className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Gross
+              </th>
+              <th className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Adjust
+              </th>
+              <th className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Net
+              </th>
+              <th className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                PTD Gross
+              </th>
+              <th className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                PTD Adjust
+              </th>
+              <th className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                PTD Net
+              </th>
+              <th className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                YTD Gross
+              </th>
+              <th className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                YTD Adjust
+              </th>
+              <th className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                YTD Net
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border bg-surface print:divide-gray-200">
+            {filteredRows.map((row) => (
+              <tr key={row.code} className="hover:bg-accent/30">
+                <td className="whitespace-nowrap px-3 py-3 font-mono text-sm font-medium text-foreground">
+                  {row.code}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-sm text-foreground">
+                  {row.description}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                  {formatCents(row.grossCents)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                  {formatCents(row.adjustCents)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-medium tabular-nums text-foreground">
+                  {formatCents(row.netCents)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                  {formatCents(row.ptdGrossCents)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                  {formatCents(row.ptdAdjustCents)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-medium tabular-nums text-foreground">
+                  {formatCents(row.ptdNetCents)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                  {formatCents(row.ytdGrossCents)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                  {formatCents(row.ytdAdjustCents)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-medium tabular-nums text-foreground">
+                  {formatCents(row.ytdNetCents)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="border-t-2 border-border bg-muted font-bold print:border-gray-400 print:bg-gray-100">
+            <tr>
+              <td className="whitespace-nowrap px-3 py-3 text-sm text-foreground">
+                Totals
+              </td>
+              <td />
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.totals.grossCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.totals.adjustCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.totals.netCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.totals.ptdGrossCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.totals.ptdAdjustCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.totals.ptdNetCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.totals.ytdGrossCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.totals.ytdAdjustCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.totals.ytdNetCents)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Mobile Card Layout */}
+      <div className="space-y-3 md:hidden print:hidden">
+        {filteredRows.map((row) => (
+          <div
+            key={row.code}
+            className="rounded-lg border border-border bg-surface p-4"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-sm font-semibold text-foreground">
+                {row.code}
+              </span>
+              <span className="text-sm text-muted-foreground">{row.description}</span>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <p className="font-medium text-muted-foreground">Day</p>
+                <p className="tabular-nums text-foreground">
+                  {formatCents(row.grossCents)}
+                </p>
+                {row.adjustCents !== 0 && (
+                  <p className="tabular-nums text-muted-foreground">
+                    Adj {formatCents(row.adjustCents)}
+                  </p>
+                )}
+                <p className="font-medium tabular-nums text-foreground">
+                  Net {formatCents(row.netCents)}
+                </p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">PTD</p>
+                <p className="tabular-nums text-foreground">
+                  {formatCents(row.ptdGrossCents)}
+                </p>
+                {row.ptdAdjustCents !== 0 && (
+                  <p className="tabular-nums text-muted-foreground">
+                    Adj {formatCents(row.ptdAdjustCents)}
+                  </p>
+                )}
+                <p className="font-medium tabular-nums text-foreground">
+                  Net {formatCents(row.ptdNetCents)}
+                </p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">YTD</p>
+                <p className="tabular-nums text-foreground">
+                  {formatCents(row.ytdGrossCents)}
+                </p>
+                {row.ytdAdjustCents !== 0 && (
+                  <p className="tabular-nums text-muted-foreground">
+                    Adj {formatCents(row.ytdAdjustCents)}
+                  </p>
+                )}
+                <p className="font-medium tabular-nums text-foreground">
+                  Net {formatCents(row.ytdNetCents)}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+        {/* Mobile totals card */}
+        <div className="rounded-lg border border-border bg-muted p-4">
+          <p className="text-sm font-bold text-foreground">Totals</p>
+          <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <p className="font-medium text-muted-foreground">Day Net</p>
+              <p className="font-bold tabular-nums text-foreground">
+                {formatCents(data.totals.netCents)}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground">PTD Net</p>
+              <p className="font-bold tabular-nums text-foreground">
+                {formatCents(data.totals.ptdNetCents)}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground">YTD Net</p>
+              <p className="font-bold tabular-nums text-foreground">
+                {formatCents(data.totals.ytdNetCents)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Department Audit Tab (§175 compliant) ─────────────────────
+
+const DEPT_COLORS = [
+  'bg-green-500', 'bg-indigo-500', 'bg-amber-500', 'bg-sky-500',
+  'bg-violet-500', 'bg-red-500', 'bg-teal-500', 'bg-pink-500',
+];
+
+function DepartmentAuditTab({
+  propertyId,
+  startDate,
+  endDate,
+}: {
+  propertyId: string;
+  startDate: string;
+  endDate: string;
+}) {
+  const [data, setData] = useState<DepartmentAuditData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!propertyId) {
+      setIsLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setIsLoading(true);
+    (async () => {
+      try {
+        const qs = buildQueryString({ propertyId, startDate, endDate });
+        const res = await apiFetch<{ data: DepartmentAuditData }>(
+          `/api/v1/pms/reports/department-audit${qs}`,
+          { signal: controller.signal },
+        );
+        if (!controller.signal.aborted) setData(res.data ?? null);
+      } catch {
+        if (!controller.signal.aborted) setData(null);
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false);
+      }
+    })();
+    return () => {
+      controller.abort();
+    };
+  }, [propertyId, startDate, endDate]);
+
+  // Filtered departments based on search
+  const filteredDepts = useMemo(() => {
+    if (!data) return [];
+    if (!search.trim()) return data.departments;
+    const q = search.toLowerCase();
+    return data.departments
+      .map((dept) => ({
+        ...dept,
+        entries: dept.entries.filter(
+          (e) =>
+            e.description.toLowerCase().includes(q) ||
+            (e.roomNumber ?? '').toLowerCase().includes(q) ||
+            String(e.folioNumber ?? '').includes(q) ||
+            dept.departmentCode.toLowerCase().includes(q),
+        ),
+      }))
+      .filter((dept) => dept.entries.length > 0);
+  }, [data, search]);
+
+  const filteredEntryCount = useMemo(
+    () => filteredDepts.reduce((s, d) => s + d.entries.length, 0),
+    [filteredDepts],
+  );
+
+  const activeSectionCodes = useMemo(
+    () => filteredDepts.map((d) => d.departmentCode),
+    [filteredDepts],
+  );
+
+  // Handlers
+  const toggleSection = useCallback((code: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }, []);
+
+  const expandAll = useCallback(() => setCollapsedSections(new Set()), []);
+  const collapseAll = useCallback(
+    () => setCollapsedSections(new Set(activeSectionCodes)),
+    [activeSectionCodes],
+  );
+
+  // Loading skeleton (§175: KPI grid + table rows)
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-lg border border-border bg-surface p-4">
+              <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+              <div className="mt-3 h-6 w-28 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+        <div className="space-y-2">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="h-10 animate-pulse rounded-lg bg-muted" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state (§175: centered card with domain icon)
+  if (!data || data.departments.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-surface p-12 text-center">
+        <Building2 className="mx-auto h-10 w-10 text-muted-foreground/50" />
+        <h3 className="mt-3 text-sm font-medium text-foreground">No Department Activity</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          No folio entries found for the selected date range.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Print header (§175: hidden print:block) */}
+      <div className="hidden print:block print:mb-4">
+        <h2 className="text-lg font-bold">Department Audit Report</h2>
+        <div className="mt-1 flex gap-4 text-sm text-gray-600">
+          <span>Property: {data.propertyName}</span>
+          <span>Period: {data.startDate} to {data.endDate}</span>
+          <span>Generated: {new Date().toLocaleString()}</span>
+        </div>
+      </div>
+
+      {/* KPI summary cards (§175: 4 cards) */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:grid-cols-4">
+        <div className="rounded-lg border border-border bg-surface p-4 print:border-gray-300 print:p-2">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-green-500" />
+            <span className="text-xs font-medium text-muted-foreground">Grand Total Net</span>
+          </div>
+          <div className="mt-1.5">
+            <span className="text-xl font-semibold tabular-nums text-foreground">
+              {formatCents(data.grandTotalNetCents)}
+            </span>
+          </div>
+        </div>
+        <div className="rounded-lg border border-border bg-surface p-4 print:border-gray-300 print:p-2">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-indigo-500" />
+            <span className="text-xs font-medium text-muted-foreground">Total Gross</span>
+          </div>
+          <div className="mt-1.5">
+            <span className="text-xl font-semibold tabular-nums text-foreground">
+              {formatCents(data.grandTotalGrossCents)}
+            </span>
+          </div>
+        </div>
+        <div className="rounded-lg border border-border bg-surface p-4 print:border-gray-300 print:p-2">
+          <div className="flex items-center gap-2">
+            <Hash className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground">Entries</span>
+          </div>
+          <div className="mt-1.5">
+            <span className="text-xl font-semibold tabular-nums text-foreground">
+              {data.totalEntries} across {data.departments.length} depts
+            </span>
+          </div>
+        </div>
+        <div className="rounded-lg border border-border bg-surface p-4 print:border-gray-300 print:p-2">
+          <div className="flex items-center gap-2">
+            {data.truncated ? (
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+            ) : (
+              <CheckCircle className="h-4 w-4 text-green-500" />
+            )}
+            <span className="text-xs font-medium text-muted-foreground">Status</span>
+          </div>
+          <div className="mt-1.5">
+            <span className={`text-xl font-semibold ${data.truncated ? 'text-amber-500' : 'text-foreground'}`}>
+              {data.truncated ? 'Truncated (10K limit)' : 'Complete'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Truncation warning banner */}
+      {data.truncated && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 print:border-gray-300 print:bg-gray-50">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+          <span className="text-sm font-medium text-amber-500 print:text-gray-700">
+            Results were capped at 10,000 entries. Narrow the date range for complete data.
+          </span>
+        </div>
+      )}
+
+      {/* Toolbar — search + expand/collapse + print (§175: print:hidden) */}
+      <div className="flex flex-wrap items-center gap-3 print:hidden">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search entries..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="block w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {search && (
+          <span className="text-xs text-muted-foreground">
+            {filteredEntryCount} of {data.totalEntries} entries
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={expandAll}
+            className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
+          >
+            Expand All
+          </button>
+          <button
+            type="button"
+            onClick={collapseAll}
+            className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
+          >
+            Collapse All
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
+          >
+            <Printer className="h-4 w-4" />
+            Print
+          </button>
+        </div>
+      </div>
+
+      {/* Desktop Table (§175: collapsible sections) */}
+      <div className="hidden overflow-x-auto rounded-lg border border-border bg-surface md:block print:block print:border-gray-300">
+        <table className="min-w-full divide-y divide-border print:divide-gray-300">
+          <thead className="bg-muted print:bg-gray-100">
+            <tr>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Date
+              </th>
+              <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Folio #
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Room
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Post Time
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Reference
+              </th>
+              <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Gross
+              </th>
+              <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Void
+              </th>
+              <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Adjust
+              </th>
+              <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Net
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Ledger
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground print:text-gray-700">
+                Agent
+              </th>
+            </tr>
+          </thead>
+          {filteredDepts.map((dept, di) => {
+            const isCollapsed = collapsedSections.has(dept.departmentCode);
+            const dotColor = DEPT_COLORS[di % DEPT_COLORS.length];
+            return (
+              <tbody key={dept.departmentCode} className="print:break-inside-avoid">
+                {/* Section header row (§175: clickable, chevron, colored dot, badge, subtotals) */}
+                <tr
+                  className="cursor-pointer select-none bg-muted/60 hover:bg-muted print:bg-gray-50"
+                  onClick={() => toggleSection(dept.departmentCode)}
+                >
+                  <td colSpan={5} className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      {isCollapsed ? (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground print:hidden" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground print:hidden" />
+                      )}
+                      <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
+                      <span className="text-sm font-semibold tracking-wide text-foreground">
+                        {dept.departmentCode}
+                      </span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+                        {dept.entryCount}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums font-medium text-foreground">
+                    {formatCents(dept.totalGrossCents)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums text-foreground">
+                    {formatCents(dept.totalVoidCents)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums text-foreground">
+                    {formatCents(dept.totalAdjustCents)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums font-bold text-foreground">
+                    {formatCents(dept.totalNetCents)}
+                  </td>
+                  <td colSpan={2} />
+                </tr>
+                {/* Detail rows (hidden when collapsed) */}
+                {!isCollapsed &&
+                  dept.entries.map((e) => (
+                    <tr
+                      key={e.entryId}
+                      className="border-b border-border/50 hover:bg-accent/30"
+                    >
+                      <td className="whitespace-nowrap py-2 pl-10 pr-3 text-sm text-foreground print:pl-6">
+                        {e.businessDate}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right font-mono text-sm tabular-nums text-foreground">
+                        {e.folioNumber ?? '—'}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 font-mono text-sm text-foreground">
+                        {e.roomNumber ?? '—'}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-foreground">
+                        {new Date(e.postedAt).toLocaleString('en-US', {
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-foreground">
+                        {e.description}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums text-foreground">
+                        {formatCents(e.grossCents)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums text-foreground">
+                        {formatCents(e.voidCents)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums text-foreground">
+                        {formatCents(e.adjustCents)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums font-medium text-foreground">
+                        {formatCents(e.netCents)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-foreground">
+                        {e.ledger}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-foreground">
+                        {e.postedBy ?? 'System'}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            );
+          })}
+          {/* Grand total row (§175: double top border) */}
+          <tfoot className="border-t-2 border-border bg-muted font-bold print:border-gray-400 print:bg-gray-100">
+            <tr>
+              <td colSpan={5} className="whitespace-nowrap px-3 py-3 text-sm text-foreground">
+                Grand Totals
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.grandTotalGrossCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.grandTotalVoidCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.grandTotalAdjustCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
+                {formatCents(data.grandTotalNetCents)}
+              </td>
+              <td colSpan={2} />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Mobile card layout (§175: md:hidden print:hidden) */}
+      <div className="space-y-3 md:hidden print:hidden">
+        {filteredDepts.map((dept, di) => {
+          const isCollapsed = collapsedSections.has(dept.departmentCode);
+          const dotColor = DEPT_COLORS[di % DEPT_COLORS.length];
+          return (
+            <div key={dept.departmentCode} className="rounded-lg border border-border bg-surface">
+              <button
+                type="button"
+                onClick={() => toggleSection(dept.departmentCode)}
+                className="flex w-full items-center gap-2 px-4 py-3 text-left"
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
+                <span className="flex-1 text-sm font-semibold text-foreground">
+                  {dept.departmentCode}
+                </span>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+                  {dept.entryCount}
+                </span>
+                <span className="ml-2 text-sm font-semibold tabular-nums text-foreground">
+                  {formatCents(dept.totalNetCents)}
+                </span>
+              </button>
+              {!isCollapsed && (
+                <div className="border-t border-border/50 divide-y divide-border/30">
+                  {dept.entries.map((e) => (
+                    <div key={e.entryId} className="px-4 py-2">
+                      <p className="text-sm font-medium text-foreground">{e.description}</p>
+                      <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>{e.businessDate}</span>
+                        <span>Folio {e.folioNumber ?? '—'}</span>
+                        <span>Room {e.roomNumber ?? '—'}</span>
+                        <span className="ml-auto tabular-nums font-medium text-foreground">
+                          {formatCents(e.netCents)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {/* Mobile grand totals card */}
+        <div className="rounded-lg border border-border bg-muted p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-foreground">Grand Total</span>
+            <span className="text-sm font-bold tabular-nums text-foreground">
+              {formatCents(data.grandTotalNetCents)}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page Component ─────────────────────────────────────────
 
 export default function ReportsContent() {
@@ -729,7 +1652,7 @@ export default function ReportsContent() {
             />
           </div>
         )}
-        {activeTab !== 'overview' && (
+        {activeTab !== 'overview' && activeTab !== 'activity' && (
           <>
             <div className="w-full sm:w-44">
               <label htmlFor="reports-start-date" className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -757,7 +1680,7 @@ export default function ReportsContent() {
             </div>
           </>
         )}
-        {activeTab === 'overview' && (
+        {(activeTab === 'overview' || activeTab === 'activity') && (
           <div className="w-full sm:w-44">
             <label htmlFor="reports-business-date" className="mb-1 block text-xs font-medium text-muted-foreground">
               Business Date
@@ -810,6 +1733,21 @@ export default function ReportsContent() {
               key={`overview-${refreshKey}`}
               propertyId={selectedPropertyId}
               businessDate={startDate}
+            />
+          )}
+          {activeTab === 'activity' && (
+            <ActivityByDayTab
+              key={`activity-${refreshKey}`}
+              propertyId={selectedPropertyId}
+              businessDate={startDate}
+            />
+          )}
+          {activeTab === 'dept-audit' && (
+            <DepartmentAuditTab
+              key={`dept-audit-${refreshKey}`}
+              propertyId={selectedPropertyId}
+              startDate={startDate}
+              endDate={endDate}
             />
           )}
           {activeTab === 'revenue' && (

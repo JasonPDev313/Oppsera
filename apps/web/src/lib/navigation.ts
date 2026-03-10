@@ -250,6 +250,7 @@ export const navigation: NavItem[] = [
       { name: 'Housekeeping Staff', href: '/pms/housekeeping-staff', icon: Users, group: 'Property Setup', requiredPermission: 'pms.housekeepers.manage' },
       // Reporting
       { name: 'Reports', href: '/pms/reports', icon: BarChart3, group: 'Reporting', requiredPermission: 'pms.property.view' },
+      { name: 'Managers Report', href: '/pms/reports/managers-report', icon: FileBarChart, group: 'Reporting', requiredPermission: 'pms.reports.view' },
     ],
   },
   {

@@ -1,13 +1,14 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { NotFoundError } from '@oppsera/shared';
+import { NotFoundError, ValidationError } from '@oppsera/shared';
 import { pmsGroups } from '@oppsera/db';
 import type { UpdateGroupInput } from '../validation';
 import { PMS_EVENTS } from '../events/types';
 import { pmsAuditLogEntry } from '../helpers/pms-audit';
+import { ConcurrencyConflictError } from '../errors';
 
 export async function updateGroup(
   ctx: RequestContext,
@@ -31,11 +32,27 @@ export async function updateGroup(
       throw new NotFoundError('Group', groupId);
     }
 
+    // Cancelled groups are immutable — use the reinstate command if needed
+    if (existing.status === 'cancelled') {
+      throw new ValidationError('Cannot modify a cancelled group', [
+        { field: 'groupId', message: 'Group is cancelled and cannot be modified' },
+      ]);
+    }
+
+    // Status transitions must use dedicated commands (cancel → cancelGroup)
+    if (input.status === 'cancelled') {
+      throw new ValidationError('Use the cancel command to cancel a group', [
+        { field: 'status', message: 'Use the cancel endpoint to cancel a group' },
+      ]);
+    }
+
     // Build update fields (PATCH semantics)
     const updates: Record<string, unknown> = {
       updatedAt: new Date(),
+      version: sql`version + 1`,
     };
     if (input.name !== undefined) updates.name = input.name;
+    if (input.groupCode !== undefined) updates.groupCode = input.groupCode;
     if (input.groupType !== undefined) updates.groupType = input.groupType;
     if (input.contactName !== undefined) updates.contactName = input.contactName;
     if (input.contactEmail !== undefined) updates.contactEmail = input.contactEmail;
@@ -48,12 +65,44 @@ export async function updateGroup(
     if (input.status !== undefined) updates.status = input.status;
     if (input.billingType !== undefined) updates.billingType = input.billingType;
     if (input.notes !== undefined) updates.notes = input.notes;
+    if (input.source !== undefined) updates.source = input.source;
+    if (input.market !== undefined) updates.market = input.market;
+    if (input.bookingMethod !== undefined) updates.bookingMethod = input.bookingMethod;
+    if (input.salesRepUserId !== undefined) updates.salesRepUserId = input.salesRepUserId;
+    if (input.specialRequests !== undefined) updates.specialRequests = input.specialRequests;
+    if (input.groupComments !== undefined) updates.groupComments = input.groupComments;
+    if (input.reservationComments !== undefined) updates.reservationComments = input.reservationComments;
+    if (input.autoReleaseAtCutoff !== undefined) updates.autoReleaseAtCutoff = input.autoReleaseAtCutoff;
+    if (input.shoulderDatesEnabled !== undefined) updates.shoulderDatesEnabled = input.shoulderDatesEnabled;
+    if (input.shoulderStartDate !== undefined) updates.shoulderStartDate = input.shoulderStartDate;
+    if (input.shoulderEndDate !== undefined) updates.shoulderEndDate = input.shoulderEndDate;
+    if (input.shoulderRateCents !== undefined) updates.shoulderRateCents = input.shoulderRateCents;
+    if (input.autoRoutePackagesToMaster !== undefined) updates.autoRoutePackagesToMaster = input.autoRoutePackagesToMaster;
+    if (input.autoRouteSpecialsToMaster !== undefined) updates.autoRouteSpecialsToMaster = input.autoRouteSpecialsToMaster;
 
+    // Optimistic locking: require version match
     const [updated] = await tx
       .update(pmsGroups)
       .set(updates)
-      .where(and(eq(pmsGroups.id, groupId), eq(pmsGroups.tenantId, ctx.tenantId)))
+      .where(
+        and(
+          eq(pmsGroups.id, groupId),
+          eq(pmsGroups.tenantId, ctx.tenantId),
+          eq(pmsGroups.version, input.version),
+        ),
+      )
       .returning();
+
+    if (!updated) {
+      // Check if group exists (for better error message)
+      const [exists] = await tx
+        .select({ id: pmsGroups.id })
+        .from(pmsGroups)
+        .where(and(eq(pmsGroups.id, groupId), eq(pmsGroups.tenantId, ctx.tenantId)))
+        .limit(1);
+      if (!exists) throw new NotFoundError('Group', groupId);
+      throw new ConcurrencyConflictError(groupId);
+    }
 
     // Compute diff for audit
     const diff: Record<string, { before: unknown; after: unknown }> = {};

@@ -6,6 +6,8 @@ vi.mock('@oppsera/db', () => ({
   db: { transaction: vi.fn() },
   withTenant: vi.fn(),
   sql: vi.fn(),
+  tenders: {},
+  pendingBreakageReview: {},
   glJournalEntries: { id: 'id', tenantId: 'tenant_id' },
   glJournalLines: { journalEntryId: 'journal_entry_id' },
   glAccounts: {},
@@ -31,6 +33,10 @@ vi.mock('@oppsera/core/audit/helpers', () => ({
 
 vi.mock('../helpers/generate-journal-number', () => ({
   generateJournalNumber: vi.fn().mockResolvedValue(2),
+}));
+
+vi.mock('../helpers/get-accounting-settings', () => ({
+  getAccountingSettings: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock('@oppsera/shared', () => ({

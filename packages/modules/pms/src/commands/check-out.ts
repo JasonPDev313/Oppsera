@@ -214,6 +214,8 @@ export async function checkOut(
         totalCents,
         checkedOutAt: new Date(),
         checkedOutBy: ctx.user.id,
+        checkoutNotes: input.checkoutNotes ?? null,
+        folioDelivery: input.folioDelivery ?? 'none',
         version: sql`version + 1`,
         updatedAt: new Date(),
       })
@@ -232,6 +234,8 @@ export async function checkOut(
       roomId: current.roomId,
       lateCheckOut,
       checkOutDate,
+      folioDelivery: input.folioDelivery ?? 'none',
+      hasCheckoutNotes: !!input.checkoutNotes,
     });
 
     const guestName = current.primaryGuestJson

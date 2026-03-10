@@ -81,6 +81,7 @@ vi.mock('@oppsera/db', () => ({
   },
   sql: Object.assign(vi.fn((...args: unknown[]) => args), {
     join: vi.fn((fragments: unknown[], _sep?: unknown) => fragments),
+    raw: vi.fn((s: string) => s),
   }),
   eventOutbox: {
     id: 'eventOutbox.id',
@@ -368,8 +369,8 @@ describe('publishWithOutbox', () => {
       return { result: 'ok', events: [event1, event2] };
     });
 
-    // Insert called twice (once per event)
-    expect(mockInsert).toHaveBeenCalledTimes(2);
+    // Insert called once (events are batch-inserted in a single query)
+    expect(mockInsert).toHaveBeenCalledTimes(1);
   });
 });
 

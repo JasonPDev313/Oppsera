@@ -13,6 +13,14 @@ import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings'
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
+// ── Circuit breaker skip tracking ────────────────────────────────
+// When the breaker is open, GL postings are skipped and no unmapped events
+// are logged (DB writes would amplify pool exhaustion). This counter tracks
+// how many tenders were skipped so we can log a summary when the breaker
+// closes and normal processing resumes.
+let _breakerSkipCount = 0;
+let _breakerSkipFirstAt: string | null = null;
+
 interface PackageComponent {
   catalogItemId: string;
   catalogItemName: string;
@@ -116,8 +124,31 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
   // prevent recovery. Bail out immediately — the outbox will retry once
   // the breaker closes.
   if (isBreakerOpen()) {
-    console.warn(`[pos-gl] Skipped GL posting for tender ${data.tenderId}: circuit breaker open`);
+    _breakerSkipCount++;
+    if (!_breakerSkipFirstAt) _breakerSkipFirstAt = new Date().toISOString();
+    console.warn(`[pos-gl] Skipped GL posting for tender ${data.tenderId}: circuit breaker open (skipped: ${_breakerSkipCount})`);
     return;
+  }
+
+  // ── Flush breaker skip summary ───────────────────────────────
+  // First successful entry after breaker closes: log how many tenders were
+  // skipped so the admin dashboard has post-incident visibility.
+  if (_breakerSkipCount > 0) {
+    const skipped = _breakerSkipCount;
+    const since = _breakerSkipFirstAt;
+    _breakerSkipCount = 0;
+    _breakerSkipFirstAt = null;
+    console.error(`[pos-gl] Circuit breaker recovered — ${skipped} GL posting(s) skipped since ${since}. Outbox worker will retry.`);
+    try {
+      await logUnmappedEvent(db, tenantId, {
+        eventType: 'tender.recorded.v1',
+        sourceModule: 'pos',
+        sourceReferenceId: data.tenderId,
+        entityType: 'breaker_skip_summary',
+        entityId: tenantId,
+        reason: `Circuit breaker was open — ${skipped} GL posting(s) skipped since ${since}. Outbox worker will retry missed events.`,
+      });
+    } catch { /* best-effort — breaker just recovered, pool may still be fragile */ }
   }
 
   try {
@@ -281,8 +312,16 @@ async function handleTenderForAccountingInner(
 
   const surchargeAmount = data.surchargeAmountCents ?? 0;
 
+  // Always include tips in the debit — cash was physically received.
+  // If no tips payable account is configured, the reconciliation step (6b)
+  // will balance the entry via the rounding account (ensureAccountingSettings
+  // guarantees defaultRoundingAccountId is always set). The missing tips payable
+  // account is logged as an unmapped event for the accountant to configure.
+  const tipAccountId = settings.defaultTipsPayableAccountId ?? null;
+  const includeTipInDebit = tipAmount > 0;
+
   if (depositAccountId) {
-    const totalDebitCents = data.amount + tipAmount + surchargeAmount;
+    const totalDebitCents = data.amount + (includeTipInDebit ? tipAmount : 0) + surchargeAmount;
     const tenderDollars = (totalDebitCents / 100).toFixed(2);
     glLines.push({
       accountId: depositAccountId,
@@ -525,7 +564,14 @@ async function handleTenderForAccountingInner(
 
       for (const [subDeptId, rawCostCents] of cogsBySubDept) {
         const subDeptMapping = subDeptMap.get(subDeptId);
-        if (!subDeptMapping || !subDeptMapping.cogsAccountId || !subDeptMapping.inventoryAccountId) continue;
+        if (!subDeptMapping || !subDeptMapping.cogsAccountId || !subDeptMapping.inventoryAccountId) {
+          // Log the skip — previously silent, making COGS gaps invisible to admins
+          if (Math.round(rawCostCents) > 0) {
+            const missing = !subDeptMapping ? 'cogs_mapping' : !subDeptMapping.cogsAccountId ? 'cogs_account' : 'inventory_account';
+            missingMappings.push(`${missing}:${subDeptId}`);
+          }
+          continue;
+        }
 
         const costCents = Math.round(rawCostCents);
         if (costCents > 0) {
@@ -651,10 +697,12 @@ async function handleTenderForAccountingInner(
   }
 
   // ── 5. CREDIT: Tips payable (per-tender, not proportional) ─────
-  // Liability class — never fall back to revenue
+  // Liability class — never fall back to revenue.
+  // tipAccountId and includeTipInDebit are resolved above (section 1) so the
+  // debit and credit legs stay in sync. If no payable account, tips are excluded
+  // from BOTH debit and credit — entry stays balanced, tip is logged as missing.
   if (tipAmount > 0) {
-    const tipAccountId = settings.defaultTipsPayableAccountId ?? null;
-    if (tipAccountId) {
+    if (includeTipInDebit && tipAccountId) {
       glLines.push({
         accountId: tipAccountId,
         debitAmount: '0',

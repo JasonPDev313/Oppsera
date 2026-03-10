@@ -51,6 +51,11 @@ export async function moveReservation(ctx: RequestContext, input: CalendarMoveIn
       throw new ReservationNotMovableError(current.status);
     }
 
+    // 4b. Do Not Move check
+    if (current.doNotMove) {
+      throw new ReservationNotMovableError('DO_NOT_MOVE');
+    }
+
     // 5. Compute new dates (keep same duration)
     const oldCheckIn = new Date(current.checkInDate);
     const oldCheckOut = new Date(current.checkOutDate);

@@ -53,6 +53,8 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@oppsera/db', () => ({
   db: mocks.db,
+  isBreakerOpen: vi.fn().mockReturnValue(false),
+  tenders: {},
   glJournalEntries: {
     id: 'id',
     tenantId: 'tenant_id',

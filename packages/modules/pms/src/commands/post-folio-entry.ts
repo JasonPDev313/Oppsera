@@ -47,6 +47,7 @@ export async function postFolioEntry(
       amountCents: input.amountCents,
       businessDate,
       sourceRef: input.sourceRef ?? null,
+      departmentCode: input.departmentCode ?? null,
       postedBy: ctx.user.id,
     });
 

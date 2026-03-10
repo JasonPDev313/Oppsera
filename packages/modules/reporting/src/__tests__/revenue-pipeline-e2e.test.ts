@@ -564,8 +564,8 @@ describe('POS Return Pipeline', () => {
     );
 
     expect(mockWithTenant).toHaveBeenCalledWith(TENANT, expect.any(Function));
-    // Idempotency + rm_daily_sales upsert + rm_revenue_activity insert = 3 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(3);
+    // Idempotency + rm_daily_sales upsert + rm_revenue_activity insert + rm_customer_activity update = 4 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(4);
   });
 
   it('updates rm_daily_sales: increments return_total and decreases net_sales', async () => {

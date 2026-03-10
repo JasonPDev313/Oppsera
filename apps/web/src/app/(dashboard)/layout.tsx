@@ -42,6 +42,7 @@ import { getInitials } from '@oppsera/shared';
 import { CommandPalette } from '@/components/command-palette';
 import { ImpersonationBanner } from '@/components/impersonation-banner';
 import type { NavItem } from '@/lib/navigation';
+import type { TerminalSession } from '@oppsera/core/profit-centers';
 import { applyNavPreferences } from '@/lib/navigation-order';
 import { useNavPreferences } from '@/hooks/use-nav-preferences';
 import { useErpConfig } from '@/hooks/use-erp-config';
@@ -274,7 +275,7 @@ function SidebarContent({
   isModuleEnabled: (key: string) => boolean;
   can: (permission: string) => boolean;
   navItems: NavItem[];
-  terminalSession?: import('@oppsera/core/profit-centers').TerminalSession | null;
+  terminalSession?: TerminalSession | null;
   onChangeTerminal?: () => void;
   collapsed?: boolean;
   isPinned?: boolean;
@@ -902,7 +903,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Derive display values — use fallbacks during auth loading so the
   // sidebar renders immediately and the user can navigate right away.
-  const { session: terminalSession, clearSession } = useTerminalSession();
+  const { session: terminalSession, clearSession: _clearSession } = useTerminalSession();
   const [showTerminalPicker, setShowTerminalPicker] = useState(false);
   const handleChangeTerminal = useCallback(() => setShowTerminalPicker(true), []);
   const handleTerminalPickerDone = useCallback(() => setShowTerminalPicker(false), []);

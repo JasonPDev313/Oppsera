@@ -20,6 +20,7 @@ vi.mock('@oppsera/db', () => ({
   glClassifications: {},
   accountingSettings: {},
   glUnmappedEvents: {},
+  isBreakerOpen: vi.fn().mockReturnValue(false),
 }));
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({

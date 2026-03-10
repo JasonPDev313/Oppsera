@@ -37,6 +37,8 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@oppsera/db', () => ({
   db: mocks.db,
+  tenders: {},
+  pendingBreakageReview: {},
   glJournalEntries: {
     id: 'id',
     tenantId: 'tenant_id',
@@ -46,10 +48,15 @@ vi.mock('@oppsera/db', () => ({
   },
 }));
 
+vi.mock('../helpers/ensure-accounting-settings', () => ({
+  ensureAccountingSettings: vi.fn().mockResolvedValue({ created: false, autoWired: 0 }),
+}));
+
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((a: string, b: string) => ({ op: 'eq', a, b })),
   and: vi.fn((...args: unknown[]) => ({ op: 'and', args })),
   like: vi.fn((a: string, b: string) => ({ op: 'like', a, b })),
+  inArray: vi.fn((col: unknown, vals: unknown[]) => ({ op: 'inArray', col, vals })),
 }));
 
 vi.mock('../helpers/get-accounting-settings', () => ({

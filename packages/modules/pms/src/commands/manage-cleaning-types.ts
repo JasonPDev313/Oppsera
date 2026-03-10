@@ -1,5 +1,10 @@
 /**
  * CRUD operations for cleaning types (service levels).
+ *
+ * Note: These are low-frequency configuration operations — publishWithOutbox
+ * is intentionally omitted. auditLogDeferred() provides an audit trail.
+ * If downstream systems ever need to react to cleaning type changes, promote
+ * to publishWithOutbox and emit pms.cleaning_type.* events.
  */
 import { and, eq } from 'drizzle-orm';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';

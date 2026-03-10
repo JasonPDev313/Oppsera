@@ -13,6 +13,7 @@ vi.mock('@oppsera/db', () => ({
   customers: {},
   customerIdentifiers: {},
   customerExternalIds: {},
+  sqlArray: vi.fn((arr: unknown[]) => arr),
 }));
 
 import { detectDuplicates } from '../../services/csv-import/duplicate-detector';

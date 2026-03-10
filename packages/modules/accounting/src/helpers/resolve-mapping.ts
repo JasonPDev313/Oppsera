@@ -293,6 +293,11 @@ export async function batchResolveDiscountGlMappings(
 /**
  * Log an unmapped event for later resolution.
  * Called when a GL mapping is missing during automated posting.
+ *
+ * Deduplicates: if an unresolved event already exists for the same
+ * (tenant, source_reference, entity_type, entity_id) combination,
+ * the insert is skipped. This prevents N duplicate rows when outbox
+ * retries or split-tender events re-log the same missing mapping.
  */
 export async function logUnmappedEvent(
   tx: Database,
@@ -310,7 +315,8 @@ export async function logUnmappedEvent(
       entity_id,
       reason,
       created_at
-    ) VALUES (
+    )
+    SELECT
       ${generateUlid()},
       ${tenantId},
       ${params.eventType},
@@ -320,6 +326,13 @@ export async function logUnmappedEvent(
       ${params.entityId},
       ${params.reason},
       NOW()
+    WHERE NOT EXISTS (
+      SELECT 1 FROM gl_unmapped_events
+      WHERE tenant_id = ${tenantId}
+        AND source_reference_id IS NOT DISTINCT FROM ${params.sourceReferenceId ?? null}
+        AND entity_type = ${params.entityType}
+        AND entity_id = ${params.entityId}
+        AND resolved_at IS NULL
     )
   `);
 }

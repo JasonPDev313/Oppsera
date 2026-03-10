@@ -72,6 +72,18 @@ const SOURCE_TYPE_OPTIONS = [
   { value: 'OTA', label: 'OTA' },
 ];
 
+const MARKET_SEGMENT_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'BAR', label: 'Best Available Rate' },
+  { value: 'CORPORATE', label: 'Corporate' },
+  { value: 'GROUP', label: 'Group' },
+  { value: 'OTA', label: 'OTA' },
+  { value: 'WHOLESALE', label: 'Wholesale' },
+  { value: 'GOVERNMENT', label: 'Government' },
+  { value: 'LEISURE', label: 'Leisure' },
+  { value: 'OTHER', label: 'Other' },
+];
+
 // ── Props ────────────────────────────────────────────────────────
 
 export interface CreateReservationDialogProps {
@@ -130,7 +142,17 @@ export default function CreateReservationDialog({
   const [formAdults, setFormAdults] = useState(1);
   const [formChildren, setFormChildren] = useState(0);
   const [formSourceType, setFormSourceType] = useState('DIRECT');
+  const [formMarketSegment, setFormMarketSegment] = useState('');
   const [formNotes, setFormNotes] = useState('');
+  const [formSpecialRequests, setFormSpecialRequests] = useState('');
+  const [formEta, setFormEta] = useState('');
+  const [formDoNotMove, setFormDoNotMove] = useState(false);
+  const [formLicensePlate, setFormLicensePlate] = useState('');
+  const [formVehicleState, setFormVehicleState] = useState('');
+  const [formVehicleMake, setFormVehicleMake] = useState('');
+  const [formVehicleModel, setFormVehicleModel] = useState('');
+  const [formVehicleColor, setFormVehicleColor] = useState('');
+  const [formHasNoVehicle, setFormHasNoVehicle] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -166,7 +188,17 @@ export default function CreateReservationDialog({
       setFormAdults(1);
       setFormChildren(0);
       setFormSourceType('DIRECT');
+      setFormMarketSegment('');
       setFormNotes('');
+      setFormSpecialRequests('');
+      setFormEta('');
+      setFormDoNotMove(false);
+      setFormLicensePlate('');
+      setFormVehicleState('');
+      setFormVehicleMake('');
+      setFormVehicleModel('');
+      setFormVehicleColor('');
+      setFormHasNoVehicle(false);
       setFormError(null);
       setRatePlanBaseRate(null);
       prefillAppliedRef.current = false;
@@ -438,6 +470,22 @@ export default function CreateReservationDialog({
     if (formRoomId) payload.roomId = formRoomId;
     if (formGuestId) payload.guestId = formGuestId;
     if (formNotes.trim()) payload.internalNotes = formNotes.trim();
+    if (formSpecialRequests.trim()) payload.specialRequests = formSpecialRequests.trim();
+    if (formEta.trim()) payload.eta = formEta.trim();
+    if (formDoNotMove) payload.doNotMove = true;
+    if (formMarketSegment) payload.marketSegment = formMarketSegment;
+    // Vehicle info
+    const hasVehicle = formLicensePlate.trim() || formVehicleMake.trim() || formHasNoVehicle;
+    if (hasVehicle) {
+      payload.vehicleJson = {
+        ...(formLicensePlate.trim() ? { licensePlate: formLicensePlate.trim() } : {}),
+        ...(formVehicleState.trim() ? { state: formVehicleState.trim() } : {}),
+        ...(formVehicleMake.trim() ? { make: formVehicleMake.trim() } : {}),
+        ...(formVehicleModel.trim() ? { model: formVehicleModel.trim() } : {}),
+        ...(formVehicleColor.trim() ? { color: formVehicleColor.trim() } : {}),
+        ...(formHasNoVehicle ? { hasNoVehicle: true } : {}),
+      };
+    }
 
     try {
       await apiFetch('/api/v1/pms/reservations', {
@@ -454,8 +502,10 @@ export default function CreateReservationDialog({
   }, [
     formFirstName, formLastName, formEmail, formPhone,
     formCheckIn, formCheckOut, formRoomTypeId, formRoomId, formRatePlanId,
-    formNightlyRate, formAdults, formChildren, formSourceType,
-    formNotes, formGuestId, propertyId, onSuccess,
+    formNightlyRate, formAdults, formChildren, formSourceType, formMarketSegment,
+    formNotes, formSpecialRequests, formEta, formDoNotMove,
+    formLicensePlate, formVehicleState, formVehicleMake, formVehicleModel, formVehicleColor, formHasNoVehicle,
+    formGuestId, propertyId, onSuccess,
   ]);
 
   // ── Keyboard shortcut: Enter to submit ─────────────────────────
@@ -836,16 +886,149 @@ export default function CreateReservationDialog({
               </div>
             </div>
 
-            {/* Source Type */}
+            {/* Source + Market Segment */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="reservation-source" className="mb-1 block text-sm font-medium text-foreground">Source</label>
+                <Select
+                  options={SOURCE_TYPE_OPTIONS}
+                  value={formSourceType}
+                  onChange={(v) => setFormSourceType(v as string)}
+                  placeholder="Select source"
+                />
+              </div>
+              <div>
+                <label htmlFor="reservation-market-segment" className="mb-1 block text-sm font-medium text-foreground">Market Segment</label>
+                <Select
+                  options={MARKET_SEGMENT_OPTIONS}
+                  value={formMarketSegment}
+                  onChange={(v) => setFormMarketSegment(v as string)}
+                  placeholder="Select segment"
+                />
+              </div>
+            </div>
+
+            {/* ETA + Do Not Move */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="reservation-eta" className="mb-1 block text-sm font-medium text-foreground">ETA</label>
+                <input
+                  id="reservation-eta"
+                  type="text"
+                  value={formEta}
+                  onChange={(e) => setFormEta(e.target.value)}
+                  placeholder="e.g. 3:00 PM, Late Arrival"
+                  className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="flex items-end pb-1">
+                <label htmlFor="reservation-do-not-move" className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+                  <input
+                    id="reservation-do-not-move"
+                    type="checkbox"
+                    checked={formDoNotMove}
+                    onChange={(e) => setFormDoNotMove(e.target.checked)}
+                    className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Do Not Move
+                </label>
+              </div>
+            </div>
+
+            {/* Special Requests */}
             <div>
-              <label htmlFor="reservation-source" className="mb-1 block text-sm font-medium text-foreground">Source</label>
-              <Select
-                options={SOURCE_TYPE_OPTIONS}
-                value={formSourceType}
-                onChange={(v) => setFormSourceType(v as string)}
-                placeholder="Select source"
+              <label htmlFor="reservation-special-requests" className="mb-1 block text-sm font-medium text-foreground">Special Requests</label>
+              <textarea
+                id="reservation-special-requests"
+                value={formSpecialRequests}
+                onChange={(e) => setFormSpecialRequests(e.target.value)}
+                placeholder="e.g. Extra pillows, quiet room, late checkout..."
+                rows={2}
+                className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
+
+            {/* Vehicle Info (collapsible) */}
+            <details className="rounded-lg border border-border">
+              <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-foreground hover:bg-accent/50">
+                Vehicle Info (optional)
+              </summary>
+              <div className="space-y-3 px-3 pb-3 pt-1">
+                <label htmlFor="reservation-no-vehicle" className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                  <input
+                    id="reservation-no-vehicle"
+                    type="checkbox"
+                    checked={formHasNoVehicle}
+                    onChange={(e) => setFormHasNoVehicle(e.target.checked)}
+                    className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Guest has no vehicle
+                </label>
+                {!formHasNoVehicle && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label htmlFor="vehicle-plate" className="mb-1 block text-xs font-medium text-muted-foreground">License Plate</label>
+                        <input
+                          id="vehicle-plate"
+                          type="text"
+                          value={formLicensePlate}
+                          onChange={(e) => setFormLicensePlate(e.target.value)}
+                          placeholder="ABC 1234"
+                          className="w-full rounded-lg border border-input bg-surface px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="vehicle-state" className="mb-1 block text-xs font-medium text-muted-foreground">State/Province</label>
+                        <input
+                          id="vehicle-state"
+                          type="text"
+                          value={formVehicleState}
+                          onChange={(e) => setFormVehicleState(e.target.value)}
+                          placeholder="FL"
+                          className="w-full rounded-lg border border-input bg-surface px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label htmlFor="vehicle-make" className="mb-1 block text-xs font-medium text-muted-foreground">Make</label>
+                        <input
+                          id="vehicle-make"
+                          type="text"
+                          value={formVehicleMake}
+                          onChange={(e) => setFormVehicleMake(e.target.value)}
+                          placeholder="Toyota"
+                          className="w-full rounded-lg border border-input bg-surface px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="vehicle-model" className="mb-1 block text-xs font-medium text-muted-foreground">Model</label>
+                        <input
+                          id="vehicle-model"
+                          type="text"
+                          value={formVehicleModel}
+                          onChange={(e) => setFormVehicleModel(e.target.value)}
+                          placeholder="Camry"
+                          className="w-full rounded-lg border border-input bg-surface px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="vehicle-color" className="mb-1 block text-xs font-medium text-muted-foreground">Color</label>
+                        <input
+                          id="vehicle-color"
+                          type="text"
+                          value={formVehicleColor}
+                          onChange={(e) => setFormVehicleColor(e.target.value)}
+                          placeholder="Silver"
+                          className="w-full rounded-lg border border-input bg-surface px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </details>
 
             {/* Notes */}
             <div>
@@ -854,7 +1037,7 @@ export default function CreateReservationDialog({
                 id="reservation-notes"
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
-                placeholder="Optional notes..."
+                placeholder="Optional internal notes..."
                 rows={2}
                 className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />

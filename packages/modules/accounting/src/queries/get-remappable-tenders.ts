@@ -133,18 +133,31 @@ export async function getRemappableTenders(
       for (const mapping of uniqueMappings) {
         let nowMapped = false;
 
-        // posting_error = GL posting itself failed (not a mapping issue).
-        // These are retryable — the underlying cause (missing migration, DB error,
-        // settings corruption) may have been fixed since the original attempt.
-        if (mapping.entityType === 'posting_error') {
+        // posting_error / unhandled_error = GL posting itself failed (not a mapping issue).
+        // These are retryable — the underlying cause (SAVEPOINT error, missing migration,
+        // DB error, settings corruption) may have been fixed since the original attempt.
+        if (mapping.entityType === 'posting_error' || mapping.entityType === 'unhandled_error') {
           missingMappings.push({ ...mapping, nowMapped: true });
           hasPostingError = true;
           continue;
         }
 
-        // no_line_detail = tender had no order line data for GL breakdown.
-        // Not fixable by retry — skip.
-        if (mapping.entityType === 'no_line_detail') {
+        // Non-retryable error types — these represent data issues, not transient failures.
+        // no_line_detail: tender had no order line data for GL breakdown
+        // zero_dollar_order: fully comped order, no money to post
+        // invalid_ratio: bad tender ratio (NaN/Infinity)
+        // accounting_settings: settings could not be created
+        // gl_posting_gap: suspense account guarantee failed
+        // reversal_no_original: reversal skipped because original tender has no GL entry
+        //   (resolve the original tender first, then re-run the reversal)
+        if (
+          mapping.entityType === 'no_line_detail' ||
+          mapping.entityType === 'zero_dollar_order' ||
+          mapping.entityType === 'invalid_ratio' ||
+          mapping.entityType === 'accounting_settings' ||
+          mapping.entityType === 'gl_posting_gap' ||
+          mapping.entityType === 'reversal_no_original'
+        ) {
           missingMappings.push({ ...mapping, nowMapped: false });
           allMapped = false;
           continue;
@@ -163,11 +176,22 @@ export async function getRemappableTenders(
           const resolved = await resolveSubDepartmentAccounts(tx, input.tenantId, mapping.entityId);
           nowMapped = resolved?.discountAccountId !== null && resolved?.discountAccountId !== undefined;
         } else if (mapping.entityType === 'tips_payable_account' || mapping.entityType === 'service_charge_account') {
-          // These are tenant-level settings, not per-entity mappings
-          // If they logged as missing, check settings
-          nowMapped = false; // Can't auto-check — leave as unmapped
-          // The remap will pick up new settings anyway via handleTenderForAccounting
-          nowMapped = true; // Actually, these resolve via settings fallback, always "fixed"
+          // Tenant-level settings, not per-entity mappings.
+          // The remap will pick up new settings via handleTenderForAccounting,
+          // so always treat as resolvable (worst case: adapter uses fallback account).
+          nowMapped = true;
+        } else if (
+          mapping.entityType === 'payment_type_incomplete' ||
+          mapping.entityType === 'revenue_account_null' ||
+          mapping.entityType === 'tax_account_null' ||
+          mapping.entityType === 'revenue_fallback_null' ||
+          mapping.entityType === 'surcharge_revenue_account' ||
+          mapping.entityType === 'price_override_expense_account' ||
+          mapping.entityType === 'discount_classification'
+        ) {
+          // Settings-level or mapping-level gaps that may have been fixed.
+          // The remap will re-evaluate with current settings/mappings.
+          nowMapped = true;
         } else {
           // Unknown entity type — mark as unmappable
           nowMapped = false;

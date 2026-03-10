@@ -871,13 +871,13 @@ function StepDetails({
           value={form.module}
           onChange={(e) => onChange('module', e.target.value)}
           aria-required="true"
-          className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         >
-          <option value="">Select a module...</option>
+          <option value="" className="bg-surface text-foreground">Select a module...</option>
           {modules.map((m) => (
-            <option key={m.value} value={m.value}>{m.label}</option>
+            <option key={m.value} value={m.value} className="bg-surface text-foreground">{m.label}</option>
           ))}
-          <option value="General">General / Platform</option>
+          <option value="General" className="bg-surface text-foreground">General / Platform</option>
         </select>
       </div>
 
@@ -891,11 +891,11 @@ function StepDetails({
             id="fr-submodule"
             value={form.submodule}
             onChange={(e) => onChange('submodule', e.target.value)}
-            className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           >
-            <option value="">Select a submodule (optional)...</option>
+            <option value="" className="bg-surface text-foreground">Select a submodule (optional)...</option>
             {submodules.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
+              <option key={s.value} value={s.value} className="bg-surface text-foreground">{s.label}</option>
             ))}
           </select>
         </div>
@@ -915,7 +915,7 @@ function StepDetails({
           aria-required="true"
           aria-describedby="fr-title-counter"
           placeholder={form.requestType === 'bug' ? 'Brief description of the issue' : 'Brief summary of your idea'}
-          className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         />
         <p id="fr-title-counter" className={`text-right text-[10px] ${titleLen > 180 ? 'text-amber-500' : 'text-muted-foreground'}`}>
           {titleLen}/200
@@ -940,7 +940,7 @@ function StepDetails({
               ? 'Steps to reproduce, what you expected, and what actually happened...'
               : 'Describe the feature or improvement in detail. What should it do? How would you use it?'
           }
-          className="w-full resize-none rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         />
         <p id="fr-desc-counter" className={`text-right text-[10px] ${descLen > 1800 ? 'text-amber-500' : 'text-muted-foreground'}`}>
           {descLen}/2000
@@ -1045,7 +1045,7 @@ function StepImpact({
           maxLength={1000}
           rows={3}
           placeholder="How does this affect your business? Time saved, revenue impacted, customer experience..."
-          className="w-full resize-none rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         />
       </div>
 
@@ -1062,7 +1062,7 @@ function StepImpact({
             onChange={(e) => onChange('currentWorkaround', e.target.value)}
             maxLength={500}
             placeholder="How are you working around this today?"
-            className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           />
         </div>
       )}
@@ -1079,7 +1079,7 @@ function StepImpact({
           maxLength={1000}
           rows={2}
           placeholder="Any other context, links, or examples..."
-          className="w-full resize-none rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         />
       </div>
     </div>

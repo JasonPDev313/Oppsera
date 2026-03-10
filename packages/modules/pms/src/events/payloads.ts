@@ -110,3 +110,57 @@ export interface FolioClosedPayload {
   reservationId: string | null;
   totalCents: number;
 }
+
+export interface GroupCancelledPayload {
+  groupId: string;
+  propertyId: string;
+  name: string;
+  cancelledReservationCount: number;
+  reason: string | null;
+}
+
+export interface GroupCheckedInPayload {
+  groupId: string;
+  propertyId: string;
+  name: string;
+  checkedInCount: number;
+  failedCount: number;
+}
+
+export interface GroupCheckedOutPayload {
+  groupId: string;
+  propertyId: string;
+  name: string;
+  checkedOutCount: number;
+  failedCount: number;
+}
+
+export interface GroupCopiedPayload {
+  sourceGroupId: string;
+  newGroupId: string;
+  propertyId: string;
+  newName: string;
+  newStartDate: string;
+  newEndDate: string;
+}
+
+export interface GroupBlocksAutoReleasedPayload {
+  groupId: string;
+  propertyId: string;
+  name: string;
+  businessDate: string;
+  releasedBlockCount: number;
+}
+
+export interface FolioEntryTransferredPayload {
+  folioEntryId: string;
+  fromFolioId: string;
+  toFolioId: string;
+  amountCents: number;
+}
+
+export interface FolioNotesUpdatedPayload {
+  folioId: string;
+  reservationId: string | null;
+  hasNotes: boolean;
+}

@@ -50,6 +50,7 @@ export const MODULE_TABLES = [
   'rm_pms_daily_occupancy',
   'rm_pms_revenue_by_room_type',
   'rm_pms_housekeeping_productivity',
+  'pms_folio_routing_rules',
 ] as const;
 
 // Schema re-exports (from @oppsera/db)
@@ -101,6 +102,7 @@ export {
   pmsCleaningTypes,
   pmsWaitlist,
   pmsWaitlistConfig,
+  pmsFolioRoutingRules,
 } from '@oppsera/db';
 
 // Validation schemas
@@ -125,6 +127,7 @@ export {
   calendarResizeSchema,
   checkInSchema,
   checkOutSchema,
+  folioDeliveryEnum,
   moveRoomSchema,
   updateRoomHousekeepingSchema,
   postFolioEntrySchema,
@@ -160,6 +163,11 @@ export {
   // Groups
   createGroupSchema,
   updateGroupSchema,
+  cancelGroupSchema,
+  groupCheckInSchema,
+  groupCheckOutSchema,
+  copyGroupSchema,
+  transferFolioEntrySchema,
   setGroupRoomBlocksSchema,
   pickUpGroupRoomSchema,
   groupTypeEnum,
@@ -203,6 +211,13 @@ export {
   addToWaitlistSchema,
   updateWaitlistConfigSchema,
   publicJoinWaitlistSchema,
+  // Folio enhancements
+  voidFolioEntrySchema,
+  updateFolioNotesSchema,
+  createAdditionalFolioSchema,
+  emailFolioSchema,
+  createFolioRoutingRuleSchema,
+  updateFolioRoutingRuleSchema,
 } from './validation';
 
 export type {
@@ -226,6 +241,7 @@ export type {
   CalendarResizeInput,
   CheckInInput,
   CheckOutInput,
+  FolioDelivery,
   MoveRoomInput,
   UpdateRoomHousekeepingInput,
   PostFolioEntryInput,
@@ -261,6 +277,11 @@ export type {
   // Groups
   CreateGroupInput,
   UpdateGroupInput,
+  CancelGroupInput,
+  GroupCheckInInput,
+  GroupCheckOutInput,
+  CopyGroupInput,
+  TransferFolioEntryInput,
   SetGroupRoomBlocksInput,
   PickUpGroupRoomInput,
   GroupType,
@@ -303,6 +324,13 @@ export type {
   // Waitlist
   AddToWaitlistInput,
   UpdateWaitlistConfigInput,
+  // Folio enhancements
+  VoidFolioEntryInput,
+  UpdateFolioNotesInput,
+  CreateAdditionalFolioInput,
+  EmailFolioInput,
+  CreateFolioRoutingRuleInput,
+  UpdateFolioRoutingRuleInput,
 } from './validation';
 
 // Permissions
@@ -379,6 +407,11 @@ export { moveRoom } from './commands/move-room';
 export { updateRoomStatus } from './commands/update-room-status';
 export { postFolioEntry } from './commands/post-folio-entry';
 export { closeFolio } from './commands/close-folio';
+export { voidFolioEntry } from './commands/void-folio-entry';
+export { updateFolioNotes } from './commands/update-folio-notes';
+export { createAdditionalFolio } from './commands/create-additional-folio';
+export { emailFolio } from './commands/email-folio';
+export { createFolioRoutingRule, updateFolioRoutingRule, deleteFolioRoutingRule, listFolioRoutingRules } from './commands/manage-folio-routing-rules';
 export { setRateRestrictions } from './commands/set-rate-restrictions';
 export { clearRateRestrictions } from './commands/clear-rate-restrictions';
 export { savePaymentMethod } from './commands/save-payment-method';
@@ -413,6 +446,12 @@ export { deactivateRatePackage } from './commands/deactivate-rate-package';
 // Group commands
 export { createGroup } from './commands/create-group';
 export { updateGroup } from './commands/update-group';
+export { cancelGroup } from './commands/cancel-group';
+export { groupCheckIn } from './commands/group-check-in';
+export { groupCheckOut } from './commands/group-check-out';
+export { copyGroupBooking } from './commands/copy-group-booking';
+export { processGroupCutoffs } from './commands/process-group-cutoffs';
+export { transferFolioEntry } from './commands/transfer-folio-entry';
 export { setGroupRoomBlocks } from './commands/set-group-room-blocks';
 export { pickUpGroupRoom } from './commands/pick-up-group-room';
 export { releaseGroupBlocks } from './commands/release-group-blocks';
@@ -479,6 +518,7 @@ export {
   listHousekeepingRooms,
   getFolio,
   getFolioByReservation,
+  listFoliosByReservation,
   getCalendarWeek,
   getCalendarDay,
   getDailyOccupancy,
@@ -497,6 +537,8 @@ export {
   getManagerFlashReport,
   getNoShowReport,
   getHousekeepingProductivity,
+  getActivityByDay,
+  getDepartmentAuditReport,
   listHousekeepers,
   listHousekeepingAssignments,
   getHousekeeperWorkload,
@@ -508,6 +550,10 @@ export {
   // Groups
   listGroups,
   getGroup,
+  getGroupRoomMatrix,
+  getGroupRoomingList,
+  getGroupProjectedRevenue,
+  getGroupPickupSummary,
   // Corporate
   listCorporateAccounts,
   getCorporateAccount,
@@ -548,6 +594,8 @@ export {
   getWaitlistConfig,
   getWaitlistStats,
   getWaitlistByToken,
+  // Managers Report
+  getManagersReport,
 } from './queries';
 
 export type {
@@ -599,6 +647,11 @@ export type {
   NoShowReportRow,
   NoShowReportResult,
   HousekeepingProductivityRow,
+  ActivityByDayRow,
+  ActivityByDayResult,
+  DepartmentAuditEntry,
+  DepartmentAuditGroup,
+  DepartmentAuditReportResult,
   HousekeeperItem,
   HousekeepingAssignmentItem,
   HousekeeperWorkload,
@@ -614,6 +667,14 @@ export type {
   ListGroupsResult,
   GroupDetail,
   GroupRoomBlock,
+  GroupRoomMatrixResult,
+  GroupRoomMatrixRoomType,
+  GroupRoomMatrixCell,
+  RoomingListReservation,
+  GetGroupRoomingListResult,
+  GroupProjectedRevenueResult,
+  GroupRevenueByRoomType,
+  GroupPickupSummaryRow,
   // Corporate
   CorporateAccountListItem,
   ListCorporateAccountsResult,
@@ -661,6 +722,11 @@ export type {
   AvailableRoomsForMoveResult,
   // Room Availability Counts
   RoomTypeAvailabilityCount,
+  // Managers Report
+  ManagersReportResult,
+  TimePeriodValue,
+  // Folio multi-folio
+  FolioListItem,
 } from './queries';
 
 // POS Integration Queries

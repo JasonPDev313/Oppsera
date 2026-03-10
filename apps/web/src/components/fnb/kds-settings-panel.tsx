@@ -8,7 +8,7 @@ import {
   Plus, ChevronDown, ChevronRight, Settings2, Pencil,
   Volume2, VolumeX, AlertTriangle, CheckCircle2,
   Trash2, Power, X as XIcon, Wand2, Check,
-  Search, Layers, ChevronLeft, MapPin,
+  Search, Layers, ChevronLeft,
 } from 'lucide-react';
 import {
   KDS_VIEW_MODES, KDS_VIEW_MODE_LABELS, KDS_VIEW_MODE_DETAILS,

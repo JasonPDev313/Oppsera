@@ -75,6 +75,12 @@ export async function ensureAccountingSettings(
   tx: Database,
   tenantId: string,
 ): Promise<{ created: boolean; autoWired: number }> {
+  // Guard: reject empty/missing tenantId — would create a phantom settings row
+  // and break RLS isolation (every query with tenant_id = '' matches it).
+  if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+    throw new Error('[ensureAccountingSettings] tenantId is missing or empty');
+  }
+
   // 1. Create minimal settings row if missing (all defaults from schema)
   const insertResult = await tx.execute(
     sql`INSERT INTO accounting_settings (tenant_id)
@@ -140,9 +146,8 @@ export async function ensureAccountingSettings(
     updates['defaultUndepositedFundsAccountId'] ??
     (current.defaultUndepositedFundsAccountId as string | null);
 
-  const _taxPayableId =
-    updates['defaultSalesTaxPayableAccountId'] ??
-    (current.defaultSalesTaxPayableAccountId as string | null);
+  // NOTE: defaultSalesTaxPayableAccountId is intentionally NOT checked here.
+  // Tax liability must be explicitly mapped by the tenant — never auto-wired to suspense.
 
   const roundingId =
     updates['defaultRoundingAccountId'] ??
@@ -186,7 +191,10 @@ export async function ensureAccountingSettings(
   //    noise in gl_unmapped_events for every tender.
   const depositAccountId = updates['defaultUndepositedFundsAccountId'] ?? undepId;
   if (depositAccountId) {
-    await ensureDefaultPaymentTypeMappings(tx, tenantId, depositAccountId);
+    // Pass the merged settings (current + updates) so ensureDefaultPaymentTypeMappings
+    // doesn't need to re-query accounting_settings — saves a round-trip per call.
+    const mergedSettings = { ...(current as Record<string, unknown>), ...updates };
+    await ensureDefaultPaymentTypeMappings(tx, tenantId, depositAccountId, mergedSettings);
   }
 
   return { created, autoWired };
@@ -198,15 +206,45 @@ export async function ensureAccountingSettings(
  */
 const STANDARD_PAYMENT_TYPES = ['cash', 'card', 'check', 'ecom', 'ach'];
 
+/**
+ * Payment types that should map to a specific account class when available,
+ * falling back to the generic deposit account otherwise.
+ */
+const CLASS_SPECIFIC_PAYMENT_TYPES: Array<{
+  paymentType: string;
+  settingsField: string; // accounting_settings column for the preferred account
+}> = [
+  { paymentType: 'house_account', settingsField: 'defaultARControlAccountId' },
+];
+
 async function ensureDefaultPaymentTypeMappings(
   tx: Database,
   tenantId: string,
   depositAccountId: string,
+  mergedSettings: Record<string, unknown>,
 ): Promise<void> {
   try {
-    // Single batch INSERT instead of N sequential queries
-    const values = STANDARD_PAYMENT_TYPES
-      .map((pt) => sql`(${tenantId}, ${pt}, ${depositAccountId}, NOW(), NOW())`)
+    // Build all payment type rows in a single batch — standard types use the
+    // deposit account, class-specific types use their preferred account if set.
+    const allRows: Array<{ paymentType: string; accountId: string }> = [];
+
+    for (const pt of STANDARD_PAYMENT_TYPES) {
+      allRows.push({ paymentType: pt, accountId: depositAccountId });
+    }
+
+    for (const spec of CLASS_SPECIFIC_PAYMENT_TYPES) {
+      const preferredAccountId = mergedSettings[spec.settingsField] as string | null;
+      allRows.push({
+        paymentType: spec.paymentType,
+        accountId: preferredAccountId ?? depositAccountId,
+      });
+    }
+
+    if (allRows.length === 0) return;
+
+    // Single batch INSERT — eliminates N+1 sequential queries for class-specific types
+    const values = allRows
+      .map((r) => sql`(${tenantId}, ${r.paymentType}, ${r.accountId}, NOW(), NOW())`)
       .reduce((a, b) => sql`${a}, ${b}`);
     await tx.execute(sql`
       INSERT INTO payment_type_gl_defaults (tenant_id, payment_type_id, cash_account_id, created_at, updated_at)
@@ -287,18 +325,28 @@ async function ensureSuspenseAccounts(
         `[ensure-accounting] Auto-created ${spec.name} (${spec.number}) for tenant=${tenantId}`,
       );
     } catch {
-      // ON CONFLICT or race condition — try to read it
-      const [retryRow] = await tx
-        .select({ id: glAccounts.id })
-        .from(glAccounts)
-        .where(
-          and(
-            eq(glAccounts.tenantId, tenantId),
-            eq(glAccounts.accountNumber, spec.number),
-          ),
-        )
-        .limit(1);
-      if (retryRow) numberToId.set(spec.number, retryRow.id);
+      // ON CONFLICT or race condition — try to read it.
+      // Guard the retry read: if the DB is genuinely down, don't let a
+      // failed SELECT propagate and kill the entire ensure flow. The
+      // suspense account may exist (race condition) or not — either way,
+      // partial creation is better than total failure.
+      try {
+        const [retryRow] = await tx
+          .select({ id: glAccounts.id })
+          .from(glAccounts)
+          .where(
+            and(
+              eq(glAccounts.tenantId, tenantId),
+              eq(glAccounts.accountNumber, spec.number),
+            ),
+          )
+          .limit(1);
+        if (retryRow) numberToId.set(spec.number, retryRow.id);
+      } catch {
+        // Both insert and read failed — skip this suspense account.
+        // The adapter will fall back to uncategorized or skip with logging.
+        console.warn(`[ensure-accounting] Failed to create/read suspense ${spec.number} for tenant=${tenantId}`);
+      }
     }
   }
 

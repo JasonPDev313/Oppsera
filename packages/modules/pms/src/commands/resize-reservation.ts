@@ -51,6 +51,11 @@ export async function resizeReservation(ctx: RequestContext, input: CalendarResi
       throw new ReservationNotMovableError(current.status);
     }
 
+    // 4b. Do Not Move check
+    if (current.doNotMove) {
+      throw new ReservationNotMovableError('DO_NOT_MOVE');
+    }
+
     // 5. Determine new dates based on edge
     let newCheckIn = current.checkInDate;
     let newCheckOut = current.checkOutDate;

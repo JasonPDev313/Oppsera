@@ -23,6 +23,9 @@ export const PMS_EVENTS = {
   FOLIO_CREATED: 'pms.folio.created.v1',
   FOLIO_CHARGE_POSTED: 'pms.folio.charge_posted.v1',
   FOLIO_CLOSED: 'pms.folio.closed.v1',
+  FOLIO_ENTRY_VOIDED: 'pms.folio.entry_voided.v1',
+  FOLIO_EMAILED: 'pms.folio.emailed.v1',
+  FOLIO_NOTES_UPDATED: 'pms.folio.notes_updated.v1',
 
   // Property/setup
   PROPERTY_CREATED: 'pms.property.created.v1',
@@ -73,9 +76,15 @@ export const PMS_EVENTS = {
   // Group bookings
   GROUP_CREATED: 'pms.group.created.v1',
   GROUP_UPDATED: 'pms.group.updated.v1',
+  GROUP_CANCELLED: 'pms.group.cancelled.v1',
   GROUP_BLOCKS_SET: 'pms.group.blocks_set.v1',
   GROUP_ROOM_PICKED_UP: 'pms.group.room_picked_up.v1',
   GROUP_BLOCKS_RELEASED: 'pms.group.blocks_released.v1',
+  GROUP_BLOCKS_AUTO_RELEASED: 'pms.group.blocks_auto_released.v1',
+  GROUP_CHECKED_IN: 'pms.group.checked_in.v1',
+  GROUP_CHECKED_OUT: 'pms.group.checked_out.v1',
+  GROUP_COPIED: 'pms.group.copied.v1',
+  FOLIO_ENTRY_TRANSFERRED: 'pms.folio.entry_transferred.v1',
 
   // Corporate accounts
   CORPORATE_ACCOUNT_CREATED: 'pms.corporate_account.created.v1',

@@ -293,6 +293,21 @@ export const pmsReservations = pgTable(
     checkedInBy: text('checked_in_by'),
     checkedOutAt: timestamp('checked_out_at', { withTimezone: true }),
     checkedOutBy: text('checked_out_by'),
+    checkoutNotes: text('checkout_notes'),
+    folioDelivery: text('folio_delivery').default('none'),
+    // ── Enhancement fields ──────────────────────────────────────
+    eta: text('eta'),
+    specialRequests: text('special_requests'),
+    doNotMove: boolean('do_not_move').notNull().default(false),
+    marketSegment: text('market_segment'),
+    vehicleJson: jsonb('vehicle_json').$type<{
+      licensePlate?: string;
+      state?: string;
+      make?: string;
+      model?: string;
+      color?: string;
+      hasNoVehicle?: boolean;
+    }>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: text('created_by'),
@@ -371,6 +386,9 @@ export const pmsFolios = pgTable(
     paymentCents: integer('payment_cents').notNull().default(0),
     balanceCents: integer('balance_cents').notNull().default(0),
     depositHeldCents: integer('deposit_held_cents').notNull().default(0),
+    folioNumber: integer('folio_number'),
+    label: text('label'),
+    notes: text('notes'),
     closedAt: timestamp('closed_at', { withTimezone: true }),
     closedBy: text('closed_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -399,13 +417,41 @@ export const pmsFolioEntries = pgTable(
     amountCents: integer('amount_cents').notNull(),
     businessDate: date('business_date').notNull(),
     sourceRef: text('source_ref'),
+    departmentCode: text('department_code'),
     postedAt: timestamp('posted_at', { withTimezone: true }).notNull().defaultNow(),
     postedBy: text('posted_by'),
+    voidedEntryId: text('voided_entry_id'),
+    voidedAt: timestamp('voided_at', { withTimezone: true }),
+    voidedBy: text('voided_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('idx_pms_folio_entries_folio').on(table.folioId),
     index('idx_pms_folio_entries_type').on(table.folioId, table.entryType),
+  ],
+);
+
+// ── PMS Folio Routing Rules ──────────────────────────────────────
+export const pmsFolioRoutingRules = pgTable(
+  'pms_folio_routing_rules',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    propertyId: text('property_id')
+      .notNull()
+      .references(() => pmsProperties.id),
+    entryType: text('entry_type').notNull(),
+    departmentCode: text('department_code'),
+    targetFolioLabel: text('target_folio_label').notNull().default('Company'),
+    description: text('description'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_pms_folio_routing_rules_lookup').on(table.tenantId, table.propertyId, table.isActive),
   ],
 );
 
@@ -770,6 +816,24 @@ export const pmsGroups = pgTable(
     billingType: text('billing_type').notNull().default('individual'),
     masterFolioId: text('master_folio_id').references(() => pmsFolios.id),
     notes: text('notes'),
+    // Enhanced group booking fields
+    groupCode: text('group_code'),
+    confirmationNumber: integer('confirmation_number'),
+    source: text('source'),
+    market: text('market'),
+    bookingMethod: text('booking_method'),
+    salesRepUserId: text('sales_rep_user_id').references(() => users.id),
+    specialRequests: text('special_requests'),
+    groupComments: text('group_comments'),
+    reservationComments: text('reservation_comments'),
+    autoReleaseAtCutoff: boolean('auto_release_at_cutoff').notNull().default(false),
+    shoulderDatesEnabled: boolean('shoulder_dates_enabled').notNull().default(false),
+    shoulderStartDate: date('shoulder_start_date'),
+    shoulderEndDate: date('shoulder_end_date'),
+    shoulderRateCents: integer('shoulder_rate_cents'),
+    autoRoutePackagesToMaster: boolean('auto_route_packages_to_master').notNull().default(false),
+    autoRouteSpecialsToMaster: boolean('auto_route_specials_to_master').notNull().default(false),
+    version: integer('version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
     createdBy: text('created_by'),
@@ -777,6 +841,7 @@ export const pmsGroups = pgTable(
   (table) => [
     index('idx_pms_groups_tenant_property').on(table.tenantId, table.propertyId),
     index('idx_pms_groups_tenant_property_status').on(table.tenantId, table.propertyId, table.status),
+    index('idx_pms_groups_group_code').on(table.tenantId, table.groupCode),
     check('chk_pms_groups_dates', sql`end_date > start_date`),
   ],
 );

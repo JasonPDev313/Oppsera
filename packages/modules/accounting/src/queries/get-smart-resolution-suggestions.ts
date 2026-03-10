@@ -258,14 +258,39 @@ export async function getSmartResolutionSuggestions(
     let alreadyMapped = 0;
     let skippedErrors = 0;
 
+    // Accumulator for posting_error/unhandled_error — consolidated into one suggestion
+    const retryBucket = { tenderIds: [] as string[], totalEvents: 0, sampleReason: '' };
+
     for (const group of groups) {
       const entityType = String(group.entity_type);
       const entityId = String(group.entity_id);
       const eventCount = Number(group.event_count);
       totalEvents += eventCount;
 
-      if (entityType === 'posting_error' || entityType === 'no_line_detail') {
+      // Non-retryable data issues — skip entirely
+      // reversal_no_original: reversal of a tender whose GL posting failed —
+      //   resolve the original tender first (via retry), then re-run reversal
+      if (
+        entityType === 'no_line_detail' ||
+        entityType === 'zero_dollar_order' ||
+        entityType === 'invalid_ratio' ||
+        entityType === 'accounting_settings' ||
+        entityType === 'gl_posting_gap' ||
+        entityType === 'reversal_no_original'
+      ) {
         skippedErrors += eventCount;
+        continue;
+      }
+
+      // posting_error / unhandled_error = GL posting failed (SAVEPOINT error, DB issue, etc.)
+      // These are retryable via remap — no mapping suggestion needed, just mark as auto-resolvable.
+      // Accumulate into retryBucket for a single consolidated suggestion at the end.
+      if (entityType === 'posting_error' || entityType === 'unhandled_error') {
+        retryBucket.tenderIds.push(entityId);
+        retryBucket.totalEvents += eventCount;
+        if (!retryBucket.sampleReason) {
+          retryBucket.sampleReason = String(group.sample_reason ?? '');
+        }
         continue;
       }
 
@@ -432,6 +457,24 @@ export async function getSmartResolutionSuggestions(
           }
         }
       }
+    }
+
+    // Emit consolidated retry suggestion for all posting errors
+    if (retryBucket.tenderIds.length > 0) {
+      const uniqueTenderIds = [...new Set(retryBucket.tenderIds)];
+      suggestions.push({
+        entityType: 'unhandled_error',
+        entityId: uniqueTenderIds.join(','),
+        entityName: `Failed GL postings (${uniqueTenderIds.length} tender${uniqueTenderIds.length === 1 ? '' : 's'})`,
+        suggestedAccountId: '__retry__',
+        suggestedAccountNumber: '',
+        suggestedAccountName: 'Retry GL posting',
+        confidence: 'high',
+        reason: retryBucket.sampleReason || 'GL posting failed — retry with current mappings',
+        alreadyMapped: false,
+        eventCount: retryBucket.totalEvents,
+      });
+      autoResolvable += retryBucket.totalEvents;
     }
 
     // Sort: actionable first (high → medium → low), already-mapped last

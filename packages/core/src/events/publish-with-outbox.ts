@@ -154,7 +154,10 @@ export async function publishWithOutbox<T>(
     txOut = await guardedQuery('publishWithOutbox', runTransaction);
   } catch (err) {
     if (isSavepointError(err)) {
-      console.warn('[publishWithOutbox] SAVEPOINT error — retrying with fresh connection');
+      // Brief delay lets Supavisor release the corrupted session slot back to the pool.
+      // Without this, immediate retry often grabs the same session and fails identically.
+      console.warn('[publishWithOutbox] SAVEPOINT error — retrying after backoff');
+      await new Promise((r) => setTimeout(r, 50));
       txOut = await guardedQuery('publishWithOutbox:retry', runTransaction);
     } else {
       throw err;

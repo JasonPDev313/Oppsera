@@ -165,6 +165,18 @@ export const createReservationSchema = z
       .default('DIRECT'),
     internalNotes: z.string().optional(),
     guestNotes: z.string().optional(),
+    specialRequests: z.string().max(2000).optional(),
+    eta: z.string().max(50).optional(),
+    doNotMove: z.boolean().default(false),
+    marketSegment: z.enum(['BAR', 'CORPORATE', 'GROUP', 'OTA', 'WHOLESALE', 'GOVERNMENT', 'LEISURE', 'OTHER']).optional(),
+    vehicleJson: z.object({
+      licensePlate: z.string().max(20).optional(),
+      state: z.string().max(50).optional(),
+      make: z.string().max(50).optional(),
+      model: z.string().max(50).optional(),
+      color: z.string().max(30).optional(),
+      hasNoVehicle: z.boolean().optional(),
+    }).optional(),
     status: z.enum(['HOLD', 'CONFIRMED']).default('CONFIRMED'),
     restrictionOverride: z.boolean().default(false),
     clientRequestId: z.string().optional(),
@@ -191,6 +203,18 @@ export const updateReservationSchema = z.object({
   ratePlanId: z.string().min(1).optional(),
   internalNotes: z.string().optional(),
   guestNotes: z.string().optional(),
+  specialRequests: z.string().max(2000).optional().nullable(),
+  eta: z.string().max(50).optional().nullable(),
+  doNotMove: z.boolean().optional(),
+  marketSegment: z.enum(['BAR', 'CORPORATE', 'GROUP', 'OTA', 'WHOLESALE', 'GOVERNMENT', 'LEISURE', 'OTHER']).optional().nullable(),
+  vehicleJson: z.object({
+    licensePlate: z.string().max(20).optional(),
+    state: z.string().max(50).optional(),
+    make: z.string().max(50).optional(),
+    model: z.string().max(50).optional(),
+    color: z.string().max(30).optional(),
+    hasNoVehicle: z.boolean().optional(),
+  }).optional().nullable(),
   version: z.number().int().min(1),
 });
 export type UpdateReservationInput = z.input<typeof updateReservationSchema>;
@@ -248,8 +272,13 @@ export const checkInSchema = z.object({
 });
 export type CheckInInput = z.input<typeof checkInSchema>;
 
+export const folioDeliveryEnum = z.enum(['print', 'email', 'both', 'none']);
+export type FolioDelivery = z.infer<typeof folioDeliveryEnum>;
+
 export const checkOutSchema = z.object({
   version: z.number().int().min(1),
+  checkoutNotes: z.string().max(2000).optional(),
+  folioDelivery: folioDeliveryEnum.default('none'),
 });
 export type CheckOutInput = z.input<typeof checkOutSchema>;
 
@@ -276,10 +305,19 @@ export const postFolioEntrySchema = z.object({
     'ADJUSTMENT',
     'PAYMENT',
     'REFUND',
+    'MISC_CHARGE',
+    'F_AND_B',
+    'MINIBAR',
+    'PARKING',
+    'SPA',
+    'PHONE',
+    'LAUNDRY',
+    'INTERNET',
   ]),
   description: z.string().min(1),
   amountCents: z.number().int(),
   sourceRef: z.string().optional(),
+  departmentCode: z.string().optional(),
   clientRequestId: z.string().optional(),
 });
 export type PostFolioEntryInput = z.input<typeof postFolioEntrySchema>;
@@ -618,6 +656,7 @@ export const createGroupSchema = z
   .object({
     propertyId: z.string().min(1),
     name: z.string().min(1).max(200),
+    groupCode: z.string().min(2).max(20).regex(/^[A-Za-z0-9-]+$/, 'Group code may only contain letters, numbers, and hyphens').optional(),
     groupType: groupTypeEnum.default('other'),
     contactName: z.string().max(200).optional(),
     contactEmail: z.string().email().optional(),
@@ -631,16 +670,65 @@ export const createGroupSchema = z
     status: groupStatusEnum.default('tentative'),
     billingType: groupBillingTypeEnum.default('individual'),
     notes: z.string().max(5000).optional(),
+    // Enhanced fields
+    source: z.string().max(50).optional(),
+    market: z.string().max(50).optional(),
+    bookingMethod: z.string().max(50).optional(),
+    salesRepUserId: z.string().optional(),
+    specialRequests: z.string().max(5000).optional(),
+    groupComments: z.string().max(5000).optional(),
+    reservationComments: z.string().max(5000).optional(),
+    autoReleaseAtCutoff: z.boolean().default(false),
+    shoulderDatesEnabled: z.boolean().default(false),
+    shoulderStartDate: z.string().regex(dateRegex).optional(),
+    shoulderEndDate: z.string().regex(dateRegex).optional(),
+    shoulderRateCents: z.number().int().min(0).optional(),
+    autoRoutePackagesToMaster: z.boolean().default(false),
+    autoRouteSpecialsToMaster: z.boolean().default(false),
     clientRequestId: z.string().optional(),
   })
   .refine((data) => data.endDate > data.startDate, {
     message: 'End date must be after start date',
     path: ['endDate'],
-  });
+  })
+  .refine((data) => !data.cutoffDate || data.cutoffDate <= data.startDate, {
+    message: 'Cutoff date must be on or before start date',
+    path: ['cutoffDate'],
+  })
+  .refine(
+    (data) =>
+      !data.shoulderDatesEnabled ||
+      (!!data.shoulderStartDate && !!data.shoulderEndDate),
+    {
+      message: 'Shoulder start and end dates are required when shoulder dates are enabled',
+      path: ['shoulderStartDate'],
+    },
+  )
+  .refine(
+    (data) =>
+      !data.shoulderDatesEnabled ||
+      !data.shoulderStartDate ||
+      data.shoulderStartDate < data.startDate,
+    {
+      message: 'Shoulder start date must be before group start date',
+      path: ['shoulderStartDate'],
+    },
+  )
+  .refine(
+    (data) =>
+      !data.shoulderDatesEnabled ||
+      !data.shoulderEndDate ||
+      data.shoulderEndDate > data.endDate,
+    {
+      message: 'Shoulder end date must be after group end date',
+      path: ['shoulderEndDate'],
+    },
+  );
 export type CreateGroupInput = z.input<typeof createGroupSchema>;
 
 export const updateGroupSchema = z.object({
   name: z.string().min(1).max(200).optional(),
+  groupCode: z.string().min(2).max(20).regex(/^[A-Za-z0-9-]+$/, 'Group code may only contain letters, numbers, and hyphens').nullish(),
   groupType: groupTypeEnum.optional(),
   contactName: z.string().max(200).nullish(),
   contactEmail: z.string().email().nullish(),
@@ -653,8 +741,116 @@ export const updateGroupSchema = z.object({
   status: groupStatusEnum.optional(),
   billingType: groupBillingTypeEnum.optional(),
   notes: z.string().max(5000).nullish(),
+  // Enhanced fields
+  source: z.string().max(50).nullish(),
+  market: z.string().max(50).nullish(),
+  bookingMethod: z.string().max(50).nullish(),
+  salesRepUserId: z.string().nullish(),
+  specialRequests: z.string().max(5000).nullish(),
+  groupComments: z.string().max(5000).nullish(),
+  reservationComments: z.string().max(5000).nullish(),
+  autoReleaseAtCutoff: z.boolean().optional(),
+  shoulderDatesEnabled: z.boolean().optional(),
+  shoulderStartDate: z.string().regex(dateRegex).nullish(),
+  shoulderEndDate: z.string().regex(dateRegex).nullish(),
+  shoulderRateCents: z.number().int().min(0).nullish(),
+  autoRoutePackagesToMaster: z.boolean().optional(),
+  autoRouteSpecialsToMaster: z.boolean().optional(),
+  version: z.number().int().min(1),
 });
 export type UpdateGroupInput = z.input<typeof updateGroupSchema>;
+
+export const cancelGroupSchema = z.object({
+  cancelReservations: z.boolean().default(true),
+  reason: z.string().max(1000).optional(),
+  version: z.number().int().min(1),
+});
+export type CancelGroupInput = z.input<typeof cancelGroupSchema>;
+
+export const groupCheckInSchema = z.object({
+  reservationIds: z.array(z.string().min(1)).optional(),
+  roomAssignments: z
+    .array(
+      z.object({
+        reservationId: z.string().min(1),
+        roomId: z.string().min(1),
+      }),
+    )
+    .optional(),
+});
+export type GroupCheckInInput = z.input<typeof groupCheckInSchema>;
+
+export const groupCheckOutSchema = z.object({
+  reservationIds: z.array(z.string().min(1)).optional(),
+});
+export type GroupCheckOutInput = z.input<typeof groupCheckOutSchema>;
+
+export const copyGroupSchema = z.object({
+  newName: z.string().min(1).max(200),
+  newGroupCode: z.string().min(1).max(20).optional(),
+  newStartDate: z.string().regex(dateRegex),
+  newEndDate: z.string().regex(dateRegex),
+  newCutoffDate: z.string().regex(dateRegex).optional(),
+  copyBlocks: z.boolean().default(true),
+  clientRequestId: z.string().optional(),
+}).refine((data) => data.newEndDate > data.newStartDate, {
+  message: 'New end date must be after new start date',
+  path: ['newEndDate'],
+}).refine((data) => !data.newCutoffDate || data.newCutoffDate <= data.newStartDate, {
+  message: 'New cutoff date must be on or before new start date',
+  path: ['newCutoffDate'],
+});
+export type CopyGroupInput = z.input<typeof copyGroupSchema>;
+
+export const transferFolioEntrySchema = z.object({
+  folioEntryId: z.string().min(1),
+  fromFolioId: z.string().min(1),
+  toFolioId: z.string().min(1),
+});
+export type TransferFolioEntryInput = z.input<typeof transferFolioEntrySchema>;
+
+// ── Void Folio Entry ───────────────────────────────────────────
+export const voidFolioEntrySchema = z.object({
+  reason: z.string().min(1).max(500),
+});
+export type VoidFolioEntryInput = z.input<typeof voidFolioEntrySchema>;
+
+// ── Folio Notes ────────────────────────────────────────────────
+export const updateFolioNotesSchema = z.object({
+  notes: z.string().max(2000).nullable(),
+});
+export type UpdateFolioNotesInput = z.input<typeof updateFolioNotesSchema>;
+
+// ── Create Additional Folio (split billing) ────────────────────
+export const createAdditionalFolioSchema = z.object({
+  label: z.string().min(1).max(100).default('Company'),
+});
+export type CreateAdditionalFolioInput = z.input<typeof createAdditionalFolioSchema>;
+
+// ── Email Folio ───────────────────────────────────────────────
+export const emailFolioSchema = z.object({
+  recipientEmail: z.string().email(),
+});
+export type EmailFolioInput = z.input<typeof emailFolioSchema>;
+
+// ── Folio Routing Rules ────────────────────────────────────────
+export const createFolioRoutingRuleSchema = z.object({
+  propertyId: z.string().min(1),
+  entryType: z.string().min(1),
+  departmentCode: z.string().optional(),
+  targetFolioLabel: z.string().min(1).default('Company'),
+  description: z.string().optional(),
+});
+export type CreateFolioRoutingRuleInput = z.input<typeof createFolioRoutingRuleSchema>;
+
+export const updateFolioRoutingRuleSchema = z.object({
+  entryType: z.string().min(1).optional(),
+  departmentCode: z.string().nullable().optional(),
+  targetFolioLabel: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateFolioRoutingRuleInput = z.input<typeof updateFolioRoutingRuleSchema>;
 
 export const setGroupRoomBlocksSchema = z.object({
   groupId: z.string().min(1),

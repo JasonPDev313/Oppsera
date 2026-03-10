@@ -6,6 +6,7 @@ export default defineConfig({
     alias: {
       '@oppsera/shared': path.resolve(__dirname, '../shared/src'),
       '@oppsera/db': path.resolve(__dirname, '../db/src'),
+      '@oppsera/module-catalog': path.resolve(__dirname, '../modules/catalog/src'),
     },
   },
   test: {

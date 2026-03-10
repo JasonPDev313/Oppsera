@@ -26,7 +26,7 @@ export async function handleWaitlistMatch(envelope: EventEnvelope): Promise<void
   const {
     reservationId,
     propertyId,
-    roomId,
+    roomId: _roomId,
     checkInDate,
     checkOutDate,
   } = data as {

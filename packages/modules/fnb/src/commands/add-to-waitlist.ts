@@ -14,6 +14,11 @@ export async function addToWaitlist(
   }
 
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Advisory lock serializes concurrent waitlist adds for the same location+date.
+    const businessDateLock = new Date().toISOString().slice(0, 10);
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtext(${ctx.tenantId} || ':waitlist:' || ${ctx.locationId!} || ':' || ${businessDateLock}))
+    `);
     // Get next position in queue
     const posRows = await tx.execute(sql`
       SELECT COALESCE(MAX(position), 0) + 1 AS next_pos

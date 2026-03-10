@@ -1,15 +1,14 @@
-import { eq, and, lte, sql } from 'drizzle-orm';
+import { eq, and, lte } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
-import { AppError } from '@oppsera/shared';
+import { NotFoundError, ValidationError, generateUlid } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { pmsWaitlist, pmsWaitlistConfig, pmsRoomTypes, pmsGuests } from '@oppsera/db';
 import { PMS_EVENTS } from '../events/types';
 import { addToWaitlistSchema, updateWaitlistConfigSchema } from '../validation';
 import type { AddToWaitlistInput, UpdateWaitlistConfigInput } from '../validation';
-import { generateUlid } from '@oppsera/shared';
 
 // ── Add to Waitlist ─────────────────────────────────────────────
 
@@ -27,7 +26,7 @@ export async function addToWaitlist(ctx: RequestContext, input: AddToWaitlistInp
         .from(pmsRoomTypes)
         .where(and(eq(pmsRoomTypes.tenantId, ctx.tenantId), eq(pmsRoomTypes.id, parsed.roomTypeId)))
         .limit(1);
-      if (!rt) throw new AppError('NOT_FOUND', `Room type not found: ${parsed.roomTypeId}`, 404);
+      if (!rt) throw new NotFoundError('Room type', parsed.roomTypeId);
     }
 
     // Validate guest if specified
@@ -37,7 +36,7 @@ export async function addToWaitlist(ctx: RequestContext, input: AddToWaitlistInp
         .from(pmsGuests)
         .where(and(eq(pmsGuests.tenantId, ctx.tenantId), eq(pmsGuests.id, parsed.guestId)))
         .limit(1);
-      if (!guest) throw new AppError('NOT_FOUND', `Guest not found: ${parsed.guestId}`, 404);
+      if (!guest) throw new NotFoundError('Guest', parsed.guestId);
     }
 
     // Check duplicate: same guest/email waiting for same room type + dates
@@ -55,7 +54,9 @@ export async function addToWaitlist(ctx: RequestContext, input: AddToWaitlistInp
         .from(pmsWaitlist)
         .where(and(...dupConditions))
         .limit(1);
-      if (dup) throw new AppError('VALIDATION_ERROR', 'Guest already has an active waitlist entry for this property', 400);
+      if (dup) throw new ValidationError('Guest already has an active waitlist entry for this property', [
+        { field: 'guestEmail', message: 'An active waitlist entry already exists for this guest at this property' },
+      ]);
     }
 
     // Snapshot rate if available (rate lock)
@@ -124,9 +125,11 @@ export async function removeFromWaitlist(ctx: RequestContext, input: { id: strin
       .where(and(eq(pmsWaitlist.tenantId, ctx.tenantId), eq(pmsWaitlist.id, input.id)))
       .limit(1);
 
-    if (!existing) throw new AppError('NOT_FOUND', `Waitlist entry not found: ${input.id}`, 404);
+    if (!existing) throw new NotFoundError('Waitlist entry', input.id);
     if (existing.status !== 'waiting' && existing.status !== 'offered') {
-      throw new AppError('VALIDATION_ERROR', `Cannot remove entry with status: ${existing.status}`, 400);
+      throw new ValidationError('Cannot remove waitlist entry', [
+        { field: 'status', message: `Cannot remove an entry with status: ${existing.status}` },
+      ]);
     }
 
     const [updated] = await tx
@@ -161,9 +164,11 @@ export async function offerWaitlistSlot(
       .where(and(eq(pmsWaitlist.tenantId, ctx.tenantId), eq(pmsWaitlist.id, input.id)))
       .limit(1);
 
-    if (!existing) throw new AppError('NOT_FOUND', `Waitlist entry not found: ${input.id}`, 404);
+    if (!existing) throw new NotFoundError('Waitlist entry', input.id);
     if (existing.status !== 'waiting') {
-      throw new AppError('VALIDATION_ERROR', `Cannot offer slot to entry with status: ${existing.status}`, 400);
+      throw new ValidationError('Cannot offer slot to this waitlist entry', [
+        { field: 'status', message: `Cannot offer slot to an entry with status: ${existing.status}` },
+      ]);
     }
 
     // Get config for expiry duration
@@ -215,14 +220,18 @@ export async function acceptWaitlistOffer(ctx: RequestContext, input: { id: stri
       .where(and(eq(pmsWaitlist.tenantId, ctx.tenantId), eq(pmsWaitlist.id, input.id)))
       .limit(1);
 
-    if (!existing) throw new AppError('NOT_FOUND', `Waitlist entry not found: ${input.id}`, 404);
+    if (!existing) throw new NotFoundError('Waitlist entry', input.id);
     if (existing.status !== 'offered') {
-      throw new AppError('VALIDATION_ERROR', `Cannot accept entry with status: ${existing.status}`, 400);
+      throw new ValidationError('Cannot accept waitlist offer', [
+        { field: 'status', message: `Cannot accept an entry with status: ${existing.status}` },
+      ]);
     }
 
     // Check if offer expired
     if (existing.offerExpiresAt && existing.offerExpiresAt < new Date()) {
-      throw new AppError('VALIDATION_ERROR', 'Offer has expired', 400);
+      throw new ValidationError('Offer has expired', [
+        { field: 'offerExpiresAt', message: 'This waitlist offer has expired' },
+      ]);
     }
 
     const [updated] = await tx
@@ -255,9 +264,11 @@ export async function declineWaitlistOffer(ctx: RequestContext, input: { id: str
       .where(and(eq(pmsWaitlist.tenantId, ctx.tenantId), eq(pmsWaitlist.id, input.id)))
       .limit(1);
 
-    if (!existing) throw new AppError('NOT_FOUND', `Waitlist entry not found: ${input.id}`, 404);
+    if (!existing) throw new NotFoundError('Waitlist entry', input.id);
     if (existing.status !== 'offered') {
-      throw new AppError('VALIDATION_ERROR', `Cannot decline entry with status: ${existing.status}`, 400);
+      throw new ValidationError('Cannot decline waitlist offer', [
+        { field: 'status', message: `Cannot decline an entry with status: ${existing.status}` },
+      ]);
     }
 
     const [updated] = await tx

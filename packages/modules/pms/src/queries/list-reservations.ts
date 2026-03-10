@@ -87,6 +87,7 @@ export async function listReservations(input: ListReservationsInput) {
         totalCents: pmsReservations.totalCents,
         status: pmsReservations.status,
         sourceType: pmsReservations.sourceType,
+        doNotMove: pmsReservations.doNotMove,
         version: pmsReservations.version,
         createdAt: pmsReservations.createdAt,
         roomNumber: pmsRooms.roomNumber,

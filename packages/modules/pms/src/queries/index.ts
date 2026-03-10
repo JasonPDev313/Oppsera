@@ -41,6 +41,8 @@ export type { SuggestedRoom } from './suggest-rooms';
 export { listHousekeepingRooms } from './list-housekeeping-rooms';
 export { getFolio } from './get-folio';
 export { getFolioByReservation } from './get-folio-by-reservation';
+export { listFoliosByReservation } from './list-folios-by-reservation';
+export type { FolioListItem } from './list-folios-by-reservation';
 
 export { getCalendarWeek } from './calendar-week';
 export type {
@@ -103,6 +105,12 @@ export type { NoShowReportRow, NoShowReportResult } from './get-no-show-report';
 export { getHousekeepingProductivity } from './get-housekeeping-productivity';
 export type { HousekeepingProductivityRow } from './get-housekeeping-productivity';
 
+export { getActivityByDay } from './get-activity-by-day';
+export type { ActivityByDayRow, ActivityByDayResult } from './get-activity-by-day';
+
+export { getDepartmentAuditReport } from './get-department-audit-report';
+export type { DepartmentAuditEntry, DepartmentAuditGroup, DepartmentAuditReportResult } from './get-department-audit-report';
+
 export { listHousekeepers } from './list-housekeepers';
 export type { HousekeeperItem } from './list-housekeepers';
 
@@ -133,6 +141,18 @@ export type { GroupListItem, ListGroupsResult } from './list-groups';
 
 export { getGroup } from './get-group';
 export type { GroupDetail, GroupRoomBlock } from './get-group';
+
+export { getGroupRoomMatrix } from './get-group-room-matrix';
+export type { GroupRoomMatrixResult, GroupRoomMatrixRoomType, GroupRoomMatrixCell } from './get-group-room-matrix';
+
+export { getGroupRoomingList } from './get-group-rooming-list';
+export type { RoomingListReservation, GetGroupRoomingListResult } from './get-group-rooming-list';
+
+export { getGroupProjectedRevenue } from './get-group-projected-revenue';
+export type { GroupProjectedRevenueResult, GroupRevenueByRoomType } from './get-group-projected-revenue';
+
+export { getGroupPickupSummary } from './get-group-pickup-summary';
+export type { GroupPickupSummaryRow } from './get-group-pickup-summary';
 
 // ── Corporate Accounts ──────────────────────────────────────────────
 export { listCorporateAccounts } from './list-corporate-accounts';
@@ -219,3 +239,16 @@ export { listWaitlist } from './list-waitlist';
 export { getWaitlistConfig } from './get-waitlist-config';
 export { getWaitlistStats } from './get-waitlist-stats';
 export { getWaitlistByToken } from './get-waitlist-by-token';
+
+// ── Managers Report ─────────────────────────────────────────────────
+export { getManagersReport } from './get-managers-report';
+export type {
+  ManagersReportResult,
+  ManagersReportRevenue,
+  ManagersReportPayments,
+  ManagersReportRoomInventory,
+  ManagersReportGuestActivity,
+  ManagersReportStatistics,
+  ManagersReportForecastDay,
+  TimePeriodValue,
+} from './get-managers-report';

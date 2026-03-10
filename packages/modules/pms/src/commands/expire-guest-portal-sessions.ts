@@ -1,3 +1,11 @@
+/**
+ * Background job: expire stale guest portal sessions.
+ *
+ * Note: This is a cron-invoked maintenance operation with no user context —
+ * it intentionally uses withTenant() directly instead of publishWithOutbox().
+ * No event is emitted because session expiry is a housekeeping concern, not
+ * a business event that downstream consumers need to react to.
+ */
 import { and, eq, lt } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { pmsGuestPortalSessions } from '@oppsera/db';

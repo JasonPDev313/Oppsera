@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -90,8 +91,23 @@ interface GlobalMapProgress {
   phases: PhaseResult[];
 }
 
+const VALID_TABS: Set<string> = new Set(['departments', 'payments', 'taxes', 'discounts', 'fnb', 'unmapped']);
+
 export default function MappingsContent() {
-  const [activeTab, setActiveTab] = useState<TabKey>('departments');
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    const tabParam = searchParams.get('tab');
+    return tabParam && VALID_TABS.has(tabParam) ? (tabParam as TabKey) : 'departments';
+  });
+
+  // Sync tab when query param changes (e.g., banner link clicked while already on page)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && VALID_TABS.has(tabParam)) {
+      setActiveTab(tabParam as TabKey);
+    }
+  }, [searchParams]);
+
   const { data: coverage } = useMappingCoverage();
   const { data: unmappedEvents } = useUnmappedEvents({ status: 'unresolved' });
 
