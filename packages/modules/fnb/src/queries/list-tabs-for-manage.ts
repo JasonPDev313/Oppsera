@@ -58,6 +58,8 @@ function decodeCursor(cursor: string): CursorData {
 
 const NEEDS_ATTENTION_STATUSES = ['check_requested', 'paying', 'abandoned'];
 const OPEN_ONLY_STATUSES = ['open', 'ordering', 'sent_to_kitchen', 'in_progress', 'check_requested', 'split', 'paying'];
+// "all" still excludes terminal statuses — voided/closed tabs shouldn't clutter the list
+const ALL_ACTIVE_STATUSES = ['open', 'ordering', 'sent_to_kitchen', 'in_progress', 'check_requested', 'split', 'paying', 'abandoned'];
 
 function computeAgeBucket(minutes: number): { key: string; label: string } {
   if (minutes < 30) return { key: 'age_0_30', label: 'Under 30 min' };
@@ -92,6 +94,10 @@ export async function listTabsForManage(
       conditions.push(sql`t.status = ANY(${sqlArray(NEEDS_ATTENTION_STATUSES)})`);
     } else if (input.statuses && input.statuses.length > 0) {
       conditions.push(sql`t.status = ANY(${sqlArray(input.statuses)})`);
+    } else {
+      // Default "all" — exclude terminal statuses (voided/closed) so they don't
+      // clutter the list after bulk operations
+      conditions.push(sql`t.status = ANY(${sqlArray(ALL_ACTIVE_STATUSES)})`);
     }
 
     if (input.search) {

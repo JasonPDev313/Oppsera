@@ -8,7 +8,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { BulkVoidTabsInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 
-const VOIDABLE_STATUSES = ['open', 'ordering', 'sent_to_kitchen', 'in_progress', 'check_requested'];
+const VOIDABLE_STATUSES = ['open', 'ordering', 'sent_to_kitchen', 'in_progress', 'check_requested', 'paying', 'split', 'abandoned'];
 
 export interface BulkVoidResult {
   succeeded: string[];

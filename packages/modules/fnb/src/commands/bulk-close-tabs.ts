@@ -11,7 +11,7 @@ import { FNB_EVENTS } from '../events/types';
 /** Order statuses that should be voided when a tab is force-closed by a manager. */
 const VOIDABLE_ORDER_STATUSES = ['draft', 'open', 'placed', 'in_progress'];
 
-const CLOSEABLE_STATUSES = ['open', 'ordering', 'sent_to_kitchen', 'in_progress', 'check_requested', 'paying'];
+const CLOSEABLE_STATUSES = ['open', 'ordering', 'sent_to_kitchen', 'in_progress', 'check_requested', 'paying', 'split', 'abandoned'];
 
 export interface BulkCloseResult {
   succeeded: string[];

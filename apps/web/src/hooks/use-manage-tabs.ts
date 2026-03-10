@@ -141,8 +141,11 @@ export function useManageTabs(locationId: string) {
   // ─── Error backoff for polling ────────────────────────────────
   const consecutiveErrors = useRef(0);
 
+  const hasFetchedOnce = useRef(false);
+
   const refreshTabs = useCallback(async () => {
-    setIsLoading(true);
+    // Only show loading spinner on initial fetch, not on poll/realtime refreshes
+    if (!hasFetchedOnce.current) setIsLoading(true);
     setError(null);
     try {
       const qs = buildQueryString({
@@ -172,6 +175,7 @@ export function useManageTabs(locationId: string) {
       setCursor(res.meta.cursor);
       setHasMore(res.meta.hasMore);
       consecutiveErrors.current = 0;
+      hasFetchedOnce.current = true;
 
       // Prune ghost selections: IDs that no longer exist in the refreshed tab list
       // cause the counter to show selected while no card renders a checkbox.
@@ -211,19 +215,21 @@ export function useManageTabs(locationId: string) {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
+    let cancelled = false;
     const schedule = () => {
       const backoff = consecutiveErrors.current > 0
         ? Math.min(POLL_INTERVAL_MS * 2 ** consecutiveErrors.current, MAX_BACKOFF_MS)
         : POLL_INTERVAL_MS;
-      timer = setTimeout(() => {
+      timer = setTimeout(async () => {
+        if (cancelled) return;
         if (pollEnabled.current) {
-          refreshTabsRef.current();
+          await refreshTabsRef.current();
         }
-        schedule();
+        if (!cancelled) schedule();
       }, backoff);
     };
     schedule();
-    return () => clearTimeout(timer);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, []);
 
   // Pause polling during mutations
