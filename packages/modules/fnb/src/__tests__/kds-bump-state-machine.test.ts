@@ -60,6 +60,7 @@ vi.mock('@oppsera/core/observability', () => ({
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((_col: unknown, val: unknown) => ({ _tag: 'eq', val })),
   and: vi.fn((...conds: unknown[]) => ({ _tag: 'and', conds })),
+  ne: vi.fn((_col: unknown, val: unknown) => ({ _tag: 'ne', val })),
   sql: Object.assign(
     (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
     { join: vi.fn(), raw: vi.fn((s: string) => s) },
@@ -82,6 +83,11 @@ vi.mock('@oppsera/db', () => ({
     id: 'fnbKitchenTickets.id',
     tenantId: 'fnbKitchenTickets.tenantId',
     version: 'fnbKitchenTickets.version',
+  },
+  fnbKitchenStations: {
+    id: 'fnbKitchenStations.id',
+    tenantId: 'fnbKitchenStations.tenantId',
+    autoBumpOnAllReady: 'fnbKitchenStations.autoBumpOnAllReady',
   },
 }));
 
@@ -119,10 +125,20 @@ function makeTicket(overrides: Record<string, unknown> = {}) {
     tabId: 'tab-1',
     status: 'pending',
     version: 1,
+    startedAt: null,
     readyAt: null,
     servedAt: null,
     bumpedAt: null,
     bumpedBy: null,
+    isHeld: false,
+    ...overrides,
+  };
+}
+
+function makeStation(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'station-1',
+    autoBumpOnAllReady: false,
     ...overrides,
   };
 }
@@ -142,27 +158,49 @@ describe('KDS Bump State Machine — bumpItem', () => {
   const baseInput = { ticketItemId: 'ti-1', stationId: 'station-1', clientRequestId: 'req-1' };
 
   it('bumpItem: pending item → ready', async () => {
+    const station = makeStation();
     const item = makeTicketItem({ itemStatus: 'pending' });
     const updatedItem = { ...item, itemStatus: 'ready', readyAt: expect.any(Date) };
-    const ticket = makeTicket();
+    const ticket = makeTicket({ status: 'in_progress' });
 
-    // select().from(items).where().limit() → item
     mockTx.limit
-      .mockResolvedValueOnce([item])    // fetch item
-      .mockResolvedValueOnce([ticket]); // fetch ticket for locationId
-    // update().set().where().returning() → updated item
-    mockTx.returning.mockResolvedValueOnce([updatedItem]);
+      .mockResolvedValueOnce([station])  // station lookup
+      .mockResolvedValueOnce([item])     // fetch item
+      .mockResolvedValueOnce([ticket]);  // fetch ticket
+    // pending→in_progress auto-progress won't fire (ticket already in_progress)
+    mockTx.returning.mockResolvedValueOnce([updatedItem]); // item bump
+
+    const result = await bumpItem(makeCtx(), baseInput);
+    expect(result.itemStatus).toBe('ready');
+  });
+
+  it('bumpItem: pending item on pending ticket → auto-progresses ticket to in_progress', async () => {
+    const station = makeStation();
+    const item = makeTicketItem({ itemStatus: 'pending' });
+    const updatedItem = { ...item, itemStatus: 'ready', readyAt: expect.any(Date) };
+    const ticket = makeTicket({ status: 'pending' });
+    const progressedTicket = { ...ticket, status: 'in_progress', version: 2 };
+
+    mockTx.limit
+      .mockResolvedValueOnce([station])
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket]);
+    mockTx.returning
+      .mockResolvedValueOnce([progressedTicket])  // ticket pending→in_progress
+      .mockResolvedValueOnce([updatedItem]);       // item bump
 
     const result = await bumpItem(makeCtx(), baseInput);
     expect(result.itemStatus).toBe('ready');
   });
 
   it('bumpItem: in_progress item → ready', async () => {
+    const station = makeStation();
     const item = makeTicketItem({ itemStatus: 'in_progress', startedAt: new Date() });
     const updatedItem = { ...item, itemStatus: 'ready' };
-    const ticket = makeTicket();
+    const ticket = makeTicket({ status: 'in_progress' });
 
     mockTx.limit
+      .mockResolvedValueOnce([station])
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket]);
     mockTx.returning.mockResolvedValueOnce([updatedItem]);
@@ -172,35 +210,80 @@ describe('KDS Bump State Machine — bumpItem', () => {
   });
 
   it('bumpItem: ready item → throws TicketItemStatusConflictError', async () => {
+    const station = makeStation();
     const item = makeTicketItem({ itemStatus: 'ready' });
-    mockTx.limit.mockResolvedValueOnce([item]);
+    const ticket = makeTicket({ status: 'in_progress' });
+
+    mockTx.limit
+      .mockResolvedValueOnce([station])
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket]);
 
     await expect(bumpItem(makeCtx(), baseInput)).rejects.toThrow(/Cannot bump item .+ in status 'ready'/);
   });
 
   it('bumpItem: served item → throws TicketItemStatusConflictError', async () => {
+    const station = makeStation();
     const item = makeTicketItem({ itemStatus: 'served' });
-    mockTx.limit.mockResolvedValueOnce([item]);
+    const ticket = makeTicket({ status: 'in_progress' });
+
+    mockTx.limit
+      .mockResolvedValueOnce([station])
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket]);
 
     await expect(bumpItem(makeCtx(), baseInput)).rejects.toThrow(/Cannot bump item .+ in status 'served'/);
   });
 
   it('bumpItem: voided item → throws TicketItemStatusConflictError', async () => {
+    const station = makeStation();
     const item = makeTicketItem({ itemStatus: 'voided' });
-    mockTx.limit.mockResolvedValueOnce([item]);
+    const ticket = makeTicket({ status: 'in_progress' });
+
+    mockTx.limit
+      .mockResolvedValueOnce([station])
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket]);
 
     await expect(bumpItem(makeCtx(), baseInput)).rejects.toThrow(/Cannot bump item .+ in status 'voided'/);
   });
 
-  it('bumpItem: sets startedAt if not already set', async () => {
-    const item = makeTicketItem({ itemStatus: 'pending', startedAt: null });
-    const ticket = makeTicket();
+  it('bumpItem: item on voided ticket → throws TicketStatusConflictError', async () => {
+    const station = makeStation();
+    const item = makeTicketItem({ itemStatus: 'pending' });
+    const ticket = makeTicket({ status: 'voided' });
 
     mockTx.limit
+      .mockResolvedValueOnce([station])
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket]);
 
-    // Capture what .set() was called with
+    await expect(bumpItem(makeCtx(), baseInput)).rejects.toThrow(/Cannot bump item.*ticket .+ in status 'voided'/);
+  });
+
+  it('bumpItem: item on served ticket → throws TicketStatusConflictError', async () => {
+    const station = makeStation();
+    const item = makeTicketItem({ itemStatus: 'pending' });
+    const ticket = makeTicket({ status: 'served' });
+
+    mockTx.limit
+      .mockResolvedValueOnce([station])
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket]);
+
+    await expect(bumpItem(makeCtx(), baseInput)).rejects.toThrow(/Cannot bump item.*ticket .+ in status 'served'/);
+  });
+
+  it('bumpItem: sets startedAt if not already set', async () => {
+    const station = makeStation();
+    const item = makeTicketItem({ itemStatus: 'pending', startedAt: null });
+    const ticket = makeTicket({ status: 'in_progress' });
+
+    mockTx.limit
+      .mockResolvedValueOnce([station])
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket]);
+
     const updatedItem = { ...item, itemStatus: 'ready', startedAt: new Date(), readyAt: new Date() };
     mockTx.returning.mockResolvedValueOnce([updatedItem]);
 
@@ -215,11 +298,13 @@ describe('KDS Bump State Machine — bumpItem', () => {
   });
 
   it('bumpItem: does NOT overwrite existing startedAt', async () => {
+    const station = makeStation();
     const existingStart = new Date('2026-01-01T12:00:00Z');
     const item = makeTicketItem({ itemStatus: 'in_progress', startedAt: existingStart });
-    const ticket = makeTicket();
+    const ticket = makeTicket({ status: 'in_progress' });
 
     mockTx.limit
+      .mockResolvedValueOnce([station])
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket]);
     mockTx.returning.mockResolvedValueOnce([{ ...item, itemStatus: 'ready' }]);
@@ -527,14 +612,13 @@ describe('KDS Bump State Machine — refireItem', () => {
     const newItem = { ...item, id: 'new-item-id', itemStatus: 'pending', isRush: true };
     const ticket = makeTicket({ status: 'in_progress' });
 
-    // 1. fetch item
-    mockTx.limit.mockResolvedValueOnce([item]);
-    // 2. void original → returning
+    mockTx.limit
+      .mockResolvedValueOnce([item])     // fetch item
+      .mockResolvedValueOnce([ticket])   // location check (parentTicket)
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])  // void update
       .mockResolvedValueOnce([newItem]);    // insert new item
-    // 3. fetch ticket
-    mockTx.limit.mockResolvedValueOnce([ticket]);
 
     const result = await refireItem(makeCtx(), baseInput);
     expect(result.id).toBe('new-item-id');
@@ -547,12 +631,14 @@ describe('KDS Bump State Machine — refireItem', () => {
     const ticket = makeTicket({ status: 'ready', version: 2 });
     const revertedTicket = { ...ticket, status: 'in_progress', version: 3 };
 
-    mockTx.limit.mockResolvedValueOnce([item]);
+    mockTx.limit
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])    // void update
       .mockResolvedValueOnce([newItem])       // insert new item
       .mockResolvedValueOnce([revertedTicket]); // ticket revert
-    mockTx.limit.mockResolvedValueOnce([ticket]);
 
     const result = await refireItem(makeCtx(), baseInput);
     expect(result.id).toBe('new-item-id');
@@ -565,12 +651,14 @@ describe('KDS Bump State Machine — refireItem', () => {
     const ticket = makeTicket({ status: 'served', version: 1 });
     const revertedTicket = { ...ticket, status: 'in_progress', version: 2 };
 
-    mockTx.limit.mockResolvedValueOnce([item]);
+    mockTx.limit
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])
       .mockResolvedValueOnce([newItem])
       .mockResolvedValueOnce([revertedTicket]);
-    mockTx.limit.mockResolvedValueOnce([ticket]);
 
     const result = await refireItem(makeCtx(), baseInput);
     expect(result.id).toBe('new-item-id');
@@ -578,14 +666,22 @@ describe('KDS Bump State Machine — refireItem', () => {
 
   it('refireItem: pending item → throws TicketItemStatusConflictError', async () => {
     const item = makeFullItem({ itemStatus: 'pending' });
-    mockTx.limit.mockResolvedValueOnce([item]);
+    const ticket = makeTicket({ status: 'in_progress' });
+
+    mockTx.limit
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket]);  // location check
 
     await expect(refireItem(makeCtx(), baseInput)).rejects.toThrow(/Cannot .+ item .+ in status 'pending'/);
   });
 
   it('refireItem: voided item → throws TicketItemStatusConflictError', async () => {
     const item = makeFullItem({ itemStatus: 'voided' });
-    mockTx.limit.mockResolvedValueOnce([item]);
+    const ticket = makeTicket({ status: 'in_progress' });
+
+    mockTx.limit
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket]);  // location check
 
     await expect(refireItem(makeCtx(), baseInput)).rejects.toThrow(/Cannot .+ item .+ in status 'voided'/);
   });
@@ -596,12 +692,14 @@ describe('KDS Bump State Machine — refireItem', () => {
     const newItem = { ...item, id: 'new-item-id', itemStatus: 'pending' };
     const ticket = makeTicket({ status: 'ready', version: 1 });
 
-    mockTx.limit.mockResolvedValueOnce([item]);
+    mockTx.limit
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])   // void update
       .mockResolvedValueOnce([newItem])      // insert new item
       .mockResolvedValueOnce([]);            // ticket revert → empty = conflict
-    mockTx.limit.mockResolvedValueOnce([ticket]);
 
     await expect(refireItem(makeCtx(), baseInput)).rejects.toThrow(/has been modified by another user/);
   });
@@ -612,11 +710,13 @@ describe('KDS Bump State Machine — refireItem', () => {
     const newItem = { ...item, id: 'new-item-id', itemStatus: 'pending', isRush: true };
     const ticket = makeTicket({ status: 'in_progress', version: 1 });
 
-    mockTx.limit.mockResolvedValueOnce([item]);
+    mockTx.limit
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])
       .mockResolvedValueOnce([newItem]);
-    mockTx.limit.mockResolvedValueOnce([ticket]);
 
     const result = await refireItem(makeCtx(), baseInput);
     expect(result.id).toBe('new-item-id');
@@ -636,11 +736,13 @@ describe('KDS Bump State Machine — refireItem', () => {
     const newItem = { ...item, id: 'new-item-id', itemStatus: 'pending', isRush: true };
     const ticket = makeTicket({ status: 'in_progress' });
 
-    mockTx.limit.mockResolvedValueOnce([item]);
+    mockTx.limit
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])
       .mockResolvedValueOnce([newItem]);
-    mockTx.limit.mockResolvedValueOnce([ticket]);
 
     await refireItem(makeCtx(), { ...baseInput, reason: 'burnt' });
 
@@ -656,11 +758,13 @@ describe('KDS Bump State Machine — refireItem', () => {
     const newItem = { ...item, id: 'new-item-id', itemStatus: 'pending' };
     const ticket = makeTicket({ status: 'in_progress' });
 
-    mockTx.limit.mockResolvedValueOnce([item]);
+    mockTx.limit
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])
       .mockResolvedValueOnce([newItem]);
-    mockTx.limit.mockResolvedValueOnce([ticket]);
 
     await refireItem(makeCtx(), baseInput);
 
@@ -674,11 +778,13 @@ describe('KDS Bump State Machine — refireItem', () => {
     const newItem = { ...item, id: 'new-item-id', itemStatus: 'pending' };
     const ticket = makeTicket({ status: 'in_progress' });
 
-    mockTx.limit.mockResolvedValueOnce([item]);
+    mockTx.limit
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])
       .mockResolvedValueOnce([newItem]);
-    mockTx.limit.mockResolvedValueOnce([ticket]);
 
     await refireItem(makeCtx(), baseInput);
 
@@ -708,7 +814,8 @@ describe('KDS Bump State Machine — recallItem', () => {
 
     mockTx.limit
       .mockResolvedValueOnce([item])     // fetch item
-      .mockResolvedValueOnce([ticket]);  // fetch ticket
+      .mockResolvedValueOnce([ticket])   // location check (parentTicket)
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
     mockTx.returning.mockResolvedValueOnce([recalled]); // recall update
 
     const result = await recallItem(makeCtx(), baseInput);
@@ -731,7 +838,8 @@ describe('KDS Bump State Machine — recallItem', () => {
 
     mockTx.limit
       .mockResolvedValueOnce([item])
-      .mockResolvedValueOnce([ticket]);
+      .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
     mockTx.returning
       .mockResolvedValueOnce([recalled])        // recall item
       .mockResolvedValueOnce([revertedTicket]); // revert ticket
@@ -748,7 +856,8 @@ describe('KDS Bump State Machine — recallItem', () => {
 
     mockTx.limit
       .mockResolvedValueOnce([item])
-      .mockResolvedValueOnce([ticket]);
+      .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
     mockTx.returning
       .mockResolvedValueOnce([recalled])
       .mockResolvedValueOnce([revertedTicket]);
@@ -765,7 +874,8 @@ describe('KDS Bump State Machine — recallItem', () => {
 
     mockTx.limit
       .mockResolvedValueOnce([item])
-      .mockResolvedValueOnce([ticket]);
+      .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
     mockTx.returning.mockResolvedValueOnce([recalled]);
 
     await recallItem(makeCtx(), baseInput);
@@ -802,8 +912,11 @@ describe('KDS Bump State Machine — recallItem', () => {
 
   it('recallItem: concurrent recall → throws (optimistic lock)', async () => {
     const item = makeTicketItem({ itemStatus: 'ready' });
+    const ticket = makeTicket({ status: 'in_progress' });
 
-    mockTx.limit.mockResolvedValueOnce([item]);
+    mockTx.limit
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket]);  // location check
     mockTx.returning.mockResolvedValueOnce([]); // optimistic lock fails
 
     await expect(recallItem(makeCtx(), baseInput)).rejects.toThrow(/Cannot recall \(concurrent\)/);
@@ -816,7 +929,8 @@ describe('KDS Bump State Machine — recallItem', () => {
 
     mockTx.limit
       .mockResolvedValueOnce([item])
-      .mockResolvedValueOnce([ticket]);
+      .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
     mockTx.returning
       .mockResolvedValueOnce([recalled]) // item recall OK
       .mockResolvedValueOnce([]);        // ticket revert fails
@@ -975,16 +1089,41 @@ describe('KDS Bump State Machine — bumpItem edge cases', () => {
 
   const baseInput = { ticketItemId: 'ti-1', stationId: 'station-1', clientRequestId: 'req-1' };
 
+  it('bumpItem: station not found → throws StationNotFoundError', async () => {
+    mockTx.limit.mockResolvedValueOnce([]); // no station
+
+    await expect(bumpItem(makeCtx(), baseInput)).rejects.toThrow(/not found/);
+  });
+
   it('bumpItem: item not found → throws TicketItemNotFoundError', async () => {
-    mockTx.limit.mockResolvedValueOnce([]); // no item
+    const station = makeStation();
+    mockTx.limit
+      .mockResolvedValueOnce([station]) // station found
+      .mockResolvedValueOnce([]);       // no item
+
+    await expect(bumpItem(makeCtx(), baseInput)).rejects.toThrow(/not found/);
+  });
+
+  it('bumpItem: ticket not found → throws TicketNotFoundError', async () => {
+    const station = makeStation();
+    const item = makeTicketItem({ itemStatus: 'pending' });
+    mockTx.limit
+      .mockResolvedValueOnce([station])
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([]); // no ticket
 
     await expect(bumpItem(makeCtx(), baseInput)).rejects.toThrow(/not found/);
   });
 
   it('bumpItem: concurrent double-bump → throws (optimistic lock on status)', async () => {
+    const station = makeStation();
     const item = makeTicketItem({ itemStatus: 'pending' });
+    const ticket = makeTicket({ status: 'in_progress' });
 
-    mockTx.limit.mockResolvedValueOnce([item]);
+    mockTx.limit
+      .mockResolvedValueOnce([station])
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket]);
     mockTx.returning.mockResolvedValueOnce([]); // optimistic lock fails (status changed)
 
     await expect(bumpItem(makeCtx(), baseInput)).rejects.toThrow(/Cannot bump \(concurrent\)/);
@@ -994,11 +1133,13 @@ describe('KDS Bump State Machine — bumpItem edge cases', () => {
     // 'cooking' is mapped to 'in_progress' in some flows, but the actual DB status
     // for items uses the exact value stored. If the item's DB status is literally
     // 'cooking', it should NOT match ready/served/voided guard, so bump proceeds.
+    const station = makeStation();
     const item = makeTicketItem({ itemStatus: 'cooking', startedAt: new Date() });
     const updatedItem = { ...item, itemStatus: 'ready' };
-    const ticket = makeTicket();
+    const ticket = makeTicket({ status: 'in_progress' });
 
     mockTx.limit
+      .mockResolvedValueOnce([station])
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket]);
     mockTx.returning.mockResolvedValueOnce([updatedItem]);
@@ -1019,6 +1160,24 @@ describe('KDS Bump State Machine — bumpItem edge cases', () => {
     expect(result).toEqual(cachedResult);
     // No DB operations should have occurred beyond idempotency check
     expect(mockTx.update).not.toHaveBeenCalled();
+  });
+
+  it('bumpItem: held ticket blocks auto-bump', async () => {
+    const station = makeStation({ autoBumpOnAllReady: true });
+    const item = makeTicketItem({ itemStatus: 'pending' });
+    const updatedItem = { ...item, itemStatus: 'ready' };
+    const ticket = makeTicket({ status: 'in_progress', isHeld: true });
+
+    mockTx.limit
+      .mockResolvedValueOnce([station])
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket]);
+    mockTx.returning.mockResolvedValueOnce([updatedItem]); // item bump only
+
+    const result = await bumpItem(makeCtx(), baseInput);
+    expect(result.itemStatus).toBe('ready');
+    // Only 1 returning call = item bump, no ticket auto-bump
+    expect(mockTx.returning).toHaveBeenCalledTimes(1);
   });
 });
 

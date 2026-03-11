@@ -130,7 +130,6 @@ export function usePinnedMetrics() {
     enrichWithSparklines();
     return () => { controller.abort(); };
     // Only re-run when metric IDs change, not when sparklines are enriched
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metrics.map((m) => m.id).join(',')]);
 
   // ── Pin a new metric ──
