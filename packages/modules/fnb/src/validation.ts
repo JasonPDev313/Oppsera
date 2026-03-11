@@ -743,6 +743,78 @@ export const heartbeatKdsTerminalSchema = z.object({
 
 export type HeartbeatKdsTerminalInput = z.input<typeof heartbeatKdsTerminalSchema>;
 
+// ── Course Definitions & Course Rules ───────────────────────────
+
+export const COURSE_RULE_SCOPE_TYPES = ['department', 'sub_department', 'category', 'item'] as const;
+export type CourseRuleScopeType = (typeof COURSE_RULE_SCOPE_TYPES)[number];
+
+export const upsertCourseDefinitionSchema = z.object({
+  courseNumber: z.number().int().min(1).max(10),
+  courseName: z.string().min(1).max(50),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export type UpsertCourseDefinitionInput = z.input<typeof upsertCourseDefinitionSchema>;
+
+export const upsertCourseRuleSchema = z.object({
+  ...idempotencyMixin,
+  scopeType: z.enum(COURSE_RULE_SCOPE_TYPES),
+  scopeId: z.string().min(1),
+  defaultCourseNumber: z.number().int().min(1).max(10).nullable(),
+  allowedCourseNumbers: z.array(z.number().int().min(1).max(10)).nullable(),
+  lockCourse: z.boolean().default(false),
+}).refine(
+  (d) => d.defaultCourseNumber != null || (d.allowedCourseNumbers != null && d.allowedCourseNumbers.length > 0) || d.lockCourse,
+  { message: 'Rule must define at least one of: defaultCourseNumber, allowedCourseNumbers, or lockCourse', path: ['defaultCourseNumber'] },
+).refine(
+  (d) => !d.lockCourse || d.defaultCourseNumber != null,
+  { message: 'defaultCourseNumber is required when lockCourse is true', path: ['defaultCourseNumber'] },
+).refine(
+  (d) => !d.allowedCourseNumbers || !d.defaultCourseNumber || d.allowedCourseNumbers.includes(d.defaultCourseNumber),
+  { message: 'defaultCourseNumber must be in allowedCourseNumbers', path: ['defaultCourseNumber'] },
+);
+
+export type UpsertCourseRuleInput = z.input<typeof upsertCourseRuleSchema>;
+
+export const deleteCourseRuleSchema = z.object({
+  ...idempotencyMixin,
+  ruleId: z.string().min(1),
+});
+
+export type DeleteCourseRuleInput = z.input<typeof deleteCourseRuleSchema>;
+
+export const bulkApplyCourseRuleSchema = z.object({
+  ...idempotencyMixin,
+  scopeType: z.enum(['department', 'sub_department', 'category'] as const),
+  scopeId: z.string().min(1),
+  defaultCourseNumber: z.number().int().min(1).max(10).nullable(),
+  allowedCourseNumbers: z.array(z.number().int().min(1).max(10)).nullable(),
+  lockCourse: z.boolean().default(false),
+  overrideItemRules: z.boolean().default(false),
+}).refine(
+  (d) => d.defaultCourseNumber != null || (d.allowedCourseNumbers != null && d.allowedCourseNumbers.length > 0) || d.lockCourse,
+  { message: 'Rule must define at least one of: defaultCourseNumber, allowedCourseNumbers, or lockCourse', path: ['defaultCourseNumber'] },
+).refine(
+  (d) => !d.lockCourse || d.defaultCourseNumber != null,
+  { message: 'defaultCourseNumber is required when lockCourse is true', path: ['defaultCourseNumber'] },
+).refine(
+  (d) => !d.allowedCourseNumbers || !d.defaultCourseNumber || d.allowedCourseNumbers.includes(d.defaultCourseNumber),
+  { message: 'defaultCourseNumber must be in allowedCourseNumbers', path: ['defaultCourseNumber'] },
+);
+
+export type BulkApplyCourseRuleInput = z.input<typeof bulkApplyCourseRuleSchema>;
+
+export const resolveCourseRuleQuerySchema = z.object({
+  itemId: z.string().min(1).optional(),
+  categoryId: z.string().min(1).optional(),
+}).refine(
+  (d) => d.itemId || d.categoryId,
+  { message: 'Either itemId or categoryId is required', path: ['itemId'] },
+);
+
+export type ResolveCourseRuleQueryInput = z.input<typeof resolveCourseRuleQuerySchema>;
+
 // ── Session 5 Query Filters ─────────────────────────────────────
 
 export const listStationsFilterSchema = z.object({

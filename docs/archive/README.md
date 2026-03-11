@@ -1,6 +1,7 @@
 # Archive — Completed Build Plans & Session Prompts
 
 Moved from `.claude/` on 2026-03-03 to reduce token costs. All content preserved — nothing deleted.
+Updated 2026-03-10: moved completed session plans and stale prompts from `docs/sessions/` and `docs/prompts/`.
 
 ## Root Files (Build Plans & Specs)
 
@@ -10,7 +11,9 @@ Moved from `.claude/` on 2026-03-03 to reduce token costs. All content preserved
 | `OPPSERA_SPA_MODULE_BUILD_PLAN.md` | Spa module complete build plan |
 | `TALK_TO_SPREADSHEETS_BUILD_PLAN.md` | Spreadsheet integration build plan |
 | `modifier-groups-phase2-enterprise-plan.md` | Modifier groups phase 2 enterprise plan |
+| `modifier-groups-phase2-enterprise.md` | Modifier groups phase 2 enterprise prompt (moved from `docs/prompts/`) |
 | `host-stand-v2.md` | Host stand V2 roadmap (SMS, online booking, integrations, deposits) |
+| `PROMPT-profit-centers-terminals.md` | Profit centers & terminals build prompt (moved from repo root) |
 
 ## admin-portal-prompts/
 
@@ -35,6 +38,8 @@ All completed build session prompts, milestone specs, and integration guides:
 ### Feature Sessions
 - `fnb-pos-sessions.md` / `fnb-pos-ux-sessions (1).md` — F&B POS build sessions
 - `HOST_MODULE_V2_SESSIONS.md` — Host stand module sessions
+- `HOST_ORCHESTRATION_SESSIONS.md` — Host orchestration engine sessions (moved from `docs/sessions/`)
+- `WAITLIST_V1_SESSIONS.md` — Waitlist V1 sessions (moved from `docs/sessions/`)
 - `23Feb26OPPSERA_CUSTOMER360_MEMBERSHIP_SESSIONS.md` — Customer 360 & membership
 - `INTELLIGENT-TAG-SYSTEM-SESSIONS.md` — Intelligent tag system
 - `Room_Layout_Builder_Session_Plan.md` — Room layout builder

@@ -15,7 +15,7 @@ This runs 9 checks: secrets scan, migration journal integrity, fire-and-forget D
 ```bash
 pnpm lint          # Floating-promise detection (CRITICAL for Vercel pool safety)
 pnpm type-check    # TypeScript strict mode
-pnpm test          # All 5,981+ tests
+pnpm test          # All 10,617+ tests
 pnpm build         # Production build (catches missing env vars, import errors)
 ```
 

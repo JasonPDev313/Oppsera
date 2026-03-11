@@ -38,6 +38,8 @@ interface TicketHeaderProps {
   ticketNumber: number;
   tableNumber: number | null;
   courseNumber: number | null;
+  /** Course name from definitions or tab courses */
+  courseName?: string | null;
   elapsedSeconds: number;
   warningThresholdSeconds: number;
   criticalThresholdSeconds: number;
@@ -49,6 +51,7 @@ export function TicketHeader({
   ticketNumber,
   tableNumber,
   courseNumber,
+  courseName,
   elapsedSeconds,
   warningThresholdSeconds,
   criticalThresholdSeconds,
@@ -84,10 +87,11 @@ export function TicketHeader({
         )}
         {courseNumber != null && (
           <span
-            className="text-[10px] font-bold rounded px-1 py-0.5"
+            className="text-[10px] font-bold rounded px-1 py-0.5 truncate max-w-20"
             style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}
+            title={courseName ? `${courseName} (Course ${courseNumber})` : `Course ${courseNumber}`}
           >
-            C{courseNumber}
+            {courseName ?? `C${courseNumber}`}
           </span>
         )}
       </div>

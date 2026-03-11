@@ -16,6 +16,7 @@ import { ProfitCenterPane } from '@/components/settings/ProfitCenterPane';
 import { TerminalPane } from '@/components/settings/TerminalPane';
 import { ProfitCenterFormModal } from '@/components/settings/ProfitCenterFormModal';
 import { TerminalFormModal } from '@/components/settings/TerminalFormModal';
+import { VenueFormModal } from '@/components/settings/VenueFormModal';
 
 type Mode = 'simple' | 'advanced';
 
@@ -60,6 +61,16 @@ export default function ProfitCentersContent() {
     editId: string | null;
     profitCenterId: string | null;
   }>({ open: false, editId: null, profitCenterId: null });
+  const [venueModal, setVenueModal] = useState<{
+    open: boolean;
+    editId: string | null;
+    siteId: string | null;
+  }>({ open: false, editId: null, siteId: null });
+  const [deleteVenueConfirm, setDeleteVenueConfirm] = useState<{
+    id: string;
+    name: string;
+    assignedPCCount: number;
+  } | null>(null);
 
   // Derived state
   const venuesBySite = useVenuesBySite(allLocations);
@@ -191,6 +202,48 @@ export default function ProfitCentersContent() {
     refetch();
   }, [refetch]);
 
+  // Handlers — Venues
+  const handleAddVenue = useCallback((siteId: string) => {
+    setVenueModal({ open: true, editId: null, siteId });
+  }, []);
+
+  const handleEditVenue = useCallback((venueId: string) => {
+    const venue = allLocations.find((l) => l.id === venueId);
+    setVenueModal({
+      open: true,
+      editId: venueId,
+      siteId: venue?.parentLocationId ?? null,
+    });
+  }, [allLocations]);
+
+  const handleDeleteVenue = useCallback((venueId: string) => {
+    const venue = allLocations.find((l) => l.id === venueId);
+    const pcCount = allProfitCenters?.filter((pc) => pc.locationId === venueId).length ?? 0;
+    setDeleteVenueConfirm({
+      id: venueId,
+      name: venue?.name ?? 'this venue',
+      assignedPCCount: pcCount,
+    });
+  }, [allLocations, allProfitCenters]);
+
+  const confirmDeleteVenue = useCallback(async () => {
+    if (!deleteVenueConfirm) return;
+    try {
+      await apiFetch(`/api/v1/locations/venues/${deleteVenueConfirm.id}`, { method: 'DELETE' });
+      if (selectedVenueId === deleteVenueConfirm.id) setSelectedVenueId(null);
+      refetch();
+    } catch {
+      // silently fail — future: toast
+    } finally {
+      setDeleteVenueConfirm(null);
+    }
+  }, [deleteVenueConfirm, refetch, selectedVenueId]);
+
+  const handleVenueSaved = useCallback(() => {
+    setVenueModal({ open: false, editId: null, siteId: null });
+    refetch();
+  }, [refetch]);
+
   // Terminal pane state
   const terminalDisabled =
     mode === 'simple' ? !effectiveLocationId : !selectedProfitCenterId;
@@ -257,6 +310,9 @@ export default function ProfitCentersContent() {
           selectedVenueId={selectedVenueId}
           onSelectSite={handleSelectSite}
           onSelectVenue={handleSelectVenue}
+          onAddVenue={handleAddVenue}
+          onEditVenue={handleEditVenue}
+          onDeleteVenue={handleDeleteVenue}
           error={locationsError}
         />
 
@@ -305,6 +361,51 @@ export default function ProfitCentersContent() {
           }
           onSaved={handleTerminalSaved}
         />
+      )}
+
+      {venueModal.open && venueModal.siteId && (
+        <VenueFormModal
+          venueId={venueModal.editId}
+          parentSiteId={venueModal.siteId}
+          parentSiteName={
+            allLocations.find((l) => l.id === venueModal.siteId)?.name ?? 'Site'
+          }
+          onClose={() => setVenueModal({ open: false, editId: null, siteId: null })}
+          onSaved={handleVenueSaved}
+        />
+      )}
+
+      {deleteVenueConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-sm rounded-xl bg-surface p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-foreground">Delete Venue</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Are you sure you want to delete <span className="font-medium text-foreground">{deleteVenueConfirm.name}</span>?
+            </p>
+            {deleteVenueConfirm.assignedPCCount > 0 && (
+              <p className="mt-2 text-sm text-yellow-500">
+                This venue has {deleteVenueConfirm.assignedPCCount} profit center{deleteVenueConfirm.assignedPCCount > 1 ? 's' : ''} assigned.
+                They will remain but will need to be reassigned to another venue.
+              </p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteVenueConfirm(null)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteVenue}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

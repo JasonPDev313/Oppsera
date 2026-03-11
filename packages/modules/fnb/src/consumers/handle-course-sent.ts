@@ -3,6 +3,7 @@ import { withTenant } from '@oppsera/db';
 import { fnbTabs, fnbTabItems, fnbTabCourses } from '@oppsera/db';
 import { logger } from '@oppsera/core/observability';
 import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
+import { resolveKdsSiteId } from '../helpers/resolve-kds-site-id';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from '../commands/create-kitchen-ticket';
 import { recordKdsSend, markKdsSendSent } from '../commands/record-kds-send';
@@ -104,14 +105,22 @@ export async function handleCourseSent(
     // primaryOrderId may be null — the order is created at prepare-check (payment time).
     // KDS tickets are created regardless; orderId is backfilled when the check is prepared.
 
-    const locationId = data.locationId || tab.locationId;
+    const rawLocationId = data.locationId || tab.locationId;
 
-    if (!locationId) {
+    if (!rawLocationId) {
       logger.error('[kds] handleCourseSent: no locationId on tab or event — cannot create tickets', {
         domain: 'kds', tenantId, tabId: data.tabId, courseNumber: data.courseNumber,
         eventLocationId: data.locationId, tabLocationId: tab.locationId,
       });
       return;
+    }
+
+    // Resolve venue → parent site for KDS operations (stations/rules live at site level)
+    const locationId = await resolveKdsSiteId(tenantId, rawLocationId);
+    if (locationId !== rawLocationId) {
+      logger.info('[kds] handleCourseSent: resolved venue to parent site', {
+        domain: 'kds', tenantId, venueId: rawLocationId, siteId: locationId,
+      });
     }
 
     if (!items.length) {

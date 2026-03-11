@@ -45,6 +45,15 @@ vi.mock('../commands/create-kitchen-ticket', () => ({
   createKitchenTicket: (...args: unknown[]) => mockCreateKitchenTicket(...args),
 }));
 
+vi.mock('../helpers/resolve-kds-site-id', () => ({
+  resolveKdsSiteId: vi.fn().mockImplementation((_t: string, loc: string) => Promise.resolve(loc)),
+}));
+
+vi.mock('../commands/record-kds-send', () => ({
+  recordKdsSend: vi.fn().mockResolvedValue({ sendToken: 'mock-token' }),
+  markKdsSendSent: vi.fn().mockResolvedValue(undefined),
+}));
+
 // ── Import after mocks ──────────────────────────────────────────────────────
 
 import { handleCourseSent } from '../consumers/handle-course-sent';
@@ -697,7 +706,7 @@ describe('handleCourseSent', () => {
       expect(withTenantCallCountAtEnrich).toBe(3);
     });
 
-    it('calls withTenant exactly 3 times total for the parallel fetch', async () => {
+    it('calls withTenant 3 times for parallel fetch + 1 for station names when items are routed', async () => {
       const item = makeItem({ id: 'item-1' });
       setupParallelFetches(BASE_TAB, 'Mains', [item]);
       mockEnrichRoutableItems.mockImplementation(async (_t: string, ri: unknown[]) => ri);
@@ -707,11 +716,11 @@ describe('handleCourseSent', () => {
 
       await handleCourseSent(TENANT_ID, BASE_DATA);
 
-      // Only the initial 3 parallel fetches — no extra withTenant calls elsewhere
-      expect(mockWithTenant).toHaveBeenCalledTimes(3);
+      // 3 parallel fetches (tab, course, items) + 1 station name fetch
+      expect(mockWithTenant).toHaveBeenCalledTimes(4);
     });
 
-    it('passes tenantId to all 3 withTenant calls', async () => {
+    it('passes tenantId to all withTenant calls', async () => {
       const item = makeItem({ id: 'item-1' });
       setupParallelFetches(BASE_TAB, 'Mains', [item]);
       mockEnrichRoutableItems.mockImplementation(async (_t: string, ri: unknown[]) => ri);
@@ -720,6 +729,7 @@ describe('handleCourseSent', () => {
       await handleCourseSent(TENANT_ID, BASE_DATA);
 
       const calls = mockWithTenant.mock.calls;
+      // 3 parallel fetches when no stations are routed (no station name fetch needed)
       expect(calls).toHaveLength(3);
       expect(calls[0]![0]).toBe(TENANT_ID);
       expect(calls[1]![0]).toBe(TENANT_ID);

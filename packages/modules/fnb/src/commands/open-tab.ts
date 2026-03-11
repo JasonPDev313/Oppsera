@@ -9,6 +9,25 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { OpenTabInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 
+/** Resolve course 1 name from fnb_course_definitions, fallback to 'Course 1'. */
+async function resolveCourse1Name(tx: Parameters<Parameters<typeof publishWithOutbox>[1]>[0], tenantId: string, locationId: string): Promise<string> {
+  try {
+    const rows = await tx.execute(
+      sql`SELECT course_name FROM fnb_course_definitions
+          WHERE tenant_id = ${tenantId} AND location_id = ${locationId}
+            AND course_number = 1 AND is_active = true
+          LIMIT 1`,
+    );
+    const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+    if (arr.length > 0 && arr[0]!.course_name) {
+      return arr[0]!.course_name as string;
+    }
+  } catch {
+    // Non-critical — fall back to default
+  }
+  return 'Course 1';
+}
+
 export async function openTab(
   ctx: RequestContext,
   input: OpenTabInput,
@@ -71,14 +90,15 @@ export async function openTab(
       })
       .returning();
 
-    // Create default course 1
+    // Create default course 1 — use location's course definition name if available
+    const course1Name = await resolveCourse1Name(tx, ctx.tenantId, ctx.locationId!);
     await tx
       .insert(fnbTabCourses)
       .values({
         tenantId: ctx.tenantId,
         tabId: created!.id,
         courseNumber: 1,
-        courseName: 'Course 1',
+        courseName: course1Name,
         courseStatus: 'unsent',
       });
 

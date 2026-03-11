@@ -2,11 +2,20 @@
 
 import { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Loader2, Save, UtensilsCrossed, Monitor } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Loader2, Save, UtensilsCrossed, Monitor, Layers } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { useTerminalSession } from '@/components/terminal-session-provider';
 import { useFnbSettings } from '@/hooks/use-fnb-settings';
+
+const CoursingRulesPanel = dynamic(() => import('@/components/settings/coursing-rules-panel').then((m) => ({ default: m.CoursingRulesPanel })), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-12">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  ),
+});
 
 const KdsSettingsPanel = dynamic(() => import('@/components/fnb/kds-settings-panel').then((m) => ({ default: m.KdsSettingsPanel })), {
   ssr: false,
@@ -187,7 +196,7 @@ function AutoFireToggle({
 
 // ── Tab type ─────────────────────────────────────────────────────
 
-type SettingsTab = 'config' | 'kds';
+type SettingsTab = 'config' | 'coursing_rules' | 'kds';
 
 // ── Main Content ─────────────────────────────────────────────────
 
@@ -229,6 +238,7 @@ export default function FnbSettingsContent() {
 
   const tabs: Array<{ key: SettingsTab; label: string; icon: typeof UtensilsCrossed }> = [
     { key: 'config', label: 'F&B Config', icon: UtensilsCrossed },
+    { key: 'coursing_rules', label: 'Coursing Rules', icon: Layers },
     { key: 'kds', label: 'KDS Settings', icon: Monitor },
   ];
 
@@ -292,6 +302,10 @@ export default function FnbSettingsContent() {
             />
           </div>
         )
+      )}
+
+      {activeTab === 'coursing_rules' && (
+        <CoursingRulesPanel />
       )}
 
       {activeTab === 'kds' && (

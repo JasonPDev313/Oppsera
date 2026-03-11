@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { Package, AlertTriangle, Pencil, Power, RotateCcw, History } from 'lucide-react';
+import { Package, AlertTriangle, Pencil, Power, RotateCcw, History, Lock } from 'lucide-react';
 import { useItemEditDrawer } from '@/components/inventory/ItemEditDrawerContext';
 import { DataTable } from '@/components/ui/data-table';
 import { SearchInput } from '@/components/ui/search-input';
@@ -12,6 +12,7 @@ import { ActionMenu } from '@/components/ui/action-menu';
 import type { ActionMenuItem } from '@/components/ui/action-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
+import { useFetch } from '@/hooks/use-fetch';
 import { useCatalogItems, useDepartments, useSubDepartments, useCategories, archiveCatalogItem, unarchiveCatalogItem } from '@/hooks/use-catalog';
 import { getItemTypeGroup, ITEM_TYPE_BADGES } from '@/types/catalog';
 import type { CatalogItemRow } from '@/types/catalog';
@@ -58,6 +59,20 @@ export default function FnbInventoryContent() {
   const { data: departments } = useDepartments();
   const { data: subDepartments } = useSubDepartments(deptId || undefined);
   const { data: categories } = useCategories(subDeptId || undefined);
+
+  // Course rules for displaying in the table
+  interface CourseRuleSummary { defaultCourseNumber: number | null; allowedCourseNumbers: number[] | null; lockCourse: boolean }
+  interface ResolvedCourseEntry { effectiveRule: CourseRuleSummary; source: string; defaultSource: string }
+  const { data: courseRulesData } = useFetch<{ data: Record<string, ResolvedCourseEntry> }>('/api/v1/fnb/course-rules/pos');
+  const courseRulesMap = courseRulesData?.data ?? {};
+  const { data: courseDefsData } = useFetch<{ data: Array<{ courseNumber: number; courseName: string; isActive: boolean }> }>('/api/v1/fnb/course-definitions');
+  const courseDefsMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const d of courseDefsData?.data ?? []) {
+      if (d.isActive) map.set(d.courseNumber, d.courseName);
+    }
+    return map;
+  }, [courseDefsData]);
 
   const { data: items, isLoading, hasMore, loadMore, mutate } = useCatalogItems({
     categoryId: catId || undefined,
@@ -196,6 +211,29 @@ export default function FnbInventoryContent() {
       render: (row: EnrichedRow) => (
         <span className="text-muted-foreground">{row.categoryName || '-'}</span>
       ),
+    },
+    {
+      key: 'course',
+      header: 'Course',
+      render: (row: EnrichedRow) => {
+        const resolved = courseRulesMap[row.id];
+        if (!resolved || resolved.source === 'none') {
+          return <span className="text-xs text-muted-foreground">—</span>;
+        }
+        const courseName = resolved.effectiveRule.defaultCourseNumber
+          ? courseDefsMap.get(resolved.effectiveRule.defaultCourseNumber) ?? `#${resolved.effectiveRule.defaultCourseNumber}`
+          : '—';
+        const sourceLabels: Record<string, string> = {
+          department: 'Dept', sub_department: 'Sub', category: 'Cat', item: 'Item',
+        };
+        return (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-foreground">{courseName}</span>
+            <span className="text-[10px] text-muted-foreground">{sourceLabels[resolved.source] ?? ''}</span>
+            {resolved.effectiveRule.lockCourse && <Lock className="h-3 w-3 text-amber-400" />}
+          </div>
+        );
+      },
     },
     {
       key: 'defaultPrice',

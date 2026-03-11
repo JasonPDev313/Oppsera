@@ -2143,6 +2143,13 @@
       "when": 1773199580838,
       "tag": "0305_kds_hold_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 306,
+      "version": "7",
+      "when": 1773200973804,
+      "tag": "0306_fnb_course_rules",
+      "breakpoints": true
     }
   ]
 }

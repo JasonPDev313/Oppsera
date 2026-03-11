@@ -96,7 +96,11 @@
       "Bash(ls -la \"c:\\\\Users\\\\Jason\\\\Dev\\\\Oppsera\\\\apps\\\\web\\\\src\\\\app\\\\\\(dashboard\\)\\\\spa\")",
       "Bash(wc -l /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/layout.tsx)",
       "Bash(ls -la /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(protected\\\\\\)/)",
-      "Bash(wc -l \"/c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\(dashboard\\)/pms/reservations/reservations-content.tsx\")"
+      "Bash(wc -l \"/c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\(dashboard\\)/pms/reservations/reservations-content.tsx\")",
+      "Bash(ls \"c:\\\\Users\\\\Jason\\\\Dev\\\\Oppsera\\\\apps\\\\web\\\\src\\\\app\\\\\\(dashboard\\)\\\\settings\")",
+      "Bash(ls \"c:\\\\Users\\\\Jason\\\\Dev\\\\Oppsera\\\\apps\\\\web\\\\src\\\\app\\\\\\(dashboard\\)\\\\settings\\\\general\")",
+      "Bash(mkdir -p \"c:/Users/Jason/Dev/Oppsera/apps/web/src/app/api/v1/locations/venues\")",
+      "Bash(mkdir -p \"c:/Users/Jason/Dev/Oppsera/apps/web/src/app/api/v1/locations/venues/[id]\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",
@@ -118,7 +122,8 @@
       "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web",
       "C:\\Users\\Jason\\Dev\\Oppsera",
       "C:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\api\\v1\\fnb\\stations\\[id]",
-      "C:\\Users\\Jason\\.claude\\projects\\c--Users-Jason-Dev-Oppsera\\b010745f-d4ed-4f77-bb08-05c5ec9dd241\\tool-results"
+      "C:\\Users\\Jason\\.claude\\projects\\c--Users-Jason-Dev-Oppsera\\b010745f-d4ed-4f77-bb08-05c5ec9dd241\\tool-results",
+      "c:\\Users\\Jason\\Dev\\Oppsera\\apps\\web\\src\\app\\api\\v1\\fnb\\course-rules"
     ]
   }
 }

@@ -106,6 +106,11 @@ export const FNB_EVENTS = {
   TABS_BULK_TRANSFERRED: 'fnb.tabs.bulk_transferred.v1',
   TABS_BULK_CLOSED: 'fnb.tabs.bulk_closed.v1',
   TABS_EMERGENCY_CLEANUP: 'fnb.tabs.emergency_cleanup.v1',
+
+  // Course Rules
+  COURSE_RULE_UPSERTED: 'fnb.course_rule.upserted.v1',
+  COURSE_RULE_DELETED: 'fnb.course_rule.deleted.v1',
+  COURSE_RULE_BULK_APPLIED: 'fnb.course_rule.bulk_applied.v1',
 } as const;
 
 // ── Session 1 Payloads ─────────────────────────────────────────
@@ -894,4 +899,28 @@ export interface TabsEmergencyCleanupPayload {
     staleTabsVoided: number;
     errors: { tabId: string; error: string }[];
   };
+}
+
+// ── Course Rule Payloads ──────────────────────────────────────────
+
+export interface CourseRuleUpsertedPayload {
+  ruleId: string;
+  scopeType: string;
+  scopeId: string;
+  locationId: string;
+}
+
+export interface CourseRuleDeletedPayload {
+  ruleId: string;
+  scopeType: string;
+  scopeId: string;
+  locationId: string;
+}
+
+export interface CourseRuleBulkAppliedPayload {
+  ruleId: string;
+  scopeType: string;
+  scopeId: string;
+  locationId: string;
+  itemOverridesCleared: number;
 }

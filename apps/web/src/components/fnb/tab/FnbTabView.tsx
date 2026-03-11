@@ -96,6 +96,7 @@ import { useAuthContext } from '@/components/auth-provider';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useStations } from '@/hooks/use-fnb-kitchen';
 import { KdsNotConfiguredDialog } from '@/components/pos/shared/KdsNotConfiguredDialog';
+import { resolveKdsLocationId, resolveKdsLocationName } from '@/lib/kds-location';
 import { ManageTabsButton } from '../manage-tabs/ManageTabsButton';
 
 interface FnbTabViewProps {
@@ -228,9 +229,13 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { locations } = useAuthContext();
   const { can } = usePermissions();
-  const locationId = locations?.[0]?.id;
-  const locationName = locations?.[0]?.name;
-  const { stations } = useStations({ locationId });
+  const currentLocation = locations?.[0];
+  const locationId = currentLocation?.id;
+  const locationName = currentLocation?.name;
+  // KDS stations are configured at the site level — venues inherit from parent
+  const kdsLocationId = resolveKdsLocationId(currentLocation);
+  const kdsLocationName = resolveKdsLocationName(currentLocation, locations);
+  const { stations } = useStations({ locationId: kdsLocationId });
   const hasKdsStations = stations.length > 0;
   const [showKdsNotConfigured, setShowKdsNotConfigured] = useState(false);
   const store = useFnbPosStore();
@@ -508,7 +513,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       seatNumber: activeSeat || 1,
       modifiers: [] as Array<{ modifierId: string; name: string; priceAdjustment: number }>,
       specialInstructions: null,
-      courseNumber: activeCourse,
+      courseNumber: store.getEffectiveCourseForItem(itemId),
       addedAt: Date.now(),
     });
   }, [tabId, store, activeSeat, activeCourse, menu]);
@@ -536,7 +541,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
         instruction: m.instruction ?? null,
       })),
       specialInstructions: notes || null,
-      courseNumber: activeCourse,
+      courseNumber: store.getEffectiveCourseForItem(modifierDrawerItem.id),
       addedAt: Date.now(),
     });
     setModifierDrawerItem(null);
@@ -1008,8 +1013,8 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       <KdsNotConfiguredDialog
         open={showKdsNotConfigured}
         onClose={() => setShowKdsNotConfigured(false)}
-        locationId={locationId}
-        locationName={locationName}
+        locationId={kdsLocationId}
+        locationName={kdsLocationName}
         canSetup={can('fnb.manage')}
       />
     </div>

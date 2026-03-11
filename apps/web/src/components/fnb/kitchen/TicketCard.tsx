@@ -149,6 +149,7 @@ export function TicketCard({
           ticketNumber={ticket.ticketNumber}
           tableNumber={ticket.tableNumber}
           courseNumber={ticket.courseNumber}
+          courseName={ticket.courseName}
           elapsedSeconds={ticket.elapsedSeconds}
           warningThresholdSeconds={warningThresholdSeconds}
           criticalThresholdSeconds={criticalThresholdSeconds}

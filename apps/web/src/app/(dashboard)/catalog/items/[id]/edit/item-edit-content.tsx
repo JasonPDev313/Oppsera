@@ -14,6 +14,9 @@ import { useCatalogItem, useDepartments, useSubDepartments, useCategories, useMo
 import { apiFetch } from '@/lib/api-client';
 import { getItemTypeGroup, ITEM_TYPE_BADGES } from '@/types/catalog';
 import type { FnbMetadata, RetailMetadata, ServiceMetadata } from '@/types/catalog';
+import { CoursingSection } from '@/components/catalog/coursing-section';
+import type { CoursingState } from '@/components/catalog/coursing-section';
+import { useFetch } from '@/hooks/use-fetch';
 
 interface OptionSet {
   name: string;
@@ -45,6 +48,12 @@ export default function EditItemPage() {
   const [allowedFractions, setAllowedFractions] = useState<number[]>([1.0, 0.5, 0.25]);
   const [defaultModifierGroupIds, setDefaultModifierGroupIds] = useState<string[]>([]);
   const [optionalModifierGroupIds, setOptionalModifierGroupIds] = useState<string[]>([]);
+  const [coursingState, setCoursingState] = useState<CoursingState>({
+    mode: 'inherit',
+    defaultCourseNumber: null,
+    allowedCourseNumbers: null,
+    lockCourse: false,
+  });
 
   // Retail
   const [isTrackable, setIsTrackable] = useState(false);
@@ -88,12 +97,52 @@ export default function EditItemPage() {
     }
   }, [item]);
 
-  // Resolve hierarchy from categoryId
+  // Hydrate department + sub-department from the category's ancestry
+  const { data: ancestryData } = useFetch<{
+    data: {
+      id: string;
+      name: string;
+      parentId: string | null;
+      ancestry: {
+        departmentId: string | null;
+        departmentName: string | null;
+        subDepartmentId: string | null;
+        subDepartmentName: string | null;
+      };
+    };
+  }>(item?.categoryId ? `/api/v1/catalog/categories/${item.categoryId}` : null);
+
   useEffect(() => {
-    if (!item?.categoryId || departments.length === 0) return;
-    // TODO: Resolve full hierarchy path from flat category list
-    // For now, set categoryId directly
-  }, [item, departments]);
+    if (!ancestryData?.data?.ancestry) return;
+    const { departmentId, subDepartmentId } = ancestryData.data.ancestry;
+    if (departmentId && !deptId) setDeptId(departmentId);
+    if (subDepartmentId && !subDeptId) setSubDeptId(subDepartmentId);
+  }, [ancestryData, deptId, subDeptId]);
+
+  // Load existing course rule to determine inherit/override state
+  const { data: resolvedRuleData } = useFetch<{
+    data: { effectiveRule: { defaultCourseNumber: number | null; allowedCourseNumbers: number[] | null; lockCourse: boolean }; source: string };
+  }>(itemId ? `/api/v1/fnb/course-rules/resolve?itemId=${itemId}` : null);
+
+  useEffect(() => {
+    if (!resolvedRuleData?.data) return;
+    const { source, effectiveRule } = resolvedRuleData.data;
+    if (source === 'item') {
+      setCoursingState({
+        mode: 'override',
+        defaultCourseNumber: effectiveRule.defaultCourseNumber,
+        allowedCourseNumbers: effectiveRule.allowedCourseNumbers,
+        lockCourse: effectiveRule.lockCourse,
+      });
+    } else {
+      setCoursingState({
+        mode: 'inherit',
+        defaultCourseNumber: null,
+        allowedCourseNumbers: null,
+        lockCourse: false,
+      });
+    }
+  }, [resolvedRuleData]);
 
   const typeGroup = item ? getItemTypeGroup(item.itemType, item.metadata as Record<string, unknown>) : null;
   const typeBadge = typeGroup ? ITEM_TYPE_BADGES[typeGroup] : null;
@@ -148,6 +197,35 @@ export default function EditItemPage() {
         method: 'PATCH',
         body: JSON.stringify(body),
       });
+
+      // Save or delete course rule for F&B items
+      if (typeGroup === 'fnb') {
+        if (coursingState.mode === 'override') {
+          await apiFetch('/api/v1/fnb/course-rules', {
+            method: 'POST',
+            body: JSON.stringify({
+              scopeType: 'item',
+              scopeId: itemId,
+              defaultCourseNumber: coursingState.defaultCourseNumber,
+              allowedCourseNumbers: coursingState.allowedCourseNumbers,
+              lockCourse: coursingState.lockCourse,
+            }),
+          });
+        } else if (resolvedRuleData?.data?.source === 'item') {
+          // Was previously overridden, now switching back to inherit — find and delete the item rule
+          const rulesResp = await apiFetch<{ data: Array<{ id: string; scopeType: string; scopeId: string }> }>(
+            `/api/v1/fnb/course-rules?scopeType=item`,
+          );
+          const itemRule = rulesResp?.data?.find((r) => r.scopeId === itemId);
+          if (itemRule) {
+            await apiFetch(`/api/v1/fnb/course-rules/${itemRule.id}`, {
+              method: 'DELETE',
+              body: JSON.stringify({}),
+            });
+          }
+        }
+      }
+
       toast.success('Item updated');
       router.push(`/catalog/items/${itemId}`);
     } catch (err) {
@@ -155,7 +233,7 @@ export default function EditItemPage() {
     } finally {
       setSaving(false);
     }
-  }, [item, name, sku, description, deptId, subDeptId, categoryId, defaultPrice, cost, isTrackable, typeGroup, allowSpecialInstructions, allowedFractions, defaultModifierGroupIds, optionalModifierGroupIds, optionSets, durationMinutes, requiresBooking, itemId, router, toast]);
+  }, [item, name, sku, description, deptId, subDeptId, categoryId, defaultPrice, cost, isTrackable, typeGroup, allowSpecialInstructions, allowedFractions, defaultModifierGroupIds, optionalModifierGroupIds, optionSets, durationMinutes, requiresBooking, coursingState, resolvedRuleData, itemId, router, toast]);
 
   if (itemLoading) {
     return (
@@ -269,62 +347,70 @@ export default function EditItemPage() {
 
       {/* Type-specific fields */}
       {typeGroup === 'fnb' && (
-        <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-semibold text-foreground">F&B Options</h3>
-          <div className="space-y-3">
-            <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={allowSpecialInstructions}
-                  onChange={(e) => setAllowSpecialInstructions(e.target.checked)}
-                  className="rounded border-border text-indigo-600 focus:ring-indigo-500"
-                />
-                Allow Special Instructions
-              </label>
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <span className="mr-1 font-medium">Portions:</span>
-                {[1.0, 0.5, 0.25].map((f) => (
-                  <label key={f} className="flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={allowedFractions.includes(f)}
-                      onChange={(e) => {
-                        setAllowedFractions(
-                          e.target.checked
-                            ? [...allowedFractions, f]
-                            : allowedFractions.filter((v) => v !== f),
-                        );
-                      }}
-                      className="rounded border-border text-indigo-600 focus:ring-indigo-500"
-                    />
-                    {f}
-                  </label>
-                ))}
+        <>
+          <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-foreground">F&B Options</h3>
+            <div className="space-y-3">
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={allowSpecialInstructions}
+                    onChange={(e) => setAllowSpecialInstructions(e.target.checked)}
+                    className="rounded border-border text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Allow Special Instructions
+                </label>
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <span className="mr-1 font-medium">Portions:</span>
+                  {[1.0, 0.5, 0.25].map((f) => (
+                    <label key={f} className="flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={allowedFractions.includes(f)}
+                        onChange={(e) => {
+                          setAllowedFractions(
+                            e.target.checked
+                              ? [...allowedFractions, f]
+                              : allowedFractions.filter((v) => v !== f),
+                          );
+                        }}
+                        className="rounded border-border text-indigo-600 focus:ring-indigo-500"
+                      />
+                      {f}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Default Modifier Groups" helpText="Pre-selected when added to order">
+                  <Select
+                    options={modGroupOptions}
+                    value={defaultModifierGroupIds}
+                    onChange={(v) => setDefaultModifierGroupIds(v as string[])}
+                    multiple
+                    placeholder="Select modifier groups..."
+                  />
+                </FormField>
+                <FormField label="Optional Modifier Groups" helpText="Customer can choose to add">
+                  <Select
+                    options={modGroupOptions}
+                    value={optionalModifierGroupIds}
+                    onChange={(v) => setOptionalModifierGroupIds(v as string[])}
+                    multiple
+                    placeholder="Select modifier groups..."
+                  />
+                </FormField>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Default Modifier Groups" helpText="Pre-selected when added to order">
-                <Select
-                  options={modGroupOptions}
-                  value={defaultModifierGroupIds}
-                  onChange={(v) => setDefaultModifierGroupIds(v as string[])}
-                  multiple
-                  placeholder="Select modifier groups..."
-                />
-              </FormField>
-              <FormField label="Optional Modifier Groups" helpText="Customer can choose to add">
-                <Select
-                  options={modGroupOptions}
-                  value={optionalModifierGroupIds}
-                  onChange={(v) => setOptionalModifierGroupIds(v as string[])}
-                  multiple
-                  placeholder="Select modifier groups..."
-                />
-              </FormField>
-            </div>
           </div>
-        </div>
+          <CoursingSection
+            itemId={itemId}
+            categoryId={categoryId || null}
+            state={coursingState}
+            onChange={setCoursingState}
+          />
+        </>
       )}
 
       {typeGroup === 'retail' && (

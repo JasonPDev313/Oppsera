@@ -59,6 +59,8 @@ export const FNB_PERMISSIONS: FnbPermission[] = [
   { key: 'pos_fnb.kds.view', description: 'View KDS station and ticket queue', category: 'kds' },
   { key: 'pos_fnb.kds.bump', description: 'Bump tickets on KDS stations', category: 'kds' },
   { key: 'pos_fnb.kds.hold', description: 'Hold and unhold kitchen tickets', category: 'kds' },
+  { key: 'pos_fnb.kds.fire_course', description: 'Fire courses from KDS station', category: 'kds' },
+  { key: 'pos_fnb.kds.recall', description: 'Recall items back to cooking on KDS', category: 'kds' },
   { key: 'pos_fnb.kds.manage', description: 'Manage KDS station settings and routing', category: 'kds' },
 
   // GL Posting
@@ -85,6 +87,7 @@ export const FNB_ROLE_DEFAULTS: Record<SystemRole, string[]> = {
     'pos_fnb.settings.manage',
     'pos_fnb.gl.post', 'pos_fnb.gl.reverse', 'pos_fnb.gl.mappings',
     'pos_fnb.tabs.manage', 'pos_fnb.tabs.manage_bulk_all_servers',
+    'pos_fnb.kds.view', 'pos_fnb.kds.bump', 'pos_fnb.kds.hold', 'pos_fnb.kds.fire_course', 'pos_fnb.kds.recall', 'pos_fnb.kds.manage',
   ],
 
   supervisor: [
@@ -96,6 +99,7 @@ export const FNB_ROLE_DEFAULTS: Record<SystemRole, string[]> = {
     'pos_fnb.menu.manage', 'pos_fnb.menu.comp', 'pos_fnb.menu.discount',
     'pos_fnb.close_batch.cash_count',
     'pos_fnb.reports.view',
+    'pos_fnb.kds.view', 'pos_fnb.kds.bump', 'pos_fnb.kds.hold', 'pos_fnb.kds.fire_course', 'pos_fnb.kds.recall',
   ],
 
   cashier: [
@@ -103,6 +107,7 @@ export const FNB_ROLE_DEFAULTS: Record<SystemRole, string[]> = {
     'pos_fnb.tabs.view', 'pos_fnb.tabs.create',
     'pos_fnb.payments.create', 'pos_fnb.payments.split',
     'pos_fnb.menu.discount',
+    'pos_fnb.kds.view', 'pos_fnb.kds.bump',
   ],
 
   server: [
@@ -110,6 +115,7 @@ export const FNB_ROLE_DEFAULTS: Record<SystemRole, string[]> = {
     'pos_fnb.tabs.view', 'pos_fnb.tabs.create',
     'pos_fnb.payments.create', 'pos_fnb.payments.split',
     'pos_fnb.tips.adjust',
+    'pos_fnb.kds.view', 'pos_fnb.kds.bump',
   ],
 
   staff: [

@@ -7,28 +7,30 @@ import { KdsSettingsPanel } from '@/components/fnb/kds-settings-panel';
 import { useStations } from '@/hooks/use-fnb-kitchen';
 import Link from 'next/link';
 import { Wand2, MapPin, Info } from 'lucide-react';
+import { getSiteLocations, resolveInitialKdsLocationId } from '@/lib/kds-location';
 
 export default function KdsSettingsContent() {
   const searchParams = useSearchParams();
   const { locations } = useAuthContext();
+  const siteLocations = getSiteLocations(locations);
   const [locationId, setLocationId] = useState(() => {
     const fromUrl = searchParams.get('locationId');
-    if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
-    return locations?.[0]?.id;
+    if (fromUrl && siteLocations.some((l) => l.id === fromUrl)) return fromUrl;
+    const candidate = locations?.[0]?.id;
+    return candidate ? resolveInitialKdsLocationId(candidate, locations) : undefined;
   });
 
   // Sync locationId when locations load after initial render (race condition guard)
   useEffect(() => {
-    const firstId = locations?.[0]?.id;
-    if (!locationId && firstId) {
+    if (!locationId && siteLocations.length > 0) {
       const fromUrl = searchParams.get('locationId');
-      const match = fromUrl && locations?.some((l) => l.id === fromUrl) ? fromUrl : firstId;
+      const match = fromUrl && siteLocations.some((l) => l.id === fromUrl) ? fromUrl : siteLocations[0]?.id;
       setLocationId(match);
     }
-  }, [locationId, locations, searchParams]);
+  }, [locationId, siteLocations, searchParams]);
 
-  const hasMultipleLocations = (locations?.length ?? 0) > 1;
-  const locationName = locations?.find((l) => l.id === locationId)?.name ?? '';
+  const hasMultipleLocations = siteLocations.length > 1;
+  const locationName = siteLocations.find((l) => l.id === locationId)?.name ?? '';
   const { stations, isLoading: stationsLoading } = useStations({ locationId });
   const hasStations = stations.length > 0;
 
@@ -54,14 +56,14 @@ export default function KdsSettingsContent() {
                 onChange={(e) => setLocationId(e.target.value)}
                 className="rounded-lg border border-input bg-surface px-3 py-1.5 text-sm font-semibold text-foreground focus:border-indigo-500 focus:outline-none"
               >
-                {locations?.map((loc) => (
+                {siteLocations.map((loc) => (
                   <option key={loc.id} value={loc.id}>{loc.name}</option>
                 ))}
               </select>
             </label>
           ) : (
             <span className="text-sm font-semibold text-foreground">
-              {locations?.find((l) => l.id === locationId)?.name ?? 'No location'}
+              {locationName || 'No location'}
             </span>
           )}
         </div>

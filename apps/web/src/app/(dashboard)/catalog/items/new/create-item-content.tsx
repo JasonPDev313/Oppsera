@@ -39,6 +39,8 @@ import type {
   PackageMetadata,
 } from '@/types/catalog';
 import { ITEM_TYPE_BADGES, getItemTypeGroup } from '@/types/catalog';
+import { CoursingSection } from '@/components/catalog/coursing-section';
+import type { CoursingState } from '@/components/catalog/coursing-section';
 
 // ── Type selection cards config ─────────────────────────────────
 
@@ -192,6 +194,12 @@ export default function CreateItemContent() {
   const [allowedFractions, setAllowedFractions] = useState<number[]>([1.0, 0.5, 0.25]);
   const [defaultModifierGroupIds, setDefaultModifierGroupIds] = useState<string[]>([]);
   const [optionalModifierGroupIds, setOptionalModifierGroupIds] = useState<string[]>([]);
+  const [coursingState, setCoursingState] = useState<CoursingState>({
+    mode: 'inherit',
+    defaultCourseNumber: null,
+    allowedCourseNumbers: null,
+    lockCourse: false,
+  });
 
   // Retail fields
   const [trackInventory, setTrackInventory] = useState(true);
@@ -534,6 +542,24 @@ export default function CreateItemContent() {
 
     const result = await createItem(payload);
     if (result) {
+      // Save course rule if F&B item with override
+      if (selectedType === 'fnb' && coursingState.mode === 'override' && result.data?.id) {
+        try {
+          await apiFetch('/api/v1/fnb/course-rules', {
+            method: 'POST',
+            body: JSON.stringify({
+              scopeType: 'item',
+              scopeId: result.data.id,
+              defaultCourseNumber: coursingState.defaultCourseNumber,
+              allowedCourseNumbers: coursingState.allowedCourseNumbers,
+              lockCourse: coursingState.lockCourse,
+            }),
+          });
+        } catch {
+          // Non-blocking — item was created, course rule save is best-effort
+          toast.error('Item created but course rule could not be saved');
+        }
+      }
       toast.success('Item created successfully');
       router.push('/catalog');
     }
@@ -728,20 +754,28 @@ export default function CreateItemContent() {
               {/* ── Type-specific sections ────────────────────── */}
 
               {selectedType === 'fnb' && (
-                <FnbFields
-                  subType={fnbSubType}
-                  onSubTypeChange={setFnbSubType}
-                  allowSpecialInstructions={allowSpecialInstructions}
-                  onAllowSpecialInstructionsChange={setAllowSpecialInstructions}
-                  allowedFractions={allowedFractions}
-                  onToggleFraction={toggleFraction}
-                  defaultModifierGroupIds={defaultModifierGroupIds}
-                  onDefaultModifierGroupIdsChange={(v) => setDefaultModifierGroupIds(v as string[])}
-                  optionalModifierGroupIds={optionalModifierGroupIds}
-                  onOptionalModifierGroupIdsChange={(v) => setOptionalModifierGroupIds(v as string[])}
-                  modifierGroupOptions={modifierGroupOptions}
-                  errors={errors}
-                />
+                <>
+                  <FnbFields
+                    subType={fnbSubType}
+                    onSubTypeChange={setFnbSubType}
+                    allowSpecialInstructions={allowSpecialInstructions}
+                    onAllowSpecialInstructionsChange={setAllowSpecialInstructions}
+                    allowedFractions={allowedFractions}
+                    onToggleFraction={toggleFraction}
+                    defaultModifierGroupIds={defaultModifierGroupIds}
+                    onDefaultModifierGroupIdsChange={(v) => setDefaultModifierGroupIds(v as string[])}
+                    optionalModifierGroupIds={optionalModifierGroupIds}
+                    onOptionalModifierGroupIdsChange={(v) => setOptionalModifierGroupIds(v as string[])}
+                    modifierGroupOptions={modifierGroupOptions}
+                    errors={errors}
+                  />
+                  <CoursingSection
+                    itemId={null}
+                    categoryId={categoryId || null}
+                    state={coursingState}
+                    onChange={setCoursingState}
+                  />
+                </>
               )}
 
               {selectedType === 'retail' && (

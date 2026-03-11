@@ -573,3 +573,35 @@ export class PrintJobAlreadyCompletedError extends AppError {
     super('PRINT_JOB_ALREADY_COMPLETED', `Print job ${jobId} is already completed`, 409);
   }
 }
+
+// ── Course Rule Errors ─────────────────────────────────────────────
+
+export class CourseLockedError extends AppError {
+  constructor(itemId: string, lockedCourse: number) {
+    super(
+      'COURSE_LOCKED',
+      `Item ${itemId} is locked to course ${lockedCourse} and cannot be changed`,
+      409,
+    );
+  }
+}
+
+export class CourseNotAllowedError extends AppError {
+  constructor(itemId: string, requestedCourse: number, allowedCourses: number[]) {
+    super(
+      'COURSE_NOT_ALLOWED',
+      `Course ${requestedCourse} is not allowed for item ${itemId}. Allowed: ${allowedCourses.join(', ')}`,
+      400,
+    );
+  }
+}
+
+export class CourseRuleViolationError extends AppError {
+  constructor(itemId: string, reason: string) {
+    super(
+      'COURSE_RULE_VIOLATION',
+      `Course rule violation for item ${itemId}: ${reason}`,
+      400,
+    );
+  }
+}

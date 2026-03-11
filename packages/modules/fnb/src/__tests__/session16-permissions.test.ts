@@ -142,7 +142,9 @@ describe('getPermissionsByCategory', () => {
 
   it('returns kds permissions', () => {
     const perms = getPermissionsByCategory('kds');
-    expect(perms).toHaveLength(3);
+    expect(perms).toHaveLength(6);
+    expect(perms.map((p) => p.key)).toContain('pos_fnb.kds.fire_course');
+    expect(perms.map((p) => p.key)).toContain('pos_fnb.kds.recall');
   });
 
   it('returns gl permissions', () => {

@@ -65,6 +65,8 @@ export interface KdsTicketCard {
   ticketNumber: number;
   tabId: string;
   courseNumber: number | null;
+  /** Course name from tab courses or course definitions */
+  courseName: string | null;
   status: string;
   priorityLevel: number;
   isHeld: boolean;
@@ -150,12 +152,18 @@ export async function getKdsView(
                  kt.channel, kt.table_number, kt.server_name, kt.customer_name,
                  kt.sent_at, kt.estimated_pickup_at, kt.business_date,
                  EXTRACT(EPOCH FROM (NOW() - kt.sent_at))::integer AS elapsed_seconds,
-                 o.source AS order_source, o.terminal_id, o.created_at AS order_timestamp
+                 o.source AS order_source, o.terminal_id, o.created_at AS order_timestamp,
+                 COALESCE(tc.course_name, cd.course_name) AS course_name
           FROM fnb_kitchen_tickets kt
           INNER JOIN fnb_kitchen_ticket_items kti
             ON kti.ticket_id = kt.id AND kti.station_id = ${input.stationId}
           LEFT JOIN orders o
             ON o.id = kt.order_id AND o.tenant_id = kt.tenant_id
+          LEFT JOIN fnb_tab_courses tc
+            ON tc.tab_id = kt.tab_id AND tc.course_number = kt.course_number AND tc.tenant_id = kt.tenant_id
+          LEFT JOIN fnb_course_definitions cd
+            ON cd.tenant_id = kt.tenant_id AND cd.location_id = kt.location_id
+            AND cd.course_number = kt.course_number AND cd.is_active = true
           WHERE kt.tenant_id = ${input.tenantId}
             AND kt.location_id = ${resolvedLocationId}
             AND kt.status IN ('pending', 'in_progress')
@@ -255,6 +263,7 @@ export async function getKdsView(
         ticketNumber: Number(t.ticket_number),
         tabId: t.tab_id as string,
         courseNumber: t.course_number != null ? Number(t.course_number) : null,
+        courseName: (t.course_name as string) ?? null,
         status: t.status as string,
         priorityLevel: Number(t.priority_level ?? 0),
         isHeld: (t.is_held as boolean) ?? false,

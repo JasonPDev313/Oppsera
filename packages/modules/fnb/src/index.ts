@@ -73,6 +73,8 @@ export const MODULE_TABLES = [
   'fnb_kds_terminal_heartbeats',
   'fnb_kds_send_tracking',
   'fnb_kds_send_events',
+  'fnb_course_definitions',
+  'fnb_course_rules',
 ] as const;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -233,6 +235,17 @@ export { listKdsSends } from './queries/list-kds-sends';
 export type { KdsSendListItem, KdsSendListResult, KdsSendStatus, KdsSendType } from './queries/list-kds-sends';
 export { getKdsSendDetail } from './queries/get-kds-send-detail';
 export type { KdsSendDetail, KdsSendEvent, KdsSendTicketItem } from './queries/get-kds-send-detail';
+
+// Course Definitions & Course Rules
+export { upsertCourseRule } from './commands/upsert-course-rule';
+export { deleteCourseRule } from './commands/delete-course-rule';
+export { bulkApplyCourseRule } from './commands/bulk-apply-course-rule';
+export type { BulkApplyCourseRuleResult } from './commands/bulk-apply-course-rule';
+export { listCourseRules } from './queries/list-course-rules';
+export type { CourseRuleListItem } from './queries/list-course-rules';
+export { listCourseDefinitions } from './queries/list-course-definitions';
+export type { CourseDefinitionItem } from './queries/list-course-definitions';
+export { getCourseRulesForPos } from './queries/get-course-rules-for-pos';
 
 // ═══════════════════════════════════════════════════════════════════
 // Session 6: Modifiers, 86 Board & Menu Availability
@@ -560,6 +573,7 @@ export { sendOrderLinesToKds } from './commands/send-order-lines-to-kds';
 
 // Helpers — Station Routing
 export { resolveStation } from './helpers/resolve-station';
+export { resolveKdsSiteId } from './helpers/resolve-kds-site-id';
 
 // Queries
 export { getServerPerformance } from './queries/get-server-performance';
@@ -614,6 +628,12 @@ export {
 } from './helpers/fnb-permissions';
 export type { FnbPermission, SystemRole } from './helpers/fnb-permissions';
 
+// Course Rule Resolver
+export { resolveCourseRule, resolveCourseRuleFromHierarchy, resolveCategoryHierarchy, resolveItemHierarchy, batchResolveCourseRules } from './helpers/resolve-course-rule';
+export type { EffectiveCourseRule, ResolvedCourseRule, BatchCourseRuleResult } from './helpers/resolve-course-rule';
+export { suggestCourseRules } from './helpers/course-rule-suggestions';
+export type { CourseSuggestion, SuggestCourseRulesInput } from './helpers/course-rule-suggestions';
+
 // ═══════════════════════════════════════════════════════════════════
 // Validation Schemas & Types
 // ═══════════════════════════════════════════════════════════════════
@@ -660,6 +680,10 @@ export {
   bumpItemSchema, recallItemSchema, bumpTicketSchema, callBackToStationSchema, refireItemSchema, holdTicketSchema,
   reprioritizeTicketSchema, bulkHoldTicketsSchema, fireCourseFromKdsSchema, getKdsLocationMetricsSchema,
   heartbeatKdsTerminalSchema,
+  // Course Rules
+  COURSE_RULE_SCOPE_TYPES,
+  upsertCourseDefinitionSchema, upsertCourseRuleSchema, deleteCourseRuleSchema,
+  bulkApplyCourseRuleSchema, resolveCourseRuleQuerySchema,
   listStationsFilterSchema, getStationDetailSchema,
   getKdsViewSchema, getExpoViewSchema, getStationMetricsSchema,
   listKdsSendsSchema, ackKdsSendSchema, retryKdsSendSchema, resolveKdsSendSchema, softDeleteKdsSendSchema, bulkSoftDeleteKdsSendsSchema, bulkResolveKdsSendsSchema,
@@ -859,6 +883,10 @@ export type {
   UpsertItemPrepTimeInput, BulkUpsertItemPrepTimesInput,
   CreateKdsRoutingRuleInput, UpdateKdsRoutingRuleInput,
   GetKdsViewEnhancedInput,
+  // Course Rules
+  CourseRuleScopeType,
+  UpsertCourseDefinitionInput, UpsertCourseRuleInput, DeleteCourseRuleInput,
+  BulkApplyCourseRuleInput, ResolveCourseRuleQueryInput,
 } from './validation';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1007,6 +1035,10 @@ export {
   PrintRoutingRuleNotFoundError,
   NoPrinterRoutedError,
   PrintJobAlreadyCompletedError,
+  // Course Rules
+  CourseLockedError,
+  CourseNotAllowedError,
+  CourseRuleViolationError,
 } from './errors';
 
 // ═══════════════════════════════════════════════════════════════════

@@ -6,6 +6,7 @@ import { useAuthContext } from '@/components/auth-provider';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbSettings } from '@/hooks/use-fnb-settings';
+import { useFetch } from '@/hooks/use-fetch';
 import { FnbFloorView } from '@/components/fnb/floor/FnbFloorView';
 import { FnbTabView } from '@/components/fnb/tab/FnbTabView';
 import { FnbSplitView } from '@/components/fnb/FnbSplitView';
@@ -49,6 +50,7 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
   const isOnline = useFnbPosStore((s) => s.isOnline);
   const setOnline = useFnbPosStore((s) => s.setOnline);
   const setCourseNames = useFnbPosStore((s) => s.setCourseNames);
+  const setCourseRulesMap = useFnbPosStore((s) => s.setCourseRulesMap);
 
   // Fetch fnb_ordering settings (course names, etc.) and push into store
   const locationId = locations[0]?.id;
@@ -74,6 +76,17 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
       setCourseNames(courses as string[]);
     }
   }, [orderingSettings, setCourseNames]);
+
+  // Fetch course rules for POS auto-select
+  const { data: courseRulesData } = useFetch<{ data: Record<string, unknown> }>(
+    locationId ? '/api/v1/fnb/course-rules/pos' : null,
+  );
+
+  useEffect(() => {
+    if (courseRulesData?.data) {
+      setCourseRulesMap(courseRulesData.data as Record<string, { effectiveRule: { defaultCourseNumber: number | null; allowedCourseNumbers: number[] | null; lockCourse: boolean }; source: string; defaultSource: string }>);
+    }
+  }, [courseRulesData, setCourseRulesMap]);
 
   // Track online/offline status
   useEffect(() => {

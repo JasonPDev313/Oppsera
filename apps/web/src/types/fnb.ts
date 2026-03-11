@@ -340,6 +340,8 @@ export interface KdsTicketCard {
   ticketNumber: number;
   tabId: string;
   courseNumber: number | null;
+  /** Course name from tab courses or course definitions */
+  courseName?: string | null;
   status: FnbTicketStatus;
   priorityLevel: number;
   isHeld: boolean;

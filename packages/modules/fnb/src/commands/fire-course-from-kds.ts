@@ -8,7 +8,8 @@ import { fnbTabCourses, fnbTabs } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { FireCourseFromKdsInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
-import { TabNotFoundError, CourseNotFoundError, CourseStatusConflictError } from '../errors';
+import { TabNotFoundError, CourseNotFoundError, CourseStatusConflictError, CourseLockedError } from '../errors';
+import { resolveCourseRule } from '../helpers/resolve-course-rule';
 
 const FIREABLE_STATUSES = ['unsent', 'sent'] as const;
 
@@ -72,6 +73,42 @@ export async function fireCourseFromKds(
 
     if (!FIREABLE_STATUSES.includes(course.courseStatus as typeof FIREABLE_STATUSES[number])) {
       throw new CourseStatusConflictError(courseNumber, course.courseStatus, 'fire from KDS');
+    }
+
+    // Check if any items in this course are locked — warn but allow fire
+    // (lockCourse prevents course assignment changes, not firing)
+    try {
+      const ticketItemRows = await tx.execute(
+        sql`SELECT DISTINCT kti.catalog_item_id
+            FROM fnb_kitchen_ticket_items kti
+            INNER JOIN fnb_kitchen_tickets kt ON kt.id = kti.ticket_id AND kt.tenant_id = kti.tenant_id
+            WHERE kt.tab_id = ${tabId} AND kt.course_number = ${courseNumber}
+              AND kti.tenant_id = ${ctx.tenantId}
+              AND kti.item_status NOT IN ('voided')
+            LIMIT 50`,
+      );
+      const itemIds = Array.from(ticketItemRows as Iterable<Record<string, unknown>>)
+        .map((r) => r.catalog_item_id as string)
+        .filter(Boolean);
+
+      if (itemIds.length > 0 && tab.locationId) {
+        for (const catalogItemId of itemIds) {
+          const resolved = await resolveCourseRule(ctx.tenantId, tab.locationId, catalogItemId);
+          if (resolved.effectiveRule.lockCourse && resolved.effectiveRule.defaultCourseNumber != null
+              && resolved.effectiveRule.defaultCourseNumber !== courseNumber) {
+            logger.warn('[kds] fire-course: item locked to different course', {
+              domain: 'kds', tenantId: ctx.tenantId, tabId, courseNumber,
+              catalogItemId, lockedCourse: resolved.effectiveRule.defaultCourseNumber,
+            });
+          }
+        }
+      }
+    } catch (err) {
+      // Non-critical — lock check is informational
+      logger.warn('[kds] fire-course: lock check failed', {
+        domain: 'kds', tenantId: ctx.tenantId, tabId, courseNumber,
+        error: { message: err instanceof Error ? err.message : String(err) },
+      });
     }
 
     const now = new Date();

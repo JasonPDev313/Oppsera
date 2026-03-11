@@ -2,16 +2,16 @@
 
 > This file is extracted from CLAUDE.md. It documents everything built in the codebase.
 > Referenced by the slim CLAUDE.md for agents needing full build history.
-> **1,597 lines** — use the section index below to navigate by line range.
+> **1,692 lines** — use the section index below to navigate by line range.
 
 ## Section Index
 
 | Section | Lines | Contents |
 |---------|-------|----------|
-| What's Built | 10–1109 | All modules: Platform Core, Catalog, Orders, Payments, POS, Inventory, Customers, Reporting, Receiving, Vendors, Semantic/AI, Admin, Room Layouts, Accounting/GL/AP/AR, F&B, PMS, Spa, Operations, Settings, Tags, Import, Guest Pay, Member Portal |
-| Test Coverage | 1110–1181 | Test suites per module, coverage notes |
-| What's Built (Infrastructure) | 1182–1368 | DB, auth, deployment, caching, observability, CI/CD, background jobs, security |
-| What's Next | 1369–1597 | Roadmap items, planned features |
+| What's Built | 18–1142 | All modules: Platform Core, Catalog, Orders, Payments, POS, Inventory, Customers, Reporting, Receiving, Vendors, Semantic/AI, Admin, Room Layouts, Accounting/GL/AP/AR, F&B, KDS, PMS, Spa, Business Types, Membership, Golf Ops, Marketing, Operations, Settings, Tags, Import, Guest Pay, Member Portal, Expenses, Project Costing |
+| Test Coverage | 1143–1276 | Test suites per module, coverage notes |
+| What's Built (Infrastructure) | 1277–1463 | DB, auth, deployment, caching, observability, CI/CD, background jobs, security |
+| What's Next | 1464–1692 | Roadmap items, planned features |
 
 ---
 
@@ -1118,6 +1118,27 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - **Commission system**: 6-level priority resolution (provider+service → provider+category → provider+all → tenant+service → tenant+category → tenant+all). 4 commission types with tier support. Per-appointment calculation with service/addon/tip breakdowns.
   - **Operations workflows**: room turnover task management (auto-create from completed appointments), daily operations checklists (opening/closing), incident reporting
   - **CQRS read models**: 4 `rm_spa_*` tables updated by event consumers for reporting dashboard, provider performance, service analytics, and client insights
+- **Business Types Module** (`packages/modules/business-types/`):
+  - Full module (v1.0.0): 8 queries, 7+ commands, 9 DB tables, 4 test files
+  - Manages business type blueprints (restaurant, retail, golf, hybrid, etc.) with versioned configurations
+  - Provisioning system: `runProvisioningForTenant` bootstraps new tenants from published blueprints (accounting templates, role permissions, module defaults)
+  - Registries: `MODULE_ENTRIES` (all valid module keys), `VALID_PERMISSION_KEYS` — platform-level source of truth
+  - Publish-gate validator ensures blueprint completeness before activation
+- **Membership Module** (`packages/modules/membership/`):
+  - Full module: 37 commands, 25 queries, 4 helpers, 8 autopay notification builders, 12 test session files
+  - Account lifecycle: create, freeze, hold, lift-hold. Plan management: assign, change, create plans
+  - Billing cycle: close, execute step, review/close, preview. Minimum-spend tracking with rollover
+  - Initiation contracts: create, bill installments, cancel, compute payoff quotes. Amortization engine
+  - Autopay: batch processing, retry with ACH support, late fees, 8 notification templates
+  - Reporting: aging, churn, compliance, portfolio, spend, deferred revenue schedule, risk dashboard, predictive insights
+  - GL integration via membership-posting-adapter for deferred revenue and earned revenue recognition
+- **KDS Module** (`packages/modules/kds/`):
+  - Stub module (v0.0.0): placeholder for standalone KDS V2 — planned schema/commands/queries/events
+  - Current KDS implementation lives in `packages/modules/fnb/` (see F&B module above)
+- **Golf Ops Module** (`packages/modules/golf-ops/`):
+  - Stub module (v0.0.0): placeholder for golf operations V2 (distinct from `golf-reporting`)
+- **Marketing Module** (`packages/modules/marketing/`):
+  - Stub module (v0.0.0): placeholder for marketing automation V2
 
 ### Test Coverage
 10617+ tests: 159 core (134 + 25 impersonation-safety) + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 916 customers (100 base + 251 smart-tag-templates + 140 tag-predictive-conditions + 67 tag-expiration + 56 tag-evidence-builder + 82 tag-conflict-resolver + 46 tag-analytics + 53 csv-import + 38 tag-actions + 40 tag-evaluation-consumer + 43 tag-lifecycle-services) + 813 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive + 93 host-stand + 43 host-integration + 35 host-api + 21 onboarding-status) + 27 db + 115 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache + 16 consumer-validation) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 312 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability + 36 pii-masker) + 45 admin (28 auth + 17 eval-api) + 405 admin-phase1a + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 319 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix + 10 gl-audit-fixes) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1175 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables + 58 host-estimator + 51 host-reservations + 55 host-waitlist) + 310 pms (17 availability + 10 errors + 35 events + 8 folio-totals + 20 permissions + 38 pricing-engine + 21 room-assignment + 25 state-machines + 15 template-renderer + 121 validation) + 650 spa (112 availability-engine + 78 appointment-transitions + 56 conflict-detector + 96 deposit-cancellation + 88 commission-engine + 72 waitlist-matcher + 84 rebooking-engine + 64 dynamic-pricing) + 2145 expenses (expense lifecycle + approval workflows + receipt processing + policy evaluation + GL posting + reimbursement + mileage + per-diem + allocation + split + delegation + budget integration) + 667 project-costing (project lifecycle + task management + cost allocation + profitability + GL integration + budget tracking + time entries + milestone billing) + 626 multi-currency (exchange rates + GL functional amounts + unrealized gains/losses + revaluation + reporting currency + close checklist) + 1198 revenue-pipeline (13 consumer handlers + cross-module revenue tracking + unified revenue activity + reporting aggregation + idempotency + edge cases)

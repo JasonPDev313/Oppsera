@@ -41,6 +41,9 @@ export interface FnbPosState {
   // Course configuration (loaded from fnb_ordering settings)
   courseNames: string[];
 
+  // Course rules map (resolved per item from hierarchy)
+  courseRulesMap: Record<string, { effectiveRule: { defaultCourseNumber: number | null; allowedCourseNumbers: number[] | null; lockCourse: boolean }; source: string }>;
+
   // Server lock
   serverLock: FnbServerLock;
 
@@ -93,6 +96,8 @@ export interface FnbPosActions {
 
   // Course config
   setCourseNames: (names: string[]) => void;
+  setCourseRulesMap: (rules: FnbPosState['courseRulesMap']) => void;
+  getEffectiveCourseForItem: (itemId: string) => number;
 
   // UI preferences
   setFloorViewMode: (mode: 'layout' | 'grid') => void;
@@ -169,6 +174,7 @@ const initialState: FnbPosState = {
   activeSeatNumber: 1,
   activeCourseNumber: 1,
   courseNames: DEFAULT_COURSE_NAMES,
+  courseRulesMap: {},
   splitWorkspace: null,
   serverLock: getPersistedServerLock(),
   floorViewMode: 'layout',
@@ -396,6 +402,35 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
           state.activeCourseNumber = 1;
         }
       });
+    },
+
+    setCourseRulesMap: (rules) => {
+      set((state) => {
+        state.courseRulesMap = rules;
+      });
+    },
+
+    getEffectiveCourseForItem: (itemId) => {
+      const state = get();
+      const rule = state.courseRulesMap[itemId];
+      if (!rule || rule.source === 'none') return state.activeCourseNumber;
+
+      const { defaultCourseNumber, allowedCourseNumbers, lockCourse } = rule.effectiveRule;
+
+      // If locked, force the default course
+      if (lockCourse && defaultCourseNumber) return defaultCourseNumber;
+
+      // If active course is in allowed list, use it
+      if (allowedCourseNumbers && allowedCourseNumbers.length > 0) {
+        if (allowedCourseNumbers.includes(state.activeCourseNumber)) return state.activeCourseNumber;
+        // Active course not allowed — fall back to default or first allowed
+        return defaultCourseNumber ?? allowedCourseNumbers[0] ?? state.activeCourseNumber;
+      }
+
+      // Default course is a suggestion, not a force — respect the server's active course.
+      // Only lockCourse overrides the server's selection. Without lock, the server
+      // can freely assign any course to any item.
+      return state.activeCourseNumber;
     },
 
     // ── UI Preferences ──────────────────────────────────────────

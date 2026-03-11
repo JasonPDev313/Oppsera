@@ -35,9 +35,18 @@ vi.mock('@oppsera/core/helpers/idempotency', () => ({
   saveIdempotencyKey: mocks.saveIdempotencyKey,
 }));
 
+vi.mock('@oppsera/core/observability', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
 vi.mock('@oppsera/db', () => ({
   fnbTabItems: {},
   fnbTabCourses: {},
+  withTenant: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../helpers/resolve-course-rule', () => ({
+  batchResolveCourseRules: vi.fn().mockResolvedValue({}),
 }));
 
 vi.mock('@oppsera/shared', () => ({

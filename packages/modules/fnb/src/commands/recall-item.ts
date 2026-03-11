@@ -52,6 +52,20 @@ export async function recallItem(
       throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'recall');
     }
 
+    // Guard: cannot recall items on a voided ticket (checked BEFORE mutation)
+    const [ticket] = await tx
+      .select()
+      .from(fnbKitchenTickets)
+      .where(and(
+        eq(fnbKitchenTickets.id, item.ticketId),
+        eq(fnbKitchenTickets.tenantId, ctx.tenantId),
+      ))
+      .limit(1);
+
+    if (ticket && ticket.status === 'voided') {
+      throw new TicketStatusConflictError(item.ticketId, 'voided', 'recall item');
+    }
+
     // Un-bump: set back to cooking, clear bump attribution and timestamps
     const now = new Date();
     const [updated] = await tx
@@ -72,20 +86,6 @@ export async function recallItem(
       .returning();
     if (!updated) {
       throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'recall (concurrent)');
-    }
-
-    const [ticket] = await tx
-      .select()
-      .from(fnbKitchenTickets)
-      .where(and(
-        eq(fnbKitchenTickets.id, item.ticketId),
-        eq(fnbKitchenTickets.tenantId, ctx.tenantId),
-      ))
-      .limit(1);
-
-    // Guard: cannot recall items on a voided ticket
-    if (ticket && ticket.status === 'voided') {
-      throw new TicketStatusConflictError(item.ticketId, 'voided', 'recall item');
     }
 
     // Revert ticket status if it was served/ready (an item was pulled back)

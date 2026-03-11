@@ -57,7 +57,7 @@ export async function getExpoCoursePacing(
         t.table_number,
         t.server_name,
         tc.course_number,
-        tc.course_name,
+        COALESCE(cd.course_name, tc.course_name) AS course_name,
         tc.course_status,
         tc.fired_at,
         CASE WHEN tc.fired_at IS NOT NULL
@@ -68,6 +68,9 @@ export async function getExpoCoursePacing(
         COUNT(kti.id) FILTER (WHERE kti.item_status IN ('ready', 'served'))::int AS ready_items
       FROM fnb_tab_courses tc
       INNER JOIN fnb_tabs t ON t.id = tc.tab_id AND t.tenant_id = tc.tenant_id
+      LEFT JOIN fnb_course_definitions cd
+        ON cd.tenant_id = tc.tenant_id AND cd.location_id = t.location_id
+        AND cd.course_number = tc.course_number AND cd.is_active = true
       LEFT JOIN fnb_kitchen_tickets kt ON kt.tab_id = tc.tab_id
         AND kt.tenant_id = tc.tenant_id
         AND kt.course_number = tc.course_number
@@ -78,7 +81,7 @@ export async function getExpoCoursePacing(
         AND t.status NOT IN ('closed', 'voided')
         AND t.business_date = ${input.businessDate}
       GROUP BY tc.tab_id, t.table_number, t.server_name,
-               tc.course_number, tc.course_name, tc.course_status, tc.fired_at
+               tc.course_number, cd.course_name, tc.course_name, tc.course_status, tc.fired_at
       ORDER BY tc.tab_id, tc.course_number ASC
     `);
 

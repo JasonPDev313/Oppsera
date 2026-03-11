@@ -69,7 +69,6 @@ interface Attachment {
 // ── Constants ────────────────────────────────────────────────────
 
 const DRAFT_KEY = 'oppsera_feature_request_draft';
-const LAST_SEEN_KEY = 'oppsera_fr_last_seen';
 const DRAFT_SAVE_DEBOUNCE_MS = 500;
 const MAX_ATTACHMENT_SIZE = 512 * 1024; // 512KB
 const MAX_ATTACHMENTS = 3;
@@ -204,13 +203,12 @@ export function FeatureRequestWidget() {
   // Hide on POS / KDS / Expo routes — the floating widget obstructs these full-screen UIs
   const isFullScreenRoute = pathname.startsWith('/pos') || pathname.startsWith('/kds') || pathname.startsWith('/expo');
 
-  const [widgetState, setWidgetState] = useState<WidgetState>('collapsed');
+  const [widgetState, setWidgetState] = useState<WidgetState>('open');
   const [step, setStep] = useState<Step>('type');
   const [form, setForm] = useState<FeatureRequestFormData>(() => loadDraft());
   const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false); // double-click guard
-  const [hasStatusUpdate, setHasStatusUpdate] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [attachmentWarning, setAttachmentWarning] = useState<string | null>(null);
   const [similarRequests, setSimilarRequests] = useState<SimilarRequest[]>([]);
@@ -235,46 +233,12 @@ export function FeatureRequestWidget() {
     };
   }, []);
 
-  // ── Notification dot: check for status changes on collapsed widget ──
-  const notificationFetchedRef = useRef(false);
-  useEffect(() => {
-    if (widgetState !== 'collapsed') {
-      notificationFetchedRef.current = false;
-      return;
-    }
-    if (notificationFetchedRef.current) return;
-    notificationFetchedRef.current = true;
-
-    const controller = new AbortController();
-    const timerId = setTimeout(() => {
-      apiFetch<{ data: RecentRequest[]; meta: unknown }>('/api/v1/feature-requests?limit=5', { signal: controller.signal })
-        .then((res) => {
-          if (!mountedRef.current) return;
-          let lastSeen = 0;
-          try {
-            const stored = localStorage.getItem(LAST_SEEN_KEY);
-            if (stored) lastSeen = Number(stored);
-          } catch { /* ignore */ }
-          const hasUpdate = res.data.some(
-            (r) => r.status !== 'submitted' && new Date(r.updatedAt).getTime() > lastSeen
-          );
-          setHasStatusUpdate(hasUpdate);
-        })
-        .catch(() => { /* non-fatal */ });
-    }, 500);
-    return () => {
-      clearTimeout(timerId);
-      controller.abort();
-    };
-  }, [widgetState]);
-
   // Load recent requests lazily — deferred so it never blocks step rendering.
-  // Uses a separate ref to only fetch once per open cycle.
+  // Refetches each time user returns to the home screen (type step).
   const fetchedRecentRef = useRef(false);
   useEffect(() => {
     if (widgetState !== 'open' || step !== 'type') {
-      // Reset fetch flag when widget closes so re-opening fetches again
-      if (widgetState === 'collapsed') fetchedRecentRef.current = false;
+      fetchedRecentRef.current = false;
       return;
     }
     if (fetchedRecentRef.current) return;
@@ -492,10 +456,10 @@ export function FeatureRequestWidget() {
       clearDraft();
       setAttachments([]);
       setWidgetState('success');
-      // Auto-close after 3 seconds
+      // Auto-return to home screen after 3 seconds
       successTimerRef.current = setTimeout(() => {
         if (!mountedRef.current) return;
-        setWidgetState('collapsed');
+        setWidgetState('open');
         setForm({ ...INITIAL_FORM });
         setStep('type');
         setAttachments([]);
@@ -520,18 +484,17 @@ export function FeatureRequestWidget() {
 
   // ── Close & reset ────────────────────────────────────────────
   const handleClose = useCallback(() => {
-    setWidgetState('collapsed');
+    // Reset to home screen (step 1) instead of collapsing
+    setStep('type');
+    setForm({ ...INITIAL_FORM });
+    setAttachments([]);
+    setAttachmentWarning(null);
     setError(null);
   }, []);
 
   const handleOpen = useCallback(() => {
     setWidgetState('open');
     setError(null);
-    setHasStatusUpdate(false);
-    // Update last-seen timestamp
-    try {
-      localStorage.setItem(LAST_SEEN_KEY, String(Date.now()));
-    } catch { /* ignore */ }
     // If there's a saved draft with a type, go to the right step
     const draft = loadDraft();
     if (draft.requestType) {
@@ -550,7 +513,7 @@ export function FeatureRequestWidget() {
   useEffect(() => {
     if (widgetState !== 'open') return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose();
+      if (e.key === 'Escape' && step !== 'type') handleClose();
       // Ctrl/Cmd+Enter to advance or submit (doesn't fire in textareas without modifier)
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canAdvance) {
         e.preventDefault();
@@ -575,14 +538,8 @@ export function FeatureRequestWidget() {
           onClick={handleOpen}
           className="flex w-full items-center gap-3 rounded-xl px-6 py-4 text-left transition-colors hover:bg-accent"
         >
-          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-500/20">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-500/20">
             <MessageSquarePlus className="h-5 w-5 text-indigo-400" aria-hidden="true" />
-            {hasStatusUpdate && (
-              <span className="absolute -right-1 -top-1 flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-75" />
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-indigo-500" />
-              </span>
-            )}
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-foreground">Share Your Ideas</p>
@@ -643,14 +600,16 @@ export function FeatureRequestWidget() {
               : 'Share Your Idea'}
           </h2>
         </div>
-        <button
-          type="button"
-          onClick={handleClose}
-          className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        {step !== 'type' && (
+          <button
+            type="button"
+            onClick={handleClose}
+            className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* Progress indicator */}
@@ -720,40 +679,42 @@ export function FeatureRequestWidget() {
         )}
       </div>
 
-      {/* Navigation buttons */}
-      <div className="flex items-center justify-between border-t border-border px-5 py-3">
-        <button
-          type="button"
-          onClick={step === 'type' ? handleClose : prevStep}
-          className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <ArrowLeft className="h-3 w-3" aria-hidden="true" />
-          {step === 'type' ? 'Cancel' : 'Back'}
-        </button>
-        {step === 'review' ? (
+      {/* Navigation buttons — hidden on home screen (type selection auto-advances) */}
+      {step !== 'type' && (
+        <div className="flex items-center justify-between border-t border-border px-5 py-3">
           <button
             type="button"
-            onClick={handleSubmit}
-            disabled={!canAdvance || submitting}
-            title="Submit (Ctrl+Enter)"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={prevStep}
+            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
-            <Send className="h-3 w-3" aria-hidden="true" />
-            Submit
+            <ArrowLeft className="h-3 w-3" aria-hidden="true" />
+            Back
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={nextStep}
-            disabled={!canAdvance}
-            title="Next (Ctrl+Enter)"
-            className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Next
-            <ChevronRight className="h-3 w-3" aria-hidden="true" />
-          </button>
-        )}
-      </div>
+          {step === 'review' ? (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!canAdvance || submitting}
+              title="Submit (Ctrl+Enter)"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Send className="h-3 w-3" aria-hidden="true" />
+              Submit
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={nextStep}
+              disabled={!canAdvance}
+              title="Next (Ctrl+Enter)"
+              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+              <ChevronRight className="h-3 w-3" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Recent requests */}
       {recentRequests.length > 0 && step === 'type' && (

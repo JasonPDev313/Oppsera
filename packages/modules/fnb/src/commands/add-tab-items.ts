@@ -4,11 +4,15 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
+import { logger } from '@oppsera/core/observability';
 import { fnbTabItems, fnbTabCourses } from '@oppsera/db';
+import { withTenant } from '@oppsera/db';
 import { AppError, generateUlid } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { AddTabItemsInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
+import { batchResolveCourseRules } from '../helpers/resolve-course-rule';
+import type { ResolvedCourseRule } from '../helpers/resolve-course-rule';
 
 export async function addTabItems(
   ctx: RequestContext,
@@ -29,8 +33,77 @@ export async function addTabItems(
     }
   } catch (err) {
     // CatalogReadApi may not be initialized — proceed without sub-department IDs
-    console.error('[add-tab-items] CatalogReadApi error:', err);
+    logger.error('[add-tab-items] CatalogReadApi error', {
+      domain: 'fnb', tenantId: ctx.tenantId, error: { message: err instanceof Error ? err.message : String(err) },
+    });
   }
+
+  // Resolve course rules per item (soft enforcement — auto-default, warn on violations)
+  // Uses batch resolver (2 DB queries total) instead of N individual queries
+  let courseRuleMap: Record<string, ResolvedCourseRule> = {};
+  const courseDefNames = new Map<number, string>();
+  if (ctx.locationId) {
+    try {
+      courseRuleMap = await batchResolveCourseRules(ctx.tenantId, ctx.locationId);
+
+      // Fetch course definition names for this location
+      const defRows = await withTenant(ctx.tenantId, async (tx) => {
+        return tx.execute(
+          sql`SELECT course_number, course_name FROM fnb_course_definitions
+              WHERE tenant_id = ${ctx.tenantId} AND location_id = ${ctx.locationId}
+                AND is_active = true
+              ORDER BY course_number`,
+        );
+      });
+      for (const row of Array.from(defRows as Iterable<Record<string, unknown>>)) {
+        courseDefNames.set(Number(row.course_number), String(row.course_name));
+      }
+    } catch (err) {
+      logger.error('[add-tab-items] Course rule resolution error', {
+        domain: 'fnb', tenantId: ctx.tenantId, error: { message: err instanceof Error ? err.message : String(err) },
+      });
+    }
+  } else {
+    logger.warn('[add-tab-items] No locationId in context — course rule enforcement skipped', {
+      domain: 'fnb', tenantId: ctx.tenantId, tabId: input.tabId,
+    });
+  }
+
+  // Apply course rules to items (mutate courseNumber in-place for soft enforcement)
+  const effectiveItems = input.items.map((item) => {
+    const rule = courseRuleMap[item.catalogItemId];
+    if (!rule || rule.source === 'none') return { ...item };
+
+    const { effectiveRule } = rule;
+    let courseNumber = item.courseNumber;
+
+    // Lock enforcement: force defaultCourseNumber regardless of client value
+    if (effectiveRule.lockCourse && effectiveRule.defaultCourseNumber != null) {
+      if (courseNumber !== effectiveRule.defaultCourseNumber) {
+        logger.warn('[add-tab-items] Course locked — forcing default', {
+          domain: 'fnb', tenantId: ctx.tenantId, catalogItemId: item.catalogItemId,
+          requestedCourse: courseNumber, forcedCourse: effectiveRule.defaultCourseNumber,
+        });
+      }
+      courseNumber = effectiveRule.defaultCourseNumber;
+    }
+    // Allowed course validation (soft: auto-correct + warn)
+    else if (effectiveRule.allowedCourseNumbers && effectiveRule.allowedCourseNumbers.length > 0) {
+      if (!effectiveRule.allowedCourseNumbers.includes(courseNumber)) {
+        const fallback = effectiveRule.defaultCourseNumber ?? effectiveRule.allowedCourseNumbers[0]!;
+        logger.warn('[add-tab-items] Course not allowed — falling back', {
+          domain: 'fnb', tenantId: ctx.tenantId, catalogItemId: item.catalogItemId,
+          requestedCourse: courseNumber, allowedCourses: effectiveRule.allowedCourseNumbers, fallbackCourse: fallback,
+        });
+        courseNumber = fallback;
+      }
+    }
+    // Auto-default: only apply when client sent no explicit course (courseNumber would be
+    // the POS activeCourseNumber which may not match the item's default — don't silently
+    // override the server's active course selection without a lock)
+
+    return { ...item, courseNumber };
+  });
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
@@ -70,14 +143,15 @@ export async function addTabItems(
     );
 
     // Auto-create any courses that don't exist yet
-    const neededCourses = new Set(input.items.map((item) => item.courseNumber));
+    const neededCourses = new Set(effectiveItems.map((item) => item.courseNumber));
     for (const courseNumber of neededCourses) {
       if (!existingCourses.has(courseNumber)) {
+        const courseName = courseDefNames.get(courseNumber) ?? `Course ${courseNumber}`;
         await tx.insert(fnbTabCourses).values({
           tenantId: ctx.tenantId,
           tabId: input.tabId,
           courseNumber,
-          courseName: `Course ${courseNumber}`,
+          courseName,
           courseStatus: 'unsent',
         });
         existingCourses.add(courseNumber);
@@ -85,7 +159,7 @@ export async function addTabItems(
     }
 
     // Build all rows and batch-insert in one statement
-    const rowsToInsert = input.items.map((item, i) => {
+    const rowsToInsert = effectiveItems.map((item, i) => {
       const extendedPriceCents = Math.round(item.qty * item.unitPriceCents);
       const id = generateUlid();
       const subDepartmentId = subDeptMap.get(item.catalogItemId) ?? null;

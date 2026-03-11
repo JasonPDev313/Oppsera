@@ -1,6 +1,6 @@
 # OppsEra — Conventions Index
 
-> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (11,949 lines).
+> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (12,395 lines, 247 numbered sections).
 > Read only the sections you need by line range. Do NOT load the entire file into context.
 
 ---
@@ -380,7 +380,7 @@
 
 - **Duplicate section numbers**: §98, §131–§135 each appear twice in the file (legacy numbering). Disambiguated as `a`/`b` suffixes above.
 - **Unnumbered sections**: "Local Server Fix (Windows)" at line 7246 (between §127 and §128), and "Answer"/"Metrics in This Query" subsections within §74 at lines 4571–4652.
-- **Line ranges are exact** as of the current file (12,357 lines). If CONVENTIONS_FULL.md is edited, re-run: `grep -n "^## " docs/conventions/CONVENTIONS_FULL.md` to verify.
-- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (12,357 lines, 246 sections)
+- **Line ranges are exact** as of the current file (12,395 lines). If CONVENTIONS_FULL.md is edited, re-run: `grep -n "^## " docs/conventions/CONVENTIONS_FULL.md` to verify.
+- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (12,395 lines, 247 numbered sections)
 - **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (562 numbered gotchas)
 - **What's Built / What's Next**: `docs/conventions/whats-built.md`

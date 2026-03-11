@@ -2820,3 +2820,52 @@ export const fnbWaitlistConfig = pgTable(
     uniqueIndex('uq_fnb_waitlist_config_slug').on(table.slugOverride).where(sql`slug_override IS NOT NULL`),
   ],
 );
+
+// ═══════════════════════════════════════════════════════════════════
+// Course Definitions & Course Rules
+// ═══════════════════════════════════════════════════════════════════
+
+// ── Named course slots per location ─────────────────────────────────
+export const fnbCourseDefinitions = pgTable(
+  'fnb_course_definitions',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull().references(() => locations.id),
+    courseNumber: integer('course_number').notNull(),
+    courseName: text('course_name').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_fnb_course_defs_tenant_loc_num').on(table.tenantId, table.locationId, table.courseNumber),
+    index('idx_fnb_course_defs_tenant_location').on(table.tenantId, table.locationId),
+  ],
+);
+
+// ── Coursing rules with hierarchy inheritance ───────────────────────
+export const fnbCourseRules = pgTable(
+  'fnb_course_rules',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull().references(() => locations.id),
+    scopeType: text('scope_type').notNull(), // 'department' | 'sub_department' | 'category' | 'item'
+    scopeId: text('scope_id').notNull(),
+    defaultCourseNumber: integer('default_course_number'),
+    allowedCourseNumbers: jsonb('allowed_course_numbers').$type<number[]>(),
+    lockCourse: boolean('lock_course').notNull().default(false),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by'),
+    updatedBy: text('updated_by'),
+  },
+  (table) => [
+    uniqueIndex('uq_fnb_course_rules_tenant_loc_scope').on(table.tenantId, table.locationId, table.scopeType, table.scopeId),
+    index('idx_fnb_course_rules_tenant_scope').on(table.tenantId, table.locationId, table.scopeType),
+    index('idx_fnb_course_rules_scope_id').on(table.tenantId, table.scopeId),
+  ],
+);

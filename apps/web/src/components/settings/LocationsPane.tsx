@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Building2, MapPin } from 'lucide-react';
+import { ChevronRight, ChevronDown, Building2, MapPin, Plus, Pencil, Trash2 } from 'lucide-react';
 
 interface LocationWithHierarchy {
   id: string;
@@ -16,6 +16,9 @@ interface Props {
   selectedVenueId: string | null;
   onSelectSite: (siteId: string) => void;
   onSelectVenue: (venueId: string) => void;
+  onAddVenue?: (siteId: string) => void;
+  onEditVenue?: (venueId: string) => void;
+  onDeleteVenue?: (venueId: string) => void;
   error?: string | null;
 }
 
@@ -25,6 +28,9 @@ export function LocationsPane({
   selectedVenueId,
   onSelectSite,
   onSelectVenue,
+  onAddVenue,
+  onEditVenue,
+  onDeleteVenue,
   error,
 }: Props) {
   const sites = locations.filter(
@@ -60,7 +66,7 @@ export function LocationsPane({
   return (
     <div className="flex flex-col rounded-lg border border-border bg-surface">
       <div className="border-b border-border px-4 py-3">
-        <h3 className="text-sm font-semibold text-foreground">Locations</h3>
+        <h3 className="text-sm font-semibold text-foreground">Locations &amp; Venues</h3>
       </div>
       <div className="flex-1 overflow-y-auto">
         {sites.map((site) => {
@@ -71,15 +77,25 @@ export function LocationsPane({
 
           return (
             <div key={site.id}>
-              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
               <div
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   onSelectSite(site.id);
-                  if (hasChildren && !isExpanded) {
+                  if (!isExpanded) {
                     setExpandedSites((prev) => new Set([...prev, site.id]));
                   }
                 }}
-                className={`flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-accent ${
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectSite(site.id);
+                    if (!isExpanded) {
+                      setExpandedSites((prev) => new Set([...prev, site.id]));
+                    }
+                  }
+                }}
+                className={`group flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-accent ${
                   isSiteSelected ? 'bg-indigo-500/10' : ''
                 }`}
               >
@@ -102,23 +118,84 @@ export function LocationsPane({
                   <span className="w-4.5 shrink-0" />
                 )}
                 <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="truncate text-foreground">{site.name}</span>
+                <span className="flex-1 truncate text-foreground">{site.name}</span>
+
+                {onAddVenue && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddVenue(site.id);
+                    }}
+                    className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                    title="Add venue"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
 
-              {hasChildren && isExpanded &&
+              {isExpanded &&
                 children.map((venue) => (
-                  // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
                   <div
                     key={venue.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onSelectVenue(venue.id)}
-                    className={`flex cursor-pointer items-center gap-2 py-2.5 pl-12 pr-4 text-sm transition-colors hover:bg-accent ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSelectVenue(venue.id);
+                      }
+                    }}
+                    className={`group flex cursor-pointer items-center gap-2 py-2.5 pl-12 pr-4 text-sm transition-colors hover:bg-accent ${
                       selectedVenueId === venue.id ? 'bg-indigo-500/10' : ''
                     }`}
                   >
                     <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="truncate text-foreground">{venue.name}</span>
+                    <span className="flex-1 truncate text-foreground">{venue.name}</span>
+
+                    <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      {onEditVenue && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditVenue(venue.id);
+                          }}
+                          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          title="Edit venue"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      )}
+                      {onDeleteVenue && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteVenue(venue.id);
+                          }}
+                          className="rounded p-1 text-muted-foreground hover:bg-red-500/20 hover:text-red-400"
+                          title="Delete venue"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
+
+              {isExpanded && children.length === 0 && onAddVenue && (
+                <button
+                  type="button"
+                  onClick={() => onAddVenue(site.id)}
+                  className="flex w-full items-center gap-2 py-2 pl-12 pr-4 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add venue
+                </button>
+              )}
             </div>
           );
         })}
@@ -133,11 +210,6 @@ export function LocationsPane({
             )}
           </div>
         )}
-      </div>
-      <div className="border-t border-border px-4 py-3">
-        <p className="text-xs text-muted-foreground">
-          Manage locations in General Settings
-        </p>
       </div>
     </div>
   );

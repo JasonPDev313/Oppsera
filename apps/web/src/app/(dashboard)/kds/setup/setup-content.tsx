@@ -18,6 +18,7 @@ import {
   NO_KDS_STATION_ID,
 } from '@/lib/kds-routing-recommender';
 import Link from 'next/link';
+import { getSiteLocations, resolveInitialKdsLocationId } from '@/lib/kds-location';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -194,26 +195,29 @@ export default function KdsSetupContent() {
   const { locations } = useAuthContext();
   const { session: terminalSession } = useTerminalSession();
 
-  // Default to query param locationId, then terminal session, then first location
+  const siteLocations = getSiteLocations(locations);
+
+  // Default to query param locationId, then terminal session, then first site location
   const [locationId, setLocationId] = useState(() => {
     const fromUrl = searchParams.get('locationId');
-    if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
-    return terminalSession?.locationId ?? locations?.[0]?.id ?? '';
+    if (fromUrl && siteLocations.some((l) => l.id === fromUrl)) return fromUrl;
+    const candidate = terminalSession?.locationId ?? locations?.[0]?.id ?? '';
+    return resolveInitialKdsLocationId(candidate, locations) || siteLocations[0]?.id || '';
   });
 
   // Sync locationId when locations load after initial render (race condition guard)
   useEffect(() => {
-    if (!locationId) {
+    if (!locationId && siteLocations.length > 0) {
       const fromUrl = searchParams.get('locationId');
-      const match = fromUrl && locations?.some((l) => l.id === fromUrl)
+      const match = fromUrl && siteLocations.some((l) => l.id === fromUrl)
         ? fromUrl
-        : terminalSession?.locationId ?? locations?.[0]?.id;
+        : siteLocations[0]?.id;
       if (match) setLocationId(match);
     }
-  }, [locationId, locations, searchParams, terminalSession?.locationId]);
+  }, [locationId, siteLocations, searchParams]);
 
-  const hasMultipleLocations = (locations?.length ?? 0) > 1;
-  const locationName = locations?.find((l) => l.id === locationId)?.name ?? '';
+  const hasMultipleLocations = siteLocations.length > 1;
+  const locationName = siteLocations.find((l) => l.id === locationId)?.name ?? '';
 
   // Stable local ID generator (useRef survives HMR + StrictMode double-mount)
   const nextLocalId = useRef(1);
@@ -582,7 +586,7 @@ export default function KdsSetupContent() {
                   onChange={(e) => setLocationId(e.target.value)}
                   className="w-full rounded-lg border border-input bg-surface px-3 py-2.5 text-sm font-medium text-foreground focus:border-indigo-500 focus:outline-none"
                 >
-                  {locations?.map((loc) => (
+                  {siteLocations.map((loc) => (
                     <option key={loc.id} value={loc.id}>{loc.name}</option>
                   ))}
                 </select>

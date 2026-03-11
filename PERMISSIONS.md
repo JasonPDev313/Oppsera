@@ -137,7 +137,9 @@ Single authoritative reference for all system permissions. Source of truth: `pac
 | `pos_fnb.tabs.manage` | Close, reopen, and manage tab lifecycle | owner, manager, supervisor, cashier, server | | Y |
 | `pos_fnb.kds.view` | View kitchen display system | owner, manager, supervisor, cashier, server, staff | | |
 | `pos_fnb.kds.bump` | Bump items and tickets on KDS | owner, manager, supervisor, cashier, server, staff | | |
+| `pos_fnb.kds.hold` | Hold and unhold kitchen tickets | owner, manager, supervisor, cashier, server, staff | | |
 | `pos_fnb.kds.recall` | Recall bumped items on KDS | owner, manager, supervisor | | |
+| `pos_fnb.kds.manage` | Manage KDS station settings and routing | owner, manager | | Y |
 | `pos_fnb.payments.create` | Process F&B payments | owner, manager, supervisor, cashier, server | | Y |
 | `pos_fnb.payments.split` | Split checks | owner, manager, supervisor, cashier, server | | |
 | `pos_fnb.payments.refund` | Process F&B refunds | owner, manager | Y | Y |
@@ -160,6 +162,19 @@ Single authoritative reference for all system permissions. Source of truth: `pac
 | `pos_fnb.gl.post` | Post F&B batches to GL | owner, manager | | Y |
 | `pos_fnb.gl.reverse` | Reverse F&B GL postings | owner, manager | Y | Y |
 | `pos_fnb.gl.mappings` | Configure F&B GL account mappings | owner, manager | | Y |
+
+## Kitchen Display System (KDS)
+
+Standalone KDS permissions used by the permission groups UI. Mirrors `pos_fnb.kds.*` for standalone KDS stations.
+
+| Permission | Description | Default Roles | PIN | Audit |
+|------------|-------------|---------------|-----|-------|
+| `kds.view` | View KDS station and ticket queue | owner, manager, supervisor, cashier, server, staff | | |
+| `kds.bump` | Bump items and tickets on KDS | owner, manager, supervisor, cashier, server, staff | | |
+| `kds.hold` | Hold and unhold kitchen tickets | owner, manager, supervisor, cashier, server, staff | | |
+| `kds.recall` | Recall bumped items on KDS | owner, manager, supervisor | | |
+| `kds.manage` | Manage KDS station settings and routing | owner, manager | | Y |
+| `kds.settings.manage` | Configure KDS display and alert settings | owner, manager | | Y |
 
 ## Property Management (PMS)
 
