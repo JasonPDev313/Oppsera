@@ -378,8 +378,10 @@ export interface TicketBumpedPayload {
   tabId: string;
   /** Present on prep-station bumps */
   stationId?: string;
-  /** 'ready' for prep bump, absent for expo bump (which sets status='served') */
-  bumpedToStatus?: 'ready';
+  /** 'ready' for prep bump, 'served' for auto-bump without expo, absent for expo bump */
+  bumpedToStatus?: 'ready' | 'served';
+  /** True when ticket was auto-bumped by Mode B (all items ready) */
+  autoBumped?: boolean;
 }
 
 export interface ItemCalledBackPayload {
