@@ -56,25 +56,5 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- ── Seed course definitions from existing fnb_ordering settings ─────
--- Extracts default_courses arrays from fnb_settings where module_key='fnb_ordering'
--- and creates corresponding fnb_course_definitions rows.
-INSERT INTO fnb_course_definitions (tenant_id, location_id, course_number, course_name, sort_order)
-SELECT
-  s.tenant_id,
-  s.location_id,
-  (elem.ordinality)::INTEGER AS course_number,
-  elem.value #>> '{}' AS course_name,
-  (elem.ordinality)::INTEGER AS sort_order
-FROM fnb_settings s,
-LATERAL jsonb_array_elements_text(
-  CASE
-    WHEN s.settings_json ? 'default_courses'
-      AND jsonb_typeof(s.settings_json -> 'default_courses') = 'array'
-    THEN s.settings_json -> 'default_courses'
-    ELSE '["Apps","Entrees","Desserts"]'::jsonb
-  END
-) WITH ORDINALITY AS elem(value, ordinality)
-WHERE s.module_key = 'fnb_ordering'
-  AND s.location_id IS NOT NULL
-ON CONFLICT (tenant_id, location_id, course_number) DO NOTHING;
+-- Seed: course definitions will be created on-demand when locations
+-- configure their coursing settings (no legacy fnb_settings table to migrate from).
