@@ -261,11 +261,13 @@ export default function KdsOrderStatusContent() {
 
   // ── Single Actions ─────────────────────────────────────────────
 
+  const locationHeaders = locationId ? { 'X-Location-Id': locationId } : undefined;
+
   const handleRetry = async (sendId: string) => {
     setActionLoading(sendId);
     setActionError(null);
     try {
-      await apiFetch(`/api/v1/fnb/kds-order-status/${sendId}/retry`, { method: 'POST' });
+      await apiFetch(`/api/v1/fnb/kds-order-status/${sendId}/retry`, { method: 'POST', headers: locationHeaders });
       await fetchSends(true);
       if (selectedSend?.id === sendId) setSelectedSend(null);
     } catch (err) {
@@ -282,6 +284,7 @@ export default function KdsOrderStatusContent() {
     try {
       await apiFetch(`/api/v1/fnb/kds-order-status/${sendId}/resolve`, {
         method: 'POST',
+        headers: locationHeaders,
         body: JSON.stringify({ reason: 'Manually resolved by manager' }),
       });
       await fetchSends(true);
@@ -300,6 +303,7 @@ export default function KdsOrderStatusContent() {
     try {
       await apiFetch(`/api/v1/fnb/kds-order-status/${sendId}/delete`, {
         method: 'POST',
+        headers: locationHeaders,
         body: JSON.stringify({ reason: 'Cleared by manager' }),
       });
       await fetchSends(true);
@@ -337,6 +341,7 @@ export default function KdsOrderStatusContent() {
     try {
       await apiFetch('/api/v1/fnb/kds-order-status/bulk-delete', {
         method: 'POST',
+        headers: locationHeaders,
         body: JSON.stringify({ sendIds: Array.from(selectedIds), reason: 'Bulk deleted by manager' }),
       });
       setSelectedIds(new Set());
@@ -356,6 +361,7 @@ export default function KdsOrderStatusContent() {
     try {
       await apiFetch('/api/v1/fnb/kds-order-status/bulk-resolve', {
         method: 'POST',
+        headers: locationHeaders,
         body: JSON.stringify({ sendIds: Array.from(selectedIds), reason: 'Bulk resolved by manager' }),
       });
       setSelectedIds(new Set());
