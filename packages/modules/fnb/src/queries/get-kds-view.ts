@@ -90,6 +90,7 @@ export async function getKdsView(
                  rush_mode, location_id
           FROM fnb_kitchen_stations
           WHERE id = ${input.stationId} AND tenant_id = ${input.tenantId}
+            ${input.locationId ? sql`AND location_id = ${input.locationId}` : sql``}
           LIMIT 1`,
     );
     const stationArr = Array.from(stationRows as Iterable<Record<string, unknown>>);

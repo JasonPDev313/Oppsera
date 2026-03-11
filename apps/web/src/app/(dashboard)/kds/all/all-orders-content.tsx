@@ -9,6 +9,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
+import { useTerminalSession } from '@/components/terminal-session-provider';
 import { apiFetch } from '@/lib/api-client';
 import { useKdsLocationCounts } from '@/hooks/use-fnb-kitchen';
 import type { KdsTicketCard } from '@/types/fnb';
@@ -33,7 +34,8 @@ const POLL_INTERVAL = 10_000; // 10s for all-stations view
 export default function AllOrdersContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
-  const [locationId, setLocationId] = useState(() => locations?.[0]?.id ?? '');
+  const { session: terminalSession } = useTerminalSession();
+  const [locationId, setLocationId] = useState(() => terminalSession?.locationId ?? locations?.[0]?.id ?? '');
   const hasMultipleLocations = (locations?.length ?? 0) > 1;
   const locationCounts = useKdsLocationCounts(locations?.map((l) => l.id) ?? []);
 

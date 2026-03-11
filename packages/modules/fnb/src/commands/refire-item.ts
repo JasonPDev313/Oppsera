@@ -38,6 +38,21 @@ export async function refireItem(
       .limit(1);
     if (!item) throw new TicketItemNotFoundError(input.ticketItemId);
 
+    // Defense-in-depth: verify item's ticket belongs to caller's location
+    if (ctx.locationId) {
+      const [parentTicket] = await tx
+        .select({ locationId: fnbKitchenTickets.locationId })
+        .from(fnbKitchenTickets)
+        .where(and(
+          eq(fnbKitchenTickets.id, item.ticketId),
+          eq(fnbKitchenTickets.tenantId, ctx.tenantId),
+        ))
+        .limit(1);
+      if (parentTicket && parentTicket.locationId !== ctx.locationId) {
+        throw new TicketItemNotFoundError(input.ticketItemId);
+      }
+    }
+
     // Only ready/served/cooking items can be re-fired (pending hasn't started, voided is terminal)
     if (item.itemStatus === 'pending' || item.itemStatus === 'voided') {
       throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'refire');

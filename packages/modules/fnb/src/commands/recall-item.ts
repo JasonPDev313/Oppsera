@@ -32,6 +32,21 @@ export async function recallItem(
       .limit(1);
     if (!item) throw new TicketItemNotFoundError(input.ticketItemId);
 
+    // Defense-in-depth: verify item's ticket belongs to caller's location
+    if (ctx.locationId) {
+      const [parentTicket] = await tx
+        .select({ locationId: fnbKitchenTickets.locationId })
+        .from(fnbKitchenTickets)
+        .where(and(
+          eq(fnbKitchenTickets.id, item.ticketId),
+          eq(fnbKitchenTickets.tenantId, ctx.tenantId),
+        ))
+        .limit(1);
+      if (parentTicket && parentTicket.locationId !== ctx.locationId) {
+        throw new TicketItemNotFoundError(input.ticketItemId);
+      }
+    }
+
     // Guard: only ready/served items can be recalled
     if (item.itemStatus !== 'ready' && item.itemStatus !== 'served') {
       throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'recall');

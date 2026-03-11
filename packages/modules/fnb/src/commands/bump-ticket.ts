@@ -52,6 +52,11 @@ export async function bumpTicket(
       .limit(1);
     if (!ticket) throw new TicketNotFoundError(input.ticketId);
 
+    // Defense-in-depth: reject if ticket belongs to a different location
+    if (ctx.locationId && ticket.locationId && ticket.locationId !== ctx.locationId) {
+      throw new TicketNotFoundError(input.ticketId);
+    }
+
     const isExpoBump = await resolveIsExpoBump(tx, ctx.tenantId, input.stationId);
 
     // Guard: cannot bump an already-served or voided ticket
