@@ -25,7 +25,8 @@ export const GET = withMiddleware(
 // PATCH /api/v1/fnb/kds-settings/location-settings
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = upsertKdsLocationSettingsSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

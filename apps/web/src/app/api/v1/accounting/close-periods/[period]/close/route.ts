@@ -9,7 +9,7 @@ export const POST = withMiddleware(
     const segments = new URL(request.url).pathname.split('/');
     const period = decodeURIComponent(segments[segments.indexOf('close-periods') + 1]!);
 
-    let body: Record<string, unknown> = {};
+    let body: any = {};
     try { body = await request.json(); } catch { /* empty body is valid — notes are optional */ }
     const result = await closeAccountingPeriod(ctx, {
       postingPeriod: period,

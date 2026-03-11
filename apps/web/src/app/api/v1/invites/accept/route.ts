@@ -12,7 +12,8 @@ const bodySchema = z.object({
 
 export const POST = withMiddleware(
   async (request: NextRequest) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

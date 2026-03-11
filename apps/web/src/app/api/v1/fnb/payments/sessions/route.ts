@@ -35,7 +35,8 @@ export const GET = withMiddleware(
 // POST /api/v1/fnb/payments/sessions — start a new payment session
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = startPaymentSessionSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

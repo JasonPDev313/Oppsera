@@ -10,7 +10,8 @@ import { eq, and } from 'drizzle-orm';
 // POST /api/v1/pos-ops/void-line — Void a single order line
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = voidOrderLineSchema.safeParse(body);
 
     if (!parsed.success) {

@@ -34,7 +34,8 @@ export const POST = withMiddleware(
     }
 
     const reservationId = extractReservationId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = checkInToPosSchema.safeParse(body);
 
     if (!parsed.success) {

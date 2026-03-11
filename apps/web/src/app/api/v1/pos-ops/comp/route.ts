@@ -7,7 +7,8 @@ import { compOrderLine, compOrderLineSchema } from '@oppsera/core/pos-ops';
 // POST /api/v1/pos-ops/comp — Comp an order line
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = compOrderLineSchema.safeParse(body);
 
     if (!parsed.success) {

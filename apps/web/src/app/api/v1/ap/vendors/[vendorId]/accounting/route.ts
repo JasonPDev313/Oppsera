@@ -26,7 +26,8 @@ export const PUT = withMiddleware(
     const url = new URL(request.url);
     const parts = url.pathname.split('/');
     const vendorId = parts[parts.length - 2]!;
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateVendorAccountingSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

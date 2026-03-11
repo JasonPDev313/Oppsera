@@ -21,7 +21,8 @@ function extractIds(request: NextRequest): { tagId: string; actionId: string } {
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const { tagId, actionId } = extractIds(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateTagActionSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

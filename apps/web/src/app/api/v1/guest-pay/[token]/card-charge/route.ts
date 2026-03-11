@@ -39,7 +39,8 @@ export const POST = withMiddleware(
     // URL: /api/v1/guest-pay/{token}/card-charge
     const token = segments[segments.length - 2]!;
 
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = cardChargeSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(

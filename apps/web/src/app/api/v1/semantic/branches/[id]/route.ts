@@ -25,7 +25,8 @@ const updateBranchSchema = z.object({
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = extractId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateBranchSchema.safeParse(body);
 
     if (!parsed.success) {

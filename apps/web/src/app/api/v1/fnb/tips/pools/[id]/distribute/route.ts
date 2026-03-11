@@ -7,7 +7,8 @@ import { distributeTipPool, distributeTipPoolSchema } from '@oppsera/module-fnb'
 // POST /api/v1/fnb/tips/pools/[id]/distribute — distribute tip pool
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body: any = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = distributeTipPoolSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

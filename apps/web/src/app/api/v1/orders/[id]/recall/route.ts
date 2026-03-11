@@ -13,7 +13,8 @@ function extractOrderId(request: NextRequest): string {
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const orderId = extractOrderId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = recallOrderSchema.safeParse(body);
 
     if (!parsed.success) {

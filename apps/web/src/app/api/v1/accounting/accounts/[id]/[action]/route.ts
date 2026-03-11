@@ -47,7 +47,8 @@ export const POST = withMiddleware(
         return NextResponse.json({ data: result });
       }
       case 'merge': {
-        const body = await request.json();
+        let body: any = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
         const parsed = mergeGlAccountsSchema.safeParse({
           sourceAccountId: id,
           targetAccountId: body.targetAccountId,
@@ -63,7 +64,8 @@ export const POST = withMiddleware(
         return NextResponse.json({ data: result });
       }
       case 'renumber': {
-        const body = await request.json();
+        let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
         const parsed = renumberGlAccountSchema.safeParse(body);
         if (!parsed.success) {
           return NextResponse.json(

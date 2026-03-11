@@ -9,7 +9,8 @@ import {
 
 export const POST = withMiddleware(
   async (request, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = calendarResizeSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError('Validation failed', parsed.error.issues.map(i => ({ field: i.path.join('.'), message: i.message })));

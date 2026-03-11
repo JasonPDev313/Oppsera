@@ -45,7 +45,8 @@ export const GET = withMiddleware(
 // POST /api/v1/spa/services — create a new service
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = createServiceSchema.safeParse(body);
 
     if (!parsed.success) {

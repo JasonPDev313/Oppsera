@@ -13,7 +13,8 @@ export const POST = withMiddleware(
     const url = new URL(request.url);
     const parts = url.pathname.split('/');
     const folioId = parts[parts.length - 2]!; // /folios/[id]/email
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = emailFolioSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError('Validation failed', parsed.error.issues.map(i => ({ field: i.path.join('.'), message: i.message })));

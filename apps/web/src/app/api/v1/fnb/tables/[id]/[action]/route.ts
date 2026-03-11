@@ -43,7 +43,7 @@ export const POST = withMiddleware(
         return NextResponse.json({ data: result }, { status: 201 });
       }
       case 'clear': {
-        let body: Record<string, unknown> = {};
+        let body: any = {};
         try { body = await request.json(); } catch { /* empty body is valid */ }
         const result = await clearTable(ctx, tableId, {
           clientRequestId: body.clientRequestId as string | undefined,

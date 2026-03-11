@@ -12,7 +12,7 @@ function extractReportId(request: NextRequest): string {
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const reportId = extractReportId(request);
-    let body: Record<string, unknown> = {};
+    let body: any = {};
     try { body = await request.json(); } catch { /* empty body is valid — overrides are optional */ }
 
     const result = await runReport({

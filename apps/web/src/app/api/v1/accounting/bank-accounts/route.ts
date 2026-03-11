@@ -16,7 +16,8 @@ export const GET = withMiddleware(
 // POST /api/v1/accounting/bank-accounts — create or update bank account
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = saveBankAccountSchema.safeParse(body);
 
     if (!parsed.success) {

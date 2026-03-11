@@ -9,7 +9,8 @@ import { refundCheck, refundCheckSchema } from '@oppsera/module-fnb';
 // POST /api/v1/fnb/tabs/[id]/check/refund — refund a check
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body: any = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = refundCheckSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

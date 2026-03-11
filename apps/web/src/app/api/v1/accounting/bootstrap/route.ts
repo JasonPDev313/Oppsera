@@ -6,7 +6,7 @@ import { bootstrapTenantAccounting } from '@oppsera/module-accounting';
 // POST /api/v1/accounting/bootstrap — bootstrap chart of accounts from template
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    let body: Record<string, unknown> = {};
+    let body: any = {};
     try { body = await request.json(); } catch { /* empty body uses default template */ }
     try {
       const result = await bootstrapTenantAccounting(ctx, {

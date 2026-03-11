@@ -14,7 +14,8 @@ function extractPaymentTypeId(request: NextRequest): string {
 export const PUT = withMiddleware(
   async (request: NextRequest, ctx) => {
     const paymentTypeId = extractPaymentTypeId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = savePaymentTypeDefaultsSchema.safeParse(body);
 
     if (!parsed.success) {

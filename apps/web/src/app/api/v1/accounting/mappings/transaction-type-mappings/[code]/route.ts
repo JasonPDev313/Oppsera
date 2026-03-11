@@ -17,7 +17,8 @@ function extractCode(request: NextRequest): string {
 export const PUT = withMiddleware(
   async (request: NextRequest, ctx) => {
     const code = extractCode(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = saveTransactionTypeMappingSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(

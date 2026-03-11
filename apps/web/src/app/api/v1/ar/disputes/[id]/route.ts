@@ -67,7 +67,8 @@ export const PATCH = withMiddleware(
     const segments = new URL(request.url).pathname.split('/').filter(Boolean);
     const id = segments[segments.length - 1]!;
     if (!id) throw new AppError('INVALID_ID', 'Missing dispute ID', 400);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = resolveDisputeSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

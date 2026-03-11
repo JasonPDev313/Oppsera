@@ -30,7 +30,8 @@ export const GET = withMiddleware(
 // PUT /api/v1/pms/booking-engine
 export const PUT = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateBookingEngineConfigSchema.safeParse(body);
 
     if (!parsed.success) {

@@ -38,7 +38,8 @@ const saveFnbMappingSchema = z.object({
 // POST /api/v1/accounting/mappings/fnb-categories — save a single mapping
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = saveFnbMappingSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(

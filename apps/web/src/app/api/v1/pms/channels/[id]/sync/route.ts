@@ -15,7 +15,8 @@ export const POST = withMiddleware(
     const segments = url.pathname.split('/');
     const id = segments[segments.length - 2]!;
 
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = syncChannelSchema.safeParse(body);
 
     if (!parsed.success) {

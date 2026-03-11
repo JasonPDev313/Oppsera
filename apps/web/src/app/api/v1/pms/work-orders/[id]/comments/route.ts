@@ -15,7 +15,8 @@ export const POST = withMiddleware(
     // segments: [..., 'work-orders', '{id}', 'comments']
     const workOrderId = segments[segments.length - 2]!;
 
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = addWorkOrderCommentSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError('Invalid input', parsed.error.issues.map((i) => ({

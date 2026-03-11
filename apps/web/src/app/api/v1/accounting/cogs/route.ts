@@ -33,7 +33,8 @@ export const GET = withMiddleware(
 
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body: any = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const action = body.action;
 
     if (action === 'calculate') {

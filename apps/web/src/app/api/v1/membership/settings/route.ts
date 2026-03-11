@@ -18,7 +18,8 @@ export const GET = withMiddleware(
 
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateMembershipAccountingSettingsSchema.safeParse(body);
 
     if (!parsed.success) {

@@ -11,7 +11,8 @@ import {
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = request.url.split('/tender-types/')[1]?.split('?')[0] ?? '';
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateTenantTenderTypeSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(

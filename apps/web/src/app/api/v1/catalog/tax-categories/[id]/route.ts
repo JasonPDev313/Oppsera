@@ -17,7 +17,8 @@ function extractTaxCategoryId(request: NextRequest): string {
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const taxCategoryId = extractTaxCategoryId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateTaxCategorySchema.safeParse(body);
 
     if (!parsed.success) {

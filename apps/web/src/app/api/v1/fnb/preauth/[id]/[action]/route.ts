@@ -28,7 +28,8 @@ export const POST = withMiddleware(
         { status: 404 },
       );
     }
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
 
     switch (action) {
       case 'capture': {

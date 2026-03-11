@@ -10,7 +10,8 @@ import {
 // POST /api/v1/catalog/modifier-groups/bulk-assign — bulk assign groups to items
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = bulkAssignModifierGroupsSchema.safeParse(body);
 
     if (!parsed.success) {

@@ -36,7 +36,8 @@ export const POST = withMiddleware(
       );
     }
 
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = stepUpSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError('Validation failed', parsed.error.errors.map((e) => ({

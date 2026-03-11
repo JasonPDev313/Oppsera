@@ -14,7 +14,8 @@ export const PATCH = withMiddleware(
     const url = new URL(request.url);
     const parts = url.pathname.split('/');
     const ruleId = parts[parts.length - 1]!;
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateFolioRoutingRuleSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError('Validation failed', parsed.error.issues.map(i => ({ field: i.path.join('.'), message: i.message })));

@@ -24,7 +24,8 @@ export const GET = withMiddleware(
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = extractId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateTableSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

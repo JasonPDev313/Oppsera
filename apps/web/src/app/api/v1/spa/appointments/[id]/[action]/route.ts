@@ -52,7 +52,7 @@ export const POST = withMiddleware(
     }
     const id = extractId(request);
 
-    let body: Record<string, unknown> = {};
+    let body: any = {};
     try {
       body = await request.json();
     } catch {

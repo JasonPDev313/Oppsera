@@ -25,7 +25,8 @@ export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const parts = request.nextUrl.pathname.split('/');
     const ticketId = parts[parts.length - 1]!;
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateTicketStatusSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

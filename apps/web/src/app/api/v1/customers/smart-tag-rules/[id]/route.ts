@@ -33,7 +33,8 @@ export const GET = withMiddleware(
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const ruleId = extractId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateSmartTagRuleSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

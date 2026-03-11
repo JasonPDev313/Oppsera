@@ -68,7 +68,8 @@ export const POST = withMiddleware(
     const segments = url.pathname.split('/');
     const token = segments[segments.length - 2]!; // before /member-charge
 
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = chargeMemberAccountSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

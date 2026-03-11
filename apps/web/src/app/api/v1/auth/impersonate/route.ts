@@ -14,7 +14,8 @@ const schema = z.object({ token: z.string().min(1) });
 
 export const POST = withMiddleware(
   async (request) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

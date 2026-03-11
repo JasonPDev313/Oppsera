@@ -17,7 +17,8 @@ export const POST = withMiddleware(
   async (request, ctx) => {
     const evalTurnId = extractEvalTurnId(request);
 
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = userFeedbackSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

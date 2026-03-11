@@ -8,7 +8,8 @@ import { syncTablesFromFloorPlan, syncTablesFromFloorPlanSchema } from '@oppsera
 // POST /api/v1/fnb/tables/sync — sync tables from published floor plan
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = syncTablesFromFloorPlanSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

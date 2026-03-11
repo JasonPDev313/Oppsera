@@ -17,7 +17,8 @@ function extractCategoryId(request: NextRequest): string {
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const categoryId = extractCategoryId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateCategorySchema.safeParse(body);
 
     if (!parsed.success) {

@@ -37,7 +37,8 @@ export const GET = withMiddleware(
 // POST /api/v1/customers — create customer
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = createCustomerSchema.safeParse(body);
 
     if (!parsed.success) {

@@ -22,7 +22,8 @@ function extractIds(request: NextRequest): { itemId: string; groupId: string } {
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const { itemId, groupId } = extractIds(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateItemModifierAssignmentSchema.safeParse(body);
 
     if (!parsed.success) {

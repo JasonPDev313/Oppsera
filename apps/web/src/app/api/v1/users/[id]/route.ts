@@ -50,7 +50,8 @@ export const PATCH = withMiddleware(
 
     const userId = extractUserId(request);
     const before = await getUserById({ tenantId: ctx.tenantId, userId });
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateBody.safeParse(body);
 
     // Impersonation safety: block soft-deletes (status → inactive/locked)

@@ -30,7 +30,8 @@ export const GET = withMiddleware(
 export const PUT = withMiddleware(
   async (request: NextRequest, ctx) => {
     const roleId = request.nextUrl.pathname.split('/').at(-2)!;
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = accessBody.safeParse(body);
 
     if (!parsed.success) {

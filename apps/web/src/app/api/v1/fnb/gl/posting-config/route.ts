@@ -7,7 +7,8 @@ import { updateFnbPostingConfig, updateFnbPostingConfigSchema } from '@oppsera/m
 // PATCH /api/v1/fnb/gl/posting-config
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateFnbPostingConfigSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError('Validation failed', parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })));

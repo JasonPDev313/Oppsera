@@ -17,7 +17,8 @@ function extractOrderId(request: NextRequest): string {
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const orderId = extractOrderId(request);
-    const body = await request.json();
+    let body: any = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
 
     // Validate request body BEFORE any gateway calls to prevent
     // external payment side effects on malformed requests

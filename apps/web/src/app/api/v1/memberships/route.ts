@@ -39,7 +39,8 @@ export const GET = withMiddleware(
 // POST /api/v1/memberships — enroll member
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = enrollMemberSchema.safeParse(body);
 
     if (!parsed.success) {

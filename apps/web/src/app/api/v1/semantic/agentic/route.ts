@@ -38,7 +38,8 @@ export const POST = withMiddleware(
       );
     }
 
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = agenticSchema.safeParse(body);
 
     if (!parsed.success) {

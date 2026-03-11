@@ -6,7 +6,8 @@ import { importCoaFromCsv, importCoaFromCsvSchema } from '@oppsera/module-accoun
 // POST /api/v1/accounting/import/execute — validate + import CSV
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = importCoaFromCsvSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(

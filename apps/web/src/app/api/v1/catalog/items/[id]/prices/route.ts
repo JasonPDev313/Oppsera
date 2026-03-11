@@ -21,7 +21,8 @@ const setPriceBody = z.object({
 export const PUT = withMiddleware(
   async (request: NextRequest, ctx) => {
     const catalogItemId = extractItemId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = setPriceBody.safeParse(body);
 
     if (!parsed.success) {

@@ -47,7 +47,8 @@ export const POST = withMiddleware(
 
     switch (action) {
       case 'complete': {
-        const body = await request.json();
+        let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
         const parsed = completePaymentSessionSchema.safeParse(body);
         if (!parsed.success) {
           throw new ValidationError(
@@ -61,7 +62,8 @@ export const POST = withMiddleware(
       }
 
       case 'fail': {
-        const body = await request.json();
+        let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
         const parsed = failPaymentSessionSchema.safeParse(body);
         if (!parsed.success) {
           throw new ValidationError(

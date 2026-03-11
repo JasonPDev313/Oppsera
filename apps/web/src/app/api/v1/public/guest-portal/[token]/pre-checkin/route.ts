@@ -13,7 +13,8 @@ export async function POST(request: NextRequest) {
   // .../guest-portal/[token]/pre-checkin -> token is segments[length-2]
   const token = segments[segments.length - 2]!;
 
-  const body = await request.json();
+  let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
   const parsed = completePreCheckinSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(

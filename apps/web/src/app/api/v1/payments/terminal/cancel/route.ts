@@ -16,7 +16,8 @@ export const POST = withMiddleware(
       throw new AppError('FEATURE_DISABLED', 'Card-present payments are not enabled', 403);
     }
 
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = terminalCancelSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(

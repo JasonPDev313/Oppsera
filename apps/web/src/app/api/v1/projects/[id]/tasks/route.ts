@@ -36,7 +36,8 @@ export const POST = withMiddleware(
     const url = new URL(request.url);
     const parts = url.pathname.split('/');
     const projectId = parts[parts.length - 2]!;
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = createTaskSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

@@ -44,7 +44,8 @@ export const GET = withMiddleware(
 // POST /api/v1/pms/restrictions — set restrictions for dates
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = setRateRestrictionsSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -63,7 +64,8 @@ export const POST = withMiddleware(
 // DELETE /api/v1/pms/restrictions — clear restrictions for date range
 export const DELETE = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = clearRateRestrictionsSchema.safeParse(body);
 
     if (!parsed.success) {

@@ -27,7 +27,8 @@ export const GET = withMiddleware(
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = extractId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateWorkOrderSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError('Invalid input', parsed.error.issues.map((i) => ({

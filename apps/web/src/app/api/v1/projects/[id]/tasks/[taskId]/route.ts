@@ -13,7 +13,8 @@ export const PATCH = withMiddleware(
     const parts = url.pathname.split('/');
     // /api/v1/projects/[id]/tasks/[taskId] → taskId is last
     const taskId = parts[parts.length - 1]!;
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateTaskSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

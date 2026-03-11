@@ -27,7 +27,8 @@ const updateNotificationSchema = z.object({
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = extractNotificationId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateNotificationSchema.safeParse(body);
 
     if (!parsed.success) {

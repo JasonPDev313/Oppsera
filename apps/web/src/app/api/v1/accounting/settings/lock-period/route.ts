@@ -11,7 +11,8 @@ export const POST = withMiddleware(
     // Impersonation safety: block period locking
     assertImpersonationCanModifyAccounting(ctx);
 
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = lockAccountingPeriodSchema.safeParse(body);
 
     if (!parsed.success) {

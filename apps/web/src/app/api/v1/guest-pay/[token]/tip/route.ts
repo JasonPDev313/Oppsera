@@ -11,7 +11,8 @@ export const POST = withMiddleware(
     const segments = url.pathname.split('/');
     const token = segments[segments.length - 2]!; // before /tip
 
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = selectGuestPayTipSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

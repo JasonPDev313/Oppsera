@@ -43,7 +43,8 @@ const enableModuleSchema = z.object({
 
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = enableModuleSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -129,7 +130,8 @@ const toggleModuleSchema = z.object({
 
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = toggleModuleSchema.safeParse(body);
 
     if (!parsed.success) {

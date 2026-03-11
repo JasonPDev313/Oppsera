@@ -10,7 +10,8 @@ import { ValidationError } from '@oppsera/shared';
 
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = assignHousekeepingSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError('Invalid input', parsed.error.issues.map((i) => ({

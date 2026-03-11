@@ -15,7 +15,8 @@ export const POST = withMiddleware(
     // segments: [..., 'assignments', '{id}', 'complete']
     const assignmentId = segments[segments.length - 2]!;
 
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = completeCleaningSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError('Invalid input', parsed.error.issues.map((i) => ({

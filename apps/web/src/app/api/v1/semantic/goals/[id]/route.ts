@@ -31,7 +31,8 @@ const updateGoalSchema = z.object({
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = extractGoalId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateGoalSchema.safeParse(body);
 
     if (!parsed.success) {

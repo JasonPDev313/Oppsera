@@ -7,7 +7,8 @@ import { forceReleaseSoftLock, forceReleaseSoftLockSchema } from '@oppsera/modul
 // POST /api/v1/fnb/locks/[id]/force-release — force release by entity (manager only)
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = forceReleaseSoftLockSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

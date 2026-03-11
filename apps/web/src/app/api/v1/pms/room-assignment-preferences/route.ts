@@ -30,7 +30,8 @@ export const GET = withMiddleware(
 // POST /api/v1/pms/room-assignment-preferences
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateRoomAssignmentPreferencesSchema.safeParse(body);
 
     if (!parsed.success) {

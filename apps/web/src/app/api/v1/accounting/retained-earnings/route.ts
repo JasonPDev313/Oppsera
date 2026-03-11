@@ -7,7 +7,8 @@ import { generateRetainedEarnings, generateRetainedEarningsSchema } from '@oppse
 // POST /api/v1/accounting/retained-earnings
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = generateRetainedEarningsSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

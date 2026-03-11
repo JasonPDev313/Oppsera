@@ -39,7 +39,8 @@ export async function POST(
     return NextResponse.json({ error: { code: 'VALIDATION_ERROR', message: 'propertyId is required' } }, { status: 400 });
   }
 
-  const body = await request.json();
+  let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
   const parsed = publicJoinWaitlistSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({

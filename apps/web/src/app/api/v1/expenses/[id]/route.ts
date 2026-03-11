@@ -30,7 +30,8 @@ export const PATCH = withMiddleware(
     const url = new URL(request.url);
     const parts = url.pathname.split('/');
     const id = parts[parts.length - 1]!;
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateExpenseSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

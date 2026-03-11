@@ -12,7 +12,8 @@ import {
 // POST /api/v1/fnb/kds-order-status/ack — KDS client acknowledges delivery/display/interaction
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = ackKdsSendSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

@@ -28,7 +28,8 @@ export const GET = withMiddleware(
 // POST /api/v1/fnb/kitchen/tickets — create kitchen ticket
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = createKitchenTicketSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

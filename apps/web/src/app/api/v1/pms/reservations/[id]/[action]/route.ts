@@ -57,7 +57,8 @@ export const POST = withMiddleware(
     await requirePermission(ACTION_PERMISSIONS[action]!)(ctx);
 
     const id = extractId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
 
     switch (action) {
       case 'check-in': {

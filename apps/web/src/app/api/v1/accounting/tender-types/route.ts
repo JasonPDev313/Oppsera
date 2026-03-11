@@ -6,7 +6,8 @@ import { createTenantTenderType, createTenantTenderTypeSchema } from '@oppsera/m
 // POST /api/v1/accounting/tender-types — create a custom tender type
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = createTenantTenderTypeSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(

@@ -13,7 +13,8 @@ import { guestPayMemberVerifySchema } from '@oppsera/module-fnb';
  */
 export const POST = withMiddleware(
   async (request: NextRequest) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = guestPayMemberVerifySchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

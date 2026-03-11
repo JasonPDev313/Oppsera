@@ -7,7 +7,8 @@ import { tagItemAllergen, tagItemAllergenSchema, removeItemAllergen, removeItemA
 // POST /api/v1/fnb/menu/allergens/items — tag item with allergen
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = tagItemAllergenSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(
@@ -25,7 +26,8 @@ export const POST = withMiddleware(
 // DELETE /api/v1/fnb/menu/allergens/items — remove item allergen tag
 export const DELETE = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = removeItemAllergenSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

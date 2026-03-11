@@ -37,7 +37,8 @@ export const GET = withMiddleware(
 // POST /api/v1/fnb/close-batch/[id]/server-checkouts — begin server checkout
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body: any = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     body.serverUserId = body.serverUserId || ctx.user.id;
     const parsed = beginServerCheckoutSchema.safeParse(body);
     if (!parsed.success) {

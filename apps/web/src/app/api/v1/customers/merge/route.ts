@@ -7,7 +7,8 @@ import { mergeCustomers, mergeCustomersSchema } from '@oppsera/module-customers'
 // POST /api/v1/customers/merge — merge two customers
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = mergeCustomersSchema.safeParse(body);
 
     if (!parsed.success) {

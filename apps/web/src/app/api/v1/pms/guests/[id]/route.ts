@@ -32,7 +32,8 @@ export const GET = withMiddleware(
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = extractId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateGuestSchema.safeParse(body);
 
     if (!parsed.success) {

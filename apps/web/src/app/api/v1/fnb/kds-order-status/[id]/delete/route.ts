@@ -7,7 +7,8 @@ import { softDeleteKdsSend, softDeleteKdsSendSchema } from '@oppsera/module-fnb'
 // POST /api/v1/fnb/kds-order-status/[id]/delete — soft-delete a send record
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = softDeleteKdsSendSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

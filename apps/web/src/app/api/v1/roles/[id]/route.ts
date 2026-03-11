@@ -36,7 +36,8 @@ export const PATCH = withMiddleware(
     assertImpersonationCanModifyPermissions(ctx);
 
     const roleId = extractRoleId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateRoleBody.safeParse(body);
 
     if (!parsed.success) {

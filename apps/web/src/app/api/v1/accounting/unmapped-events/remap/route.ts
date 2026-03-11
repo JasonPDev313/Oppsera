@@ -6,7 +6,8 @@ import { batchRemapGlForTenders, batchRemapSchema } from '@oppsera/module-accoun
 // POST /api/v1/accounting/unmapped-events/remap — execute GL remap for selected tenders
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
 
     const parsed = batchRemapSchema.safeParse(body);
     if (!parsed.success) {

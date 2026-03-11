@@ -35,7 +35,8 @@ export const PATCH = withMiddleware(
     // Impersonation safety: block accounting settings changes
     assertImpersonationCanModifyAccounting(ctx);
 
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateAccountingSettingsSchema.safeParse(body);
 
     if (!parsed.success) {

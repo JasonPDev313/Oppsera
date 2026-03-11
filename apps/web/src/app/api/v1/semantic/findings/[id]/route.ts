@@ -26,7 +26,8 @@ const updateFindingSchema = z.object({
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = extractFindingId(request);
-    const body = await request.json();
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = updateFindingSchema.safeParse(body);
 
     if (!parsed.success) {

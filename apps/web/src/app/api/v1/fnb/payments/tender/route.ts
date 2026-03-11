@@ -20,7 +20,8 @@ import { validateHouseAccountCharge } from '@oppsera/module-fnb/helpers/house-ac
  */
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body: any = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
 
     // Validate input before any processing
     const parsed = recordSplitTenderSchema.safeParse(body);
