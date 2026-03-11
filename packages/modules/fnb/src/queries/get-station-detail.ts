@@ -30,6 +30,7 @@ export interface StationDetail {
   warningThresholdSeconds: number;
   criticalThresholdSeconds: number;
   isActive: boolean;
+  autoBumpOnAllReady: boolean;
   displayConfigs: DisplayConfig[];
 }
 
@@ -42,6 +43,7 @@ export async function getStationDetail(
                  s.sort_order, s.fallback_station_id, s.backup_printer_id,
                  s.terminal_location_id, s.warning_threshold_seconds,
                  s.critical_threshold_seconds, s.is_active,
+                 s.auto_bump_on_all_ready,
                  fb.name AS fallback_station_name
           FROM fnb_kitchen_stations s
           LEFT JOIN fnb_kitchen_stations fb ON fb.id = s.fallback_station_id
@@ -88,6 +90,7 @@ export async function getStationDetail(
       warningThresholdSeconds: Number(s.warning_threshold_seconds),
       criticalThresholdSeconds: Number(s.critical_threshold_seconds),
       isActive: s.is_active as boolean,
+      autoBumpOnAllReady: s.auto_bump_on_all_ready as boolean,
       displayConfigs,
     };
   });

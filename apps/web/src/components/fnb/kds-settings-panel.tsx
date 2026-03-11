@@ -742,6 +742,11 @@ function StationsTab({ locationId, locationName }: { locationId?: string; locati
                         Inactive
                       </span>
                     )}
+                    {station.autoBumpOnAllReady && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                        Auto-bump
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 mt-0.5">
                     <span className="text-[10px] text-amber-500/70">
@@ -1308,7 +1313,7 @@ function EditStationDialog({
   onClose,
   isActing,
 }: {
-  station: { id: string; name: string; displayName: string; stationType: string; color: string | null; warningThresholdSeconds: number; criticalThresholdSeconds: number; isActive?: boolean };
+  station: { id: string; name: string; displayName: string; stationType: string; color: string | null; warningThresholdSeconds: number; criticalThresholdSeconds: number; isActive?: boolean; autoBumpOnAllReady?: boolean };
   onSubmit: (input: {
     displayName?: string;
     stationType?: string;
@@ -1316,6 +1321,7 @@ function EditStationDialog({
     warningThresholdSeconds?: number;
     criticalThresholdSeconds?: number;
     isActive?: boolean;
+    autoBumpOnAllReady?: boolean;
   }) => Promise<void>;
   onClose: () => void;
   isActing: boolean;
@@ -1325,6 +1331,7 @@ function EditStationDialog({
   const [color, setColor] = useState(station.color || '#6366f1');
   const [warningSeconds, setWarningSeconds] = useState(station.warningThresholdSeconds);
   const [criticalSeconds, setCriticalSeconds] = useState(station.criticalThresholdSeconds);
+  const [autoBump, setAutoBump] = useState(station.autoBumpOnAllReady ?? false);
   const [error, setError] = useState<string | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
 
@@ -1346,8 +1353,9 @@ function EditStationDialog({
       color,
       warningThresholdSeconds: warningSeconds,
       criticalThresholdSeconds: criticalSeconds,
+      autoBumpOnAllReady: autoBump,
     });
-  }, [displayName, stationType, color, warningSeconds, criticalSeconds, onSubmit]);
+  }, [displayName, stationType, color, warningSeconds, criticalSeconds, autoBump, onSubmit]);
 
   return createPortal(
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
@@ -1435,6 +1443,30 @@ function EditStationDialog({
               <span className="text-[10px] text-muted-foreground">{formatSeconds(criticalSeconds)}</span>
             </label>
           </div>
+
+          {/* Auto-bump toggle (Mode B) */}
+          <label className="flex items-center justify-between gap-3 py-2 px-1 rounded-md cursor-pointer hover:bg-accent/50 transition-colors">
+            <div className="space-y-0.5">
+              <span className="text-xs font-medium text-foreground">Auto-complete tickets</span>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                When all items are ready, auto-bump the ticket without waiting for a manual bump.
+                {' '}If an expo station exists, the ticket goes to expo for review. Otherwise it completes immediately.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoBump}
+              onClick={() => setAutoBump(!autoBump)}
+              className="relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors"
+              style={{ backgroundColor: autoBump ? 'rgb(99, 102, 241)' : 'rgba(148, 163, 184, 0.3)' }}
+            >
+              <span
+                className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
+                style={{ transform: autoBump ? 'translateX(18px)' : 'translateX(3px)' }}
+              />
+            </button>
+          </label>
         </div>
 
         {error && (

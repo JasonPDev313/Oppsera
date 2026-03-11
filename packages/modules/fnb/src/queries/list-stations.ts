@@ -14,6 +14,7 @@ export interface StationListItem {
   warningThresholdSeconds: number;
   criticalThresholdSeconds: number;
   isActive: boolean;
+  autoBumpOnAllReady: boolean;
 }
 
 export async function listStations(
@@ -37,7 +38,8 @@ export async function listStations(
     const rows = await tx.execute(
       sql`SELECT id, name, display_name, station_type, color, sort_order,
                  fallback_station_id, backup_printer_id,
-                 warning_threshold_seconds, critical_threshold_seconds, is_active
+                 warning_threshold_seconds, critical_threshold_seconds, is_active,
+                 auto_bump_on_all_ready
           FROM fnb_kitchen_stations
           WHERE ${whereClause}
           ORDER BY sort_order ASC, name ASC`,
@@ -55,6 +57,7 @@ export async function listStations(
       warningThresholdSeconds: Number(r.warning_threshold_seconds),
       criticalThresholdSeconds: Number(r.critical_threshold_seconds),
       isActive: r.is_active as boolean,
+      autoBumpOnAllReady: r.auto_bump_on_all_ready as boolean,
     }));
   });
 }

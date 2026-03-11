@@ -9,6 +9,7 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
+import { useTerminalSession } from '@/components/terminal-session-provider';
 import { apiFetch } from '@/lib/api-client';
 import { useDepartments, useAllCategories } from '@/hooks/use-catalog';
 import {
@@ -191,23 +192,25 @@ export default function KdsSetupContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { locations } = useAuthContext();
+  const { session: terminalSession } = useTerminalSession();
 
-  // Default to query param locationId (e.g. when arriving from POS dialog), else first location
+  // Default to query param locationId, then terminal session, then first location
   const [locationId, setLocationId] = useState(() => {
     const fromUrl = searchParams.get('locationId');
     if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
-    return locations?.[0]?.id ?? '';
+    return terminalSession?.locationId ?? locations?.[0]?.id ?? '';
   });
 
   // Sync locationId when locations load after initial render (race condition guard)
   useEffect(() => {
-    const firstId = locations?.[0]?.id;
-    if (!locationId && firstId) {
+    if (!locationId) {
       const fromUrl = searchParams.get('locationId');
-      const match = fromUrl && locations?.some((l) => l.id === fromUrl) ? fromUrl : firstId;
-      setLocationId(match);
+      const match = fromUrl && locations?.some((l) => l.id === fromUrl)
+        ? fromUrl
+        : terminalSession?.locationId ?? locations?.[0]?.id;
+      if (match) setLocationId(match);
     }
-  }, [locationId, locations, searchParams]);
+  }, [locationId, locations, searchParams, terminalSession?.locationId]);
 
   const hasMultipleLocations = (locations?.length ?? 0) > 1;
   const locationName = locations?.find((l) => l.id === locationId)?.name ?? '';

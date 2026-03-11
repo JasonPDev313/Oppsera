@@ -305,6 +305,7 @@ export default function OrdersPage() {
   // ── Dialog state ────────────────────────────────────────────
   const [voidOrderId, setVoidOrderId] = useState<string | null>(null);
   const [voidLabel, setVoidLabel] = useState('');
+  const [voidReason, setVoidReason] = useState('');
   const [isVoiding, setIsVoiding] = useState(false);
 
   const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null);
@@ -346,22 +347,27 @@ export default function OrdersPage() {
 
   // ── Void ────────────────────────────────────────────────────
   const handleVoidConfirm = useCallback(async () => {
-    if (!voidOrderId) return;
+    if (!voidOrderId || !voidReason.trim()) return;
     setIsVoiding(true);
     try {
       await apiFetch(`/api/v1/orders/${voidOrderId}/void`, {
         method: 'POST',
         headers: { 'X-Location-Id': actionLocationId },
+        body: JSON.stringify({
+          clientRequestId: crypto.randomUUID(),
+          reason: voidReason.trim(),
+        }),
       });
       toast.success('Order voided');
       setVoidOrderId(null);
+      setVoidReason('');
       refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to void');
     } finally {
       setIsVoiding(false);
     }
-  }, [voidOrderId, actionLocationId, toast, refetch]);
+  }, [voidOrderId, voidReason, actionLocationId, toast, refetch]);
 
   // ── Delete ──────────────────────────────────────────────────
   const handleDeleteConfirm = useCallback(async () => {
@@ -371,6 +377,7 @@ export default function OrdersPage() {
       await apiFetch(`/api/v1/orders/${deleteOrderId}`, {
         method: 'DELETE',
         headers: { 'X-Location-Id': actionLocationId },
+        body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
       });
       toast.success('Order deleted');
       setDeleteOrderId(null);
@@ -390,6 +397,7 @@ export default function OrdersPage() {
       await apiFetch(`/api/v1/orders/${reopenOrderId}/reopen`, {
         method: 'POST',
         headers: { 'X-Location-Id': actionLocationId },
+        body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
       });
       toast.success('Order reopened');
       setReopenOrderId(null);
@@ -856,14 +864,23 @@ export default function OrdersPage() {
       {/* Void Dialog */}
       <ConfirmDialog
         open={voidOrderId !== null}
-        onClose={() => setVoidOrderId(null)}
+        onClose={() => { setVoidOrderId(null); setVoidReason(''); }}
         onConfirm={handleVoidConfirm}
         title="Void Order"
         description={`Are you sure you want to void ${voidLabel}? This action cannot be undone.`}
-        confirmLabel="Void Order"
+        confirmLabel={!voidReason.trim() ? 'Enter reason' : 'Void Order'}
         destructive
         isLoading={isVoiding}
-      />
+      >
+        <textarea
+          className="mt-3 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          placeholder="Reason for voiding (required)"
+          rows={2}
+          value={voidReason}
+          onChange={(e) => setVoidReason(e.target.value)}
+          maxLength={500}
+        />
+      </ConfirmDialog>
 
       {/* Delete Dialog */}
       <ConfirmDialog

@@ -433,18 +433,25 @@ export default function OrderDetailPage() {
   const { data: order, isLoading, mutate } = useOrder(orderId, locationId);
 
   const [showVoidDialog, setShowVoidDialog] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
   const [isVoiding, setIsVoiding] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
 
   const handleVoid = useCallback(async () => {
+    if (!voidReason.trim()) return;
     setIsVoiding(true);
     try {
       await apiFetch(`/api/v1/orders/${orderId}/void`, {
         method: 'POST',
         headers: { 'X-Location-Id': locationId },
+        body: JSON.stringify({
+          clientRequestId: crypto.randomUUID(),
+          reason: voidReason.trim(),
+        }),
       });
       toast.success('Order voided successfully');
       setShowVoidDialog(false);
+      setVoidReason('');
       mutate();
     } catch (err) {
       const e = err instanceof Error ? err : new Error('Failed to void order');
@@ -452,7 +459,7 @@ export default function OrderDetailPage() {
     } finally {
       setIsVoiding(false);
     }
-  }, [orderId, locationId, toast, mutate]);
+  }, [orderId, voidReason, locationId, toast, mutate]);
 
   // Loading state
   if (isLoading) {
@@ -717,14 +724,23 @@ export default function OrderDetailPage() {
       {/* Void Confirmation Dialog */}
       <ConfirmDialog
         open={showVoidDialog}
-        onClose={() => setShowVoidDialog(false)}
+        onClose={() => { setShowVoidDialog(false); setVoidReason(''); }}
         onConfirm={handleVoid}
         title="Void Order"
         description={`Are you sure you want to void order ${order.orderNumber}? This action cannot be undone.`}
-        confirmLabel="Void Order"
+        confirmLabel={!voidReason.trim() ? 'Enter reason' : 'Void Order'}
         destructive
         isLoading={isVoiding}
-      />
+      >
+        <textarea
+          className="mt-3 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          placeholder="Reason for voiding (required)"
+          rows={2}
+          value={voidReason}
+          onChange={(e) => setVoidReason(e.target.value)}
+          maxLength={500}
+        />
+      </ConfirmDialog>
 
       {/* Receipt Preview (advanced block-based receipt) */}
       <ReceiptPreviewDialog

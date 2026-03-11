@@ -487,6 +487,7 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
     warningThresholdSeconds?: number;
     criticalThresholdSeconds?: number;
     isActive?: boolean;
+    autoBumpOnAllReady?: boolean;
   }) => {
     setIsActing(true);
     try {

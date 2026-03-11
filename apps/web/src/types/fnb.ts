@@ -482,6 +482,7 @@ export interface FnbStation {
   criticalThresholdSeconds: number;
   fallbackStationId: string | null;
   backupPrinterId: string | null;
+  autoBumpOnAllReady: boolean;
 }
 
 export interface FnbStationMetrics {

@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
+import { useTerminalSession } from '@/components/terminal-session-provider';
 import { useExpoView, useExpoHistory, useKdsLocationCounts } from '@/hooks/use-fnb-kitchen';
 import { ExpoHeader } from '@/components/fnb/kitchen/ExpoHeader';
 import { ExpoTicketCard } from '@/components/fnb/kitchen/ExpoTicketCard';
@@ -28,7 +29,8 @@ const PAUSED_INTERVAL = 999_999_999;
 export default function ExpoContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
-  const [locationId, setLocationId] = useState(() => locations?.[0]?.id ?? '');
+  const { session: terminalSession } = useTerminalSession();
+  const [locationId, setLocationId] = useState(() => terminalSession?.locationId ?? locations?.[0]?.id ?? '');
   const hasMultipleLocations = (locations?.length ?? 0) > 1;
   const locationCounts = useKdsLocationCounts(locations?.map((l) => l.id) ?? []);
 

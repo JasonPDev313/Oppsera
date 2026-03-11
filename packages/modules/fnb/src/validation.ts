@@ -612,6 +612,7 @@ export const createStationSchema = z.object({
   terminalLocationId: z.string().optional(),
   warningThresholdSeconds: z.number().int().min(0).optional().default(480),
   criticalThresholdSeconds: z.number().int().min(0).optional().default(720),
+  autoBumpOnAllReady: z.boolean().optional().default(false),
 });
 
 export type CreateStationInput = z.input<typeof createStationSchema>;
@@ -629,6 +630,7 @@ export const updateStationSchema = z.object({
   criticalThresholdSeconds: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
   rushMode: z.boolean().optional(),
+  autoBumpOnAllReady: z.boolean().optional(),
 });
 
 export type UpdateStationInput = z.input<typeof updateStationSchema>;

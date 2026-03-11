@@ -209,10 +209,9 @@ export async function apiFetch<T = unknown>(
 
   // Only set Content-Type for methods that have a body, but NOT for FormData
   // (browser must set multipart/form-data with boundary automatically)
-  if (method !== 'GET' && method !== 'HEAD' && method !== 'DELETE') {
-    if (!(options.body instanceof FormData)) {
-      headers['Content-Type'] = 'application/json';
-    }
+  const hasJsonBody = method !== 'GET' && method !== 'HEAD' && !(options.body instanceof FormData);
+  if (hasJsonBody && (method !== 'DELETE' || options.body)) {
+    headers['Content-Type'] = 'application/json';
   }
 
   if (token) {

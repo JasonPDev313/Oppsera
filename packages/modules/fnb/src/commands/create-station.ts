@@ -63,6 +63,7 @@ export async function createStation(
         terminalLocationId: input.terminalLocationId ?? null,
         warningThresholdSeconds: input.warningThresholdSeconds ?? 480,
         criticalThresholdSeconds: input.criticalThresholdSeconds ?? 720,
+        autoBumpOnAllReady: input.autoBumpOnAllReady ?? false,
       })
       .returning();
 
