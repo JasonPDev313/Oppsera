@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
+import { useTerminalSession } from '@/components/terminal-session-provider';
 import { useStations, useKdsLocationCounts, useKdsStationCounts } from '@/hooks/use-fnb-kitchen';
 import { ArrowLeft, MapPin, AlertTriangle, Settings2 } from 'lucide-react';
 
@@ -26,10 +27,11 @@ export default function KdsSelectorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locations } = useAuthContext();
+  const { session: terminalSession } = useTerminalSession();
   const [locationId, setLocationId] = useState(() => {
     const fromUrl = searchParams.get('locationId');
     if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
-    return locations?.[0]?.id ?? '';
+    return terminalSession?.locationId ?? locations?.[0]?.id ?? '';
   });
   const { stations, isLoading } = useStations({ locationId });
   const locationCounts = useKdsLocationCounts(locations?.map((l) => l.id) ?? []);

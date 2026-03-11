@@ -30,8 +30,8 @@ export default function KdsContent() {
 
   const stationId = params.stationId as string;
   const { locations } = useAuthContext();
-  const locationId = locations?.[0]?.id;
   const { session: terminalSession } = useTerminalSession();
+  const locationId = terminalSession?.locationId ?? locations?.[0]?.id;
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>('ticket_rail');

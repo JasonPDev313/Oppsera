@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
+import { useTerminalSession } from '@/components/terminal-session-provider';
 import { apiFetch } from '@/lib/api-client';
 import { SearchInput } from '@/components/ui/search-input';
 import { ReportFilterBar } from '@/components/reports/report-filter-bar';
@@ -108,24 +109,27 @@ function KpiCard({ label, value, icon: Icon, accent }: {
 export default function KdsOrderStatusContent() {
   const searchParams = useSearchParams();
   const { locations } = useAuthContext();
+  const { session: terminalSession } = useTerminalSession();
 
   // Date range filters (for history/all tabs)
   const dateFilters = useReportFilters({ defaultPreset: 'last_7_days' });
 
+  // Resolve location: URL param > terminal session > first available
   const [locationId, setLocationId] = useState(() => {
     const fromUrl = searchParams.get('locationId');
     if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
-    return locations?.[0]?.id;
+    return terminalSession?.locationId ?? locations?.[0]?.id;
   });
 
   useEffect(() => {
-    const firstId = locations?.[0]?.id;
-    if (!locationId && firstId) {
+    if (!locationId) {
       const fromUrl = searchParams.get('locationId');
-      const match = fromUrl && locations?.some((l) => l.id === fromUrl) ? fromUrl : firstId;
-      setLocationId(match);
+      const match = fromUrl && locations?.some((l) => l.id === fromUrl)
+        ? fromUrl
+        : terminalSession?.locationId ?? locations?.[0]?.id;
+      if (match) setLocationId(match);
     }
-  }, [locationId, locations, searchParams]);
+  }, [locationId, locations, searchParams, terminalSession?.locationId]);
 
   const [tab, setTab] = useState<Tab>('active');
   const [sends, setSends] = useState<KdsSendListItem[]>([]);
