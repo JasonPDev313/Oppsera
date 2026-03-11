@@ -214,6 +214,16 @@ export class TicketNotReadyError extends AppError {
   }
 }
 
+export class TicketAllVoidedError extends AppError {
+  constructor(ticketId: string) {
+    super(
+      'TICKET_ALL_VOIDED',
+      `All items on ticket ${ticketId} are voided — nothing to bump`,
+      400,
+    );
+  }
+}
+
 // ── Session 6 Errors ─────────────────────────────────────────────
 
 export class EightySixLogNotFoundError extends AppError {

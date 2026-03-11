@@ -68,6 +68,11 @@ export async function callBackToStation(
       ))
       .limit(1);
 
+    // Guard: cannot call back items on a voided ticket
+    if (ticket && ticket.status === 'voided') {
+      throw new TicketItemStatusConflictError(input.ticketItemId, 'voided (ticket voided)', 'call back');
+    }
+
     if (ticket && (ticket.status === 'served' || ticket.status === 'ready')) {
       const [reverted] = await tx
         .update(fnbKitchenTickets)

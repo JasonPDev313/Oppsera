@@ -190,6 +190,11 @@ export { recallItem } from './commands/recall-item';
 export { bumpTicket } from './commands/bump-ticket';
 export { callBackToStation } from './commands/call-back-to-station';
 export { refireItem } from './commands/refire-item';
+export { holdTicket } from './commands/hold-ticket';
+export { reprioritizeTicket } from './commands/reprioritize-ticket';
+export { bulkHoldTickets } from './commands/bulk-hold-tickets';
+export type { BulkHoldResult } from './commands/bulk-hold-tickets';
+export { fireCourseFromKds } from './commands/fire-course-from-kds';
 export { heartbeatKdsTerminal } from './commands/heartbeat-kds-terminal';
 export type { HeartbeatKdsTerminalResult } from './commands/heartbeat-kds-terminal';
 
@@ -199,11 +204,11 @@ export type { StationListItem } from './queries/list-stations';
 export { getStationDetail } from './queries/get-station-detail';
 export type { StationDetail, DisplayConfig } from './queries/get-station-detail';
 export { getKdsView } from './queries/get-kds-view';
-export type { KdsView, KdsTicketCard, KdsTicketItem, KdsCompletedTicket } from './queries/get-kds-view';
+export type { KdsView, KdsTicketCard, KdsTicketItem, KdsCompletedTicket, KdsCourseGroup } from './queries/get-kds-view';
 export { getKdsAllTickets } from './queries/get-kds-all-tickets';
 export type { KdsAllTicketsView } from './queries/get-kds-all-tickets';
 export { getExpoView } from './queries/get-expo-view';
-export type { ExpoView, ExpoTicketCard, ExpoTicketItem } from './queries/get-expo-view';
+export type { ExpoView, ExpoTicketCard, ExpoTicketItem, ExpoCourseGroup } from './queries/get-expo-view';
 export { getKdsLocationCounts } from './queries/get-kds-location-counts';
 export type { KdsLocationCount } from './queries/get-kds-location-counts';
 export { getKdsStationCounts } from './queries/get-kds-station-counts';
@@ -212,6 +217,10 @@ export { getExpoHistory } from './queries/get-expo-history';
 export type { ExpoHistory, ExpoHistoryTicket, ExpoHistoryItem } from './queries/get-expo-history';
 export { getStationMetrics } from './queries/get-station-metrics';
 export type { StationMetrics } from './queries/get-station-metrics';
+export { getKdsLocationMetrics } from './queries/get-kds-location-metrics';
+export type { KdsLocationMetrics, StationSummary } from './queries/get-kds-location-metrics';
+export { getExpoCoursePacing } from './queries/get-expo-course-pacing';
+export type { ExpoCoursePacingView, TableCoursePacing, CoursePacingEntry } from './queries/get-expo-course-pacing';
 export { listKdsTerminalHeartbeats } from './queries/list-kds-terminal-heartbeats';
 export type { KdsTerminalStatus } from './queries/list-kds-terminal-heartbeats';
 
@@ -648,7 +657,8 @@ export {
   listRoutingRulesFilterSchema,
   // Session 5
   createStationSchema, updateStationSchema, upsertDisplayConfigSchema,
-  bumpItemSchema, recallItemSchema, bumpTicketSchema, callBackToStationSchema, refireItemSchema,
+  bumpItemSchema, recallItemSchema, bumpTicketSchema, callBackToStationSchema, refireItemSchema, holdTicketSchema,
+  reprioritizeTicketSchema, bulkHoldTicketsSchema, fireCourseFromKdsSchema, getKdsLocationMetricsSchema,
   heartbeatKdsTerminalSchema,
   listStationsFilterSchema, getStationDetailSchema,
   getKdsViewSchema, getExpoViewSchema, getStationMetricsSchema,
@@ -947,6 +957,7 @@ export {
   ExpoStationError,
   DuplicateStationNameError,
   TicketNotReadyError,
+  TicketAllVoidedError,
   // Session 6
   EightySixLogNotFoundError,
   ItemAlreadyEightySixedError,

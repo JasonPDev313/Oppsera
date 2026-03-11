@@ -6,6 +6,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { logger } from '@oppsera/core/observability';
 import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
+import { extractModifierIds, formatModifierSummary } from '../helpers/kds-modifier-helpers';
 import { createKitchenTicket } from '../commands/create-kitchen-ticket';
 import { recordKdsSend, markKdsSendSent } from '../commands/record-kds-send';
 
@@ -207,8 +208,11 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
 
     for (const [stationId, ticketItems] of stationGroups) {
       try {
+        // Use same clientRequestId format as manual send-to-kds flow
+        // so idempotency prevents duplicates if both paths run concurrently
+        const sortedLineIds = ticketItems.map((i) => i.orderLineId).sort().join(',');
         const ticket = await createKitchenTicket(syntheticCtx, {
-          clientRequestId: `retail-kds-${data.orderId}-${stationId}`,
+          clientRequestId: `retail-kds-send-${data.orderId}-${stationId}-${sortedLineIds}`,
           orderId: data.orderId,
           businessDate: data.businessDate,
           channel: 'pos',
@@ -218,7 +222,8 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
 
         // Record send tracking so orders appear in KDS Order Status
         try {
-          const sendToken = `${ticket.id}-${stationId}-${Date.now()}`;
+          const tokenRows = await withTenant(event.tenantId, (t) => t.execute(sql`SELECT gen_ulid() AS token`));
+          const sendToken = Array.from(tokenRows as Iterable<Record<string, unknown>>)[0]!.token as string;
           const tracked = await recordKdsSend({
             tenantId: event.tenantId,
             locationId: data.locationId,
@@ -266,35 +271,4 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
       },
     });
   }
-}
-
-/** Extract modifier IDs from the JSONB modifiers array. */
-function extractModifierIds(modifiers: unknown): string[] {
-  if (!Array.isArray(modifiers)) return [];
-  const ids: string[] = [];
-  for (const mod of modifiers) {
-    if (typeof mod === 'object' && mod !== null) {
-      const m = mod as Record<string, unknown>;
-      const id = m.modifierId as string | undefined;
-      if (id) ids.push(id);
-    }
-  }
-  return ids;
-}
-
-/** Formats the JSONB modifiers array into a human-readable summary string. */
-function formatModifierSummary(modifiers: unknown): string | null {
-  if (!Array.isArray(modifiers) || modifiers.length === 0) return null;
-
-  const parts: string[] = [];
-  for (const mod of modifiers) {
-    if (typeof mod === 'object' && mod !== null) {
-      const m = mod as Record<string, unknown>;
-      const name = String(m.name ?? m.modifierName ?? m.label ?? '');
-      if (name) parts.push(name);
-    } else if (typeof mod === 'string') {
-      parts.push(mod);
-    }
-  }
-  return parts.length > 0 ? parts.join(', ') : null;
 }

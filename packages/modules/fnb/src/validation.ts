@@ -693,6 +693,46 @@ export const callBackToStationSchema = z.object({
 
 export type CallBackToStationInput = z.input<typeof callBackToStationSchema>;
 
+export const holdTicketSchema = z.object({
+  ...idempotencyMixin,
+  ticketId: z.string().min(1),
+  hold: z.boolean(), // true = hold, false = unhold (fire)
+});
+
+export type HoldTicketInput = z.input<typeof holdTicketSchema>;
+
+export const reprioritizeTicketSchema = z.object({
+  ...idempotencyMixin,
+  ticketId: z.string().min(1),
+  priorityLevel: z.number().int().min(0).max(99),
+});
+
+export type ReprioritizeTicketInput = z.input<typeof reprioritizeTicketSchema>;
+
+export const bulkHoldTicketsSchema = z.object({
+  ...idempotencyMixin,
+  ticketIds: z.array(z.string().min(1)).min(1).max(50),
+  hold: z.boolean(),
+});
+
+export type BulkHoldTicketsInput = z.input<typeof bulkHoldTicketsSchema>;
+
+export const fireCourseFromKdsSchema = z.object({
+  ...idempotencyMixin,
+  ticketId: z.string().min(1),
+  courseNumber: z.number().int().min(1).optional(), // if omitted, uses ticket's course_number
+});
+
+export type FireCourseFromKdsInput = z.input<typeof fireCourseFromKdsSchema>;
+
+export const getKdsLocationMetricsSchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().min(1),
+  businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export type GetKdsLocationMetricsInput = z.input<typeof getKdsLocationMetricsSchema>;
+
 export const heartbeatKdsTerminalSchema = z.object({
   terminalId: z.string().min(1).max(100),
   stationId: z.string().min(1),
@@ -734,6 +774,7 @@ export const getExpoViewSchema = z.object({
   tenantId: z.string().min(1),
   locationId: z.string().min(1),
   businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  limit: z.number().int().min(1).max(500).optional().default(200),
 });
 
 export type GetExpoViewInput = z.input<typeof getExpoViewSchema>;

@@ -102,7 +102,7 @@ export const PERMISSION_GROUPS: PermissionGroupEntry[] = [
     ],
   },
   // ── Kitchen Display ───────────────────────────────────────
-  { label: 'Kitchen Display', permissions: ['kds.view', 'kds.bump', 'kds.recall', 'kds.manage', 'kds.settings.manage'] },
+  { label: 'Kitchen Display', permissions: ['kds.view', 'kds.bump', 'kds.hold', 'kds.recall', 'kds.manage', 'kds.settings.manage'] },
   // ── AI Insights ───────────────────────────────────────────
   { label: 'AI Insights', permissions: ['semantic.view', 'semantic.query', 'semantic.manage', 'semantic.admin'] },
   // ── Room Layouts ──────────────────────────────────────────

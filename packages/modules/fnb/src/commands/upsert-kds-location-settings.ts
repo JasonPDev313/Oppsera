@@ -1,4 +1,3 @@
-import { eq, and } from 'drizzle-orm';
 import { withTenant, fnbKdsLocationSettings } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared/utils/ulid';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
@@ -17,29 +16,7 @@ export async function upsertKdsLocationSettings(
   if (!locationId) throw new Error('locationId is required');
 
   const result = await withTenant(ctx.tenantId, async (tx) => {
-    const [existing] = await tx
-      .select({ id: fnbKdsLocationSettings.id })
-      .from(fnbKdsLocationSettings)
-      .where(and(
-        eq(fnbKdsLocationSettings.tenantId, ctx.tenantId),
-        eq(fnbKdsLocationSettings.locationId, locationId),
-      ))
-      .limit(1);
-
-    if (existing) {
-      const [updated] = await tx
-        .update(fnbKdsLocationSettings)
-        .set({
-          staleTicketMode: input.staleTicketMode,
-          autoClearTime: input.autoClearTime,
-          updatedAt: new Date(),
-        })
-        .where(eq(fnbKdsLocationSettings.id, existing.id))
-        .returning();
-      return updated;
-    }
-
-    const [inserted] = await tx
+    const [row] = await tx
       .insert(fnbKdsLocationSettings)
       .values({
         id: generateUlid(),
@@ -48,8 +25,16 @@ export async function upsertKdsLocationSettings(
         staleTicketMode: input.staleTicketMode,
         autoClearTime: input.autoClearTime,
       })
+      .onConflictDoUpdate({
+        target: [fnbKdsLocationSettings.tenantId, fnbKdsLocationSettings.locationId],
+        set: {
+          staleTicketMode: input.staleTicketMode,
+          autoClearTime: input.autoClearTime,
+          updatedAt: new Date(),
+        },
+      })
       .returning();
-    return inserted;
+    return row;
   });
 
   auditLogDeferred(ctx, 'kds.location_settings.updated', 'fnb_kds_location_settings', result!.id);

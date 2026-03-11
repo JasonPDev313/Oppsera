@@ -53,6 +53,11 @@ export async function bumpItem(
       .limit(1);
     if (!item) throw new TicketItemNotFoundError(input.ticketItemId);
 
+    // ── Guard: item must belong to the specified station ───────────
+    if (item.stationId && item.stationId !== input.stationId) {
+      throw new TicketItemNotFoundError(input.ticketItemId);
+    }
+
     // ── Load parent ticket (required — prevents orphan item bumps) ──
     const [ticket] = await tx
       .select()
@@ -148,7 +153,6 @@ export async function bumpItem(
     // Mode A (autoBumpOnAllReady=false) is unaffected — ticket stays as-is.
     const canAutoBump =
       station.autoBumpOnAllReady === true &&
-      ticketVersion === (ticket.status === 'pending' ? ticket.version + 1 : ticket.version) && // version tracking
       ticket.status !== 'ready' && // already handled by bump-ticket
       ticket.status !== 'served' && // terminal
       !ticket.isHeld; // held tickets must be manually bumped

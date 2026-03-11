@@ -8,7 +8,7 @@ import { fnbKitchenTicketItems, fnbKitchenTickets } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { RecallItemInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
-import { TicketItemNotFoundError, TicketItemStatusConflictError, TicketVersionConflictError } from '../errors';
+import { TicketItemNotFoundError, TicketItemStatusConflictError, TicketStatusConflictError, TicketVersionConflictError } from '../errors';
 
 export async function recallItem(
   ctx: RequestContext,
@@ -82,6 +82,11 @@ export async function recallItem(
         eq(fnbKitchenTickets.tenantId, ctx.tenantId),
       ))
       .limit(1);
+
+    // Guard: cannot recall items on a voided ticket
+    if (ticket && ticket.status === 'voided') {
+      throw new TicketStatusConflictError(item.ticketId, 'voided', 'recall item');
+    }
 
     // Revert ticket status if it was served/ready (an item was pulled back)
     if (ticket && (ticket.status === 'served' || ticket.status === 'ready')) {

@@ -42,6 +42,9 @@ export const FNB_EVENTS = {
   TICKET_BUMPED: 'fnb.kds.ticket_bumped.v1',
   ITEM_CALLED_BACK: 'fnb.kds.item_called_back.v1',
   ITEM_REFIRED: 'fnb.kds.item_refired.v1',
+  TICKET_HELD: 'fnb.kds.ticket_held.v1',
+  TICKET_UNHELD: 'fnb.kds.ticket_unheld.v1',
+  TICKET_REPRIORITIZED: 'fnb.kds.ticket_reprioritized.v1',
   // Session 6 — 86 Board, Menu Availability & Allergens
   ITEM_EIGHTY_SIXED: 'fnb.menu.item_eighty_sixed.v1',
   ITEM_RESTORED: 'fnb.menu.item_restored.v1',
@@ -399,6 +402,24 @@ export interface ItemRefiredPayload {
   stationId: string | null;
   locationId: string;
   reason: string | null;
+}
+
+export interface TicketReprioritizedPayload {
+  ticketId: string;
+  locationId: string;
+  oldPriority: number;
+  newPriority: number;
+}
+
+export interface TicketHeldPayload {
+  ticketId: string;
+  locationId: string;
+}
+
+export interface TicketUnheldPayload {
+  ticketId: string;
+  locationId: string;
+  firedBy: string;
 }
 
 // ── Session 6 Payloads ─────────────────────────────────────────

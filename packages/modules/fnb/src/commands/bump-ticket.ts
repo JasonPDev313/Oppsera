@@ -8,7 +8,7 @@ import { fnbKitchenTickets, fnbKitchenTicketItems } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { BumpTicketInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
-import { TicketNotFoundError, TicketNotReadyError, TicketStatusConflictError, TicketVersionConflictError } from '../errors';
+import { TicketNotFoundError, TicketNotReadyError, TicketAllVoidedError, TicketStatusConflictError, TicketVersionConflictError } from '../errors';
 
 /**
  * Determine whether this bump is from a prep station or from expo.
@@ -79,7 +79,7 @@ export async function bumpTicket(
 
     const nonVoided = allItems.filter((i) => i.itemStatus !== 'voided');
     if (nonVoided.length === 0) {
-      throw new TicketNotReadyError(input.ticketId);
+      throw new TicketAllVoidedError(input.ticketId);
     }
     const notReady = nonVoided.filter((i) => i.itemStatus !== 'ready' && i.itemStatus !== 'served');
     if (notReady.length > 0) {
@@ -87,6 +87,7 @@ export async function bumpTicket(
     }
 
     const now = new Date();
+    const events: ReturnType<typeof buildEventFromContext>[] = [];
 
     if (isExpoBump) {
       // ── Expo bump: finalize ticket → 'served' ──
@@ -123,16 +124,44 @@ export async function bumpTicket(
           eq(fnbKitchenTicketItems.itemStatus, 'ready'),
         ));
 
-      const event = buildEventFromContext(ctx, FNB_EVENTS.TICKET_BUMPED, {
+      events.push(buildEventFromContext(ctx, FNB_EVENTS.TICKET_BUMPED, {
         ticketId: input.ticketId,
         locationId: ticket.locationId,
         tabId: ticket.tabId,
-      });
+      }));
 
       await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'bumpTicket', updated);
-      return { result: updated!, events: [event] };
+      return { result: updated!, events };
     } else {
       // ── Prep station bump: move ticket → 'ready' (visible in expo) ──
+      // Auto-progress pending → in_progress first (consistent with bumpItem)
+      let currentVersion = ticket.version;
+      if (ticket.status === 'pending') {
+        const [progressed] = await tx
+          .update(fnbKitchenTickets)
+          .set({
+            status: 'in_progress',
+            startedAt: now,
+            version: currentVersion + 1,
+            updatedAt: now,
+          })
+          .where(and(
+            eq(fnbKitchenTickets.id, input.ticketId),
+            eq(fnbKitchenTickets.tenantId, ctx.tenantId),
+            eq(fnbKitchenTickets.version, currentVersion),
+          ))
+          .returning();
+        if (progressed) {
+          currentVersion = progressed.version;
+          events.push(buildEventFromContext(ctx, FNB_EVENTS.TICKET_STATUS_CHANGED, {
+            ticketId: input.ticketId,
+            locationId: ticket.locationId,
+            oldStatus: 'pending',
+            newStatus: 'in_progress',
+          }));
+        }
+      }
+
       const [updated] = await tx
         .update(fnbKitchenTickets)
         .set({
@@ -140,27 +169,27 @@ export async function bumpTicket(
           readyAt: now,
           bumpedAt: now,
           bumpedBy: ctx.user.id,
-          version: ticket.version + 1,
+          version: currentVersion + 1,
           updatedAt: now,
         })
         .where(and(
           eq(fnbKitchenTickets.id, input.ticketId),
           eq(fnbKitchenTickets.tenantId, ctx.tenantId),
-          eq(fnbKitchenTickets.version, ticket.version),
+          eq(fnbKitchenTickets.version, currentVersion),
         ))
         .returning();
       if (!updated) throw new TicketVersionConflictError(input.ticketId);
 
-      const event = buildEventFromContext(ctx, FNB_EVENTS.TICKET_BUMPED, {
+      events.push(buildEventFromContext(ctx, FNB_EVENTS.TICKET_BUMPED, {
         ticketId: input.ticketId,
         locationId: ticket.locationId,
         tabId: ticket.tabId,
         stationId: input.stationId,
         bumpedToStatus: 'ready',
-      });
+      }));
 
       await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'bumpTicket', updated);
-      return { result: updated!, events: [event] };
+      return { result: updated!, events };
     }
   });
 

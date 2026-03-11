@@ -99,6 +99,27 @@ export async function retryKdsSend(
       )
     `);
 
+    // Transition new retry send to 'sent' so it appears as dispatched
+    // (the ticket already exists — the retry just re-associates tracking)
+    await tx.execute(sql`
+      UPDATE fnb_kds_send_tracking
+      SET status = 'sent', sent_at = NOW(), updated_at = NOW()
+      WHERE id = ${newSendId} AND tenant_id = ${ctx.tenantId} AND status = 'queued'
+    `);
+
+    await tx.execute(sql`
+      INSERT INTO fnb_kds_send_events (
+        id, tenant_id, location_id, send_tracking_id, send_token,
+        ticket_id, station_id, event_type, event_at, actor_type,
+        previous_status, new_status, created_at
+      ) VALUES (
+        gen_ulid(), ${ctx.tenantId}, ${orig.location_id as string},
+        ${newSendId}, ${newToken},
+        ${orig.ticket_id as string}, ${orig.station_id as string},
+        'sent', NOW(), 'system', 'queued', 'sent', NOW()
+      )
+    `);
+
     return { newSendId, newSendToken: newToken };
   });
 

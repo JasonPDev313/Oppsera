@@ -7,7 +7,7 @@ import { fnbKitchenDeltaChits, fnbKitchenTickets } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { CreateDeltaChitInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
-import { TicketNotFoundError } from '../errors';
+import { TicketNotFoundError, TicketStatusConflictError } from '../errors';
 
 export async function createDeltaChit(
   ctx: RequestContext,
@@ -31,6 +31,16 @@ export async function createDeltaChit(
       ))
       .limit(1);
     if (!ticket) throw new TicketNotFoundError(input.ticketId);
+
+    // Guard: cannot create delta chit for a voided ticket
+    if (ticket.status === 'voided') {
+      throw new TicketStatusConflictError(input.ticketId, 'voided', 'create delta chit');
+    }
+
+    // Defense-in-depth: reject if ticket belongs to a different location
+    if (ctx.locationId && ticket.locationId && ticket.locationId !== ctx.locationId) {
+      throw new TicketNotFoundError(input.ticketId);
+    }
 
     const [created] = await tx
       .insert(fnbKitchenDeltaChits)

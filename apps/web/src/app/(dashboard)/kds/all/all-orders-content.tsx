@@ -28,6 +28,8 @@ interface KdsAllTicketsResponse {
   tickets: KdsTicketCard[];
   activeTicketCount: number;
   stationCount: number;
+  warningThresholdSeconds: number;
+  criticalThresholdSeconds: number;
 }
 
 const POLL_INTERVAL = 10_000; // 10s for all-stations view
@@ -53,6 +55,7 @@ export default function AllOrdersContent() {
   const [isPaused, setIsPaused] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [allTickets, setAllTickets] = useState<KdsTicketCard[]>([]);
+  const [thresholds, setThresholds] = useState({ warning: 480, critical: 720 });
   const [isLoading, setIsLoading] = useState(true);
   const fetchingRef = useRef(false);
 
@@ -78,6 +81,10 @@ export default function AllOrdersContent() {
       });
 
       setAllTickets(sorted);
+      setThresholds({
+        warning: result.data.warningThresholdSeconds ?? 480,
+        critical: result.data.criticalThresholdSeconds ?? 720,
+      });
     } catch {
       // silent — AbortError is rethrown by apiFetch without logging
     } finally {
@@ -104,8 +111,8 @@ export default function AllOrdersContent() {
     return Math.round(allTickets.reduce((sum, t) => sum + t.elapsedSeconds, 0) / allTickets.length);
   }, [allTickets]);
 
-  const defaultWarning = 300;
-  const defaultCritical = 480;
+  const defaultWarning = thresholds.warning;
+  const defaultCritical = thresholds.critical;
 
   if (isLoading && allTickets.length === 0) {
     return (

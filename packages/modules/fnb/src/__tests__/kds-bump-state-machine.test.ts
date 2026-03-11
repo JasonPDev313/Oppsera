@@ -109,6 +109,7 @@ function makeTicketItem(overrides: Record<string, unknown> = {}) {
     id: 'ti-1',
     tenantId: 'tenant-1',
     ticketId: 'tk-1',
+    stationId: 'station-1',
     itemStatus: 'pending',
     startedAt: null,
     readyAt: null,
@@ -332,22 +333,32 @@ describe('KDS Bump State Machine — bumpTicket (prep station)', () => {
 
   it('bumpTicket prep: all items ready, ticket pending → ticket becomes ready', async () => {
     const ticket = makeTicket({ status: 'pending' });
-    const updatedTicket = { ...ticket, status: 'ready' };
+    const progressedTicket = { ...ticket, status: 'in_progress', version: ticket.version + 1 };
+    const updatedTicket = { ...ticket, status: 'ready', version: ticket.version + 2 };
 
     // 1. select ticket
     mockTx.limit.mockResolvedValueOnce([ticket]);
     // 2. resolveIsExpoBump → station lookup
     mockTx.execute.mockResolvedValueOnce([{ station_type: 'prep' }]);
-    // 3. select all items (no .limit(), direct where → returns array)
-    mockTx.where.mockImplementation(function (this: unknown) {
-      // After the items select, .where() resolves directly (no .limit())
-      return Object.assign(Promise.resolve([
-        { itemStatus: 'ready' },
-        { itemStatus: 'ready' },
-      ]), mockTx);
+    // 3. select all items — .where() is called multiple times:
+    //    call 1 = ticket select chain, call 2 = items select (resolves to array),
+    //    calls 3+ = update chains (return mockTx for .returning())
+    let whereCallCount = 0;
+    mockTx.where.mockImplementation(function () {
+      whereCallCount++;
+      if (whereCallCount === 2) {
+        // Items select — resolves directly to array
+        return Object.assign(Promise.resolve([
+          { itemStatus: 'ready' },
+          { itemStatus: 'ready' },
+        ]), mockTx);
+      }
+      return mockTx;
     });
-    // 4. update ticket returning
-    mockTx.returning.mockResolvedValueOnce([updatedTicket]);
+    // 4. auto-progress pending→in_progress returning, then update ticket→ready returning
+    mockTx.returning
+      .mockResolvedValueOnce([progressedTicket])
+      .mockResolvedValueOnce([updatedTicket]);
 
     const result = await bumpTicket(makeCtx(), prepInput);
     expect(result.status).toBe('ready');
@@ -524,14 +535,23 @@ describe('KDS Bump State Machine — resolveIsExpoBump', () => {
 
   it('stationId with station_type=prep → prep bump (ticket → ready)', async () => {
     const ticket = makeTicket({ status: 'pending' });
-    const updatedTicket = { ...ticket, status: 'ready' };
+    const progressedTicket = { ...ticket, status: 'in_progress', version: ticket.version + 1 };
+    const updatedTicket = { ...ticket, status: 'ready', version: ticket.version + 2 };
 
     mockTx.limit.mockResolvedValueOnce([ticket]);
     mockTx.execute.mockResolvedValueOnce([{ station_type: 'prep' }]);
+    let whereCallCount2 = 0;
     mockTx.where.mockImplementation(function () {
-      return Object.assign(Promise.resolve([{ itemStatus: 'ready' }]), mockTx);
+      whereCallCount2++;
+      if (whereCallCount2 === 2) {
+        return Object.assign(Promise.resolve([{ itemStatus: 'ready' }]), mockTx);
+      }
+      return mockTx;
     });
-    mockTx.returning.mockResolvedValueOnce([updatedTicket]);
+    // auto-progress pending→in_progress, then update to ready
+    mockTx.returning
+      .mockResolvedValueOnce([progressedTicket])
+      .mockResolvedValueOnce([updatedTicket]);
 
     const result = await bumpTicket(makeCtx(), { ticketId: 'tk-1', stationId: 'station-prep', clientRequestId: 'req-1' });
     expect(result.status).toBe('ready');
@@ -634,6 +654,7 @@ describe('KDS Bump State Machine — refireItem', () => {
     mockTx.limit
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket])   // ticketForGuard (voided check)
       .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])    // void update
@@ -654,6 +675,7 @@ describe('KDS Bump State Machine — refireItem', () => {
     mockTx.limit
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket])   // ticketForGuard (voided check)
       .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])
@@ -695,6 +717,7 @@ describe('KDS Bump State Machine — refireItem', () => {
     mockTx.limit
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket])   // ticketForGuard (voided check)
       .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])   // void update
@@ -713,6 +736,7 @@ describe('KDS Bump State Machine — refireItem', () => {
     mockTx.limit
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket])   // ticketForGuard (voided check)
       .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])
@@ -739,6 +763,7 @@ describe('KDS Bump State Machine — refireItem', () => {
     mockTx.limit
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket])   // ticketForGuard (voided check)
       .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])
@@ -761,6 +786,7 @@ describe('KDS Bump State Machine — refireItem', () => {
     mockTx.limit
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket])   // ticketForGuard (voided check)
       .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])
@@ -781,6 +807,7 @@ describe('KDS Bump State Machine — refireItem', () => {
     mockTx.limit
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket])   // location check
+      .mockResolvedValueOnce([ticket])   // ticketForGuard (voided check)
       .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])
@@ -1073,6 +1100,19 @@ describe('KDS Bump State Machine — callBackToStation', () => {
     expect(ticketSetCall?.readyAt).toBeNull();
     expect(ticketSetCall?.version).toBe(3);
   });
+
+  it('callBack: voided ticket → throws TicketItemStatusConflictError', async () => {
+    const item = makeTicketItem({ itemStatus: 'ready' });
+    const calledBack = { ...item, itemStatus: 'cooking' };
+    const ticket = makeTicket({ status: 'voided' });
+
+    mockTx.limit
+      .mockResolvedValueOnce([item])
+      .mockResolvedValueOnce([ticket]);
+    mockTx.returning.mockResolvedValueOnce([calledBack]); // item update succeeds
+
+    await expect(callBackToStation(makeCtx(), baseInput)).rejects.toThrow(/voided/);
+  });
 });
 
 // ── bumpItem Edge Cases ───────────────────────────────────────
@@ -1179,6 +1219,17 @@ describe('KDS Bump State Machine — bumpItem edge cases', () => {
     // Only 1 returning call = item bump, no ticket auto-bump
     expect(mockTx.returning).toHaveBeenCalledTimes(1);
   });
+
+  it('bumpItem: item at wrong station → throws TicketItemNotFoundError', async () => {
+    const station = makeStation();
+    const item = makeTicketItem({ itemStatus: 'pending', stationId: 'station-other' });
+
+    mockTx.limit
+      .mockResolvedValueOnce([station])
+      .mockResolvedValueOnce([item]);
+
+    await expect(bumpItem(makeCtx(), baseInput)).rejects.toThrow(/not found/);
+  });
 });
 
 // ── bumpTicket Edge Cases ─────────────────────────────────────
@@ -1213,7 +1264,7 @@ describe('KDS Bump State Machine — bumpTicket edge cases', () => {
     });
 
     await expect(bumpTicket(makeCtx(), { ticketId: 'tk-1', stationId: 'station-1', clientRequestId: 'req-1' }))
-      .rejects.toThrow(/Not all items on ticket .+ are ready/);
+      .rejects.toThrow(/All items on ticket .+ are voided/);
   });
 
   it('bumpTicket prep: version conflict → throws TicketVersionConflictError', async () => {
@@ -1296,5 +1347,113 @@ describe('KDS Bump State Machine — bumpTicket edge cases', () => {
     const result = await bumpTicket(makeCtx(), { ticketId: 'tk-1', clientRequestId: 'req-dup' });
     expect(result).toEqual(cachedResult);
     expect(mockTx.update).not.toHaveBeenCalled();
+  });
+});
+
+// ── holdTicket ──────────────────────────────────────────────────
+
+describe('KDS Bump State Machine — holdTicket', () => {
+  let holdTicket: typeof import('../commands/hold-ticket').holdTicket;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockTx = createChainableMock();
+    const mod = await import('../commands/hold-ticket');
+    holdTicket = mod.holdTicket;
+  });
+
+  it('holdTicket: pending ticket → held', async () => {
+    const ticket = makeTicket({ status: 'pending', isHeld: false });
+    const heldTicket = { ...ticket, isHeld: true, version: ticket.version + 1 };
+
+    mockTx.limit.mockResolvedValueOnce([ticket]);
+    mockTx.returning.mockResolvedValueOnce([heldTicket]);
+
+    const result = await holdTicket(makeCtx(), { ticketId: 'tk-1', hold: true, clientRequestId: 'req-1' });
+    expect(result.isHeld).toBe(true);
+
+    const setCall = mockTx.set.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(setCall?.isHeld).toBe(true);
+    expect(setCall?.heldAt).toBeInstanceOf(Date);
+  });
+
+  it('holdTicket: held ticket → unheld (fired)', async () => {
+    const ticket = makeTicket({ status: 'in_progress', isHeld: true });
+    const firedTicket = { ...ticket, isHeld: false, version: ticket.version + 1 };
+
+    mockTx.limit.mockResolvedValueOnce([ticket]);
+    mockTx.returning.mockResolvedValueOnce([firedTicket]);
+
+    const result = await holdTicket(makeCtx(), { ticketId: 'tk-1', hold: false, clientRequestId: 'req-1' });
+    expect(result.isHeld).toBe(false);
+
+    const setCall = mockTx.set.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(setCall?.isHeld).toBe(false);
+    expect(setCall?.firedAt).toBeInstanceOf(Date);
+    expect(setCall?.firedBy).toBe('user-1');
+  });
+
+  it('holdTicket: already held → no-op', async () => {
+    const ticket = makeTicket({ status: 'in_progress', isHeld: true });
+
+    mockTx.limit.mockResolvedValueOnce([ticket]);
+
+    const result = await holdTicket(makeCtx(), { ticketId: 'tk-1', hold: true, clientRequestId: 'req-1' });
+    expect(result).toEqual(ticket);
+    expect(mockTx.update).not.toHaveBeenCalled();
+  });
+
+  it('holdTicket: already unheld → no-op', async () => {
+    const ticket = makeTicket({ status: 'in_progress', isHeld: false });
+
+    mockTx.limit.mockResolvedValueOnce([ticket]);
+
+    const result = await holdTicket(makeCtx(), { ticketId: 'tk-1', hold: false, clientRequestId: 'req-1' });
+    expect(result).toEqual(ticket);
+    expect(mockTx.update).not.toHaveBeenCalled();
+  });
+
+  it('holdTicket: served ticket → throws TicketStatusConflictError', async () => {
+    const ticket = makeTicket({ status: 'served' });
+
+    mockTx.limit.mockResolvedValueOnce([ticket]);
+
+    await expect(holdTicket(makeCtx(), { ticketId: 'tk-1', hold: true, clientRequestId: 'req-1' }))
+      .rejects.toThrow(/Cannot hold ticket .+ in status 'served'/);
+  });
+
+  it('holdTicket: voided ticket → throws TicketStatusConflictError', async () => {
+    const ticket = makeTicket({ status: 'voided' });
+
+    mockTx.limit.mockResolvedValueOnce([ticket]);
+
+    await expect(holdTicket(makeCtx(), { ticketId: 'tk-1', hold: true, clientRequestId: 'req-1' }))
+      .rejects.toThrow(/Cannot hold ticket .+ in status 'voided'/);
+  });
+
+  it('holdTicket: ticket not found → throws TicketNotFoundError', async () => {
+    mockTx.limit.mockResolvedValueOnce([]);
+
+    await expect(holdTicket(makeCtx(), { ticketId: 'tk-ghost', hold: true, clientRequestId: 'req-1' }))
+      .rejects.toThrow(/not found/);
+  });
+
+  it('holdTicket: version conflict → throws TicketVersionConflictError', async () => {
+    const ticket = makeTicket({ status: 'pending', isHeld: false });
+
+    mockTx.limit.mockResolvedValueOnce([ticket]);
+    mockTx.returning.mockResolvedValueOnce([]); // version conflict
+
+    await expect(holdTicket(makeCtx(), { ticketId: 'tk-1', hold: true, clientRequestId: 'req-1' }))
+      .rejects.toThrow(/has been modified by another user/);
+  });
+
+  it('holdTicket: location scoping blocks cross-location hold', async () => {
+    const ticket = makeTicket({ status: 'pending', locationId: 'loc-other' });
+
+    mockTx.limit.mockResolvedValueOnce([ticket]);
+
+    await expect(holdTicket(makeCtx({ locationId: 'loc-1' }), { ticketId: 'tk-1', hold: true, clientRequestId: 'req-1' }))
+      .rejects.toThrow(/not found/);
   });
 });

@@ -9,7 +9,7 @@ import { generateUlid } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { RefireItemInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
-import { TicketItemNotFoundError, TicketItemStatusConflictError, TicketVersionConflictError } from '../errors';
+import { TicketItemNotFoundError, TicketItemStatusConflictError, TicketStatusConflictError, TicketVersionConflictError } from '../errors';
 
 /**
  * Re-fire (remake) an item: voids the original and creates a new ticket item
@@ -58,9 +58,22 @@ export async function refireItem(
       throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'refire');
     }
 
+    // Guard: cannot refire items on a voided ticket (remake would be silently lost)
+    const [ticketForGuard] = await tx
+      .select({ status: fnbKitchenTickets.status })
+      .from(fnbKitchenTickets)
+      .where(and(
+        eq(fnbKitchenTickets.id, item.ticketId),
+        eq(fnbKitchenTickets.tenantId, ctx.tenantId),
+      ))
+      .limit(1);
+    if (ticketForGuard && ticketForGuard.status === 'voided') {
+      throw new TicketStatusConflictError(item.ticketId, 'voided', 'refire item');
+    }
+
     const now = new Date();
 
-    // Void the original item — verify update succeeded to catch concurrent voids
+    // Void the original item — use optimistic lock to prevent concurrent double-refire
     const [voided] = await tx
       .update(fnbKitchenTicketItems)
       .set({
@@ -71,9 +84,10 @@ export async function refireItem(
       .where(and(
         eq(fnbKitchenTicketItems.id, input.ticketItemId),
         eq(fnbKitchenTicketItems.tenantId, ctx.tenantId),
+        eq(fnbKitchenTicketItems.itemStatus, item.itemStatus), // optimistic lock
       ))
       .returning();
-    if (!voided) throw new TicketItemNotFoundError(input.ticketItemId);
+    if (!voided) throw new TicketItemStatusConflictError(input.ticketItemId, item.itemStatus, 'refire (concurrent)');
 
     // Create new item as a remake at the same station
     const newItemId = generateUlid();

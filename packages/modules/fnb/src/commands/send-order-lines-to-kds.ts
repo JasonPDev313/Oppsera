@@ -6,6 +6,7 @@ import { AppError } from '@oppsera/shared';
 import { logger } from '@oppsera/core/observability';
 import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
+import { extractModifierIds, formatModifierSummary } from '../helpers/kds-modifier-helpers';
 import { createKitchenTicket } from './create-kitchen-ticket';
 import { recordKdsSend, markKdsSendSent, markKdsSendFailed } from './record-kds-send';
 
@@ -209,7 +210,8 @@ export async function sendOrderLinesToKds(
 
         // Record send tracking (non-critical — failures don't block ticket creation)
         try {
-          const sendToken = `${ticket.id}-${stationId}-${Date.now()}`;
+          const tokenRows = await withTenant(ctx.tenantId, (t) => t.execute(sql`SELECT gen_ulid() AS token`));
+          const sendToken = Array.from(tokenRows as Iterable<Record<string, unknown>>)[0]!.token as string;
           const tracked = await recordKdsSend({
             tenantId: ctx.tenantId,
             locationId: ctx.locationId!,
@@ -262,7 +264,8 @@ export async function sendOrderLinesToKds(
       failedStations.push(stationId);
       // Track the failure (non-critical)
       try {
-        const failToken = `fail-${orderId}-${stationId}-${Date.now()}`;
+        const failTokenRows = await withTenant(ctx.tenantId, (t) => t.execute(sql`SELECT gen_ulid() AS token`));
+        const failToken = Array.from(failTokenRows as Iterable<Record<string, unknown>>)[0]!.token as string;
         const tracked = await recordKdsSend({
           tenantId: ctx.tenantId,
           locationId: ctx.locationId!,
@@ -291,37 +294,6 @@ export async function sendOrderLinesToKds(
     failedCount: failedStations.length,
     totalStations: stationGroups.size,
   };
-}
-
-/** Extract modifier IDs from the JSONB modifiers array. */
-function extractModifierIds(modifiers: unknown): string[] {
-  if (!Array.isArray(modifiers)) return [];
-  const ids: string[] = [];
-  for (const mod of modifiers) {
-    if (typeof mod === 'object' && mod !== null) {
-      const m = mod as Record<string, unknown>;
-      const id = m.modifierId as string | undefined;
-      if (id) ids.push(id);
-    }
-  }
-  return ids;
-}
-
-/** Formats the JSONB modifiers array into a human-readable summary string. */
-function formatModifierSummary(modifiers: unknown): string | null {
-  if (!Array.isArray(modifiers) || modifiers.length === 0) return null;
-
-  const parts: string[] = [];
-  for (const mod of modifiers) {
-    if (typeof mod === 'object' && mod !== null) {
-      const m = mod as Record<string, unknown>;
-      const name = String(m.name ?? m.modifierName ?? m.label ?? '');
-      if (name) parts.push(name);
-    } else if (typeof mod === 'string') {
-      parts.push(mod);
-    }
-  }
-  return parts.length > 0 ? parts.join(', ') : null;
 }
 
 /** Detect transient errors that are safe to retry (pool exhaustion, timeouts, connection errors). */

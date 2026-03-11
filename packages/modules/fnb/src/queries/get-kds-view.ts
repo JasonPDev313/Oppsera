@@ -4,6 +4,28 @@ import { logger } from '@oppsera/core/observability';
 import type { GetKdsViewInput } from '../validation';
 import { StationNotFoundError, ExpoStationError } from '../errors';
 
+/** Group items by courseName and compute per-course readiness. */
+export function buildCourseGroups(items: KdsTicketItem[]): KdsCourseGroup[] {
+  const byCourseName = new Map<string, KdsTicketItem[]>();
+  for (const item of items) {
+    if (!item.courseName) continue;
+    const arr = byCourseName.get(item.courseName) ?? [];
+    arr.push(item);
+    byCourseName.set(item.courseName, arr);
+  }
+  const groups: KdsCourseGroup[] = [];
+  for (const [courseName, courseItems] of byCourseName) {
+    const readyCount = courseItems.filter((i) => i.itemStatus === 'ready' || i.itemStatus === 'served').length;
+    groups.push({
+      courseName,
+      itemCount: courseItems.length,
+      readyCount,
+      allReady: readyCount === courseItems.length,
+    });
+  }
+  return groups;
+}
+
 export interface KdsTicketItem {
   itemId: string;
   orderLineId: string;
@@ -26,6 +48,16 @@ export interface KdsTicketItem {
   readyAt: string | null;
   bumpedBy: string | null;
   elapsedSeconds: number;
+}
+
+export interface KdsCourseGroup {
+  courseName: string;
+  /** Count of items in this course at this station */
+  itemCount: number;
+  /** Count of ready items in this course */
+  readyCount: number;
+  /** True when all items in this course are ready */
+  allReady: boolean;
 }
 
 export interface KdsTicketCard {
@@ -54,6 +86,14 @@ export interface KdsTicketCard {
   orderTimestamp: string | null;
   /** Business date (YYYY-MM-DD) — stale if < today */
   businessDate: string | null;
+  /** Count of active items at THIS station (excludes served/voided) */
+  stationItemCount: number;
+  /** Count of ready items at THIS station */
+  stationReadyCount: number;
+  /** Alert level based on elapsed time vs station thresholds: 'normal' | 'warning' | 'critical' */
+  alertLevel: 'normal' | 'warning' | 'critical';
+  /** Items grouped by course — only populated when items have courseName */
+  courseGroups: KdsCourseGroup[];
 }
 
 export interface KdsCompletedTicket {
@@ -201,29 +241,43 @@ export async function getKdsView(
       }
     }
 
-    const ticketCards: KdsTicketCard[] = tickets.map((t) => ({
-      ticketId: t.id as string,
-      ticketNumber: Number(t.ticket_number),
-      tabId: t.tab_id as string,
-      courseNumber: t.course_number != null ? Number(t.course_number) : null,
-      status: t.status as string,
-      priorityLevel: Number(t.priority_level ?? 0),
-      isHeld: (t.is_held as boolean) ?? false,
-      orderType: (t.order_type as string) ?? null,
-      channel: (t.channel as string) ?? null,
-      tableNumber: t.table_number != null ? Number(t.table_number) : null,
-      serverName: (t.server_name as string) ?? null,
-      customerName: (t.customer_name as string) ?? null,
-      sentAt: t.sent_at as string,
-      estimatedPickupAt: (t.estimated_pickup_at as string) ?? null,
-      elapsedSeconds: Number(t.elapsed_seconds),
-      items: itemsByTicket.get(t.id as string) ?? [],
-      otherStations: [],
-      orderSource: (t.order_source as string) ?? null,
-      terminalId: (t.terminal_id as string) ?? null,
-      orderTimestamp: (t.order_timestamp as string) ?? null,
-      businessDate: (t.business_date as string) ?? null,
-    }));
+    const warnThreshold = Number(station.warning_threshold_seconds ?? 480);
+    const critThreshold = Number(station.critical_threshold_seconds ?? 720);
+
+    const ticketCards: KdsTicketCard[] = tickets.map((t) => {
+      const items = itemsByTicket.get(t.id as string) ?? [];
+      const elapsed = Number(t.elapsed_seconds);
+      const alertLevel: 'normal' | 'warning' | 'critical' =
+        elapsed >= critThreshold ? 'critical' :
+        elapsed >= warnThreshold ? 'warning' : 'normal';
+      return {
+        ticketId: t.id as string,
+        ticketNumber: Number(t.ticket_number),
+        tabId: t.tab_id as string,
+        courseNumber: t.course_number != null ? Number(t.course_number) : null,
+        status: t.status as string,
+        priorityLevel: Number(t.priority_level ?? 0),
+        isHeld: (t.is_held as boolean) ?? false,
+        orderType: (t.order_type as string) ?? null,
+        channel: (t.channel as string) ?? null,
+        tableNumber: t.table_number != null ? Number(t.table_number) : null,
+        serverName: (t.server_name as string) ?? null,
+        customerName: (t.customer_name as string) ?? null,
+        sentAt: t.sent_at as string,
+        estimatedPickupAt: (t.estimated_pickup_at as string) ?? null,
+        elapsedSeconds: Number(t.elapsed_seconds),
+        items,
+        otherStations: [],
+        orderSource: (t.order_source as string) ?? null,
+        terminalId: (t.terminal_id as string) ?? null,
+        orderTimestamp: (t.order_timestamp as string) ?? null,
+        businessDate: (t.business_date as string) ?? null,
+        stationItemCount: items.length,
+        stationReadyCount: items.filter((i) => i.itemStatus === 'ready').length,
+        alertLevel,
+        courseGroups: buildCourseGroups(items),
+      };
+    });
 
     // Fetch cross-station "Also At" data for all active tickets.
     // Since each ticket is single-station (consumers group items by station and
@@ -237,8 +291,10 @@ export async function getKdsView(
             FROM fnb_kitchen_tickets kt_this
             INNER JOIN fnb_kitchen_tickets kt_sibling
               ON kt_sibling.tenant_id = kt_this.tenant_id
+              AND kt_sibling.location_id = kt_this.location_id
               AND kt_sibling.business_date = kt_this.business_date
               AND kt_sibling.id != kt_this.id
+              AND kt_sibling.status NOT IN ('voided', 'served')
               AND (
                 (kt_sibling.order_id IS NOT NULL AND kt_sibling.order_id = kt_this.order_id)
                 OR (kt_sibling.tab_id IS NOT NULL AND kt_sibling.tab_id = kt_this.tab_id)

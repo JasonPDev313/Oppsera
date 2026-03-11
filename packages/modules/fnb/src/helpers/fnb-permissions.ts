@@ -58,6 +58,7 @@ export const FNB_PERMISSIONS: FnbPermission[] = [
   // KDS
   { key: 'pos_fnb.kds.view', description: 'View KDS station and ticket queue', category: 'kds' },
   { key: 'pos_fnb.kds.bump', description: 'Bump tickets on KDS stations', category: 'kds' },
+  { key: 'pos_fnb.kds.hold', description: 'Hold and unhold kitchen tickets', category: 'kds' },
   { key: 'pos_fnb.kds.manage', description: 'Manage KDS station settings and routing', category: 'kds' },
 
   // GL Posting

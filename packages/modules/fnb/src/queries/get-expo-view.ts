@@ -2,6 +2,13 @@ import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import type { GetExpoViewInput } from '../validation';
 
+export interface ExpoCourseGroup {
+  courseName: string;
+  itemCount: number;
+  readyCount: number;
+  allReady: boolean;
+}
+
 export interface ExpoTicketItem {
   itemId: string;
   itemName: string;
@@ -44,6 +51,31 @@ export interface ExpoTicketCard {
   allItemsReady: boolean;
   readyCount: number;
   totalCount: number;
+  /** Alert level based on elapsed time: 'normal' | 'warning' | 'critical' */
+  alertLevel: 'normal' | 'warning' | 'critical';
+  /** Items grouped by course — only populated when items have courseName */
+  courseGroups: ExpoCourseGroup[];
+}
+
+function buildExpoCourseGroups(items: ExpoTicketItem[]): ExpoCourseGroup[] {
+  const byCourseName = new Map<string, ExpoTicketItem[]>();
+  for (const item of items) {
+    if (!item.courseName) continue;
+    const arr = byCourseName.get(item.courseName) ?? [];
+    arr.push(item);
+    byCourseName.set(item.courseName, arr);
+  }
+  const groups: ExpoCourseGroup[] = [];
+  for (const [courseName, courseItems] of byCourseName) {
+    const readyCount = courseItems.filter((i) => i.itemStatus === 'ready' || i.itemStatus === 'served').length;
+    groups.push({
+      courseName,
+      itemCount: courseItems.length,
+      readyCount,
+      allReady: readyCount === courseItems.length,
+    });
+  }
+  return groups;
 }
 
 export interface ExpoView {
@@ -68,7 +100,8 @@ export async function getExpoView(
           WHERE tenant_id = ${input.tenantId}
             AND location_id = ${input.locationId}
             AND status IN ('pending', 'in_progress', 'ready')
-          ORDER BY priority_level DESC NULLS LAST, sent_at ASC`,
+          ORDER BY priority_level DESC NULLS LAST, sent_at ASC
+          LIMIT ${input.limit ?? 200}`,
     );
     const tickets = Array.from(ticketRows as Iterable<Record<string, unknown>>);
 
@@ -120,6 +153,11 @@ export async function getExpoView(
       }
     }
 
+    // Expo uses default thresholds (8 min warning, 12 min critical)
+    // TODO: Make configurable via fnb_kds_location_settings when needed
+    const EXPO_WARN_SECONDS = 480;
+    const EXPO_CRIT_SECONDS = 720;
+
     const expoCards: ExpoTicketCard[] = [];
     let ticketsAllReady = 0;
 
@@ -154,6 +192,9 @@ export async function getExpoView(
         allItemsReady,
         readyCount,
         totalCount,
+        alertLevel: Number(t.elapsed_seconds) >= EXPO_CRIT_SECONDS ? 'critical' :
+          Number(t.elapsed_seconds) >= EXPO_WARN_SECONDS ? 'warning' : 'normal',
+        courseGroups: buildExpoCourseGroups(items),
       });
     }
 

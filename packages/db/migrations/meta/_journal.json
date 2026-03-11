@@ -2136,6 +2136,13 @@
       "when": 1773541200000,
       "tag": "0304_folio_number_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 305,
+      "version": "7",
+      "when": 1773199580838,
+      "tag": "0305_kds_hold_permission",
+      "breakpoints": true
     }
   ]
 }

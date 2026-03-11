@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
+import { buildCourseGroups } from './get-kds-view';
 import type { KdsTicketCard, KdsTicketItem } from './get-kds-view';
 
 export interface KdsAllTicketsInput {
@@ -12,6 +13,8 @@ export interface KdsAllTicketsView {
   tickets: KdsTicketCard[];
   activeTicketCount: number;
   stationCount: number;
+  warningThresholdSeconds: number;
+  criticalThresholdSeconds: number;
 }
 
 /**
@@ -44,7 +47,7 @@ export async function getKdsAllTickets(
     const tickets = Array.from(ticketRows as Iterable<Record<string, unknown>>);
 
     if (tickets.length === 0) {
-      return { tickets: [], activeTicketCount: 0, stationCount: 0 };
+      return { tickets: [], activeTicketCount: 0, stationCount: 0, warningThresholdSeconds: 480, criticalThresholdSeconds: 720 };
     }
 
     // 2. Batch-fetch all non-voided/served items for all active tickets
@@ -98,6 +101,27 @@ export async function getKdsAllTickets(
       itemsByTicket.get(tid)!.push(item);
     }
 
+    // 2b. Fetch station thresholds for the location (used for banner)
+    let warningThreshold = 480;
+    let criticalThreshold = 720;
+    if (stationIds.size > 0) {
+      const stationIdArr = Array.from(stationIds);
+      const thresholdRows = await tx.execute(
+        sql`SELECT warning_threshold_seconds, critical_threshold_seconds
+            FROM fnb_kitchen_stations
+            WHERE tenant_id = ${input.tenantId}
+              AND location_id = ${input.locationId}
+              AND id IN (${sql.join(stationIdArr.map((id) => sql`${id}`), sql`, `)})
+              AND is_active = true`,
+      );
+      const thresholds = Array.from(thresholdRows as Iterable<Record<string, unknown>>);
+      if (thresholds.length > 0) {
+        // Use the minimum thresholds across all active stations (most conservative)
+        warningThreshold = Math.min(...thresholds.map((t) => Number(t.warning_threshold_seconds ?? 480)));
+        criticalThreshold = Math.min(...thresholds.map((t) => Number(t.critical_threshold_seconds ?? 720)));
+      }
+    }
+
     // 3. Build ticket cards (only include tickets that have active items)
     const ticketCards: KdsTicketCard[] = [];
     for (const t of tickets) {
@@ -125,6 +149,11 @@ export async function getKdsAllTickets(
         terminalId: (t.terminal_id as string) ?? null,
         orderTimestamp: (t.order_timestamp as string) ?? null,
         businessDate: (t.business_date as string) ?? null,
+        stationItemCount: items.length,
+        stationReadyCount: items.filter((i) => i.itemStatus === 'ready').length,
+        alertLevel: Number(t.elapsed_seconds) >= criticalThreshold ? 'critical' :
+          Number(t.elapsed_seconds) >= warningThreshold ? 'warning' : 'normal',
+        courseGroups: buildCourseGroups(items),
       });
     }
 
@@ -132,6 +161,8 @@ export async function getKdsAllTickets(
       tickets: ticketCards,
       activeTicketCount: ticketCards.length,
       stationCount: stationIds.size,
+      warningThresholdSeconds: warningThreshold,
+      criticalThresholdSeconds: criticalThreshold,
     };
   });
 }

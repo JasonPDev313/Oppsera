@@ -48,10 +48,15 @@ export default function KdsContent() {
     error,
     bumpItem,
     bumpTicket,
-    recallItem: _recallItem,
+    recallItem,
+    callBack,
+    refireItem,
     isActing,
     refresh,
   } = useKdsView({ stationId, locationId, pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
+
+  // Actions available for future UI wiring (context menu, long-press, etc.)
+  void recallItem; void callBack; void refireItem;
 
   // Sort tickets by priority (higher first), then by elapsed time (longer first)
   const sortedTickets = useMemo(() => {

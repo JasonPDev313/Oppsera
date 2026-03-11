@@ -361,6 +361,14 @@ export interface KdsTicketCard {
   orderTimestamp?: string | null;
   /** Business date the ticket belongs to (YYYY-MM-DD) — stale if < today */
   businessDate?: string | null;
+  /** Count of active items at THIS station (excludes served/voided) */
+  stationItemCount?: number;
+  /** Count of ready items at THIS station */
+  stationReadyCount?: number;
+  /** Alert level based on elapsed time vs station thresholds */
+  alertLevel?: 'normal' | 'warning' | 'critical';
+  /** Items grouped by course — only populated when items have courseName */
+  courseGroups?: { courseName: string; items: KdsTicketItem[] }[];
 }
 
 export interface KdsCompletedTicket {

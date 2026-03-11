@@ -72,7 +72,7 @@ export function parseStaffCsv(raw: string): ParsedCsv {
     throw new Error('No data rows found after header');
   }
 
-  // Detect and strip row-type prefix column (e.g., HDR/CU from Club Caddie exports)
+  // Detect and strip row-type prefix column (e.g., HDR/CU from legacy ERP system exports)
   if (detectRowTypePrefix(headers, rows.slice(0, 10))) {
     headers = headers.slice(1);
     for (let i = 0; i < rows.length; i++) {
