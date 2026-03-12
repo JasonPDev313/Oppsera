@@ -7,6 +7,7 @@ import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from '../commands/create-kitchen-ticket';
 import { recordKdsSend, markKdsSendSent } from '../commands/record-kds-send';
 import type { RequestContext } from '@oppsera/core/auth/context';
+import { normalizeBusinessDate } from '../helpers/normalize-business-date';
 
 export interface CourseSentConsumerData {
   tabId: string;
@@ -61,6 +62,7 @@ export async function handleCourseSent(
           .from(fnbTabCourses)
           .where(
             and(
+              eq(fnbTabCourses.tenantId, tenantId),
               eq(fnbTabCourses.tabId, data.tabId),
               eq(fnbTabCourses.courseNumber, data.courseNumber),
             ),
@@ -91,15 +93,23 @@ export async function handleCourseSent(
       ),
     ]);
 
-    const tab = tabResult[0];
+    const tabRaw = tabResult[0];
     const courseName = courseResult[0]?.courseName ?? `Course ${data.courseNumber}`;
 
-    if (!tab) {
+    if (!tabRaw) {
       logger.warn('[kds] handleCourseSent: tab not found', {
         domain: 'kds', tenantId, tabId: data.tabId, courseNumber: data.courseNumber,
       });
       return;
     }
+
+    // Normalize businessDate: Drizzle `date()` without `mode: 'string'` returns a JS Date
+    // at runtime despite TypeScript inferring `string`. Convert to YYYY-MM-DD to prevent
+    // postgres.js serialization issues inside publishWithOutbox transactions.
+    const tab = {
+      ...tabRaw,
+      businessDate: normalizeBusinessDate(tabRaw.businessDate),
+    };
 
     // primaryOrderId may be null — the order is created at prepare-check (payment time).
     // KDS tickets are created regardless; orderId is backfilled when the check is prepared.
@@ -164,6 +174,7 @@ export async function handleCourseSent(
     const itemMap = new Map(items.map((i) => [i.id, i]));
     const stationGroups = new Map<string, Array<{
       orderLineId: string;
+      catalogItemId: string;
       itemName: string;
       modifierSummary?: string;
       specialInstructions?: string;
@@ -181,6 +192,7 @@ export async function handleCourseSent(
       const group = stationGroups.get(r.stationId) ?? [];
       group.push({
         orderLineId: item.id,
+        catalogItemId: item.catalogItemId,
         itemName: item.catalogItemName,
         modifierSummary: formatModifierSummary(item.modifiers) ?? undefined,
         specialInstructions: item.specialInstructions ?? undefined,
@@ -219,8 +231,12 @@ export async function handleCourseSent(
       for (const row of Array.from(stationNameRows as Iterable<Record<string, unknown>>)) {
         stationNameMap.set(row.id as string, (row.display_name as string) ?? 'Unknown');
       }
-    } catch {
-      // Non-critical — send tracking will use fallback names
+    } catch (err) {
+      logger.warn('[kds] handleCourseSent: station name prefetch failed — using IDs as fallback', {
+        domain: 'kds', tenantId, tabId: data.tabId,
+        stationIds: Array.from(stationGroups.keys()),
+        error: { message: err instanceof Error ? err.message : String(err) },
+      });
     }
 
     // 8. Create one kitchen ticket per station (serial to avoid pool exhaustion — gotcha #466).
@@ -249,7 +265,8 @@ export async function handleCourseSent(
 
         // Record send tracking so orders appear in KDS Order Status
         try {
-          const sendToken = `${ticket.id}-${stationId}-${Date.now()}`;
+          // Deterministic token — replays won't create duplicate tracking rows
+          const sendToken = `kds-send-${ticket.id}-${stationId}-initial`;
           const tracked = await recordKdsSend({
             tenantId,
             locationId,

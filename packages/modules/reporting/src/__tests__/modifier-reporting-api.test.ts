@@ -71,20 +71,31 @@ vi.mock('@oppsera/module-reporting', () => ({
   getModifierLocationHeatmap: mockGetModifierLocationHeatmap,
   getModifierWasteSignals: mockGetModifierWasteSignals,
   getModifierComplexity: mockGetModifierComplexity,
-  toCsv: mockToCsv,
 }));
 
-vi.mock('@oppsera/shared', () => ({
-  AppError: class AppError extends Error {
-    code: string;
-    statusCode: number;
-    constructor(code: string, message: string, statusCode: number) {
-      super(message);
-      this.code = code;
-      this.statusCode = statusCode;
-    }
-  },
-}));
+vi.mock('@oppsera/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@oppsera/core')>();
+  return {
+    ...actual,
+    toCsv: mockToCsv,
+  };
+});
+
+vi.mock('@oppsera/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@oppsera/shared')>();
+  return {
+    ...actual,
+    AppError: class AppError extends Error {
+      code: string;
+      statusCode: number;
+      constructor(code: string, message: string, statusCode: number) {
+        super(message);
+        this.code = code;
+        this.statusCode = statusCode;
+      }
+    },
+  };
+});
 
 // ── Helper ────────────────────────────────────────────────────
 

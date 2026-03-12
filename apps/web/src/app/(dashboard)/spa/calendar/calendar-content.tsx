@@ -819,6 +819,15 @@ function DayView({
     return cols;
   }, [providers, unassigned]);
 
+  // Pre-compute overlap layouts per column so we don't re-run the algorithm on every render
+  const layoutsByColumnId = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof layoutOverlappingAppointments>>();
+    for (const col of columns) {
+      map.set(col.id, layoutOverlappingAppointments(col.appointments));
+    }
+    return map;
+  }, [columns]);
+
   if (columns.length === 0) return null;
 
   return (
@@ -871,7 +880,7 @@ function DayView({
               ))}
 
               {/* Appointment blocks — side-by-side when overlapping */}
-              {layoutOverlappingAppointments(col.appointments).map(({ appointment: appt, column: subCol, totalColumns }) => {
+              {(layoutsByColumnId.get(col.id) ?? []).map(({ appointment: appt, column: subCol, totalColumns }) => {
                 const top = getTopPosition(appt.startTime);
                 const height = Math.max(getHeight(appt.startTime, appt.endTime), 20);
                 const colors = STATUS_COLORS[appt.status] ?? STATUS_COLORS.confirmed;

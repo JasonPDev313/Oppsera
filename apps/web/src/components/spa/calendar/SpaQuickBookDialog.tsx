@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import {
   useSpaServices,
-  useSpaProviders,
   useSpaAvailableSlots,
   useCreateAppointment,
 } from '@/hooks/use-spa';
@@ -100,10 +99,6 @@ export default function SpaQuickBookDialog({
     locationId: locationId || undefined,
     status: 'active',
     categoryId: prefillCategoryId !== '__all__' ? prefillCategoryId : undefined,
-  });
-
-  const { items: _providers } = useSpaProviders({
-    locationId: locationId || undefined,
   });
 
   const slotsParams = useMemo(() => {

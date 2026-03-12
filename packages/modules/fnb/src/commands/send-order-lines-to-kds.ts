@@ -37,6 +37,7 @@ export async function sendOrderLinesToKds(
   ctx: RequestContext,
   orderId: string,
   businessDate: string,
+  orderType?: string,
 ): Promise<{ sentCount: number; failedCount: number; totalStations: number }> {
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
@@ -116,7 +117,7 @@ export async function sendOrderLinesToKds(
 
   // 4. Bulk-resolve stations
   const routingResults = await resolveStationRouting(
-    { tenantId: ctx.tenantId, locationId: ctx.locationId, channel: 'pos' },
+    { tenantId: ctx.tenantId, locationId: ctx.locationId, orderType, channel: 'pos' },
     routableItems,
   );
 
@@ -184,88 +185,71 @@ export async function sendOrderLinesToKds(
     for (const row of Array.from(stationNameRows as Iterable<Record<string, unknown>>)) {
       stationNameMap.set(row.id as string, (row.display_name as string) ?? 'Unknown');
     }
-  } catch {
-    // Non-critical — send tracking will use fallback names
+  } catch (err) {
+    logger.warn('[kds] sendOrderLinesToKds: station name prefetch failed — using IDs as fallback', {
+      domain: 'kds', tenantId: ctx.tenantId, orderId,
+      stationIds: Array.from(stationGroups.keys()),
+      error: { message: err instanceof Error ? err.message : String(err) },
+    });
   }
 
-  // 6. Create one ticket per station (serial to avoid pool exhaustion)
-  // Use line-based idempotency: key includes sorted line IDs so re-sends are safe
-  // Retry up to 3x with exponential backoff on transient errors (pool exhaustion, timeouts)
+  // 6. Create one ticket per station (serial to avoid pool exhaustion — gotcha #466)
+  // No in-request retry — sleep() inside Vercel request handlers freezes the event loop
+  // and worsens pool exhaustion. The transactional outbox handles retries for transient failures.
   let actualSentCount = 0;
   const failedStations: string[] = [];
   for (const [stationId, ticketItems] of stationGroups) {
     const sortedLineIds = ticketItems.map((i) => i.orderLineId).sort().join(',');
-    let sent = false;
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const ticket = await createKitchenTicket(ctx, {
+        clientRequestId: `retail-kds-send-${orderId}-${stationId}-${sortedLineIds}`,
+        orderId,
+        businessDate,
+        orderType,
+        channel: 'pos',
+        items: ticketItems,
+      });
+      actualSentCount += ticketItems.length;
+
+      // Record send tracking (non-critical — failures don't block ticket creation)
       try {
-        const ticket = await createKitchenTicket(ctx, {
-          clientRequestId: `retail-kds-send-${orderId}-${stationId}-${sortedLineIds}`,
+        const sendToken = `retail-send-${ticket.id}-${stationId}`;
+        const tracked = await recordKdsSend({
+          tenantId: ctx.tenantId,
+          locationId: ctx.locationId!,
           orderId,
+          ticketId: ticket.id,
+          ticketNumber: ticket.ticketNumber,
+          courseId: undefined,
+          courseNumber: ticket.courseNumber ?? undefined,
+          stationId,
+          stationName: stationNameMap.get(stationId) ?? stationId,
+          employeeId: ctx.user.id,
+          employeeName: ctx.user.name,
+          sendToken,
+          sendType: 'initial',
+          routingReason: 'routing_rule',
+          itemCount: ticketItems.length,
+          orderType: ticket.orderType ?? orderType,
           businessDate,
-          channel: 'pos',
-          items: ticketItems,
         });
-        actualSentCount += ticketItems.length;
-        sent = true;
-
-        // Record send tracking (non-critical — failures don't block ticket creation)
-        try {
-          const tokenRows = await withTenant(ctx.tenantId, (t) => t.execute(sql`SELECT gen_ulid() AS token`));
-          const sendToken = Array.from(tokenRows as Iterable<Record<string, unknown>>)[0]!.token as string;
-          const tracked = await recordKdsSend({
-            tenantId: ctx.tenantId,
-            locationId: ctx.locationId!,
-            orderId,
-            ticketId: ticket.id,
-            ticketNumber: ticket.ticketNumber,
-            courseId: undefined,
-            courseNumber: ticket.courseNumber ?? undefined,
-            stationId,
-            stationName: stationNameMap.get(stationId) ?? stationId,
-            employeeId: ctx.user.id,
-            employeeName: ctx.user.name,
-            sendToken,
-            sendType: 'initial',
-            routingReason: 'routing_rule',
-            itemCount: ticketItems.length,
-            orderType: ticket.orderType ?? undefined,
-            businessDate,
-          });
-          await markKdsSendSent(ctx.tenantId, tracked.sendToken);
-        } catch (trackErr) {
-          logger.warn('[kds] send tracking failed (non-critical)', {
-            domain: 'kds', tenantId: ctx.tenantId, ticketId: ticket.id, stationId,
-            error: { message: trackErr instanceof Error ? trackErr.message : String(trackErr) },
-          });
-        }
-
-        break;
-      } catch (err) {
-        const isTransient = isTransientError(err);
-        if (isTransient && attempt < 3) {
-          const delayMs = 500 * Math.pow(2, attempt - 1); // 500ms, 1s, 2s
-          logger.warn('[kds] sendOrderLinesToKds: transient error, retrying', {
-            domain: 'kds', tenantId: ctx.tenantId, orderId, stationId,
-            attempt, delayMs,
-            error: { message: err instanceof Error ? err.message : String(err) },
-          });
-          await sleep(delayMs);
-        } else {
-          logger.error('[kds] sendOrderLinesToKds: failed to create ticket for station', {
-            domain: 'kds', tenantId: ctx.tenantId, orderId, stationId, locationId: ctx.locationId,
-            itemCount: ticketItems.length, attempt, isTransient,
-            error: { message: err instanceof Error ? err.message : String(err) },
-          });
-          break; // Non-transient or final attempt — stop retrying this station
-        }
+        await markKdsSendSent(ctx.tenantId, tracked.sendToken);
+      } catch (trackErr) {
+        logger.warn('[kds] send tracking failed (non-critical)', {
+          domain: 'kds', tenantId: ctx.tenantId, ticketId: ticket.id, stationId,
+          error: { message: trackErr instanceof Error ? trackErr.message : String(trackErr) },
+        });
       }
-    }
-    if (!sent) {
+    } catch (err) {
+      logger.error('[kds] sendOrderLinesToKds: failed to create ticket for station', {
+        domain: 'kds', tenantId: ctx.tenantId, orderId, stationId, locationId: ctx.locationId,
+        itemCount: ticketItems.length,
+        error: { message: err instanceof Error ? err.message : String(err) },
+      });
       failedStations.push(stationId);
       // Track the failure (non-critical)
       try {
-        const failTokenRows = await withTenant(ctx.tenantId, (t) => t.execute(sql`SELECT gen_ulid() AS token`));
-        const failToken = Array.from(failTokenRows as Iterable<Record<string, unknown>>)[0]!.token as string;
+        const failToken = `retail-fail-${orderId}-${stationId}`;
         const tracked = await recordKdsSend({
           tenantId: ctx.tenantId,
           locationId: ctx.locationId!,
@@ -282,9 +266,12 @@ export async function sendOrderLinesToKds(
           itemCount: ticketItems.length,
           businessDate,
         });
-        await markKdsSendFailed(ctx.tenantId, tracked.sendToken, 'TICKET_CREATION_FAILED', 'All retry attempts exhausted');
-      } catch {
-        // Non-critical
+        await markKdsSendFailed(ctx.tenantId, tracked.sendToken, 'TICKET_CREATION_FAILED', 'Ticket creation failed');
+      } catch (failTrackErr) {
+        logger.warn('[kds] failure tracking also failed (non-critical)', {
+          domain: 'kds', tenantId: ctx.tenantId, orderId, stationId,
+          error: { message: failTrackErr instanceof Error ? failTrackErr.message : String(failTrackErr) },
+        });
       }
     }
   }
@@ -296,25 +283,3 @@ export async function sendOrderLinesToKds(
   };
 }
 
-/** Detect transient errors that are safe to retry (pool exhaustion, timeouts, connection errors). */
-function isTransientError(err: unknown): boolean {
-  const msg = String((err as Error)?.message ?? '').toLowerCase();
-  const code = (err as { code?: string })?.code;
-  return (
-    code === 'CIRCUIT_BREAKER_OPEN' ||
-    code === 'QUEUE_TIMEOUT' ||
-    code === 'QUERY_TIMEOUT' ||
-    code === '53300' || // postgres too_many_connections
-    msg.includes('too many clients') ||
-    msg.includes('connection slots') ||
-    (msg.includes('timeout') && msg.includes('connect')) ||
-    msg.includes('pool') ||
-    msg.includes('econnrefused') ||
-    msg.includes('econnreset') ||
-    msg.includes('circuit breaker')
-  );
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}

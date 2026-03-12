@@ -190,7 +190,14 @@ export async function register() {
       // the consumer and the outbox retry adds 10-30s KDS delay.
       importSafe('KDS ticket creation consumers', async () => {
         const fnb = await import('@oppsera/module-fnb');
-        bus.subscribe('fnb.course.sent.v1', (event) => fnb.handleCourseSent(event.tenantId, event.data as any), 'kds/course.sent');
+        bus.subscribe('fnb.course.sent.v1', async (event) => {
+          const d = event.data as Record<string, unknown>;
+          if (!d?.tabId || typeof d.courseNumber !== 'number') {
+            console.error('[kds] course.sent consumer: malformed event data — skipping', { tenantId: event.tenantId, data: d });
+            return;
+          }
+          await fnb.handleCourseSent(event.tenantId, d as { tabId: string; locationId: string; courseNumber: number });
+        }, 'kds/course.sent');
         // F11 fix: course.fired should NOT create tickets — only update table status.
         // Ticket creation is handled by course.sent. Firing = "start cooking" for already-ticketed course.
         // Table auto-progression for course.fired is handled by fnb_table_status/course.fired consumer.
@@ -332,7 +339,97 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       const { withTenant } = await import('@oppsera/db');
       const { sql } = await import('drizzle-orm');
 
-      bus.subscribe('fnb.tab.closed.v1', (event) => fnb.handleFnbTabClosed(event.tenantId, event.data as any), 'fnb_reporting/tab.closed');
+      // Tab closed: event carries only IDs — enrich with financial data from DB
+      bus.subscribe('fnb.tab.closed.v1', async (event) => {
+        const d = event.data as { tabId: string; locationId: string; tableId: string | null; serverUserId: string; businessDate: string };
+        try {
+          await withTenant(event.tenantId, async (tx) => {
+            // 1. Tab header: openedAt, closedAt, partySize, primaryOrderId
+            const tabRows = await tx.execute(sql`
+              SELECT opened_at, closed_at, party_size, primary_order_id
+              FROM fnb_tabs
+              WHERE id = ${d.tabId} AND tenant_id = ${event.tenantId}
+            `);
+            const tabArr = Array.from(tabRows as Iterable<Record<string, unknown>>);
+            if (tabArr.length === 0) return; // tab deleted — skip silently
+            const tab = tabArr[0]!;
+            const orderId = tab.primary_order_id as string | null;
+
+            let totalCents = 0;
+            let discountCents = 0;
+            let tipCents = 0;
+            type ItemRow = { catalogItemId: string; catalogItemName: string; quantity: number; revenueCents: number };
+            const items: ItemRow[] = [];
+
+            if (orderId) {
+              // 2. Order totals
+              const orderRows = await tx.execute(sql`
+                SELECT total, discount_total FROM orders
+                WHERE id = ${orderId} AND tenant_id = ${event.tenantId}
+              `);
+              const orderArr = Array.from(orderRows as Iterable<Record<string, unknown>>);
+              if (orderArr.length > 0) {
+                const o = orderArr[0]!;
+                totalCents = Number(o.total ?? 0);
+                discountCents = Number(o.discount_total ?? 0);
+              }
+
+              // 3. Tips from tenders
+              const tipRows = await tx.execute(sql`
+                SELECT COALESCE(SUM(tip_amount), 0) AS total_tips
+                FROM tenders
+                WHERE order_id = ${orderId} AND tenant_id = ${event.tenantId}
+              `);
+              const tipArr = Array.from(tipRows as Iterable<Record<string, unknown>>);
+              if (tipArr.length > 0) {
+                tipCents = Number(tipArr[0]!.total_tips ?? 0);
+              }
+
+              // 4. Order line items for menu mix
+              const lineRows = await tx.execute(sql`
+                SELECT catalog_item_id, catalog_item_name, qty, line_total
+                FROM order_lines
+                WHERE order_id = ${orderId} AND tenant_id = ${event.tenantId}
+              `);
+              const lineArr = Array.from(lineRows as Iterable<Record<string, unknown>>);
+              for (const line of lineArr) {
+                items.push({
+                  catalogItemId: String(line.catalog_item_id),
+                  catalogItemName: String(line.catalog_item_name),
+                  quantity: Number(line.qty ?? 1),
+                  revenueCents: Number(line.line_total ?? 0),
+                });
+              }
+            }
+
+            const closedAt = tab.closed_at ? new Date(String(tab.closed_at)) : new Date();
+            const hour = closedAt.getHours();
+
+            await fnb.handleFnbTabClosed(event.tenantId, {
+              tabId: d.tabId,
+              locationId: d.locationId,
+              businessDate: d.businessDate,
+              serverUserId: d.serverUserId,
+              tableId: d.tableId,
+              partySize: Number(tab.party_size ?? 1),
+              totalCents,
+              tipCents,
+              discountCents,
+              compCents: 0, // comps tracked separately via check_comped events
+              openedAt: tab.opened_at ? String(tab.opened_at) : new Date().toISOString(),
+              closedAt: closedAt.toISOString(),
+              hour,
+              items: items.map(i => ({
+                ...i,
+                categoryName: null,
+                departmentName: null,
+              })),
+            });
+          });
+        } catch (e) {
+          console.error('[fnb_reporting] Failed to enrich tab.closed event:', e);
+        }
+      }, 'fnb_reporting/tab.closed');
 
       // Ticket bumped: event fires for both prep→ready and expo→served.
       // Only record performance metrics on the final served transition.
@@ -414,13 +511,30 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
         }
       }, 'fnb_reporting/ticket_item.status_changed');
 
-      // Check comped: map compAmountCents → compCents
-      bus.subscribe('fnb.payment.check_comped.v1', (event) => {
+      // Helper: look up order.total (subtotal before discounts) for grossSalesCents
+      async function lookupGrossSales(tenantId: string, orderId: string): Promise<number> {
+        let gross = 0;
+        try {
+          await withTenant(tenantId, async (tx) => {
+            const rows = await tx.execute(sql`
+              SELECT subtotal FROM orders
+              WHERE id = ${orderId} AND tenant_id = ${tenantId}
+            `);
+            const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+            if (arr.length > 0) gross = Number(arr[0]!.subtotal ?? 0);
+          });
+        } catch { /* non-critical — discountPct will be null */ }
+        return gross;
+      }
+
+      // Check comped: enrich grossSalesCents from order
+      bus.subscribe('fnb.payment.check_comped.v1', async (event) => {
         const d = event.data as { orderId: string; locationId: string; compAmountCents: number; reason: string };
+        const grossSalesCents = await lookupGrossSales(event.tenantId, d.orderId);
         return fnb.handleFnbDiscountComp(event.tenantId, {
           locationId: d.locationId,
           businessDate: new Date(event.occurredAt).toISOString().slice(0, 10),
-          grossSalesCents: 0, // not available on comp event — discountPct skipped
+          grossSalesCents,
           discountCents: 0,
           discountType: null,
           compCents: d.compAmountCents,
@@ -430,13 +544,14 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
         });
       }, 'fnb_reporting/check_comped');
 
-      // Check discounted: map discountAmountCents → discountCents
-      bus.subscribe('fnb.payment.check_discounted.v1', (event) => {
+      // Check discounted: enrich grossSalesCents from order
+      bus.subscribe('fnb.payment.check_discounted.v1', async (event) => {
         const d = event.data as { orderId: string; locationId: string; discountAmountCents: number; discountType: string };
+        const grossSalesCents = await lookupGrossSales(event.tenantId, d.orderId);
         return fnb.handleFnbDiscountComp(event.tenantId, {
           locationId: d.locationId,
           businessDate: new Date(event.occurredAt).toISOString().slice(0, 10),
-          grossSalesCents: 0, // not available — discountPct skipped
+          grossSalesCents,
           discountCents: d.discountAmountCents,
           discountType: d.discountType,
           compCents: 0,
@@ -446,13 +561,14 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
         });
       }, 'fnb_reporting/check_discounted');
 
-      // Check voided: map reason → voidReason, voidCount = 1
-      bus.subscribe('fnb.payment.check_voided.v1', (event) => {
+      // Check voided: enrich grossSalesCents from order
+      bus.subscribe('fnb.payment.check_voided.v1', async (event) => {
         const d = event.data as { orderId: string; locationId: string; reason: string };
+        const grossSalesCents = await lookupGrossSales(event.tenantId, d.orderId);
         return fnb.handleFnbDiscountComp(event.tenantId, {
           locationId: d.locationId,
           businessDate: new Date(event.occurredAt).toISOString().slice(0, 10),
-          grossSalesCents: 0,
+          grossSalesCents,
           discountCents: 0,
           discountType: null,
           compCents: 0,

@@ -103,18 +103,115 @@ export async function getCalendarWeek(
   const endDate = end.toISOString().split('T')[0]!;
 
   return withTenant(tenantId, async (tx) => {
-    // Query 1: Active rooms with room type info
-    const roomRows = await tx.execute(sql`
-      SELECT r.id AS room_id, r.room_number, r.room_type_id,
-             rt.name AS room_type_name, r.floor, r.status,
-             r.is_out_of_order
-      FROM pms_rooms r
-      JOIN pms_room_types rt ON rt.id = r.room_type_id
-      WHERE r.tenant_id = ${tenantId}
-        AND r.property_id = ${propertyId}
-        AND r.is_active = true
-      ORDER BY rt.sort_order, rt.name, r.room_number
-    `);
+    // Run all independent queries in parallel to cut wall time from sum → max
+    const [roomRows, segmentRows, blockRows, unassignedRows] = await Promise.all([
+      // Query 1: Active rooms with room type info
+      tx.execute(sql`
+        SELECT r.id AS room_id, r.room_number, r.room_type_id,
+               rt.name AS room_type_name, r.floor, r.status,
+               r.is_out_of_order
+        FROM pms_rooms r
+        JOIN pms_room_types rt ON rt.id = r.room_type_id
+        WHERE r.tenant_id = ${tenantId}
+          AND r.property_id = ${propertyId}
+          AND r.is_active = true
+        ORDER BY rt.sort_order, rt.name, r.room_number
+      `),
+
+      // Query 2: Build calendar segments from pms_reservations using generate_series.
+      // This bypasses the read model (rm_pms_calendar_segments) which depends on event
+      // consumers running successfully. At this scale, the direct query is fast enough.
+      tx.execute(sql`
+        SELECT
+          res.room_id,
+          to_char(d.d, 'YYYY-MM-DD') AS business_date,
+          res.id AS reservation_id,
+          res.status,
+          COALESCE(
+            NULLIF(
+              concat_ws(
+                ' ',
+                (res.primary_guest_json::jsonb ->> 'firstName'),
+                (res.primary_guest_json::jsonb ->> 'lastName')
+              ),
+              ''
+            ),
+            NULLIF(concat_ws(' ', g.first_name, g.last_name), ''),
+            'Guest'
+          ) AS guest_name,
+          to_char(res.check_in_date, 'YYYY-MM-DD') AS check_in_date,
+          to_char(res.check_out_date, 'YYYY-MM-DD') AS check_out_date,
+          res.source_type,
+          res.confirmation_number,
+          res.nightly_rate_cents,
+          res.adults,
+          res.children,
+          LEFT(res.internal_notes, 80) AS internal_notes,
+          res.version
+        FROM pms_reservations res
+        LEFT JOIN pms_guests g ON g.id = res.guest_id
+        CROSS JOIN LATERAL generate_series(
+          GREATEST(res.check_in_date, ${startDate}::date),
+          LEAST(res.check_out_date, ${endDate}::date) - interval '1 day',
+          '1 day'
+        ) AS d(d)
+        WHERE res.tenant_id = ${tenantId}
+          AND res.property_id = ${propertyId}
+          AND res.room_id IS NOT NULL
+          AND res.status IN ('HOLD', 'CONFIRMED', 'CHECKED_IN')
+          AND res.check_in_date < ${endDate}::date
+          AND res.check_out_date > ${startDate}::date
+        ORDER BY res.room_id, d.d
+      `),
+
+      // Query 3: OOO blocks for date range
+      tx.execute(sql`
+        SELECT room_id,
+               to_char(start_date, 'YYYY-MM-DD') AS start_date,
+               to_char(end_date, 'YYYY-MM-DD') AS end_date,
+               reason
+        FROM pms_room_blocks
+        WHERE tenant_id = ${tenantId}
+          AND property_id = ${propertyId}
+          AND block_type = 'MAINTENANCE'
+          AND is_active = true
+          AND start_date < ${endDate}::date
+          AND end_date > ${startDate}::date
+      `),
+
+      // Query 4: Unassigned reservations overlapping the date range
+      tx.execute(sql`
+        SELECT
+          res.id AS reservation_id,
+          res.status,
+          COALESCE(
+            NULLIF(
+              concat_ws(
+                ' ',
+                (res.primary_guest_json::jsonb ->> 'firstName'),
+                (res.primary_guest_json::jsonb ->> 'lastName')
+              ),
+              ''
+            ),
+            NULLIF(concat_ws(' ', g.first_name, g.last_name), ''),
+            'Guest'
+          ) AS guest_name,
+          to_char(res.check_in_date, 'YYYY-MM-DD') AS check_in_date,
+          to_char(res.check_out_date, 'YYYY-MM-DD') AS check_out_date,
+          rt.name AS room_type_name,
+          res.source_type
+        FROM pms_reservations res
+        JOIN pms_room_types rt ON rt.id = res.room_type_id
+        LEFT JOIN pms_guests g ON g.id = res.guest_id
+        WHERE res.tenant_id = ${tenantId}
+          AND res.property_id = ${propertyId}
+          AND res.room_id IS NULL
+          AND res.status IN ('HOLD', 'CONFIRMED')
+          AND res.check_in_date < ${endDate}::date
+          AND res.check_out_date > ${startDate}::date
+        ORDER BY res.check_in_date
+      `),
+    ]);
 
     const rooms: CalendarRoom[] = Array.from(roomRows as Iterable<any>).map((r) => ({
       roomId: r.room_id,
@@ -127,52 +224,6 @@ export async function getCalendarWeek(
     }));
 
     const totalRooms = rooms.length;
-
-    // Query 2: Build calendar segments directly from pms_reservations using generate_series.
-    // This bypasses the read model (rm_pms_calendar_segments) which depends on event
-    // consumers running successfully. At this scale, the direct query is fast enough.
-    const segmentRows = await tx.execute(sql`
-      SELECT
-        res.room_id,
-        to_char(d.d, 'YYYY-MM-DD') AS business_date,
-        res.id AS reservation_id,
-        res.status,
-        COALESCE(
-          NULLIF(
-            concat_ws(
-              ' ',
-              (res.primary_guest_json::jsonb ->> 'firstName'),
-              (res.primary_guest_json::jsonb ->> 'lastName')
-            ),
-            ''
-          ),
-          NULLIF(concat_ws(' ', g.first_name, g.last_name), ''),
-          'Guest'
-        ) AS guest_name,
-        to_char(res.check_in_date, 'YYYY-MM-DD') AS check_in_date,
-        to_char(res.check_out_date, 'YYYY-MM-DD') AS check_out_date,
-        res.source_type,
-        res.confirmation_number,
-        res.nightly_rate_cents,
-        res.adults,
-        res.children,
-        LEFT(res.internal_notes, 80) AS internal_notes,
-        res.version
-      FROM pms_reservations res
-      LEFT JOIN pms_guests g ON g.id = res.guest_id
-      CROSS JOIN LATERAL generate_series(
-        GREATEST(res.check_in_date, ${startDate}::date),
-        LEAST(res.check_out_date, ${endDate}::date) - interval '1 day',
-        '1 day'
-      ) AS d(d)
-      WHERE res.tenant_id = ${tenantId}
-        AND res.property_id = ${propertyId}
-        AND res.room_id IS NOT NULL
-        AND res.status IN ('HOLD', 'CONFIRMED', 'CHECKED_IN')
-        AND res.check_in_date < ${endDate}::date
-        AND res.check_out_date > ${startDate}::date
-      ORDER BY res.room_id, d.d
-    `);
 
     const segments: CalendarSegment[] = Array.from(segmentRows as Iterable<any>).map((s) => ({
       roomId: s.room_id,
@@ -192,21 +243,6 @@ export async function getCalendarWeek(
       version: Number(s.version ?? 1),
     }));
 
-    // Query 3: OOO blocks for date range
-    const blockRows = await tx.execute(sql`
-      SELECT room_id,
-             to_char(start_date, 'YYYY-MM-DD') AS start_date,
-             to_char(end_date, 'YYYY-MM-DD') AS end_date,
-             reason
-      FROM pms_room_blocks
-      WHERE tenant_id = ${tenantId}
-        AND property_id = ${propertyId}
-        AND block_type = 'MAINTENANCE'
-        AND is_active = true
-        AND start_date < ${endDate}::date
-        AND end_date > ${startDate}::date
-    `);
-
     const oooBlocks: OooBlock[] = Array.from(blockRows as Iterable<any>).map((b) => ({
       roomId: b.room_id,
       startDate: toDateString(b.start_date),
@@ -214,69 +250,53 @@ export async function getCalendarWeek(
       reason: b.reason ?? null,
     }));
 
-    // Query 4: Compute occupancy per date directly from reservations
-    const occRows = await tx.execute(sql`
-      SELECT
-        to_char(d.d, 'YYYY-MM-DD') AS business_date,
-        COUNT(DISTINCT res.room_id)::int AS rooms_occupied,
-        COUNT(DISTINCT CASE WHEN res.check_in_date = d.d THEN res.id END)::int AS arrivals,
-        COUNT(DISTINCT CASE WHEN res.check_out_date = d.d THEN res.id END)::int AS departures
-      FROM generate_series(${startDate}::date, ${endDate}::date - interval '1 day', '1 day') AS d(d)
-      LEFT JOIN pms_reservations res
-        ON res.tenant_id = ${tenantId}
-        AND res.property_id = ${propertyId}
-        AND res.room_id IS NOT NULL
-        AND res.status IN ('HOLD', 'CONFIRMED', 'CHECKED_IN')
-        AND res.check_in_date <= d.d
-        AND res.check_out_date > d.d
-      GROUP BY d.d
-      ORDER BY d.d
-    `);
-
+    // Derive occupancy from segments in JS — eliminates a redundant DB round-trip
+    // that previously re-scanned pms_reservations with another generate_series
     const occupancyByDate: Record<string, OccupancyByDate> = {};
-    for (const row of Array.from(occRows as Iterable<any>)) {
-      const dateKey = toDateString(row.business_date);
-      const occupied = Number(row.rooms_occupied ?? 0);
+    const roomsByDate = new Map<string, Set<string>>();
+    const arrivalsByDate = new Map<string, Set<string>>();
+    const departuresByDate = new Map<string, Set<string>>();
+
+    for (const seg of segments) {
+      // Count distinct rooms per date
+      if (!roomsByDate.has(seg.businessDate)) roomsByDate.set(seg.businessDate, new Set());
+      roomsByDate.get(seg.businessDate)!.add(seg.roomId);
+
+      // Arrivals: check-in date falls on this business date
+      if (seg.checkInDate === seg.businessDate) {
+        if (!arrivalsByDate.has(seg.businessDate)) arrivalsByDate.set(seg.businessDate, new Set());
+        arrivalsByDate.get(seg.businessDate)!.add(seg.reservationId);
+      }
+
+      // Departures: check-out date falls on this business date
+      if (seg.checkOutDate === seg.businessDate) {
+        if (!departuresByDate.has(seg.businessDate)) departuresByDate.set(seg.businessDate, new Set());
+        departuresByDate.get(seg.businessDate)!.add(seg.reservationId);
+      }
+    }
+
+    // Also check for departures on dates where check_out_date matches but no segment exists
+    // (segments end the day before check-out). Scan segments for next-day departures.
+    for (const seg of segments) {
+      const nextDay = seg.checkOutDate;
+      if (!departuresByDate.has(nextDay)) departuresByDate.set(nextDay, new Set());
+      departuresByDate.get(nextDay)!.add(seg.reservationId);
+    }
+
+    // Build all dates in range
+    const d = new Date(startDate + 'T00:00:00Z');
+    const endD = new Date(endDate + 'T00:00:00Z');
+    while (d < endD) {
+      const dateKey = d.toISOString().split('T')[0]!;
+      const occupied = roomsByDate.get(dateKey)?.size ?? 0;
       occupancyByDate[dateKey] = {
         occupied,
         available: Math.max(0, totalRooms - occupied),
-        arrivals: Number(row.arrivals ?? 0),
-        departures: Number(row.departures ?? 0),
+        arrivals: arrivalsByDate.get(dateKey)?.size ?? 0,
+        departures: departuresByDate.get(dateKey)?.size ?? 0,
       };
+      d.setUTCDate(d.getUTCDate() + 1);
     }
-
-    // Query 5: Unassigned reservations overlapping the week
-    const unassignedRows = await tx.execute(sql`
-      SELECT
-        res.id AS reservation_id,
-        res.status,
-        COALESCE(
-          NULLIF(
-            concat_ws(
-              ' ',
-              (res.primary_guest_json::jsonb ->> 'firstName'),
-              (res.primary_guest_json::jsonb ->> 'lastName')
-            ),
-            ''
-          ),
-          NULLIF(concat_ws(' ', g.first_name, g.last_name), ''),
-          'Guest'
-        ) AS guest_name,
-        to_char(res.check_in_date, 'YYYY-MM-DD') AS check_in_date,
-        to_char(res.check_out_date, 'YYYY-MM-DD') AS check_out_date,
-        rt.name AS room_type_name,
-        res.source_type
-      FROM pms_reservations res
-      JOIN pms_room_types rt ON rt.id = res.room_type_id
-      LEFT JOIN pms_guests g ON g.id = res.guest_id
-      WHERE res.tenant_id = ${tenantId}
-        AND res.property_id = ${propertyId}
-        AND res.room_id IS NULL
-        AND res.status IN ('HOLD', 'CONFIRMED')
-        AND res.check_in_date < ${endDate}::date
-        AND res.check_out_date > ${startDate}::date
-      ORDER BY res.check_in_date
-    `);
 
     const unassigned: UnassignedReservation[] = Array.from(unassignedRows as Iterable<any>).map((r) => ({
       reservationId: r.reservation_id,

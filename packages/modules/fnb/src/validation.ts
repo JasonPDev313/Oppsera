@@ -1164,6 +1164,41 @@ export const completePaymentSessionSchema = z.object({
 
 export type CompletePaymentSessionInput = z.input<typeof completePaymentSessionSchema>;
 
+// Quick cash: combines start-session + record-tender + complete-session in one round-trip
+export const quickCashPaymentSchema = z.object({
+  ...idempotencyMixin,
+  tabId: z.string().min(1),
+  orderId: z.string().min(1),
+  amountCents: z.number().int().min(1),
+  totalAmountCents: z.number().int().min(1),
+  changeCents: z.number().int().min(0).optional().default(0),
+});
+
+export type QuickCashPaymentInput = z.input<typeof quickCashPaymentSchema>;
+
+// Unified pay: single round-trip for ALL tender types (start-session + tender + auto-complete)
+export const payTabSchema = z.object({
+  ...idempotencyMixin,
+  tabId: z.string().min(1),
+  orderId: z.string().min(1),
+  amountCents: z.number().int().min(1),
+  totalAmountCents: z.number().int().min(1),
+  tenderType: z.enum(FNB_TENDER_TYPES),
+  // Reuse an existing session (split payment second+ tender)
+  sessionId: z.string().min(1).optional(),
+  // Card-specific: pre-resolved by route after gateway charge
+  tenderId: z.string().min(1).optional(),
+  // Tip included in tender amount for card; separate for cash/house
+  tipCents: z.number().int().min(0).optional().default(0),
+  // House account CMAA metadata (pre-validated by route)
+  billingAccountId: z.string().min(1).optional(),
+  customerId: z.string().min(1).optional(),
+  signatureData: z.string().max(100_000).optional(),
+  changeCents: z.number().int().min(0).optional().default(0),
+});
+
+export type PayTabInput = z.input<typeof payTabSchema>;
+
 export const failPaymentSessionSchema = z.object({
   ...idempotencyMixin,
   sessionId: z.string().min(1),

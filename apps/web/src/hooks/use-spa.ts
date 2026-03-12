@@ -575,7 +575,7 @@ export function useSpaCalendar(params: SpaCalendarParams | null) {
     // Pause polling when tab is hidden to reduce DB connection pressure.
     // React Query calls this function on each interval tick; returning false skips the refetch.
     refetchInterval: () => (document.hidden ? false : 30_000),
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   return {
@@ -634,7 +634,7 @@ export function useSpaAvailabilitySummary(params: SpaAvailabilitySummaryParams |
     enabled: !!params?.locationId && !!params?.startDate && !!params?.endDate,
     staleTime: 30_000,
     refetchInterval: () => (document.hidden ? false : 60_000),
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   return {
@@ -690,7 +690,7 @@ export function useSpaDashboard(locationId?: string, date?: string) {
     enabled: !!locationId && !!date,
     // Live ops dashboard — poll every 30s, pause when tab is hidden
     refetchInterval: () => (document.hidden ? false : 30_000),
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   return {

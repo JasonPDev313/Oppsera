@@ -572,19 +572,17 @@ describe('KDS Bump State Machine — resolveIsExpoBump', () => {
     expect(result.status).toBe('served');
   });
 
-  it('stationId not found in DB → safe fallback to expo bump (ticket → served)', async () => {
+  it('stationId not found in DB → throws StationNotFoundError (no fallback)', async () => {
+    // Source now throws StationNotFoundError when the station is not found in DB.
+    // There is no safe fallback to expo — the caller must provide a valid stationId.
     const ticket = makeTicket({ status: 'pending' });
-    const updatedTicket = { ...ticket, status: 'served' };
 
     mockTx.limit.mockResolvedValueOnce([ticket]);
     mockTx.execute.mockResolvedValueOnce([]); // station not found
-    mockTx.where.mockImplementation(function () {
-      return Object.assign(Promise.resolve([{ itemStatus: 'ready' }]), mockTx);
-    });
-    mockTx.returning.mockResolvedValueOnce([updatedTicket]).mockResolvedValueOnce([]);
 
-    const result = await bumpTicket(makeCtx(), { ticketId: 'tk-1', stationId: 'station-ghost', clientRequestId: 'req-1' });
-    expect(result.status).toBe('served');
+    await expect(
+      bumpTicket(makeCtx(), { ticketId: 'tk-1', stationId: 'station-ghost', clientRequestId: 'req-1' }),
+    ).rejects.toThrow('Kitchen station station-ghost not found');
   });
 });
 

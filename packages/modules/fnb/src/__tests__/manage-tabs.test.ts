@@ -57,10 +57,11 @@ vi.mock('@oppsera/db', () => ({
   fnbManageTabsSettings: { id: 'id', tenantId: 'tenant_id', locationId: 'location_id', showManageTabsButton: 'show_manage_tabs_button', requirePinForTransfer: 'require_pin_for_transfer', requirePinForVoid: 'require_pin_for_void', allowBulkAllServers: 'allow_bulk_all_servers', readOnlyForNonManagers: 'read_only_for_non_managers', maxBulkSelection: 'max_bulk_selection' },
   fnbSoftLocks: { tenantId: 'tenant_id' },
   memberships: { userId: 'user_id', tenantId: 'tenant_id', status: 'status' },
-  users: { id: 'id', displayName: 'display_name', email: 'email', overridePin: 'override_pin' },
+  users: { id: 'id', displayName: 'display_name', email: 'email', overridePin: 'override_pin', primaryRoleId: 'primary_role_id' },
   roleAssignments: { tenantId: 'tenant_id', userId: 'user_id', roleId: 'role_id', locationId: 'location_id' },
   roles: { id: 'id', name: 'name' },
   userSecurity: { userId: 'user_id', tenantId: 'tenant_id', managerPin: 'manager_pin', posOverridePinHash: 'pos_override_pin_hash' },
+  sqlArray: vi.fn((arr: unknown[]) => arr),
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -957,8 +958,10 @@ describe('Manage Tabs', () => {
 
     it('verifies PIN with stored pin', async () => {
       const verifyManagerPin = await importVerifyPin();
+      // Source reads `primaryRoleId` from the users table and returns it as `role`.
+      // Use primaryRoleId (not roleName) in mock data.
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'mgr-1', roleName: 'manager', displayName: 'Jane', email: 'jane@test.com', pinHash: '9876' },
+        { userId: 'mgr-1', primaryRoleId: 'manager', displayName: 'Jane', email: 'jane@test.com', pinHash: '9876' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '9876', actionType: 'bulk_void' });
@@ -972,7 +975,7 @@ describe('Manage Tabs', () => {
     it('verifies PIN when hash matches supplied PIN', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'user-id-abcd1234', roleName: 'manager', displayName: 'Bob', email: null, pinHash: '1234' },
+        { userId: 'user-id-abcd1234', primaryRoleId: 'manager', displayName: 'Bob', email: null, pinHash: '1234' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1234', actionType: 'bulk_void' });
@@ -981,32 +984,32 @@ describe('Manage Tabs', () => {
       expect(result.userId).toBe('user-id-abcd1234');
     });
 
-    it('throws INVALID_PIN when no match', async () => {
+    it('returns verified=false (not throw) when PIN does not match', async () => {
+      // Source returns { verified: false, reason: 'wrong_pin' } instead of throwing —
+      // throwing causes apiFetch to treat a wrong PIN as a 401 token-refresh cycle.
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'user-id-abcd1234', roleName: 'manager', displayName: 'Bob', email: null, pinHash: '5555' },
+        { userId: 'user-id-abcd1234', primaryRoleId: 'manager', displayName: 'Bob', email: null, pinHash: '5555' },
       ]);
 
-      await expect(
-        verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '0000', actionType: 'bulk_void' }),
-      ).rejects.toThrow();
+      const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '0000', actionType: 'bulk_void' });
+      expect(result.verified).toBe(false);
     });
 
-    it('only checks manager roles (owner, manager, supervisor)', async () => {
+    it('returns verified=false when no users with PIN configured', async () => {
+      // Source returns { verified: false, reason: 'no_eligible_manager' } when no rows.
+      // Any active member with posOverridePinHash set is eligible — no role gate.
       const verifyManagerPin = await importVerifyPin();
-      // The source now filters by role name in the WHERE clause via inArray(roles.name, MANAGER_ROLES),
-      // so non-manager rows won't be returned. Return empty to simulate no managers found.
       mockTx.where.mockResolvedValueOnce([]);
 
-      await expect(
-        verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1234', actionType: 'bulk_void' }),
-      ).rejects.toThrow();
+      const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1234', actionType: 'bulk_void' });
+      expect(result.verified).toBe(false);
     });
 
     it('verifies owner role', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'owner-abcd1111', roleName: 'owner', displayName: 'Owner', email: 'owner@test.com', pinHash: '1111' },
+        { userId: 'owner-abcd1111', primaryRoleId: 'owner', displayName: 'Owner', email: 'owner@test.com', pinHash: '1111' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1111', actionType: 'emergency_cleanup' });
@@ -1018,7 +1021,7 @@ describe('Manage Tabs', () => {
     it('verifies supervisor role', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'super-abcd2222', roleName: 'supervisor', displayName: null, email: 'sup@test.com', pinHash: '2222' },
+        { userId: 'super-abcd2222', primaryRoleId: 'supervisor', displayName: null, email: 'sup@test.com', pinHash: '2222' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '2222', actionType: 'bulk_transfer' });
@@ -1030,7 +1033,7 @@ describe('Manage Tabs', () => {
     it('uses "Manager" as fallback userName', async () => {
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'mgr-abcd3333', roleName: 'manager', displayName: null, email: null, pinHash: '3333' },
+        { userId: 'mgr-abcd3333', primaryRoleId: 'manager', displayName: null, email: null, pinHash: '3333' },
       ]);
 
       const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '3333', actionType: 'bulk_close' });
@@ -1038,16 +1041,16 @@ describe('Manage Tabs', () => {
       expect(result.userName).toBe('Manager');
     });
 
-    it('rejects PIN that does not match stored pinHash', async () => {
+    it('returns verified=false when PIN does not match stored pinHash', async () => {
+      // Source returns { verified: false, reason: 'wrong_pin' } instead of throwing.
       const verifyManagerPin = await importVerifyPin();
       mockTx.where.mockResolvedValueOnce([
-        { userId: 'user-id-xxxx1234', roleName: 'manager', displayName: 'Mgr', email: null, pinHash: '9999' },
+        { userId: 'user-id-xxxx1234', primaryRoleId: 'manager', displayName: 'Mgr', email: null, pinHash: '9999' },
       ]);
 
-      // PIN '1234' should NOT match because stored pinHash is '9999'
-      await expect(
-        verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1234', actionType: 'bulk_void' }),
-      ).rejects.toThrow();
+      // PIN '1234' does NOT match because stored pinHash is '9999'
+      const result = await verifyManagerPin('tenant-1', { tenantId: 'tenant-1', pin: '1234', actionType: 'bulk_void' });
+      expect(result.verified).toBe(false);
     });
   });
 
@@ -1575,7 +1578,8 @@ describe('Manage Tabs', () => {
       expect(result.succeeded).toContain('tab-paying');
     });
 
-    it('paying status is NOT voidable', async () => {
+    it('paying status IS voidable (VOIDABLE_STATUSES now includes paying)', async () => {
+      // VOIDABLE_STATUSES was updated to include 'paying' — void during checkout is allowed
       const mod = await import('../commands/bulk-void-tabs');
       const tab = makeTab({ id: 'tab-paying', status: 'paying' });
       mockTx.where.mockResolvedValueOnce([tab]);
@@ -1590,8 +1594,8 @@ describe('Manage Tabs', () => {
         clientRequestId: 'req-paying-void',
       });
 
-      expect(result.failed).toHaveLength(1);
-      expect(result.failed[0]!.error).toContain('paying');
+      expect(result.succeeded).toContain('tab-paying');
+      expect(result.failed).toHaveLength(0);
     });
   });
 });

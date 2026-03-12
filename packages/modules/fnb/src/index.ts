@@ -148,6 +148,8 @@ export { transferTab } from './commands/transfer-tab';
 export { reopenTab } from './commands/reopen-tab';
 export { fireCourse } from './commands/fire-course';
 export { sendCourse } from './commands/send-course';
+export { resendCourseToKds } from './commands/resend-course-to-kds';
+export type { ResendCourseInput, ResendCourseResult } from './commands/resend-course-to-kds';
 export { addTabItems } from './commands/add-tab-items';
 export { splitTab } from './commands/split-tab';
 
@@ -177,6 +179,8 @@ export { getKitchenTicketDetail } from './queries/get-kitchen-ticket-detail';
 export type { KitchenTicketDetail, TicketItemDetail, DeltaChitDetail } from './queries/get-kitchen-ticket-detail';
 export { listRoutingRules } from './queries/list-routing-rules';
 export type { RoutingRuleListItem } from './queries/list-routing-rules';
+export { diagnoseKdsRouting } from './queries/diagnose-kds-routing';
+export type { KdsDiagnosticInput, KdsDiagnosticResult } from './queries/diagnose-kds-routing';
 
 // ═══════════════════════════════════════════════════════════════════
 // Session 5: KDS Stations & Expo
@@ -294,6 +298,8 @@ export { voidCheck } from './commands/void-check';
 export { refundCheck } from './commands/refund-check';
 export { recordSplitTender } from './commands/record-split-tender';
 export { voidLastTender } from './commands/void-last-tender';
+export { quickCashPayment } from './commands/quick-cash-payment';
+export { payTab } from './commands/pay-tab';
 
 // Queries
 export { listAutoGratuityRules } from './queries/list-auto-gratuity-rules';
@@ -698,7 +704,7 @@ export {
   createAutoGratuityRuleSchema, updateAutoGratuityRuleSchema,
   presentCheckSchema, startPaymentSessionSchema,
   recordSplitTenderSchema, voidLastTenderSchema,
-  completePaymentSessionSchema, failPaymentSessionSchema,
+  completePaymentSessionSchema, failPaymentSessionSchema, quickCashPaymentSchema, payTabSchema,
   applySplitStrategySchema, rejoinChecksSchema,
   compItemSchema, discountCheckSchema, voidCheckSchema, refundCheckSchema,
   listAutoGratuityRulesSchema, getPaymentSessionSchema,
@@ -809,7 +815,7 @@ export type {
   PaymentSessionStatus, CheckSplitStrategy,
   CreateAutoGratuityRuleInput, UpdateAutoGratuityRuleInput,
   PresentCheckInput, StartPaymentSessionInput,
-  CompletePaymentSessionInput, FailPaymentSessionInput,
+  CompletePaymentSessionInput, FailPaymentSessionInput, QuickCashPaymentInput, PayTabInput,
   ApplySplitStrategyInput, RejoinChecksInput,
   CompItemInput, DiscountCheckInput, VoidCheckInput, RefundCheckInput,
   ListAutoGratuityRulesInput, GetPaymentSessionInput,

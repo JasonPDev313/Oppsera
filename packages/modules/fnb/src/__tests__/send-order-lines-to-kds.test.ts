@@ -175,7 +175,7 @@ describe('sendOrderLinesToKds', () => {
     mockWithTenant.mockImplementationOnce(async () => []);
 
     const ctx = makeCtx();
-    const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
+    const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE, 'dine_in');
 
     expect(result).toEqual({ sentCount: 0, failedCount: 0, totalStations: 0 });
     // Should not query existing ticket items when there are no lines
@@ -196,7 +196,7 @@ describe('sendOrderLinesToKds', () => {
     ]);
 
     const ctx = makeCtx();
-    const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
+    const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE, 'dine_in');
 
     expect(result).toEqual({ sentCount: 0, failedCount: 0, totalStations: 0 });
     expect(mockWithTenant).toHaveBeenCalledTimes(2);
@@ -242,7 +242,7 @@ describe('sendOrderLinesToKds', () => {
     ]);
 
     const ctx = makeCtx();
-    const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
+    const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE, 'dine_in');
 
     expect(result).toEqual({ sentCount: 1, failedCount: 0, totalStations: 1 });
     expect(mockCreateKitchenTicket).toHaveBeenCalledTimes(1);
@@ -251,6 +251,7 @@ describe('sendOrderLinesToKds', () => {
       expect.objectContaining({
         orderId: ORDER_ID,
         businessDate: BUSINESS_DATE,
+        orderType: 'dine_in',
         channel: 'pos',
         items: expect.arrayContaining([
           expect.objectContaining({
@@ -277,7 +278,7 @@ describe('sendOrderLinesToKds', () => {
     ]);
 
     const ctx = makeCtx();
-    const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
+    const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE, 'dine_in');
 
     expect(result).toEqual({ sentCount: 2, failedCount: 0, totalStations: 2 });
     expect(mockCreateKitchenTicket).toHaveBeenCalledTimes(2);
@@ -454,7 +455,7 @@ describe('sendOrderLinesToKds', () => {
 
   // ── Routing context ────────────────────────────────────────────
 
-  it('calls resolveStationRouting with pos channel and correct tenantId/locationId', async () => {
+  it('calls resolveStationRouting with pos channel, orderType, and correct tenantId/locationId', async () => {
     const line = makeOrderLine({ id: 'line-1' });
 
     mockWithTenant.mockImplementationOnce(async () => [line]);
@@ -465,10 +466,10 @@ describe('sendOrderLinesToKds', () => {
     ]);
 
     const ctx = makeCtx({ tenantId: 'tenant-abc', locationId: 'loc-xyz' });
-    await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
+    await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE, 'dine_in');
 
     expect(mockResolveStationRouting).toHaveBeenCalledWith(
-      { tenantId: 'tenant-abc', locationId: 'loc-xyz', channel: 'pos' },
+      { tenantId: 'tenant-abc', locationId: 'loc-xyz', orderType: 'dine_in', channel: 'pos' },
       expect.any(Array),
     );
   });
@@ -722,7 +723,9 @@ describe('handleOrderPlacedForKds', () => {
 
   // ── Idempotency key format ────────────────────────────────────
 
-  it('uses idempotency key format: retail-kds-{orderId}-{stationId} (no line IDs)', async () => {
+  it('uses idempotency key format: retail-kds-send-{orderId}-{stationId}-{sortedLineIds}', async () => {
+    // handleOrderPlacedForKds uses the same clientRequestId format as sendOrderLinesToKds
+    // so idempotency prevents duplicates if both paths run concurrently for the same order.
     const line = makeOrderLine({ id: 'line-1' });
     mockWithTenant.mockImplementationOnce(async () => [line]);
     mockWithTenant.mockImplementationOnce(async () => []);
@@ -737,7 +740,7 @@ describe('handleOrderPlacedForKds', () => {
     expect(mockCreateKitchenTicket).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        clientRequestId: 'retail-kds-order-1-station-grill',
+        clientRequestId: 'retail-kds-send-order-1-station-grill-line-1',
       }),
     );
   });
@@ -760,8 +763,8 @@ describe('handleOrderPlacedForKds', () => {
     const clientRequestIds = mockCreateKitchenTicket.mock.calls.map(
       (c) => (c[1] as { clientRequestId: string }).clientRequestId,
     );
-    expect(clientRequestIds).toContain('retail-kds-order-1-station-kitchen');
-    expect(clientRequestIds).toContain('retail-kds-order-1-station-bar');
+    expect(clientRequestIds).toContain('retail-kds-send-order-1-station-kitchen-line-1');
+    expect(clientRequestIds).toContain('retail-kds-send-order-1-station-bar-line-2');
   });
 
   // ── Ticket creation ───────────────────────────────────────────

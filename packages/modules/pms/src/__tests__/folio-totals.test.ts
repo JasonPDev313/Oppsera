@@ -1,19 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { recalculateFolioTotals } from '../helpers/folio-totals';
 
-function createMockTx(queryResult: Record<string, unknown> | null = null) {
-  const mockSet = vi.fn().mockReturnThis();
-  const mockWhere = vi.fn().mockResolvedValue(undefined);
+function createMockTx(queryResult: Record<string, unknown> | null = null, paymentCents = 0) {
+  const updateWhere = vi.fn().mockResolvedValue(undefined);
+  const mockSet = vi.fn().mockReturnValue({ where: updateWhere });
+
+  const selectWhere = vi.fn().mockResolvedValue([{ paymentCents }]);
+  const selectFrom = vi.fn().mockReturnValue({ where: selectWhere });
 
   return {
     execute: vi.fn().mockResolvedValue(
       queryResult ? [queryResult] : [],
     ),
+    select: vi.fn().mockReturnValue({ from: selectFrom }),
     update: vi.fn().mockReturnValue({
       set: mockSet,
     }),
     _mockSet: mockSet,
-    _mockWhere: mockWhere,
   };
 }
 
@@ -29,16 +32,11 @@ describe('recalculateFolioTotals', () => {
       fee_cents: 2500,
     });
 
-    // Mock the update chain
-    const mockWhere = vi.fn().mockResolvedValue(undefined);
-    const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
-    tx.update = vi.fn().mockReturnValue({ set: mockSet });
-
     await recalculateFolioTotals(tx, 'tenant-1', 'folio-1');
 
     expect(tx.execute).toHaveBeenCalledTimes(1);
     expect(tx.update).toHaveBeenCalledTimes(1);
-    expect(mockSet).toHaveBeenCalledWith(
+    expect(tx._mockSet).toHaveBeenCalledWith(
       expect.objectContaining({
         subtotalCents: 50000,
         taxCents: 5000,
@@ -55,8 +53,8 @@ describe('recalculateFolioTotals', () => {
       fee_cents: 0,
     });
 
-    const mockWhere = vi.fn().mockResolvedValue(undefined);
-    const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+    const updateWhere = vi.fn().mockResolvedValue(undefined);
+    const mockSet = vi.fn().mockReturnValue({ where: updateWhere });
     tx.update = vi.fn().mockReturnValue({ set: mockSet });
 
     await recalculateFolioTotals(tx, 'tenant-1', 'folio-1');
@@ -78,8 +76,8 @@ describe('recalculateFolioTotals', () => {
       fee_cents: null,
     });
 
-    const mockWhere = vi.fn().mockResolvedValue(undefined);
-    const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+    const updateWhere = vi.fn().mockResolvedValue(undefined);
+    const mockSet = vi.fn().mockReturnValue({ where: updateWhere });
     tx.update = vi.fn().mockReturnValue({ set: mockSet });
 
     await recalculateFolioTotals(tx, 'tenant-1', 'folio-1');
@@ -112,8 +110,8 @@ describe('recalculateFolioTotals', () => {
       fee_cents: '1000',
     });
 
-    const mockWhere = vi.fn().mockResolvedValue(undefined);
-    const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+    const updateWhere = vi.fn().mockResolvedValue(undefined);
+    const mockSet = vi.fn().mockReturnValue({ where: updateWhere });
     tx.update = vi.fn().mockReturnValue({ set: mockSet });
 
     await recalculateFolioTotals(tx, 'tenant-1', 'folio-1');
@@ -135,8 +133,8 @@ describe('recalculateFolioTotals', () => {
       fee_cents: 500,
     });
 
-    const mockWhere = vi.fn().mockResolvedValue(undefined);
-    const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+    const updateWhere = vi.fn().mockResolvedValue(undefined);
+    const mockSet = vi.fn().mockReturnValue({ where: updateWhere });
     tx.update = vi.fn().mockReturnValue({ set: mockSet });
 
     await recalculateFolioTotals(tx, 'tenant-1', 'folio-1');
@@ -154,8 +152,8 @@ describe('recalculateFolioTotals', () => {
       fee_cents: 5000,        // resort fee
     });
 
-    const mockWhere = vi.fn().mockResolvedValue(undefined);
-    const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+    const updateWhere = vi.fn().mockResolvedValue(undefined);
+    const mockSet = vi.fn().mockReturnValue({ where: updateWhere });
     tx.update = vi.fn().mockReturnValue({ set: mockSet });
 
     await recalculateFolioTotals(tx, 'tenant-1', 'folio-1');
@@ -169,8 +167,8 @@ describe('recalculateFolioTotals', () => {
 
   it('passes correct tenantId and folioId to SQL query', async () => {
     const tx = createMockTx({ subtotal_cents: 0, tax_cents: 0, fee_cents: 0 });
-    const mockWhere = vi.fn().mockResolvedValue(undefined);
-    const mockSet = vi.fn().mockReturnValue({ where: mockWhere });
+    const updateWhere = vi.fn().mockResolvedValue(undefined);
+    const mockSet = vi.fn().mockReturnValue({ where: updateWhere });
     tx.update = vi.fn().mockReturnValue({ set: mockSet });
 
     await recalculateFolioTotals(tx, 'tenant-abc', 'folio-xyz');

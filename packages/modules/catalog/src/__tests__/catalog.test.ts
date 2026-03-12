@@ -1159,6 +1159,7 @@ describe('Catalog Module', () => {
         name: 'Test Item',
         itemType: 'retail',
         defaultPrice: 9.99,
+        categoryId: 'cat_001',
       });
       expect(valid.success).toBe(true);
 

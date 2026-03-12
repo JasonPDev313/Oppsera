@@ -62,7 +62,10 @@ export async function recordKdsSend(input: RecordKdsSendInput): Promise<RecordKd
       RETURNING id, send_token
     `);
 
-    const row = Array.from(rows as Iterable<Record<string, unknown>>)[0]!;
+    const row = Array.from(rows as Iterable<Record<string, unknown>>)[0];
+    if (!row) {
+      throw new Error('recordKdsSend: INSERT RETURNING yielded no rows — check RLS policy on fnb_kds_send_tracking');
+    }
     const sendId = row.id as string;
 
     // Create initial queued event
@@ -116,7 +119,12 @@ export async function markKdsSendSent(
       WHERE tenant_id = ${tenantId} AND send_token = ${sendToken}
     `);
     const tracking = Array.from(trackingRows as Iterable<Record<string, unknown>>)[0];
-    if (!tracking) return;
+    if (!tracking) {
+      logger.warn('[kds] markKdsSendSent: tracking row not found — send event will not be recorded', {
+        domain: 'kds', tenantId, sendToken,
+      });
+      return;
+    }
 
     await tx.execute(sql`
       INSERT INTO fnb_kds_send_events (
@@ -159,7 +167,12 @@ export async function markKdsSendFailed(
       WHERE tenant_id = ${tenantId} AND send_token = ${sendToken}
     `);
     const tracking = Array.from(trackingRows as Iterable<Record<string, unknown>>)[0];
-    if (!tracking) return;
+    if (!tracking) {
+      logger.warn('[kds] markKdsSendFailed: tracking row not found — failure event will not be recorded', {
+        domain: 'kds', tenantId, sendToken, errorCode,
+      });
+      return;
+    }
 
     await tx.execute(sql`
       INSERT INTO fnb_kds_send_events (

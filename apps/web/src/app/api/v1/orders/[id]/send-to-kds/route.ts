@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant } from '@oppsera/db';
-import { orders } from '@oppsera/db';
+import { orders, fnbTabs } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
 import { sendOrderLinesToKds } from '@oppsera/module-fnb';
@@ -25,8 +25,16 @@ export const POST = withMiddleware(
           id: orders.id,
           status: orders.status,
           businessDate: orders.businessDate,
+          orderType: fnbTabs.tabType,
         })
         .from(orders)
+        .leftJoin(
+          fnbTabs,
+          and(
+            eq(fnbTabs.primaryOrderId, orders.id),
+            eq(fnbTabs.tenantId, ctx.tenantId),
+          ),
+        )
         .where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)))
         .limit(1),
     );
@@ -39,7 +47,7 @@ export const POST = withMiddleware(
       throw new AppError('CONFLICT', `Order is ${order.status}, expected open`, 409);
     }
 
-    const result = await sendOrderLinesToKds(ctx, orderId, order.businessDate);
+    const result = await sendOrderLinesToKds(ctx, orderId, order.businessDate, order.orderType ?? undefined);
     return NextResponse.json({ data: result });
   },
   { entitlement: 'orders', permission: 'orders.manage', writeAccess: true },

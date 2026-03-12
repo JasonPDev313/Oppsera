@@ -181,66 +181,8 @@ export default function SpaCondensedView({
           </p>
         </div>
 
-        {/* Day rows */}
-        <div className="mt-3 divide-y divide-border">
-          {days.map((day) => {
-            const d = new Date(`${day.date}T00:00:00`);
-            const dayOfWeek = d.toLocaleDateString('en-US', { weekday: 'short' });
-            const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            const isToday = day.date === todayStr;
-            const isPast = day.date < todayStr;
-            const pct = day.totalSlots > 0 ? day.availableSlots / day.totalSlots : 0;
-            const dotColor = availabilityDotColor(pct);
-            const label = day.totalSlots === 0
-              ? 'No availability'
-              : day.availableSlots === 0
-                ? 'Full'
-                : day.availableSlots === day.totalSlots
-                  ? 'Available'
-                  : `${day.availableSlots} of ${day.totalSlots} slots available`;
-
-            return (
-              <div
-                key={day.date}
-                ref={isToday ? todayRowRef : undefined}
-                className={`flex items-center gap-4 py-3.5${isPast ? ' opacity-50' : ''}${isToday ? ' border-l-2 border-l-amber-500 pl-3' : ''}`}
-              >
-                {/* Date column */}
-                <div className="w-28 shrink-0">
-                  <div className={`text-lg font-bold ${isToday ? 'text-amber-500' : 'text-foreground'}`}>{monthDay}</div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">{dayOfWeek}</span>
-                    {isToday && (
-                      <span className="rounded bg-amber-700 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
-                        Today
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Availability indicator */}
-                <div className="flex flex-1 items-center gap-2">
-                  <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotColor}`} />
-                  <span className="text-sm text-foreground">{label}</span>
-                  {day.providerCount > 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      &middot; {day.providerCount} {day.providerCount === 1 ? 'provider' : 'providers'}
-                    </span>
-                  )}
-                </div>
-
-                {/* Select button */}
-                <button
-                  onClick={() => onSelectDate(day.date, activeCategoryId ?? '')}
-                  disabled={isPast || day.totalSlots === 0}
-                  className="flex shrink-0 items-center gap-1 rounded-lg border border-input bg-surface px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Select <ArrowRight className="h-3 w-3" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
+        {/* Day rows — pre-compute formatted labels to avoid Date/toLocaleDateString per render */}
+        <DayRows days={days} todayStr={todayStr} todayRowRef={todayRowRef} activeCategoryId={activeCategoryId} onSelectDate={onSelectDate} />
 
         {days.length === 0 && (
           <p className="py-12 text-center text-sm text-muted-foreground">No dates in range.</p>
@@ -286,4 +228,88 @@ function availabilityDotColor(pct: number): string {
   if (pct < 0.3) return 'bg-amber-500';
   if (pct < 0.6) return 'bg-emerald-500';
   return 'bg-green-700';
+}
+
+// Extracted to memoize date formatting — avoids new Date() + toLocaleDateString per row per render
+function DayRows({
+  days,
+  todayStr,
+  todayRowRef,
+  activeCategoryId,
+  onSelectDate,
+}: {
+  days: DaySlotSummary[];
+  todayStr: string;
+  todayRowRef: React.RefObject<HTMLDivElement | null>;
+  activeCategoryId: string | null;
+  onSelectDate: (date: string, categoryId: string) => void;
+}) {
+  const formattedDays = useMemo(
+    () =>
+      days.map((day) => {
+        const d = new Date(`${day.date}T00:00:00`);
+        return {
+          dayOfWeek: d.toLocaleDateString('en-US', { weekday: 'short' }),
+          monthDay: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        };
+      }),
+    [days],
+  );
+
+  return (
+    <div className="mt-3 divide-y divide-border">
+      {days.map((day, idx) => {
+        const { dayOfWeek, monthDay } = formattedDays[idx]!;
+        const isToday = day.date === todayStr;
+        const isPast = day.date < todayStr;
+        const pct = day.totalSlots > 0 ? day.availableSlots / day.totalSlots : 0;
+        const dotColor = availabilityDotColor(pct);
+        const label = day.totalSlots === 0
+          ? 'No availability'
+          : day.availableSlots === 0
+            ? 'Full'
+            : day.availableSlots === day.totalSlots
+              ? 'Available'
+              : `${day.availableSlots} of ${day.totalSlots} slots available`;
+
+        return (
+          <div
+            key={day.date}
+            ref={isToday ? todayRowRef : undefined}
+            className={`flex items-center gap-4 py-3.5${isPast ? ' opacity-50' : ''}${isToday ? ' border-l-2 border-l-amber-500 pl-3' : ''}`}
+          >
+            <div className="w-28 shrink-0">
+              <div className={`text-lg font-bold ${isToday ? 'text-amber-500' : 'text-foreground'}`}>{monthDay}</div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">{dayOfWeek}</span>
+                {isToday && (
+                  <span className="rounded bg-amber-700 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
+                    Today
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-1 items-center gap-2">
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotColor}`} />
+              <span className="text-sm text-foreground">{label}</span>
+              {day.providerCount > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  &middot; {day.providerCount} {day.providerCount === 1 ? 'provider' : 'providers'}
+                </span>
+              )}
+            </div>
+
+            <button
+              onClick={() => onSelectDate(day.date, activeCategoryId ?? '')}
+              disabled={isPast || day.totalSlots === 0}
+              className="flex shrink-0 items-center gap-1 rounded-lg border border-input bg-surface px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Select <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
 }

@@ -158,69 +158,90 @@ export async function getAvailabilitySummary(
       return { days: enumerateDates(startDate, endDate).map((d) => emptyDay(d)), categories };
     }
 
-    // ── 3. Fetch availability templates ──────────────────────────
-    const availabilityRows = await tx
-      .select({
-        providerId: spaProviderAvailability.providerId,
-        dayOfWeek: spaProviderAvailability.dayOfWeek,
-        startTime: spaProviderAvailability.startTime,
-        endTime: spaProviderAvailability.endTime,
-        locationId: spaProviderAvailability.locationId,
-        effectiveFrom: spaProviderAvailability.effectiveFrom,
-        effectiveUntil: spaProviderAvailability.effectiveUntil,
-      })
-      .from(spaProviderAvailability)
-      .where(
-        and(
-          eq(spaProviderAvailability.tenantId, tenantId),
-          inArray(spaProviderAvailability.providerId, activeProviderIds),
-          eq(spaProviderAvailability.isActive, true),
-          lte(spaProviderAvailability.effectiveFrom, endDate),
-          sql`(${spaProviderAvailability.effectiveUntil} IS NULL OR ${spaProviderAvailability.effectiveUntil} >= ${startDate})`,
-        ),
-      );
-
-    // ── 4. Fetch time-off blocks ─────────────────────────────────
+    // ── 3–5. Fetch templates, time-off, and appointments in parallel
     const rangeStartDate = dayStartUtc(startDate);
     const rangeEndDate = dayEndUtc(endDate);
 
-    const timeOffRows = await tx
-      .select({
-        providerId: spaProviderTimeOff.providerId,
-        startAt: spaProviderTimeOff.startAt,
-        endAt: spaProviderTimeOff.endAt,
-        isAllDay: spaProviderTimeOff.isAllDay,
-      })
-      .from(spaProviderTimeOff)
-      .where(
-        and(
-          eq(spaProviderTimeOff.tenantId, tenantId),
-          inArray(spaProviderTimeOff.providerId, activeProviderIds),
-          eq(spaProviderTimeOff.status, 'approved'),
-          lte(spaProviderTimeOff.startAt, rangeEndDate),
-          gte(spaProviderTimeOff.endAt, rangeStartDate),
+    const [availabilityRows, timeOffRows, appointments] = await Promise.all([
+      tx
+        .select({
+          providerId: spaProviderAvailability.providerId,
+          dayOfWeek: spaProviderAvailability.dayOfWeek,
+          startTime: spaProviderAvailability.startTime,
+          endTime: spaProviderAvailability.endTime,
+          locationId: spaProviderAvailability.locationId,
+          effectiveFrom: spaProviderAvailability.effectiveFrom,
+          effectiveUntil: spaProviderAvailability.effectiveUntil,
+        })
+        .from(spaProviderAvailability)
+        .where(
+          and(
+            eq(spaProviderAvailability.tenantId, tenantId),
+            inArray(spaProviderAvailability.providerId, activeProviderIds),
+            eq(spaProviderAvailability.isActive, true),
+            lte(spaProviderAvailability.effectiveFrom, endDate),
+            sql`(${spaProviderAvailability.effectiveUntil} IS NULL OR ${spaProviderAvailability.effectiveUntil} >= ${startDate})`,
+          ),
         ),
-      );
-
-    // ── 5. Fetch existing appointments ───────────────────────────
-    const appointments = await tx
-      .select({
-        providerId: spaAppointments.providerId,
-        startAt: spaAppointments.startAt,
-        endAt: spaAppointments.endAt,
-      })
-      .from(spaAppointments)
-      .where(
-        and(
-          eq(spaAppointments.tenantId, tenantId),
-          inArray(spaAppointments.providerId, activeProviderIds),
-          not(inArray(spaAppointments.status, ['canceled', 'no_show'])),
-          lte(spaAppointments.startAt, rangeEndDate),
-          gte(spaAppointments.endAt, rangeStartDate),
+      tx
+        .select({
+          providerId: spaProviderTimeOff.providerId,
+          startAt: spaProviderTimeOff.startAt,
+          endAt: spaProviderTimeOff.endAt,
+          isAllDay: spaProviderTimeOff.isAllDay,
+        })
+        .from(spaProviderTimeOff)
+        .where(
+          and(
+            eq(spaProviderTimeOff.tenantId, tenantId),
+            inArray(spaProviderTimeOff.providerId, activeProviderIds),
+            eq(spaProviderTimeOff.status, 'approved'),
+            lte(spaProviderTimeOff.startAt, rangeEndDate),
+            gte(spaProviderTimeOff.endAt, rangeStartDate),
+          ),
         ),
-      );
+      tx
+        .select({
+          providerId: spaAppointments.providerId,
+          startAt: spaAppointments.startAt,
+          endAt: spaAppointments.endAt,
+        })
+        .from(spaAppointments)
+        .where(
+          and(
+            eq(spaAppointments.tenantId, tenantId),
+            inArray(spaAppointments.providerId, activeProviderIds),
+            not(inArray(spaAppointments.status, ['canceled', 'no_show'])),
+            lte(spaAppointments.startAt, rangeEndDate),
+            gte(spaAppointments.endAt, rangeStartDate),
+          ),
+        ),
+    ]);
 
-    // ── 6. Compute per-day summary ───────────────────────────────
+    // ── 6. Pre-group by providerId for O(1) lookups ──────────────
+    const availByProvider = new Map<string, typeof availabilityRows>();
+    for (const r of availabilityRows) {
+      let arr = availByProvider.get(r.providerId);
+      if (!arr) { arr = []; availByProvider.set(r.providerId, arr); }
+      arr.push(r);
+    }
+
+    const timeOffByProvider = new Map<string, typeof timeOffRows>();
+    for (const t of timeOffRows) {
+      let arr = timeOffByProvider.get(t.providerId);
+      if (!arr) { arr = []; timeOffByProvider.set(t.providerId, arr); }
+      arr.push(t);
+    }
+
+    const apptsByProvider = new Map<string, typeof appointments>();
+    for (const a of appointments) {
+      if (!a.providerId) continue;
+      let arr = apptsByProvider.get(a.providerId);
+      if (!arr) { arr = []; apptsByProvider.set(a.providerId, arr); }
+      arr.push(a);
+    }
+
+    // ── 7. Compute per-day summary ───────────────────────────────
     const dates = enumerateDates(startDate, endDate);
     const days: DaySlotSummary[] = [];
 
@@ -235,8 +256,8 @@ export async function getAvailabilitySummary(
 
       for (const pid of activeProviderIds) {
         // Find matching availability templates for this provider + day
-        const templates = availabilityRows.filter((r) => {
-          if (r.providerId !== pid) return false;
+        const providerAvail = availByProvider.get(pid) ?? [];
+        const templates = providerAvail.filter((r) => {
           if (r.dayOfWeek !== dayOfWeek) return false;
           if (r.effectiveFrom > dateStr) return false;
           if (r.effectiveUntil != null && r.effectiveUntil < dateStr) return false;
@@ -247,7 +268,7 @@ export async function getAvailabilitySummary(
         if (templates.length === 0) continue;
 
         // Check if provider has all-day time-off
-        const providerTimeOff = timeOffRows.filter((t) => t.providerId === pid);
+        const providerTimeOff = timeOffByProvider.get(pid) ?? [];
         const hasAllDayOff = providerTimeOff.some((t) => {
           if (t.isAllDay) {
             const tStart = new Date(t.startAt);
@@ -287,8 +308,7 @@ export async function getAvailabilitySummary(
         totalMinutes += providerWorkMinutes;
 
         // Sum booked minutes for this provider on this day
-        const providerAppts = appointments.filter((a) => {
-          if (a.providerId !== pid) return false;
+        const providerAppts = (apptsByProvider.get(pid) ?? []).filter((a) => {
           const aStart = new Date(a.startAt);
           const aEnd = new Date(a.endAt);
           return aStart < dayEnd && aEnd > dayStart;

@@ -86,6 +86,8 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     failSession,
     recordTender,
     voidLastTender,
+    quickCashPayment,
+    payTabUnified,
     processCardPayment,
   } = usePaymentSession({ tabId: tabId ?? '', locationId });
   const { preauths, capturePreauth, voidPreauth } = usePreAuth({ tabId: tabId ?? undefined });
@@ -259,56 +261,48 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
           );
         }
 
-        // Ensure payment session exists (reuse active or create new)
-        let sessionId = sessionIdRef.current;
-        if (!sessionId) {
-          const effectiveOrderId = tab.primaryOrderId ?? preparedOrderIdRef.current;
-          const session = await startSession({
-            tabId: tab.id,
-            orderId: effectiveOrderId,
-            totalAmountCents: displayCheck?.totalCents ?? 0,
-            clientRequestId: crypto.randomUUID(),
-          });
-          sessionId = session.id;
-          sessionIdRef.current = sessionId;
-        }
-
-        // Record the tender — server response includes updated amounts
-        // Card tenders with a token go through the dedicated card gateway route
+        // ── Unified single-trip payment for ALL tender types ──
+        // One HTTP call: start session + record tender + auto-complete if fully paid
         const effectiveOrderId = tab.primaryOrderId ?? preparedOrderIdRef.current;
-        const result = (type === 'card' && cardToken)
-          ? await processCardPayment({
-              sessionId,
-              amountCents,
-              tipCents,
-              token: cardToken,
-              orderId: effectiveOrderId ?? undefined,
-              clientRequestId: crypto.randomUUID(),
-            })
-          : await recordTender({
-              sessionId,
-              tenderId: crypto.randomUUID(),
-              amountCents,
-              tenderType: type,
-              tipCents: tipCents > 0 ? tipCents : undefined,
-              clientRequestId: crypto.randomUUID(),
-              // House account CMAA metadata
-              ...(houseAccountMeta && {
-                billingAccountId: houseAccountMeta.billingAccountId,
-                customerId: houseAccountMeta.customerId,
-                signatureData: houseAccountMeta.signatureData,
-              }),
-            });
+        const totalCents = displayCheck?.totalCents ?? 0;
 
-        // Adjust tip — must await to prevent Vercel fire-and-forget zombie connections
-        // Skip for card gateway payments — tip is already included in the gateway charge
+        const result = await payTabUnified({
+          tabId: tab.id,
+          orderId: effectiveOrderId!,
+          amountCents,
+          totalAmountCents: totalCents,
+          tenderType: type,
+          sessionId: sessionIdRef.current ?? undefined,
+          tipCents: tipCents > 0 ? tipCents : 0,
+          changeCents: type === 'cash' && amountCents > totalCents ? amountCents - totalCents : 0,
+          clientRequestId: crypto.randomUUID(),
+          // Card-specific (gateway processes pre-transaction in the API route)
+          ...(type === 'card' && cardToken ? { token: cardToken } : {}),
+          // House account CMAA metadata (validated pre-transaction in the API route)
+          ...(houseAccountMeta && {
+            billingAccountId: houseAccountMeta.billingAccountId,
+            customerId: houseAccountMeta.customerId,
+            signatureData: houseAccountMeta.signatureData,
+          }),
+        });
+
+        const resData = result as Record<string, unknown>;
+        const sessionId = resData.sessionId as string;
+        const isFullyPaid = resData.isFullyPaid as boolean;
+        const serverRemaining = (resData.remainingAmountCents as number) ?? 0;
+
+        // Track session for potential split payment follow-ups
+        sessionIdRef.current = isFullyPaid ? null : sessionId;
+
+        // Adjust tip for non-card tenders (card tips are in the gateway charge)
+        // This is a separate call but only fires when needed, and the main payment
+        // is already committed — tip failure won't block the payment UI
         const tipHandledByGateway = type === 'card' && !!cardToken;
         if (tipCents > 0 && !tipHandledByGateway) {
           try {
-            const tenderIdFromResult = ((result as Record<string, unknown>)?.tenderId as string) ?? undefined;
             await adjustTip({
               tabId: tab.id,
-              tenderId: tenderIdFromResult,
+              tenderId: resData.tenderId as string,
               originalTipCents: 0,
               adjustedTipCents: tipCents,
               adjustmentReason: 'Customer tip',
@@ -318,31 +312,12 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
           }
         }
 
-        // Use server response to determine if fully paid
-        // Backend auto-completes session when remaining ≤ 0
-        const tenderResult = result as Record<string, unknown>;
-        const sessionStatus = (tenderResult?.sessionStatus as string) ?? '';
-        const serverRemaining = (tenderResult?.remainingAmountCents as number) ?? 0;
-        const isFullyPaid = sessionStatus === 'completed' || serverRemaining <= 0;
-
-        // If fully paid but session wasn't auto-completed, complete it explicitly
-        if (isFullyPaid && sessionStatus !== 'completed') {
-          await completeSession(sessionId, {
-            sessionId,
-            clientRequestId: crypto.randomUUID(),
-          });
-        }
-
-        if (isFullyPaid) {
-          sessionIdRef.current = null;
-        }
-
         return { isFullyPaid, remainingCents: Math.max(0, serverRemaining) };
       } finally {
         isActingRef.current = false;
       }
     },
-    [tab, check, displayCheck, sessions, startSession, recordTender, processCardPayment, adjustTip, completeSession],
+    [tab, displayCheck, payTabUnified, adjustTip],
   );
 
   // ── Void last tender handler (Phase 1C) ───────────────────────

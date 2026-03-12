@@ -331,6 +331,8 @@ export async function resolveStationRouting(
   return withTenant(context.tenantId, async (tx) => {
     // Auto-fetch venue timezone for time-window routing when not provided.
     // Runs inside the existing withTenant to avoid an extra connection checkout.
+    // Use a local variable to avoid mutating the caller's context reference.
+    let effectiveContext = context;
     if (!context.timezone) {
       try {
         const tzRows = await tx.execute(
@@ -340,7 +342,7 @@ export async function resolveStationRouting(
         );
         const tz = Array.from(tzRows as Iterable<Record<string, unknown>>)[0];
         if (tz?.timezone) {
-          context = { ...context, timezone: tz.timezone as string };
+          effectiveContext = { ...context, timezone: tz.timezone as string };
         }
       } catch {
         // Non-critical — falls back to server clock timezone
@@ -375,8 +377,8 @@ export async function resolveStationRouting(
       priority: Number(r.priority),
       orderTypeCondition: (r.order_type_condition as string) ?? null,
       channelCondition: (r.channel_condition as string) ?? null,
-      timeConditionStart: (r.time_condition_start as string) ?? null,
-      timeConditionEnd: (r.time_condition_end as string) ?? null,
+      timeConditionStart: normalizeTimeHHMM((r.time_condition_start as string) ?? null),
+      timeConditionEnd: normalizeTimeHHMM((r.time_condition_end as string) ?? null),
     }));
 
     // Fetch all active stations with filtering metadata
@@ -410,21 +412,24 @@ export async function resolveStationRouting(
       stationMap.set(s.id, s);
     }
 
-    // Resolve the fallback station ID — first eligible station
-    const fallbackStation = stations.find((s) => stationAcceptsOrder(s, context));
+    // Resolve the fallback station ID — first eligible non-expo station.
+    // Expo stations display bumped tickets from prep stations, not first-view tickets.
+    const fallbackStation = stations.find(
+      (s) => s.stationType !== 'expo' && stationAcceptsOrder(s, effectiveContext),
+    );
     const fallbackStationId = fallbackStation?.id ?? null;
 
     // Warn-level when no stations or no rules — these are config issues that
     // cause silent routing failures and should never be hidden behind debug
     const routingMeta = {
       domain: 'kds',
-      tenantId: context.tenantId,
-      locationId: context.locationId,
+      tenantId: effectiveContext.tenantId,
+      locationId: effectiveContext.locationId,
       ruleCount: rules.length,
       stationCount: stations.length,
       itemCount: items.length,
-      orderType: context.orderType ?? 'none',
-      channel: context.channel ?? 'none',
+      orderType: effectiveContext.orderType ?? 'none',
+      channel: effectiveContext.channel ?? 'none',
       fallbackStationId: fallbackStationId ?? 'none',
       pausedStationCount: stations.filter((s) => s.pauseReceiving).length,
     };
@@ -439,7 +444,7 @@ export async function resolveStationRouting(
 
     // Match each item
     const results: RoutingResult[] = items.map((item) => {
-      const match = matchItem(item, rules, context, stationMap);
+      const match = matchItem(item, rules, effectiveContext, stationMap);
 
       if (match) {
         return {
@@ -480,20 +485,20 @@ export async function resolveStationRouting(
     if (unroutedCount > 0) {
       logger.warn('[kds-routing] items could not be routed to any station', {
         domain: 'kds',
-        tenantId: context.tenantId,
-        locationId: context.locationId,
+        tenantId: effectiveContext.tenantId,
+        locationId: effectiveContext.locationId,
         unroutedCount,
         totalItems: items.length,
-        matchSummary: JSON.stringify(matchSummary),
+        matchSummary,
         unroutedItemIds: results.filter((r) => !r.stationId).map((r) => r.orderLineId).join(','),
       });
     } else {
       logger.info('[kds-routing] all items routed successfully', {
         domain: 'kds',
-        tenantId: context.tenantId,
-        locationId: context.locationId,
+        tenantId: effectiveContext.tenantId,
+        locationId: effectiveContext.locationId,
         totalItems: items.length,
-        matchSummary: JSON.stringify(matchSummary),
+        matchSummary,
       });
     }
 
@@ -502,6 +507,17 @@ export async function resolveStationRouting(
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
+
+/** Normalize a time string to zero-padded HH:MM for correct lexicographic comparison.
+ *  Handles "9:00" → "09:00", "14:5" → "14:05", null → null. */
+function normalizeTimeHHMM(value: string | null): string | null {
+  if (!value) return null;
+  const parts = value.split(':');
+  if (parts.length < 2) return value;
+  const hh = parts[0]!.padStart(2, '0');
+  const mm = parts[1]!.padStart(2, '0');
+  return `${hh}:${mm}`;
+}
 
 /** Parse a Postgres text[] value (comes as string or string[]). */
 function parseTextArray(value: unknown): string[] {

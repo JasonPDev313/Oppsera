@@ -37,6 +37,7 @@ export async function sendCourse(
       .select()
       .from(fnbTabCourses)
       .where(and(
+        eq(fnbTabCourses.tenantId, ctx.tenantId),
         eq(fnbTabCourses.tabId, input.tabId),
         eq(fnbTabCourses.courseNumber, input.courseNumber),
       ))
@@ -58,6 +59,7 @@ export async function sendCourse(
       .returning();
 
     // Update tab status if still 'open' or 'ordering'
+    // Uses tenantId + version guard for defense-in-depth and optimistic locking
     if (['open', 'ordering'].includes(tab.status)) {
       await tx
         .update(fnbTabs)
@@ -66,7 +68,11 @@ export async function sendCourse(
           version: tab.version + 1,
           updatedAt: new Date(),
         })
-        .where(eq(fnbTabs.id, input.tabId));
+        .where(and(
+          eq(fnbTabs.id, input.tabId),
+          eq(fnbTabs.tenantId, ctx.tenantId),
+          eq(fnbTabs.version, tab.version),
+        ));
     }
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.COURSE_SENT, {

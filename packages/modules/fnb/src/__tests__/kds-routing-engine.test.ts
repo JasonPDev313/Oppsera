@@ -262,18 +262,22 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     expect(results[0]!.matchType).toBe('fallback');
   });
 
-  it('falls back to expo only when no other stations available', async () => {
+  it('returns null stationId when only expo station available (expo excluded from fallback)', async () => {
+    // Expo stations are explicitly excluded from fallback routing (they display bumped tickets,
+    // not first-view tickets). When only expo exists, fallback returns null.
     const stations = [
       makeStation({ id: 'station-expo', station_type: 'expo', sort_order: 0 }),
     ];
     setupMocks([], stations);
 
     const results = await resolveStationRouting(makeContext(), [makeItem()]);
-    expect(results[0]!.stationId).toBe('station-expo');
-    expect(results[0]!.matchType).toBe('fallback');
+    expect(results[0]!.stationId).toBeNull();
+    expect(results[0]!.matchType).toBeNull();
   });
 
-  it('no rules and all prep stations paused → falls back to expo', async () => {
+  it('no rules and all prep stations paused → null stationId (expo excluded from fallback)', async () => {
+    // Expo stations are excluded from fallback. If all non-expo stations are paused,
+    // stationId is null — items are unrouted rather than sent to expo.
     const stations = [
       makeStation({ id: 'station-grill', station_type: 'grill', pause_receiving: true }),
       makeStation({ id: 'station-expo', station_type: 'expo', sort_order: 2 }),
@@ -281,7 +285,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     setupMocks([], stations);
 
     const results = await resolveStationRouting(makeContext(), [makeItem()]);
-    expect(results[0]!.stationId).toBe('station-expo');
+    expect(results[0]!.stationId).toBeNull();
   });
 
   // ── Condition Filtering ────────────────────────────────────

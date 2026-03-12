@@ -75,13 +75,46 @@ export async function publishEventsOnly(
   await outboxWriter.writeEvents(tx, events);
 }
 
+/** Options for publishWithOutbox */
+export interface PublishWithOutboxOptions {
+  /**
+   * When true, skip inline event dispatch and return a `dispatchEvents()` function
+   * that the caller can schedule via `after()` from next/server.
+   * Events are still durable in the outbox — the outbox worker is the safety net.
+   *
+   * Use this on POS hot paths where shaving 100-300ms matters.
+   */
+  deferDispatch?: boolean;
+}
+
+/** Result when deferDispatch is true */
+export interface DeferredPublishResult<T> {
+  result: T;
+  /** Call this in next/server after() to dispatch events after the response */
+  dispatchEvents: () => Promise<void>;
+}
+
+// Overload: deferDispatch = true → returns { result, dispatchEvents }
+export function publishWithOutbox<T>(
+  ctx: RequestContext,
+  operation: (tx: Database) => Promise<{ result: T; events: EventEnvelope[] }>,
+  options: PublishWithOutboxOptions & { deferDispatch: true },
+): Promise<DeferredPublishResult<T>>;
+// Overload: default → returns T
+export function publishWithOutbox<T>(
+  ctx: RequestContext,
+  operation: (tx: Database) => Promise<{ result: T; events: EventEnvelope[] }>,
+  options?: PublishWithOutboxOptions,
+): Promise<T>;
+// Implementation
 export async function publishWithOutbox<T>(
   ctx: RequestContext,
   operation: (tx: Database) => Promise<{
     result: T;
     events: EventEnvelope[];
   }>,
-): Promise<T> {
+  options?: PublishWithOutboxOptions,
+): Promise<T | DeferredPublishResult<T>> {
   // ── Guard: tenantId must be present and non-empty ──────────
   // An empty tenantId would set RLS set_config to '' which bypasses
   // row-level security on every table — catastrophic data leak.
@@ -168,23 +201,10 @@ export async function publishWithOutbox<T>(
   const result = txOut.result;
   committedEvents = txOut.events;
 
-  // ── Inline dispatch ────────────────────────────────────────────
-  // Transaction committed → events are durable in the outbox.
-  // Dispatch inline (awaited) so consumers complete within the request
-  // lifecycle. This is critical on Vercel: fire-and-forget dispatch
-  // races against function freeze — dispatchWithRetry claims the event
-  // in processedEvents BEFORE the handler runs, so if Vercel freezes
-  // mid-handler the event is permanently marked "processed" but the
-  // consumer never finished. The outbox worker then skips it (already
-  // claimed). Awaiting here adds ~100-300ms latency but guarantees
-  // consumers (especially KDS ticket creation) complete reliably.
-  // Errors are caught per-event — the transaction already committed,
-  // so the caller's result is unaffected.
-  //
-  // Timeout: If consumers stall (e.g., slow downstream service), we cap
-  // the wait at INLINE_DISPATCH_TIMEOUT_MS. The outbox worker will pick
-  // up any events that didn't finish dispatching.
-  if (committedEvents.length > 0) {
+  // ── Build dispatch closure ───────────────────────────────────────
+  // Extracted so callers using deferDispatch can schedule it via after().
+  const runDispatch = async () => {
+    if (committedEvents.length === 0) return;
     const bus = getEventBus();
     const dispatchPromise = Promise.allSettled(
       committedEvents.map((event) =>
@@ -197,7 +217,7 @@ export async function publishWithOutbox<T>(
       ),
     );
 
-    // Race against timeout — don't let slow consumers block the API response.
+    // Race against timeout — don't let slow consumers block.
     // Clear the timer when dispatch wins to avoid a misleading "Timed out" log.
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<void>((resolve) => {
@@ -213,7 +233,24 @@ export async function publishWithOutbox<T>(
       dispatchPromise.finally(() => { if (timeoutId) clearTimeout(timeoutId); }),
       timeout,
     ]);
+  };
+
+  // ── Deferred dispatch mode ───────────────────────────────────────
+  // When deferDispatch is true, skip inline dispatch and return a
+  // dispatchEvents() function the caller can schedule via next/server
+  // after(). Events are already durable in the outbox — the outbox
+  // worker is the safety net if after() doesn't run.
+  if (options?.deferDispatch) {
+    return { result, dispatchEvents: runDispatch } satisfies DeferredPublishResult<T>;
   }
+
+  // ── Inline dispatch (default) ────────────────────────────────────
+  // Transaction committed → events are durable in the outbox.
+  // Dispatch inline (awaited) so consumers complete within the request
+  // lifecycle. This is critical on Vercel: fire-and-forget dispatch
+  // races against function freeze. Awaiting adds ~100-300ms latency
+  // but guarantees consumers (especially KDS ticket creation) complete.
+  await runDispatch();
 
   return result;
 }

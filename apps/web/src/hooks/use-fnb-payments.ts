@@ -119,6 +119,92 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
     [locHeaders],
   );
 
+  const quickCashPayment = useCallback(
+    async (input: {
+      tabId: string;
+      orderId: string;
+      amountCents: number;
+      totalAmountCents: number;
+      changeCents?: number;
+      clientRequestId: string;
+    }) => {
+      const res = await apiFetch<{ data: Record<string, unknown> }>('/api/v1/fnb/payments/quick-cash', {
+        method: 'POST',
+        body: JSON.stringify(input),
+        headers: locHeaders,
+      });
+      // Optimistic: mark session completed in local state
+      if (res.data) {
+        const sessionData: PaymentSession = {
+          id: res.data.sessionId as string,
+          tabId: input.tabId,
+          orderId: input.orderId,
+          status: 'completed',
+          splitStrategy: null,
+          totalAmountCents: input.totalAmountCents,
+          paidAmountCents: input.amountCents,
+          remainingAmountCents: 0,
+          completedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        };
+        setSessions((prev) => [sessionData, ...prev]);
+      }
+      return res.data;
+    },
+    [locHeaders],
+  );
+
+  const payTabUnified = useCallback(
+    async (input: {
+      tabId: string;
+      orderId: string;
+      amountCents: number;
+      totalAmountCents: number;
+      tenderType: string;
+      sessionId?: string;
+      tipCents?: number;
+      changeCents?: number;
+      clientRequestId: string;
+      // Card-specific (gateway processes pre-transaction)
+      token?: string;
+      paymentMethodId?: string;
+      customerId?: string;
+      // House account metadata
+      billingAccountId?: string;
+      signatureData?: string;
+    }) => {
+      const res = await apiFetch<{ data: Record<string, unknown> }>('/api/v1/fnb/payments/pay', {
+        method: 'POST',
+        body: JSON.stringify(input),
+        headers: locHeaders,
+      });
+      // Optimistic: update local session state based on response
+      if (res.data) {
+        const resData = res.data;
+        const isFullyPaid = resData.isFullyPaid as boolean;
+        const sessionData: PaymentSession = {
+          id: resData.sessionId as string,
+          tabId: input.tabId,
+          orderId: input.orderId,
+          status: isFullyPaid ? 'completed' : 'in_progress',
+          splitStrategy: null,
+          totalAmountCents: input.totalAmountCents,
+          paidAmountCents: resData.paidAmountCents as number,
+          remainingAmountCents: resData.remainingAmountCents as number,
+          completedAt: isFullyPaid ? new Date().toISOString() : null,
+          createdAt: new Date().toISOString(),
+        };
+        setSessions((prev) => {
+          const existing = prev.find((s) => s.id === sessionData.id);
+          if (existing) return prev.map((s) => (s.id === sessionData.id ? sessionData : s));
+          return [sessionData, ...prev];
+        });
+      }
+      return res.data;
+    },
+    [locHeaders],
+  );
+
   const processCardPayment = useCallback(
     async (input: {
       sessionId: string;
@@ -149,6 +235,8 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
     failSession,
     recordTender,
     voidLastTender,
+    quickCashPayment,
+    payTabUnified,
     processCardPayment,
   };
 }

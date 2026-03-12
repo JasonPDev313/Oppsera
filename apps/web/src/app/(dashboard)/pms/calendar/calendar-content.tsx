@@ -196,10 +196,11 @@ export default function CalendarContent() {
     }
   }, [fetchDay, pageView, viewMode]);
 
-  // ── Auto-refresh (60s) ────────────────────────────────────────
+  // ── Auto-refresh (60s, skipped when tab is hidden) ───────────
   useEffect(() => {
     if (pageView === 'list') return;
     const interval = setInterval(() => {
+      if (document.hidden) return;
       if (pageView === 'quick' || (pageView === 'calendar' && viewMode === 'grid')) fetchGrid(true);
       else if (pageView === 'calendar' && viewMode === 'day') fetchDay(true);
     }, 60_000);

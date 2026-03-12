@@ -512,6 +512,7 @@ describe('Validation Schemas', () => {
       itemType: 'retail',
       defaultPrice: 9.99,
       sku: '  polo-001  ',
+      categoryId: 'cat_001',
     });
     expect(result.success).toBe(true);
     if (result.success) {

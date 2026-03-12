@@ -136,9 +136,11 @@ export async function createKitchenTicket(
           DO UPDATE SET last_number = fnb_kitchen_ticket_counters.last_number + 1
           RETURNING last_number`,
     );
-    const ticketNumber = Number(
-      Array.from(counterResult as Iterable<Record<string, unknown>>)[0]!.last_number,
-    );
+    const counterRow = Array.from(counterResult as Iterable<Record<string, unknown>>)[0];
+    if (!counterRow) {
+      throw new Error('Failed to increment ticket counter — no row returned from UPSERT RETURNING');
+    }
+    const ticketNumber = Number(counterRow.last_number);
 
     // Compute estimatedPickupAt from the max prep time across all items
     let estimatedPickupAt: Date | null = null;
