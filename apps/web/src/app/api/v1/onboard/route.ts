@@ -38,7 +38,7 @@ import type { Database } from '@oppsera/db';
 import { TIER_WORKFLOW_DEFAULTS, getAllWorkflowKeys } from '@oppsera/shared';
 
 const onboardSchema = z.object({
-  businessType: z.enum(['restaurant', 'retail', 'hybrid', 'hotel', 'spa', 'golf', 'enterprise']),
+  businessType: z.string().min(1).max(100).regex(/^[a-z0-9_-]+$/, 'Business type must be a valid slug (lowercase letters, numbers, hyphens, underscores)'),
   companyName: z.string().min(1).max(100),
   locationName: z.string().min(1).max(100),
   timezone: z.string().min(1),
@@ -162,6 +162,24 @@ export const POST = withMiddleware(
       country,
       modules,
     } = parsed.data;
+
+    // Validate that the business type exists — either hardcoded or active+published in DB
+    const isHardcoded = BUSINESS_TYPES.some((bt) => bt.key === businessType);
+    if (!isHardcoded) {
+      const { getBusinessTypeBySlug, getPublishedVersion } = await import('@oppsera/module-business-types');
+      const dbType = await getBusinessTypeBySlug(businessType);
+      if (!dbType || !dbType.isActive) {
+        throw new ValidationError('Invalid business type', [
+          { field: 'businessType', message: 'The selected business type is not available' },
+        ]);
+      }
+      const published = await getPublishedVersion(dbType.id);
+      if (!published) {
+        throw new ValidationError('Invalid business type', [
+          { field: 'businessType', message: 'The selected business type is not yet published' },
+        ]);
+      }
+    }
 
     const result = await db.transaction(async (tx) => {
       const txDb = tx as unknown as Database;
@@ -305,8 +323,11 @@ export const POST = withMiddleware(
       // Wrapped in try/catch — accounting bootstrap must NEVER block onboarding
       if (moduleSet.has('accounting')) {
         try {
-          // Enterprise and hotel use hybrid_default COA template (closest match)
-          const coaTemplateKey = (businessType === 'enterprise' || businessType === 'hotel') ? 'hybrid_default' : `${businessType}_default`;
+          // Known types get their own COA template; DB-driven types fall back to hybrid_default
+          const KNOWN_COA_TYPES = new Set(['restaurant', 'retail', 'hybrid', 'spa', 'golf']);
+          const coaTemplateKey = KNOWN_COA_TYPES.has(businessType)
+            ? `${businessType}_default`
+            : 'hybrid_default';
           const { bootstrapTenantCoa } = await import('@oppsera/module-accounting');
           await bootstrapTenantCoa(txDb, tenantId, coaTemplateKey);
         } catch (err) {

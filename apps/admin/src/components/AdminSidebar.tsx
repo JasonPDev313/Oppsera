@@ -40,6 +40,7 @@ import {
   Search,
   Blocks,
   Rocket,
+  TrendingDown,
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useCommandPalette } from './search/CommandPaletteProvider';
@@ -95,6 +96,7 @@ const MODULES: NavModule[] = [
     prefix: '/analytics',
     children: [
       { href: '/analytics', label: 'Usage Dashboard', icon: Activity },
+      { href: '/analytics/attrition', label: 'Attrition Risk', icon: TrendingDown },
       { href: '/analytics/actions', label: 'Action Items', icon: Lightbulb },
     ],
   },

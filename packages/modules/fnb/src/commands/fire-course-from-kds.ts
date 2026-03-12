@@ -8,7 +8,7 @@ import { fnbTabCourses, fnbTabs } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { FireCourseFromKdsInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
-import { TabNotFoundError, CourseNotFoundError, CourseStatusConflictError, CourseLockedError } from '../errors';
+import { TabNotFoundError, CourseNotFoundError, CourseStatusConflictError } from '../errors';
 import { resolveCourseRule } from '../helpers/resolve-course-rule';
 
 const FIREABLE_STATUSES = ['unsent', 'sent'] as const;

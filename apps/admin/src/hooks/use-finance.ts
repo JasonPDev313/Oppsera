@@ -448,6 +448,8 @@ export interface CloseBatchFilters {
   tenantId?: string;
   locationId?: string;
   businessDate?: string;
+  dateFrom?: string;
+  dateTo?: string;
   status?: string;
   page?: number;
   limit?: number;
@@ -466,6 +468,8 @@ export function useCloseBatches() {
       if (filters.tenantId) params.set('tenant_id', filters.tenantId);
       if (filters.locationId) params.set('location_id', filters.locationId);
       if (filters.businessDate) params.set('business_date', filters.businessDate);
+      if (filters.dateFrom) params.set('date_from', filters.dateFrom);
+      if (filters.dateTo) params.set('date_to', filters.dateTo);
       if (filters.status) params.set('status', filters.status);
       if (filters.page) params.set('page', String(filters.page));
       if (filters.limit) params.set('limit', String(filters.limit));
@@ -492,6 +496,8 @@ export interface VoucherFilters {
   code?: string;
   status?: string;
   voucherType?: string;
+  dateFrom?: string;
+  dateTo?: string;
   page?: number;
   limit?: number;
 }
@@ -510,6 +516,8 @@ export function useVouchers() {
       if (filters.code) params.set('code', filters.code);
       if (filters.status) params.set('status', filters.status);
       if (filters.voucherType) params.set('voucher_type', filters.voucherType);
+      if (filters.dateFrom) params.set('date_from', filters.dateFrom);
+      if (filters.dateTo) params.set('date_to', filters.dateTo);
       if (filters.page) params.set('page', String(filters.page));
       if (filters.limit) params.set('limit', String(filters.limit));
 

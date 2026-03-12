@@ -7,7 +7,6 @@ import { useMutation } from '@/hooks/use-mutation';
 import { apiFetch } from '@/lib/api-client';
 import { useDepartments, useSubDepartments, useCategories } from '@/hooks/use-catalog';
 import { useToast } from '@/components/ui/toast';
-import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -64,7 +63,7 @@ export function CoursingRulesPanel() {
   const { toast } = useToast();
 
   // Fetch existing data
-  const { data: defsData, mutate: refreshDefs } = useFetch<{ data: CourseDefinition[] }>('/api/v1/fnb/course-definitions');
+  const { data: defsData } = useFetch<{ data: CourseDefinition[] }>('/api/v1/fnb/course-definitions');
   const { data: rulesData, mutate: refreshRules } = useFetch<{ data: CourseRuleListItem[] }>('/api/v1/fnb/course-rules');
   const definitions = defsData?.data ?? [];
   const rules = rulesData?.data ?? [];

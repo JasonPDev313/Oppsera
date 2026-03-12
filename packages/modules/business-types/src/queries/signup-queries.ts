@@ -42,13 +42,17 @@ export async function listSignupBusinessTypes() {
   // Batch-load enabled module counts
   const versionIds = rowsWithPublished.map((r) => publishedByBt.get(r.business_types.id)!.id);
   const allModules = await db
-    .select({ versionId: businessTypeModuleDefaults.businessTypeVersionId, id: businessTypeModuleDefaults.id })
+    .select({ versionId: businessTypeModuleDefaults.businessTypeVersionId, id: businessTypeModuleDefaults.id, moduleKey: businessTypeModuleDefaults.moduleKey })
     .from(businessTypeModuleDefaults)
     .where(and(inArray(businessTypeModuleDefaults.businessTypeVersionId, versionIds), eq(businessTypeModuleDefaults.isEnabled, true)));
 
   const moduleCountByVersion = new Map<string, number>();
+  const moduleKeysByVersion = new Map<string, string[]>();
   for (const m of allModules) {
     moduleCountByVersion.set(m.versionId, (moduleCountByVersion.get(m.versionId) ?? 0) + 1);
+    const keys = moduleKeysByVersion.get(m.versionId) ?? [];
+    keys.push(m.moduleKey);
+    moduleKeysByVersion.set(m.versionId, keys);
   }
 
   return rowsWithPublished.map((row) => {
@@ -61,6 +65,7 @@ export async function listSignupBusinessTypes() {
       iconKey: row.business_types.iconKey,
       categoryName: row.business_categories?.name ?? null,
       moduleCount: moduleCountByVersion.get(published.id) ?? 0,
+      enabledModuleKeys: moduleKeysByVersion.get(published.id) ?? [],
     };
   });
 }

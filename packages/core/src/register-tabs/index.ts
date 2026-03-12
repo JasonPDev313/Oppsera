@@ -12,3 +12,7 @@ export * from './validation';
 
 // Types
 export type * from './types';
+
+// Helpers
+export { createRegisterTabWithAutoNumber } from './helpers';
+export type { CreateRegisterTabInput } from './helpers';

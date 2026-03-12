@@ -126,7 +126,7 @@ function ActionItemRow({
   item: ActionItem;
   expanded: boolean;
   onToggle: () => void;
-  onAction: (id: string, status: 'reviewed' | 'actioned' | 'dismissed') => void;
+  onAction: (id: string, status: 'reviewed' | 'actioned' | 'dismissed', notes?: string) => void;
   isActing: boolean;
 }) {
   const [notes, setNotes] = useState('');
@@ -242,7 +242,7 @@ function ActionItemRow({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onAction(item.id, 'reviewed');
+                      onAction(item.id, 'reviewed', notes || undefined);
                     }}
                     disabled={isActing}
                     className="px-3 py-2 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-500 transition-colors"
@@ -252,7 +252,7 @@ function ActionItemRow({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onAction(item.id, 'actioned');
+                      onAction(item.id, 'actioned', notes || undefined);
                     }}
                     disabled={isActing}
                     className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-500 transition-colors"
@@ -281,6 +281,7 @@ export default function ActionItemsPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [severityFilter, setSeverityFilter] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [generateMsg, setGenerateMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const filters = {
     status: statusFilter || undefined,
@@ -291,15 +292,23 @@ export default function ActionItemsPage() {
   const { data, isLoading, error, loadMore, refresh } = useActionItems(filters);
   const { updateStatus, generateItems, isActing } = useActionItemMutations();
 
-  const handleAction = async (id: string, status: 'reviewed' | 'actioned' | 'dismissed') => {
-    const ok = await updateStatus(id, status);
+  const handleAction = async (id: string, status: 'reviewed' | 'actioned' | 'dismissed', notes?: string) => {
+    const ok = await updateStatus(id, status, notes);
     if (ok) refresh();
   };
 
   const handleGenerate = async () => {
+    setGenerateMsg(null);
     const result = await generateItems();
     if (result) {
+      if (result.created > 0) {
+        setGenerateMsg({ type: 'success', text: `Created ${result.created} insight${result.created !== 1 ? 's' : ''}${result.skipped ? `, ${result.skipped} skipped (duplicates)` : ''}` });
+      } else {
+        setGenerateMsg({ type: 'success', text: `No new insights found${result.skipped ? ` (${result.skipped} duplicates skipped)` : ''}. Usage data may be empty.` });
+      }
       refresh();
+    } else {
+      setGenerateMsg({ type: 'error', text: 'Failed to generate insights. Check browser console for details.' });
     }
   };
 
@@ -334,6 +343,14 @@ export default function ActionItemsPage() {
 
       {/* Stats */}
       {data?.stats && <StatsCards stats={data.stats} />}
+
+      {/* Generate feedback */}
+      {generateMsg && (
+        <div className={`${generateMsg.type === 'error' ? 'bg-red-500/10 border-red-500/30' : 'bg-emerald-500/10 border-emerald-500/30'} border rounded-lg px-4 py-3 mb-4 flex items-center justify-between`}>
+          <p className={`text-sm ${generateMsg.type === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>{generateMsg.text}</p>
+          <button onClick={() => setGenerateMsg(null)} className="text-slate-400 hover:text-slate-300 text-xs ml-4">Dismiss</button>
+        </div>
+      )}
 
       {/* Error */}
       {error && (

@@ -97,6 +97,14 @@ export {
 export type { ConfigService } from './config';
 export type { BillingAdapter } from './billing';
 
+// ── Guest Pay ────────────────────────────────────────────────────
+export { getSessionInternalByToken, lookupMemberForGuestPay } from './helpers/guest-pay-member-lookup';
+export type { GuestPaySessionInternal, MemberLookupResult } from './helpers/guest-pay-member-lookup';
+
+// ── CSV Export (pure utility, no domain deps) ──────────────────────
+export { toCsv } from './helpers/csv-export';
+export type { CsvColumn } from './helpers/csv-export';
+
 // ── Cross-module helpers (shared infrastructure) ──────────────────
 export { checkIdempotency, saveIdempotencyKey } from './helpers/idempotency';
 export { fetchOrderForMutation, incrementVersion } from './helpers/optimistic-lock';
@@ -226,6 +234,9 @@ export type {
 
 // ── ERP Dual-Mode Architecture ──────────────────────────────────
 export * from './erp';
+
+// ── Cross-Module Sync Consumers ──────────────────────────────────
+export { handlePmsGuestCreated, HOTEL_GUEST_TAG_SLUG, createCustomerWriteApiImpl } from './sync';
 
 // ── Distributed Locks ───────────────────────────────────────────
 export * from './locks';

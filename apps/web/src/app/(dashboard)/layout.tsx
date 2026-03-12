@@ -740,8 +740,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, tenant, locations, isLoading, isAuthenticated, needsOnboarding, logout } = useAuthContext();
-  const { isModuleEnabled, isLoading: entitlementsLoading } = useEntitlementsContext();
-  const { can, isLoading: permissionsLoading } = usePermissionsContext();
+  const { isModuleEnabled, isLoading: entitlementsLoading, hasError: entitlementsError } = useEntitlementsContext();
+  const { can, isLoading: permissionsLoading, hasError: permissionsError } = usePermissionsContext();
   const { itemOrder } = useNavPreferences();
   const { guardedClick } = useNavigationGuard();
   const { configs: workflowConfigs, isLoading: erpConfigLoading } = useErpConfig();
@@ -867,10 +867,12 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     window.location.href = '/login';
   };
 
-  // During auth or entitlements loading, show all modules — filter once both are loaded
+  // During auth/entitlements loading OR if entitlements failed to load, show all modules.
+  // This prevents a transient API failure from hiding the entire sidebar.
+  // Server-side middleware still enforces real entitlement checks on each route.
   const checkModule = useCallback(
-    (key: string) => (isLoading || entitlementsLoading) ? true : isModuleEnabled(key),
-    [isLoading, entitlementsLoading, isModuleEnabled],
+    (key: string) => (isLoading || entitlementsLoading || entitlementsError) ? true : isModuleEnabled(key),
+    [isLoading, entitlementsLoading, entitlementsError, isModuleEnabled],
   );
 
   // Apply tenant nav preferences (order + visibility) — falls back to default order
@@ -911,8 +913,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const tenantName = tenant?.name || 'OppsEra';
   const userName = user?.name || 'User';
   const userEmail = user?.email || '';
-  // During loading, grant all permissions — filter once loaded
-  const checkPermission = (isLoading || permissionsLoading) ? () => true : can;
+  // During loading OR if permissions failed to load, grant all permissions.
+  // This prevents a transient API failure from hiding the entire sidebar.
+  // Server-side middleware still enforces real permission checks on each route.
+  const checkPermission = (isLoading || permissionsLoading || permissionsError) ? () => true : can;
 
   return (
     <ContextMenuProvider>

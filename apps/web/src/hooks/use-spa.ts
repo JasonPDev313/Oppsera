@@ -679,14 +679,18 @@ export function useSpaAvailableSlots(params: SpaAvailableSlotsParams | null) {
 export function useSpaDashboard(locationId?: string, date?: string) {
   const result = useQuery({
     queryKey: ['spa-dashboard', locationId, date],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const qs = buildQueryString({ locationId, date });
       return apiFetch<{ data: SpaDashboardMetrics }>(
         `/api/v1/spa/dashboard${qs}`,
+        { signal },
       ).then((r) => r.data);
     },
-    staleTime: 60_000,
+    staleTime: 30_000,
     enabled: !!locationId && !!date,
+    // Live ops dashboard — poll every 30s, pause when tab is hidden
+    refetchInterval: () => (document.hidden ? false : 30_000),
+    refetchOnWindowFocus: true,
   });
 
   return {

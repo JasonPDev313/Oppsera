@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { AppError } from '@oppsera/shared';
 import { getTaxRemittanceReport } from '@oppsera/module-accounting';
-import { toCsv } from '@oppsera/module-reporting/csv-export';
+import { toCsv } from '@oppsera/core';
 
 const CSV_COLUMNS = [
   { key: 'jurisdictionCode', label: 'Jurisdiction Code' },

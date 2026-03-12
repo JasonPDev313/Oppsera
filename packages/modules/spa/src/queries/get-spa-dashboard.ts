@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, sql, inArray } from 'drizzle-orm';
 import {
   withTenant,
   spaAppointments,
@@ -84,15 +84,26 @@ export async function getSpaDashboard(input: {
   locationId: string;
   date: string; // YYYY-MM-DD — typically today
 }): Promise<SpaDashboardMetrics> {
+  // Validate date format before using in date arithmetic
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
+    throw new Error(`Invalid date format: expected YYYY-MM-DD, got "${input.date}"`);
+  }
+  const parsedDate = new Date(`${input.date}T00:00:00.000Z`);
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new Error(`Invalid date value: "${input.date}"`);
+  }
+
   return withTenant(input.tenantId, async (tx) => {
     // Pad UTC day boundaries by 14 hours to cover all client timezone offsets.
     // The operational queries count by status (always accurate for the padded
     // range) and the dashboard KPIs come from date-keyed read models.
-    const dayStart = new Date(new Date(`${input.date}T00:00:00.000Z`).getTime() - 14 * 60 * 60 * 1000);
+    const dayStart = new Date(parsedDate.getTime() - 14 * 60 * 60 * 1000);
     const dayEnd = new Date(new Date(`${input.date}T23:59:59.999Z`).getTime() + 14 * 60 * 60 * 1000);
 
-    // Fetch read model data, today's appointments, provider metrics,
-    // and service metrics in parallel
+    const thirtyDaysAgo = new Date(parsedDate.getTime() - 30 * 24 * 60 * 60 * 1000)
+      .toISOString().slice(0, 10);
+
+    // All 5 queries fire in a single parallel batch — no sequential Phase 2
     const [dailyOps, todayAppointments, providerMetrics, serviceMetrics, upcomingRows] = await Promise.all([
       // 1. Read model daily operations
       tx
@@ -137,16 +148,19 @@ export async function getSpaDashboard(input: {
         )
         .groupBy(spaAppointments.status),
 
-      // 3. Provider metrics from read model
+      // 3. Provider metrics — JOIN provider names/colors directly (eliminates Phase 2 lookup)
       tx
         .select({
           providerId: rmSpaProviderMetrics.providerId,
+          providerName: spaProviders.displayName,
+          providerColor: spaProviders.color,
           appointmentCount: rmSpaProviderMetrics.appointmentCount,
           completedCount: rmSpaProviderMetrics.completedCount,
           utilizationPct: rmSpaProviderMetrics.utilizationPct,
           totalRevenue: rmSpaProviderMetrics.totalRevenue,
         })
         .from(rmSpaProviderMetrics)
+        .leftJoin(spaProviders, eq(rmSpaProviderMetrics.providerId, spaProviders.id))
         .where(
           and(
             eq(rmSpaProviderMetrics.tenantId, input.tenantId),
@@ -154,30 +168,29 @@ export async function getSpaDashboard(input: {
           ),
         ),
 
-      // 4. Top services from read model (last 30 days for meaningful data)
+      // 4. Top services — JOIN service names directly (eliminates Phase 2 lookup)
       tx
         .select({
           serviceId: rmSpaServiceMetrics.serviceId,
+          serviceName: spaServices.name,
           bookingCount: sql<number>`sum(${rmSpaServiceMetrics.bookingCount})::int`,
           completedCount: sql<number>`sum(${rmSpaServiceMetrics.completedCount})::int`,
           totalRevenue: sql<number>`sum(${rmSpaServiceMetrics.totalRevenue}::numeric)::numeric`,
         })
         .from(rmSpaServiceMetrics)
+        .leftJoin(spaServices, eq(rmSpaServiceMetrics.serviceId, spaServices.id))
         .where(
           and(
             eq(rmSpaServiceMetrics.tenantId, input.tenantId),
-            gte(
-              rmSpaServiceMetrics.businessDate,
-              new Date(new Date(`${input.date}T00:00:00.000Z`).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-            ),
+            gte(rmSpaServiceMetrics.businessDate, thirtyDaysAgo),
             lte(rmSpaServiceMetrics.businessDate, input.date),
           ),
         )
-        .groupBy(rmSpaServiceMetrics.serviceId)
+        .groupBy(rmSpaServiceMetrics.serviceId, spaServices.name)
         .orderBy(desc(sql`sum(${rmSpaServiceMetrics.bookingCount})`))
         .limit(10),
 
-      // 5. Upcoming active appointments for the "upcoming" card (lightweight)
+      // 5. Upcoming appointments — JOIN first service name via lateral subquery (eliminates Phase 2 lookup)
       tx
         .select({
           id: spaAppointments.id,
@@ -185,6 +198,15 @@ export async function getSpaDashboard(input: {
           guestName: sql<string | null>`COALESCE(${spaAppointments.guestName}, ${customers.displayName})`.as('guest_name'),
           providerId: spaAppointments.providerId,
           providerName: spaProviders.displayName,
+          serviceName: sql<string | null>`(
+            SELECT ${spaServices.name}
+            FROM ${spaAppointmentItems}
+            INNER JOIN ${spaServices} ON ${spaAppointmentItems.serviceId} = ${spaServices.id}
+            WHERE ${spaAppointmentItems.appointmentId} = ${spaAppointments.id}
+              AND ${spaAppointmentItems.tenantId} = ${spaAppointments.tenantId}
+            ORDER BY ${spaAppointmentItems.sortOrder}
+            LIMIT 1
+          )`.as('service_name'),
           startAt: spaAppointments.startAt,
           endAt: spaAppointments.endAt,
           status: spaAppointments.status,
@@ -198,7 +220,7 @@ export async function getSpaDashboard(input: {
             eq(spaAppointments.locationId, input.locationId),
             gte(spaAppointments.startAt, dayStart),
             lte(spaAppointments.startAt, dayEnd),
-            sql`${spaAppointments.status} IN ('confirmed', 'checked_in', 'in_service')` as ReturnType<typeof eq>,
+            inArray(spaAppointments.status, ['confirmed', 'checked_in', 'in_service']),
           ),
         )
         .orderBy(spaAppointments.startAt)
@@ -224,112 +246,38 @@ export async function getSpaDashboard(input: {
     };
 
     // Revenue from read model (fallback to zeros if not populated yet)
+    // Drizzle numeric columns return strings — Number() convert with NaN guard
+    const safeNum = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
     const ops = dailyOps[0];
     const revenue = {
-      totalRevenue: ops ? Number(ops.totalRevenue) : 0,
-      serviceRevenue: ops ? Number(ops.serviceRevenue) : 0,
-      addonRevenue: ops ? Number(ops.addonRevenue) : 0,
-      retailRevenue: ops ? Number(ops.retailRevenue) : 0,
-      tipTotal: ops ? Number(ops.tipTotal) : 0,
+      totalRevenue: ops ? safeNum(ops.totalRevenue) : 0,
+      serviceRevenue: ops ? safeNum(ops.serviceRevenue) : 0,
+      addonRevenue: ops ? safeNum(ops.addonRevenue) : 0,
+      retailRevenue: ops ? safeNum(ops.retailRevenue) : 0,
+      tipTotal: ops ? safeNum(ops.tipTotal) : 0,
     };
 
-    // Resolve provider names, service names, and upcoming appointment service names in parallel
-    const providerIds = providerMetrics.map((p) => p.providerId);
-    const svcIds = serviceMetrics.map((s) => s.serviceId);
-    const upcomingApptIds = upcomingRows.map((r) => r.id);
-
-    const [providerNameMap, serviceNameMap, upcomingServiceMap] = await Promise.all([
-      // Provider name lookup
-      providerIds.length > 0
-        ? tx
-            .select({
-              id: spaProviders.id,
-              displayName: spaProviders.displayName,
-              color: spaProviders.color,
-            })
-            .from(spaProviders)
-            .where(
-              and(
-                eq(spaProviders.tenantId, input.tenantId),
-                sql`${spaProviders.id} IN (${sql.join(
-                  providerIds.map((id) => sql`${id}`),
-                  sql`, `,
-                )})`,
-              ),
-            )
-            .then(
-              (rows) =>
-                new Map(rows.map((p) => [p.id, { name: p.displayName, color: p.color ?? null }])),
-            )
-        : Promise.resolve(new Map<string, { name: string; color: string | null }>()),
-
-      // Service name lookup
-      svcIds.length > 0
-        ? tx
-            .select({
-              id: spaServices.id,
-              name: spaServices.name,
-            })
-            .from(spaServices)
-            .where(
-              and(
-                eq(spaServices.tenantId, input.tenantId),
-                sql`${spaServices.id} IN (${sql.join(
-                  svcIds.map((id) => sql`${id}`),
-                  sql`, `,
-                )})`,
-              ),
-            )
-            .then((rows) => new Map(rows.map((s) => [s.id, s.name])))
-        : Promise.resolve(new Map<string, string>()),
-
-      // First service name per upcoming appointment (for display)
-      upcomingApptIds.length > 0
-        ? tx
-            .select({
-              appointmentId: spaAppointmentItems.appointmentId,
-              serviceName: spaServices.name,
-            })
-            .from(spaAppointmentItems)
-            .innerJoin(spaServices, eq(spaAppointmentItems.serviceId, spaServices.id))
-            .where(
-              and(
-                eq(spaAppointmentItems.tenantId, input.tenantId),
-                sql`${spaAppointmentItems.appointmentId} IN (${sql.join(
-                  upcomingApptIds.map((id) => sql`${id}`),
-                  sql`, `,
-                )})`,
-                eq(spaAppointmentItems.sortOrder, 0),
-              ),
-            )
-            .then(
-              (rows) =>
-                new Map(rows.map((r) => [r.appointmentId, r.serviceName])),
-            )
-        : Promise.resolve(new Map<string, string>()),
-    ]);
-
-    const providerUtilization = providerMetrics.map((p) => {
-      const info = providerNameMap.get(p.providerId);
-      return {
-        providerId: p.providerId,
-        providerName: info?.name ?? 'Unknown',
-        providerColor: info?.color ?? null,
-        appointmentCount: p.appointmentCount,
-        completedCount: p.completedCount,
-        utilizationPct: Number(p.utilizationPct),
-        totalRevenue: Number(p.totalRevenue),
-      };
-    });
+    // Provider utilization — names already joined, no second lookup needed
+    const providerUtilization = providerMetrics.map((p) => ({
+      providerId: p.providerId,
+      providerName: p.providerName ?? 'Unknown',
+      providerColor: p.providerColor ?? null,
+      appointmentCount: p.appointmentCount,
+      completedCount: p.completedCount,
+      utilizationPct: safeNum(p.utilizationPct),
+      totalRevenue: safeNum(p.totalRevenue),
+    }));
 
     // Sort by utilization descending
     providerUtilization.sort((a, b) => b.utilizationPct - a.utilizationPct);
 
+    // Top services — names already joined, no second lookup needed
     const topServices = serviceMetrics.map((s) => ({
       serviceId: s.serviceId,
-      serviceName: serviceNameMap.get(s.serviceId) ?? 'Unknown',
+      serviceName: s.serviceName ?? 'Unknown',
       bookingCount: s.bookingCount,
-      totalRevenue: Number(s.totalRevenue),
+      totalRevenue: safeNum(s.totalRevenue),
       completedCount: s.completedCount,
     }));
 
@@ -341,21 +289,21 @@ export async function getSpaDashboard(input: {
 
     const kpis = {
       avgAppointmentDuration: ops?.avgAppointmentDuration ?? 0,
-      utilizationPct: ops ? Number(ops.utilizationPct) : 0,
-      rebookingRate: ops ? Number(ops.rebookingRate) : 0,
+      utilizationPct: ops ? safeNum(ops.utilizationPct) : 0,
+      rebookingRate: ops ? safeNum(ops.rebookingRate) : 0,
       noShowRate,
       walkInCount: ops?.walkInCount ?? 0,
       onlineBookingCount: ops?.onlineBookingCount ?? 0,
     };
 
-    // Build upcoming appointments list with service names
+    // Upcoming appointments — service names already joined via correlated subquery
     const upcomingAppointments: UpcomingAppointmentRow[] = upcomingRows.map((r) => ({
       id: r.id,
       appointmentNumber: r.appointmentNumber,
       guestName: r.guestName ?? null,
       providerId: r.providerId ?? null,
       providerName: r.providerName ?? null,
-      serviceName: upcomingServiceMap.get(r.id) ?? null,
+      serviceName: r.serviceName ?? null,
       startAt: r.startAt,
       endAt: r.endAt,
       status: r.status,

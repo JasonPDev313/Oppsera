@@ -85,6 +85,12 @@ jobs:
 
           echo "✓ Migration journal: $JOURNAL_COUNT entries = $SQL_COUNT SQL files, idx sequential"
 
+      - name: Architecture boundary audit
+        run: |
+          # Scans for module-to-module imports, deep imports, high module concentration.
+          # Warning-only (--ci) — does not fail the build. See docs/adr/001-module-boundaries.md
+          node scripts/audit-architecture.cjs --ci
+
       - name: DB safety — fire-and-forget scan
         run: |
           # Scan server-side code for fire-and-forget DB patterns

@@ -1,0 +1,636 @@
+/**
+ * Attrition Engine — scores every active tenant's churn risk (0–100)
+ * across 8 signals, then generates a narrative summary explaining
+ * why each tenant may be at risk.
+ *
+ * Signals (weighted):
+ *  1. Login decline          (20%) — login frequency drop 30d vs prior 30d
+ *  2. Usage decline          (20%) — API request volume trending down
+ *  3. Module abandonment     (15%) — modules going dark (no activity 14+ days)
+ *  4. User shrinkage         (15%) — fewer unique users period-over-period
+ *  5. Error frustration      (10%) — elevated error rates may drive users away
+ *  6. Breadth narrowing      (10%) — using fewer modules than before
+ *  7. Staleness              (5%)  — days since any activity
+ *  8. Onboarding stall       (5%)  — never completed onboarding
+ */
+import { db } from '@oppsera/db';
+import { sql } from 'drizzle-orm';
+import { generateUlid } from '@oppsera/shared';
+
+// ── Types ────────────────────────────────────────────────────────
+
+interface TenantSnapshot {
+  tenantId: string;
+  tenantName: string;
+  tenantStatus: string;
+  industry: string | null;
+  healthGrade: string | null;
+  totalLocations: number;
+  totalUsers: number;
+  onboardingStatus: string;
+  lastActivityAt: string | null;
+  createdAt: string | null;
+}
+
+interface SignalResult {
+  score: number; // 0-100, always integer, never NaN
+  detail: Record<string, unknown>;
+  fragments: string[]; // narrative fragments
+}
+
+interface ScoredTenant {
+  tenant: TenantSnapshot;
+  overallScore: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  signals: {
+    loginDecline: SignalResult;
+    usageDecline: SignalResult;
+    moduleAbandonment: SignalResult;
+    userShrinkage: SignalResult;
+    errorFrustration: SignalResult;
+    breadthNarrowing: SignalResult;
+    staleness: SignalResult;
+    onboardingStall: SignalResult;
+  };
+  activeModules: number;
+  narrative: string;
+}
+
+const WEIGHTS = {
+  loginDecline: 0.20,
+  usageDecline: 0.20,
+  moduleAbandonment: 0.15,
+  userShrinkage: 0.15,
+  errorFrustration: 0.10,
+  breadthNarrowing: 0.10,
+  staleness: 0.05,
+  onboardingStall: 0.05,
+} as const;
+
+const MAX_NARRATIVE_LENGTH = 2000;
+const BATCH_SIZE = 50; // insert batch size to avoid oversized queries
+const SCORING_LOCK_ID = 839271; // arbitrary fixed ID for pg_try_advisory_lock
+const NEW_TENANT_DAYS = 30; // tenants younger than this don't get no-data penalties
+
+function riskLevel(score: number): 'low' | 'medium' | 'high' | 'critical' {
+  if (score >= 75) return 'critical';
+  if (score >= 50) return 'high';
+  if (score >= 30) return 'medium';
+  return 'low';
+}
+
+/** Clamp to 0–100 integer, NaN-safe (defaults to 0). */
+function clamp(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+/** Safe percentage: (a-b)/b * 100. Returns 0 if b is 0 or result is NaN. */
+function safePctChange(current: number, prior: number): number {
+  if (prior <= 0) return 0;
+  const pct = ((prior - current) / prior) * 100;
+  return Number.isFinite(pct) ? pct : 0;
+}
+
+// ── Public API ───────────────────────────────────────────────────
+
+export async function scoreAllTenants(): Promise<{ scored: number; highRisk: number; errors: number }> {
+  // ── Advisory lock: prevent concurrent scoring runs ──
+  const lockResult = await db.execute(sql`SELECT pg_try_advisory_lock(${SCORING_LOCK_ID}) AS acquired`);
+  const lockArr = Array.from(lockResult as Iterable<Record<string, unknown>>);
+  if (!lockArr[0]?.acquired) {
+    throw new Error('SCORING_IN_PROGRESS');
+  }
+
+  try {
+    return await doScoring();
+  } finally {
+    await db.execute(sql`SELECT pg_advisory_unlock(${SCORING_LOCK_ID})`);
+  }
+}
+
+async function doScoring(): Promise<{ scored: number; highRisk: number; errors: number }> {
+  // 1. Get all active tenants
+  const tenants = await getActiveTenants();
+  if (tenants.length === 0) return { scored: 0, highRisk: 0, errors: 0 };
+
+  const tenantIds = tenants.map((t) => t.tenantId);
+
+  // 2. Batch-fetch all signal data in parallel
+  const [loginData, usageData, adoptionData, workflowData, errorData] = await Promise.all([
+    batchLoginData(tenantIds),
+    batchUsageData(tenantIds),
+    batchAdoptionData(tenantIds),
+    batchWorkflowBreadth(tenantIds),
+    batchErrorData(tenantIds),
+  ]);
+
+  // 3. Score each tenant — isolate errors per tenant
+  const scored: ScoredTenant[] = [];
+  let scoreErrors = 0;
+
+  for (const tenant of tenants) {
+    try {
+      const tid = tenant.tenantId;
+      const signals = {
+        loginDecline: scoreLoginDecline(loginData[tid]),
+        usageDecline: scoreUsageDecline(usageData[tid]),
+        moduleAbandonment: scoreModuleAbandonment(adoptionData[tid]),
+        userShrinkage: scoreUserShrinkage(usageData[tid]),
+        errorFrustration: scoreErrorFrustration(errorData[tid]),
+        breadthNarrowing: scoreBreadthNarrowing(workflowData[tid]),
+        staleness: scoreStaleness(tenant),
+        onboardingStall: scoreOnboardingStall(tenant),
+      };
+
+      // For new tenants (<30 days), don't penalize for missing data —
+      // "no data" scores are informational noise, not real risk signals.
+      const tenantAgeMs = tenant.createdAt ? Date.now() - new Date(tenant.createdAt).getTime() : Infinity;
+      const isNewTenant = Number.isFinite(tenantAgeMs) && tenantAgeMs < NEW_TENANT_DAYS * 86400000;
+
+      if (isNewTenant) {
+        for (const signal of Object.values(signals)) {
+          if (signal.detail.reason && String(signal.detail.reason).startsWith('no_')) {
+            signal.score = 0;
+            signal.fragments = [];
+          }
+        }
+      }
+
+      const overallScore = clamp(
+        Object.entries(WEIGHTS).reduce(
+          (sum, [key, weight]) => sum + signals[key as keyof typeof signals].score * weight,
+          0,
+        ),
+      );
+
+      const activeModuleCount = adoptionData[tid]?.activeCount ?? 0;
+      const narrative = buildNarrative(tenant, signals, overallScore);
+
+      scored.push({
+        tenant,
+        overallScore,
+        riskLevel: riskLevel(overallScore),
+        signals,
+        activeModules: activeModuleCount,
+        narrative,
+      });
+    } catch (err) {
+      scoreErrors++;
+      console.error(`[Attrition] Failed to score tenant ${tenant.tenantId}:`, err);
+    }
+  }
+
+  // 4. Atomic: supersede previous open scores then INSERT new rows.
+  //    Wrapped in a transaction so a crash can't leave scores superseded
+  //    without new replacements. Analyst-reviewed scores are never touched.
+  const scoredTenantIds = scored.map((s) => s.tenant.tenantId);
+
+  // Atomic: if ANY batch fails, the entire transaction rolls back — this
+  // prevents the supersede UPDATE from committing without replacement inserts.
+  // We do NOT catch inside the transaction; a failed batch aborts the whole run.
+  await db.transaction(async (tx) => {
+    if (scoredTenantIds.length > 0) {
+      await tx.execute(sql`
+        UPDATE attrition_risk_scores
+        SET status = 'superseded', updated_at = NOW()
+        WHERE tenant_id = ANY(${scoredTenantIds}::text[])
+          AND status = 'open'
+      `);
+    }
+
+    for (let i = 0; i < scored.length; i += BATCH_SIZE) {
+      const batch = scored.slice(i, i + BATCH_SIZE);
+      await insertBatch(tx, batch);
+    }
+  });
+
+  const highRisk = scored.filter((s) => s.overallScore >= 50).length;
+  return { scored: scored.length, highRisk, errors: scoreErrors };
+}
+
+/** Insert a batch of scored tenants using multi-row VALUES in one statement. */
+async function insertBatch(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], batch: ScoredTenant[]): Promise<void> {
+  if (batch.length === 0) return;
+
+  const valuesClauses = batch.map((s) => {
+    const id = generateUlid();
+    const details = JSON.stringify({
+      loginDecline: s.signals.loginDecline.detail,
+      usageDecline: s.signals.usageDecline.detail,
+      moduleAbandonment: s.signals.moduleAbandonment.detail,
+      userShrinkage: s.signals.userShrinkage.detail,
+      errorFrustration: s.signals.errorFrustration.detail,
+      breadthNarrowing: s.signals.breadthNarrowing.detail,
+      staleness: s.signals.staleness.detail,
+      onboardingStall: s.signals.onboardingStall.detail,
+    });
+
+    return sql`(
+      ${id}, ${s.tenant.tenantId}, ${s.overallScore}, ${s.riskLevel},
+      ${s.signals.loginDecline.score}, ${s.signals.usageDecline.score},
+      ${s.signals.moduleAbandonment.score}, ${s.signals.userShrinkage.score},
+      ${s.signals.errorFrustration.score}, ${s.signals.breadthNarrowing.score},
+      ${s.signals.staleness.score}, ${s.signals.onboardingStall.score},
+      ${details}::jsonb, ${s.narrative},
+      ${s.tenant.tenantName}, ${s.tenant.tenantStatus},
+      ${s.tenant.industry}, ${s.tenant.healthGrade},
+      ${s.tenant.totalLocations}, ${s.tenant.totalUsers},
+      ${s.activeModules}, ${s.tenant.lastActivityAt}::timestamptz,
+      NOW(), 'open', NOW(), NOW()
+    )`;
+  });
+
+  await tx.execute(sql`
+    INSERT INTO attrition_risk_scores (
+      id, tenant_id, overall_score, risk_level,
+      login_decline_score, usage_decline_score, module_abandonment_score,
+      user_shrinkage_score, error_frustration_score, breadth_narrowing_score,
+      staleness_score, onboarding_stall_score,
+      signal_details, narrative,
+      tenant_name, tenant_status, industry, health_grade,
+      total_locations, total_users, active_modules, last_activity_at,
+      scored_at, status, created_at, updated_at
+    ) VALUES ${sql.join(valuesClauses, sql`, `)}
+  `);
+}
+
+// ── Data Fetchers (batch for all tenants) ────────────────────────
+
+async function getActiveTenants(): Promise<TenantSnapshot[]> {
+  const rows = await db.execute(sql`
+    SELECT
+      t.id AS tenant_id,
+      t.name AS tenant_name,
+      COALESCE(t.status, 'active') AS tenant_status,
+      t.industry,
+      t.health_grade,
+      COALESCE(t.total_locations, 0)::int AS total_locations,
+      COALESCE(t.total_users, 0)::int AS total_users,
+      COALESCE(t.onboarding_status, 'pending') AS onboarding_status,
+      t.last_activity_at::text AS last_activity_at,
+      t.created_at::text AS created_at
+    FROM tenants t
+    WHERE t.status IN ('active', 'trial')
+    ORDER BY t.name
+  `);
+  return Array.from(rows as Iterable<Record<string, unknown>>).map((r) => ({
+    tenantId: String(r.tenant_id),
+    tenantName: String(r.tenant_name),
+    tenantStatus: String(r.tenant_status),
+    industry: r.industry ? String(r.industry) : null,
+    healthGrade: r.health_grade ? String(r.health_grade) : null,
+    totalLocations: Number(r.total_locations) || 0,
+    totalUsers: Number(r.total_users) || 0,
+    onboardingStatus: String(r.onboarding_status),
+    lastActivityAt: r.last_activity_at ? String(r.last_activity_at) : null,
+    createdAt: r.created_at ? String(r.created_at) : null,
+  }));
+}
+
+interface LoginBatch { [tenantId: string]: { current: number; prior: number } }
+
+async function batchLoginData(tenantIds: string[]): Promise<LoginBatch> {
+  if (tenantIds.length === 0) return {};
+  const rows = await db.execute(sql`
+    SELECT
+      tenant_id,
+      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS current_logins,
+      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days')::int AS prior_logins
+    FROM login_records
+    WHERE tenant_id = ANY(${tenantIds}::text[])
+      AND created_at >= NOW() - INTERVAL '60 days'
+    GROUP BY tenant_id
+  `);
+  const result: LoginBatch = {};
+  for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
+    result[String(r.tenant_id)] = {
+      current: Number(r.current_logins) || 0,
+      prior: Number(r.prior_logins) || 0,
+    };
+  }
+  return result;
+}
+
+interface UsageBatch {
+  [tenantId: string]: {
+    currentRequests: number;
+    priorRequests: number;
+    currentUsers: number;
+    priorUsers: number;
+  };
+}
+
+async function batchUsageData(tenantIds: string[]): Promise<UsageBatch> {
+  if (tenantIds.length === 0) return {};
+  const rows = await db.execute(sql`
+    SELECT
+      tenant_id,
+      COALESCE(SUM(request_count) FILTER (WHERE usage_date >= CURRENT_DATE - 30), 0)::int AS current_requests,
+      COALESCE(SUM(request_count) FILTER (WHERE usage_date >= CURRENT_DATE - 60 AND usage_date < CURRENT_DATE - 30), 0)::int AS prior_requests,
+      COALESCE(SUM(unique_users) FILTER (WHERE usage_date >= CURRENT_DATE - 30), 0)::int AS current_users,
+      COALESCE(SUM(unique_users) FILTER (WHERE usage_date >= CURRENT_DATE - 60 AND usage_date < CURRENT_DATE - 30), 0)::int AS prior_users
+    FROM rm_usage_daily
+    WHERE tenant_id = ANY(${tenantIds}::text[])
+      AND usage_date >= CURRENT_DATE - 60
+    GROUP BY tenant_id
+  `);
+  const result: UsageBatch = {};
+  for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
+    result[String(r.tenant_id)] = {
+      currentRequests: Number(r.current_requests) || 0,
+      priorRequests: Number(r.prior_requests) || 0,
+      currentUsers: Number(r.current_users) || 0,
+      priorUsers: Number(r.prior_users) || 0,
+    };
+  }
+  return result;
+}
+
+interface AdoptionBatch {
+  [tenantId: string]: {
+    activeCount: number;
+    totalCount: number;
+    abandonedModules: string[];
+    lastUsedDaysAgo: Record<string, number>;
+  };
+}
+
+async function batchAdoptionData(tenantIds: string[]): Promise<AdoptionBatch> {
+  if (tenantIds.length === 0) return {};
+  const rows = await db.execute(sql`
+    SELECT
+      tenant_id,
+      module_key,
+      is_active,
+      last_used_at,
+      EXTRACT(EPOCH FROM (NOW() - last_used_at)) / 86400 AS days_since_use
+    FROM rm_usage_module_adoption
+    WHERE tenant_id = ANY(${tenantIds}::text[])
+  `);
+  const result: AdoptionBatch = {};
+  for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
+    const tid = String(r.tenant_id);
+    if (!result[tid]) {
+      result[tid] = { activeCount: 0, totalCount: 0, abandonedModules: [], lastUsedDaysAgo: {} };
+    }
+    result[tid].totalCount++;
+    const daysSince = Number(r.days_since_use) || 999;
+    result[tid].lastUsedDaysAgo[String(r.module_key)] = Math.round(daysSince);
+    // A module is "active" only if enabled AND used within the last 14 days.
+    // This prevents double-counting: a module that is enabled but unused > 14 days
+    // should NOT inflate activeCount while also appearing in abandonedModules.
+    if (daysSince <= 14) {
+      result[tid].activeCount++;
+    } else {
+      result[tid].abandonedModules.push(String(r.module_key));
+    }
+  }
+  return result;
+}
+
+interface BreadthBatch {
+  [tenantId: string]: { currentModules: number; priorModules: number };
+}
+
+async function batchWorkflowBreadth(tenantIds: string[]): Promise<BreadthBatch> {
+  if (tenantIds.length === 0) return {};
+  const rows = await db.execute(sql`
+    SELECT
+      tenant_id,
+      (COUNT(DISTINCT module_key) FILTER (WHERE usage_date >= CURRENT_DATE - 30))::int AS current_modules,
+      (COUNT(DISTINCT module_key) FILTER (WHERE usage_date >= CURRENT_DATE - 60 AND usage_date < CURRENT_DATE - 30))::int AS prior_modules
+    FROM rm_usage_daily
+    WHERE tenant_id = ANY(${tenantIds}::text[])
+      AND usage_date >= CURRENT_DATE - 60
+    GROUP BY tenant_id
+  `);
+  const result: BreadthBatch = {};
+  for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
+    result[String(r.tenant_id)] = {
+      currentModules: Number(r.current_modules) || 0,
+      priorModules: Number(r.prior_modules) || 0,
+    };
+  }
+  return result;
+}
+
+interface ErrorBatch {
+  [tenantId: string]: { errorRate: number; totalErrors: number; totalRequests: number };
+}
+
+async function batchErrorData(tenantIds: string[]): Promise<ErrorBatch> {
+  if (tenantIds.length === 0) return {};
+  const rows = await db.execute(sql`
+    SELECT
+      tenant_id,
+      COALESCE(SUM(request_count), 0)::int AS total_requests,
+      COALESCE(SUM(error_count), 0)::int AS total_errors,
+      CASE WHEN SUM(request_count) > 0
+        THEN (SUM(error_count)::numeric / SUM(request_count) * 100)
+        ELSE 0
+      END AS error_rate
+    FROM rm_usage_daily
+    WHERE tenant_id = ANY(${tenantIds}::text[])
+      AND usage_date >= CURRENT_DATE - 30
+    GROUP BY tenant_id
+  `);
+  const result: ErrorBatch = {};
+  for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
+    const rate = Number(r.error_rate);
+    result[String(r.tenant_id)] = {
+      errorRate: Number.isFinite(rate) ? Number(rate.toFixed(2)) : 0,
+      totalErrors: Number(r.total_errors) || 0,
+      totalRequests: Number(r.total_requests) || 0,
+    };
+  }
+  return result;
+}
+
+// ── Signal Scorers ───────────────────────────────────────────────
+
+function scoreLoginDecline(data?: { current: number; prior: number }): SignalResult {
+  if (!data || (data.current === 0 && data.prior === 0)) {
+    return { score: 50, detail: { current: 0, prior: 0, reason: 'no_login_data' }, fragments: ['No login data recorded — unable to track login trends.'] };
+  }
+  if (data.prior === 0) {
+    // New tenant with logins only in current window — not declining
+    return { score: 0, detail: data, fragments: [] };
+  }
+  const declinePct = safePctChange(data.current, data.prior);
+  const score = clamp(declinePct * 1.5); // 66% decline = 100
+  const fragments: string[] = [];
+  if (declinePct > 30) {
+    fragments.push(`Logins dropped ${Math.round(declinePct)}% (${data.prior} → ${data.current}) in the last 30 days.`);
+  }
+  return { score, detail: { ...data, declinePct: Math.round(declinePct) }, fragments };
+}
+
+function scoreUsageDecline(data?: UsageBatch[string]): SignalResult {
+  if (!data || (data.currentRequests === 0 && data.priorRequests === 0)) {
+    return { score: 40, detail: { reason: 'no_usage_data' }, fragments: ['No API usage recorded in the last 60 days.'] };
+  }
+  if (data.priorRequests === 0) {
+    return { score: 0, detail: data, fragments: [] };
+  }
+  const declinePct = safePctChange(data.currentRequests, data.priorRequests);
+  const score = clamp(declinePct * 1.5);
+  const fragments: string[] = [];
+  if (declinePct > 20) {
+    fragments.push(`API usage declined ${Math.round(declinePct)}% (${data.priorRequests.toLocaleString()} → ${data.currentRequests.toLocaleString()} requests).`);
+  }
+  return { score, detail: { ...data, declinePct: Math.round(declinePct) }, fragments };
+}
+
+function scoreModuleAbandonment(data?: AdoptionBatch[string]): SignalResult {
+  if (!data || data.totalCount === 0) {
+    return { score: 0, detail: { reason: 'no_modules' }, fragments: [] };
+  }
+  const abandonedPct = (data.abandonedModules.length / data.totalCount) * 100;
+  const score = clamp(abandonedPct * 1.2);
+  const fragments: string[] = [];
+  if (data.abandonedModules.length > 0) {
+    // Cap module list to prevent oversized narratives
+    const shown = data.abandonedModules.slice(0, 5);
+    const extra = data.abandonedModules.length - shown.length;
+    const suffix = extra > 0 ? ` (+${extra} more)` : '';
+    fragments.push(`${data.abandonedModules.length} module(s) abandoned (no activity 14+ days): ${shown.join(', ')}${suffix}.`);
+  }
+  return {
+    score,
+    detail: { abandoned: data.abandonedModules, total: data.totalCount, abandonedPct: Math.round(abandonedPct) },
+    fragments,
+  };
+}
+
+function scoreUserShrinkage(data?: UsageBatch[string]): SignalResult {
+  if (!data || (data.currentUsers === 0 && data.priorUsers === 0)) {
+    return { score: 30, detail: { reason: 'no_user_data' }, fragments: ['No unique user data available.'] };
+  }
+  if (data.priorUsers === 0) {
+    return { score: 0, detail: data, fragments: [] };
+  }
+  const declinePct = safePctChange(data.currentUsers, data.priorUsers);
+  const score = clamp(declinePct * 2); // 50% decline = 100
+  const fragments: string[] = [];
+  if (declinePct > 20) {
+    fragments.push(`Active users dropped ${Math.round(declinePct)}% (${data.priorUsers} → ${data.currentUsers}).`);
+  }
+  return { score, detail: { currentUsers: data.currentUsers, priorUsers: data.priorUsers, declinePct: Math.round(declinePct) }, fragments };
+}
+
+function scoreErrorFrustration(data?: ErrorBatch[string]): SignalResult {
+  if (!data || data.totalRequests === 0) {
+    return { score: 0, detail: { reason: 'no_data' }, fragments: [] };
+  }
+  // >5% error rate starts scoring, >15% = 100
+  const score = clamp((data.errorRate - 5) * 10);
+  const fragments: string[] = [];
+  if (data.errorRate > 5) {
+    fragments.push(`High error rate of ${data.errorRate.toFixed(1)}% (${data.totalErrors} errors) — may be causing user frustration.`);
+  }
+  return { score, detail: data, fragments };
+}
+
+function scoreBreadthNarrowing(data?: BreadthBatch[string]): SignalResult {
+  if (!data || (data.currentModules === 0 && data.priorModules === 0)) {
+    return { score: 30, detail: { reason: 'no_breadth_data' }, fragments: ['No module breadth data available.'] };
+  }
+  if (data.priorModules === 0) {
+    return { score: 0, detail: data, fragments: [] };
+  }
+  const dropped = data.priorModules - data.currentModules;
+  if (dropped <= 0) {
+    return { score: 0, detail: data, fragments: [] };
+  }
+  const pct = (dropped / data.priorModules) * 100;
+  const score = clamp(pct * 1.5);
+  const fragments: string[] = [];
+  fragments.push(`Using ${dropped} fewer module(s) than last month (${data.priorModules} → ${data.currentModules}).`);
+  return { score, detail: { ...data, dropped, declinePct: Math.round(pct) }, fragments };
+}
+
+function scoreStaleness(tenant: TenantSnapshot): SignalResult {
+  if (!tenant.lastActivityAt) {
+    return { score: 80, detail: { reason: 'never_active' }, fragments: ['No recorded activity — tenant may have never used the platform.'] };
+  }
+  const ms = Date.now() - new Date(tenant.lastActivityAt).getTime();
+  if (!Number.isFinite(ms) || ms < 0) {
+    return { score: 0, detail: { reason: 'invalid_date', lastActivityAt: tenant.lastActivityAt }, fragments: [] };
+  }
+  const daysSince = Math.round(ms / 86400000);
+  let score = 0;
+  if (daysSince > 30) score = 100;
+  else if (daysSince > 14) score = clamp((daysSince - 14) * 6);
+  else if (daysSince > 7) score = clamp((daysSince - 7) * 3);
+
+  const fragments: string[] = [];
+  if (daysSince > 7) {
+    fragments.push(`Last activity was ${daysSince} day(s) ago.`);
+  }
+  return { score, detail: { daysSinceLastActivity: daysSince, lastActivityAt: tenant.lastActivityAt }, fragments };
+}
+
+function scoreOnboardingStall(tenant: TenantSnapshot): SignalResult {
+  if (tenant.onboardingStatus === 'completed') {
+    return { score: 0, detail: { onboardingStatus: 'completed' }, fragments: [] };
+  }
+  if (tenant.onboardingStatus === 'stalled') {
+    return { score: 100, detail: { onboardingStatus: 'stalled' }, fragments: ['Onboarding is stalled — tenant never completed setup.'] };
+  }
+  if (tenant.onboardingStatus === 'in_progress') {
+    return { score: 40, detail: { onboardingStatus: 'in_progress' }, fragments: ['Onboarding still in progress — may need assistance.'] };
+  }
+  // pending or unknown
+  return { score: 60, detail: { onboardingStatus: tenant.onboardingStatus }, fragments: ['Onboarding never started.'] };
+}
+
+// ── Narrative Builder ────────────────────────────────────────────
+
+function buildNarrative(
+  tenant: TenantSnapshot,
+  signals: ScoredTenant['signals'],
+  overallScore: number,
+): string {
+  const level = riskLevel(overallScore);
+  const parts: string[] = [];
+
+  // Opening
+  if (level === 'critical') {
+    parts.push(`${tenant.tenantName} is at critical risk of churning (score: ${overallScore}/100).`);
+  } else if (level === 'high') {
+    parts.push(`${tenant.tenantName} shows significant signs of declining engagement (score: ${overallScore}/100).`);
+  } else if (level === 'medium') {
+    parts.push(`${tenant.tenantName} has moderate attrition risk (score: ${overallScore}/100) — worth monitoring.`);
+  } else {
+    parts.push(`${tenant.tenantName} appears healthy (score: ${overallScore}/100).`);
+  }
+
+  // Collect all signal fragments, sorted by signal score descending
+  const allSignals = Object.entries(signals)
+    .sort(([, a], [, b]) => b.score - a.score)
+    .flatMap(([, s]) => s.fragments);
+
+  if (allSignals.length > 0) {
+    parts.push('Key concerns:');
+    for (const f of allSignals.slice(0, 5)) {
+      parts.push(`  - ${f}`);
+    }
+  }
+
+  // Recommendation
+  if (level === 'critical' || level === 'high') {
+    parts.push('Recommendation: Proactive outreach recommended. Schedule a check-in call to understand their experience and address any blockers.');
+  } else if (level === 'medium') {
+    parts.push('Recommendation: Monitor closely over the next 2 weeks. Consider sending a satisfaction survey or usage tips.');
+  }
+
+  const narrative = parts.join('\n');
+  if (narrative.length <= MAX_NARRATIVE_LENGTH) return narrative;
+  // Truncate at the last sentence boundary before the limit
+  const truncated = narrative.slice(0, MAX_NARRATIVE_LENGTH - 3);
+  const lastSentence = truncated.lastIndexOf('.');
+  const lastNewline = truncated.lastIndexOf('\n');
+  const breakAt = Math.max(lastSentence, lastNewline);
+  return (breakAt > 0 ? truncated.slice(0, breakAt + 1) : truncated) + '...';
+}

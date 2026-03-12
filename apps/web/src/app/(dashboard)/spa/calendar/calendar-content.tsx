@@ -2,12 +2,13 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
   Clock,
+  List,
   Users,
   DollarSign,
   ShoppingCart,
@@ -22,10 +23,11 @@ import { CheckoutToPosDialog } from '@/components/spa/checkout-to-pos-dialog';
 import type { CheckoutToPosResult } from '@/components/spa/checkout-to-pos-dialog';
 import SpaCondensedView from '@/components/spa/calendar/SpaCondensedView';
 import SpaQuickBookDialog from '@/components/spa/calendar/SpaQuickBookDialog';
+import SpaAppointmentListView from '@/components/spa/SpaAppointmentListView';
 
 // ── Types ─────────────────────────────────────────────────────────────
 
-type PageView = 'quick' | 'calendar';
+type PageView = 'quick' | 'calendar' | 'list';
 type ViewMode = 'day' | 'week';
 type ViewRange = 7 | 14 | 30;
 
@@ -159,6 +161,79 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
+// ── Overlap layout ───────────────────────────────────────────────────
+
+interface LayoutSlot {
+  appointment: CalendarAppointment;
+  column: number;
+  totalColumns: number;
+}
+
+/**
+ * Classic calendar overlap algorithm: groups overlapping appointments
+ * and assigns each a sub-column so they render side-by-side.
+ */
+function layoutOverlappingAppointments(appointments: CalendarAppointment[]): LayoutSlot[] {
+  if (appointments.length === 0) return [];
+
+  // Filter out appointments with invalid dates
+  const valid = appointments.filter(a => {
+    const s = new Date(a.startTime).getTime();
+    const e = new Date(a.endTime).getTime();
+    return Number.isFinite(s) && Number.isFinite(e) && e > s;
+  });
+
+  if (valid.length === 0) return [];
+
+  // Sort by start time, then by longer duration first (so wider blocks appear left)
+  const sorted = [...valid].sort((a, b) => {
+    const diff = new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+    if (diff !== 0) return diff;
+    return new Date(b.endTime).getTime() - new Date(a.endTime).getTime();
+  });
+
+  const results: LayoutSlot[] = [];
+  let group: Array<{ appt: CalendarAppointment; column: number; endMs: number }> = [];
+
+  function flushGroup() {
+    if (group.length === 0) return;
+    const totalColumns = Math.max(...group.map(g => g.column)) + 1;
+    for (const item of group) {
+      results.push({
+        appointment: item.appt,
+        column: item.column,
+        totalColumns,
+      });
+    }
+    group = [];
+  }
+
+  for (const appt of sorted) {
+    const startMs = new Date(appt.startTime).getTime();
+    const endMs = new Date(appt.endTime).getTime();
+
+    // Check if this appointment overlaps with any in the current group
+    const overlapsGroup = group.some(g => startMs < g.endMs);
+
+    if (!overlapsGroup && group.length > 0) {
+      flushGroup();
+    }
+
+    // Find the first available column (not occupied by an overlapping appointment)
+    const occupiedColumns = new Set(
+      group.filter(g => startMs < g.endMs).map(g => g.column),
+    );
+    let col = 0;
+    while (occupiedColumns.has(col) && col < sorted.length) col++;
+
+    group.push({ appt, column: col, endMs });
+  }
+
+  flushGroup();
+
+  return results;
+}
+
 // ── Time slots ────────────────────────────────────────────────────────
 
 function generateTimeSlots(): string[] {
@@ -184,18 +259,32 @@ export default function SpaCalendarContent() {
   const { locations } = useAuthContext();
   const locationId = (locations.find(l => l.locationType === 'venue') ?? locations[0])?.id;
 
-  // ── Page view state (persisted to localStorage) ──────────────────
+  // ── Page view state (persisted to localStorage, URL param override) ──
+  const searchParams = useSearchParams();
   const [pageView, setPageView] = useState<PageView>('quick');
 
-  // Read localStorage after mount to avoid hydration mismatch
+  // Read URL param or localStorage after mount to avoid hydration mismatch
   useEffect(() => {
+    const urlView = searchParams.get('view');
+    if (urlView === 'list' || urlView === 'calendar') {
+      setPageView(urlView);
+      return;
+    }
     const stored = localStorage.getItem('spa_view_mode') as PageView | null;
-    if (stored === 'quick' || stored === 'calendar') setPageView(stored);
-  }, []);
+    if (stored === 'quick' || stored === 'calendar' || stored === 'list') setPageView(stored);
+  }, [searchParams]);
 
   const handlePageViewChange = useCallback((view: PageView) => {
     setPageView(view);
     localStorage.setItem('spa_view_mode', view);
+    // Keep URL in sync — add ?view= for non-default views, remove for 'quick'
+    const url = new URL(window.location.href);
+    if (view === 'quick') {
+      url.searchParams.delete('view');
+    } else {
+      url.searchParams.set('view', view);
+    }
+    window.history.replaceState({}, '', url.toString());
   }, []);
 
   // Calendar view state
@@ -250,6 +339,7 @@ export default function SpaCalendarContent() {
 
   // Map hook data to local CalendarProviderColumn shape
   const providers: CalendarProviderColumn[] = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- backend response shape differs from typed interface
     return (Array.isArray(calendarData?.providers) ? calendarData.providers : []).map((p: any, idx: number) => ({
       id: p.providerId as string,
       name: p.providerName as string,
@@ -412,22 +502,23 @@ export default function SpaCalendarContent() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <CalendarDays className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-xl font-semibold text-foreground">Spa Calendar</h1>
+          <h1 className="text-xl font-semibold text-foreground">Spa Reservations</h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Page view toggle (Quick Reserve / Calendar) */}
+          {/* Page view toggle (Quick Reserve / Calendar / List) */}
           <div className="flex rounded-lg border border-border bg-surface">
             {([
               { view: 'quick' as const, label: 'Quick Reserve', Icon: Zap },
               { view: 'calendar' as const, label: 'Calendar', Icon: CalendarDays },
-            ]).map(({ view, label, Icon }, i) => (
+              { view: 'list' as const, label: 'List', Icon: List },
+            ]).map(({ view, label, Icon }, i, arr) => (
               <button
                 key={view}
                 onClick={() => handlePageViewChange(view)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
                   i === 0 ? 'rounded-l-lg' : ''
-                }${i === 1 ? 'rounded-r-lg' : ''} ${
+                }${i === arr.length - 1 ? 'rounded-r-lg' : ''} ${
                   pageView === view ? 'bg-indigo-600 text-white' : 'text-muted-foreground hover:bg-accent/50'
                 }`}
               >
@@ -437,7 +528,7 @@ export default function SpaCalendarContent() {
             ))}
           </div>
 
-          {/* Quick Reserve: range selector */}
+          {/* Quick Reserve: range selector (hidden in list view) */}
           {pageView === 'quick' && (
             <div className="flex rounded-lg border border-border bg-surface">
               {([7, 14, 30] as ViewRange[]).map((r) => (
@@ -454,29 +545,31 @@ export default function SpaCalendarContent() {
             </div>
           )}
 
-          {/* Date navigation */}
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-surface p-1">
-            <button
-              onClick={goToPrev}
-              className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-              aria-label="Previous"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              onClick={goToToday}
-              className="rounded px-3 py-1 text-sm font-medium text-foreground hover:bg-accent"
-            >
-              Today
-            </button>
-            <button
-              onClick={goToNext}
-              className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-              aria-label="Next"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+          {/* Date navigation (hidden in list view — list has own filters) */}
+          {pageView !== 'list' && (
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-surface p-1">
+              <button
+                onClick={goToPrev}
+                className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Previous"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={goToToday}
+                className="rounded px-3 py-1 text-sm font-medium text-foreground hover:bg-accent"
+              >
+                Today
+              </button>
+              <button
+                onClick={goToNext}
+                className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Next"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
           {/* Calendar view: Day / Week toggle */}
           {pageView === 'calendar' && (
@@ -566,14 +659,16 @@ export default function SpaCalendarContent() {
         </div>
       </div>
 
-      {/* Date display */}
-      <div className="text-sm text-muted-foreground">
-        {pageView === 'quick'
-          ? quickRangeLabel
-          : viewMode === 'day'
-            ? formatDateDisplay(currentDate)
-            : `${formatDateShort(weekDays[0]!)} - ${formatDateShort(weekDays[6]!)}`}
-      </div>
+      {/* Date display (hidden in list view) */}
+      {pageView !== 'list' && (
+        <div className="text-sm text-muted-foreground">
+          {pageView === 'quick'
+            ? quickRangeLabel
+            : viewMode === 'day'
+              ? formatDateDisplay(currentDate)
+              : `${formatDateShort(weekDays[0]!)} - ${formatDateShort(weekDays[6]!)}`}
+        </div>
+      )}
 
       {/* ── Quick Reserve View ─────────────────────────────────────── */}
       {pageView === 'quick' && (
@@ -637,6 +732,13 @@ export default function SpaCalendarContent() {
             </div>
           )}
         </>
+      )}
+
+      {/* ── List View ───────────────────────────────────────────── */}
+      {pageView === 'list' && (
+        <SpaAppointmentListView
+          onNewAppointment={() => router.push('/spa/appointments/new')}
+        />
       )}
 
       {/* Context menu */}
@@ -768,24 +870,32 @@ function DayView({
                 />
               ))}
 
-              {/* Appointment blocks */}
-              {col.appointments.map((appt) => {
+              {/* Appointment blocks — side-by-side when overlapping */}
+              {layoutOverlappingAppointments(col.appointments).map(({ appointment: appt, column: subCol, totalColumns }) => {
                 const top = getTopPosition(appt.startTime);
                 const height = Math.max(getHeight(appt.startTime, appt.endTime), 20);
                 const colors = STATUS_COLORS[appt.status] ?? STATUS_COLORS.confirmed;
 
                 if (top + height < 0 || top > TOTAL_HEIGHT_PX) return null;
 
+                // Calculate horizontal position within the column
+                const GAP = 2; // px gap between sub-columns
+                const PADDING = 4; // px padding on each side of the provider column
+                const leftPct = (subCol / totalColumns) * 100;
+                const widthPct = (1 / totalColumns) * 100;
+
                 return (
                   <button
                     key={appt.id}
                     onClick={() => onAppointmentClick(appt)}
                     onContextMenu={(e) => onAppointmentContextMenu(e, appt)}
-                    className={`absolute left-1 right-1 overflow-hidden rounded border ${colors.bg} ${colors.border} px-2 py-1 text-left transition-opacity hover:opacity-80`}
+                    className={`absolute overflow-hidden rounded border ${colors.bg} ${colors.border} px-1.5 py-1 text-left transition-opacity hover:opacity-80`}
                     style={{
                       top: `${Math.max(top, 0)}px`,
                       height: `${height}px`,
-                      zIndex: 10,
+                      left: `calc(${leftPct}% + ${PADDING}px)`,
+                      width: `calc(${widthPct}% - ${PADDING * 2 / totalColumns}px - ${GAP}px)`,
+                      zIndex: 10 + subCol,
                     }}
                   >
                     <div className={`truncate text-xs font-medium ${colors.text}`}>

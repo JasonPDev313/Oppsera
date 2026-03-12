@@ -261,8 +261,7 @@ export const navigation: NavItem[] = [
     children: [
       // Operations
       { name: 'Dashboard', href: '/spa', icon: Flower2, group: 'Operations', requiredPermission: 'spa.appointments.view' },
-      { name: 'Calendar', href: '/spa/calendar', icon: CalendarDays, group: 'Operations', requiredPermission: 'spa.appointments.view' },
-      { name: 'Appointments', href: '/spa/appointments', icon: Clock, group: 'Operations', requiredPermission: 'spa.appointments.view' },
+      { name: 'Reservations', href: '/spa/calendar', icon: CalendarDays, group: 'Operations', requiredPermission: 'spa.appointments.view' },
       { name: 'Waitlist', href: '/spa/waitlist', icon: ClipboardList, group: 'Operations', requiredPermission: 'spa.waitlist.view' },
       // Catalog
       { name: 'Services', href: '/spa/services', icon: Gem, group: 'Catalog', requiredPermission: 'spa.services.view' },

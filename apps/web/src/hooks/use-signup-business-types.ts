@@ -10,6 +10,7 @@ export type SignupBusinessType = {
   iconKey: string | null;
   categoryName: string | null;
   moduleCount: number;
+  enabledModuleKeys: string[];
 };
 
 export function useSignupBusinessTypes() {

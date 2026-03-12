@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   Search,
   Sparkles,
-  MoreHorizontal,
   Info,
   ShieldCheck,
   FileCheck,
@@ -22,10 +21,23 @@ import { apiFetch, ApiError, getStoredToken, refreshTokenIfNeeded } from '@/lib/
 import { useAuthContext } from '@/components/auth-provider';
 import {
   SMB_BUSINESS_TYPES,
-  OTHER_BUSINESS_TYPES,
   BUSINESS_TYPES,
-  type BusinessTypeKey,
 } from '@oppsera/shared';
+
+/** Shape returned by /api/v1/public/signup-types */
+interface SignupBusinessType {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  iconKey: string | null;
+  categoryName: string | null;
+  moduleCount: number;
+  enabledModuleKeys: string[];
+}
+
+/** Slugs that already appear in the SMB cards — exclude from "Other" */
+const SMB_SLUGS: Set<string> = new Set(SMB_BUSINESS_TYPES.map((bt) => bt.key));
 
 const ICON_MAP: Record<string, LucideIcon> = {
   UtensilsCrossed,
@@ -116,22 +128,26 @@ function OtherBusinessTypesPicker({
   selected,
   onSelect,
   onBack,
+  otherTypes,
+  isLoadingTypes,
 }: {
-  selected: BusinessTypeKey | null;
-  onSelect: (key: BusinessTypeKey) => void;
+  selected: string | null;
+  onSelect: (slug: string) => void;
   onBack: () => void;
+  otherTypes: SignupBusinessType[];
+  isLoadingTypes: boolean;
 }) {
   const [search, setSearch] = useState('');
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return OTHER_BUSINESS_TYPES;
+    if (!search.trim()) return otherTypes;
     const q = search.toLowerCase();
-    return OTHER_BUSINESS_TYPES.filter(
+    return otherTypes.filter(
       (bt) =>
         bt.name.toLowerCase().includes(q) ||
-        bt.description.toLowerCase().includes(q),
+        (bt.description ?? '').toLowerCase().includes(q),
     );
-  }, [search]);
+  }, [search, otherTypes]);
 
   return (
     <div>
@@ -163,15 +179,21 @@ function OtherBusinessTypesPicker({
 
       {/* Results */}
       <div className="mt-4 space-y-2">
-        {filtered.map((bt) => {
-          const Icon = ICON_MAP[bt.icon];
-          const isSelected = selected === bt.key;
+        {isLoadingTypes && (
+          <div className="rounded-lg border border-dashed border-border py-8 text-center">
+            <p className="text-sm text-muted-foreground">Loading industries...</p>
+          </div>
+        )}
+
+        {!isLoadingTypes && filtered.map((bt) => {
+          const Icon = bt.iconKey ? ICON_MAP[bt.iconKey] : undefined;
+          const isSelected = selected === bt.slug;
 
           return (
             <button
-              key={bt.key}
+              key={bt.slug}
               type="button"
-              onClick={() => onSelect(bt.key)}
+              onClick={() => onSelect(bt.slug)}
               className={`flex w-full items-center gap-4 rounded-lg border-2 px-4 py-3.5 text-left transition-all ${
                 isSelected
                   ? 'border-indigo-600 bg-indigo-500/10 shadow-sm'
@@ -183,8 +205,10 @@ function OtherBusinessTypesPicker({
                   isSelected ? 'bg-indigo-500/10' : 'bg-muted'
                 }`}
               >
-                {Icon && (
+                {Icon ? (
                   <Icon className={`h-5 w-5 ${isSelected ? 'text-indigo-600' : 'text-muted-foreground'}`} />
+                ) : (
+                  <Building2 className={`h-5 w-5 ${isSelected ? 'text-indigo-600' : 'text-muted-foreground'}`} />
                 )}
               </div>
               <div className="min-w-0">
@@ -206,7 +230,7 @@ function OtherBusinessTypesPicker({
           );
         })}
 
-        {filtered.length === 0 && (
+        {!isLoadingTypes && filtered.length === 0 && (
           <div className="rounded-lg border border-dashed border-border py-8 text-center">
             <p className="text-sm text-muted-foreground">No matching industries found.</p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -214,12 +238,6 @@ function OtherBusinessTypesPicker({
             </p>
           </div>
         )}
-
-        {/* More coming soon indicator */}
-        <div className="flex items-center gap-3 rounded-lg border border-dashed border-border px-4 py-3 text-muted-foreground">
-          <MoreHorizontal className="h-5 w-5" />
-          <span className="text-sm">More industries coming soon</span>
-        </div>
       </div>
     </div>
   );
@@ -229,25 +247,31 @@ function OtherBusinessTypesPicker({
 function BusinessTypeStep({
   selected,
   onSelect,
+  otherTypes,
+  isLoadingTypes,
 }: {
-  selected: BusinessTypeKey | null;
-  onSelect: (key: BusinessTypeKey) => void;
+  selected: string | null;
+  onSelect: (key: string) => void;
+  otherTypes: SignupBusinessType[];
+  isLoadingTypes: boolean;
 }) {
   const [showOther, setShowOther] = useState(false);
 
   // If user had selected an "Other" type and comes back, keep them in Other view
-  const isOtherTypeSelected = OTHER_BUSINESS_TYPES.some((bt) => bt.key === selected);
+  const isOtherTypeSelected = otherTypes.some((bt) => bt.slug === selected);
 
-  if (showOther || (isOtherTypeSelected && showOther !== false)) {
+  if (showOther || isOtherTypeSelected) {
     return (
       <OtherBusinessTypesPicker
         selected={selected}
-        onSelect={(key) => {
-          onSelect(key);
+        onSelect={(slug) => {
+          onSelect(slug);
         }}
         onBack={() => {
           setShowOther(false);
         }}
+        otherTypes={otherTypes}
+        isLoadingTypes={isLoadingTypes}
       />
     );
   }
@@ -355,7 +379,7 @@ function BusinessTypeStep({
               }`}
             >
               {isOtherTypeSelected
-                ? BUSINESS_TYPES.find((bt) => bt.key === selected)?.name ?? 'Other'
+                ? otherTypes.find((bt) => bt.slug === selected)?.name ?? 'Other'
                 : 'Other'}
             </span>
             <span className="mt-1 text-xs text-muted-foreground">
@@ -379,11 +403,11 @@ function BusinessTypeStep({
 
         <button
           type="button"
-          onClick={() => onSelect('enterprise' as BusinessTypeKey)}
+          onClick={() => onSelect('enterprise')}
           className={`relative w-full overflow-hidden rounded-xl border-2 p-5 text-left transition-all ${
             selected === 'enterprise'
               ? 'border-indigo-600 bg-indigo-500/10 shadow-md shadow-indigo-500/20'
-              : 'border-border bg-linear-to-br from-gray-50 to-gray-100 hover:border-indigo-500/30 hover:shadow-sm'
+              : 'border-border bg-linear-to-br from-muted/50 to-muted hover:border-indigo-500/30 hover:shadow-sm'
           }`}
         >
           <div className="flex items-center gap-4">
@@ -478,7 +502,7 @@ export default function OnboardPage() {
   const auth = useAuthContext();
 
   const [step, setStep] = useState(1);
-  const [businessType, setBusinessType] = useState<BusinessTypeKey | null>(null);
+  const [businessType, setBusinessType] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState('');
   const [locationName, setLocationName] = useState('Main');
   const [timezone, setTimezone] = useState('America/New_York');
@@ -490,6 +514,36 @@ export default function OnboardPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Fetch DB-driven business types for the "Other" category
+  const [otherTypes, setOtherTypes] = useState<SignupBusinessType[]>([]);
+  const [isLoadingTypes, setIsLoadingTypes] = useState(true);
+  /** Slugs to exclude from "Other": SMB cards, enterprise, and golf (non-compete) */
+  const EXCLUDED_SLUGS = useMemo(() => {
+    const s = new Set(SMB_SLUGS);
+    s.add('enterprise');
+    s.add('golf');
+    return s;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/v1/public/signup-types');
+        if (!res.ok) throw new Error('Failed to load');
+        const json = await res.json();
+        if (cancelled) return;
+        const items = Array.isArray(json?.data) ? (json.data as SignupBusinessType[]) : [];
+        setOtherTypes(items.filter((bt) => bt.slug && !EXCLUDED_SLUGS.has(bt.slug)));
+      } catch {
+        // Silently fail — "Other" section will be empty
+      } finally {
+        if (!cancelled) setIsLoadingTypes(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [EXCLUDED_SLUGS]);
 
   // Redirect to login if the user has no valid session.
   // This catches the case where someone bookmarks /onboard or their token
@@ -543,12 +597,23 @@ export default function OnboardPage() {
 
     if (step === 3) {
       // Pre-select recommended modules when entering Step 4
-      const selectedType = BUSINESS_TYPES.find((bt) => bt.key === businessType);
-      if (selectedType && modules.length === 0) {
-        const recommended = selectedType.recommendedModules.filter((m) =>
-          AVAILABLE_MODULES.some((am) => am.key === m),
-        );
-        setModules(recommended as string[]);
+      if (modules.length === 0) {
+        const hardcodedType = BUSINESS_TYPES.find((bt) => bt.key === businessType);
+        if (hardcodedType) {
+          const recommended = hardcodedType.recommendedModules.filter((m) =>
+            AVAILABLE_MODULES.some((am) => am.key === m),
+          );
+          setModules(recommended as string[]);
+        } else {
+          // DB-driven type — use module defaults from API
+          const dbType = otherTypes.find((bt) => bt.slug === businessType);
+          if (dbType?.enabledModuleKeys.length) {
+            const recommended = dbType.enabledModuleKeys.filter((m) =>
+              AVAILABLE_MODULES.some((am) => am.key === m),
+            );
+            setModules(recommended);
+          }
+        }
       }
     }
 
@@ -635,8 +700,10 @@ export default function OnboardPage() {
   }
 
   function getBusinessTypeName(): string {
-    const bt = BUSINESS_TYPES.find((b) => b.key === businessType);
-    return bt?.name ?? '';
+    const hardcoded = BUSINESS_TYPES.find((b) => b.key === businessType);
+    if (hardcoded) return hardcoded.name;
+    const dbType = otherTypes.find((bt) => bt.slug === businessType);
+    return dbType?.name ?? '';
   }
 
   function getModuleNames(): string[] {
@@ -658,6 +725,8 @@ export default function OnboardPage() {
             <BusinessTypeStep
               selected={businessType}
               onSelect={setBusinessType}
+              otherTypes={otherTypes}
+              isLoadingTypes={isLoadingTypes}
             />
           )}
 
@@ -929,7 +998,8 @@ export default function OnboardPage() {
             <button
               type="button"
               onClick={handleNext}
-              className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
+              disabled={isSubmitting}
+              className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
             >
               Next
             </button>

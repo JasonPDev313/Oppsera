@@ -155,9 +155,9 @@ export type {
   ComputeModifierGroupHealthOptions,
 } from './helpers/modifier-recommendations';
 
-// ── CSV Export ────────────────────────────────────────────────
-export { toCsv } from './csv-export';
-export type { CsvColumn } from './csv-export';
+// ── CSV Export (re-exported from @oppsera/core for backwards compat) ──
+export { toCsv } from '@oppsera/core';
+export type { CsvColumn } from '@oppsera/core';
 
 // ── Tile Cache ────────────────────────────────────────────────
 export { TileCache, buildTileCacheKey, getTileCache, setTileCache } from './cache';

@@ -6,6 +6,7 @@
 
 import { sql } from 'drizzle-orm';
 import { db } from '@oppsera/db';
+import { logger } from '../observability';
 
 // ── Internal session fetch (adds member fields) ─────────────────
 
@@ -115,6 +116,7 @@ export async function lookupMemberForGuestPay(
   const last4 = digitsOnly.slice(-4);
 
   if (last4.length < 4 || last4 !== phoneLast4) {
+    logger.debug('[guest-pay] member lookup phone mismatch', { tenantId, memberNumber });
     return null; // Generic "not found" — no info leak
   }
 

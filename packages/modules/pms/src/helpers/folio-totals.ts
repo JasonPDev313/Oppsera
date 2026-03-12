@@ -27,6 +27,15 @@ export async function recalculateFolioTotals(
   const feeCents = Number(totals.fee_cents ?? 0);
   const totalCents = subtotalCents + taxCents + feeCents;
 
+  // Read current paymentCents to recompute balance
+  const folioRows = await tx
+    .select({ paymentCents: pmsFolios.paymentCents })
+    .from(pmsFolios)
+    .where(and(eq(pmsFolios.id, folioId), eq(pmsFolios.tenantId, tenantId)));
+
+  const paymentCents = folioRows[0]?.paymentCents ?? 0;
+  const balanceCents = totalCents - paymentCents;
+
   await tx
     .update(pmsFolios)
     .set({
@@ -34,6 +43,7 @@ export async function recalculateFolioTotals(
       taxCents,
       feeCents,
       totalCents,
+      balanceCents,
       updatedAt: new Date(),
     })
     .where(and(eq(pmsFolios.id, folioId), eq(pmsFolios.tenantId, tenantId)));

@@ -12,6 +12,8 @@ export const GET = withAdminPermission(
     const tenantId = sp.get('tenant_id') ?? undefined;
     const locationId = sp.get('location_id') ?? undefined;
     const businessDate = sp.get('business_date') ?? undefined;
+    const dateFrom = sp.get('date_from') ?? undefined;
+    const dateTo = sp.get('date_to') ?? undefined;
     const status = sp.get('status') ?? undefined;
     const page = Math.max(1, Number(sp.get('page') ?? '1'));
     const limit = Math.min(100, Math.max(1, Number(sp.get('limit') ?? '25')));
@@ -33,6 +35,16 @@ export const GET = withAdminPermission(
       if (businessDate) {
         fnbConditions.push(sql`fb.business_date = ${businessDate}::date`);
         retailConditions.push(sql`rb.business_date = ${businessDate}::date`);
+      } else {
+        // Date range support — dateFrom/dateTo take effect when businessDate is not set
+        if (dateFrom) {
+          fnbConditions.push(sql`fb.business_date >= ${dateFrom}::date`);
+          retailConditions.push(sql`rb.business_date >= ${dateFrom}::date`);
+        }
+        if (dateTo) {
+          fnbConditions.push(sql`fb.business_date <= ${dateTo}::date`);
+          retailConditions.push(sql`rb.business_date <= ${dateTo}::date`);
+        }
       }
       if (status) {
         fnbConditions.push(sql`fb.status = ${status}`);

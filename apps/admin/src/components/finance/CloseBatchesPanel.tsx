@@ -3,33 +3,46 @@
 import { useState, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { useCloseBatches, type CloseBatchFilters } from '@/hooks/use-finance';
-import { useTenants } from '@/hooks/use-tenants';
 import { formatDate, formatDateTime, hoursOpen } from '@/lib/finance-helpers';
 import { StatusBadge } from './StatusBadge';
 import { Pagination } from './Pagination';
+import type { GlobalFilters } from './FinanceFilterBar';
 
-export function CloseBatchesPanel() {
-  const { tenants } = useTenants();
+interface CloseBatchesPanelProps {
+  globalFilters: GlobalFilters;
+}
+
+const STATUS_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'open', label: 'Open' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'reconciled', label: 'Reconciled' },
+  { value: 'posted', label: 'Posted' },
+  { value: 'locked', label: 'Locked' },
+];
+
+export function CloseBatchesPanel({ globalFilters }: CloseBatchesPanelProps) {
   const { data, isLoading, error, load } = useCloseBatches();
 
-  const [tenantId, setTenantId] = useState('');
   const [locationId, setLocationId] = useState('');
-  const [businessDate, setBusinessDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
 
   const buildFilters = (p: number): CloseBatchFilters => ({
-    tenantId: tenantId || undefined,
+    tenantId: globalFilters.tenantId || undefined,
     locationId: locationId || undefined,
-    businessDate: businessDate || undefined,
+    dateFrom: globalFilters.dateFrom || undefined,
+    dateTo: globalFilters.dateTo || undefined,
     status: statusFilter || undefined,
     page: p,
     limit: 25,
   });
 
+  // Reload when global filters change
   useEffect(() => {
+    setPage(1);
     load(buildFilters(1));
-  }, []);
+  }, [globalFilters.tenantId, globalFilters.dateFrom, globalFilters.dateTo]);
 
   const handleSearch = () => {
     setPage(1);
@@ -43,36 +56,15 @@ export function CloseBatchesPanel() {
 
   const totalPages = data ? Math.ceil(data.total / data.limit) : 0;
 
-  const STATUS_OPTIONS = [
-    { value: '', label: 'All' },
-    { value: 'open', label: 'Open' },
-    { value: 'in_progress', label: 'In Progress' },
-    { value: 'reconciled', label: 'Reconciled' },
-    { value: 'posted', label: 'Posted' },
-    { value: 'locked', label: 'Locked' },
-  ];
-
   return (
     <div className="space-y-4">
-      {/* Filters */}
+      {/* Panel-specific filters */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Tenant</label>
-            <select
-              value={tenantId}
-              onChange={(e) => setTenantId(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-            >
-              <option value="">All Tenants</option>
-              {tenants.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">Location ID</label>
+            <label htmlFor="cb-location" className="block text-xs text-slate-400 mb-1">Location ID</label>
             <input
+              id="cb-location"
               type="text"
               value={locationId}
               onChange={(e) => setLocationId(e.target.value)}
@@ -81,17 +73,9 @@ export function CloseBatchesPanel() {
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Business Date</label>
-            <input
-              type="date"
-              value={businessDate}
-              onChange={(e) => setBusinessDate(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">Status</label>
+            <label htmlFor="cb-batch-status" className="block text-xs text-slate-400 mb-1">Status</label>
             <select
+              id="cb-batch-status"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
@@ -219,7 +203,7 @@ export function CloseBatchesPanel() {
                             {hoursOpen(batch.started_at)}
                           </span>
                         ) : (
-                          <span className="text-slate-500">\u2014</span>
+                          <span className="text-slate-500">{'\u2014'}</span>
                         )}
                       </td>
                     </tr>

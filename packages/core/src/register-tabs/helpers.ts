@@ -1,6 +1,6 @@
 import { db, registerTabs } from '@oppsera/db';
 import { eq, and, max } from 'drizzle-orm';
-import type { RequestContext } from '@oppsera/core/auth/context';
+import type { RequestContext } from '../auth/context';
 
 export interface CreateRegisterTabInput {
   terminalId: string;

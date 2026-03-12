@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { runReport, toCsv } from '@oppsera/module-reporting';
-import type { CsvColumn } from '@oppsera/module-reporting';
+import { toCsv } from '@oppsera/core';
+import type { CsvColumn } from '@oppsera/core';
+import { runReport } from '@oppsera/module-reporting';
 
 function extractReportId(request: NextRequest): string {
   const parts = new URL(request.url).pathname.split('/');

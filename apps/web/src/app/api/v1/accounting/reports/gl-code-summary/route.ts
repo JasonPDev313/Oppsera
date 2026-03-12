@@ -3,8 +3,8 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { AppError } from '@oppsera/shared';
 import { getGlCodeSummary } from '@oppsera/module-accounting';
-import { toCsv } from '@oppsera/module-reporting';
-import type { CsvColumn } from '@oppsera/module-reporting';
+import { toCsv } from '@oppsera/core';
+import type { CsvColumn } from '@oppsera/core';
 
 const CSV_COLUMNS: CsvColumn[] = [
   { key: 'section', label: 'Section' },

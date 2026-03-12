@@ -205,7 +205,9 @@ export function FeatureRequestWidget() {
 
   const [widgetState, setWidgetState] = useState<WidgetState>('open');
   const [step, setStep] = useState<Step>('type');
-  const [form, setForm] = useState<FeatureRequestFormData>(() => loadDraft());
+  // Start with INITIAL_FORM to avoid hydration mismatch (localStorage is client-only).
+  // Restore saved draft in a post-mount effect below.
+  const [form, setForm] = useState<FeatureRequestFormData>({ ...INITIAL_FORM });
   const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false); // double-click guard
@@ -231,6 +233,15 @@ export function FeatureRequestWidget() {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
       abortRef.current?.abort();
     };
+  }, []);
+
+  // Restore saved draft after mount (deferred to avoid hydration mismatch)
+  useEffect(() => {
+    const draft = loadDraft();
+    // Only restore if the draft has meaningful data (not just INITIAL_FORM)
+    if (draft.requestType || draft.title || draft.description) {
+      setForm(draft);
+    }
   }, []);
 
   // Load recent requests lazily — deferred so it never blocks step rendering.

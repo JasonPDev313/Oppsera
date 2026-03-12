@@ -558,7 +558,7 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
 
     // PMS → Customer sync (cross-module guest-to-customer linking + Hotel Guest tag)
     importSafe('PMS→Customer sync consumer', async () => {
-      const { handlePmsGuestCreated } = await import('./lib/pms-customer-sync');
+      const { handlePmsGuestCreated } = await import('@oppsera/core');
       bus.subscribe('pms.guest.created.v1', handlePmsGuestCreated, 'pms_customer_sync/guest.created');
     }),
 

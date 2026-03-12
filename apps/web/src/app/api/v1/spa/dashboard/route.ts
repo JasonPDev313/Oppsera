@@ -17,6 +17,13 @@ export const GET = withMiddleware(
       );
     }
 
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'date must be YYYY-MM-DD format' } },
+        { status: 400 },
+      );
+    }
+
     const data = await getSpaDashboard({
       tenantId: ctx.tenantId,
       locationId,
@@ -25,5 +32,5 @@ export const GET = withMiddleware(
 
     return NextResponse.json({ data });
   },
-  { entitlement: 'spa', permission: 'spa.view' },
+  { entitlement: 'spa', permission: 'spa.appointments.view' },
 );

@@ -322,7 +322,8 @@ export function useActionItemMutations() {
         { method: 'POST' },
       );
       return json.data;
-    } catch {
+    } catch (err) {
+      console.error('[Action Items] Generate failed:', err);
       return null;
     } finally {
       setIsActing(false);
@@ -330,4 +331,188 @@ export function useActionItemMutations() {
   }, []);
 
   return { updateStatus, generateItems, isActing };
+}
+
+// ── Attrition Risk ──────────────────────────────────────────────
+
+export interface AttritionScore {
+  id: string;
+  tenantId: string;
+  overallScore: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  loginDeclineScore: number;
+  usageDeclineScore: number;
+  moduleAbandonmentScore: number;
+  userShrinkageScore: number;
+  errorFrustrationScore: number;
+  breadthNarrowingScore: number;
+  stalenessScore: number;
+  onboardingStallScore: number;
+  narrative: string;
+  tenantName: string;
+  tenantStatus: string;
+  industry: string | null;
+  healthGrade: string | null;
+  totalLocations: number;
+  totalUsers: number;
+  activeModules: number;
+  lastActivityAt: string | null;
+  scoredAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  reviewNotes: string | null;
+  status: string;
+}
+
+interface AttritionStats {
+  open: number;
+  reviewed: number;
+  actioned: number;
+  dismissed: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+interface AttritionListResult {
+  items: AttritionScore[];
+  stats: AttritionStats;
+  cursor: string | null;
+  hasMore: boolean;
+}
+
+interface AttritionFilters {
+  riskLevel?: string;
+  status?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export function useAttritionList(filters: AttritionFilters = {}) {
+  const [data, setData] = useState<AttritionListResult | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async (cursorVal?: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      if (filters.riskLevel) params.set('riskLevel', filters.riskLevel);
+      if (filters.status) params.set('status', filters.status);
+      if (cursorVal) params.set('cursor', cursorVal);
+      if (filters.limit) params.set('limit', String(filters.limit));
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const json = await adminFetch<{ data: AttritionListResult }>(
+        `/api/v1/analytics/attrition${qs}`,
+      );
+      if (cursorVal) {
+        setData((prev) =>
+          prev
+            ? { ...json.data, items: [...prev.items, ...json.data.items] }
+            : json.data,
+        );
+      } else {
+        setData(json.data);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load attrition data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filters.riskLevel, filters.status, filters.limit]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const loadMore = useCallback(() => {
+    if (data?.cursor && data.hasMore) fetchData(data.cursor);
+  }, [data?.cursor, data?.hasMore, fetchData]);
+
+  const refresh = useCallback(() => { fetchData(); }, [fetchData]);
+
+  return { data, isLoading, error, loadMore, refresh };
+}
+
+interface AttritionDetailResult {
+  current: AttritionScore & {
+    signals: Record<string, { score: number }>;
+    signalDetails: Record<string, unknown>;
+  };
+  history: { overallScore: number; riskLevel: string; scoredAt: string }[];
+}
+
+export function useAttritionDetail(tenantId: string) {
+  const [data, setData] = useState<AttritionDetailResult | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    if (!tenantId) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const json = await adminFetch<{ data: AttritionDetailResult }>(
+        `/api/v1/analytics/attrition/${tenantId}`,
+      );
+      setData(json.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load attrition detail');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [tenantId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  return { data, isLoading, error, refresh: fetchData };
+}
+
+export function useAttritionMutations() {
+  const [isActing, setIsActing] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+
+  const updateStatus = useCallback(async (
+    id: string,
+    status: 'reviewed' | 'actioned' | 'dismissed',
+    reviewNotes?: string,
+  ) => {
+    setIsActing(true);
+    setMutationError(null);
+    try {
+      await adminFetch('/api/v1/analytics/attrition', {
+        method: 'PATCH',
+        body: JSON.stringify({ id, status, reviewNotes }),
+      });
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to update status';
+      setMutationError(msg);
+      console.error('[Attrition] Status update failed:', err);
+      return false;
+    } finally {
+      setIsActing(false);
+    }
+  }, []);
+
+  const runScoring = useCallback(async () => {
+    setIsActing(true);
+    try {
+      const json = await adminFetch<{ data: { scored: number; highRisk: number; errors: number } }>(
+        '/api/v1/analytics/attrition/score',
+        { method: 'POST' },
+      );
+      return json.data;
+    } catch (err) {
+      console.error('[Attrition] Scoring failed:', err);
+      return null;
+    } finally {
+      setIsActing(false);
+    }
+  }, []);
+
+  return { updateStatus, runScoring, isActing, mutationError };
 }

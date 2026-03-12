@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Search, Ticket } from 'lucide-react';
 import { useVouchers, type VoucherFilters } from '@/hooks/use-finance';
-import { useTenants } from '@/hooks/use-tenants';
 import { formatCents, formatDate } from '@/lib/finance-helpers';
 import { StatusBadge } from './StatusBadge';
 import { Pagination } from './Pagination';
+import type { GlobalFilters } from './FinanceFilterBar';
 
 const VOUCHER_STATUSES = [
   { value: '', label: 'All Statuses' },
@@ -25,28 +25,34 @@ const VOUCHER_TYPES = [
   { value: 'certificate', label: 'Certificate' },
 ];
 
-export function VoucherLookupPanel() {
-  const { tenants } = useTenants();
+interface VoucherLookupPanelProps {
+  globalFilters: GlobalFilters;
+}
+
+export function VoucherLookupPanel({ globalFilters }: VoucherLookupPanelProps) {
   const { data, isLoading, error, load } = useVouchers();
 
   const [code, setCode] = useState('');
-  const [tenantId, setTenantId] = useState('');
   const [status, setStatus] = useState('');
   const [voucherType, setVoucherType] = useState('');
   const [page, setPage] = useState(1);
 
   const buildFilters = (p: number): VoucherFilters => ({
-    tenantId: tenantId || undefined,
+    tenantId: globalFilters.tenantId || undefined,
     code: code || undefined,
     status: status || undefined,
     voucherType: voucherType || undefined,
+    dateFrom: globalFilters.dateFrom || undefined,
+    dateTo: globalFilters.dateTo || undefined,
     page: p,
     limit: 25,
   });
 
+  // Reload when global filters change
   useEffect(() => {
+    setPage(1);
     load(buildFilters(1));
-  }, []);
+  }, [globalFilters.tenantId, globalFilters.dateFrom, globalFilters.dateTo]);
 
   const handleSearch = () => {
     setPage(1);
@@ -87,25 +93,13 @@ export function VoucherLookupPanel() {
         </button>
       </div>
 
-      {/* Filters */}
+      {/* Panel-specific filters */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Tenant</label>
+            <label htmlFor="voucher-status" className="block text-xs text-slate-400 mb-1">Status</label>
             <select
-              value={tenantId}
-              onChange={(e) => setTenantId(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-            >
-              <option value="">All Tenants</option>
-              {tenants.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">Status</label>
-            <select
+              id="voucher-status"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
@@ -116,8 +110,9 @@ export function VoucherLookupPanel() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Type</label>
+            <label htmlFor="voucher-type" className="block text-xs text-slate-400 mb-1">Type</label>
             <select
+              id="voucher-type"
               value={voucherType}
               onChange={(e) => setVoucherType(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
@@ -166,7 +161,7 @@ export function VoucherLookupPanel() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Ticket size={16} className="text-indigo-400 flex-shrink-0" />
+                        <Ticket size={16} className="text-indigo-400 shrink-0" />
                         <span className="text-white font-mono text-sm font-medium">
                           {voucher.voucher_number}
                         </span>

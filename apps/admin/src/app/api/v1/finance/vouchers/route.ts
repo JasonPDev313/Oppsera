@@ -13,6 +13,8 @@ export const GET = withAdminPermission(
     const code = sp.get('code') ?? undefined;
     const status = sp.get('status') ?? undefined;
     const voucherType = sp.get('voucher_type') ?? undefined;
+    const dateFrom = sp.get('date_from') ?? undefined;
+    const dateTo = sp.get('date_to') ?? undefined;
     const page = Math.max(1, Number(sp.get('page') ?? '1'));
     const limit = Math.min(100, Math.max(1, Number(sp.get('limit') ?? '25')));
     const offset = (page - 1) * limit;
@@ -31,6 +33,12 @@ export const GET = withAdminPermission(
       }
       if (voucherType) {
         conditions.push(sql`vt.voucher_type = ${voucherType}`);
+      }
+      if (dateFrom) {
+        conditions.push(sql`v.created_at >= ${dateFrom}::date`);
+      }
+      if (dateTo) {
+        conditions.push(sql`v.created_at < (${dateTo}::date + interval '1 day')`);
       }
 
       const whereClause =

@@ -9,8 +9,11 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
+import { tenants } from './core';
 
 // ── rm_usage_hourly ────────────────────────────────────────────
 // Pre-aggregated API usage per tenant, per module, per hour.
@@ -156,5 +159,72 @@ export const usageActionItems = pgTable(
     index('idx_action_items_status').on(table.status, table.severity),
     index('idx_action_items_category').on(table.category, table.status),
     index('idx_action_items_tenant').on(table.tenantId),
+  ],
+);
+
+// ── attrition_risk_scores ────────────────────────────────────
+// Computed attrition risk per tenant with signal breakdown and narrative.
+// NO RLS — platform-level table accessed by admin only.
+export const attritionRiskScores = pgTable(
+  'attrition_risk_scores',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+    overallScore: integer('overall_score').notNull().default(0),
+    riskLevel: text('risk_level').notNull().default('low'),
+    // Individual signal scores (0-100)
+    loginDeclineScore: integer('login_decline_score').notNull().default(0),
+    usageDeclineScore: integer('usage_decline_score').notNull().default(0),
+    moduleAbandonmentScore: integer('module_abandonment_score').notNull().default(0),
+    userShrinkageScore: integer('user_shrinkage_score').notNull().default(0),
+    errorFrustrationScore: integer('error_frustration_score').notNull().default(0),
+    breadthNarrowingScore: integer('breadth_narrowing_score').notNull().default(0),
+    stalenessScore: integer('staleness_score').notNull().default(0),
+    onboardingStallScore: integer('onboarding_stall_score').notNull().default(0),
+    // Context
+    signalDetails: jsonb('signal_details').notNull().default('{}'),
+    narrative: text('narrative').notNull().default(''),
+    // Tenant snapshot (denormalized for read-model performance)
+    tenantName: text('tenant_name').notNull().default(''),
+    tenantStatus: text('tenant_status').notNull().default(''),
+    industry: text('industry'),
+    healthGrade: text('health_grade'),
+    totalLocations: integer('total_locations').notNull().default(0),
+    totalUsers: integer('total_users').notNull().default(0),
+    activeModules: integer('active_modules').notNull().default(0),
+    lastActivityAt: timestamp('last_activity_at', { withTimezone: true }),
+    // Lifecycle
+    scoredAt: timestamp('scored_at', { withTimezone: true }).notNull().defaultNow(),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewedBy: text('reviewed_by'),
+    reviewNotes: text('review_notes'),
+    status: text('status').notNull().default('open'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_attrition_tenant').on(table.tenantId, table.scoredAt),
+    index('idx_attrition_risk_level').on(table.riskLevel, table.overallScore),
+    index('idx_attrition_status').on(table.status, table.riskLevel),
+    index('idx_attrition_scored_at').on(table.scoredAt),
+    // Compound cursor for stable pagination — Drizzle index() does not support DESC modifiers;
+    // the actual index is (overall_score DESC, scored_at DESC, id DESC) per migration 0307.
+    index('idx_attrition_cursor').on(table.overallScore, table.scoredAt, table.id),
+    // Domain constraints
+    check('chk_attrition_risk_level', sql`risk_level IN ('low', 'medium', 'high', 'critical')`),
+    check('chk_attrition_status', sql`status IN ('open', 'reviewed', 'actioned', 'dismissed', 'superseded')`),
+    check('chk_attrition_health_grade', sql`health_grade IS NULL OR health_grade IN ('A', 'B', 'C', 'D', 'F')`),
+    check('chk_attrition_overall_score', sql`overall_score BETWEEN 0 AND 100`),
+    check('chk_attrition_login_decline', sql`login_decline_score BETWEEN 0 AND 100`),
+    check('chk_attrition_usage_decline', sql`usage_decline_score BETWEEN 0 AND 100`),
+    check('chk_attrition_module_abandon', sql`module_abandonment_score BETWEEN 0 AND 100`),
+    check('chk_attrition_user_shrinkage', sql`user_shrinkage_score BETWEEN 0 AND 100`),
+    check('chk_attrition_error_frustration', sql`error_frustration_score BETWEEN 0 AND 100`),
+    check('chk_attrition_breadth_narrow', sql`breadth_narrowing_score BETWEEN 0 AND 100`),
+    check('chk_attrition_staleness', sql`staleness_score BETWEEN 0 AND 100`),
+    check('chk_attrition_onboard_stall', sql`onboarding_stall_score BETWEEN 0 AND 100`),
+    check('chk_attrition_locations', sql`total_locations >= 0`),
+    check('chk_attrition_users', sql`total_users >= 0`),
+    check('chk_attrition_modules', sql`active_modules >= 0`),
   ],
 );

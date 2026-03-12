@@ -28,15 +28,24 @@ const ENCRYPTED_PREFIX = 'enc$';
 
 let _encryptionKey: Buffer | null = null;
 let _hmacKey: Buffer | null = null;
+let _keyMissingWarned = false;
 
-function getEncryptionKey(): Buffer {
+/**
+ * Returns the encryption key, or null if PII_ENCRYPTION_KEY is not configured.
+ * Callers decide whether null is fatal (encrypt = yes, decrypt = no).
+ */
+function tryGetEncryptionKey(): Buffer | null {
   if (_encryptionKey) return _encryptionKey;
   const raw = process.env.PII_ENCRYPTION_KEY;
   if (!raw) {
-    throw new Error(
-      'PII_ENCRYPTION_KEY environment variable is required for field encryption. ' +
-      'Generate with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
-    );
+    if (!_keyMissingWarned) {
+      _keyMissingWarned = true;
+      console.warn(
+        '[field-encryption] PII_ENCRYPTION_KEY not set — encrypted fields will appear as [REDACTED]. ' +
+        'Generate with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+      );
+    }
+    return null;
   }
   if (raw.length === 64) _encryptionKey = Buffer.from(raw, 'hex');
   else if (raw.length === 44) _encryptionKey = Buffer.from(raw, 'base64');
@@ -48,11 +57,21 @@ function getEncryptionKey(): Buffer {
   return _encryptionKey;
 }
 
+/** Returns encryption key or throws — use for write paths that must never store plaintext. */
+function requireEncryptionKey(): Buffer {
+  const key = tryGetEncryptionKey();
+  if (!key) {
+    throw new Error(
+      'PII_ENCRYPTION_KEY environment variable is required for field encryption. ' +
+      'Generate with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+    );
+  }
+  return key;
+}
+
 function getHmacKey(): Buffer {
   if (_hmacKey) return _hmacKey;
-  // Derive HMAC key from encryption key + fixed context to ensure deterministic
-  // hashing while keeping the HMAC key separate from the encryption key.
-  const hmac = createHmac('sha256', getEncryptionKey());
+  const hmac = createHmac('sha256', requireEncryptionKey());
   hmac.update('oppsera-pii-blind-index-v1');
   _hmacKey = hmac.digest();
   return _hmacKey;
@@ -74,7 +93,7 @@ export function encryptField(value: string | null | undefined): string | null | 
   if (value == null) return value;
   if (value === '') return value;
 
-  const key = getEncryptionKey();
+  const key = requireEncryptionKey();
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv(ALGORITHM, key, iv);
 
@@ -106,7 +125,10 @@ export function decryptField(value: string | null | undefined): string | null | 
   // Graceful fallback: if not encrypted, return as-is
   if (!value.startsWith(ENCRYPTED_PREFIX)) return value;
 
-  const key = getEncryptionKey();
+  // Missing key → redact rather than crash read paths
+  const key = tryGetEncryptionKey();
+  if (!key) return '[REDACTED]';
+
   const packed = Buffer.from(value.slice(ENCRYPTED_PREFIX.length), 'base64');
 
   if (packed.length < IV_LENGTH + AUTH_TAG_LENGTH) {
@@ -205,4 +227,5 @@ export function decryptFields<T extends Record<string, string | null | undefined
 export function _resetKeyCache(): void {
   _encryptionKey = null;
   _hmacKey = null;
+  _keyMissingWarned = false;
 }

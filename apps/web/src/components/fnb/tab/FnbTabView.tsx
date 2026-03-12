@@ -231,7 +231,6 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   const { can } = usePermissions();
   const currentLocation = locations?.[0];
   const locationId = currentLocation?.id;
-  const locationName = currentLocation?.name;
   // Each location owns its own KDS stations — no venue→site promotion
   const kdsLocationId = resolveKdsLocationId(currentLocation);
   const kdsLocationName = resolveKdsLocationName(currentLocation);

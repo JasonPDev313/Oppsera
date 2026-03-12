@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { useChargebacks, type ChargebackFilters } from '@/hooks/use-finance';
-import { useTenants } from '@/hooks/use-tenants';
 import { formatCents, formatDate } from '@/lib/finance-helpers';
 import { StatusBadge } from './StatusBadge';
 import { Pagination } from './Pagination';
+import type { GlobalFilters } from './FinanceFilterBar';
 
 const CHARGEBACK_STATUSES = [
   { value: '', label: 'All Statuses' },
@@ -16,28 +16,30 @@ const CHARGEBACK_STATUSES = [
   { value: 'lost', label: 'Lost' },
 ];
 
-export function ChargebacksPanel() {
-  const { tenants } = useTenants();
+interface ChargebacksPanelProps {
+  globalFilters: GlobalFilters;
+}
+
+export function ChargebacksPanel({ globalFilters }: ChargebacksPanelProps) {
   const { data, isLoading, error, load } = useChargebacks();
 
-  const [tenantId, setTenantId] = useState('');
   const [status, setStatus] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
 
   const buildFilters = (p: number): ChargebackFilters => ({
-    tenantId: tenantId || undefined,
+    tenantId: globalFilters.tenantId || undefined,
     status: status || undefined,
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
+    dateFrom: globalFilters.dateFrom || undefined,
+    dateTo: globalFilters.dateTo || undefined,
     page: p,
     limit: 25,
   });
 
+  // Reload when global filters change
   useEffect(() => {
+    setPage(1);
     load(buildFilters(1));
-  }, []);
+  }, [globalFilters.tenantId, globalFilters.dateFrom, globalFilters.dateTo]);
 
   const handleSearch = () => {
     setPage(1);
@@ -51,32 +53,23 @@ export function ChargebacksPanel() {
 
   const totalPages = data ? Math.ceil(data.total / data.limit) : 0;
 
+  // Chargebacks typically have a 30-day response window from the business date
   const isPastDue = (dateStr: string | null) => {
     if (!dateStr) return false;
-    return new Date(dateStr) < new Date();
+    const deadline = new Date(dateStr);
+    deadline.setDate(deadline.getDate() + 30);
+    return deadline < new Date();
   };
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
+      {/* Panel-specific filters */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Tenant</label>
+            <label htmlFor="cb-status" className="block text-xs text-slate-400 mb-1">Status</label>
             <select
-              value={tenantId}
-              onChange={(e) => setTenantId(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-            >
-              <option value="">All Tenants</option>
-              {tenants.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">Status</label>
-            <select
+              id="cb-status"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
@@ -85,24 +78,6 @@ export function ChargebacksPanel() {
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">Date From</label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">Date To</label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-            />
           </div>
           <div className="flex items-end">
             <button

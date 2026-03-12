@@ -10,7 +10,7 @@ import {
   getAppointment,
   resolveCatalogItemForSpaService,
 } from '@oppsera/module-spa';
-import { createRegisterTabWithAutoNumber } from '@/lib/register-tab-helpers';
+import { createRegisterTabWithAutoNumber } from '@oppsera/core/register-tabs';
 
 const checkoutToPosSchema = z.object({
   terminalId: z.string().min(1),

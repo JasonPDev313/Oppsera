@@ -7,7 +7,7 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { sendEmail, memberVerificationEmail } from '@oppsera/core';
 import { ValidationError, generateUlid } from '@oppsera/shared';
 import { guestPayMemberAuthSchema } from '@oppsera/module-fnb';
-import { getSessionInternalByToken, lookupMemberForGuestPay } from '@/lib/guest-pay-member-lookup';
+import { getSessionInternalByToken, lookupMemberForGuestPay } from '@oppsera/core';
 
 /**
  * POST /api/v1/guest-pay/:token/member-auth

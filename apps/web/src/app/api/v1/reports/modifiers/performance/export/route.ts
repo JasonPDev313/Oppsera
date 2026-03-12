@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { AppError } from '@oppsera/shared';
-import { getModifierPerformance, toCsv } from '@oppsera/module-reporting';
-import type { CsvColumn } from '@oppsera/module-reporting';
+import { toCsv } from '@oppsera/core';
+import type { CsvColumn } from '@oppsera/core';
+import { getModifierPerformance } from '@oppsera/module-reporting';
 
 const COLUMNS: CsvColumn[] = [
   { key: 'modifierId', label: 'Modifier ID' },

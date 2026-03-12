@@ -9,6 +9,7 @@ import {
   Lock,
   Ticket,
 } from 'lucide-react';
+import { FinanceFilterBar, type GlobalFilters } from '@/components/finance/FinanceFilterBar';
 import { OrderSearchPanel } from '@/components/finance/OrderSearchPanel';
 import { OrderDetailPanel } from '@/components/finance/OrderDetailPanel';
 import { VoidsRefundsPanel } from '@/components/finance/VoidsRefundsPanel';
@@ -37,6 +38,11 @@ const TABS: Tab[] = [
 export default function FinancePage() {
   const [activeTab, setActiveTab] = useState<TabKey>('orders');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [globalFilters, setGlobalFilters] = useState<GlobalFilters>({
+    tenantId: '',
+    dateFrom: '',
+    dateTo: '',
+  });
 
   const handleSelectOrder = useCallback((orderId: string) => {
     setSelectedOrderId(orderId);
@@ -56,11 +62,14 @@ export default function FinancePage() {
     <div className="p-6 max-w-[1400px]">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Financial Support Hub</h1>
+        <h1 className="text-2xl font-bold text-slate-100">Financial Support Hub</h1>
         <p className="text-sm text-slate-400 mt-1">
           Cross-tenant order search, voids, refunds, GL troubleshooting, and more.
         </p>
       </div>
+
+      {/* Global filters */}
+      <FinanceFilterBar filters={globalFilters} onChange={setGlobalFilters} />
 
       {/* Tab navigation */}
       <div className="flex items-center gap-1 border-b border-slate-700 mb-6 overflow-x-auto">
@@ -86,20 +95,34 @@ export default function FinancePage() {
       {/* Tab content */}
       <div>
         {activeTab === 'orders' && (
-          <OrderSearchPanel onSelectOrder={handleSelectOrder} />
+          <OrderSearchPanel
+            globalFilters={globalFilters}
+            onSelectOrder={handleSelectOrder}
+          />
         )}
 
         {activeTab === 'voids-refunds' && (
-          <VoidsRefundsPanel onViewOrder={handleViewOrderFromVoids} />
+          <VoidsRefundsPanel
+            globalFilters={globalFilters}
+            onViewOrder={handleViewOrderFromVoids}
+          />
         )}
 
-        {activeTab === 'gl-issues' && <GLIssuesPanel />}
+        {activeTab === 'gl-issues' && (
+          <GLIssuesPanel globalFilters={globalFilters} />
+        )}
 
-        {activeTab === 'chargebacks' && <ChargebacksPanel />}
+        {activeTab === 'chargebacks' && (
+          <ChargebacksPanel globalFilters={globalFilters} />
+        )}
 
-        {activeTab === 'close-batches' && <CloseBatchesPanel />}
+        {activeTab === 'close-batches' && (
+          <CloseBatchesPanel globalFilters={globalFilters} />
+        )}
 
-        {activeTab === 'vouchers' && <VoucherLookupPanel />}
+        {activeTab === 'vouchers' && (
+          <VoucherLookupPanel globalFilters={globalFilters} />
+        )}
       </div>
 
       {/* Order detail slide-over */}

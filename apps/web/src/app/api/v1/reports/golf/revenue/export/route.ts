@@ -3,8 +3,8 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { AppError } from '@oppsera/shared';
 import { getGolfRevenue } from '@oppsera/module-golf-reporting';
-import { toCsv } from '@oppsera/module-reporting';
-import type { CsvColumn } from '@oppsera/module-reporting';
+import { toCsv } from '@oppsera/core';
+import type { CsvColumn } from '@oppsera/core';
 
 const COLUMNS: CsvColumn[] = [
   { key: 'businessDate', label: 'Business Date' },

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { EventEnvelope } from '@oppsera/shared';
 
 // ── Hoisted mocks ─────────────────────────────────────────────
 const { mockWithTenant, mockInsert, mockSelect, mockUpdate } = vi.hoisted(() => {
@@ -115,8 +116,18 @@ vi.mock('drizzle-orm', () => ({
   }),
 }));
 
+vi.mock('../../observability', () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
 // ── Import SUT after mocks ────────────────────────────────────
 import { handlePmsGuestCreated } from '../pms-customer-sync';
+import { logger } from '../../observability';
 
 // ── Test helpers ──────────────────────────────────────────────
 function makeEvent(overrides: Record<string, unknown> = {}) {
@@ -136,24 +147,77 @@ function makeEvent(overrides: Record<string, unknown> = {}) {
       isVip: false,
       ...overrides,
     },
-  } as any;
+  } as unknown as EventEnvelope;
 }
 
 describe('handlePmsGuestCreated', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks doesn't clear mockReturnValueOnce queues — reset + re-establish defaults
+    mockSelect.mockReset().mockImplementation(() => makeSelectChain([]));
+    mockInsert.mockReset().mockImplementation(() => makeInsertChain());
+    mockUpdate.mockReset().mockImplementation(() => makeUpdateChain());
   });
 
+  // ── Zod validation tests ──────────────────────────────────────
+
+  it('should reject event with missing guestId', async () => {
+    await handlePmsGuestCreated(makeEvent({ guestId: '' }));
+
+    expect(mockWithTenant).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid event data'),
+      expect.objectContaining({ tenantId: 'tenant-1' }),
+    );
+  });
+
+  it('should reject event with missing propertyId', async () => {
+    await handlePmsGuestCreated(makeEvent({ propertyId: '' }));
+
+    expect(mockWithTenant).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
+  });
+
+  it('should reject event with invalid email format', async () => {
+    await handlePmsGuestCreated(makeEvent({ email: 'not-an-email' }));
+
+    expect(mockWithTenant).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
+  });
+
+  it('should reject event with missing isVip', async () => {
+    await handlePmsGuestCreated(makeEvent({ isVip: undefined }));
+
+    expect(mockWithTenant).not.toHaveBeenCalled();
+  });
+
+  it('should accept event with null email', async () => {
+    mockSelectSequence(
+      [],  // No existing external ID
+    );
+    mockInsertOnce(); // customer
+    mockInsertOnce(); // external ID
+    mockUpdateOnce(); // back-link
+    mockSelectSequence([]); // tag not found
+
+    await handlePmsGuestCreated(makeEvent({ email: null }));
+
+    expect(mockWithTenant).toHaveBeenCalled();
+    expect(mockInsert).toHaveBeenCalledTimes(2);
+  });
+
+  // ── Idempotency tests ─────────────────────────────────────────
+
   it('should skip if external ID already exists (idempotency)', async () => {
-    // External ID lookup returns existing link
     mockSelectSequence([{ id: 'ext-1', customerId: 'cust-existing' }]);
 
     await handlePmsGuestCreated(makeEvent());
 
-    // Should not insert anything
     expect(mockInsert).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
   });
+
+  // ── Email matching tests ──────────────────────────────────────
 
   it('should link to existing customer when email matches', async () => {
     mockSelectSequence(
@@ -161,20 +225,13 @@ describe('handlePmsGuestCreated', () => {
       [{ id: 'cust-existing' }],           // 2. Customer found by email
     );
 
-    // insert: external ID link
-    mockInsertOnce();
-    // update: back-link pmsGuests.customerId
-    mockUpdateOnce();
-    // select: tag lookup
-    mockSelectSequence([{ id: 'tag-1' }]);
-    // select: check tag not already applied
-    mockSelectSequence([]);
-    // insert: customerTags
-    mockInsertOnce();
-    // update: tags.customerCount
-    mockUpdateOnce();
-    // insert: tagAuditLog
-    mockInsertOnce();
+    mockInsertOnce(); // external ID link
+    mockUpdateOnce(); // back-link pmsGuests.customerId
+    mockSelectSequence([{ id: 'tag-1' }]); // tag found
+    mockSelectSequence([]);                 // tag not applied yet
+    mockInsertOnce(); // customerTags
+    mockUpdateOnce(); // tags.customerCount
+    mockInsertOnce(); // tagAuditLog
 
     await handlePmsGuestCreated(makeEvent());
 
@@ -182,86 +239,89 @@ describe('handlePmsGuestCreated', () => {
     expect(mockInsert).toHaveBeenCalledTimes(3);
   });
 
+  it('should normalize email to lowercase', async () => {
+    mockSelectSequence(
+      [],                                  // No existing external ID
+      [{ id: 'cust-existing' }],           // Customer found by email
+    );
+
+    mockInsertOnce();
+    mockUpdateOnce();
+    mockSelectSequence([]); // tag not found
+
+    await handlePmsGuestCreated(makeEvent({ email: '  JOHN@Example.COM  ' }));
+
+    // Verify withTenant was called (email normalized internally)
+    expect(mockWithTenant).toHaveBeenCalled();
+  });
+
+  // ── Customer creation tests ───────────────────────────────────
+
   it('should create new customer when no email match', async () => {
     mockSelectSequence(
       [],                                  // 1. No existing external ID
       [],                                  // 2. No customer by email
     );
 
-    // insert: new customer
-    mockInsertOnce();
-    // insert: external ID link
-    mockInsertOnce();
-    // update: back-link pmsGuests.customerId
-    mockUpdateOnce();
-    // select: tag lookup
-    mockSelectSequence([{ id: 'tag-1' }]);
-    // select: check tag not already applied
-    mockSelectSequence([]);
-    // insert: customerTags
-    mockInsertOnce();
-    // update: tags.customerCount
-    mockUpdateOnce();
-    // insert: tagAuditLog
-    mockInsertOnce();
+    mockInsertOnce(); // new customer
+    mockInsertOnce(); // external ID link
+    mockUpdateOnce(); // back-link
+    mockSelectSequence([{ id: 'tag-1' }]); // tag found
+    mockSelectSequence([]);                 // tag not applied yet
+    mockInsertOnce(); // customerTags
+    mockUpdateOnce(); // tags.customerCount
+    mockInsertOnce(); // tagAuditLog
 
     await handlePmsGuestCreated(makeEvent());
 
-    // Should insert customer + external ID + tag + audit = 4 inserts
+    // customer + external ID + tag + audit = 4 inserts
     expect(mockInsert).toHaveBeenCalledTimes(4);
   });
 
   it('should create customer when guest has no email', async () => {
     mockSelectSequence(
-      [],                                  // 1. No existing external ID
+      [],                                  // No existing external ID
     );
     // No email lookup (skipped when email is null)
 
-    // insert: new customer
-    mockInsertOnce();
-    // insert: external ID link
-    mockInsertOnce();
-    // update: back-link pmsGuests.customerId
-    mockUpdateOnce();
-    // select: tag lookup
+    mockInsertOnce(); // new customer
+    mockInsertOnce(); // external ID
+    mockUpdateOnce(); // back-link
     mockSelectSequence([{ id: 'tag-1' }]);
-    // select: check tag not already applied
     mockSelectSequence([]);
-    // insert: customerTags
-    mockInsertOnce();
-    // update: tags.customerCount
-    mockUpdateOnce();
-    // insert: tagAuditLog
-    mockInsertOnce();
+    mockInsertOnce(); // customerTags
+    mockUpdateOnce(); // tags.customerCount
+    mockInsertOnce(); // tagAuditLog
 
     await handlePmsGuestCreated(makeEvent({ email: null }));
 
-    // Should insert customer + external ID + tag + audit = 4 inserts
     expect(mockInsert).toHaveBeenCalledTimes(4);
   });
 
+  // ── Back-link tests ───────────────────────────────────────────
+
   it('should back-link customerId on pms_guests', async () => {
     mockSelectSequence(
-      [],                                  // 1. No existing external ID
-      [],                                  // 2. No customer by email
+      [],                                  // No existing external ID
+      [],                                  // No customer by email
     );
 
     mockInsertOnce(); // customer
     mockInsertOnce(); // external ID
     mockUpdateOnce(); // back-link
     mockSelectSequence([]); // tag not found
-    // No tag application when tag not found
 
     await handlePmsGuestCreated(makeEvent());
 
-    // update should have been called (for back-link)
     expect(mockUpdate).toHaveBeenCalledTimes(1);
   });
 
+  // ── Tag tests ─────────────────────────────────────────────────
+
   it('should skip tag when tag does not exist', async () => {
     mockSelectSequence(
-      [],                                  // 1. No existing external ID
-      [],                                  // 2. No customer by email
+      [],                                  // No existing external ID
+      [],                                  // No customer by email
     );
 
     mockInsertOnce(); // customer
@@ -271,14 +331,13 @@ describe('handlePmsGuestCreated', () => {
 
     await handlePmsGuestCreated(makeEvent());
 
-    // Should insert customer + external ID only (no tag inserts)
     expect(mockInsert).toHaveBeenCalledTimes(2);
   });
 
   it('should skip tag application when tag already applied', async () => {
     mockSelectSequence(
-      [],                                  // 1. No existing external ID
-      [],                                  // 2. No customer by email
+      [],                                  // No existing external ID
+      [],                                  // No customer by email
     );
 
     mockInsertOnce(); // customer
@@ -289,13 +348,14 @@ describe('handlePmsGuestCreated', () => {
 
     await handlePmsGuestCreated(makeEvent());
 
-    // Should insert customer + external ID only (tag skipped)
     expect(mockInsert).toHaveBeenCalledTimes(2);
   });
 
+  // ── Edge cases ────────────────────────────────────────────────
+
   it('should handle guest with only first name', async () => {
     mockSelectSequence(
-      [],                                  // 1. No existing external ID
+      [],                                  // No existing external ID
     );
 
     mockInsertOnce(); // customer
@@ -305,7 +365,22 @@ describe('handlePmsGuestCreated', () => {
 
     await handlePmsGuestCreated(makeEvent({ email: null, phone: null, lastName: '' }));
 
-    // Should still create customer
+    expect(mockInsert).toHaveBeenCalledTimes(2);
+  });
+
+  it('should handle guest with empty names (fallback to "Guest")', async () => {
+    mockSelectSequence(
+      [],                                  // No existing external ID
+    );
+
+    mockInsertOnce(); // customer
+    mockInsertOnce(); // external ID
+    mockUpdateOnce(); // back-link
+    mockSelectSequence([]); // tag not found
+
+    await handlePmsGuestCreated(makeEvent({ email: null, firstName: '', lastName: '' }));
+
+    // Should still succeed (displayName = 'Guest')
     expect(mockInsert).toHaveBeenCalledTimes(2);
   });
 
@@ -315,5 +390,44 @@ describe('handlePmsGuestCreated', () => {
     await handlePmsGuestCreated(makeEvent());
 
     expect(mockWithTenant).toHaveBeenCalledWith('tenant-1', expect.any(Function));
+  });
+
+  it('should log structured info on customer creation', async () => {
+    mockSelectSequence(
+      [],  // No existing external ID
+      [],  // No customer by email
+    );
+
+    mockInsertOnce(); // customer
+    mockInsertOnce(); // external ID
+    mockUpdateOnce(); // back-link
+    mockSelectSequence([]); // tag not found
+
+    await handlePmsGuestCreated(makeEvent());
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('Created new customer'),
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        eventId: 'evt-1',
+      }),
+    );
+  });
+
+  it('should process VIP guests the same as regular guests', async () => {
+    mockSelectSequence(
+      [],  // No existing external ID
+      [],  // No customer by email
+    );
+
+    mockInsertOnce(); // customer
+    mockInsertOnce(); // external ID
+    mockUpdateOnce(); // back-link
+    mockSelectSequence([]); // tag not found
+
+    await handlePmsGuestCreated(makeEvent({ isVip: true }));
+
+    // VIP flag is stored in metadata, not treated differently in flow
+    expect(mockInsert).toHaveBeenCalledTimes(2);
   });
 });

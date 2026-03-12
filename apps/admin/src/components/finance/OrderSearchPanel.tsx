@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, ExternalLink } from 'lucide-react';
 import { useOrderSearch, type OrderSearchFilters } from '@/hooks/use-finance';
-import { useTenants } from '@/hooks/use-tenants';
 import { formatCents, formatDate } from '@/lib/finance-helpers';
 import { StatusBadge } from './StatusBadge';
 import { Pagination } from './Pagination';
+import type { GlobalFilters } from './FinanceFilterBar';
 
 const ORDER_STATUSES = [
   { value: '', label: 'All Statuses' },
@@ -18,19 +18,16 @@ const ORDER_STATUSES = [
 ];
 
 interface OrderSearchPanelProps {
+  globalFilters: GlobalFilters;
   onSelectOrder: (orderId: string) => void;
 }
 
-export function OrderSearchPanel({ onSelectOrder }: OrderSearchPanelProps) {
+export function OrderSearchPanel({ globalFilters, onSelectOrder }: OrderSearchPanelProps) {
   const { data, isLoading, error, load } = useOrderSearch();
-  const { tenants } = useTenants();
 
-  // Filters
+  // Local filters (panel-specific)
   const [orderNumber, setOrderNumber] = useState('');
-  const [tenantId, setTenantId] = useState('');
   const [status, setStatus] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
   const [amountMin, setAmountMin] = useState('');
   const [amountMax, setAmountMax] = useState('');
   const [hasVoids, setHasVoids] = useState(false);
@@ -40,10 +37,10 @@ export function OrderSearchPanel({ onSelectOrder }: OrderSearchPanelProps) {
 
   const buildFilters = (p: number): OrderSearchFilters => ({
     orderNumber: orderNumber || undefined,
-    tenantId: tenantId || undefined,
+    tenantId: globalFilters.tenantId || undefined,
     status: status || undefined,
-    businessDateFrom: dateFrom || undefined,
-    businessDateTo: dateTo || undefined,
+    businessDateFrom: globalFilters.dateFrom || undefined,
+    businessDateTo: globalFilters.dateTo || undefined,
     amountMin: amountMin ? Number(amountMin) : undefined,
     amountMax: amountMax ? Number(amountMax) : undefined,
     hasVoids: hasVoids || undefined,
@@ -52,10 +49,11 @@ export function OrderSearchPanel({ onSelectOrder }: OrderSearchPanelProps) {
     limit: 25,
   });
 
-  // Initial load
+  // Reload when global filters change
   useEffect(() => {
+    setPage(1);
     load(buildFilters(1));
-  }, []);
+  }, [globalFilters.tenantId, globalFilters.dateFrom, globalFilters.dateTo]);
 
   const handleSearch = () => {
     setPage(1);
@@ -112,23 +110,9 @@ export function OrderSearchPanel({ onSelectOrder }: OrderSearchPanelProps) {
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Tenant</label>
+              <label htmlFor="order-status" className="block text-xs text-slate-400 mb-1">Status</label>
               <select
-                value={tenantId}
-                onChange={(e) => setTenantId(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-              >
-                <option value="">All Tenants</option>
-                {tenants.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Status</label>
-              <select
+                id="order-status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
@@ -141,26 +125,9 @@ export function OrderSearchPanel({ onSelectOrder }: OrderSearchPanelProps) {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Date From</label>
+              <label htmlFor="order-amount-min" className="block text-xs text-slate-400 mb-1">Amount Min (cents)</label>
               <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Date To</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Amount Min (cents)</label>
-              <input
+                id="order-amount-min"
                 type="number"
                 value={amountMin}
                 onChange={(e) => setAmountMin(e.target.value)}
@@ -169,8 +136,9 @@ export function OrderSearchPanel({ onSelectOrder }: OrderSearchPanelProps) {
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Amount Max (cents)</label>
+              <label htmlFor="order-amount-max" className="block text-xs text-slate-400 mb-1">Amount Max (cents)</label>
               <input
+                id="order-amount-max"
                 type="number"
                 value={amountMax}
                 onChange={(e) => setAmountMax(e.target.value)}
@@ -178,7 +146,7 @@ export function OrderSearchPanel({ onSelectOrder }: OrderSearchPanelProps) {
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
               />
             </div>
-            <div className="flex items-end gap-4 col-span-2">
+            <div className="flex items-end gap-4">
               <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
                 <input
                   type="checkbox"

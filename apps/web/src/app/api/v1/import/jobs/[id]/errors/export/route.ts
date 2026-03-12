@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getImportErrors } from '@oppsera/module-import';
-import { toCsv } from '@oppsera/module-reporting';
-import type { CsvColumn } from '@oppsera/module-reporting';
+import { toCsv } from '@oppsera/core';
+import type { CsvColumn } from '@oppsera/core';
 
 function extractJobId(request: NextRequest): string {
   const url = new URL(request.url);

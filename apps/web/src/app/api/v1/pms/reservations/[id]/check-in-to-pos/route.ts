@@ -10,7 +10,7 @@ import {
   getFolioByReservation,
   getReservation,
 } from '@oppsera/module-pms';
-import { createRegisterTabWithAutoNumber } from '@/lib/register-tab-helpers';
+import { createRegisterTabWithAutoNumber } from '@oppsera/core/register-tabs';
 
 const checkInToPosSchema = z.object({
   terminalId: z.string().min(1),

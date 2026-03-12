@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useFetch } from '@/hooks/use-fetch';
 import { Lock, Unlock, Info } from 'lucide-react';
 

@@ -7,7 +7,7 @@ import { ValidationError, generateUlid } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core';
 import { chargeMemberAccount, chargeMemberAccountSchema } from '@oppsera/module-fnb';
 import { recordArTransaction } from '@oppsera/module-customers';
-import { getSessionInternalByToken } from '@/lib/guest-pay-member-lookup';
+import { getSessionInternalByToken } from '@oppsera/core';
 
 // Simple in-memory rate limiter for member-charge endpoint
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();

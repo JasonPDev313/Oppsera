@@ -8,6 +8,23 @@ export default tseslint.config(
   {
     ignores: ['**/node_modules/**', '**/dist/**', '**/.next/**', '**/.turbo/**', '**/coverage/**'],
   },
+  // Module boundary enforcement — modules cannot import other modules.
+  // This is the hard architectural rule: cross-module communication uses
+  // events or internal APIs via @oppsera/core. See ADR-001.
+  {
+    files: [
+      'packages/modules/*/src/**/*.ts',
+      'packages/modules/*/src/**/*.tsx',
+    ],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['@oppsera/module-*'],
+          message: 'Modules cannot import other modules. Use events or internal APIs via @oppsera/core. See docs/adr/001-module-boundaries.md',
+        }],
+      }],
+    },
+  },
   // Type-checked rules for SERVER-SIDE TypeScript only.
   // Catches unawaited async calls that cause DB pool exhaustion on Vercel.
   // Scoped to: packages (backend modules/core), API routes, instrumentation.

@@ -3,34 +3,31 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, Clock, XCircle } from 'lucide-react';
 import { useGLIssues, type GLIssueFilters } from '@/hooks/use-finance';
-import { useTenants } from '@/hooks/use-tenants';
 import { formatDate, formatDateTime } from '@/lib/finance-helpers';
 import { StatusBadge } from './StatusBadge';
+import type { GlobalFilters } from './FinanceFilterBar';
 
 type IssueType = 'all' | 'unmapped' | 'unposted' | 'failed';
 
-export function GLIssuesPanel() {
-  const { tenants } = useTenants();
+interface GLIssuesPanelProps {
+  globalFilters: GlobalFilters;
+}
+
+export function GLIssuesPanel({ globalFilters }: GLIssuesPanelProps) {
   const { data, isLoading, error, load } = useGLIssues();
 
   const [issueType, setIssueType] = useState<IssueType>('all');
-  const [tenantId, setTenantId] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
 
   const buildFilters = (): GLIssueFilters => ({
-    tenantId: tenantId || undefined,
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
+    tenantId: globalFilters.tenantId || undefined,
+    dateFrom: globalFilters.dateFrom || undefined,
+    dateTo: globalFilters.dateTo || undefined,
   });
 
+  // Reload when global filters change
   useEffect(() => {
     load(buildFilters());
-  }, []);
-
-  const handleSearch = () => {
-    load(buildFilters());
-  };
+  }, [globalFilters.tenantId, globalFilters.dateFrom, globalFilters.dateTo]);
 
   return (
     <div className="space-y-4">
@@ -83,51 +80,6 @@ export function GLIssuesPanel() {
           </button>
         </div>
       )}
-
-      {/* Filters */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">Tenant</label>
-            <select
-              value={tenantId}
-              onChange={(e) => setTenantId(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-            >
-              <option value="">All Tenants</option>
-              {tenants.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">Date From</label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">Date To</label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              onClick={handleSearch}
-              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-            >
-              Search
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Error */}
       {error && (
@@ -278,7 +230,7 @@ export function GLIssuesPanel() {
                           <span className="text-white text-xs font-mono">
                             {String(item.journal_number ?? '')}
                           </span>
-                          <StatusBadge status="voided" />
+                          <StatusBadge status="failed" />
                         </div>
                         <span className="text-xs text-slate-500">
                           {formatDateTime(item.voided_at as string | null)}

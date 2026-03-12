@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { AppError } from '@oppsera/shared';
-import { getItemSales, toCsv } from '@oppsera/module-reporting';
-import type { CsvColumn } from '@oppsera/module-reporting';
+import { toCsv } from '@oppsera/core';
+import type { CsvColumn } from '@oppsera/core';
+import { getItemSales } from '@oppsera/module-reporting';
 
 const ITEM_SALES_COLUMNS: CsvColumn[] = [
   { key: 'catalogItemId', label: 'Item ID' },
