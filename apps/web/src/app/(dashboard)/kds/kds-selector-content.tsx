@@ -6,7 +6,7 @@ import { useAuthContext } from '@/components/auth-provider';
 import { useTerminalSession } from '@/components/terminal-session-provider';
 import { useStations, useKdsLocationCounts, useKdsStationCounts } from '@/hooks/use-fnb-kitchen';
 import { ArrowLeft, MapPin, AlertTriangle, Settings2 } from 'lucide-react';
-import { getSiteLocations, resolveInitialKdsLocationId } from '@/lib/kds-location';
+import { getKdsLocations, resolveInitialKdsLocationId } from '@/lib/kds-location';
 
 const STATION_TYPE_COLORS: Record<string, string> = {
   prep: '#6366f1',
@@ -29,15 +29,15 @@ export default function KdsSelectorContent() {
   const searchParams = useSearchParams();
   const { locations } = useAuthContext();
   const { session: terminalSession } = useTerminalSession();
-  const siteLocations = getSiteLocations(locations);
+  const kdsLocations = getKdsLocations(locations);
   const [locationId, setLocationId] = useState(() => {
     const fromUrl = searchParams.get('locationId');
-    if (fromUrl && siteLocations.some((l) => l.id === fromUrl)) return fromUrl;
+    if (fromUrl && kdsLocations.some((l) => l.id === fromUrl)) return fromUrl;
     const candidate = terminalSession?.locationId ?? locations?.[0]?.id ?? '';
-    return resolveInitialKdsLocationId(candidate, locations) || siteLocations[0]?.id || '';
+    return resolveInitialKdsLocationId(candidate) || kdsLocations[0]?.id || '';
   });
   const { stations, isLoading } = useStations({ locationId });
-  const locationCounts = useKdsLocationCounts(siteLocations.map((l) => l.id));
+  const locationCounts = useKdsLocationCounts(kdsLocations.map((l) => l.id));
   const stationCounts = useKdsStationCounts(locationId);
 
   // Count tickets at OTHER locations (for persistent badge + pulse)
@@ -52,8 +52,8 @@ export default function KdsSelectorContent() {
   // Total tickets at current location
   const currentLocationTickets = locationCounts.get(locationId) ?? 0;
 
-  const locationName = siteLocations.find((l) => l.id === locationId)?.name ?? '';
-  const hasMultipleLocations = siteLocations.length > 1;
+  const locationName = kdsLocations.find((l) => l.id === locationId)?.name ?? '';
+  const hasMultipleLocations = kdsLocations.length > 1;
 
   const kdsStations = stations.filter(
     (s) => s.isActive && s.stationType !== 'expo',
@@ -93,7 +93,7 @@ export default function KdsSelectorContent() {
                     color: 'var(--fnb-text-primary)',
                   }}
                 >
-                  {siteLocations.map((loc) => {
+                  {kdsLocations.map((loc) => {
                     const cnt = locationCounts.get(loc.id) ?? 0;
                     return (
                       <option key={loc.id} value={loc.id}>

@@ -7,30 +7,30 @@ import { KdsSettingsPanel } from '@/components/fnb/kds-settings-panel';
 import { useStations } from '@/hooks/use-fnb-kitchen';
 import Link from 'next/link';
 import { Wand2, MapPin, Info } from 'lucide-react';
-import { getSiteLocations, resolveInitialKdsLocationId } from '@/lib/kds-location';
+import { getKdsLocations, resolveInitialKdsLocationId } from '@/lib/kds-location';
 
 export default function KdsSettingsContent() {
   const searchParams = useSearchParams();
   const { locations } = useAuthContext();
-  const siteLocations = getSiteLocations(locations);
+  const kdsLocations = getKdsLocations(locations);
   const [locationId, setLocationId] = useState(() => {
     const fromUrl = searchParams.get('locationId');
-    if (fromUrl && siteLocations.some((l) => l.id === fromUrl)) return fromUrl;
+    if (fromUrl && kdsLocations.some((l) => l.id === fromUrl)) return fromUrl;
     const candidate = locations?.[0]?.id;
-    return candidate ? resolveInitialKdsLocationId(candidate, locations) : undefined;
+    return candidate ? resolveInitialKdsLocationId(candidate) : undefined;
   });
 
   // Sync locationId when locations load after initial render (race condition guard)
   useEffect(() => {
-    if (!locationId && siteLocations.length > 0) {
+    if (!locationId && kdsLocations.length > 0) {
       const fromUrl = searchParams.get('locationId');
-      const match = fromUrl && siteLocations.some((l) => l.id === fromUrl) ? fromUrl : siteLocations[0]?.id;
+      const match = fromUrl && kdsLocations.some((l) => l.id === fromUrl) ? fromUrl : kdsLocations[0]?.id;
       setLocationId(match);
     }
-  }, [locationId, siteLocations, searchParams]);
+  }, [locationId, kdsLocations, searchParams]);
 
-  const hasMultipleLocations = siteLocations.length > 1;
-  const locationName = siteLocations.find((l) => l.id === locationId)?.name ?? '';
+  const hasMultipleLocations = kdsLocations.length > 1;
+  const locationName = kdsLocations.find((l) => l.id === locationId)?.name ?? '';
   const { stations, isLoading: stationsLoading } = useStations({ locationId });
   const hasStations = stations.length > 0;
 
@@ -56,7 +56,7 @@ export default function KdsSettingsContent() {
                 onChange={(e) => setLocationId(e.target.value)}
                 className="rounded-lg border border-input bg-surface px-3 py-1.5 text-sm font-semibold text-foreground focus:border-indigo-500 focus:outline-none"
               >
-                {siteLocations.map((loc) => (
+                {kdsLocations.map((loc) => (
                   <option key={loc.id} value={loc.id}>{loc.name}</option>
                 ))}
               </select>

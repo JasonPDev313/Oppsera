@@ -45,10 +45,6 @@ vi.mock('../commands/create-kitchen-ticket', () => ({
   createKitchenTicket: (...args: unknown[]) => mockCreateKitchenTicket(...args),
 }));
 
-vi.mock('../helpers/resolve-kds-site-id', () => ({
-  resolveKdsSiteId: vi.fn().mockImplementation((_t: string, loc: string) => Promise.resolve(loc)),
-}));
-
 vi.mock('../commands/record-kds-send', () => ({
   recordKdsSend: vi.fn().mockResolvedValue({ sendToken: 'mock-token' }),
   markKdsSendSent: vi.fn().mockResolvedValue(undefined),

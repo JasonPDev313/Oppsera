@@ -3,7 +3,6 @@ import { withTenant } from '@oppsera/db';
 import { fnbTabs, fnbTabItems, fnbTabCourses } from '@oppsera/db';
 import { logger } from '@oppsera/core/observability';
 import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
-import { resolveKdsSiteId } from '../helpers/resolve-kds-site-id';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from '../commands/create-kitchen-ticket';
 import { recordKdsSend, markKdsSendSent } from '../commands/record-kds-send';
@@ -115,13 +114,8 @@ export async function handleCourseSent(
       return;
     }
 
-    // Resolve venue → parent site for KDS operations (stations/rules live at site level)
-    const locationId = await resolveKdsSiteId(tenantId, rawLocationId);
-    if (locationId !== rawLocationId) {
-      logger.info('[kds] handleCourseSent: resolved venue to parent site', {
-        domain: 'kds', tenantId, venueId: rawLocationId, siteId: locationId,
-      });
-    }
+    // Each location owns its own KDS stations — use the location directly, no venue→site promotion
+    const locationId = rawLocationId;
 
     if (!items.length) {
       logger.warn('[kds] handleCourseSent: no items found for course', {

@@ -337,7 +337,12 @@ export async function apiFetch<T = unknown>(
 
 /** Convert a caught error into a user-friendly message. */
 export function formatCaughtError(err: unknown): string {
-  if (err instanceof ApiError) return err.message;
+  if (err instanceof ApiError) {
+    if (err.details?.length) {
+      return err.details.map((d) => d.message).join('. ');
+    }
+    return err.message;
+  }
   if (err instanceof TypeError && err.message.includes('fetch')) {
     return 'Unable to reach the server. Check your internet connection and try again.';
   }

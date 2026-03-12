@@ -232,9 +232,9 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   const currentLocation = locations?.[0];
   const locationId = currentLocation?.id;
   const locationName = currentLocation?.name;
-  // KDS stations are configured at the site level — venues inherit from parent
+  // Each location owns its own KDS stations — no venue→site promotion
   const kdsLocationId = resolveKdsLocationId(currentLocation);
-  const kdsLocationName = resolveKdsLocationName(currentLocation, locations);
+  const kdsLocationName = resolveKdsLocationName(currentLocation);
   const { stations } = useStations({ locationId: kdsLocationId });
   const hasKdsStations = stations.length > 0;
   const [showKdsNotConfigured, setShowKdsNotConfigured] = useState(false);

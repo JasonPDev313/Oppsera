@@ -573,7 +573,6 @@ export { sendOrderLinesToKds } from './commands/send-order-lines-to-kds';
 
 // Helpers — Station Routing
 export { resolveStation } from './helpers/resolve-station';
-export { resolveKdsSiteId } from './helpers/resolve-kds-site-id';
 
 // Queries
 export { getServerPerformance } from './queries/get-server-performance';

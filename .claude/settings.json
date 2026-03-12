@@ -100,7 +100,10 @@
       "Bash(ls \"c:\\\\Users\\\\Jason\\\\Dev\\\\Oppsera\\\\apps\\\\web\\\\src\\\\app\\\\\\(dashboard\\)\\\\settings\")",
       "Bash(ls \"c:\\\\Users\\\\Jason\\\\Dev\\\\Oppsera\\\\apps\\\\web\\\\src\\\\app\\\\\\(dashboard\\)\\\\settings\\\\general\")",
       "Bash(mkdir -p \"c:/Users/Jason/Dev/Oppsera/apps/web/src/app/api/v1/locations/venues\")",
-      "Bash(mkdir -p \"c:/Users/Jason/Dev/Oppsera/apps/web/src/app/api/v1/locations/venues/[id]\")"
+      "Bash(mkdir -p \"c:/Users/Jason/Dev/Oppsera/apps/web/src/app/api/v1/locations/venues/[id]\")",
+      "Bash(grep -n \"locationId\\\\|location_id\\\\|siteId\\\\|site_id\\\\|parentLocationId\\\\|parent_location_id\\\\|resolveKdsSiteId\" /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/kds/[stationId]/kds-content.tsx /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/kds/all/all-orders-content.tsx /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/kds/kds-selector-content.tsx /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/kds/settings/kds-settings-content.tsx /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/kds/setup/setup-content.tsx)",
+      "Bash(grep -n \"terminalSession\\\\|siteLocations\\\\|useSiteLocations\\\\|useLocations\\\\|locations\\\\b\" /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/kds/[stationId]/kds-content.tsx /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/kds/kds-selector-content.tsx /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/kds/all/all-orders-content.tsx)",
+      "Bash(grep -rn \"terminalSession\" /c/Users/Jason/Dev/Oppsera/apps/web/src/app/\\\\\\(dashboard\\\\\\)/kds/[stationId]/kds-content.tsx)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",
