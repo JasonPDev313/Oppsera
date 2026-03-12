@@ -547,7 +547,15 @@ function SidebarContent({
                                 style={isChildActive ? { color: moduleColor } : undefined}
                               >
                                 <child.icon className="h-4 w-4 shrink-0" style={{ color: isChildActive ? moduleColor : undefined }} aria-hidden="true" />
-                                {child.name}
+                                <span className="flex-1">{child.name}</span>
+                                {child.badge != null && child.badge > 0 && (
+                                  <span
+                                    className="ml-auto inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none"
+                                    style={{ backgroundColor: `${moduleColor}20`, color: moduleColor }}
+                                  >
+                                    {child.badge}
+                                  </span>
+                                )}
                               </Link>
                             </div>
                           );
@@ -597,7 +605,15 @@ function SidebarContent({
                                 style={isChildActive ? { backgroundColor: `${moduleColor}15`, color: moduleColor } : undefined}
                               >
                                 <child.icon className="h-4 w-4 shrink-0" style={{ color: isChildActive ? moduleColor : undefined }} aria-hidden="true" />
-                                {child.name}
+                                <span className="flex-1">{child.name}</span>
+                                {child.badge != null && child.badge > 0 && (
+                                  <span
+                                    className="ml-auto inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none"
+                                    style={{ backgroundColor: `${moduleColor}20`, color: moduleColor }}
+                                  >
+                                    {child.badge}
+                                  </span>
+                                )}
                               </Link>
                             </div>
                           );

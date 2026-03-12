@@ -3,16 +3,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Monitor } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
+import { useKdsStationCounts } from '@/hooks/use-fnb-kitchen';
 import type { FnbStation } from '@/types/fnb';
 import type { SubNavItem } from '@/lib/navigation';
 
 /**
  * Fetches KDS stations for the given location and returns them as
  * SubNavItem[] for sidebar injection. Each active station becomes a
- * clickable nav link under Kitchen Display.
+ * clickable nav link under Kitchen Display with a live ticket count badge.
  */
 export function useKdsStationsForNav(locationId?: string): SubNavItem[] {
   const [stations, setStations] = useState<FnbStation[]>([]);
+  const stationCounts = useKdsStationCounts(locationId ?? '');
 
   useEffect(() => {
     if (!locationId) return;
@@ -40,6 +42,7 @@ export function useKdsStationsForNav(locationId?: string): SubNavItem[] {
         href: s.stationType === 'expo' ? '/expo' : `/kds/${s.id}`,
         icon: Monitor,
         requiredPermission: 'kds.view',
+        badge: stationCounts.get(s.id) ?? 0,
       }));
-  }, [stations]);
+  }, [stations, stationCounts]);
 }

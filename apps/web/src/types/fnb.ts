@@ -447,6 +447,8 @@ export interface ExpoView {
   tickets: ExpoTicketCard[];
   totalActiveTickets: number;
   ticketsAllReady: number;
+  warningThresholdSeconds: number;
+  criticalThresholdSeconds: number;
 }
 
 // ── Expo History ──────────────────────────────────────────────────

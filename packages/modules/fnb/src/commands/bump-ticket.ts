@@ -8,7 +8,7 @@ import { fnbKitchenTickets, fnbKitchenTicketItems } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { BumpTicketInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
-import { TicketNotFoundError, TicketNotReadyError, TicketAllVoidedError, TicketStatusConflictError, TicketVersionConflictError } from '../errors';
+import { TicketNotFoundError, TicketNotReadyError, TicketAllVoidedError, TicketStatusConflictError, TicketVersionConflictError, StationNotFoundError } from '../errors';
 
 /**
  * Determine whether this bump is from a prep station or from expo.
@@ -26,8 +26,8 @@ async function resolveIsExpoBump(
         WHERE id = ${stationId} AND tenant_id = ${tenantId} LIMIT 1`,
   );
   const station = Array.from(rows as Iterable<Record<string, unknown>>)[0];
-  // If station not found or is expo type → treat as expo bump
-  return !station || (station.station_type as string) === 'expo';
+  if (!station) throw new StationNotFoundError(stationId);
+  return (station.station_type as string) === 'expo';
 }
 
 export async function bumpTicket(

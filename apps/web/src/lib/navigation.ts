@@ -71,6 +71,8 @@ export interface SubNavItem {
   workflowModuleKey?: string;
   /** ERP workflow key for tier-based visibility filtering */
   workflowKey?: string;
+  /** Optional numeric badge (e.g. active ticket count) */
+  badge?: number;
 }
 
 export interface NavItem {

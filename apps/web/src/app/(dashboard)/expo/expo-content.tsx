@@ -11,6 +11,7 @@ import { ExpoHistoryPanel } from '@/components/fnb/kitchen/ExpoHistoryPanel';
 import { ItemSummaryPanel, ItemSummaryToggle } from '@/components/fnb/kitchen/ItemSummaryPanel';
 import { KitchenMetrics } from '@/components/fnb/kitchen/KitchenMetrics';
 import { KitchenBehindBanner } from '@/components/fnb/kitchen/KitchenBehindBanner';
+import { StaleDataBanner } from '@/components/fnb/kitchen/StaleDataBanner';
 import { formatTimer } from '@/components/fnb/kitchen/TimerBar';
 import { apiFetch } from '@/lib/api-client';
 import {
@@ -22,8 +23,8 @@ type ExpoViewMode = 'rail' | 'grid';
 type ExpoTab = 'active' | 'history';
 type ExpoFilter = 'all' | 'ready' | 'in_progress' | 'held' | 'rush';
 
-const DEFAULT_WARNING_SECONDS = 480;
-const DEFAULT_CRITICAL_SECONDS = 720;
+const FALLBACK_WARNING_SECONDS = 480;
+const FALLBACK_CRITICAL_SECONDS = 720;
 const PAUSED_INTERVAL = 999_999_999;
 
 export default function ExpoContent() {
@@ -58,6 +59,7 @@ export default function ExpoContent() {
     bumpTicket,
     isActing,
     refresh,
+    lastRefreshedAt,
   } = useExpoView({ locationId, pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
 
   const {
@@ -65,6 +67,10 @@ export default function ExpoContent() {
     isLoading: historyLoading,
     refresh: refreshHistory,
   } = useExpoHistory({ locationId, enabled: activeTab === 'history' });
+
+  // Use API-provided thresholds, fall back to defaults before first load
+  const warnSeconds = expoView?.warningThresholdSeconds ?? FALLBACK_WARNING_SECONDS;
+  const critSeconds = expoView?.criticalThresholdSeconds ?? FALLBACK_CRITICAL_SECONDS;
 
   const handleTabChange = useCallback((tab: ExpoTab) => {
     setActiveTab(tab);
@@ -146,7 +152,7 @@ export default function ExpoContent() {
     if (!expoView?.tickets?.length) return { avgElapsed: 0, overdueCount: 0 };
     const total = expoView.tickets.reduce((sum, t) => sum + t.elapsedSeconds, 0);
     const avg = Math.round(total / expoView.tickets.length);
-    const overdue = expoView.tickets.filter((t) => t.elapsedSeconds >= DEFAULT_CRITICAL_SECONDS).length;
+    const overdue = expoView.tickets.filter((t) => t.elapsedSeconds >= critSeconds).length;
     return { avgElapsed: avg, overdueCount: overdue };
   }, [expoView?.tickets]);
 
@@ -242,7 +248,7 @@ export default function ExpoContent() {
             <div className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" style={{ color: 'var(--fnb-text-muted)' }} />
               <span className="text-xs font-bold fnb-mono"
-                style={{ color: avgElapsed > DEFAULT_CRITICAL_SECONDS ? '#ef4444' : avgElapsed > DEFAULT_WARNING_SECONDS ? '#f97316' : 'var(--fnb-text-secondary)' }}>
+                style={{ color: avgElapsed > critSeconds ? '#ef4444' : avgElapsed > warnSeconds ? '#f97316' : 'var(--fnb-text-secondary)' }}>
                 Avg: {formatTimer(avgElapsed)}
               </span>
             </div>
@@ -283,9 +289,10 @@ export default function ExpoContent() {
       {/* Kitchen Behind banner */}
       <KitchenBehindBanner
         tickets={expoView.tickets}
-        warningThresholdSeconds={DEFAULT_WARNING_SECONDS}
-        criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
+        warningThresholdSeconds={warnSeconds}
+        criticalThresholdSeconds={critSeconds}
       />
+      <StaleDataBanner lastRefreshedAt={lastRefreshedAt} />
 
       {/* Action error toast */}
       {actionError && (
@@ -364,7 +371,7 @@ export default function ExpoContent() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 p-3">
                   {filteredTickets.map((ticket) => (
                     <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
-                      warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
+                      warningThresholdSeconds={warnSeconds} criticalThresholdSeconds={critSeconds}
                       onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
                       disabled={isActing || isFiring} />
                   ))}
@@ -373,7 +380,7 @@ export default function ExpoContent() {
                 <div className="flex gap-3 p-3 h-full items-start overflow-x-auto">
                   {filteredTickets.map((ticket) => (
                     <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
-                      warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
+                      warningThresholdSeconds={warnSeconds} criticalThresholdSeconds={critSeconds}
                       onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
                       disabled={isActing || isFiring} />
                   ))}
@@ -390,8 +397,8 @@ export default function ExpoContent() {
                 />
                 <KitchenMetrics
                   tickets={expoView.tickets}
-                  warningThresholdSeconds={DEFAULT_WARNING_SECONDS}
-                  criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
+                  warningThresholdSeconds={warnSeconds}
+                  criticalThresholdSeconds={critSeconds}
                   totalServedToday={expoHistory?.totalServed ?? 0}
                 />
               </div>

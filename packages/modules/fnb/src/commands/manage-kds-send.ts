@@ -5,35 +5,6 @@ import { logger } from '@oppsera/core/observability';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
 /**
- * Void a kitchen ticket and all its items.
- * Used as a side-effect when soft-deleting KDS sends so the ticket
- * no longer appears in any KDS view (station, all-orders, expo).
- */
-async function voidTicketFromSend(
-  tx: Parameters<Parameters<typeof withTenant>[1]>[0],
-  tenantId: string,
-  ticketId: string,
-): Promise<void> {
-  // Only void if still in an active state
-  const rows = await tx.execute(sql`
-    UPDATE fnb_kitchen_tickets
-    SET status = 'voided', voided_at = NOW(), version = version + 1, updated_at = NOW()
-    WHERE tenant_id = ${tenantId} AND id = ${ticketId}
-      AND status IN ('pending', 'in_progress')
-    RETURNING id
-  `);
-  const arr = Array.from(rows as Iterable<Record<string, unknown>>);
-  if (arr.length === 0) return; // already voided/served — no-op
-
-  await tx.execute(sql`
-    UPDATE fnb_kitchen_ticket_items
-    SET item_status = 'voided', voided_at = NOW(), updated_at = NOW()
-    WHERE tenant_id = ${tenantId} AND ticket_id = ${ticketId}
-      AND item_status NOT IN ('voided', 'served')
-  `);
-}
-
-/**
  * Retry a failed/orphaned KDS send. Creates a new send tracking row linked to the original.
  */
 export async function retryKdsSend(
@@ -59,10 +30,11 @@ export async function retryKdsSend(
     const tokenRows = await tx.execute(sql`SELECT gen_ulid() AS token`);
     const newToken = Array.from(tokenRows as Iterable<Record<string, unknown>>)[0]!.token as string;
 
-    // Mark original as resolved (retry initiated)
+    // Mark original as resolved (retry initiated — prevent re-retry or stale delete)
     await tx.execute(sql`
       UPDATE fnb_kds_send_tracking
-      SET needs_attention = false, stuck_reason = NULL, updated_at = NOW()
+      SET status = 'resolved', resolved_at = NOW(),
+          needs_attention = false, stuck_reason = NULL, updated_at = NOW()
       WHERE id = ${sendId} AND tenant_id = ${ctx.tenantId}
     `);
 
@@ -246,8 +218,6 @@ export async function softDeleteKdsSend(
       )
     `);
 
-    // Void the underlying kitchen ticket so it disappears from all KDS views
-    await voidTicketFromSend(tx, ctx.tenantId, r.ticket_id as string);
   });
 
   auditLogDeferred(ctx, 'fnb.kds_send.soft_deleted', 'fnb_kds_send_tracking', sendId);
@@ -299,14 +269,12 @@ export async function bulkSoftDeleteKdsSends(
       `);
     }
 
-    // Void all associated kitchen tickets so they disappear from KDS views
-    const ticketIds = [...new Set(arr.map((r) => r.ticket_id as string))];
-    for (const ticketId of ticketIds) {
-      await voidTicketFromSend(tx, ctx.tenantId, ticketId);
-    }
-
     return arr.length;
   });
+
+  for (const sid of sendIds) {
+    auditLogDeferred(ctx, 'fnb.kds_send.soft_deleted', 'fnb_kds_send_tracking', sid);
+  }
 
   logger.info('[kds] bulk soft-delete', {
     domain: 'kds', tenantId: ctx.tenantId, count: deletedCount, sendIds,
@@ -360,6 +328,10 @@ export async function bulkResolveKdsSends(
 
     return arr.length;
   });
+
+  for (const sid of sendIds) {
+    auditLogDeferred(ctx, 'fnb.kds_send.resolved', 'fnb_kds_send_tracking', sid);
+  }
 
   logger.info('[kds] bulk resolve', {
     domain: 'kds', tenantId: ctx.tenantId, count: resolvedCount, sendIds,

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import type { KdsTicketCard as KdsTicketCardType } from '@/types/fnb';
 import { TicketHeader, getAgingTier } from './TicketHeader';
 import { TicketMetaRow } from './TicketMetaRow';
@@ -19,28 +18,10 @@ interface TicketCardProps {
   isDomTicket?: boolean;
   /** Estimated prep time in seconds for this ticket */
   estimatedPrepSeconds?: number | null;
-  /** Enable audio alerts when timer crosses thresholds */
-  audioAlerts?: boolean;
   /** Display density */
   density?: 'compact' | 'standard' | 'comfortable';
   /** "All Day" counts: item name/label → total qty across all open tickets */
   allDayCounts?: Map<string, number>;
-}
-
-// Audio alert helper — plays a short beep tone
-function playAlertTone(frequency: number, duration: number) {
-  try {
-    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = frequency;
-    gain.gain.value = 0.15;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    setTimeout(() => { osc.stop(); ctx.close(); }, duration);
-  } catch { /* audio not available */ }
 }
 
 export function TicketCard({
@@ -52,7 +33,6 @@ export function TicketCard({
   disabled,
   isDomTicket,
   estimatedPrepSeconds,
-  audioAlerts,
   density = 'standard',
   allDayCounts,
 }: TicketCardProps) {
@@ -98,29 +78,6 @@ export function TicketCard({
     : tier === 'warning'
     ? '0 0 8px rgba(234, 88, 12, 0.2)'
     : 'none';
-
-  // Audio alerts — fire once when crossing thresholds
-  const prevPhaseRef = useRef<'normal' | 'warning' | 'critical'>('normal');
-  const prevAllReadyRef = useRef(false);
-  useEffect(() => {
-    if (!audioAlerts) return;
-    const phase = ticket.elapsedSeconds >= criticalThresholdSeconds
-      ? 'critical'
-      : ticket.elapsedSeconds >= warningThresholdSeconds
-      ? 'warning'
-      : 'normal';
-    if (phase !== prevPhaseRef.current) {
-      if (phase === 'warning') playAlertTone(880, 200);
-      if (phase === 'critical') playAlertTone(1200, 400);
-      prevPhaseRef.current = phase;
-    }
-    // Done chime — distinct double-beep when all items become ready
-    if (allReady && !prevAllReadyRef.current) {
-      playAlertTone(660, 120);
-      setTimeout(() => playAlertTone(880, 150), 150);
-    }
-    prevAllReadyRef.current = allReady;
-  }, [ticket.elapsedSeconds, warningThresholdSeconds, criticalThresholdSeconds, audioAlerts, allReady]);
 
   return (
     <div

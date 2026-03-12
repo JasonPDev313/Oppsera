@@ -26,6 +26,7 @@ interface UseKdsViewReturn {
   toggleRushMode: () => Promise<void>;
   isActing: boolean;
   refresh: () => void;
+  lastRefreshedAt: number | null;
 }
 
 export function useKdsView({
@@ -38,6 +39,7 @@ export function useKdsView({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isActing, setIsActing] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const fetchingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const hasLoadedRef = useRef(false);
@@ -71,6 +73,7 @@ export function useKdsView({
       if (gen !== generationRef.current) return;
       setKdsView(json.data);
       setError(null);
+      setLastRefreshedAt(Date.now());
       hasLoadedRef.current = true;
       consecutiveFailuresRef.current = 0;
     } catch (err: unknown) {
@@ -199,7 +202,7 @@ export function useKdsView({
     }
   }, [stationId, locQs, kdsView?.rushMode, fetchKds, isActing]);
 
-  return { kdsView, isLoading, error, bumpItem, bumpTicket, recallItem, callBack, refireItem, toggleRushMode, isActing, refresh };
+  return { kdsView, isLoading, error, bumpItem, bumpTicket, recallItem, callBack, refireItem, toggleRushMode, isActing, refresh, lastRefreshedAt };
 }
 
 // ── Expo View Hook ──────────────────────────────────────────────
@@ -217,6 +220,7 @@ interface UseExpoViewReturn {
   bumpTicket: (ticketId: string) => Promise<void>;
   isActing: boolean;
   refresh: () => void;
+  lastRefreshedAt: number | null;
 }
 
 export function useExpoView({
@@ -228,6 +232,7 @@ export function useExpoView({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isActing, setIsActing] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const fetchingExpoRef = useRef(false);
   const abortExpoRef = useRef<AbortController | null>(null);
   const hasLoadedExpoRef = useRef(false);
@@ -255,6 +260,7 @@ export function useExpoView({
       if (gen !== expoGenerationRef.current) return;
       setExpoView(json.data);
       setError(null);
+      setLastRefreshedAt(Date.now());
       hasLoadedExpoRef.current = true;
       consecutiveExpoFailuresRef.current = 0;
     } catch (err: unknown) {
@@ -324,7 +330,7 @@ export function useExpoView({
     }
   }, [locationId, fetchExpo, isActing]);
 
-  return { expoView, isLoading, error, bumpTicket, isActing, refresh };
+  return { expoView, isLoading, error, bumpTicket, isActing, refresh, lastRefreshedAt };
 }
 
 // ── Expo History Hook ───────────────────────────────────────────

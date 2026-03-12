@@ -6,11 +6,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { useTerminalSession } from '@/components/terminal-session-provider';
 import { useKdsView } from '@/hooks/use-fnb-kitchen';
+import { useKdsAudioAlerts } from '@/hooks/use-kds-audio-alerts';
 import { StationHeader } from '@/components/fnb/kitchen/StationHeader';
 import { TicketCard } from '@/components/fnb/kitchen/TicketCard';
 import { AllDaySummary } from '@/components/fnb/kitchen/AllDaySummary';
 import { ItemSummaryPanel, ItemSummaryToggle } from '@/components/fnb/kitchen/ItemSummaryPanel';
 import { KitchenBehindBanner } from '@/components/fnb/kitchen/KitchenBehindBanner';
+import { StaleDataBanner } from '@/components/fnb/kitchen/StaleDataBanner';
 import {
   ArrowLeft, LayoutGrid, LayoutList, SplitSquareHorizontal,
   Keyboard as KeyboardIcon, Hand, Pause, Play,
@@ -53,7 +55,16 @@ export default function KdsContent() {
     refireItem,
     isActing,
     refresh,
+    lastRefreshedAt,
   } = useKdsView({ stationId, locationId, pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
+
+  // Page-level audio alerts — single AudioContext, deduped, rate-limited
+  useKdsAudioAlerts({
+    tickets: kdsView?.tickets ?? [],
+    warningThresholdSeconds: kdsView?.warningThresholdSeconds ?? 480,
+    criticalThresholdSeconds: kdsView?.criticalThresholdSeconds ?? 720,
+    enabled: !isPaused,
+  });
 
   // Actions available for future UI wiring (context menu, long-press, etc.)
   void recallItem; void callBack; void refireItem;
@@ -310,6 +321,7 @@ export default function KdsContent() {
         warningThresholdSeconds={kdsView.warningThresholdSeconds}
         criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
       />
+      <StaleDataBanner lastRefreshedAt={lastRefreshedAt} />
 
       {/* Bump bar mode indicator */}
       {inputMode === 'bump_bar' && (
@@ -349,7 +361,6 @@ export default function KdsContent() {
                     disabled={isActing}
                     density={density}
                     allDayCounts={allDayCounts}
-                    audioAlerts
                   />
                 </div>
               ))}
@@ -447,7 +458,6 @@ export default function KdsContent() {
                     disabled={isActing}
                     density={density}
                     allDayCounts={allDayCounts}
-                    audioAlerts
                   />
                 </div>
               ))}

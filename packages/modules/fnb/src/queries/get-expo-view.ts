@@ -82,6 +82,8 @@ export interface ExpoView {
   tickets: ExpoTicketCard[];
   totalActiveTickets: number;
   ticketsAllReady: number;
+  warningThresholdSeconds: number;
+  criticalThresholdSeconds: number;
 }
 
 export async function getExpoView(
@@ -153,10 +155,18 @@ export async function getExpoView(
       }
     }
 
-    // Expo uses default thresholds (8 min warning, 12 min critical)
-    // TODO: Make configurable via fnb_kds_location_settings when needed
-    const EXPO_WARN_SECONDS = 480;
-    const EXPO_CRIT_SECONDS = 720;
+    // Query expo station thresholds for this location (fall back to 8/12 min defaults)
+    const expoStationRows = await tx.execute(
+      sql`SELECT warning_threshold_seconds, critical_threshold_seconds
+          FROM fnb_kitchen_stations
+          WHERE tenant_id = ${input.tenantId}
+            AND location_id = ${input.locationId}
+            AND station_type = 'expo'
+          LIMIT 1`,
+    );
+    const expoStation = Array.from(expoStationRows as Iterable<Record<string, unknown>>)[0];
+    const EXPO_WARN_SECONDS = Number(expoStation?.warning_threshold_seconds ?? 480);
+    const EXPO_CRIT_SECONDS = Number(expoStation?.critical_threshold_seconds ?? 720);
 
     const expoCards: ExpoTicketCard[] = [];
     let ticketsAllReady = 0;
@@ -202,6 +212,8 @@ export async function getExpoView(
       tickets: expoCards,
       totalActiveTickets: expoCards.length,
       ticketsAllReady,
+      warningThresholdSeconds: EXPO_WARN_SECONDS,
+      criticalThresholdSeconds: EXPO_CRIT_SECONDS,
     };
   });
 }
