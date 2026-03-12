@@ -861,7 +861,7 @@ export type GetStationMetricsInput = z.input<typeof getStationMetricsSchema>;
 
 // ── KDS Order Status ────────────────────────────────────────────
 
-export const KDS_SEND_STATUSES = ['queued', 'sent', 'delivered', 'displayed', 'failed', 'orphaned', 'resolved', 'deleted'] as const;
+export const KDS_SEND_STATUSES = ['queued', 'sent', 'delivered', 'displayed', 'failed', 'orphaned', 'cleared', 'deleted'] as const;
 export const KDS_SEND_TYPES = ['initial', 'retry', 'manual_resend', 'fire_course', 'recall', 'reroute'] as const;
 
 export const listKdsSendsSchema = z.object({
@@ -889,7 +889,7 @@ export const bulkSoftDeleteKdsSendsSchema = z.object({
   reason: z.string().max(500).optional(),
 });
 
-export const bulkResolveKdsSendsSchema = z.object({
+export const bulkClearKdsSendsSchema = z.object({
   sendIds: z.array(z.string().min(1)).min(1).max(100),
   reason: z.string().max(500).optional(),
 });
@@ -907,7 +907,7 @@ export const retryKdsSendSchema = z.object({
   sendId: z.string().min(1),
 });
 
-export const resolveKdsSendSchema = z.object({
+export const clearKdsSendSchema = z.object({
   reason: z.string().max(500).optional(),
 });
 

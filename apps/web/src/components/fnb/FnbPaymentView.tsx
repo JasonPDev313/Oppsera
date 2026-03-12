@@ -295,21 +295,19 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
         sessionIdRef.current = isFullyPaid ? null : sessionId;
 
         // Adjust tip for non-card tenders (card tips are in the gateway charge)
-        // This is a separate call but only fires when needed, and the main payment
-        // is already committed — tip failure won't block the payment UI
+        // Fire-and-forget: payment is already committed — don't block the UI
+        // or compete for pool semaphore slots with a second awaited HTTP call
         const tipHandledByGateway = type === 'card' && !!cardToken;
         if (tipCents > 0 && !tipHandledByGateway) {
-          try {
-            await adjustTip({
-              tabId: tab.id,
-              tenderId: resData.tenderId as string,
-              originalTipCents: 0,
-              adjustedTipCents: tipCents,
-              adjustmentReason: 'Customer tip',
-            });
-          } catch (err) {
+          adjustTip({
+            tabId: tab.id,
+            tenderId: resData.tenderId as string,
+            originalTipCents: 0,
+            adjustedTipCents: tipCents,
+            adjustmentReason: 'Customer tip',
+          }).catch((err) => {
             console.error('[fnb-tip] adjustTip failed:', err);
-          }
+          });
         }
 
         return { isFullyPaid, remainingCents: Math.max(0, serverRemaining) };

@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
-import { bulkResolveKdsSends, bulkResolveKdsSendsSchema } from '@oppsera/module-fnb';
+import { bulkClearKdsSends, bulkClearKdsSendsSchema } from '@oppsera/module-fnb';
 
-// POST /api/v1/fnb/kds-order-status/bulk-resolve — bulk resolve sends
+// POST /api/v1/fnb/kds-order-status/bulk-clear — bulk clear sends
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     let body = {};
     try { body = await request.json(); } catch { /* empty body → validation will reject */ }
-    const parsed = bulkResolveKdsSendsSchema.safeParse(body);
+    const parsed = bulkClearKdsSendsSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(
         'Validation failed',
@@ -17,7 +17,7 @@ export const POST = withMiddleware(
       );
     }
 
-    const result = await bulkResolveKdsSends(ctx, parsed.data.sendIds, parsed.data.reason);
+    const result = await bulkClearKdsSends(ctx, parsed.data.sendIds, parsed.data.reason);
     return NextResponse.json({ data: result });
   },
   { entitlement: 'kds', permission: 'kds.manage', writeAccess: true },

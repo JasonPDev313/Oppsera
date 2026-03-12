@@ -13,7 +13,7 @@ import { eq, and, inArray, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { fnbTabs, fnbTabItems, fnbTabCourses } from '@oppsera/db';
 import { logger } from '@oppsera/core/observability';
-import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
+import { resolveStationRouting, enrichRoutableItems, resolveKdsLocationId } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from './create-kitchen-ticket';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -119,19 +119,22 @@ export async function resendCourseToKds(
       businessDate: normalizeBusinessDate(tabRaw.businessDate),
     };
 
-    const locationId = ctx.locationId || tab.locationId;
-    if (!locationId) {
+    const rawLocationId = ctx.locationId || tab.locationId;
+    if (!rawLocationId) {
       result.errors.push('No locationId on context or tab');
       return result;
     }
 
+    // Resolve effective KDS location (site↔venue hierarchy fallback)
+    const locationId = await resolveKdsLocationId(ctx.tenantId, rawLocationId);
+
     // Override ctx.locationId so createKitchenTicket (which reads ctx.locationId directly) works
-    // even when the original request context had no locationId.
+    // at the resolved location where routing rules and stations exist.
     const effectiveCtx = locationId !== ctx.locationId
       ? { ...ctx, locationId } as RequestContext
       : ctx;
 
-    result.diagnosis.push(`Tab found: locationId=${locationId}, tabType=${tab.tabType ?? 'null'}`);
+    result.diagnosis.push(`Tab found: rawLocationId=${rawLocationId}, resolvedLocationId=${locationId}, tabType=${tab.tabType ?? 'null'}`);
 
     if (items.length === 0) {
       result.errors.push(`No items found for Course ${input.courseNumber} (status: draft/sent/fired)`);

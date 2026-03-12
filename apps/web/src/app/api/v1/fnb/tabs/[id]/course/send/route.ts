@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
-import { sendCourse, sendCourseSchema } from '@oppsera/module-fnb';
+import { sendCourse, sendCourseSchema, resendCourseToKds } from '@oppsera/module-fnb';
 import { withTenant } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 
@@ -43,10 +43,25 @@ export const POST = withMiddleware(
       );
       kdsStatus = { ticketCount: cnt };
       if (cnt === 0) {
-        kdsStatus.warning =
-          'Course marked as sent but no kitchen tickets were created. ' +
-          'Check KDS station configuration and routing rules at this location. ' +
-          'Use GET /api/v1/fnb/kds-settings/diagnostics?locationId=...&catalogItemId=... for details.';
+        // No tickets created — run resend with diagnostics to find out WHY.
+        // This both creates the tickets (if routing succeeds) and returns the failure trace.
+        try {
+          const resendResult = await resendCourseToKds(ctx, {
+            tabId,
+            courseNumber: parsed.data.courseNumber,
+          });
+          (kdsStatus as Record<string, unknown>).ticketCount = resendResult.ticketsCreated;
+          (kdsStatus as Record<string, unknown>).diagnosis = resendResult.diagnosis;
+          (kdsStatus as Record<string, unknown>).errors = resendResult.errors;
+          if (resendResult.ticketsCreated === 0) {
+            kdsStatus.warning =
+              'Course sent but no kitchen tickets created. ' +
+              `Diagnosis: ${resendResult.errors.join('; ') || resendResult.diagnosis.slice(-3).join('; ')}`;
+          }
+        } catch {
+          kdsStatus.warning =
+            'Course sent but no kitchen tickets created. Use the resend endpoint for diagnostics.';
+        }
       }
     } catch {
       // Non-critical — don't block the send response

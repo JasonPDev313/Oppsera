@@ -35,11 +35,11 @@ const STATUS_CONFIG: Record<KdsSendStatus, { label: string; color: string; icon:
   displayed: { label: 'Displayed', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', icon: Eye },
   failed:    { label: 'Failed',    color: 'bg-red-500/20 text-red-300 border-red-500/30',     icon: XCircle },
   orphaned:  { label: 'Orphaned',  color: 'bg-amber-500/20 text-amber-300 border-amber-500/30', icon: AlertTriangle },
-  resolved:  { label: 'Resolved',  color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30', icon: CheckCircle2 },
+  cleared:   { label: 'Cleared',   color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30', icon: CheckCircle2 },
   deleted:   { label: 'Deleted',   color: 'bg-zinc-600/20 text-zinc-400 border-zinc-600/30',  icon: Trash2 },
 };
 
-const ALL_STATUSES: KdsSendStatus[] = ['queued', 'sent', 'delivered', 'displayed', 'failed', 'orphaned', 'resolved', 'deleted'];
+const ALL_STATUSES: KdsSendStatus[] = ['queued', 'sent', 'delivered', 'displayed', 'failed', 'orphaned', 'cleared', 'deleted'];
 
 function StatusBadge({ status }: { status: KdsSendStatus }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.queued;
@@ -278,20 +278,20 @@ export default function KdsOrderStatusContent() {
     }
   };
 
-  const handleResolve = async (sendId: string) => {
+  const handleClear = async (sendId: string) => {
     setActionLoading(sendId);
     setActionError(null);
     try {
-      await apiFetch(`/api/v1/fnb/kds-order-status/${sendId}/resolve`, {
+      await apiFetch(`/api/v1/fnb/kds-order-status/${sendId}/clear`, {
         method: 'POST',
         headers: locationHeaders,
-        body: JSON.stringify({ reason: 'Manually resolved by manager' }),
+        body: JSON.stringify({ reason: 'Manually cleared by manager' }),
       });
       await fetchSends(true);
       if (selectedSend?.id === sendId) setSelectedSend(null);
     } catch (err) {
-      console.error('[kds-order-status] resolve failed', err);
-      setActionError('Resolve failed. Please try again.');
+      console.error('[kds-order-status] clear failed', err);
+      setActionError('Clear failed. Please try again.');
     } finally {
       setActionLoading(null);
     }
@@ -354,21 +354,21 @@ export default function KdsOrderStatusContent() {
     }
   };
 
-  const handleBulkResolve = async () => {
+  const handleBulkClear = async () => {
     if (selectedIds.size === 0) return;
     setBulkLoading(true);
     setActionError(null);
     try {
-      await apiFetch('/api/v1/fnb/kds-order-status/bulk-resolve', {
+      await apiFetch('/api/v1/fnb/kds-order-status/bulk-clear', {
         method: 'POST',
         headers: locationHeaders,
-        body: JSON.stringify({ sendIds: Array.from(selectedIds), reason: 'Bulk resolved by manager' }),
+        body: JSON.stringify({ sendIds: Array.from(selectedIds), reason: 'Bulk cleared by manager' }),
       });
       setSelectedIds(new Set());
       await fetchSends(true);
     } catch (err) {
-      console.error('[kds-order-status] bulk resolve failed', err);
-      setActionError('Bulk resolve failed. Please try again.');
+      console.error('[kds-order-status] bulk clear failed', err);
+      setActionError('Bulk clear failed. Please try again.');
     } finally {
       setBulkLoading(false);
     }
@@ -381,7 +381,7 @@ export default function KdsOrderStatusContent() {
     for (const s of sends) {
       if (s.status === 'failed' || s.status === 'orphaned') failedCount++;
       if (s.ageSinceSentSeconds != null) { ageSum += s.ageSinceSentSeconds; ageCount++; }
-      if (s.status === 'delivered' || s.status === 'displayed' || s.status === 'resolved') successCount++;
+      if (s.status === 'delivered' || s.status === 'displayed' || s.status === 'cleared') successCount++;
     }
     return {
       failedCount,
@@ -550,12 +550,12 @@ export default function KdsOrderStatusContent() {
             {selectedIds.size} selected
           </span>
           <button
-            onClick={handleBulkResolve}
+            onClick={handleBulkClear}
             disabled={bulkLoading}
             className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1 text-sm font-medium text-emerald-400 hover:bg-emerald-500/25 disabled:opacity-50"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Resolve Selected
+            Clear Selected
           </button>
           <button
             onClick={handleBulkDelete}
@@ -709,7 +709,7 @@ export default function KdsOrderStatusContent() {
                             send={send}
                             loading={actionLoading === send.id}
                             onRetry={() => handleRetry(send.id)}
-                            onResolve={() => handleResolve(send.id)}
+                            onClear={() => handleClear(send.id)}
                             onDelete={() => handleDelete(send.id)}
                           />
                         </td>
@@ -741,7 +741,7 @@ export default function KdsOrderStatusContent() {
             actionLoading={actionLoading}
             onClose={() => setSelectedSend(null)}
             onRetry={handleRetry}
-            onResolve={handleResolve}
+            onClear={handleClear}
             onDelete={handleDelete}
           />
         )}
@@ -756,13 +756,13 @@ function ActionMenu({
   send,
   loading,
   onRetry,
-  onResolve,
+  onClear,
   onDelete,
 }: {
   send: KdsSendListItem;
   loading: boolean;
   onRetry: () => void;
-  onResolve: () => void;
+  onClear: () => void;
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -801,13 +801,13 @@ function ActionMenu({
                 Retry Send
               </button>
             )}
-            {send.status !== 'resolved' && send.status !== 'deleted' && (
+            {send.status !== 'cleared' && send.status !== 'deleted' && (
               <button
-                onClick={(e) => { e.stopPropagation(); setOpen(false); onResolve(); }}
+                onClick={(e) => { e.stopPropagation(); setOpen(false); onClear(); }}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-accent"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                Mark Resolved
+                Mark Cleared
               </button>
             )}
             <button
@@ -844,7 +844,7 @@ function DetailDrawer({
   actionLoading,
   onClose,
   onRetry,
-  onResolve,
+  onClear,
   onDelete,
 }: {
   send: KdsSendDetail | null;
@@ -852,7 +852,7 @@ function DetailDrawer({
   actionLoading: string | null;
   onClose: () => void;
   onRetry: (id: string) => void;
-  onResolve: (id: string) => void;
+  onClear: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
   if (loading) {
@@ -932,7 +932,7 @@ function DetailDrawer({
             <TimestampRow label="First Interaction" ts={send.firstInteractionAt} />
             <TimestampRow label="Completed" ts={send.completedAt} />
             {send.failedAt && <TimestampRow label="Failed" ts={send.failedAt} error />}
-            {send.resolvedAt && <TimestampRow label="Resolved" ts={send.resolvedAt} />}
+            {send.clearedAt && <TimestampRow label="Cleared" ts={send.clearedAt} />}
             {send.deletedAt && <TimestampRow label="Deleted" ts={send.deletedAt} />}
           </div>
         </div>
@@ -988,14 +988,14 @@ function DetailDrawer({
               Retry Send
             </button>
           )}
-          {send.status !== 'resolved' && send.status !== 'deleted' && (
+          {send.status !== 'cleared' && send.status !== 'deleted' && (
             <button
-              onClick={() => onResolve(send.id)}
+              onClick={() => onClear(send.id)}
               disabled={actionLoading === send.id}
               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-sm font-medium text-emerald-400 hover:bg-emerald-500/25 disabled:opacity-50"
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
-              Resolve
+              Clear
             </button>
           )}
           <button
@@ -1120,7 +1120,7 @@ function EventRow({ event }: { event: KdsSendEvent }) {
     status_change: 'text-indigo-400',
     retry: 'text-amber-400',
     failed: 'text-red-400',
-    resolved: 'text-indigo-400',
+    cleared: 'text-indigo-400',
     deleted: 'text-zinc-500',
     error: 'text-red-400',
   };

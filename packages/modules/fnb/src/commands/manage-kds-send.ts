@@ -1,8 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { withTenant } from '@oppsera/db';
+import { withTenant, sqlArray } from '@oppsera/db';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { logger } from '@oppsera/core/observability';
 import type { RequestContext } from '@oppsera/core/auth/context';
+
+/** Guard — every KDS send command requires a resolved location. */
+function requireLocationId(ctx: RequestContext): string {
+  if (!ctx.locationId) throw new Error('Location ID is required for KDS send operations');
+  return ctx.locationId;
+}
 
 /**
  * Retry a failed/orphaned KDS send. Creates a new send tracking row linked to the original.
@@ -11,11 +17,19 @@ export async function retryKdsSend(
   ctx: RequestContext,
   sendId: string,
 ): Promise<{ newSendId: string; newSendToken: string }> {
+  const locId = requireLocationId(ctx);
+
   const result = await withTenant(ctx.tenantId, async (tx) => {
     // Fetch original send (location-scoped for multi-location isolation)
     const origRows = await tx.execute(sql`
-      SELECT * FROM fnb_kds_send_tracking
-      WHERE tenant_id = ${ctx.tenantId} AND location_id = ${ctx.locationId!} AND id = ${sendId}
+      SELECT id, tenant_id, location_id, order_id, ticket_id, ticket_number,
+             course_id, course_number, station_id, station_name,
+             terminal_id, terminal_name, employee_id, employee_name,
+             send_token, send_type, routing_reason, status,
+             item_count, order_type, table_name, guest_name,
+             retry_count, business_date
+      FROM fnb_kds_send_tracking
+      WHERE tenant_id = ${ctx.tenantId} AND location_id = ${locId} AND id = ${sendId}
       FOR UPDATE
     `);
     const origArr = Array.from(origRows as Iterable<Record<string, unknown>>);
@@ -30,10 +44,10 @@ export async function retryKdsSend(
     const tokenRows = await tx.execute(sql`SELECT gen_ulid() AS token`);
     const newToken = Array.from(tokenRows as Iterable<Record<string, unknown>>)[0]!.token as string;
 
-    // Mark original as resolved (retry initiated — prevent re-retry or stale delete)
+    // Mark original as cleared (retry initiated — prevent re-retry or stale delete)
     await tx.execute(sql`
       UPDATE fnb_kds_send_tracking
-      SET status = 'resolved', resolved_at = NOW(),
+      SET status = 'cleared', cleared_at = NOW(),
           needs_attention = false, stuck_reason = NULL, updated_at = NOW()
       WHERE id = ${sendId} AND tenant_id = ${ctx.tenantId}
     `);
@@ -89,12 +103,13 @@ export async function retryKdsSend(
         id, tenant_id, location_id, send_tracking_id, send_token,
         ticket_id, station_id, event_type, event_at,
         actor_type, actor_id, actor_name,
-        metadata, created_at
+        previous_status, new_status, metadata, created_at
       ) VALUES (
         gen_ulid(), ${ctx.tenantId}, ${orig.location_id as string},
         ${sendId}, ${orig.send_token as string},
         ${orig.ticket_id as string}, ${orig.station_id as string},
         'retry', NOW(), 'employee', ${ctx.user.id ?? null}, ${ctx.user.name ?? null},
+        ${orig.status as string}, 'cleared',
         ${JSON.stringify({ newSendId, newSendToken: newToken })},
         NOW()
       )
@@ -135,21 +150,30 @@ export async function retryKdsSend(
 }
 
 /**
- * Mark a KDS send as resolved (staff handled the issue).
+ * Mark a KDS send as cleared (staff handled the issue).
  */
-export async function resolveKdsSend(
+export async function clearKdsSend(
   ctx: RequestContext,
   sendId: string,
   reason?: string,
 ): Promise<void> {
+  const locId = requireLocationId(ctx);
+
   await withTenant(ctx.tenantId, async (tx) => {
+    // CTE captures previous_status before the UPDATE overwrites it
     const rows = await tx.execute(sql`
-      UPDATE fnb_kds_send_tracking
-      SET status = 'resolved', resolved_at = NOW(), updated_at = NOW(),
+      WITH prev AS (
+        SELECT id, ticket_id, station_id, location_id, send_token, status
+        FROM fnb_kds_send_tracking
+        WHERE tenant_id = ${ctx.tenantId} AND location_id = ${locId} AND id = ${sendId}
+          AND status NOT IN ('cleared', 'deleted')
+        FOR UPDATE
+      )
+      UPDATE fnb_kds_send_tracking t
+      SET status = 'cleared', cleared_at = NOW(), updated_at = NOW(),
           needs_attention = false, stuck_reason = NULL
-      WHERE tenant_id = ${ctx.tenantId} AND location_id = ${ctx.locationId!} AND id = ${sendId}
-        AND status NOT IN ('resolved', 'deleted')
-      RETURNING id, ticket_id, station_id, location_id, send_token, status
+      FROM prev WHERE t.id = prev.id
+      RETURNING prev.status AS previous_status, t.id, t.ticket_id, t.station_id, t.location_id, t.send_token
     `);
 
     const arr = Array.from(rows as Iterable<Record<string, unknown>>);
@@ -166,15 +190,19 @@ export async function resolveKdsSend(
         gen_ulid(), ${ctx.tenantId}, ${r.location_id as string},
         ${sendId}, ${r.send_token as string},
         ${r.ticket_id as string}, ${r.station_id as string},
-        'resolved', NOW(), 'employee', ${ctx.user.id ?? null}, ${ctx.user.name ?? null},
-        ${r.status as string}, 'resolved',
+        'cleared', NOW(), 'employee', ${ctx.user.id ?? null}, ${ctx.user.name ?? null},
+        ${r.previous_status as string}, 'cleared',
         ${reason ? JSON.stringify({ reason }) : null},
         NOW()
       )
     `);
   });
 
-  auditLogDeferred(ctx, 'fnb.kds_send.resolved', 'fnb_kds_send_tracking', sendId);
+  auditLogDeferred(ctx, 'fnb.kds_send.cleared', 'fnb_kds_send_tracking', sendId);
+
+  logger.info('[kds] send cleared', {
+    domain: 'kds', tenantId: ctx.tenantId, sendId,
+  });
 }
 
 /**
@@ -185,16 +213,25 @@ export async function softDeleteKdsSend(
   sendId: string,
   reason?: string,
 ): Promise<void> {
+  const locId = requireLocationId(ctx);
+
   await withTenant(ctx.tenantId, async (tx) => {
+    // CTE captures previous_status before the UPDATE overwrites it
     const rows = await tx.execute(sql`
-      UPDATE fnb_kds_send_tracking
+      WITH prev AS (
+        SELECT id, ticket_id, station_id, location_id, send_token, status
+        FROM fnb_kds_send_tracking
+        WHERE tenant_id = ${ctx.tenantId} AND location_id = ${locId} AND id = ${sendId}
+          AND deleted_at IS NULL
+        FOR UPDATE
+      )
+      UPDATE fnb_kds_send_tracking t
       SET status = 'deleted', deleted_at = NOW(), updated_at = NOW(),
           deleted_by_employee_id = ${ctx.user.id ?? null},
           delete_reason = ${reason ?? null},
           needs_attention = false, stuck_reason = NULL
-      WHERE tenant_id = ${ctx.tenantId} AND location_id = ${ctx.locationId!} AND id = ${sendId}
-        AND deleted_at IS NULL
-      RETURNING id, ticket_id, station_id, location_id, send_token, status
+      FROM prev WHERE t.id = prev.id
+      RETURNING prev.status AS previous_status, t.id, t.ticket_id, t.station_id, t.location_id, t.send_token
     `);
 
     const arr = Array.from(rows as Iterable<Record<string, unknown>>);
@@ -212,15 +249,18 @@ export async function softDeleteKdsSend(
         ${sendId}, ${r.send_token as string},
         ${r.ticket_id as string}, ${r.station_id as string},
         'deleted', NOW(), 'employee', ${ctx.user.id ?? null}, ${ctx.user.name ?? null},
-        ${r.status as string}, 'deleted',
+        ${r.previous_status as string}, 'deleted',
         ${reason ? JSON.stringify({ reason }) : null},
         NOW()
       )
     `);
-
   });
 
   auditLogDeferred(ctx, 'fnb.kds_send.soft_deleted', 'fnb_kds_send_tracking', sendId);
+
+  logger.info('[kds] send soft-deleted', {
+    domain: 'kds', tenantId: ctx.tenantId, sendId,
+  });
 }
 
 /**
@@ -232,19 +272,27 @@ export async function bulkSoftDeleteKdsSends(
   reason?: string,
 ): Promise<{ deletedCount: number }> {
   if (sendIds.length === 0) return { deletedCount: 0 };
+  const locId = requireLocationId(ctx);
 
-  const deletedCount = await withTenant(ctx.tenantId, async (tx) => {
+  const { count, affectedIds } = await withTenant(ctx.tenantId, async (tx) => {
+    // CTE captures previous_status before the UPDATE overwrites it
     const rows = await tx.execute(sql`
-      UPDATE fnb_kds_send_tracking
+      WITH prev AS (
+        SELECT id, ticket_id, station_id, location_id, send_token, status
+        FROM fnb_kds_send_tracking
+        WHERE tenant_id = ${ctx.tenantId}
+          AND location_id = ${locId}
+          AND id = ANY(${sqlArray(sendIds)})
+          AND deleted_at IS NULL
+        FOR UPDATE
+      )
+      UPDATE fnb_kds_send_tracking t
       SET status = 'deleted', deleted_at = NOW(), updated_at = NOW(),
           deleted_by_employee_id = ${ctx.user.id ?? null},
           delete_reason = ${reason ?? null},
           needs_attention = false, stuck_reason = NULL
-      WHERE tenant_id = ${ctx.tenantId}
-        AND location_id = ${ctx.locationId!}
-        AND id = ANY(${sendIds}::text[])
-        AND deleted_at IS NULL
-      RETURNING id, ticket_id, station_id, location_id, send_token, status
+      FROM prev WHERE t.id = prev.id
+      RETURNING prev.status AS previous_status, t.id, t.ticket_id, t.station_id, t.location_id, t.send_token
     `);
 
     const arr = Array.from(rows as Iterable<Record<string, unknown>>);
@@ -262,47 +310,56 @@ export async function bulkSoftDeleteKdsSends(
           ${r.id as string}, ${r.send_token as string},
           ${r.ticket_id as string}, ${r.station_id as string},
           'deleted', NOW(), 'employee', ${ctx.user.id ?? null}, ${ctx.user.name ?? null},
-          ${r.status as string}, 'deleted',
+          ${r.previous_status as string}, 'deleted',
           ${reason ? JSON.stringify({ reason, bulk: true }) : JSON.stringify({ bulk: true })},
           NOW()
         )
       `);
     }
 
-    return arr.length;
+    return { count: arr.length, affectedIds: arr.map((r) => r.id as string) };
   });
 
-  for (const sid of sendIds) {
+  // Only audit rows that were actually deleted
+  for (const sid of affectedIds) {
     auditLogDeferred(ctx, 'fnb.kds_send.soft_deleted', 'fnb_kds_send_tracking', sid);
   }
 
   logger.info('[kds] bulk soft-delete', {
-    domain: 'kds', tenantId: ctx.tenantId, count: deletedCount, sendIds,
+    domain: 'kds', tenantId: ctx.tenantId, count, sendIds,
   });
 
-  return { deletedCount };
+  return { deletedCount: count };
 }
 
 /**
- * Bulk resolve KDS sends (up to 100 at a time).
+ * Bulk clear KDS sends (up to 100 at a time).
  */
-export async function bulkResolveKdsSends(
+export async function bulkClearKdsSends(
   ctx: RequestContext,
   sendIds: string[],
   reason?: string,
-): Promise<{ resolvedCount: number }> {
-  if (sendIds.length === 0) return { resolvedCount: 0 };
+): Promise<{ clearedCount: number }> {
+  if (sendIds.length === 0) return { clearedCount: 0 };
+  const locId = requireLocationId(ctx);
 
-  const resolvedCount = await withTenant(ctx.tenantId, async (tx) => {
+  const { count, affectedIds } = await withTenant(ctx.tenantId, async (tx) => {
+    // CTE captures previous_status before the UPDATE overwrites it
     const rows = await tx.execute(sql`
-      UPDATE fnb_kds_send_tracking
-      SET status = 'resolved', resolved_at = NOW(), updated_at = NOW(),
+      WITH prev AS (
+        SELECT id, ticket_id, station_id, location_id, send_token, status
+        FROM fnb_kds_send_tracking
+        WHERE tenant_id = ${ctx.tenantId}
+          AND location_id = ${locId}
+          AND id = ANY(${sqlArray(sendIds)})
+          AND status NOT IN ('cleared', 'deleted')
+        FOR UPDATE
+      )
+      UPDATE fnb_kds_send_tracking t
+      SET status = 'cleared', cleared_at = NOW(), updated_at = NOW(),
           needs_attention = false, stuck_reason = NULL
-      WHERE tenant_id = ${ctx.tenantId}
-        AND location_id = ${ctx.locationId!}
-        AND id = ANY(${sendIds}::text[])
-        AND status NOT IN ('resolved', 'deleted')
-      RETURNING id, ticket_id, station_id, location_id, send_token, status
+      FROM prev WHERE t.id = prev.id
+      RETURNING prev.status AS previous_status, t.id, t.ticket_id, t.station_id, t.location_id, t.send_token
     `);
 
     const arr = Array.from(rows as Iterable<Record<string, unknown>>);
@@ -318,26 +375,27 @@ export async function bulkResolveKdsSends(
           gen_ulid(), ${ctx.tenantId}, ${r.location_id as string},
           ${r.id as string}, ${r.send_token as string},
           ${r.ticket_id as string}, ${r.station_id as string},
-          'resolved', NOW(), 'employee', ${ctx.user.id ?? null}, ${ctx.user.name ?? null},
-          ${r.status as string}, 'resolved',
+          'cleared', NOW(), 'employee', ${ctx.user.id ?? null}, ${ctx.user.name ?? null},
+          ${r.previous_status as string}, 'cleared',
           ${reason ? JSON.stringify({ reason, bulk: true }) : JSON.stringify({ bulk: true })},
           NOW()
         )
       `);
     }
 
-    return arr.length;
+    return { count: arr.length, affectedIds: arr.map((r) => r.id as string) };
   });
 
-  for (const sid of sendIds) {
-    auditLogDeferred(ctx, 'fnb.kds_send.resolved', 'fnb_kds_send_tracking', sid);
+  // Only audit rows that were actually cleared
+  for (const sid of affectedIds) {
+    auditLogDeferred(ctx, 'fnb.kds_send.cleared', 'fnb_kds_send_tracking', sid);
   }
 
-  logger.info('[kds] bulk resolve', {
-    domain: 'kds', tenantId: ctx.tenantId, count: resolvedCount, sendIds,
+  logger.info('[kds] bulk clear', {
+    domain: 'kds', tenantId: ctx.tenantId, count, sendIds,
   });
 
-  return { resolvedCount };
+  return { clearedCount: count };
 }
 
 /**
@@ -360,7 +418,7 @@ export async function updateKdsSendOperationalStatus(
         AND ticket_id = ${ticketId}
         AND station_id = ${stationId}
         AND deleted_at IS NULL
-        AND status NOT IN ('deleted', 'resolved')
+        AND status NOT IN ('deleted', 'cleared')
     `);
   });
 }

@@ -2,7 +2,7 @@ import { eq, and, inArray, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { fnbTabs, fnbTabItems, fnbTabCourses } from '@oppsera/db';
 import { logger } from '@oppsera/core/observability';
-import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
+import { resolveStationRouting, enrichRoutableItems, resolveKdsLocationId } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from '../commands/create-kitchen-ticket';
 import { recordKdsSend, markKdsSendSent } from '../commands/record-kds-send';
@@ -124,8 +124,9 @@ export async function handleCourseSent(
       return;
     }
 
-    // Each location owns its own KDS stations — use the location directly, no venue→site promotion
-    const locationId = rawLocationId;
+    // Resolve effective KDS location: if no routing rules exist at the tab's
+    // location, check parent/child locations in the site↔venue hierarchy.
+    const locationId = await resolveKdsLocationId(tenantId, rawLocationId);
 
     if (!items.length) {
       logger.warn('[kds] handleCourseSent: no items found for course', {

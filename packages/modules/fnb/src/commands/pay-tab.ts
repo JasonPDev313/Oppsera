@@ -175,16 +175,26 @@ export async function payTab(
     }
 
     // ── 2. Record tender ──────────────────────────────────────────
-    // Read current session state for CAS update
-    const sessionRows = await tx.execute(
-      sql`SELECT paid_amount_cents, total_amount_cents, status
-          FROM fnb_payment_sessions
-          WHERE id = ${sessionId} AND tenant_id = ${ctx.tenantId}
-          FOR UPDATE`,
-    );
-    const sRows = Array.from(sessionRows as Iterable<Record<string, unknown>>);
-    const currentPaid = Number(sRows[0]!.paid_amount_cents);
-    const sessionTotal = Number(sRows[0]!.total_amount_cents);
+    // For new sessions we already know the state from the INSERT above —
+    // skip the redundant SELECT FOR UPDATE to reduce transaction round-trips.
+    let currentPaid: number;
+    let sessionTotal: number;
+    if (!input.sessionId) {
+      // Just created: paid = 0, total = what we inserted
+      currentPaid = 0;
+      sessionTotal = totalCents;
+    } else {
+      // Split payment: re-read for CAS (another tender may have updated)
+      const sessionRows = await tx.execute(
+        sql`SELECT paid_amount_cents, total_amount_cents, status
+            FROM fnb_payment_sessions
+            WHERE id = ${sessionId} AND tenant_id = ${ctx.tenantId}
+            FOR UPDATE`,
+      );
+      const sRows = Array.from(sessionRows as Iterable<Record<string, unknown>>);
+      currentPaid = Number(sRows[0]!.paid_amount_cents);
+      sessionTotal = Number(sRows[0]!.total_amount_cents);
+    }
     const newPaid = currentPaid + input.amountCents;
     const newRemaining = sessionTotal - newPaid;
 
@@ -192,7 +202,7 @@ export async function payTab(
     if (newRemaining < 0) {
       throw new PaymentSessionStatusConflictError(
         sessionId,
-        sRows[0]!.status as string,
+        input.sessionId ? 'in_progress' : 'pending',
         `tender ${input.amountCents} cents (remaining: ${sessionTotal - currentPaid} cents) on`,
       );
     }

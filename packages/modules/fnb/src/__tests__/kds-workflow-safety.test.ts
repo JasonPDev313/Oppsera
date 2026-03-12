@@ -306,11 +306,11 @@ describe('KDS Workflow Safety', () => {
 
       expect(result.newSendId).toBe('send-new');
 
-      // Verify the original was marked as resolved (3rd SQL call)
-      const resolveCall = executedSql.find((s) =>
-        s.includes('resolved') && s.includes('fnb_kds_send_tracking'),
+      // Verify the original was marked as cleared (3rd SQL call)
+      const clearCall = executedSql.find((s) =>
+        s.includes('cleared') && s.includes('fnb_kds_send_tracking'),
       );
-      expect(resolveCall).toBeDefined();
+      expect(clearCall).toBeDefined();
     });
   });
 });

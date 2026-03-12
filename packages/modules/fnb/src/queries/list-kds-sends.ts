@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 
-export type KdsSendStatus = 'queued' | 'sent' | 'delivered' | 'displayed' | 'failed' | 'orphaned' | 'resolved' | 'deleted';
+export type KdsSendStatus = 'queued' | 'sent' | 'delivered' | 'displayed' | 'failed' | 'orphaned' | 'cleared' | 'deleted';
 export type KdsSendType = 'initial' | 'retry' | 'manual_resend' | 'fire_course' | 'recall' | 'reroute';
 
 export interface KdsSendListItem {
@@ -32,7 +32,7 @@ export interface KdsSendListItem {
   deliveredAt: string | null;
   displayedAt: string | null;
   failedAt: string | null;
-  resolvedAt: string | null;
+  clearedAt: string | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -83,9 +83,9 @@ export async function listKdsSends(input: ListKdsSendsInput): Promise<KdsSendLis
     } else if (input.tab === 'needs_attention') {
       conditions.push(sql`s.needs_attention = true`);
       conditions.push(sql`s.deleted_at IS NULL`);
-      conditions.push(sql`s.resolved_at IS NULL`);
+      conditions.push(sql`s.cleared_at IS NULL`);
     } else if (input.tab === 'history') {
-      conditions.push(sql`(s.status IN ('resolved', 'deleted', 'failed', 'orphaned') OR s.completed_at IS NOT NULL)`);
+      conditions.push(sql`(s.status IN ('cleared', 'deleted', 'failed', 'orphaned') OR s.completed_at IS NOT NULL)`);
     }
     // 'all' has no extra tab filter
 
@@ -160,7 +160,7 @@ export async function listKdsSends(input: ListKdsSendsInput): Promise<KdsSendLis
       deliveredAt: (r.delivered_at as string) ?? null,
       displayedAt: (r.displayed_at as string) ?? null,
       failedAt: (r.failed_at as string) ?? null,
-      resolvedAt: (r.resolved_at as string) ?? null,
+      clearedAt: (r.cleared_at as string) ?? null,
       deletedAt: (r.deleted_at as string) ?? null,
       createdAt: r.created_at as string,
       updatedAt: r.updated_at as string,

@@ -4,7 +4,7 @@ import { orderLines, fnbKitchenTicketItems } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { logger } from '@oppsera/core/observability';
-import { resolveStationRouting, enrichRoutableItems } from '../services/kds-routing-engine';
+import { resolveStationRouting, enrichRoutableItems, resolveKdsLocationId } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { extractModifierIds, formatModifierSummary } from '../helpers/kds-modifier-helpers';
 import { createKitchenTicket } from './create-kitchen-ticket';
@@ -105,7 +105,10 @@ export async function sendOrderLinesToKds(
     newLineCount: newLines.length, alreadySent: alreadySentIds.size,
   });
 
-  // 3. Build routable items and enrich with catalog hierarchy
+  // 3. Resolve effective KDS location (site↔venue hierarchy fallback)
+  const effectiveLocationId = await resolveKdsLocationId(ctx.tenantId, ctx.locationId!);
+
+  // 4. Build routable items and enrich with catalog hierarchy
   let routableItems: RoutableItem[] = newLines.map((line) => ({
     orderLineId: line.id,
     catalogItemId: line.catalogItemId,
@@ -115,9 +118,9 @@ export async function sendOrderLinesToKds(
 
   routableItems = await enrichRoutableItems(ctx.tenantId, routableItems);
 
-  // 4. Bulk-resolve stations
+  // 5. Bulk-resolve stations using the effective location
   const routingResults = await resolveStationRouting(
-    { tenantId: ctx.tenantId, locationId: ctx.locationId, orderType, channel: 'pos' },
+    { tenantId: ctx.tenantId, locationId: effectiveLocationId, orderType, channel: 'pos' },
     routableItems,
   );
 
@@ -196,12 +199,16 @@ export async function sendOrderLinesToKds(
   // 6. Create one ticket per station (serial to avoid pool exhaustion — gotcha #466)
   // No in-request retry — sleep() inside Vercel request handlers freezes the event loop
   // and worsens pool exhaustion. The transactional outbox handles retries for transient failures.
+  // Use the effective location for ticket creation so tickets are visible at the correct KDS location
+  const effectiveCtx = effectiveLocationId !== ctx.locationId
+    ? { ...ctx, locationId: effectiveLocationId } as RequestContext
+    : ctx;
   let actualSentCount = 0;
   const failedStations: string[] = [];
   for (const [stationId, ticketItems] of stationGroups) {
     const sortedLineIds = ticketItems.map((i) => i.orderLineId).sort().join(',');
     try {
-      const ticket = await createKitchenTicket(ctx, {
+      const ticket = await createKitchenTicket(effectiveCtx, {
         clientRequestId: `retail-kds-send-${orderId}-${stationId}-${sortedLineIds}`,
         orderId,
         businessDate,
@@ -216,7 +223,7 @@ export async function sendOrderLinesToKds(
         const sendToken = `retail-send-${ticket.id}-${stationId}`;
         const tracked = await recordKdsSend({
           tenantId: ctx.tenantId,
-          locationId: ctx.locationId!,
+          locationId: effectiveLocationId,
           orderId,
           ticketId: ticket.id,
           ticketNumber: ticket.ticketNumber,
@@ -252,7 +259,7 @@ export async function sendOrderLinesToKds(
         const failToken = `retail-fail-${orderId}-${stationId}`;
         const tracked = await recordKdsSend({
           tenantId: ctx.tenantId,
-          locationId: ctx.locationId!,
+          locationId: effectiveLocationId,
           orderId,
           ticketId: `unresolved-${orderId}`,
           ticketNumber: 0,

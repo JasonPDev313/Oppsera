@@ -1032,7 +1032,7 @@ export interface SplitItemFraction {
 
 // ── KDS Order Status / Send Tracking ────────────────────────────
 
-export type KdsSendStatus = 'queued' | 'sent' | 'delivered' | 'displayed' | 'failed' | 'orphaned' | 'resolved' | 'deleted';
+export type KdsSendStatus = 'queued' | 'sent' | 'delivered' | 'displayed' | 'failed' | 'orphaned' | 'cleared' | 'deleted';
 export type KdsSendType = 'initial' | 'retry' | 'manual_resend' | 'fire_course' | 'recall' | 'reroute';
 
 export interface KdsSendListItem {
@@ -1063,7 +1063,7 @@ export interface KdsSendListItem {
   deliveredAt: string | null;
   displayedAt: string | null;
   failedAt: string | null;
-  resolvedAt: string | null;
+  clearedAt: string | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;

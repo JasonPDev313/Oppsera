@@ -49,7 +49,7 @@ export interface KdsSendDetail {
   firstInteractionAt: string | null;
   completedAt: string | null;
   failedAt: string | null;
-  resolvedAt: string | null;
+  clearedAt: string | null;
   deletedAt: string | null;
   deletedByEmployeeId: string | null;
   deleteReason: string | null;
@@ -201,7 +201,7 @@ export async function getKdsSendDetail(
       firstInteractionAt: (r.first_interaction_at as string) ?? null,
       completedAt: (r.completed_at as string) ?? null,
       failedAt: (r.failed_at as string) ?? null,
-      resolvedAt: (r.resolved_at as string) ?? null,
+      clearedAt: (r.cleared_at as string) ?? null,
       deletedAt: (r.deleted_at as string) ?? null,
       deletedByEmployeeId: (r.deleted_by_employee_id as string) ?? null,
       deleteReason: (r.delete_reason as string) ?? null,

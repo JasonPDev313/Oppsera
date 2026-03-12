@@ -234,7 +234,7 @@ export type { KdsTerminalStatus } from './queries/list-kds-terminal-heartbeats';
 export { recordKdsSend, markKdsSendSent, markKdsSendFailed } from './commands/record-kds-send';
 export type { RecordKdsSendInput, RecordKdsSendResult } from './commands/record-kds-send';
 export { ackKdsSendDelivery, ackKdsSendDisplay, ackKdsSendInteraction } from './commands/ack-kds-send';
-export { retryKdsSend, resolveKdsSend, softDeleteKdsSend, bulkSoftDeleteKdsSends, bulkResolveKdsSends, updateKdsSendOperationalStatus } from './commands/manage-kds-send';
+export { retryKdsSend, clearKdsSend, softDeleteKdsSend, bulkSoftDeleteKdsSends, bulkClearKdsSends, updateKdsSendOperationalStatus } from './commands/manage-kds-send';
 export { listKdsSends } from './queries/list-kds-sends';
 export type { KdsSendListItem, KdsSendListResult, KdsSendStatus, KdsSendType } from './queries/list-kds-sends';
 export { getKdsSendDetail } from './queries/get-kds-send-detail';
@@ -691,7 +691,7 @@ export {
   bulkApplyCourseRuleSchema, resolveCourseRuleQuerySchema,
   listStationsFilterSchema, getStationDetailSchema,
   getKdsViewSchema, getExpoViewSchema, getStationMetricsSchema,
-  listKdsSendsSchema, ackKdsSendSchema, retryKdsSendSchema, resolveKdsSendSchema, softDeleteKdsSendSchema, bulkSoftDeleteKdsSendsSchema, bulkResolveKdsSendsSchema,
+  listKdsSendsSchema, ackKdsSendSchema, retryKdsSendSchema, clearKdsSendSchema, softDeleteKdsSendSchema, bulkSoftDeleteKdsSendsSchema, bulkClearKdsSendsSchema,
   // Session 6
   eightySixItemSchema, restoreItemSchema,
   createMenuPeriodSchema, updateMenuPeriodSchema,
