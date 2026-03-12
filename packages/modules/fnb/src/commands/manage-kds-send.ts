@@ -5,6 +5,35 @@ import { logger } from '@oppsera/core/observability';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
 /**
+ * Void a kitchen ticket and all its items.
+ * Used as a side-effect when soft-deleting KDS sends so the ticket
+ * no longer appears in any KDS view (station, all-orders, expo).
+ */
+async function voidTicketFromSend(
+  tx: Parameters<Parameters<typeof withTenant>[1]>[0],
+  tenantId: string,
+  ticketId: string,
+): Promise<void> {
+  // Only void if still in an active state
+  const rows = await tx.execute(sql`
+    UPDATE fnb_kitchen_tickets
+    SET status = 'voided', voided_at = NOW(), version = version + 1, updated_at = NOW()
+    WHERE tenant_id = ${tenantId} AND id = ${ticketId}
+      AND status IN ('pending', 'in_progress')
+    RETURNING id
+  `);
+  const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+  if (arr.length === 0) return; // already voided/served — no-op
+
+  await tx.execute(sql`
+    UPDATE fnb_kitchen_ticket_items
+    SET item_status = 'voided', voided_at = NOW(), updated_at = NOW()
+    WHERE tenant_id = ${tenantId} AND ticket_id = ${ticketId}
+      AND item_status NOT IN ('voided', 'served')
+  `);
+}
+
+/**
  * Retry a failed/orphaned KDS send. Creates a new send tracking row linked to the original.
  */
 export async function retryKdsSend(
@@ -216,6 +245,9 @@ export async function softDeleteKdsSend(
         NOW()
       )
     `);
+
+    // Void the underlying kitchen ticket so it disappears from all KDS views
+    await voidTicketFromSend(tx, ctx.tenantId, r.ticket_id as string);
   });
 
   auditLogDeferred(ctx, 'fnb.kds_send.soft_deleted', 'fnb_kds_send_tracking', sendId);
@@ -265,6 +297,12 @@ export async function bulkSoftDeleteKdsSends(
           NOW()
         )
       `);
+    }
+
+    // Void all associated kitchen tickets so they disappear from KDS views
+    const ticketIds = [...new Set(arr.map((r) => r.ticket_id as string))];
+    for (const ticketId of ticketIds) {
+      await voidTicketFromSend(tx, ctx.tenantId, ticketId);
     }
 
     return arr.length;

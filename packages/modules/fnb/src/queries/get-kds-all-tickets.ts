@@ -35,10 +35,13 @@ export async function getKdsAllTickets(
                  kt.sent_at, kt.estimated_pickup_at, kt.business_date,
                  EXTRACT(EPOCH FROM (NOW() - kt.sent_at))::integer AS elapsed_seconds,
                  o.source AS order_source, o.terminal_id, o.created_at AS order_timestamp,
+                 t.title AS terminal_name,
                  COALESCE(tc.course_name, cd.course_name) AS course_name
           FROM fnb_kitchen_tickets kt
           LEFT JOIN orders o
             ON o.id = kt.order_id AND o.tenant_id = kt.tenant_id
+          LEFT JOIN terminals t
+            ON t.id = o.terminal_id AND t.tenant_id = kt.tenant_id
           LEFT JOIN fnb_tab_courses tc
             ON tc.tab_id = kt.tab_id AND tc.course_number = kt.course_number AND tc.tenant_id = kt.tenant_id
           LEFT JOIN fnb_course_definitions cd
@@ -154,6 +157,7 @@ export async function getKdsAllTickets(
         otherStations: [],
         orderSource: (t.order_source as string) ?? null,
         terminalId: (t.terminal_id as string) ?? null,
+        terminalName: (t.terminal_name as string) ?? null,
         orderTimestamp: (t.order_timestamp as string) ?? null,
         businessDate: (t.business_date as string) ?? null,
         stationItemCount: items.length,

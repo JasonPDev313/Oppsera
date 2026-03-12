@@ -33,6 +33,7 @@ interface KdsAllTicketsResponse {
 }
 
 const POLL_INTERVAL = 10_000; // 10s for all-stations view
+
 export default function AllOrdersContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
@@ -58,6 +59,7 @@ export default function AllOrdersContent() {
   const [thresholds, setThresholds] = useState({ warning: 480, critical: 720 });
   const [isLoading, setIsLoading] = useState(true);
   const fetchingRef = useRef(false);
+  const [isActing, setIsActing] = useState(false);
 
   const fetchAll = useCallback(async (signal?: AbortSignal) => {
     if (!locationId) {
@@ -92,6 +94,38 @@ export default function AllOrdersContent() {
       if (!signal?.aborted) setIsLoading(false);
     }
   }, [locationId]);
+
+  // Void a ticket directly from All Orders view
+  const voidTicket = useCallback(async (ticketId: string) => {
+    if (isActing) return;
+    setIsActing(true);
+    try {
+      await apiFetch(`/api/v1/fnb/kitchen/tickets/${ticketId}/void`, {
+        method: 'POST',
+        body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
+      });
+      // Optimistic removal
+      setAllTickets((prev) => prev.filter((t) => t.ticketId !== ticketId));
+    } catch {
+      // Refresh to get accurate state
+      fetchAll();
+    } finally {
+      setIsActing(false);
+    }
+  }, [isActing, fetchAll]);
+
+  // "All Day" counts — total quantity of each item across all open tickets
+  const allDayCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const ticket of allTickets) {
+      for (const item of ticket.items) {
+        if (item.itemStatus === 'voided') continue;
+        const key = item.kitchenLabel || item.itemName;
+        map.set(key, (map.get(key) ?? 0) + item.quantity);
+      }
+    }
+    return map;
+  }, [allTickets]);
 
   // Initial fetch + polling
   useEffect(() => {
@@ -228,9 +262,10 @@ export default function AllOrdersContent() {
                   warningThresholdSeconds={defaultWarning}
                   criticalThresholdSeconds={defaultCritical}
                   onBumpItem={() => {}}
-                  onBumpTicket={() => {}}
-                  disabled
+                  onBumpTicket={voidTicket}
+                  disabled={isActing}
                   density={density}
+                  allDayCounts={allDayCounts}
                 />
               ))}
             </div>
@@ -242,9 +277,10 @@ export default function AllOrdersContent() {
                   warningThresholdSeconds={defaultWarning}
                   criticalThresholdSeconds={defaultCritical}
                   onBumpItem={() => {}}
-                  onBumpTicket={() => {}}
-                  disabled
+                  onBumpTicket={voidTicket}
+                  disabled={isActing}
                   density={density}
+                  allDayCounts={allDayCounts}
                 />
               ))}
             </div>

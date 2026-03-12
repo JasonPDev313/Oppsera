@@ -67,6 +67,19 @@ export default function KdsContent() {
     });
   }, [kdsView?.tickets]);
 
+  // "All Day" counts — total quantity of each item across all open tickets
+  const allDayCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const ticket of sortedTickets) {
+      for (const item of ticket.items) {
+        if (item.itemStatus === 'voided') continue;
+        const key = item.kitchenLabel || item.itemName;
+        map.set(key, (map.get(key) ?? 0) + item.quantity);
+      }
+    }
+    return map;
+  }, [sortedTickets]);
+
   // ── Keyboard handler ──────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -335,6 +348,8 @@ export default function KdsContent() {
                     onBumpTicket={bumpTicket}
                     disabled={isActing}
                     density={density}
+                    allDayCounts={allDayCounts}
+                    audioAlerts
                   />
                 </div>
               ))}
@@ -431,6 +446,8 @@ export default function KdsContent() {
                     onBumpTicket={bumpTicket}
                     disabled={isActing}
                     density={density}
+                    allDayCounts={allDayCounts}
+                    audioAlerts
                   />
                 </div>
               ))}

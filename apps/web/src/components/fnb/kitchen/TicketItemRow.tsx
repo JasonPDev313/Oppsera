@@ -7,6 +7,8 @@ interface TicketItemRowProps {
   showSeat?: boolean;
   onBump?: (itemId: string) => void;
   density?: 'compact' | 'standard' | 'comfortable';
+  /** "All Day" count — total of this item across all open tickets */
+  allDayCount?: number;
 }
 
 // Cook temp keywords to extract from modifier summary and highlight
@@ -53,12 +55,13 @@ export function parseModifiers(modifierSummary: string | null): {
   return { cookTemp, noMods, regularMods };
 }
 
-export function TicketItemRow({ item, showSeat = true, onBump, density = 'standard' }: TicketItemRowProps) {
+export function TicketItemRow({ item, showSeat = true, onBump, density = 'standard', allDayCount }: TicketItemRowProps) {
   const isReady = item.itemStatus === 'ready';
   const isServed = item.itemStatus === 'served';
   const isVoided = item.itemStatus === 'voided';
   const isTerminal = isServed || isVoided;
   const isTappable = !!onBump && !isTerminal;
+  const isRemake = item.specialInstructions?.startsWith('REMAKE:') ?? false;
   const { cookTemp, noMods, regularMods } = parseModifiers(item.modifierSummary ?? null);
 
   // Touch-optimized sizes — kitchen monitors need large, well-spaced tap targets
@@ -98,6 +101,18 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
       onClick={isTappable ? () => onBump(item.itemId) : undefined}
       onKeyDown={isTappable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onBump(item.itemId); } } : undefined}
     >
+      {/* Item color stripe — station/category color coding */}
+      {item.itemColor && (
+        <span
+          className="shrink-0 rounded-full"
+          style={{
+            width: '8px',
+            height: '8px',
+            backgroundColor: item.itemColor,
+          }}
+        />
+      )}
+
       {/* Seat badge */}
       {showSeat && item.seatNumber && (
         <span
@@ -131,6 +146,9 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
             {item.kitchenLabel || item.itemName}
           </span>
           {/* Inline badges */}
+          {isRemake && (
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ color: '#ec4899', backgroundColor: 'rgba(236,72,153,0.15)' }}>REMAKE</span>
+          )}
           {item.isRush && (
             <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.15)' }}>RUSH</span>
           )}
@@ -139,6 +157,12 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
           )}
           {item.isVip && (
             <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ color: '#a855f7', backgroundColor: 'rgba(168,85,247,0.15)' }}>VIP</span>
+          )}
+          {/* "All Day" count — total of this item across all open tickets */}
+          {allDayCount != null && allDayCount > 1 && (
+            <span className="text-[10px] font-bold fnb-mono px-1 py-0.5 rounded" style={{ color: 'var(--fnb-text-muted)', backgroundColor: 'rgba(148,163,184,0.1)' }}>
+              {allDayCount} all day
+            </span>
           )}
         </div>
 

@@ -40,6 +40,10 @@ interface TicketHeaderProps {
   courseNumber: number | null;
   /** Course name from definitions or tab courses */
   courseName?: string | null;
+  /** Customer / guest name — critical for expo routing */
+  customerName?: string | null;
+  /** Order type (dine_in, takeout, delivery, etc.) */
+  orderType?: string | null;
   elapsedSeconds: number;
   warningThresholdSeconds: number;
   criticalThresholdSeconds: number;
@@ -52,6 +56,8 @@ export function TicketHeader({
   tableNumber,
   courseNumber,
   courseName,
+  customerName,
+  orderType,
   elapsedSeconds,
   warningThresholdSeconds,
   criticalThresholdSeconds,
@@ -64,40 +70,62 @@ export function TicketHeader({
   const idSize = density === 'compact' ? 'text-xs' : 'text-sm';
   const padding = density === 'compact' ? 'px-2 py-1.5' : density === 'comfortable' ? 'px-4 py-3' : 'px-3 py-2';
 
+  // Order-type label for non-dine-in orders (expo needs to know routing)
+  const orderTypeLabel = orderType && orderType !== 'dine_in'
+    ? orderType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    : null;
+
   return (
     <div
-      className={`flex items-center justify-between ${padding} transition-colors duration-500`}
+      className={`${padding} transition-colors duration-500`}
       style={{
         backgroundColor: colors.bg,
         color: colors.text,
         animation: tier === 'critical' ? 'kds-pulse 2s ease-in-out infinite' : undefined,
       }}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <span className={`${idSize} font-bold fnb-mono`}>
-          #{ticketNumber}
-        </span>
-        {tableNumber != null && (
-          <>
-            <span className={`${idSize} opacity-60`}>·</span>
-            <span className={`${idSize} font-bold`}>
-              T{tableNumber}
-            </span>
-          </>
-        )}
-        {courseNumber != null && (
-          <span
-            className="text-[10px] font-bold rounded px-1 py-0.5 truncate max-w-20"
-            style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}
-            title={courseName ? `${courseName} (Course ${courseNumber})` : `Course ${courseNumber}`}
-          >
-            {courseName ?? `C${courseNumber}`}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`${idSize} font-bold fnb-mono`}>
+            #{ticketNumber}
           </span>
-        )}
+          {tableNumber != null && (
+            <>
+              <span className={`${idSize} opacity-60`}>·</span>
+              <span className={`${idSize} font-bold`}>
+                T{tableNumber}
+              </span>
+            </>
+          )}
+          {courseNumber != null && (
+            <span
+              className="text-[10px] font-bold rounded px-1 py-0.5 truncate max-w-20"
+              style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}
+              title={courseName ? `${courseName} (Course ${courseNumber})` : `Course ${courseNumber}`}
+            >
+              {courseName ?? `C${courseNumber}`}
+            </span>
+          )}
+          {orderTypeLabel && (
+            <span
+              className="text-[10px] font-bold uppercase rounded px-1 py-0.5"
+              style={{ backgroundColor: 'rgba(0,0,0,0.25)' }}
+            >
+              {orderTypeLabel}
+            </span>
+          )}
+        </div>
+        <span className={`${timerSize} font-bold fnb-mono tabular-nums`}>
+          {formatTimer(elapsedSeconds)}
+        </span>
       </div>
-      <span className={`${timerSize} font-bold fnb-mono tabular-nums`}>
-        {formatTimer(elapsedSeconds)}
-      </span>
+      {customerName && (
+        <div className="truncate mt-0.5" style={{ opacity: 0.9 }}>
+          <span className={`${idSize} font-bold`}>
+            {customerName}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

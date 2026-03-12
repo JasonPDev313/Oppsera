@@ -359,6 +359,8 @@ export interface KdsTicketCard {
   orderSource?: string | null;
   /** Terminal/POS station ID */
   terminalId?: string | null;
+  /** Human-friendly terminal name (e.g., "Bar POS 1") */
+  terminalName?: string | null;
   /** ISO datetime when the order was placed */
   orderTimestamp?: string | null;
   /** Business date the ticket belongs to (YYYY-MM-DD) — stale if < today */
