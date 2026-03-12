@@ -80,7 +80,7 @@ export async function GET() {
     response.dbReachable = false;
     const e = err as Error & { code?: string };
     response.dbError = {
-      message: e.message ?? 'Unknown error',
+      message: 'Database connection failed',
       code: e.code ?? undefined,
     };
 

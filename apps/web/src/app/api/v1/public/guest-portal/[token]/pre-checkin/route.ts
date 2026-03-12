@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const error = err as { statusCode?: number; code?: string; message?: string };
     const status = error.statusCode ?? 500;
     return NextResponse.json(
-      { error: { code: error.code ?? 'PRE_CHECKIN_FAILED', message: error.message ?? 'Pre-check-in failed' } },
+      { error: { code: error.code ?? 'PRE_CHECKIN_FAILED', message: 'Pre-check-in failed' } },
       { status },
     );
   }

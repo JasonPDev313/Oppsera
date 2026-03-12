@@ -20,7 +20,7 @@ export const GET = withAdminAuth(async (req: NextRequest, _session, params) => {
   } catch (err: unknown) {
     const error = err as { statusCode?: number; code?: string; message?: string };
     return NextResponse.json(
-      { error: { code: error.code ?? 'NOT_FOUND', message: error.message ?? 'Role not found' } },
+      { error: { code: error.code ?? 'NOT_FOUND', message: (error.statusCode && error.statusCode < 500) ? error.message : 'Role not found' } },
       { status: error.statusCode ?? 404 },
     );
   }
@@ -47,7 +47,7 @@ export const PATCH = withAdminAuth(async (req: NextRequest, _session, params) =>
     const error = err as { statusCode?: number; code?: string; message?: string };
     const status = error.statusCode ?? 500;
     return NextResponse.json(
-      { error: { code: error.code ?? 'INTERNAL_ERROR', message: error.message ?? 'Failed to update role' } },
+      { error: { code: error.code ?? 'INTERNAL_ERROR', message: (error.statusCode && error.statusCode < 500) ? error.message : 'Failed to update role' } },
       { status },
     );
   }
@@ -66,7 +66,7 @@ export const DELETE = withAdminAuth(async (req: NextRequest, _session, params) =
     const error = err as { statusCode?: number; code?: string; message?: string };
     const status = error.statusCode ?? 500;
     return NextResponse.json(
-      { error: { code: error.code ?? 'INTERNAL_ERROR', message: error.message ?? 'Failed to delete role' } },
+      { error: { code: error.code ?? 'INTERNAL_ERROR', message: (error.statusCode && error.statusCode < 500) ? error.message : 'Failed to delete role' } },
       { status },
     );
   }

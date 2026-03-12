@@ -53,7 +53,7 @@ export async function generateActionItems(): Promise<{ created: number; skipped:
       continue;
     }
 
-    const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    const id = crypto.randomUUID().replace(/-/g, '').slice(0, 26);
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
 
     await db.execute(sql`

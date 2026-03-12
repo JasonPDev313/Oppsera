@@ -18,6 +18,16 @@ async function handler(req: NextRequest) {
   let csvText: string;
   let uploadedFileName = 'upload.csv';
 
+  // Reject oversized uploads before reading into memory (10 MB limit)
+  const MAX_CSV_BYTES = 10 * 1024 * 1024;
+  const contentLength = Number(req.headers.get('content-length') ?? 0);
+  if (contentLength > MAX_CSV_BYTES) {
+    return NextResponse.json(
+      { error: { code: 'FILE_TOO_LARGE', message: 'File exceeds 10 MB limit' } },
+      { status: 413 },
+    );
+  }
+
   if (contentType.includes('multipart/form-data')) {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -25,6 +35,12 @@ async function handler(req: NextRequest) {
       return NextResponse.json(
         { error: { code: 'MISSING_FILE', message: 'No file uploaded' } },
         { status: 400 },
+      );
+    }
+    if (file.size > MAX_CSV_BYTES) {
+      return NextResponse.json(
+        { error: { code: 'FILE_TOO_LARGE', message: 'File exceeds 10 MB limit' } },
+        { status: 413 },
       );
     }
     csvText = await file.text();

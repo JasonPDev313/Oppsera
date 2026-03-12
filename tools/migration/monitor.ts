@@ -29,6 +29,9 @@ export class MigrationMonitor {
 
   /** Run all daily monitoring checks */
   async runDailyCheck(tenantId?: string): Promise<void> {
+    if (tenantId && !/^[A-Za-z0-9]{26}$/.test(tenantId)) {
+      throw new Error('Invalid tenantId format — expected 26-char ULID');
+    }
     console.log(`\n${'='.repeat(60)}`);
     console.log(`  Post-Migration Daily Check — ${new Date().toISOString().split('T')[0]}`);
     if (tenantId) console.log(`  Tenant: ${tenantId}`);

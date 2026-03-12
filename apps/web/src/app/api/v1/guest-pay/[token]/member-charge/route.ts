@@ -56,7 +56,9 @@ function buildGuestPayCtx(tenantId: string, locationId?: string): RequestContext
 export const POST = withMiddleware(
   async (request: NextRequest) => {
     // Rate limit by IP
-    const ip = request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? 'unknown';
+    const realIp = request.headers.get('x-real-ip');
+    const forwarded = request.headers.get('x-forwarded-for');
+    const ip = realIp?.trim() ?? (forwarded ? forwarded.split(',').at(-1)!.trim() : 'unknown');
     if (!checkRateLimit(ip)) {
       return NextResponse.json(
         { error: { code: 'RATE_LIMITED', message: 'Too many requests. Please wait a moment and try again.' } },
@@ -142,7 +144,7 @@ export const POST = withMiddleware(
     // Pre-charge validation: check credit limit
     const baRows = await db.execute(
       sql`SELECT credit_limit_cents, current_balance_cents, status
-          FROM billing_accounts WHERE id = ${billingAccountId}`,
+          FROM billing_accounts WHERE id = ${billingAccountId} AND tenant_id = ${session.tenantId}`,
     );
     const baArr = Array.from(baRows as Iterable<Record<string, unknown>>);
     if (baArr.length === 0) {

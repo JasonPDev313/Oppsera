@@ -40,7 +40,7 @@ export const PATCH = withAdminAuth(async (req: NextRequest, session, params) => 
     const error = err as { statusCode?: number; code?: string; message?: string };
     const status = error.statusCode ?? 500;
     return NextResponse.json(
-      { error: { code: error.code ?? 'INTERNAL_ERROR', message: error.message ?? 'Failed to update profit center' } },
+      { error: { code: error.code ?? 'INTERNAL_ERROR', message: (error.statusCode && error.statusCode < 500) ? error.message : 'Failed to update profit center' } },
       { status },
     );
   }

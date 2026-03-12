@@ -269,7 +269,7 @@ export const addCustomerDocumentSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
   storageKey: z.string().min(1),
-  mimeType: z.string().min(1),
+  mimeType: z.enum(['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/heic', 'text/plain', 'text/csv']),
   sizeBytes: z.number().int().positive(),
   expiresAt: z.string().optional(), // ISO datetime
   clientRequestId: z.string().optional(),
@@ -743,7 +743,7 @@ export const uploadCustomerFileSchema = z.object({
   documentType: z.enum(['contract', 'waiver', 'id_verification', 'membership_agreement', 'tax_form', 'medical_waiver', 'photo', 'photo_gallery', 'statement', 'other']),
   name: z.string().min(1).max(200),
   storageKey: z.string().min(1),
-  mimeType: z.string().min(1),
+  mimeType: z.enum(['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/heic', 'text/plain', 'text/csv']),
   sizeBytes: z.number().int().positive(),
   description: z.string().max(1000).optional(),
   tagsJson: z.array(z.string()).optional(),

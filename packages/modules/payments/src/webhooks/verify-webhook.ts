@@ -6,6 +6,7 @@
  *
  * SECURITY: Always verify webhook source before processing.
  */
+import { timingSafeEqual } from 'crypto';
 
 // CardPointe's documented IP ranges for webhook callbacks
 const CARDPOINTE_IP_RANGES = [
@@ -64,7 +65,8 @@ function verifyCardPointeWebhook(
   // 1. Check shared secret header (if configured)
   if (config?.sharedSecret) {
     const headerSecret = headers['x-cardconnect-secret'] ?? headers['x-webhook-secret'];
-    if (headerSecret !== config.sharedSecret) {
+    if (!headerSecret || headerSecret.length !== config.sharedSecret.length ||
+        !timingSafeEqual(Buffer.from(headerSecret), Buffer.from(config.sharedSecret))) {
       return { valid: false, reason: 'Invalid shared secret' };
     }
     // If secret matches, skip IP check

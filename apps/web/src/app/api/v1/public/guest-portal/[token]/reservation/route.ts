@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const error = err as { statusCode?: number; code?: string; message?: string };
     const status = error.statusCode ?? 404;
     return NextResponse.json(
-      { error: { code: error.code ?? 'SESSION_NOT_FOUND', message: error.message ?? 'Invalid or expired portal session' } },
+      { error: { code: error.code ?? 'SESSION_NOT_FOUND', message: 'Invalid or expired portal session' } },
       { status },
     );
   }

@@ -21,3 +21,6 @@ coverage
 # Backup storage
 data/backups/
 backups/
+
+# Temp test files
+tmp_test_api.js
