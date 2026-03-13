@@ -93,7 +93,6 @@ export async function getAgedTrialBalance(
         AND je.tenant_id = ${input.tenantId}
         AND je.business_date <= ${input.asOfDate}
       WHERE a.tenant_id = ${input.tenantId}
-        AND a.is_active = true
         AND (jl.id IS NULL OR je.id IS NOT NULL)
         ${locationFilter}
       GROUP BY a.id, a.account_number, a.name, a.account_type, a.normal_balance

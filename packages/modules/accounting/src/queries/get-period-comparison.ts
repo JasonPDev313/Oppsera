@@ -57,7 +57,6 @@ export async function getPeriodComparison(input: GetPeriodComparisonInput): Prom
           (je.business_date >= ${input.priorFrom} AND je.business_date <= ${input.priorTo})
         )
       WHERE a.tenant_id = ${input.tenantId}
-        AND a.is_active = true
         AND a.account_type IN ('revenue', 'expense')
         AND (jl.id IS NULL OR je.id IS NOT NULL)
       GROUP BY a.id, a.account_number, a.name, a.account_type, a.normal_balance

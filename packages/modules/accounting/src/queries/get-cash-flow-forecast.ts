@@ -58,7 +58,6 @@ export async function getCashFlowForecast(
         AND je.status = 'posted'
         AND je.tenant_id = ${input.tenantId}
       WHERE a.tenant_id = ${input.tenantId}
-        AND a.is_active = true
         AND a.account_type = 'asset'
         AND a.control_account_type IN ('bank', 'undeposited_funds')
         AND (jl.id IS NULL OR je.id IS NOT NULL)

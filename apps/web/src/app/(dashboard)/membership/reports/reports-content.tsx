@@ -118,9 +118,12 @@ function ComplianceRow({ entry }: { entry: MinimumComplianceEntry }) {
         : 'bg-red-500/10';
 
   return (
-    <tr className="border-b border-gray-50 hover:bg-accent/50">
+    <tr className="border-b border-border hover:bg-accent/50">
       <td className="py-3 pr-4 text-sm text-foreground">
-        {entry.customerId.slice(0, 12)}...
+        {entry.customerName}
+      </td>
+      <td className="py-3 pr-4 text-sm text-muted-foreground">
+        {entry.ruleTitle}
       </td>
       <td className="py-3 pr-4 text-sm text-muted-foreground">
         {formatDate(entry.periodStart)} - {formatDate(entry.periodEnd)}
@@ -131,6 +134,13 @@ function ComplianceRow({ entry }: { entry: MinimumComplianceEntry }) {
       <td className="py-3 pr-4 text-right text-sm text-foreground">
         {formatMoney(entry.satisfiedCents)}
       </td>
+      {entry.rolloverInCents > 0 ? (
+        <td className="py-3 pr-4 text-right text-sm text-indigo-400">
+          +{formatMoney(entry.rolloverInCents)}
+        </td>
+      ) : (
+        <td className="py-3 pr-4 text-right text-sm text-muted-foreground">--</td>
+      )}
       <td className="py-3 pr-4">
         <div className="flex items-center gap-2">
           <div className={`h-2 w-20 overflow-hidden rounded-full ${barBg}`}>
@@ -162,13 +172,15 @@ function ComplianceRow({ entry }: { entry: MinimumComplianceEntry }) {
 
 function exportCsv(entries: MinimumComplianceEntry[]) {
   const BOM = '\uFEFF';
-  const header = ['Customer ID', 'Period Start', 'Period End', 'Required', 'Spent', 'Progress %', 'Shortfall', 'Status'];
+  const header = ['Customer', 'Rule', 'Period Start', 'Period End', 'Required', 'Spent', 'Rollover', 'Progress %', 'Shortfall', 'Status'];
   const rows = entries.map((e) => [
-    e.customerId,
+    e.customerName,
+    e.ruleTitle,
     e.periodStart,
     e.periodEnd,
     (e.requiredCents / 100).toFixed(2),
     (e.satisfiedCents / 100).toFixed(2),
+    (e.rolloverInCents / 100).toFixed(2),
     String(e.progressPercent),
     (e.shortfallCents / 100).toFixed(2),
     e.trafficLight,
@@ -424,9 +436,11 @@ export default function ReportsContent() {
                 <thead>
                   <tr className="border-b border-border text-left text-xs text-muted-foreground">
                     <th className="px-4 py-3 font-medium">Customer</th>
+                    <th className="px-4 py-3 font-medium">Rule</th>
                     <th className="px-4 py-3 font-medium">Period</th>
                     <th className="px-4 py-3 text-right font-medium">Required</th>
                     <th className="px-4 py-3 text-right font-medium">Spent</th>
+                    <th className="px-4 py-3 text-right font-medium">Rollover</th>
                     <th className="px-4 py-3 font-medium">Progress</th>
                     <th className="px-4 py-3 text-right font-medium">Shortfall</th>
                     <th className="px-4 py-3 font-medium">Status</th>

@@ -103,7 +103,6 @@ export async function getUnrealizedGainLoss(
         ON cr.from_currency = je.transaction_currency
         AND cr.to_currency = ${baseCurrency}
       WHERE a.tenant_id = ${input.tenantId}
-        AND a.is_active = true
         AND je.transaction_currency != ${baseCurrency}
       GROUP BY a.id, a.account_number, a.name, a.account_type, a.normal_balance,
                je.transaction_currency, cr.rate

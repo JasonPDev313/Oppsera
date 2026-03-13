@@ -132,6 +132,21 @@ interface DepartmentAuditGroup {
   totalNetCents: number;
 }
 
+interface OccupancyForecastDay {
+  date: string;
+  totalRooms: number;
+  occupiedRooms: number;
+  occupancyPct: number;
+  arrivals: number;
+  departures: number;
+}
+
+interface PickupReportRow {
+  targetDate: string;
+  roomsBookedSinceSnapshot: number;
+  totalRoomsBooked: number;
+}
+
 interface DepartmentAuditData {
   propertyName: string;
   startDate: string;
@@ -147,7 +162,7 @@ interface DepartmentAuditData {
 
 // ── Tab definition ──────────────────────────────────────────────
 
-type TabId = 'overview' | 'revenue' | 'activity' | 'dept-audit' | 'operations' | 'housekeeping';
+type TabId = 'overview' | 'revenue' | 'activity' | 'dept-audit' | 'operations' | 'housekeeping' | 'forecast' | 'pickup';
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -156,6 +171,8 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'dept-audit', label: 'Dept Audit', icon: Building2 },
   { id: 'operations', label: 'Operations', icon: Users },
   { id: 'housekeeping', label: 'Housekeeping', icon: Brush },
+  { id: 'forecast', label: 'Forecast', icon: TrendingUp },
+  { id: 'pickup', label: 'Pickup', icon: BedDouble },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -1562,6 +1579,423 @@ function DepartmentAuditTab({
   );
 }
 
+// ── Occupancy Forecast Tab ──────────────────────────────────────
+
+function OccupancyForecastTab({
+  propertyId,
+  startDate,
+  endDate,
+}: {
+  propertyId: string;
+  startDate: string;
+  endDate: string;
+}) {
+  const [data, setData] = useState<OccupancyForecastDay[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!propertyId) {
+      setIsLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setIsLoading(true);
+    (async () => {
+      try {
+        const qs = buildQueryString({ propertyId, startDate, endDate });
+        const res = await apiFetch<{ data: OccupancyForecastDay[] }>(
+          `/api/v1/pms/reports/occupancy-forecast${qs}`,
+          { signal: controller.signal },
+        );
+        if (!controller.signal.aborted) setData(res.data ?? []);
+      } catch {
+        if (!controller.signal.aborted) setData([]);
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false);
+      }
+    })();
+    return () => {
+      controller.abort();
+    };
+  }, [propertyId, startDate, endDate]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-lg border border-border bg-surface p-4">
+              <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+              <div className="mt-2 h-6 w-24 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+        <TabSkeleton rows={7} />
+      </div>
+    );
+  }
+  if (data.length === 0)
+    return <EmptyState message="No forecast data for the selected date range." />;
+
+  const avgOccupancy = data.length > 0
+    ? Math.round(data.reduce((s, r) => s + r.occupancyPct, 0) / data.length * 10) / 10
+    : 0;
+  const peakDay = data.reduce((best, r) => (r.occupancyPct > best.occupancyPct ? r : best), data[0]!);
+  const totalArrivals = data.reduce((s, r) => s + r.arrivals, 0);
+  const totalDepartures = data.reduce((s, r) => s + r.departures, 0);
+
+  return (
+    <div className="space-y-4">
+      {/* Print header */}
+      <div className="hidden print:block">
+        <h1 className="text-xl font-bold print:text-gray-900">Occupancy Forecast</h1>
+        <p className="text-sm print:text-gray-700">
+          {startDate} to {endDate}
+        </p>
+        <p className="text-xs print:text-gray-500">
+          Generated {new Date().toLocaleString()}
+        </p>
+      </div>
+
+      {/* KPI summary cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:grid-cols-4 print:gap-2">
+        <KpiCard
+          label="Avg Occupancy"
+          value={formatPct(avgOccupancy)}
+          color={occupancyColor(avgOccupancy)}
+          icon={BedDouble}
+        />
+        <KpiCard
+          label="Peak Day"
+          value={`${formatPct(peakDay.occupancyPct)} (${peakDay.date})`}
+          color="bg-indigo-500/20 text-indigo-500"
+          icon={TrendingUp}
+        />
+        <KpiCard
+          label="Total Arrivals"
+          value={totalArrivals}
+          color="bg-blue-500/20 text-blue-500"
+          icon={LogIn}
+        />
+        <KpiCard
+          label="Total Departures"
+          value={totalDepartures}
+          color="bg-orange-500/20 text-orange-500"
+          icon={LogOut}
+        />
+      </div>
+
+      {/* Toolbar — print */}
+      <div className="flex items-center justify-between print:hidden">
+        <h2 className="text-lg font-semibold text-foreground">
+          {data.length} day{data.length !== 1 ? 's' : ''} forecasted
+        </h2>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
+        >
+          <Printer className="h-4 w-4" />
+          Print
+        </button>
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-x-auto rounded-lg border border-border bg-surface md:block print:block print:border-gray-300">
+        <table className="min-w-full divide-y divide-border print:divide-gray-300">
+          <thead className="bg-muted print:bg-gray-100">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground print:text-gray-700">
+                Date
+              </th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground print:text-gray-700">
+                Total Rooms
+              </th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground print:text-gray-700">
+                Occupied
+              </th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground print:text-gray-700">
+                Occupancy
+              </th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground print:text-gray-700">
+                Arrivals
+              </th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground print:text-gray-700">
+                Departures
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border bg-surface print:divide-gray-200">
+            {data.map((row) => (
+              <tr key={row.date} className="hover:bg-accent/30">
+                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-foreground">
+                  {row.date}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums text-foreground">
+                  {row.totalRooms}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums text-foreground">
+                  {row.occupiedRooms}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
+                  <span
+                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${occupancyColor(row.occupancyPct)}`}
+                  >
+                    {formatPct(row.occupancyPct)}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums text-foreground">
+                  {row.arrivals}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums text-foreground">
+                  {row.departures}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile card layout */}
+      <div className="space-y-3 md:hidden print:hidden">
+        {data.map((row) => (
+          <div
+            key={row.date}
+            className="rounded-lg border border-border bg-surface p-4"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground">{row.date}</span>
+              <span
+                className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${occupancyColor(row.occupancyPct)}`}
+              >
+                {formatPct(row.occupancyPct)}
+              </span>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <p className="font-medium text-muted-foreground">Occupied</p>
+                <p className="tabular-nums text-foreground">{row.occupiedRooms} / {row.totalRooms}</p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">Arrivals</p>
+                <p className="tabular-nums text-foreground">{row.arrivals}</p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">Departures</p>
+                <p className="tabular-nums text-foreground">{row.departures}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Pickup Report Tab ──────────────────────────────────────────
+
+function PickupTab({
+  propertyId,
+  startDate,
+  endDate,
+}: {
+  propertyId: string;
+  startDate: string;
+  endDate: string;
+}) {
+  const [data, setData] = useState<PickupReportRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!propertyId) {
+      setIsLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setIsLoading(true);
+    (async () => {
+      try {
+        // snapshotDate = 7 days before startDate by default
+        const snap = new Date(startDate);
+        snap.setDate(snap.getDate() - 7);
+        const snapshotDate = snap.toISOString().slice(0, 10);
+        const qs = buildQueryString({ propertyId, snapshotDate, startDate, endDate });
+        const res = await apiFetch<{ data: PickupReportRow[] }>(
+          `/api/v1/pms/reports/pickup${qs}`,
+          { signal: controller.signal },
+        );
+        if (!controller.signal.aborted) setData(res.data ?? []);
+      } catch {
+        if (!controller.signal.aborted) setData([]);
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false);
+      }
+    })();
+    return () => {
+      controller.abort();
+    };
+  }, [propertyId, startDate, endDate]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-lg border border-border bg-surface p-4">
+              <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+              <div className="mt-2 h-6 w-24 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+        <TabSkeleton rows={7} />
+      </div>
+    );
+  }
+  if (data.length === 0)
+    return <EmptyState message="No pickup data for the selected date range." />;
+
+  const totalPickup = data.reduce((sum, r) => sum + r.roomsBookedSinceSnapshot, 0);
+  const totalBooked = data.reduce((sum, r) => sum + r.totalRoomsBooked, 0);
+  const avgPickupPerDay = data.length > 0
+    ? Math.round((totalPickup / data.length) * 10) / 10
+    : 0;
+  const peakPickup = data.reduce((best, r) =>
+    r.roomsBookedSinceSnapshot > best.roomsBookedSinceSnapshot ? r : best, data[0]!);
+
+  return (
+    <div className="space-y-4">
+      {/* Print header */}
+      <div className="hidden print:block">
+        <h1 className="text-xl font-bold print:text-gray-900">Pickup Report</h1>
+        <p className="text-sm print:text-gray-700">
+          {startDate} to {endDate} &mdash; Snapshot: 7 days prior
+        </p>
+        <p className="text-xs print:text-gray-500">
+          Generated {new Date().toLocaleString()}
+        </p>
+      </div>
+
+      {/* KPI summary cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:grid-cols-4 print:gap-2">
+        <KpiCard
+          label="Total Pickup"
+          value={`${totalPickup} rooms`}
+          color="bg-green-500/20 text-green-500"
+          icon={TrendingUp}
+        />
+        <KpiCard
+          label="Total Booked"
+          value={`${totalBooked} room-nights`}
+          color="bg-indigo-500/20 text-indigo-500"
+          icon={BedDouble}
+        />
+        <KpiCard
+          label="Avg Pickup / Day"
+          value={avgPickupPerDay}
+          color="bg-purple-500/20 text-purple-500"
+          icon={CalendarDays}
+        />
+        <KpiCard
+          label="Peak Pickup"
+          value={`+${peakPickup.roomsBookedSinceSnapshot} (${peakPickup.targetDate})`}
+          color="bg-emerald-500/20 text-emerald-500"
+          icon={TrendingUp}
+        />
+      </div>
+
+      {/* Toolbar — print */}
+      <div className="flex items-center justify-between print:hidden">
+        <h2 className="text-lg font-semibold text-foreground">
+          {data.length} day{data.length !== 1 ? 's' : ''}
+        </h2>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
+        >
+          <Printer className="h-4 w-4" />
+          Print
+        </button>
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-x-auto rounded-lg border border-border bg-surface md:block print:block print:border-gray-300">
+        <table className="min-w-full divide-y divide-border print:divide-gray-300">
+          <thead className="bg-muted print:bg-gray-100">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground print:text-gray-700">
+                Date
+              </th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground print:text-gray-700">
+                Total Booked
+              </th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground print:text-gray-700">
+                Pickup (Last 7 Days)
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border bg-surface print:divide-gray-200">
+            {data.map((row) => (
+              <tr key={row.targetDate} className="hover:bg-accent/30">
+                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-foreground">
+                  {row.targetDate}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums text-foreground">
+                  {row.totalRoomsBooked}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
+                  <span
+                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
+                      row.roomsBookedSinceSnapshot > 0
+                        ? 'bg-green-500/20 text-green-500'
+                        : 'bg-zinc-500/20 text-zinc-400'
+                    }`}
+                  >
+                    +{row.roomsBookedSinceSnapshot}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile card layout */}
+      <div className="space-y-3 md:hidden print:hidden">
+        {data.map((row) => (
+          <div
+            key={row.targetDate}
+            className="rounded-lg border border-border bg-surface p-4"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground">{row.targetDate}</span>
+              <span
+                className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
+                  row.roomsBookedSinceSnapshot > 0
+                    ? 'bg-green-500/20 text-green-500'
+                    : 'bg-zinc-500/20 text-zinc-400'
+                }`}
+              >
+                +{row.roomsBookedSinceSnapshot}
+              </span>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <p className="font-medium text-muted-foreground">Total Booked</p>
+                <p className="tabular-nums text-foreground">{row.totalRoomsBooked}</p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">Pickup</p>
+                <p className="tabular-nums text-foreground">+{row.roomsBookedSinceSnapshot}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page Component ─────────────────────────────────────────
 
 export default function ReportsContent() {
@@ -1769,6 +2203,22 @@ export default function ReportsContent() {
           {activeTab === 'housekeeping' && (
             <HousekeepingTab
               key={`housekeeping-${refreshKey}`}
+              propertyId={selectedPropertyId}
+              startDate={startDate}
+              endDate={endDate}
+            />
+          )}
+          {activeTab === 'forecast' && (
+            <OccupancyForecastTab
+              key={`forecast-${refreshKey}`}
+              propertyId={selectedPropertyId}
+              startDate={startDate}
+              endDate={endDate}
+            />
+          )}
+          {activeTab === 'pickup' && (
+            <PickupTab
+              key={`pickup-${refreshKey}`}
               propertyId={selectedPropertyId}
               startDate={startDate}
               endDate={endDate}

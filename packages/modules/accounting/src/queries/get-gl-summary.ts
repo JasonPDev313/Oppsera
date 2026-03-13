@@ -60,7 +60,6 @@ export async function getGlSummary(
         ${startDateFilter}
         ${endDateFilter}
       WHERE a.tenant_id = ${input.tenantId}
-        AND a.is_active = true
         AND (jl.id IS NULL OR je.id IS NOT NULL)
       GROUP BY a.classification_id, c.name, a.account_type, a.normal_balance
       HAVING COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0

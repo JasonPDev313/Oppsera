@@ -86,12 +86,15 @@ export interface MinimumHistoryEntry extends MinimumProgressEntry {
 
 export interface MinimumComplianceEntry {
   customerId: string;
+  customerName: string;
   ruleId: string;
+  ruleTitle: string;
   periodStart: string;
   periodEnd: string;
   requiredCents: number;
   satisfiedCents: number;
   shortfallCents: number;
+  rolloverInCents: number;
   progressPercent: number;
   status: string;
   trafficLight: 'green' | 'amber' | 'red';

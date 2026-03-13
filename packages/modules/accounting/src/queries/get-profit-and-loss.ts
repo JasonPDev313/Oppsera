@@ -94,7 +94,6 @@ export async function getProfitAndLoss(input: GetPnlInput): Promise<ProfitAndLos
           AND je.business_date >= ${from}
           AND je.business_date <= ${to}
         WHERE a.tenant_id = ${input.tenantId}
-          AND a.is_active = true
           AND a.account_type IN ('revenue', 'expense')
           AND (jl.id IS NULL OR je.id IS NOT NULL)
         GROUP BY a.id, a.account_number, a.name, a.account_type, a.is_contra_account, c.name

@@ -11,6 +11,7 @@ export interface TrialBalanceAccount {
   debitTotal: number;
   creditTotal: number;
   netBalance: number;
+  isActive: boolean;
 }
 
 export interface TrialBalanceReport {
@@ -55,6 +56,7 @@ export async function getTrialBalance(
         a.account_type,
         c.name AS classification_name,
         a.normal_balance,
+        a.is_active,
         COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) AS debit_total,
         COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) AS credit_total,
         CASE WHEN a.normal_balance = 'debit'
@@ -69,9 +71,8 @@ export async function getTrialBalance(
         AND je.tenant_id = ${input.tenantId}
         ${dateConditions}
       WHERE a.tenant_id = ${input.tenantId}
-        AND a.is_active = true
         AND (jl.id IS NULL OR je.id IS NOT NULL)
-      GROUP BY a.id, a.account_number, a.name, a.account_type, c.name, a.normal_balance
+      GROUP BY a.id, a.account_number, a.name, a.account_type, c.name, a.normal_balance, a.is_active
       HAVING COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0
           OR COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0
       ORDER BY a.account_number
@@ -97,6 +98,7 @@ export async function getTrialBalance(
       debitTotal: Number(row.debit_total),
       creditTotal: Number(row.credit_total),
       netBalance: Number(row.net_balance),
+      isActive: Boolean(row.is_active),
     }));
 
     let totalDebits = 0;

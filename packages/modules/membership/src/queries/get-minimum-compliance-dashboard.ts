@@ -1,6 +1,6 @@
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { minimumPeriodRollups } from '@oppsera/db';
+import { minimumPeriodRollups, minimumSpendRules, customers } from '@oppsera/db';
 
 export interface GetMinimumComplianceDashboardInput {
   tenantId: string;
@@ -11,12 +11,15 @@ export interface GetMinimumComplianceDashboardInput {
 
 export interface MinimumComplianceEntry {
   customerId: string;
+  customerName: string;
   ruleId: string;
+  ruleTitle: string;
   periodStart: string;
   periodEnd: string;
   requiredCents: number;
   satisfiedCents: number;
   shortfallCents: number;
+  rolloverInCents: number;
   progressPercent: number;
   status: string;
   trafficLight: 'green' | 'amber' | 'red';
@@ -62,7 +65,9 @@ export async function getMinimumComplianceDashboard(
     const rows = await (tx as any)
       .select({
         customerId: minimumPeriodRollups.customerId,
+        customerName: customers.displayName,
         ruleId: minimumPeriodRollups.minimumSpendRuleId,
+        ruleTitle: minimumSpendRules.title,
         periodStart: minimumPeriodRollups.periodStart,
         periodEnd: minimumPeriodRollups.periodEnd,
         requiredCents: minimumPeriodRollups.requiredCents,
@@ -72,6 +77,8 @@ export async function getMinimumComplianceDashboard(
         status: minimumPeriodRollups.status,
       })
       .from(minimumPeriodRollups)
+      .leftJoin(customers, eq(minimumPeriodRollups.customerId, customers.id))
+      .leftJoin(minimumSpendRules, eq(minimumPeriodRollups.minimumSpendRuleId, minimumSpendRules.id))
       .where(and(...conditions))
       .orderBy(desc(minimumPeriodRollups.periodEnd));
 
@@ -111,7 +118,9 @@ export async function getMinimumComplianceDashboard(
 
       return {
         customerId: String(r.customerId),
+        customerName: String(r.customerName ?? 'Unknown'),
         ruleId: String(r.ruleId),
+        ruleTitle: String(r.ruleTitle ?? 'Unknown Rule'),
         periodStart: r.periodStart instanceof Date
           ? r.periodStart.toISOString()
           : String(r.periodStart ?? ''),
@@ -121,6 +130,7 @@ export async function getMinimumComplianceDashboard(
         requiredCents: required,
         satisfiedCents: satisfied,
         shortfallCents: shortfall,
+        rolloverInCents: rolloverIn,
         progressPercent,
         status: String(r.status),
         trafficLight,

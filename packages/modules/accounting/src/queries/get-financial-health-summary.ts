@@ -68,7 +68,6 @@ export async function getFinancialHealthSummary(input: GetFinancialHealthInput):
         JOIN gl_accounts a ON a.id = jl.account_id
         WHERE je.tenant_id = ${input.tenantId}
           AND a.tenant_id = ${input.tenantId}
-          AND a.is_active = true
           AND je.status = 'posted'
           AND je.business_date >= ${ytdStart}
           AND je.business_date <= ${asOfDate}

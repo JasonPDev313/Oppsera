@@ -59,6 +59,7 @@ function wireChain() {
   mockWhere.mockImplementation(() => makeWhereResult());
 
   mockLeftJoin.mockImplementation(() => ({
+    leftJoin: mockLeftJoin,
     where: mockWhere,
     orderBy: mockOrderBy,
     limit: mockLimit,
@@ -130,6 +131,9 @@ vi.mock('@oppsera/db', () => ({
   membershipAccounts: {
     id: 'id', tenantId: 'tenant_id', accountNumber: 'account_number',
     status: 'status', customerId: 'customer_id',
+  },
+  customers: {
+    id: 'id', tenantId: 'tenant_id', displayName: 'display_name',
   },
 }));
 
@@ -964,13 +968,13 @@ describe('Session 7 — getMinimumComplianceDashboard', () => {
   it('should return aggregated compliance stats', async () => {
     const rows = [
       {
-        customerId: 'cust_001', ruleId: 'rule_001',
+        customerId: 'cust_001', customerName: 'Alice', ruleId: 'rule_001', ruleTitle: 'Q1 Min',
         periodStart: '2025-01-01', periodEnd: '2025-03-31',
         requiredCents: 100000, satisfiedCents: 100000,
         shortfallCents: 0, rolloverInCents: 0, status: 'open',
       },
       {
-        customerId: 'cust_002', ruleId: 'rule_001',
+        customerId: 'cust_002', customerName: 'Bob', ruleId: 'rule_001', ruleTitle: 'Q1 Min',
         periodStart: '2025-01-01', periodEnd: '2025-03-31',
         requiredCents: 100000, satisfiedCents: 40000,
         shortfallCents: 60000, rolloverInCents: 0, status: 'open',
@@ -993,19 +997,19 @@ describe('Session 7 — getMinimumComplianceDashboard', () => {
   it('should categorize entries by traffic light', async () => {
     const rows = [
       {
-        customerId: 'cust_green', ruleId: 'rule_001',
+        customerId: 'cust_green', customerName: 'Green Member', ruleId: 'rule_001', ruleTitle: 'Q1 Min',
         periodStart: '2025-01-01', periodEnd: '2025-03-31',
         requiredCents: 100000, satisfiedCents: 100000,
         shortfallCents: 0, rolloverInCents: 0, status: 'open',
       },
       {
-        customerId: 'cust_amber', ruleId: 'rule_001',
+        customerId: 'cust_amber', customerName: 'Amber Member', ruleId: 'rule_001', ruleTitle: 'Q1 Min',
         periodStart: '2025-01-01', periodEnd: '2025-03-31',
         requiredCents: 100000, satisfiedCents: 60000,
         shortfallCents: 40000, rolloverInCents: 0, status: 'open',
       },
       {
-        customerId: 'cust_red', ruleId: 'rule_001',
+        customerId: 'cust_red', customerName: 'Red Member', ruleId: 'rule_001', ruleTitle: 'Q1 Min',
         periodStart: '2025-01-01', periodEnd: '2025-03-31',
         requiredCents: 100000, satisfiedCents: 10000,
         shortfallCents: 90000, rolloverInCents: 0, status: 'open',

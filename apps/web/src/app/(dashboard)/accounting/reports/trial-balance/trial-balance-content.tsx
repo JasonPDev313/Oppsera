@@ -388,7 +388,14 @@ export default function TrialBalanceContent() {
                         className="border-b border-border last:border-0 hover:bg-accent/50"
                       >
                         <td className="px-4 py-2 text-sm font-mono text-foreground">{row.accountNumber}</td>
-                        <td className="px-4 py-2 text-sm text-foreground">{row.accountName}</td>
+                        <td className="px-4 py-2 text-sm text-foreground">
+                          {row.accountName}
+                          {!row.isActive && (
+                            <span className="ml-1.5 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-500">
+                              inactive
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-2 text-sm text-muted-foreground">
                           {row.classificationName ?? '—'}
                         </td>
@@ -489,6 +496,11 @@ export default function TrialBalanceContent() {
                         <div>
                           <span className="mr-1.5 font-mono text-xs text-muted-foreground">{row.accountNumber}</span>
                           <span className="text-sm text-foreground">{row.accountName}</span>
+                          {!row.isActive && (
+                            <span className="ml-1 rounded bg-amber-500/20 px-1 py-0.5 text-[10px] font-medium text-amber-500">
+                              inactive
+                            </span>
+                          )}
                         </div>
                         <DrillDownAmount
                           onClick={() => setDrillDown({ accountId: row.accountId, accountName: `${row.accountNumber} ${row.accountName}` })}

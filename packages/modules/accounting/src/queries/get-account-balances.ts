@@ -65,7 +65,6 @@ export async function getAccountBalances(
         AND je.tenant_id = ${input.tenantId}
         ${dateFilter}
       WHERE a.tenant_id = ${input.tenantId}
-        AND a.is_active = true
         AND (jl.id IS NULL OR je.id IS NOT NULL)
         ${accountFilter}
         ${cursorFilter}

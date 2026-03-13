@@ -486,6 +486,7 @@ export interface TrialBalanceRow {
   debitTotal: number;
   creditTotal: number;
   netBalance: number;
+  isActive: boolean;
 }
 
 export interface GLDetailRow {

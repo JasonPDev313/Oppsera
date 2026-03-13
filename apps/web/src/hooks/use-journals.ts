@@ -146,6 +146,7 @@ export function useTrialBalance(params: TrialBalanceParams = {}) {
             debitTotal: number;
             creditTotal: number;
             netBalance: number;
+            isActive: boolean;
           }[];
           totalDebits: number;
           totalCredits: number;
@@ -163,6 +164,7 @@ export function useTrialBalance(params: TrialBalanceParams = {}) {
           debitTotal: a.debitTotal,
           creditTotal: a.creditTotal,
           netBalance: a.netBalance,
+          isActive: a.isActive !== false,
         })),
       );
     },
