@@ -153,14 +153,18 @@ export const POST = withMiddleware(
                 suggestedAccountId: s.suggestedAccountId,
               })),
             });
+            // Exclude skippedErrors from remaining — they are non-actionable data issues
+            // (zero_dollar_order, no_line_detail, etc.) that should not prevent isFullyCovered
+            const actionableRemaining = suggestions.totalEvents - suggestions.skippedErrors - result.eventsResolved;
             autoResolved = {
               applied: result.mappingsCreated,
-              remaining: suggestions.totalEvents - result.eventsResolved,
+              remaining: Math.max(0, actionableRemaining),
             };
           } else {
+            const actionableRemaining = suggestions.totalEvents - suggestions.skippedErrors;
             autoResolved = {
               applied: 0,
-              remaining: suggestions.totalEvents,
+              remaining: Math.max(0, actionableRemaining),
             };
           }
         } catch (err) {

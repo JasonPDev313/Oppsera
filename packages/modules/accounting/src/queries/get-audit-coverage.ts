@@ -80,7 +80,10 @@ export async function getAuditCoverage(
             AND created_at >= ${dateRange.from}::timestamptz
             AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
         `),
-        // AR invoices posted
+        // AR invoices posted — ar_invoices has no posted_at column, so use created_at.
+        // This is acceptable: AR status filter (posted/partial/paid) ensures only
+        // posted invoices are counted. AP bills use posted_at because they transition
+        // through draft→approved→posted with significant delays.
         tx.execute(sql`
           SELECT COUNT(*)::int AS count
           FROM ar_invoices

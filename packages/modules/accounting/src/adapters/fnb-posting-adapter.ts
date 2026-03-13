@@ -1,6 +1,6 @@
 import type { EventEnvelope } from '@oppsera/shared';
 import { PermanentPostingError } from '@oppsera/shared';
-import { db, fnbGlAccountMappings, subDepartmentGlDefaults, glJournalEntries } from '@oppsera/db';
+import { db, fnbGlAccountMappings, glJournalEntries } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { getAccountingSettings, type AccountingSettings } from '../helpers/get-accounting-settings';
@@ -27,28 +27,6 @@ interface FnbGlPostingPayload {
   totalCreditCents: number;
   lineCount: number;
   journalLines: FnbJournalLine[];
-}
-
-/**
- * Resolves a revenue GL account via catalog sub-department GL defaults.
- * This allows F&B revenue to map through the same sub-department GL resolution
- * as retail POS, since F&B items ARE catalog items.
- */
-async function resolveRevenueBySubDepartment(
-  tenantId: string,
-  subDepartmentId: string,
-): Promise<string | null> {
-  const rows = await db
-    .select({ revenueAccountId: subDepartmentGlDefaults.revenueAccountId })
-    .from(subDepartmentGlDefaults)
-    .where(
-      and(
-        eq(subDepartmentGlDefaults.tenantId, tenantId),
-        eq(subDepartmentGlDefaults.subDepartmentId, subDepartmentId),
-      ),
-    )
-    .limit(1);
-  return rows[0]?.revenueAccountId ?? null;
 }
 
 interface FnbMappingRow {

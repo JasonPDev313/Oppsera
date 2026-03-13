@@ -417,7 +417,21 @@ async function handleTenderForAccountingInner(
             ? `Revenue - sub-dept ${subDeptId}`
             : `Revenue - unmapped (fallback: uncategorized)`,
         });
-      } else if (!revenueAccountId && roundedCents > 0) {
+      } else if (revenueAccountId && roundedCents < 0) {
+        // Negative revenue (credit/promotional lines) — post as a debit (reversal)
+        glLines.push({
+          accountId: revenueAccountId,
+          debitAmount: (Math.abs(roundedCents) / 100).toFixed(2),
+          creditAmount: '0',
+          locationId: data.locationId,
+          subDepartmentId: subDeptId !== 'unmapped' ? subDeptId : undefined,
+          terminalId: data.terminalId,
+          channel: 'pos',
+          memo: subDeptMapping
+            ? `Revenue reversal - sub-dept ${subDeptId}`
+            : `Revenue reversal - unmapped (fallback: uncategorized)`,
+        });
+      } else if (!revenueAccountId && roundedCents !== 0) {
         // Should never happen after ensureAccountingSettings guarantees suspense
         missingMappings.push(`revenue_account_null:${subDeptId}`);
       }

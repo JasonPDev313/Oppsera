@@ -2,8 +2,8 @@ import type { EventEnvelope } from '@oppsera/shared';
 import { PermanentPostingError } from '@oppsera/shared';
 import { db } from '@oppsera/db';
 import {
-  resolveSubDepartmentAccounts,
   batchResolveSubDepartmentAccounts,
+  batchResolveTaxGroupAccounts,
   resolvePaymentTypeAccounts,
   logUnmappedEvent,
 } from '../helpers/resolve-mapping';
@@ -20,6 +20,7 @@ interface ReturnLine {
   returnedTax: number; // positive cents
   returnedTotal: number; // positive cents
   subDepartmentId: string | null;
+  taxGroupId?: string | null; // optional — enables per-group tax reversal (added for GL accuracy)
   costCents?: number | null; // per-unit cost in cents (from original order line)
   packageComponents: Array<{
     catalogItemId: string;
@@ -94,9 +95,9 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
     const postingApi = getAccountingPostingApi();
     const defaultReturnsAccountId = settings.defaultReturnsAccountId;
 
-    // Batch-fetch all sub-department GL mappings upfront (1 query instead of N per line).
-    // Replaces per-line resolveSubDepartmentAccounts calls that caused N+1 queries.
+    // Batch-fetch all GL mappings upfront (1 query each instead of N per line).
     const subDeptMap = await batchResolveSubDepartmentAccounts(db, event.tenantId);
+    const taxGroupMap = await batchResolveTaxGroupAccounts(db, event.tenantId);
 
     const glLines: Array<{
       accountId: string;
@@ -239,17 +240,25 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
       }
 
       // Tax reversal — debit tax payable (reverses original credit)
-      if (line.returnedTax > 0 && settings.defaultSalesTaxPayableAccountId) {
-        totalDebitedCents += line.returnedTax;
-        const taxDollars = (line.returnedTax / 100).toFixed(2);
-        glLines.push({
-          accountId: settings.defaultSalesTaxPayableAccountId,
-          debitAmount: taxDollars,
-          creditAmount: '0',
-          locationId: data.locationId,
-          channel: 'pos',
-          memo: `Return tax: ${line.catalogItemName}`,
-        });
+      // Use per-group tax account when taxGroupId is available, fallback to default
+      if (line.returnedTax > 0) {
+        const taxAccountId = (line.taxGroupId ? taxGroupMap.get(line.taxGroupId) : null)
+          ?? settings.defaultSalesTaxPayableAccountId
+          ?? null;
+        if (taxAccountId) {
+          totalDebitedCents += line.returnedTax;
+          const taxDollars = (line.returnedTax / 100).toFixed(2);
+          glLines.push({
+            accountId: taxAccountId,
+            debitAmount: taxDollars,
+            creditAmount: '0',
+            locationId: data.locationId,
+            channel: 'pos',
+            memo: line.taxGroupId
+              ? `Return tax: ${line.catalogItemName} (group ${line.taxGroupId})`
+              : `Return tax: ${line.catalogItemName}`,
+          });
+        }
       }
     }
 
@@ -257,8 +266,7 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
     // from the original sale when perpetual COGS posting is enabled.
     // Debit Inventory / Credit COGS (mirrors the original sale's Debit COGS / Credit Inventory).
     if (settings.cogsPostingMode === 'perpetual') {
-      const subDeptMap = await batchResolveSubDepartmentAccounts(db, event.tenantId);
-
+      // Reuse subDeptMap fetched at line 99 — no duplicate query needed
       for (const line of data.lines) {
         if (!line.costCents || line.costCents <= 0) continue;
 
@@ -342,6 +350,20 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
     }
     if (!refundAccountId) {
       refundAccountId = settings.defaultUndepositedFundsAccountId;
+      // Log unmapped event for missing refund method — consistent with POS adapter's
+      // payment_type logging for visibility in unmapped events dashboard
+      if (!data.refundMethod) {
+        try {
+          await logUnmappedEvent(db, event.tenantId, {
+            eventType: 'order.returned.v1',
+            sourceModule: 'pos_return',
+            sourceReferenceId: data.returnOrderId,
+            entityType: 'payment_type',
+            entityId: 'return_refund',
+            reason: `Return has no refundMethod — used undeposited funds fallback. Original order: ${data.originalOrderId}`,
+          });
+        } catch { /* best-effort */ }
+      }
     }
 
     if (refundAccountId && glLines.length > 0) {

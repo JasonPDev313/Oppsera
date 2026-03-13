@@ -142,6 +142,7 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
           sourceReferenceId: `reversal-${data.reversalId}`,
           sourceIdempotencyKey: `pos:tender-reversal:${data.reversalId}`,
           memo: `Tender reversal: $${amountDollars} (${data.reversalType}) — order ${data.orderId}`,
+          currency: settings.baseCurrency,
           lines: reversalLines,
           forcePost: true,
         });

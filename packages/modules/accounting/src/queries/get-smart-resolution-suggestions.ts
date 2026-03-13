@@ -204,8 +204,10 @@ export async function getSmartResolutionSuggestions(
     const settings = await getAccountingSettings(tx, tenantId);
 
     // 4. Collect entity IDs by type for name lookups
-    const subDeptIds = groups.filter((g) => String(g.entity_type) === 'sub_department' || String(g.entity_type) === 'discount_account').map((g) => String(g.entity_id));
-    const taxGroupIds = groups.filter((g) => String(g.entity_type) === 'tax_group').map((g) => String(g.entity_id));
+    const SUB_DEPT_ENTITY_TYPES = new Set(['sub_department', 'discount_account', 'revenue_account_null']);
+    const TAX_ENTITY_TYPES = new Set(['tax_group', 'tax_account_null']);
+    const subDeptIds = groups.filter((g) => SUB_DEPT_ENTITY_TYPES.has(String(g.entity_type))).map((g) => String(g.entity_id));
+    const taxGroupIds = groups.filter((g) => TAX_ENTITY_TYPES.has(String(g.entity_type))).map((g) => String(g.entity_id));
 
     // 5. Lookup sub-department names from catalog_categories
     const subDeptNames = new Map<string, string>();
@@ -276,7 +278,12 @@ export async function getSmartResolutionSuggestions(
         entityType === 'invalid_ratio' ||
         entityType === 'accounting_settings' ||
         entityType === 'gl_posting_gap' ||
-        entityType === 'reversal_no_original'
+        entityType === 'reversal_no_original' ||
+        entityType === 'return_component_unenriched' ||
+        entityType === 'return_unmapped_remainder' ||
+        entityType === 'return_line' ||
+        entityType === 'return_component' ||
+        entityType === 'breaker_skip_summary'
       ) {
         skippedErrors += eventCount;
         continue;
@@ -430,6 +437,96 @@ export async function getSmartResolutionSuggestions(
             suggestions.push({ entityType, entityId, entityName, suggestedAccountId: bestAccount.id, suggestedAccountNumber: bestAccount.accountNumber, suggestedAccountName: bestAccount.name, confidence, reason: `Semantic match: "${entityName}" → ${bestAccount.name} (${Math.round(bestScore * 100)}%)`, alreadyMapped: false, eventCount });
             if (confidence !== 'low') autoResolvable += eventCount;
           }
+        }
+      } else if (entityType === 'discount_classification') {
+        // Discount classification has no per-classification GL mapping — suggest the
+        // tenant-level default discount account. entityId is the classification key.
+        const discountId = settings?.defaultDiscountAccountId;
+        const discountAccount = discountId ? accounts.find((a) => a.id === discountId) : null;
+        if (discountAccount) {
+          suggestions.push({ entityType, entityId, entityName: `Discount: ${entityId.replace(/_/g, ' ')}`, suggestedAccountId: discountAccount.id, suggestedAccountNumber: discountAccount.accountNumber, suggestedAccountName: discountAccount.name, confidence: 'medium', reason: `Default discount account: ${discountAccount.name}`, alreadyMapped: false, eventCount });
+          autoResolvable += eventCount;
+        } else {
+          const discountKeywords = ['discount', 'allowance', 'contra', 'markdown'];
+          const contraRevenue = accounts.filter((a) => a.accountType === 'revenue' || a.accountType === 'contra_revenue');
+          let bestAccount: GLAccount | null = null;
+          let bestScore = 0;
+          for (const a of contraRevenue) {
+            const score = scoreAccountMatch('Discount', a, discountKeywords);
+            if (score > bestScore) { bestScore = score; bestAccount = a; }
+          }
+          if (bestAccount && bestScore > 0.2) {
+            suggestions.push({ entityType, entityId, entityName: `Discount: ${entityId.replace(/_/g, ' ')}`, suggestedAccountId: bestAccount.id, suggestedAccountNumber: bestAccount.accountNumber, suggestedAccountName: bestAccount.name, confidence: bestScore >= 0.5 ? 'high' : 'medium', reason: `Semantic match: discount → ${bestAccount.name}`, alreadyMapped: false, eventCount });
+            autoResolvable += eventCount;
+          }
+        }
+      } else if (entityType === 'payment_type_incomplete') {
+        // Payment type row exists but account fields are null — treat like payment_type
+        const practice = findPaymentTypePractice(entityId);
+        let bestAccount: GLAccount | null = null;
+
+        if (practice) {
+          const eligible = accounts.filter((a) => practice.accountTypeFilter.includes(a.accountType));
+          for (const hint of practice.accountNameHints) {
+            const match = eligible.find((a) => a.name.toLowerCase().includes(hint.toLowerCase()));
+            if (match) { bestAccount = match; break; }
+          }
+          if (!bestAccount) {
+            let bestScore = 0;
+            for (const acct of eligible) {
+              const score = scoreAccountMatch(entityId, acct, practice.keywords);
+              if (score > bestScore) { bestScore = score; bestAccount = acct; }
+            }
+          }
+        }
+
+        if (!bestAccount) {
+          const uid = settings?.defaultUndepositedFundsAccountId;
+          if (uid) bestAccount = accounts.find((a) => a.id === uid) ?? null;
+        }
+
+        const displayName = entityId.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+        if (bestAccount) {
+          suggestions.push({ entityType, entityId, entityName: displayName, suggestedAccountId: bestAccount.id, suggestedAccountNumber: bestAccount.accountNumber, suggestedAccountName: bestAccount.name, confidence: 'high', reason: `Best practice: ${displayName} → ${bestAccount.name} (incomplete mapping)`, alreadyMapped: false, eventCount });
+          autoResolvable += eventCount;
+        }
+      } else if (entityType === 'revenue_account_null') {
+        // Sub-department mapping exists but revenue_account_id is null — suggest revenue account
+        const entityName = subDeptNames.get(entityId) ?? entityId;
+        const revenueAccounts = accounts.filter((a) => a.accountType === 'revenue');
+        let bestAccount: GLAccount | null = null;
+        let bestScore = 0;
+        for (const acct of revenueAccounts) {
+          const score = scoreAccountMatch(entityName, acct, REVENUE_KEYWORDS);
+          if (score > bestScore) { bestScore = score; bestAccount = acct; }
+        }
+        if (bestAccount && bestScore > 0.2) {
+          const confidence: SuggestedMapping['confidence'] = bestScore >= 0.5 ? 'high' : bestScore >= 0.3 ? 'medium' : 'low';
+          suggestions.push({ entityType, entityId, entityName, suggestedAccountId: bestAccount.id, suggestedAccountNumber: bestAccount.accountNumber, suggestedAccountName: bestAccount.name, confidence, reason: `Semantic match: "${entityName}" → ${bestAccount.name} (${Math.round(bestScore * 100)}%)`, alreadyMapped: false, eventCount });
+          if (confidence !== 'low') autoResolvable += eventCount;
+        } else {
+          const fallbackId = settings?.defaultUncategorizedRevenueAccountId;
+          const fb = fallbackId ? accounts.find((a) => a.id === fallbackId) : null;
+          if (fb) {
+            suggestions.push({ entityType, entityId, entityName, suggestedAccountId: fb.id, suggestedAccountNumber: fb.accountNumber, suggestedAccountName: fb.name, confidence: 'low', reason: `Fallback: no strong match, using ${fb.name}`, alreadyMapped: false, eventCount });
+          }
+        }
+      } else if (entityType === 'tax_account_null') {
+        // Tax group exists but no account could be resolved — suggest tax payable
+        const taxName = taxGroupNames.get(entityId) ?? entityId;
+        const taxPayableId = settings?.defaultSalesTaxPayableAccountId;
+        let taxAccount = taxPayableId ? accounts.find((a) => a.id === taxPayableId) ?? null : null;
+        if (!taxAccount) {
+          const taxLiabilityAccounts = accounts.filter((a) => a.accountType === 'liability');
+          let bestScore = 0;
+          for (const acct of taxLiabilityAccounts) {
+            const score = scoreAccountMatch('sales tax payable', acct, TAX_KEYWORDS);
+            if (score > bestScore) { bestScore = score; taxAccount = acct; }
+          }
+        }
+        if (taxAccount) {
+          suggestions.push({ entityType, entityId, entityName: taxName, suggestedAccountId: taxAccount.id, suggestedAccountNumber: taxAccount.accountNumber, suggestedAccountName: taxAccount.name, confidence: 'high', reason: `Best practice: tax → ${taxAccount.name}`, alreadyMapped: false, eventCount });
+          autoResolvable += eventCount;
         }
       } else if (entityType === 'tips_payable_account' || entityType === 'service_charge_account') {
         const label = entityType === 'tips_payable_account' ? 'Tips Payable' : 'Service Charge Revenue';

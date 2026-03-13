@@ -68,11 +68,15 @@ export async function backfillGlFromTenders(
   }
 
   // 2a. Count total unposted tenders (for progress tracking)
+  // Exclude zero-dollar orders — they are correctly skipped by the adapter
+  // but should not inflate the progress bar denominator.
   const countResult = await db.execute(sql`
     SELECT COUNT(*)::int AS total_unposted
     FROM tenders t
+    JOIN orders o ON o.id = t.order_id AND o.tenant_id = t.tenant_id
     WHERE t.tenant_id = ${tenantId}
       AND t.status = 'captured'
+      AND o.total > 0
       AND NOT EXISTS (
         SELECT 1 FROM gl_journal_entries gje
         WHERE gje.tenant_id = ${tenantId}
@@ -102,6 +106,7 @@ export async function backfillGlFromTenders(
            t.location_id,
            t.terminal_id,
            t.tender_sequence,
+           COALESCE(t.surcharge_amount_cents, 0) AS surcharge_amount_cents,
            o.total AS order_total,
            o.subtotal,
            o.tax_total,
@@ -174,7 +179,8 @@ export async function backfillGlFromTenders(
              tax_group_id,
              line_tax,
              cost_price,
-             package_components
+             package_components,
+             COALESCE(price_override_discount_cents, 0) AS price_override_discount_cents
       FROM order_lines
       WHERE tenant_id = ${tenantId}
         AND order_id IN ${sql`(${sql.join(orderIds.map((id) => sql`${id}`), sql`, `)})`}
@@ -184,6 +190,29 @@ export async function backfillGlFromTenders(
       const orderId = String(line.order_id);
       if (!orderLinesMap.has(orderId)) orderLinesMap.set(orderId, []);
       orderLinesMap.get(orderId)!.push(line);
+    }
+  }
+
+  // 4b. Batch-load order discounts for discount breakdown enrichment
+  const orderDiscountsMap = new Map<string, Array<{ classification: string; amountCents: number }>>();
+  if (orderIds.length > 0) {
+    const discountsResult = await db.execute(sql`
+      SELECT order_id,
+             COALESCE(discount_classification, 'unknown') AS classification,
+             SUM(amount)::int AS total_amount
+      FROM order_discounts
+      WHERE tenant_id = ${tenantId}
+        AND order_id IN ${sql`(${sql.join(orderIds.map((id) => sql`${id}`), sql`, `)})`}
+      GROUP BY order_id, COALESCE(discount_classification, 'unknown')
+    `);
+    const allDiscounts = Array.from(discountsResult as Iterable<Record<string, unknown>>);
+    for (const d of allDiscounts) {
+      const orderId = String(d.order_id);
+      if (!orderDiscountsMap.has(orderId)) orderDiscountsMap.set(orderId, []);
+      orderDiscountsMap.get(orderId)!.push({
+        classification: String(d.classification),
+        amountCents: Number(d.total_amount ?? 0),
+      });
     }
   }
 
@@ -215,6 +244,7 @@ export async function backfillGlFromTenders(
       taxAmountCents: Number(l.line_tax ?? 0),
       costCents: l.cost_price != null ? Number(l.cost_price) : null,
       packageComponents: l.package_components ?? null,
+      priceOverrideDiscountCents: Number(l.price_override_discount_cents ?? 0),
     }));
 
     try {
@@ -237,6 +267,7 @@ export async function backfillGlFromTenders(
           taxTotal: Number(t.tax_total ?? 0),
           discountTotal: Number(t.discount_total ?? 0),
           serviceChargeTotal: Number(t.service_charge_total ?? 0),
+          surchargeAmountCents: Number(t.surcharge_amount_cents ?? 0),
           totalTendered: orderInfo?.totalTendered ?? tenderAmount,
           isFullyPaid,
           customerId: t.customer_id ? String(t.customer_id) : null,
@@ -244,6 +275,12 @@ export async function backfillGlFromTenders(
           tenderSequence: Number(t.tender_sequence ?? 1),
           businessDate: String(t.business_date),
           lines: enrichedLines,
+          // Discount breakdown for per-classification GL posting (instead of legacy proportional)
+          discountBreakdown: orderDiscountsMap.get(orderId) ?? undefined,
+          // Price override loss tracking (sum across all lines)
+          priceOverrideLossCents: enrichedLines.reduce(
+            (sum, l) => sum + (l.priceOverrideDiscountCents ?? 0), 0,
+          ) || undefined,
         } as Record<string, unknown>,
         occurredAt: new Date().toISOString(),
       };

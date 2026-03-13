@@ -156,14 +156,37 @@ export default function MappingsContent() {
       updateProgress('Sub-Departments', 0, 1);
       let mapped = 0;
       let failed = 0;
+      const skippedNames: string[] = [];
       const revAccounts = glAccounts.filter((a) => a.accountType === 'revenue');
       const expAccounts = glAccounts.filter((a) => a.accountType === 'expense');
       const assetAccounts = glAccounts.filter((a) => a.accountType === 'asset');
 
+      // Build frequency map of already-mapped revenue accounts for last-resort fallback
+      const revAccountFreq = new Map<string, number>();
+      for (const m of subDeptMappings) {
+        if (m.revenueAccountId) {
+          revAccountFreq.set(m.revenueAccountId, (revAccountFreq.get(m.revenueAccountId) ?? 0) + 1);
+        }
+      }
+      // Most commonly used revenue account as last-resort fallback
+      const mostUsedRevAccountId = revAccountFreq.size > 0
+        ? [...revAccountFreq.entries()].sort((a, b) => b[1] - a[1])[0]![0]
+        : null;
+
       for (const m of subDeptMappings) {
         if (m.revenueAccountId) continue;
-        const revSuggestion = getSuggestedAccount(revAccounts, m.subDepartmentName, 'revenue');
-        if (!revSuggestion) continue;
+        let revSuggestion = getSuggestedAccount(revAccounts, m.subDepartmentName, 'revenue');
+        if (!revSuggestion && mostUsedRevAccountId) {
+          // Last-resort: use the most commonly mapped revenue account
+          revSuggestion = revAccounts.find((a) => a.id === mostUsedRevAccountId) ?? null;
+          if (revSuggestion) {
+            skippedNames.push(m.subDepartmentName ?? m.subDepartmentId);
+          }
+        }
+        if (!revSuggestion) {
+          skippedNames.push(m.subDepartmentName ?? m.subDepartmentId);
+          continue;
+        }
         try {
           await saveSubDepartmentDefaults.mutateAsync({
             subDepartmentId: m.subDepartmentId,
@@ -175,6 +198,9 @@ export default function MappingsContent() {
           });
           mapped++;
         } catch { failed++; }
+      }
+      if (skippedNames.length > 0) {
+        console.warn('[Map All] Sub-departments matched via last-resort fallback:', skippedNames);
       }
       totalMapped += mapped;
       totalFailed += failed;
@@ -686,10 +712,25 @@ function DepartmentMappingsTab() {
     const expAccounts = allAccounts.filter((a) => a.accountType === 'expense');
     const assetAccounts = allAccounts.filter((a) => a.accountType === 'asset');
 
+    // Build frequency map for last-resort fallback
+    const revAccountFreq = new Map<string, number>();
+    for (const m of mappings) {
+      if (m.revenueAccountId) {
+        revAccountFreq.set(m.revenueAccountId, (revAccountFreq.get(m.revenueAccountId) ?? 0) + 1);
+      }
+    }
+    const mostUsedRevAccountId = revAccountFreq.size > 0
+      ? [...revAccountFreq.entries()].sort((a, b) => b[1] - a[1])[0]![0]
+      : null;
+
     for (const m of mappings) {
       if (m.revenueAccountId) continue; // skip already mapped
 
-      const revSuggestion = getSuggestedAccount(revAccounts, m.subDepartmentName, 'revenue');
+      let revSuggestion = getSuggestedAccount(revAccounts, m.subDepartmentName, 'revenue');
+      if (!revSuggestion && mostUsedRevAccountId) {
+        // Last-resort: use the most commonly mapped revenue account
+        revSuggestion = revAccounts.find((a) => a.id === mostUsedRevAccountId) ?? null;
+      }
       const cogsSuggestion = getSuggestedAccount(expAccounts, m.subDepartmentName, 'cogs');
       const invSuggestion = getSuggestedAccount(assetAccounts, m.subDepartmentName, 'inventory');
       const retSuggestion = getSuggestedAccount(revAccounts, m.subDepartmentName, 'returns');

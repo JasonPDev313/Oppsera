@@ -41,15 +41,17 @@ const ACCOUNT_TYPE_ORDER: AccountType[] = ['asset', 'liability', 'equity', 'reve
  */
 const REVENUE_HINTS: [RegExp, string[]][] = [
   [/green\s*fee|tee\s*time/i, ['green fee', 'activity fee', 'golf revenue']],
-  [/food|snack|sandwich|kitchen|grill|deli/i, ['food sales', 'f&b sales', 'restaurant sales', 'dining revenue']],
+  [/golf\s*op|golf\s*rev|golf\s*serv/i, ['green fee', 'golf revenue', 'activity fee', 'golf operations']],
+  [/food|snack|sandwich|kitchen|grill|deli|menu/i, ['food sales', 'f&b sales', 'restaurant sales', 'dining revenue']],
   [/beverage|drink|bar|alcohol|beer|wine|spirit/i, ['beverage sales', 'bar sales', 'f&b sales', 'restaurant sales']],
+  [/pro\s*shop/i, ['pro shop', 'merchandise', 'retail sales', 'pro shop sales']],
   [/apparel|clothing|shirt|hat|cap/i, ['pro shop', 'merchandise', 'retail sales', 'apparel']],
   [/merchandise|merch|gift|souvenir/i, ['merchandise', 'pro shop', 'retail sales']],
-  [/golf\s*equip|club|ball|glove/i, ['pro shop', 'merchandise', 'retail sales', 'equipment']],
+  [/golf\s*equip|club|ball|glove|equipment/i, ['pro shop', 'merchandise', 'retail sales', 'equipment']],
   [/cart|rental/i, ['cart rental', 'rental revenue', 'equipment rental']],
   [/lesson|instruction|clinic/i, ['lesson', 'instruction', 'teaching']],
   [/membership|dues/i, ['membership', 'dues']],
-  [/event|banquet|catering/i, ['event revenue', 'catering', 'banquet']],
+  [/event|banquet|catering|activit/i, ['event revenue', 'catering', 'banquet', 'activity revenue']],
   [/service/i, ['service revenue']],
   [/room|lodging|accommodation/i, ['room revenue', 'lodging']],
   [/range|driving/i, ['driving range', 'range revenue']],
@@ -84,14 +86,14 @@ const STOP_WORDS = new Set(['&', 'and', 'the', 'of', 'for', 'a', 'an', 'in', 'on
  */
 const SEMANTIC_GROUPS: Record<string, string[][]> = {
   revenue: [
-    ['food', 'snack', 'sandwich', 'kitchen', 'grill', 'deli', 'bakery', 'pizza', 'burger', 'sushi', 'salad', 'soup', 'cafe', 'dining', 'restaurant', 'f&b'],
+    ['food', 'snack', 'sandwich', 'kitchen', 'grill', 'deli', 'bakery', 'pizza', 'burger', 'sushi', 'salad', 'soup', 'cafe', 'dining', 'restaurant', 'f&b', 'menu'],
     ['beverage', 'drink', 'bar', 'alcohol', 'beer', 'wine', 'spirit', 'cocktail', 'coffee', 'juice', 'soda'],
-    ['apparel', 'clothing', 'shirt', 'hat', 'cap', 'shoe', 'accessories', 'pro shop', 'merchandise', 'merch', 'gift', 'souvenir', 'tobacco', 'cigar', 'retail'],
-    ['golf', 'green fee', 'tee time', 'round'],
+    ['apparel', 'clothing', 'shirt', 'hat', 'cap', 'shoe', 'accessories', 'pro shop', 'merchandise', 'merch', 'gift', 'souvenir', 'tobacco', 'cigar', 'retail', 'equipment', 'golf equipment'],
+    ['golf', 'green fee', 'tee time', 'round', 'golf operations', 'golf revenue'],
     ['cart', 'rental', 'equipment rental'],
     ['lesson', 'instruction', 'clinic', 'teaching', 'academy'],
     ['membership', 'dues', 'subscription'],
-    ['event', 'banquet', 'catering', 'party', 'wedding'],
+    ['event', 'banquet', 'catering', 'party', 'wedding', 'activities', 'activity'],
     ['spa', 'wellness', 'fitness', 'gym', 'pool', 'tennis'],
     ['range', 'driving range', 'practice'],
     ['room', 'lodging', 'accommodation', 'hotel'],
@@ -190,8 +192,8 @@ function dynamicMatchAccount(
     }
   }
 
-  // Minimum threshold: need at least a semantic match + role keyword
-  return bestScore >= 14 ? best : null;
+  // Minimum threshold: a single semantic expansion match (8) is sufficient
+  return bestScore >= 8 ? best : null;
 }
 
 function scoreSuggestion(account: GLAccount, hints: string[]): number {
