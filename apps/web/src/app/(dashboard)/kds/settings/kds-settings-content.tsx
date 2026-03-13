@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
+import { useTerminalSession } from '@/components/terminal-session-provider';
 import { KdsSettingsPanel } from '@/components/fnb/kds-settings-panel';
 import { useStations } from '@/hooks/use-fnb-kitchen';
 import Link from 'next/link';
@@ -13,22 +14,27 @@ export default function KdsSettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locations } = useAuthContext();
+  const { session: terminalSession } = useTerminalSession();
   const kdsLocations = getKdsLocations(locations);
   const [locationId, setLocationId] = useState(() => {
     const fromUrl = searchParams.get('locationId');
     if (fromUrl && kdsLocations.some((l) => l.id === fromUrl)) return fromUrl;
-    const candidate = locations?.[0]?.id;
+    const candidate = terminalSession?.locationId ?? locations?.[0]?.id;
     return candidate ? resolveInitialKdsLocationId(candidate) : undefined;
   });
 
-  // Sync locationId when locations load after initial render (race condition guard)
+  // Sync locationId when locations/session load after initial render (race condition guard)
   useEffect(() => {
     if (!locationId && kdsLocations.length > 0) {
       const fromUrl = searchParams.get('locationId');
-      const match = fromUrl && kdsLocations.some((l) => l.id === fromUrl) ? fromUrl : kdsLocations[0]?.id;
+      const match = fromUrl && kdsLocations.some((l) => l.id === fromUrl)
+        ? fromUrl
+        : (terminalSession?.locationId && kdsLocations.some((l) => l.id === terminalSession.locationId)
+          ? terminalSession.locationId
+          : kdsLocations[0]?.id);
       setLocationId(match);
     }
-  }, [locationId, kdsLocations, searchParams]);
+  }, [locationId, kdsLocations, searchParams, terminalSession?.locationId]);
 
   const changeLocation = useCallback((newId: string) => {
     setLocationId(newId);
