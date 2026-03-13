@@ -1075,11 +1075,12 @@ export async function getTenderForGlRepost(
   tenderId: string,
 ): Promise<TenderForGlRepostData | null> {
   return withTenant(tenantId, async (tx) => {
-    // 1. Load tender
+    // 1. Load tender (include surcharge_amount_cents for GL repost accuracy)
     const tenderRows = await tx.execute(sql`
       SELECT t.id, t.order_id, t.tender_type, t.amount, t.tip_amount,
              t.business_date::text AS business_date, t.location_id, t.terminal_id,
-             t.tender_sequence, t.status
+             t.tender_sequence, t.status,
+             COALESCE(t.surcharge_amount_cents, 0)::integer AS surcharge_amount_cents
       FROM tenders t
       WHERE t.id = ${tenderId} AND t.tenant_id = ${tenantId}
       LIMIT 1

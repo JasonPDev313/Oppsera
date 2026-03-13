@@ -175,6 +175,31 @@ Standalone KDS permissions used by the permission groups UI. Mirrors `pos_fnb.kd
 | `kds.recall` | Recall bumped items on KDS | owner, manager, supervisor | | |
 | `kds.manage` | Manage KDS station settings and routing | owner, manager | | Y |
 | `kds.settings.manage` | Configure KDS display and alert settings | owner, manager | | Y |
+| `kds.clear` | Clear (bump) tickets and items on KDS | owner, manager, supervisor, cashier, server, staff | | |
+| `kds.refire` | Refire/resend items to kitchen stations | owner, manager, supervisor | | Y |
+| `kds.message` | Send inter-station messages | owner, manager, supervisor, cashier, server | | |
+
+## Admin Portal (Platform)
+
+Platform admin permissions used by the SuperAdmin portal (`apps/admin/`). These are separate from tenant-level permissions.
+
+| Permission | Description | Default Roles | PIN | Audit |
+|------------|-------------|---------------|-----|-------|
+| `admin.tenants.view` | View tenant list and details | all admin roles | | |
+| `admin.tenants.manage` | Create, edit, suspend tenants | super_admin, platform_engineer, implementation_specialist | | Y |
+| `admin.users.view` | View platform users | all admin roles | | |
+| `admin.users.manage` | Create, edit, manage platform admin accounts | super_admin | | Y |
+| `admin.finance.view` | View cross-tenant financial data | super_admin, finance_support | | |
+| `admin.business_types.view` | View business type blueprints | all admin roles | | |
+| `admin.business_types.manage` | Create, edit, publish business types | super_admin, platform_engineer | | Y |
+| `admin.provisioning.manage` | Run tenant provisioning | super_admin, implementation_specialist | | Y |
+| `admin.feature_requests.view` | View feature requests | all admin roles | | |
+| `admin.feature_requests.manage` | Update status, respond to feature requests | super_admin, platform_engineer | | Y |
+| `admin.health.view` | View platform health dashboard | all admin roles | | |
+| `admin.impersonation.start` | Start tenant impersonation session | super_admin, support_agent | | Y |
+| `admin.audit.view` | View platform audit log | super_admin, platform_engineer | | |
+| `admin.backups.view` | View backup history | super_admin, platform_engineer | | |
+| `admin.backups.manage` | Create, restore backups | super_admin | | Y |
 
 ## Property Management (PMS)
 

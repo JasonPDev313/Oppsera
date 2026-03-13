@@ -11,7 +11,7 @@ export function OrderProgressBar({
   totalOrderItems,
   totalOrderReadyItems,
   stationItemCount,
-  stationReadyCount,
+  stationReadyCount: _stationReadyCount,
 }: OrderProgressBarProps) {
   // Only render if there are items at other stations
   if (totalOrderItems <= stationItemCount) return null;

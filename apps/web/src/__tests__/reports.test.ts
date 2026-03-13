@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type * as CoreModule from '@oppsera/core';
+import type * as SharedModule from '@oppsera/shared';
 
 // ── Hoisted mocks ─────────────────────────────────────────────
 const {
@@ -53,7 +55,7 @@ vi.mock('@oppsera/module-reporting', () => ({
 }));
 
 vi.mock('@oppsera/core', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@oppsera/core')>();
+  const actual = await importOriginal<typeof CoreModule>();
   return {
     ...actual,
     toCsv: mockToCsv,
@@ -61,7 +63,7 @@ vi.mock('@oppsera/core', async (importOriginal) => {
 });
 
 vi.mock('@oppsera/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@oppsera/shared')>();
+  const actual = await importOriginal<typeof SharedModule>();
   return {
     ...actual,
     AppError: class AppError extends Error {

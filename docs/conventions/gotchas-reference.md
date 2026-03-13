@@ -1,6 +1,6 @@
 # Critical Gotchas — Full Reference
 
-> This file contains all 562 gotchas from OppsEra's CLAUDE.md.
+> This file contains all 570 gotchas from OppsEra's CLAUDE.md.
 > The slim CLAUDE.md keeps only the top 30 most critical ones.
 > Search this file when working on specific modules or encountering issues.
 
@@ -577,4 +577,21 @@
 560. **KDS bump is two-phase: ready → served** — first bump = ready, second bump = served. Include `eq(table.itemStatus, currentStatus)` in WHERE as optimistic lock to prevent concurrent double-bump race. See §240.
 561. **Bulk tab operations need `expectedVersions` map** — client sends `{ [tabId]: version }` from last fetch. Server rejects if version mismatch: `failed.push({ tabId, error: 'Conflict' })`. Prevents bulk-close of tab being modified by another session.
 562. **Compound cursor pagination for non-unique sort columns** — `WHERE id < cursor` skips rows when sorting by non-unique column (e.g., `opened_at`). Encode `{ id, sortVal }` in base64url cursor, paginate with `(sort_col, id) < (cursorVal, cursorId)`. See §244.
+
+563. **Safe JSON body parsing on API routes** — `await req.json()` throws on malformed/empty bodies. Always wrap in try/catch: `let body; try { body = await req.json(); } catch { return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Invalid JSON body' } }, { status: 400 }); }`. Without this, malformed POSTs crash with 500 instead of returning 400.
+
+564. **Terminal session location vs `locations[0]` fallback** — KDS stations must resolve their location from the terminal session, not from `tenant.locations[0]`. The `locations[0]` fallback picks an arbitrary location in multi-location tenants, routing tickets to the wrong kitchen. Always use `ctx.locationId` (set by middleware from terminal session). See §253.
+
+565. **KDS action naming drift: `resolved` → `cleared`** — migration 0310 renamed `resolved_at` → `cleared_at` and status `'resolved'` → `'cleared'` in `fnb_kds_send_tracking`. Any code or queries referencing the old column/status name will silently return no results. Grep for `resolved_at` and `'resolved'` in KDS-related files after applying this migration.
+
+566. **Smart-resolve/remap timeout risk from suggestion expansion** — a single smart-resolve suggestion like "remap unmapped tenders" can expand to hundreds of DB writes when executed. Always preview the count before executing: `const preview = await previewRemap(ctx, mappingId); if (preview.count > 100) { /* chunk or reject */ }`. Without this, a single remap request can exceed Vercel's 60s function timeout.
+
+567. **Recovery flow DB loops must be serialized** — `Promise.all(items.map(item => db.insert(...)))` with 200 items on pool max:2 = instant pool exhaustion. Use `for (const item of items) { await db.insert(...); }`. This applies to GL backfill, remap, retry, and any batch DB write on serverless. See §254.
+
+568. **Circuit breaker stale-connection detection** — Supavisor recycles backend connections periodically. A previously-healthy connection can become stale between requests. Detect via error codes `ECONNRESET` and `57P01` (admin_shutdown). On detection, discard the connection and retry once on a fresh connection before tripping the breaker.
+
+569. **`req.json()` on GET requests** — GET requests have no body. Calling `await req.json()` on a GET handler throws. Only parse JSON body on POST/PATCH/PUT/DELETE handlers. Use `req.nextUrl.searchParams` for GET query parameters.
+
+570. **KDS send tracking persists through ticket void** — voiding a ticket does NOT delete its `fnb_kds_send_tracking` rows. KDS views must filter by ticket status (`WHERE status != 'voided'`) rather than assuming all tracking rows represent active work. Without this filter, voided items appear on the customer board and KDS dashboard counts.
+
 

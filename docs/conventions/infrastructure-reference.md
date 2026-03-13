@@ -27,6 +27,40 @@ const pool = postgres(DATABASE_URL, {
 });
 ```
 
+### Pool Guard & Circuit Breaker (Added March 2026)
+
+The pool guard layer sits between application code and postgres.js, providing:
+
+1. **Semaphore**: caps concurrent DB operations to `max` (2 on Vercel) — prevents queue buildup
+2. **Circuit breaker**: trips after N failures within a sliding time window, auto-resets after a success window
+3. **Stale-connection retry**: detects `ECONNRESET` / `57P01` (Supavisor backend recycling) and retries once on a fresh connection
+4. **Zombie tracking**: monitors connections that haven't returned within timeout — logs but doesn't kill (avoids breaking in-flight transactions)
+
+```typescript
+// Circuit breaker states
+CLOSED  → normal operation, passes all requests
+OPEN    → tripped after failureThreshold within failureWindow — rejects immediately
+HALF_OPEN → after resetTimeout, allows one probe request — success→CLOSED, failure→OPEN
+```
+
+**Key rules**:
+- **Failure window** (not just count): 5 failures in 30s trips the breaker, but 5 failures over 10 minutes does not
+- **Manual reset**: `POST /api/admin/pool/reset-breaker` for emergency recovery without restart
+- **Health endpoint safety**: `/api/health` returns 200 even when breaker is tripped — prevents health-check traffic from worsening an outage
+- **DB loops must serialize**: `for...of` (not `Promise.all`) for batch DB operations to stay within pool max:2
+
+### Stale Connection Detection
+
+Supavisor recycles backend Postgres connections periodically. Between requests, a previously-valid connection may be terminated. Detect and handle:
+
+```typescript
+// Error codes indicating stale connection
+const STALE_CODES = ['ECONNRESET', '57P01']; // 57P01 = admin_shutdown
+
+// In pool guard: catch → discard connection → retry once on fresh connection
+// Only retry ONCE — if the retry also fails, propagate the error
+```
+
 ## Postgres Tuning
 
 ```

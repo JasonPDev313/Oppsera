@@ -295,9 +295,14 @@ async function handleTenderForAccountingInner(
   const paymentMethod = data.tenderType ?? data.paymentMethod ?? 'unknown';
   const paymentTypeMapping = await resolvePaymentTypeAccounts(db, tenantId, paymentMethod);
 
+  // House accounts are direct receivables — never route through a clearing
+  // account, even if enableUndepositedFundsWorkflow is on. The debit must
+  // hit AR (1110) directly so the receivable is recognized immediately.
+  const isHouseAccount = paymentMethod === 'house_account';
+
   let depositAccountId: string | null = null;
   if (paymentTypeMapping) {
-    depositAccountId = (settings.enableUndepositedFundsWorkflow && paymentTypeMapping.clearingAccountId)
+    depositAccountId = (!isHouseAccount && settings.enableUndepositedFundsWorkflow && paymentTypeMapping.clearingAccountId)
       ? paymentTypeMapping.clearingAccountId
       : paymentTypeMapping.depositAccountId;
     // Secondary fallback: mapping row exists but account fields are null

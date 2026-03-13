@@ -12393,3 +12393,231 @@ Reusable contextual help popover for explaining UI features. Standard across all
 - Portal to `document.body` — do NOT use CSS-relative positioning inside sidebars, drawers, or other overflow-constrained containers.
 
 
+## §248 F&B Course Rule Hierarchy Resolver
+
+Course rules define per-item coursing behavior (default course number, allowed courses, lock). Rules are set at four scope levels with **most-specific wins** precedence:
+
+**Resolution order** (highest → lowest priority):
+1. **Item** — rule set directly on a catalog item
+2. **Category** — rule set on the item's category
+3. **Sub-department** — rule set on the category's parent sub-department
+4. **Department** — rule set on the sub-department's parent department
+
+**Merge logic**: For each field (`defaultCourseNumber`, `allowedCourseNumbers`), the most-specific scope that defines it wins. Exception: `lockCourse` is **additive** — if `true` at ANY scope level, the item is locked.
+
+**Single-item resolver**: `resolveCourseRule(tenantId, locationId, itemId, categoryId?)` — builds the item's hierarchy (item → category → sub_dept → dept), queries all matching rules in one query, merges by precedence.
+
+**Batch resolver for POS startup**: `batchResolveCourseRules(tenantId, locationId)` — optimized for loading all items at once:
+1. Fetch ALL F&B catalog items (non-archived) in one query
+2. Fetch ALL active course rules for the location in one query
+3. Build `Map<"scope_type:scope_id", RawRule>` (prefixed key avoids cross-scope ID collision)
+4. For each item, walk its hierarchy and look up rules from the map — O(N) lookups instead of N×4 DB queries
+
+**Tables**: `fnb_course_definitions` (named course slots per location), `fnb_course_rules` (scope_type + scope_id + location_id, with course settings).
+
+**Commands**: `upsert-course-rule`, `delete-course-rule`, `bulk-apply-course-rule`.
+
+
+## §249 GL Posting Status Decoupling
+
+GL posting status is decoupled from operational batch/entity status to prevent GL failures from blocking business operations.
+
+**Pattern**: Add three columns to any entity that triggers GL posting:
+- `gl_posting_status` TEXT: `not_required | pending | posted | failed`
+- `gl_posting_error` TEXT: error message on failure (NULL on success)
+- `last_posting_attempt_at` TIMESTAMPTZ
+
+**Lifecycle in adapters**:
+```
+1. Mark pending:    SET gl_posting_status = 'pending', last_posting_attempt_at = NOW()
+                    WHERE gl_posting_status != 'posted'  -- never overwrite success
+2. On success:     SET gl_posting_status = 'posted', gl_posting_error = NULL,
+                    gl_journal_entry_id = {id}
+3. On failure:     SET gl_posting_status = 'failed', gl_posting_error = {message}
+```
+
+**Error classification**:
+- `PermanentPostingError` (missing settings/mappings) — log, do NOT retry. Business op still succeeds.
+- Transient errors (DB timeout, pool exhaustion) — re-throw for outbox retry.
+
+**All status updates are best-effort** — wrapped in try/catch that discards errors. A failed status-update must NEVER compound on a failed GL posting.
+
+**Why this matters**: GL adapters never throw (Gotcha #249). This pattern makes GL status queryable for admin dashboards and retry-batch-posting commands without coupling GL health to operational flow.
+
+
+## §250 GL Journal Source Idempotency Key
+
+Every GL journal entry created by an event consumer or adapter MUST include a `sourceIdempotencyKey` — a deterministic string that prevents double-posting at the DB level.
+
+**Schema**:
+```sql
+ALTER TABLE gl_journal_entries ADD COLUMN source_idempotency_key TEXT;
+CREATE UNIQUE INDEX uq_gl_journal_idempotency_key
+  ON gl_journal_entries (tenant_id, source_idempotency_key)
+  WHERE source_idempotency_key IS NOT NULL;
+```
+
+**Format**: `{module}:{action}:{primaryId}[:{secondaryId}...]`
+
+**Examples** (35+ adapters use this pattern):
+| Key | Adapter |
+|---|---|
+| `pos:tender:{tenderId}` | POS tender posting |
+| `pos:tender-reversal:{reversalId}` | POS reversal |
+| `fnb:close-batch:{closeBatchId}` | F&B batch close |
+| `payments:settlement:{settlementId}` | Settlement posting |
+| `void:{entryId}` | Journal void |
+| `voucher:purchase:{voucherId}` | Voucher purchase |
+| `inventory:receipt:{receiptId}` | Inventory receipt |
+| `chargeback:received:{chargebackId}` | Chargeback posting |
+
+**Rules**:
+1. Key must be deterministic — same input always produces same key (replay-safe)
+2. Include enough context to be globally unique within the tenant (add secondary IDs if needed)
+3. Use colons as delimiters, lowercase module names
+4. The DB unique index is the **real safety net** — `sourceReferenceId` is defense-in-depth only
+5. New adapters MUST set `sourceIdempotencyKey` — this is not optional
+
+
+## §251 Attrition Risk Score Pattern
+
+Platform-level (admin) analytics for tenant churn prediction. Uses INSERT-not-UPDATE for full history preservation.
+
+**Table**: `attrition_risk_scores` — NO RLS (admin-only, cross-tenant).
+
+**Schema design**:
+- `overall_score` (0–100, CHECK constrained) + `risk_level` (low|medium|high|critical)
+- **8 signal scores** (each 0–100): `login_decline_score`, `usage_decline_score`, `module_abandonment_score`, `user_shrinkage_score`, `error_frustration_score`, `breadth_narrowing_score`, `staleness_score`, `onboarding_stall_score`
+- `signal_details` (JSONB) — raw calculation inputs
+- `narrative` (TEXT) — AI-generated human-readable summary
+- Denormalized tenant context: `tenant_name`, `tenant_status`, `industry`, `health_grade`, `total_locations`, `total_users`, `active_modules`, `last_activity_at`
+- `status`: `open → reviewed → actioned → dismissed → superseded`
+
+**History pattern**: Each scoring run INSERTs new rows with `status='open'`. Previous scores for the same tenant are transitioned to `superseded`. This preserves full audit trail — never UPDATE scores.
+
+**Compound cursor pagination**: Index on `(overall_score DESC, scored_at DESC, id DESC)` for risk-sorted dashboard queries with stable cursor pagination.
+
+
+## §252 Settlement Tender Uniqueness
+
+Partial unique index prevents the same tender from being matched to multiple settlement lines:
+
+```sql
+CREATE UNIQUE INDEX uq_settlement_lines_tenant_tender
+  ON payment_settlement_lines (tenant_id, tender_id)
+  WHERE tender_id IS NOT NULL;
+```
+
+**Why partial**: `tender_id` is nullable — unmatched settlement lines have `NULL` and should not conflict. The index only enforces uniqueness on matched lines.
+
+**Defense-in-depth**: Application code also checks for existing matches before assignment, but the DB constraint is the real safety net against race conditions in concurrent settlement processing.
+
+**Settlement line statuses**: `pending | matched | posted | voided | failed | disputed` (CHECK constraint enforced).
+
+
+## §253 KDS Operational Hardening
+
+Production-ready KDS behavior documented from the March 2026 hardening sprint.
+
+### Terminal Session Location as Source of Truth
+
+The KDS station's location is resolved from the **terminal session**, not from `locations[0]` or a query parameter. The terminal session is set at KDS login and propagated via `X-Location-Id` header on all KDS API requests.
+
+```typescript
+// CORRECT — location from terminal session
+const locationId = ctx.locationId; // resolved by middleware from terminal session
+
+// WRONG — fallback to first location
+const locationId = ctx.locationId ?? tenant.locations[0]?.id; // ← stale, wrong location
+```
+
+### Strict Station Identity
+
+- Station is bound to a terminal session at startup
+- `X-Location-Id` header propagated on every KDS request
+- Station resolves its location from the terminal session, not from the station record
+- Multi-location tenants: each KDS station serves exactly one location
+
+### KDS "Clear" vs "Resolve" Semantics
+
+**Terminology change** (migration 0310): `resolved_at` → `cleared_at`, status `'resolved'` → `'cleared'` in `fnb_kds_send_tracking`.
+
+- **Clear**: a ticket/item is marked as done on the KDS display (bumped off screen)
+- The old term "resolve" was ambiguous with GL resolution and error resolution — "clear" is the kitchen-standard term
+
+### Send/Delete Decoupled from Ticket Void
+
+KDS send tracking records persist independently of ticket lifecycle:
+- Voiding a ticket does NOT delete its `fnb_kds_send_tracking` rows
+- This preserves the audit trail of what was sent to which station and when
+- KDS views filter by ticket status to hide voided items
+
+### Customer Board / Recall / Refire / Station Messages
+
+- **Customer board**: read-only customer-facing display showing order progress (ticket states)
+- **Recall**: bumped tickets re-enter the queue at their original station with original routing preserved
+- **Refire**: resend course items to kitchen with new delta chit, used for remakes
+- **Station messages**: free-text inter-station communication (e.g., expo → grill: "86 salmon")
+- **Course resend**: individual course items resent via delta chit to their routed station
+
+### Multi-Location KDS Behavior
+
+- Each KDS station belongs to exactly one location (resolved from terminal session)
+- Routing rules evaluate within the station's location scope
+- The `fnb_kitchen_tickets` view joins filter by `location_id` — stations never see tickets from other locations
+- Station-level settings (bump bar, alerts, prep times) are location-scoped
+
+
+## §254 Long-Running Accounting Recovery Flows
+
+Recovery flows that scan/fix large volumes of GL data must operate within serverless constraints (pool max:2, Vercel function timeout).
+
+### Recovery Flow Taxonomy
+
+| Flow | Purpose | Constraint |
+|------|---------|------------|
+| **Smart Resolve** | Identify + suggest fixes for GL posting gaps | Read-heavy, bounded suggestions list |
+| **GL Backfill** | Create missing GL entries from historical orders/tenders | Write-heavy, must be resumable |
+| **GL Remap** | Reassign GL entries to new account mappings | Read + write, preview before execute |
+| **Retry Buckets** | Re-attempt failed GL postings | Write, bounded by failure count |
+| **Reversal Repost** | Void incorrect GL entries + post corrected ones | Write, must be atomic per entry |
+| **GL Readiness** | Pre-close validation that all expected entries exist | Read-only diagnostic |
+
+### Serverless Constraints
+
+1. **Serialize DB operations**: use `for...of` loops, never `Promise.all()` for batch DB writes — prevents pool exhaustion
+2. **Bounded iteration**: every recovery flow has a `maxItems` parameter (default 100) to cap work per invocation
+3. **Resumable**: backfill/remap track progress via cursor/offset so they can resume across invocations
+4. **Timeout-aware**: flows that may exceed Vercel's 60s function timeout should be split into smaller chunks via cron
+5. **Never throw from adapters**: GL adapters distinguish `PermanentPostingError` (bad data, skip) from transient errors (retry)
+
+### Smart Resolve Pattern
+
+```typescript
+// smartResolve: suggest fixes, don't auto-apply
+const suggestions = await smartResolve(ctx, {
+  maxSuggestions: 50,
+  includeCategories: ['unmapped', 'failed', 'stale'],
+});
+// Each suggestion includes: category, entityId, currentState, suggestedAction, estimatedImpact
+```
+
+**Warning**: A single smart-resolve suggestion (e.g., "remap 500 tenders") can expand into many DB operations. Always preview counts before executing.
+
+### Adapter Error Categorization
+
+```typescript
+// Transient — retry later (pool exhaustion, timeout, lock contention)
+catch (e) { logGlPostingFailure(ctx, 'transient', e); return; }
+
+// Permanent — skip (missing mapping, invalid data, self-canceling entry)
+catch (e) { logGlPostingFailure(ctx, 'permanent', e); saveToUnmappedEvents(ctx, ...); return; }
+```
+
+GL adapters **never throw** — business operations (orders, tenders, voids) must always succeed regardless of GL status. Failed postings are logged to `gl_unmapped_events` for later recovery.
+
+### GL Posting Status Lifecycle
+
+Journal entries track posting status: `pending → posted → failed`. Best-effort status updates — the GL entry is created first, status updated after. If the status update fails, the entry still exists and can be reconciled.
+
+

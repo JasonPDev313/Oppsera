@@ -2,7 +2,7 @@
 
 > This file is extracted from CLAUDE.md. It documents everything built in the codebase.
 > Referenced by the slim CLAUDE.md for agents needing full build history.
-> **1,692 lines** — use the section index below to navigate by line range.
+> **~1,760 lines** — use the section index below to navigate by line range.
 
 ## Section Index
 
@@ -1273,6 +1273,70 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - **Accounting**: freight expense account migration, GL journal RLS optimization, tender reversal posting adapter improvements
   - **Semantic**: LLM executor/SQL generator updates, predictive forecaster improvements, seed data refresh
   - **Backup/restore**: direct DB connection for backup/restore to avoid Supavisor statement timeout, table discovery improvements
+- **KDS Operational Hardening — Phase 3** (Session 2026-03-06–13):
+  - **KDS Setup Wizard**: guided station creation with routing rules, bump bar profiles, alert configuration
+  - **Multi-location KDS**: terminal-session-based location resolution (source of truth), `X-Location-Id` header propagation, station identity bound to terminal session
+  - **Strict station identity**: station resolves location from terminal session, not `locations[0]` fallback
+  - **Customer board**: customer-facing order status display with ticket progress tracking
+  - **Recall/refire**: recalled tickets re-enter the queue with original routing, refire sends unsent courses
+  - **Station messages**: inter-station communication (free-text messages between KDS stations)
+  - **Course resend**: resend individual course items to kitchen with delta chit generation
+  - **KDS action naming**: `resolved` → `cleared` terminology change (migration 0310: `resolved_at` → `cleared_at`, status `'resolved'` → `'cleared'` in `fnb_kds_send_tracking`)
+  - **Send/delete decoupled from ticket void**: KDS sends persist independently — voiding a ticket doesn't delete its send tracking records
+  - **Order-status actions**: real-time order status progression visible from KDS station view
+  - **Routing engine tests**: comprehensive test coverage for routing priority cascade, condition matching, fallback logic
+  - **Retail-POS KDS routing**: retail orders route to KDS stations when `send-to-kds` is triggered from retail POS
+- **F&B Payments & Coursing** (Session 2026-03-06–13):
+  - **F&B payment flows**: complete payment lifecycle (session start → tender → close), split by seat/item/amount/even
+  - **Coursing rules**: 4-level hierarchy resolver (item → category → sub-department → department), batch resolution, additive `lockCourse` behavior
+  - **Venue/profit-center management**: venue-scoped F&B operations, profit center selection in terminal sessions
+  - **Manage tabs hardening**: floor/waitlist view improvements, tab state management, bulk operations
+- **Accounting Recovery Flows** (Session 2026-03-06–13):
+  - **Smart resolution**: `smartResolve` identifies and suggests fixes for GL posting gaps (unmapped events, failed postings, stale mappings)
+  - **GL backfill**: batch backfill of missing GL entries from historical orders/tenders with bounded iteration
+  - **GL remap/retry**: remap existing GL entries to new account mappings, retry failed postings with exponential backoff
+  - **Reversal repost**: void and repost corrected GL entries for reconciliation fixes
+  - **Audit coverage fixes**: `getAuditCoverage()` diagnostic enhanced to catch more gap categories
+  - **Gap accuracy**: GL posting gap detection refined — distinguishes between missing-mapping, failed-posting, and stale-data scenarios
+  - **Adapter error handling**: all 15+ GL adapters follow never-throw pattern with better error categorization (transient vs permanent)
+  - **Outbox reliability**: drain-outbox cron handles edge cases (partially-claimed events, stale claims)
+  - **Close/cash-flow/reporting**: strict period close validation, cash flow statement accuracy, reporting read model consistency checks
+- **Pool Guard & Circuit Breaker Hardening** (Session 2026-03-06–13):
+  - **Failure windows**: circuit breaker tracks failures within a sliding time window (not just count), auto-resets after success window
+  - **Stale-connection retry**: detects stale/terminated connections from Supavisor recycling, transparently retries on `ECONNRESET`/`57P01` (admin shutdown)
+  - **Manual breaker reset**: admin endpoint to manually reset tripped circuit breaker without restart
+  - **Safer health endpoints**: `/api/health` returns 200 even when DB is unhealthy (prevents cascading failure from health check load), full diagnostics on `/api/admin/health`
+  - **Safe JSON body parsing**: all API routes use `try/catch` around `req.json()` — malformed bodies return 400 instead of 500
+  - **Migration diagnostics**: `check-migrations.cjs` enhanced with production tracking table comparison
+  - **Edge bundling fixes**: middleware and edge functions properly exclude Node.js-only imports
+  - **DB loop serialization**: recovery flows with DB work serialized (for-of, not Promise.all) to stay within pool max:2
+- **Security & Auth Tightening** (Session 2026-03-06–13):
+  - **PII field encryption**: sensitive fields (SSN, tax ID) encrypted at rest via AES-256-GCM, returned masked (bullets + last 4)
+  - **PIN hardening**: manager PINs use timing-safe comparison (`crypto.timingSafeEqual`), rate-limited attempts
+  - **Masked errors**: error responses to clients never expose internal details (stack traces, SQL errors, table names)
+  - **Tenant scoping**: additional `tenantId` guards in UPDATE/DELETE WHERE clauses across newly-touched modules
+  - **Input validation tightening**: stricter Zod schemas on API inputs, length limits on text fields, numeric range validation
+- **Admin Portal Expansions** (Session 2026-03-06–13):
+  - **Business type manager**: full CRUD for business type blueprints with versioned configurations, provisioning runs, module/role/accounting template management
+  - **Provisioning system**: `runProvisioningForTenant` with step-by-step execution, retry on failure, progress tracking
+  - **Feature requests**: tenant-submitted feature requests with voting, status tracking, export
+  - **Attrition analytics**: tenant health scoring with 8 risk signals, historical trend tracking, compound cursor pagination
+  - **Finance admin views**: 6-tab finance panel (orders, refunds, voids, chargebacks, vouchers, close batches) with cross-tenant search
+- **PMS & Spa Improvements** (Session 2026-03-06–13):
+  - **PMS waitlist**: waitlist entry management with offer/accept/decline flow
+  - **PMS calendar**: condensed view improvements, date navigation, occupancy indicators
+  - **PMS folio**: folio posting and close flow fixes, balance validation
+  - **Spa scheduling**: appointment conflict detection improvements, provider availability edge cases
+  - **Spa calendar**: calendar view performance, time slot accuracy fixes
+- **Migrations 0280–0313** (Session 2026-03-06–13):
+  - KDS setup wizard tables, multi-location KDS support, station messages, customer board schema
+  - Accounting recovery flow tables (GL backfill tracking, remap audit log)
+  - Pool guard state persistence, circuit breaker config table
+  - PII encryption columns, PIN attempt tracking
+  - Business type provisioning runs and steps tables
+  - Feature requests table, attrition risk scores
+  - KDS send tracking terminology change (`resolved` → `cleared`)
+  - House account GL templates (migration 0313 — latest idx: 313)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
@@ -1682,6 +1746,17 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~Middleware & catalog read API improvements~~ ✓ DONE
 - ~~Membership recognition RLS policies~~ ✓ DONE
 - ~~Semantic module intelligence updates (predictive forecaster, background analyst)~~ ✓ DONE
+- ~~KDS operational hardening (setup wizard, multi-location, terminal-session identity, customer board, recall/refire, station messages)~~ ✓ DONE
+- ~~Accounting recovery flows (smart resolve, GL backfill/remap/retry, reversal repost, gap accuracy)~~ ✓ DONE
+- ~~Pool guard hardening (failure windows, stale-connection retry, breaker reset, safe health endpoints)~~ ✓ DONE
+- ~~Security tightening (PII encryption, PIN hardening, timing-safe compare, masked errors)~~ ✓ DONE
+- ~~Admin business type manager + provisioning system~~ ✓ DONE
+- ~~Feature requests + attrition analytics~~ ✓ DONE
+- ~~Finance admin views (6-tab panel)~~ ✓ DONE
+- ~~F&B payments + coursing rules (4-level hierarchy resolver)~~ ✓ DONE
+- ~~Safe JSON body parsing across all API routes~~ ✓ DONE
+- ~~KDS terminology change (resolved → cleared)~~ ✓ DONE
+- Run migrations 0277-0313 on dev DB
 - Run migrations 0224-0276 on dev DB
 - Run `tools/scripts/setup-spa-gl.ts` after spa migrations (creates GL accounts for spa adapters)
 - Intercompany commands/queries (schema is done, business logic pending)

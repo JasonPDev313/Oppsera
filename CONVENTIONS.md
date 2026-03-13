@@ -1,6 +1,6 @@
 # OppsEra — Conventions Index
 
-> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (12,395 lines, 247 numbered sections).
+> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (12,516 lines, 252 numbered sections).
 > Read only the sections you need by line range. Do NOT load the entire file into context.
 
 ---
@@ -323,7 +323,7 @@
 | §230 | Backup/Restore System | 11857–11902 | Direct connection, FK order, cursor export |
 | §231 | Reporting Consumer Patterns | 11903–11948 | Cents→dollars, ON CONFLICT additive |
 
-### Hardening Patterns (§232–§246) — Added 2026-03-05, §247 — 2026-03-08
+### Hardening Patterns (§232–§247) — Added 2026-03-05 through 2026-03-08
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
@@ -344,6 +344,18 @@
 | §246 | Emergency Cleanup Payment Verification | 12339–12356 | Verify SUM(tenders) >= total, location-scoped locks |
 | §247 | Help Tip Pattern | 12357–12395 | Portal-mounted `?` popover, placement props, first-visit auto-open, 3-cycle pulse |
 
+### Domain Patterns (§248–§254) — Added 2026-03-13
+
+| § | Section | Lines | Key Topics |
+|---|---------|-------|------------|
+| §248 | F&B Course Rule Hierarchy Resolver | 12396–12420 | 4-level scope resolution (item>category>sub_dept>dept), batch resolver, additive lockCourse |
+| §249 | GL Posting Status Decoupling | 12421–12447 | pending/posted/failed lifecycle, best-effort updates, PermanentPostingError vs transient |
+| §250 | GL Journal Source Idempotency Key | 12448–12481 | `{module}:{action}:{id}` format, 35+ adapters, partial unique index, DB-level dedup |
+| §251 | Attrition Risk Score Pattern | 12482–12500 | INSERT-not-UPDATE history, 8 signal scores, compound cursor, platform-level (no RLS) |
+| §252 | Settlement Tender Uniqueness | 12501–12516 | Partial unique index WHERE tender_id IS NOT NULL, defense-in-depth |
+| §253 | KDS Operational Hardening | 12518–12590 | Terminal-session location, strict station identity, clear vs resolve, send/delete decoupling, multi-location KDS, customer board/recall/refire |
+| §254 | Long-Running Accounting Recovery Flows | 12592–12660 | Smart resolve, GL backfill/remap/retry, reversal repost, serverless constraints, adapter error categorization, posting status lifecycle |
+
 ---
 
 ## Quick Section Lookup by Topic
@@ -352,9 +364,9 @@
 |-------|----------|
 | **Money (dollars vs cents)** | §21, §76, §183, §231 |
 | **Dark mode** | §15, §145, §172 |
-| **GL / Accounting** | §76–§80, §84, §114, §117–§118, §149, §177, §183, §185, §187–§188, §195–§197, §201–§203, §220, §238–§239 |
+| **GL / Accounting** | §76–§80, §84, §114, §117–§118, §149, §177, §183, §185, §187–§188, §195–§197, §201–§203, §220, §238–§239, §249–§250, §254 |
 | **POS** | §31–§35, §57, §61–§64, §132a, §140–§141, §164, §169, §196, §228 |
-| **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227, §240, §243, §246 |
+| **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227, §240, §243, §246, §248 |
 | **Vercel / Serverless** | §47, §81, §157, §161, §205–§206, §232 |
 | **Database / Schema** | §2, §18, §29–§30, §36, §47, §139, §179, §225, §241–§244 |
 | **Auth / Security** | §3, §13–§14, §38, §51, §67, §81, §119, §137, §207–§208, §223, §233, §242 |
@@ -366,13 +378,13 @@
 | **Settings / Config** | §90, §95, §110, §112, §115–§116, §130, §134b, §135b, §136, §142, §149, §155–§156, §165 |
 | **Inventory / Receiving** | §41, §53–§55, §58–§60 |
 | **Customer / Tags** | §39, §44, §125, §199, §237 |
-| **Admin Portal** | §73, §88, §91–§92, §119, §131a, §147, §180, §218, §229–§230 |
+| **Admin Portal** | §73, §88, §91–§92, §119, §131a, §147, §180, §218, §229–§230, §251 |
 | **Onboarding** | §42, §112, §144 |
-| **Payments / Tenders** | §35, §64, §96, §101–§102, §128, §140, §198, §239 |
-| **Infrastructure / Cron** | §47–§49, §83, §157, §161–§162, §167, §206, §226 |
+| **Payments / Tenders** | §35, §64, §96, §101–§102, §128, §140, §198, §239, §252 |
+| **Infrastructure / Cron** | §47–§49, §83, §157, §161–§162, §167, §206, §226, §254 |
 | **Frontend Patterns** | §15, §57, §228, §234–§237, §245, §247 |
 | **A11y / Accessibility** | §154, §174, §236 |
-| **KDS** | §176, §181, §222, §235, §240, §243 |
+| **KDS** | §176, §181, §222, §235, §240, §243, §253 |
 
 ---
 
@@ -380,7 +392,21 @@
 
 - **Duplicate section numbers**: §98, §131–§135 each appear twice in the file (legacy numbering). Disambiguated as `a`/`b` suffixes above.
 - **Unnumbered sections**: "Local Server Fix (Windows)" at line 7246 (between §127 and §128), and "Answer"/"Metrics in This Query" subsections within §74 at lines 4571–4652.
-- **Line ranges are exact** as of the current file (12,395 lines). If CONVENTIONS_FULL.md is edited, re-run: `grep -n "^## " docs/conventions/CONVENTIONS_FULL.md` to verify.
-- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (12,395 lines, 247 numbered sections)
-- **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (562 numbered gotchas)
+- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~12,660 lines, 254 numbered sections)
+- **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (570 numbered gotchas)
 - **What's Built / What's Next**: `docs/conventions/whats-built.md`
+
+## Line Range Accuracy
+
+Line ranges in this index are pinned to the last convention update (**2026-03-13**). They are only valid when CONVENTIONS_FULL.md has **not been edited** since that date.
+
+**If line ranges are stale** (e.g., you read a section and the heading doesn't match):
+1. Search by heading instead: `grep -n "^## §248" docs/conventions/CONVENTIONS_FULL.md`
+2. Use the section number + title from this index — those are stable even when line numbers shift
+
+**To rebuild this index** (run during deploy Step 3):
+```bash
+grep -n "^## " docs/conventions/CONVENTIONS_FULL.md
+wc -l docs/conventions/CONVENTIONS_FULL.md
+```
+Then update: (a) line ranges in every table row, (b) line count in the header and Notes section, (c) the pinned date above.

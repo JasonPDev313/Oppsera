@@ -222,6 +222,8 @@ export const accountingSettings = pgTable('accounting_settings', {
   defaultDeliveryCommissionAccountId: text('default_delivery_commission_account_id'),
   // ── Freight expense GL default (migration 0275) ──
   defaultFreightExpenseAccountId: text('default_freight_expense_account_id'),
+  // ── House account receivable GL default (migration 0313) ──
+  defaultHouseAccountReceivableAccountId: text('default_house_account_receivable_account_id'),
   // ── Multi-currency provisioning (migration 0121) ──
   supportedCurrencies: text('supported_currencies').array().notNull().default(sql`'{USD}'`),
   // ── Auto-close orchestrator (migration 0187) ──

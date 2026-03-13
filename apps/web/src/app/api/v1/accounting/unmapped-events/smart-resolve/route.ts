@@ -7,6 +7,8 @@ import {
   applySmartResolutions,
 } from '@oppsera/module-accounting';
 
+export const maxDuration = 60;
+
 const applySuggestionsSchema = z.object({
   suggestions: z.array(
     z.object({

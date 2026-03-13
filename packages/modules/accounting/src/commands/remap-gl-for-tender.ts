@@ -222,27 +222,37 @@ export async function remapGlForTender(
 }
 
 /**
- * Batch remap: processes multiple tenders, catches errors per-tender.
+ * Batch remap: processes multiple tenders with limited concurrency.
  * Returns results for each tender — never blocks the batch on a single failure.
+ *
+ * Concurrency is capped at 3 to stay within Vercel's DB pool limits (max: 2
+ * connections). Queries interleave across the pool while waiting for responses,
+ * giving ~3× throughput vs sequential without exhausting connections.
  */
 export async function batchRemapGlForTenders(
   ctx: RequestContext,
   tenderIds: string[],
   reason?: string,
 ): Promise<RemapResult[]> {
+  if (tenderIds.length === 0) return [];
+
+  const CONCURRENCY = 3;
   const results: RemapResult[] = [];
 
-  for (const tenderId of tenderIds) {
-    try {
-      const result = await remapGlForTender(ctx, tenderId, reason);
-      results.push(result);
-    } catch (error) {
-      results.push({
-        tenderId,
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
+  for (let i = 0; i < tenderIds.length; i += CONCURRENCY) {
+    const wave = tenderIds.slice(i, i + CONCURRENCY);
+    const waveResults = await Promise.all(
+      wave.map((tenderId) =>
+        remapGlForTender(ctx, tenderId, reason).catch(
+          (error): RemapResult => ({
+            tenderId,
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          }),
+        ),
+      ),
+    );
+    results.push(...waveResults);
   }
 
   return results;

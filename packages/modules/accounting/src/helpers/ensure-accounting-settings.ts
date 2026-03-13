@@ -32,6 +32,8 @@ const ACCOUNT_WIRING: Array<{
   { accountNumber: '6040', settingsField: 'defaultDeliveryCommissionAccountId' },
   { accountNumber: '1120', settingsField: 'defaultPettyCashAccountId' },
   { accountNumber: '2350', settingsField: 'defaultEmployeeReimbursableAccountId' },
+  // ── House account receivable (migration 0313) ──
+  { accountNumber: '1110', settingsField: 'defaultHouseAccountReceivableAccountId' },
 ];
 
 /**
@@ -213,8 +215,9 @@ const STANDARD_PAYMENT_TYPES = ['cash', 'card', 'check', 'ecom', 'ach'];
 const CLASS_SPECIFIC_PAYMENT_TYPES: Array<{
   paymentType: string;
   settingsField: string; // accounting_settings column for the preferred account
+  fallbackField?: string; // secondary fallback before generic deposit account
 }> = [
-  { paymentType: 'house_account', settingsField: 'defaultARControlAccountId' },
+  { paymentType: 'house_account', settingsField: 'defaultHouseAccountReceivableAccountId', fallbackField: 'defaultARControlAccountId' },
 ];
 
 async function ensureDefaultPaymentTypeMappings(
@@ -234,9 +237,10 @@ async function ensureDefaultPaymentTypeMappings(
 
     for (const spec of CLASS_SPECIFIC_PAYMENT_TYPES) {
       const preferredAccountId = mergedSettings[spec.settingsField] as string | null;
+      const fallbackAccountId = spec.fallbackField ? (mergedSettings[spec.fallbackField] as string | null) : null;
       allRows.push({
         paymentType: spec.paymentType,
-        accountId: preferredAccountId ?? depositAccountId,
+        accountId: preferredAccountId ?? fallbackAccountId ?? depositAccountId,
       });
     }
 

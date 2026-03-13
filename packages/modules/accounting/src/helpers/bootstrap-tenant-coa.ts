@@ -126,6 +126,7 @@ export async function bootstrapTenantCoa(
     '6040': 'delivery_commission',
     '1120': 'petty_cash',
     '2350': 'employee_reimbursable',
+    '1110': 'house_account_receivable',
   };
 
   // Pre-generate IDs and build a lookup by account number
@@ -201,6 +202,8 @@ export async function bootstrapTenantCoa(
   if (controlAccountIds['delivery_commission']) extendedDefaults.defaultDeliveryCommissionAccountId = controlAccountIds['delivery_commission'];
   if (controlAccountIds['petty_cash']) extendedDefaults.defaultPettyCashAccountId = controlAccountIds['petty_cash'];
   if (controlAccountIds['employee_reimbursable']) extendedDefaults.defaultEmployeeReimbursableAccountId = controlAccountIds['employee_reimbursable'];
+  // ── House account receivable (migration 0313) ──
+  if (controlAccountIds['house_account_receivable']) extendedDefaults.defaultHouseAccountReceivableAccountId = controlAccountIds['house_account_receivable'];
 
   if (Object.keys(extendedDefaults).length > 0) {
     try {

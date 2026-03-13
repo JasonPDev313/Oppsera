@@ -85,14 +85,15 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   const { tab, error: tabError, notFound: tabNotFound, refresh: refreshTab } = useFnbTab({ tabId });
   const {
     sessions,
-    startSession,
-    completeSession,
+    sessions,
+    startSession: _startSession,
+    completeSession: _completeSession,
     failSession,
-    recordTender,
+    recordTender: _recordTender,
     voidLastTender,
-    quickCashPayment,
+    quickCashPayment: _quickCashPayment,
     payTabUnified,
-    processCardPayment,
+    processCardPayment: _processCardPayment,
   } = usePaymentSession({ tabId: tabId ?? '', locationId });
   const { preauths, capturePreauth, voidPreauth } = usePreAuth({ tabId: tabId ?? undefined });
   const { adjustTip } = useTipActions();

@@ -289,6 +289,9 @@ export interface TenderForGlRepostData {
   totalTendered: number;
   businessDate: string;
   lines: TenderForGlRepostLineData[];
+  // ── Added for GL repost accuracy (migration 0313 hardening) ──
+  surchargeAmountCents?: number;
+  discountBreakdown?: Array<{ classification: string; amountCents: number }>;
 }
 
 // ── Reversal Repost Return Types ────────────────────────────

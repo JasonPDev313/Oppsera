@@ -120,6 +120,43 @@ When adding a new command that mutates data:
     [ ] Is the consumer registered in instrumentation.ts?
 ```
 
+## KDS / F&B Event Semantics (Updated March 2026)
+
+KDS events follow the standard naming convention but have domain-specific semantics:
+
+### Course Lifecycle Events
+
+| Event | Trigger | Consumers |
+|-------|---------|-----------|
+| `fnb.course.sent.v1` | Course fired to kitchen | KDS ticket creation, customer board |
+| `fnb.course.resent.v1` | Course items resent (remake) | KDS delta chit creation |
+| `fnb.ticket.cleared.v1` | Ticket bumped off KDS | Reporting, customer board update |
+| `fnb.ticket.recalled.v1` | Bumped ticket re-enters queue | KDS view refresh |
+
+**Terminology**: "cleared" (not "resolved") — the kitchen-standard term for bumping a ticket off the display. Migration 0310 renamed `resolved_at` → `cleared_at`.
+
+### KDS Identity & Routing Events
+
+- `fnb.station.heartbeat.v1` — station health check (periodic, not stored in outbox)
+- `fnb.kds.action_log.v1` — bump/recall/hold/message actions for audit trail
+- Station identity is bound to terminal session — events include `terminalSessionId` and `stationId`
+
+### Course Send/Fire Behavior
+
+```
+Course added to tab → status: unsent
+Fire course (manual or auto) → emits fnb.course.sent.v1 → creates KDS tickets per routing rules
+Refire (remake) → emits fnb.course.resent.v1 → creates delta chit at original station
+Void ticket → ticket status updated, but fnb_kds_send_tracking rows preserved (audit trail)
+```
+
+### KDS Clear Semantics
+
+- **First bump**: item status `pending/in_progress → ready` (prep complete)
+- **Second bump**: item status `ready → served` (expo cleared)
+- All bumps include `WHERE item_status = $currentStatus` as optimistic lock (prevents double-bump race)
+- Cleared tickets remain in the DB with `cleared_at` timestamp — never hard-deleted
+
 ## Audit
 
 Run `pnpm audit:arch:inventory` to see all 150+ consumer registrations extracted from `instrumentation.ts`. This is the live inventory — no separate doc to maintain.

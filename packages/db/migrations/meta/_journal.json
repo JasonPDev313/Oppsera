@@ -2192,6 +2192,13 @@
       "when": 1773452400000,
       "tag": "0312_accounting_settlement_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 313,
+      "version": "7",
+      "when": 1773538800000,
+      "tag": "0313_house_account_gl_templates",
+      "breakpoints": true
     }
   ]
 }

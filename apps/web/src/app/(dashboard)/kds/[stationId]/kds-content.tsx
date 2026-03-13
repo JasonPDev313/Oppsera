@@ -113,7 +113,7 @@ export default function KdsContent() {
     bumpItem,
     bumpTicket,
     recallItem,
-    callBack,
+    callBack: _callBack,
     refireItem,
     isActing,
     refresh,
