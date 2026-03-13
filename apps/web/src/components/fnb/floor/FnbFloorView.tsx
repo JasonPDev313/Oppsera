@@ -202,6 +202,14 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   // Derive locationId from the active room (needed for API calls)
   const locationId = activeRoom?.locationId ?? null;
 
+  // Push active room's locationId into the store so parent components
+  // (fnb-pos-content) can use it for settings fetches instead of locations[0].
+  // Cleanup on unmount prevents stale locationId when navigating away.
+  useEffect(() => {
+    store.setActiveLocationId(locationId);
+    return () => { store.setActiveLocationId(null); };
+  }, [locationId, store]);
+
   // ── Toast (global provider) ─────────────────────────────────
   const { toast } = useToast();
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { KdsTicketItem } from '@/types/fnb';
 
 interface TicketItemRowProps {
@@ -55,7 +56,33 @@ export function parseModifiers(modifierSummary: string | null): {
   return { cookTemp, noMods, regularMods };
 }
 
+/** Compact countdown timer showing remaining prep time */
+function PrepCountdown({ estimatedPrepSeconds, elapsedSeconds }: { estimatedPrepSeconds: number; elapsedSeconds: number }) {
+  const remaining = Math.max(0, estimatedPrepSeconds - elapsedSeconds);
+  const isOvertime = elapsedSeconds > estimatedPrepSeconds;
+  const overtime = elapsedSeconds - estimatedPrepSeconds;
+  const m = Math.floor((isOvertime ? overtime : remaining) / 60);
+  const s = (isOvertime ? overtime : remaining) % 60;
+  const label = isOvertime ? `+${m}:${s.toString().padStart(2, '0')}` : `${m}:${s.toString().padStart(2, '0')}`;
+  const color = isOvertime ? '#ef4444' : remaining < 60 ? '#f97316' : '#22c55e';
+
+  return (
+    <span
+      className={`shrink-0 text-[10px] font-bold fnb-mono rounded px-1.5 py-0.5 ${isOvertime ? 'animate-pulse' : ''}`}
+      style={{
+        color,
+        backgroundColor: isOvertime ? 'rgba(239, 68, 68, 0.25)' : `${color}15`,
+        border: isOvertime ? '1px solid rgba(239, 68, 68, 0.4)' : 'none',
+      }}
+      title={isOvertime ? `${Math.ceil(overtime / 60)}m over estimated prep time` : `${Math.ceil(remaining / 60)}m remaining`}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function TicketItemRow({ item, showSeat = true, onBump, density = 'standard', allDayCount }: TicketItemRowProps) {
+  const [isBumping, setIsBumping] = useState(false);
   const isReady = item.itemStatus === 'ready';
   const isServed = item.itemStatus === 'served';
   const isVoided = item.itemStatus === 'voided';
@@ -63,6 +90,25 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
   const isTappable = !!onBump && !isTerminal;
   const isRemake = item.specialInstructions?.startsWith('REMAKE:') ?? false;
   const { cookTemp, noMods, regularMods } = parseModifiers(item.modifierSummary ?? null);
+
+  const playBumpSound = () => {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.08);
+      setTimeout(() => ctx.close(), 150);
+    } catch {
+      // Audio not available
+    }
+  };
 
   // Touch-optimized sizes — kitchen monitors need large, well-spaced tap targets
   const itemTextSize = density === 'compact' ? 'text-base' : 'text-lg';
@@ -89,17 +135,39 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
         minHeight,
         opacity: isVoided ? 0.3 : isServed ? 0.4 : 1,
         textDecoration: isVoided ? 'line-through' : 'none',
-        backgroundColor: isServed
-          ? 'rgba(34, 197, 94, 0.1)'
-          : isReady
-            ? 'rgba(34, 197, 94, 0.05)'
-            : 'transparent',
+        backgroundColor: isBumping
+          ? 'rgba(34, 197, 94, 0.2)'
+          : isServed
+            ? 'rgba(34, 197, 94, 0.1)'
+            : isReady
+              ? 'rgba(34, 197, 94, 0.05)'
+              : item.isAllergy
+                ? 'rgba(245, 158, 11, 0.08)'
+                : 'transparent',
+        transition: 'background-color 0.15s ease',
+        borderLeft: item.isAllergy && !isTerminal ? '4px solid #f59e0b' : undefined,
         cursor: isTappable ? 'pointer' : 'default',
         // Active press feedback for touch
         WebkitTapHighlightColor: isTappable ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
       }}
-      onClick={isTappable ? () => onBump(item.itemId) : undefined}
-      onKeyDown={isTappable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onBump(item.itemId); } } : undefined}
+      onClick={isTappable ? () => {
+        setIsBumping(true);
+        navigator.vibrate?.(50);
+        playBumpSound();
+        onBump(item.itemId);
+        // Auto-clear after animation
+        setTimeout(() => setIsBumping(false), 600);
+      } : undefined}
+      onKeyDown={isTappable ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setIsBumping(true);
+          navigator.vibrate?.(50);
+          playBumpSound();
+          onBump(item.itemId);
+          setTimeout(() => setIsBumping(false), 600);
+        }
+      } : undefined}
     >
       {/* Item color stripe — station/category color coding */}
       {item.itemColor && (
@@ -153,7 +221,7 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
             <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.15)' }}>RUSH</span>
           )}
           {item.isAllergy && (
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.15)' }}>ALLERGY</span>
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded animate-pulse" style={{ color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.25)', border: '1px solid rgba(245,158,11,0.4)' }}>ALLERGY</span>
           )}
           {item.isVip && (
             <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ color: '#a855f7', backgroundColor: 'rgba(168,85,247,0.15)' }}>VIP</span>
@@ -187,19 +255,61 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
           </p>
         )}
 
-        {/* Special instructions */}
+        {/* Special instructions — more prominent for allergy items */}
         {item.specialInstructions && (
           <p
-            className={`${modTextSize} italic mt-1 rounded px-1.5 py-0.5`}
+            className={`${modTextSize} ${item.isAllergy ? 'font-bold' : 'italic'} mt-1 rounded px-1.5 py-0.5`}
             style={{
-              color: 'var(--fnb-status-check-presented)',
-              backgroundColor: 'rgba(245, 158, 11, 0.08)',
+              color: item.isAllergy ? '#ef4444' : 'var(--fnb-status-check-presented)',
+              backgroundColor: item.isAllergy ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.08)',
+              border: item.isAllergy ? '1px solid rgba(239, 68, 68, 0.2)' : undefined,
             }}
           >
-            ** {item.specialInstructions}
+            {item.isAllergy ? '⚠ ' : '** '}{item.specialInstructions}
           </p>
         )}
       </div>
+
+      {/* Prep countdown timer — shows remaining time when estimatedPrepSeconds is set */}
+      {!isTerminal && item.estimatedPrepSeconds != null && item.estimatedPrepSeconds > 0 && (
+        <PrepCountdown estimatedPrepSeconds={item.estimatedPrepSeconds} elapsedSeconds={item.elapsedSeconds} />
+      )}
+
+      {/* Bump affordance — visible indicator for tappable items */}
+      {(isTappable || isBumping) && (
+        <div aria-live="polite" className="shrink-0">
+          {isTappable && !isBumping && (
+            <span
+              className="flex items-center justify-center rounded-md text-[10px] font-bold uppercase tracking-wide"
+              style={{
+                minWidth: '44px',
+                minHeight: '36px',
+                padding: '4px 8px',
+                backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                color: '#818cf8',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+              }}
+            >
+              Bump
+            </span>
+          )}
+          {isBumping && (
+            <span
+              className="flex items-center justify-center rounded-md text-[10px] font-bold uppercase tracking-wide animate-pulse"
+              style={{
+                minWidth: '44px',
+                minHeight: '36px',
+                padding: '4px 8px',
+                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                color: '#22c55e',
+                border: '1px solid rgba(34, 197, 94, 0.4)',
+              }}
+            >
+              ✓
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Status indicator — large enough to see at a glance */}
       {isServed && (

@@ -27,6 +27,8 @@ export interface FnbPosState {
   activeNavTab: FnbNavTab;
   activeTabId: string | null;
   activeRoomId: string | null;
+  /** LocationId derived from the active room — kept in sync by FnbFloorView */
+  activeLocationId: string | null;
 
   // Draft order (unsent items staging area per tab)
   draftLines: Record<string, FnbDraftLine[]>;
@@ -72,6 +74,7 @@ export interface FnbPosActions {
   goBack: () => void;
   setActiveTab: (tabId: string | null) => void;
   setActiveRoom: (roomId: string) => void;
+  setActiveLocationId: (locationId: string | null) => void;
   setNavTab: (tab: FnbNavTab) => void;
 
   // Draft line management
@@ -170,6 +173,7 @@ const initialState: FnbPosState = {
   activeNavTab: 'tables',
   activeTabId: null,
   activeRoomId: getPersistedRoomId(),
+  activeLocationId: null,
   draftLines: {},
   activeSeatNumber: 1,
   activeCourseNumber: 1,
@@ -246,6 +250,12 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
       try {
         localStorage.setItem('oppsera:fnb-active-room', roomId);
       } catch { /* ignore */ }
+    },
+
+    setActiveLocationId: (locationId) => {
+      set((state) => {
+        state.activeLocationId = locationId;
+      });
     },
 
     setNavTab: (tab) => {
@@ -540,6 +550,7 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
       set(() => ({
         ...initialState,
         activeRoomId: null, // override persisted value on explicit reset
+        activeLocationId: null,
         leftHandMode: getPersistedLeftHandMode(), // preserve preference
         tileSize: getPersistedTileSize(), // preserve preference
         skipPaymentConfirm: getPersistedSkipConfirm(), // preserve preference

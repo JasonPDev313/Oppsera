@@ -67,7 +67,10 @@ export function useKdsView({
       if (locationId) params.set('locationId', locationId);
       const json = await apiFetch<{ data: KdsView }>(
         `/api/v1/fnb/stations/${stationId}/kds?${params}`,
-        { signal: controller.signal },
+        {
+          signal: controller.signal,
+          headers: locationId ? { 'X-Location-Id': locationId } : undefined,
+        },
       );
       // Guard: only apply state if this is still the current generation
       if (gen !== generationRef.current) return;
@@ -146,6 +149,7 @@ export function useKdsView({
       await apiFetch(url, {
         method: 'POST',
         body: JSON.stringify({ ...body, clientRequestId: crypto.randomUUID() }),
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
       });
       await fetchKds(true);
     } catch (err: unknown) {
@@ -156,7 +160,7 @@ export function useKdsView({
     } finally {
       setIsActing(false);
     }
-  }, [fetchKds]);
+  }, [fetchKds, locationId]);
 
   const bumpItem = useCallback(async (ticketItemId: string) => {
     if (!stationId || isActing) return;
@@ -191,6 +195,7 @@ export function useKdsView({
       await apiFetch(`/api/v1/fnb/stations/${stationId}${locQs}`, {
         method: 'PATCH',
         body: JSON.stringify({ rushMode: newVal }),
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
       });
       await fetchKds(true);
     } catch (err: unknown) {
@@ -200,7 +205,7 @@ export function useKdsView({
     } finally {
       setIsActing(false);
     }
-  }, [stationId, locQs, kdsView?.rushMode, fetchKds, isActing]);
+  }, [stationId, locQs, locationId, kdsView?.rushMode, fetchKds, isActing]);
 
   return { kdsView, isLoading, error, bumpItem, bumpTicket, recallItem, callBack, refireItem, toggleRushMode, isActing, refresh, lastRefreshedAt };
 }
@@ -255,7 +260,10 @@ export function useExpoView({
       if (locationId) params.set('locationId', locationId);
       const json = await apiFetch<{ data: ExpoView }>(
         `/api/v1/fnb/stations/expo?${params}`,
-        { signal: controller.signal },
+        {
+          signal: controller.signal,
+          headers: locationId ? { 'X-Location-Id': locationId } : undefined,
+        },
       );
       if (gen !== expoGenerationRef.current) return;
       setExpoView(json.data);
@@ -318,6 +326,7 @@ export function useExpoView({
       await apiFetch(`/api/v1/fnb/stations/expo${qs}`, {
         method: 'POST',
         body: JSON.stringify({ ticketId, clientRequestId: crypto.randomUUID() }),
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
       });
       await fetchExpo(true);
     } catch (err: unknown) {
@@ -360,6 +369,7 @@ export function useExpoHistory({
       if (locationId) params.set('locationId', locationId);
       const json = await apiFetch<{ data: ExpoHistory }>(
         `/api/v1/fnb/stations/expo/history?${params}`,
+        { headers: locationId ? { 'X-Location-Id': locationId } : undefined },
       );
       setHistory(json.data);
       setError(null);
@@ -401,7 +411,10 @@ export function useStations({ locationId }: UseStationsOptions) {
       try {
         const json = await apiFetch<{ data: FnbStation[] }>(
           `/api/v1/fnb/stations?locationId=${locationId}`,
-          { signal: controller.signal },
+          {
+            signal: controller.signal,
+            headers: { 'X-Location-Id': locationId },
+          },
         );
         setStations(json.data ?? []);
       } catch (err) {
@@ -433,6 +446,7 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
     try {
       const json = await apiFetch<{ data: FnbStation[] }>(
         `/api/v1/fnb/stations?locationId=${locationId}`,
+        { headers: { 'X-Location-Id': locationId } },
       );
       setStations(json.data ?? []);
     } catch {
@@ -468,7 +482,7 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
       const payload: Record<string, unknown> = {
         name: String(input.name).trim(),
         displayName: String(input.displayName || input.name).trim(),
-        clientRequestId: `create-station-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        clientRequestId: crypto.randomUUID(),
       };
       if (input.stationType) payload.stationType = String(input.stationType);
       if (input.color) payload.color = String(input.color);
@@ -478,6 +492,7 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
       await apiFetch(`/api/v1/fnb/stations?locationId=${locationId}`, {
         method: 'POST',
         body: JSON.stringify(payload),
+        headers: { 'X-Location-Id': locationId },
       });
       await fetchStations();
     } finally {
@@ -502,8 +517,9 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
         method: 'PATCH',
         body: JSON.stringify({
           ...input,
-          clientRequestId: `update-station-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          clientRequestId: crypto.randomUUID(),
         }),
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
       });
       await fetchStations();
     } finally {
@@ -521,6 +537,7 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
       const params = locationId ? `?locationId=${locationId}` : '';
       await apiFetch(`/api/v1/fnb/stations/${stationId}${params}`, {
         method: 'DELETE',
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
       });
       await fetchStations();
     } finally {
@@ -595,7 +612,7 @@ export function useKdsStationCounts(locationId: string) {
     try {
       const json = await apiFetch<{ data: KdsStationCount[] }>(
         `/api/v1/fnb/kitchen/station-counts?locationId=${locationId}`,
-        { signal },
+        { signal, headers: { 'X-Location-Id': locationId } },
       );
       const map = new Map<string, number>();
       for (const c of json.data) {

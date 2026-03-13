@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { useTerminalSession } from '@/components/terminal-session-provider';
 import { useExpoView, useExpoHistory, useKdsLocationCounts } from '@/hooks/use-fnb-kitchen';
@@ -29,9 +29,24 @@ const PAUSED_INTERVAL = 999_999_999;
 
 export default function ExpoContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { locations } = useAuthContext();
   const { session: terminalSession } = useTerminalSession();
-  const [locationId, setLocationId] = useState(() => terminalSession?.locationId ?? locations?.[0]?.id ?? '');
+  const [locationId, setLocationId] = useState(() => {
+    const fromUrl = searchParams.get('locationId');
+    if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
+    return terminalSession?.locationId ?? locations?.[0]?.id ?? '';
+  });
+  // Detect if the URL had a locationId that didn't match any known location
+  const locationFellBack = (() => {
+    const fromUrl = searchParams.get('locationId');
+    return fromUrl !== null && !locations?.some((l) => l.id === fromUrl);
+  })();
+  const resolvedLocationName = locations?.find((l) => l.id === locationId)?.name;
+  const changeLocation = useCallback((newId: string) => {
+    setLocationId(newId);
+    router.replace(`/expo?locationId=${newId}`, { scroll: false });
+  }, [router]);
   const hasMultipleLocations = (locations?.length ?? 0) > 1;
   const locationCounts = useKdsLocationCounts(locations?.map((l) => l.id) ?? []);
 
@@ -83,7 +98,8 @@ export default function ExpoContent() {
     try {
       await apiFetch(`/api/v1/fnb/kitchen/tickets/${ticketId}/fire`, {
         method: 'POST',
-        body: JSON.stringify({ clientRequestId: `fire-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }),
+        body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
       });
       refresh();
     } catch (err: unknown) {
@@ -93,7 +109,7 @@ export default function ExpoContent() {
     } finally {
       setIsFiring(false);
     }
-  }, [refresh]);
+  }, [refresh, locationId]);
 
   const recallTicket = useCallback(async (ticketId: string) => {
     setIsFiring(true);
@@ -101,7 +117,8 @@ export default function ExpoContent() {
     try {
       await apiFetch(`/api/v1/fnb/kitchen/tickets/${ticketId}/recall`, {
         method: 'POST',
-        body: JSON.stringify({ clientRequestId: `recall-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }),
+        body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
       });
       refresh();
     } catch (err: unknown) {
@@ -111,7 +128,26 @@ export default function ExpoContent() {
     } finally {
       setIsFiring(false);
     }
-  }, [refresh]);
+  }, [refresh, locationId]);
+
+  const voidTicket = useCallback(async (ticketId: string) => {
+    setIsFiring(true);
+    setActionError(null);
+    try {
+      await apiFetch(`/api/v1/fnb/kitchen/tickets/${ticketId}/void`, {
+        method: 'POST',
+        body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
+      });
+      refresh();
+    } catch (err: unknown) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setActionError(err instanceof Error ? err.message : 'Void failed');
+      }
+    } finally {
+      setIsFiring(false);
+    }
+  }, [refresh, locationId]);
 
   // Filter and sort tickets
   const filteredTickets = useMemo(() => {
@@ -207,7 +243,7 @@ export default function ExpoContent() {
             <MapPin className="h-3.5 w-3.5" style={{ color: 'var(--fnb-text-muted)' }} />
             <select
               value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
+              onChange={(e) => changeLocation(e.target.value)}
               className="rounded-md border px-2 py-1 text-xs font-medium"
               style={{
                 backgroundColor: 'var(--fnb-bg-elevated)',
@@ -285,6 +321,17 @@ export default function ExpoContent() {
           </button>
         </div>
       </div>
+
+      {/* Location mismatch warning */}
+      {locationFellBack && (
+        <div className="flex items-center gap-2 px-4 py-2 text-xs font-medium shrink-0"
+          style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', borderBottom: '1px solid rgba(239, 68, 68, 0.2)' }}>
+          <MapPin className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            Location mismatch — URL location not found. Showing data for <strong>{resolvedLocationName}</strong>.
+          </span>
+        </div>
+      )}
 
       {/* Kitchen Behind banner */}
       <KitchenBehindBanner
@@ -373,7 +420,8 @@ export default function ExpoContent() {
                     <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
                       warningThresholdSeconds={warnSeconds} criticalThresholdSeconds={critSeconds}
                       onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
-                      disabled={isActing || isFiring} />
+                      onVoidTicket={voidTicket} disabled={isActing || isFiring}
+                      kdsLocationId={locationId} />
                   ))}
                 </div>
               ) : (
@@ -382,7 +430,8 @@ export default function ExpoContent() {
                     <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
                       warningThresholdSeconds={warnSeconds} criticalThresholdSeconds={critSeconds}
                       onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
-                      disabled={isActing || isFiring} />
+                      onVoidTicket={voidTicket} disabled={isActing || isFiring}
+                      kdsLocationId={locationId} />
                   ))}
                 </div>
               )}

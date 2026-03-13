@@ -90,8 +90,9 @@ export async function getExpoView(
   input: GetExpoViewInput,
 ): Promise<ExpoView> {
   return withTenant(input.tenantId, async (tx) => {
-    // Get all active tickets — no business_date filter so stale tickets
-    // from previous days remain visible until bumped or voided.
+    // Get active tickets from the last 24 hours. Tickets older than 24h are
+    // almost certainly stale (never bumped/voided) and should not clutter the
+    // expo view. Operators can still void old tickets via the void button.
     const ticketRows = await tx.execute(
       sql`SELECT id, ticket_number, tab_id, course_number, status,
                  priority_level, is_held, order_type, channel,
@@ -102,6 +103,7 @@ export async function getExpoView(
           WHERE tenant_id = ${input.tenantId}
             AND location_id = ${input.locationId}
             AND status IN ('pending', 'in_progress', 'ready')
+            AND sent_at > NOW() - INTERVAL '24 hours'
           ORDER BY priority_level DESC NULLS LAST, sent_at ASC
           LIMIT ${input.limit ?? 200}`,
     );

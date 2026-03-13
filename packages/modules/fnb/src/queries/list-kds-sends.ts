@@ -9,6 +9,7 @@ export interface KdsSendListItem {
   ticketId: string;
   ticketNumber: number;
   orderId: string | null;
+  locationId: string;
   stationId: string;
   stationName: string;
   terminalName: string | null;
@@ -137,6 +138,7 @@ export async function listKdsSends(input: ListKdsSendsInput): Promise<KdsSendLis
       ticketId: r.ticket_id as string,
       ticketNumber: Number(r.ticket_number),
       orderId: (r.order_id as string) ?? null,
+      locationId: r.location_id as string,
       stationId: r.station_id as string,
       stationName: r.station_name as string,
       terminalName: (r.terminal_name as string) ?? null,

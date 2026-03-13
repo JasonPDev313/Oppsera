@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { useTerminalSession } from '@/components/terminal-session-provider';
 import { apiFetch } from '@/lib/api-client';
@@ -107,6 +107,7 @@ function KpiCard({ label, value, icon: Icon, accent }: {
 // ── Main Component ───────────────────────────────────────────────
 
 export default function KdsOrderStatusContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { locations } = useAuthContext();
   const { session: terminalSession } = useTerminalSession();
@@ -120,6 +121,16 @@ export default function KdsOrderStatusContent() {
     if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
     return terminalSession?.locationId ?? locations?.[0]?.id;
   });
+  // Detect if the URL had a locationId that didn't match any known location
+  const locationFellBack = (() => {
+    const fromUrl = searchParams.get('locationId');
+    return fromUrl !== null && !locations?.some((l) => l.id === fromUrl);
+  })();
+  const resolvedLocationName = locations?.find((l) => l.id === locationId)?.name;
+  const changeLocation = useCallback((newId: string) => {
+    setLocationId(newId);
+    router.replace(`/kds/order-status?locationId=${newId}`, { scroll: false });
+  }, [router]);
 
   useEffect(() => {
     if (!locationId) {
@@ -186,7 +197,10 @@ export default function KdsOrderStatusContent() {
           params.set('sendToken', searchQuery.trim());
         }
       }
-      const json = await apiFetch<ListResponse>(`/api/v1/fnb/kds-order-status?${params}`, { signal });
+      const json = await apiFetch<ListResponse>(`/api/v1/fnb/kds-order-status?${params}`, {
+        signal,
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
+      });
       if (signal?.aborted) return;
       if (resetCursor) {
         setSends(json.data);
@@ -249,7 +263,9 @@ export default function KdsOrderStatusContent() {
   const openDetail = async (sendId: string) => {
     setDetailLoading(true);
     try {
-      const json = await apiFetch<{ data: KdsSendDetail }>(`/api/v1/fnb/kds-order-status/${sendId}`);
+      const json = await apiFetch<{ data: KdsSendDetail }>(`/api/v1/fnb/kds-order-status/${sendId}`, {
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
+      });
       setSelectedSend(json.data);
     } catch (err) {
       console.error('[kds-order-status] detail fetch failed', err);
@@ -457,6 +473,17 @@ export default function KdsOrderStatusContent() {
         />
       )}
 
+      {/* Location mismatch warning */}
+      {locationFellBack && (
+        <div className="flex items-center gap-2 px-6 py-2 text-xs font-medium"
+          style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', borderBottom: '1px solid rgba(239, 68, 68, 0.2)' }}>
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            Location mismatch — URL location not found. Showing data for <strong>{resolvedLocationName}</strong>.
+          </span>
+        </div>
+      )}
+
       {/* Filters row */}
       <div className="border-b border-border px-6 py-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -495,7 +522,7 @@ export default function KdsOrderStatusContent() {
           {!showDateFilter && (locations?.length ?? 0) > 1 && (
             <select
               value={locationId ?? ''}
-              onChange={(e) => setLocationId(e.target.value)}
+              onChange={(e) => changeLocation(e.target.value)}
               aria-label="Location"
               className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >

@@ -20,5 +20,5 @@ export const POST = withMiddleware(
     const result = await bulkClearKdsSends(ctx, parsed.data.sendIds, parsed.data.reason);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'kds', permission: 'kds.manage', writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.manage', writeAccess: true, requireLocation: true },
 );

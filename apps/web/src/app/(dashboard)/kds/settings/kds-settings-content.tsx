@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { KdsSettingsPanel } from '@/components/fnb/kds-settings-panel';
 import { useStations } from '@/hooks/use-fnb-kitchen';
@@ -10,6 +10,7 @@ import { Wand2, MapPin, Info } from 'lucide-react';
 import { getKdsLocations, resolveInitialKdsLocationId } from '@/lib/kds-location';
 
 export default function KdsSettingsContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { locations } = useAuthContext();
   const kdsLocations = getKdsLocations(locations);
@@ -29,6 +30,10 @@ export default function KdsSettingsContent() {
     }
   }, [locationId, kdsLocations, searchParams]);
 
+  const changeLocation = useCallback((newId: string) => {
+    setLocationId(newId);
+    router.replace(`/kds/settings?locationId=${newId}`, { scroll: false });
+  }, [router]);
   const hasMultipleLocations = kdsLocations.length > 1;
   const locationName = kdsLocations.find((l) => l.id === locationId)?.name ?? '';
   const { stations, isLoading: stationsLoading } = useStations({ locationId });
@@ -53,7 +58,7 @@ export default function KdsSettingsContent() {
               <span className="text-sm font-medium text-muted-foreground">Location:</span>
               <select
                 value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
+                onChange={(e) => changeLocation(e.target.value)}
                 className="rounded-lg border border-input bg-surface px-3 py-1.5 text-sm font-semibold text-foreground focus:border-indigo-500 focus:outline-none"
               >
                 {kdsLocations.map((loc) => (

@@ -540,86 +540,26 @@ function parseTextArray(value: unknown): string[] {
 /**
  * Resolves the effective KDS location for routing and ticket creation.
  *
- * KDS routing rules and stations may be configured at a different location
- * level than where tabs are created. For example, tabs may be created at the
- * "site" level (the physical property) while routing rules exist at the
- * "venue" level (an operational unit within the site), or vice versa.
+ * Previously this function promoted across site↔venue hierarchy (e.g., if a
+ * tab was at a site but routing rules existed at a child venue, it would
+ * return the venue's locationId). This caused a read/write mismatch: the
+ * frontend queries tickets at the tab's location, but tickets were written
+ * to a promoted location the frontend couldn't see.
  *
- * Resolution order:
- *   1. If routing rules exist at the given locationId → use it
- *   2. If this is a site → check child venues for rules
- *   3. If this is a venue → check parent site for rules
- *   4. Fallback → return original locationId (fallback routing will apply)
+ * Production diagnostics (2026-03-12) confirmed no active mismatch at any
+ * tenant — tickets are stored at the same location as their tabs. The
+ * frontend KDS location utility (`kds-location.ts`) explicitly enforces
+ * no-promotion. This function now matches that invariant.
+ *
+ * Stations and routing rules should be configured at the same location
+ * where tabs are created. If a tenant needs KDS at multiple hierarchy
+ * levels, they should configure stations at each level independently.
  */
 export async function resolveKdsLocationId(
-  tenantId: string,
+  _tenantId: string,
   locationId: string,
 ): Promise<string> {
-  return withTenant(tenantId, async (tx) => {
-    // 1. Check if routing rules exist at the given location
-    const ruleCountRows = await tx.execute(
-      sql`SELECT COUNT(*)::int AS cnt FROM fnb_kitchen_routing_rules
-          WHERE tenant_id = ${tenantId} AND location_id = ${locationId} AND is_active = true`,
-    );
-    const ruleCount = Number(
-      Array.from(ruleCountRows as Iterable<Record<string, unknown>>)[0]?.cnt ?? 0,
-    );
-
-    if (ruleCount > 0) {
-      return locationId; // Rules exist here — use this location
-    }
-
-    // 2. Look up location type and parent
-    const locRows = await tx.execute(
-      sql`SELECT id, location_type, parent_location_id FROM locations
-          WHERE tenant_id = ${tenantId} AND id = ${locationId} LIMIT 1`,
-    );
-    const loc = Array.from(locRows as Iterable<Record<string, unknown>>)[0];
-    if (!loc) return locationId;
-
-    const locationType = loc.location_type as string;
-    const parentLocationId = loc.parent_location_id as string | null;
-
-    if (locationType === 'site') {
-      // 3a. Site → check child venues for rules
-      const venueRows = await tx.execute(
-        sql`SELECT l.id FROM locations l
-            JOIN fnb_kitchen_routing_rules r ON r.location_id = l.id AND r.tenant_id = l.tenant_id AND r.is_active = true
-            WHERE l.tenant_id = ${tenantId} AND l.parent_location_id = ${locationId}
-            LIMIT 1`,
-      );
-      const venue = Array.from(venueRows as Iterable<Record<string, unknown>>)[0];
-      if (venue) {
-        logger.info('[kds] resolveKdsLocationId: promoting to venue (site has no rules)', {
-          domain: 'kds', tenantId, originalLocationId: locationId,
-          resolvedLocationId: venue.id as string, direction: 'site→venue',
-        });
-        return venue.id as string;
-      }
-    } else if (locationType === 'venue' && parentLocationId) {
-      // 3b. Venue → check parent site for rules
-      const parentRuleRows = await tx.execute(
-        sql`SELECT COUNT(*)::int AS cnt FROM fnb_kitchen_routing_rules
-            WHERE tenant_id = ${tenantId} AND location_id = ${parentLocationId} AND is_active = true`,
-      );
-      const parentCount = Number(
-        Array.from(parentRuleRows as Iterable<Record<string, unknown>>)[0]?.cnt ?? 0,
-      );
-      if (parentCount > 0) {
-        logger.info('[kds] resolveKdsLocationId: falling back to site (venue has no rules)', {
-          domain: 'kds', tenantId, originalLocationId: locationId,
-          resolvedLocationId: parentLocationId, direction: 'venue→site',
-        });
-        return parentLocationId;
-      }
-    }
-
-    // 4. No rules found anywhere — return original (fallback routing applies)
-    logger.warn('[kds] resolveKdsLocationId: no routing rules at any related location', {
-      domain: 'kds', tenantId, locationId, locationType,
-    });
-    return locationId;
-  });
+  return locationId;
 }
 
 // ── Prep Time Helpers ───────────────────────────────────────────

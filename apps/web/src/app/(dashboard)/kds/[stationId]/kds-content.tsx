@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
 import { useAuthContext } from '@/components/auth-provider';
 import { useTerminalSession } from '@/components/terminal-session-provider';
@@ -13,10 +13,16 @@ import { AllDaySummary } from '@/components/fnb/kitchen/AllDaySummary';
 import { ItemSummaryPanel, ItemSummaryToggle } from '@/components/fnb/kitchen/ItemSummaryPanel';
 import { KitchenBehindBanner } from '@/components/fnb/kitchen/KitchenBehindBanner';
 import { StaleDataBanner } from '@/components/fnb/kitchen/StaleDataBanner';
+import { CourseTimeline } from '@/components/fnb/kitchen/CourseTimeline';
+// Station messaging hidden for launch — local-only state, does not reach other stations.
+// Requires Supabase Realtime broadcast or a backend table before re-enabling.
+// import { StationMessages, StationMessageToggle, StationMessagePanel } from '@/components/fnb/kitchen/StationMessages';
+import { RecallRefireDialog } from '@/components/fnb/kitchen/RecallRefireDialog';
+import { apiFetch } from '@/lib/api-client';
 import {
   ArrowLeft, LayoutGrid, LayoutList, SplitSquareHorizontal,
   Keyboard as KeyboardIcon, Hand, Pause, Play,
-  Minimize2, Maximize2, History, MapPin,
+  Minimize2, Maximize2, History, MapPin, HelpCircle,
 } from 'lucide-react';
 
 type ViewMode = 'ticket_rail' | 'grid' | 'split';
@@ -25,15 +31,63 @@ type Density = 'compact' | 'standard' | 'comfortable';
 // Effectively infinite interval to stop polling when paused
 const PAUSED_INTERVAL = 999_999_999;
 
+// ── Smart Auto-Prioritization (#3) ─────────────────────────────────
+// Score each ticket for intelligent sorting. Higher score = show first.
+function computePriorityScore(ticket: {
+  priorityLevel: number;
+  elapsedSeconds: number;
+  items: Array<{ isRush: boolean; isAllergy: boolean; isVip: boolean; itemStatus: string }>;
+  estimatedPickupAt: string | null;
+  orderType: string | null;
+  alertLevel?: 'normal' | 'warning' | 'critical';
+}): number {
+  let score = ticket.priorityLevel * 1000;
+
+  // Allergy items get highest boost — safety critical
+  if (ticket.items.some((i) => i.isAllergy)) score += 5000;
+  // VIP items get a significant boost
+  if (ticket.items.some((i) => i.isVip)) score += 3000;
+  // Rush items get a boost
+  if (ticket.items.some((i) => i.isRush)) score += 2000;
+
+  // Alert level boost — overdue tickets must be addressed
+  if (ticket.alertLevel === 'critical') score += 4000;
+  else if (ticket.alertLevel === 'warning') score += 1500;
+
+  // Elapsed time — longer wait = higher priority (normalized to ~0-1000 range)
+  score += Math.min(ticket.elapsedSeconds / 2, 1000);
+
+  // Pickup ETA approaching — boost takeout/delivery with imminent pickup
+  if (ticket.estimatedPickupAt) {
+    const pickupMs = new Date(ticket.estimatedPickupAt).getTime();
+    const minutesUntilPickup = (pickupMs - Date.now()) / 60000;
+    if (minutesUntilPickup < 5) score += 3000;      // under 5 min — urgent
+    else if (minutesUntilPickup < 15) score += 1500; // under 15 min — high
+    else if (minutesUntilPickup < 30) score += 500;  // under 30 min — medium
+  }
+
+  // Partially ready tickets get a small boost (finish what you started)
+  const readyCount = ticket.items.filter((i) => i.itemStatus === 'ready').length;
+  const activeCount = ticket.items.filter((i) => i.itemStatus !== 'voided').length;
+  if (readyCount > 0 && readyCount < activeCount) score += 800;
+
+  return score;
+}
 
 export default function KdsContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const stationId = params.stationId as string;
   const { locations } = useAuthContext();
   const { session: terminalSession } = useTerminalSession();
-  const locationId = terminalSession?.locationId ?? locations?.[0]?.id;
+  const fromUrl = searchParams.get('locationId');
+  const locationIdFromUrl = fromUrl && locations?.some((l) => l.id === fromUrl) ? fromUrl : null;
+  const locationId = locationIdFromUrl ?? terminalSession?.locationId ?? locations?.[0]?.id;
+  // Detect silent fallback: URL had a locationId but it didn't match any known location
+  const locationFellBack = fromUrl !== null && locationIdFromUrl === null;
+  const resolvedLocationName = locations?.find((l) => l.id === locationId)?.name;
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>('ticket_rail');
@@ -43,6 +97,14 @@ export default function KdsContent() {
   const [isPaused, setIsPaused] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showHistory, setShowHistory] = useState(true);
+  // Station messaging disabled for launch (local-only — see StationMessages.tsx)
+  // const [showMessages, setShowMessages] = useState(false);
+  const [recallRefire, setRecallRefire] = useState<{
+    mode: 'recall' | 'refire';
+    itemId: string;
+    itemName: string;
+  } | null>(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const {
     kdsView,
@@ -66,15 +128,42 @@ export default function KdsContent() {
     enabled: !isPaused,
   });
 
-  // Actions available for future UI wiring (context menu, long-press, etc.)
-  void recallItem; void callBack; void refireItem;
+  // ── Recall/Refire with reason (#10) ──────────────────────────────
+  const handleRecallWithReason = useCallback(async (reason: string) => {
+    if (!recallRefire) return;
+    if (recallRefire.mode === 'recall') {
+      await recallItem(recallRefire.itemId);
+    } else {
+      await refireItem(recallRefire.itemId, reason);
+    }
+    setRecallRefire(null);
+  }, [recallRefire, recallItem, refireItem]);
 
-  // Sort tickets by priority (higher first), then by elapsed time (longer first)
+  // ── Fire course from KDS timeline ─────────────────────────────────
+  const handleFireCourse = useCallback(async (tabId: string, courseNumber: number) => {
+    // Find a ticket for this tab to use as the anchor for the KDS fire-course endpoint
+    const ticket = kdsView?.tickets.find((t) => t.tabId === tabId);
+    if (!ticket) return;
+    try {
+      await apiFetch(`/api/v1/fnb/tickets/${ticket.ticketId}/fire-course`, {
+        method: 'POST',
+        body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
+      });
+      refresh();
+    } catch {
+      // Refresh anyway to show current state
+      refresh();
+    }
+  }, [kdsView?.tickets, locationId, refresh]);
+
+  // ── Smart auto-prioritization sort (#3) ──────────────────────────
   const sortedTickets = useMemo(() => {
     if (!kdsView?.tickets) return [];
     return [...kdsView.tickets].sort((a, b) => {
-      if (b.priorityLevel !== a.priorityLevel) return b.priorityLevel - a.priorityLevel;
-      return b.elapsedSeconds - a.elapsedSeconds;
+      const scoreA = computePriorityScore(a);
+      const scoreB = computePriorityScore(b);
+      return scoreB - scoreA;
     });
   }, [kdsView?.tickets]);
 
@@ -94,7 +183,7 @@ export default function KdsContent() {
   // ── Keyboard handler ──────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isActing) return;
+      if (isActing || recallRefire) return;
 
       // Density shortcuts (always active)
       if (e.key === '1') { setDensity('compact'); return; }
@@ -159,14 +248,16 @@ export default function KdsContent() {
           break;
         case 'Escape':
           e.preventDefault();
-          router.push('/kds');
+          if (showShortcuts) { setShowShortcuts(false); return; }
+          if (recallRefire) { setRecallRefire(null); return; }
+          router.push(locationId ? `/kds?locationId=${locationId}` : '/kds');
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [inputMode, isActing, sortedTickets, focusedTicketIdx, bumpTicket, refresh, router]);
+  }, [inputMode, isActing, sortedTickets, focusedTicketIdx, bumpTicket, refresh, router, recallRefire, showShortcuts, locationId]);
 
   // Auto-scroll focused ticket into view
   useEffect(() => {
@@ -179,9 +270,25 @@ export default function KdsContent() {
   // Expo stations use a dedicated aggregated view — redirect there
   useEffect(() => {
     if (kdsView?.stationType === 'expo') {
-      router.replace('/expo');
+      router.replace(locationId ? `/expo?locationId=${locationId}` : '/expo');
     }
-  }, [kdsView?.stationType, router]);
+  }, [kdsView?.stationType, router, locationId]);
+
+  // Auto-fullscreen for kiosk/dedicated terminals
+  useEffect(() => {
+    // Only prompt if: standalone display mode OR no fine pointer (touch-only device)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isTouchOnly = window.matchMedia('(pointer: coarse) and (hover: none)').matches;
+    if ((isStandalone || isTouchOnly) && document.documentElement.requestFullscreen && !document.fullscreenElement) {
+      // Small delay to let the page render first
+      const timer = setTimeout(() => {
+        document.documentElement.requestFullscreen().catch(() => {
+          // Fullscreen not available or denied — no problem
+        });
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // ── Loading / Error states ────────────────────────────────────
   if (isLoading && !kdsView) {
@@ -204,7 +311,7 @@ export default function KdsContent() {
           <p className="text-xs mb-4" style={{ color: 'var(--fnb-text-muted)' }}>
             This station may not exist at the current location. Check that your POS and KDS are using the same location.
           </p>
-          <button type="button" onClick={() => router.push('/kds')}
+          <button type="button" onClick={() => router.push(locationId ? `/kds?locationId=${locationId}` : '/kds')}
             className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
             style={{ backgroundColor: 'var(--fnb-status-seated)' }}>
             Back to Stations
@@ -218,10 +325,20 @@ export default function KdsContent() {
 
   return (
     <div className="flex flex-col h-screen" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
+      {/* Recall/Refire dialog overlay (#10) */}
+      {recallRefire && (
+        <RecallRefireDialog
+          mode={recallRefire.mode}
+          itemName={recallRefire.itemName}
+          onConfirm={handleRecallWithReason}
+          onCancel={() => setRecallRefire(null)}
+        />
+      )}
+
       {/* Header bar */}
       <div className="flex items-center shrink-0">
-        <button type="button" onClick={() => router.push('/kds')}
-          className="flex items-center justify-center h-full px-3 border-r transition-colors hover:opacity-80"
+        <button type="button" onClick={() => router.push(locationId ? `/kds?locationId=${locationId}` : '/kds')}
+          className="flex items-center justify-center h-full px-3 border-r transition-colors hover:opacity-80 min-h-11 min-w-11"
           style={{ backgroundColor: 'var(--fnb-bg-surface)', borderColor: 'rgba(148, 163, 184, 0.15)', color: 'var(--fnb-text-secondary)' }}>
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -229,13 +346,21 @@ export default function KdsContent() {
           <StationHeader kdsView={kdsView} />
         </div>
         {/* Location badge — always visible so users know which location this KDS serves */}
-        {terminalSession?.locationName && (
+        {resolvedLocationName && (
           <div className="flex items-center gap-1.5 px-3 py-1.5 shrink-0"
-            style={{ backgroundColor: 'var(--fnb-bg-surface)', borderLeft: '1px solid rgba(148, 163, 184, 0.15)' }}>
-            <MapPin className="h-3.5 w-3.5 text-indigo-400" />
-            <span className="text-xs font-medium" style={{ color: 'var(--fnb-text-secondary)' }}>
-              {terminalSession.locationName}
+            style={{
+              backgroundColor: locationFellBack ? 'rgba(239, 68, 68, 0.1)' : 'var(--fnb-bg-surface)',
+              borderLeft: `1px solid ${locationFellBack ? 'rgba(239, 68, 68, 0.3)' : 'rgba(148, 163, 184, 0.15)'}`,
+            }}>
+            <MapPin className="h-3.5 w-3.5" style={{ color: locationFellBack ? '#ef4444' : '#818cf8' }} />
+            <span className="text-xs font-medium" style={{ color: locationFellBack ? '#ef4444' : 'var(--fnb-text-secondary)' }}>
+              {resolvedLocationName}
             </span>
+            {locationFellBack && (
+              <span className="text-[10px] font-bold uppercase" style={{ color: '#ef4444' }}>
+                (fallback)
+              </span>
+            )}
           </div>
         )}
 
@@ -246,7 +371,7 @@ export default function KdsContent() {
             const Icon = mode === 'grid' ? LayoutGrid : mode === 'split' ? SplitSquareHorizontal : LayoutList;
             return (
               <button key={mode} type="button" onClick={() => setViewMode(mode)}
-                className="p-1.5 rounded transition-colors"
+                className="p-2.5 rounded transition-colors min-h-11 min-w-11 flex items-center justify-center"
                 style={{
                   backgroundColor: viewMode === mode ? 'rgba(99,102,241,0.2)' : 'transparent',
                   color: viewMode === mode ? 'var(--fnb-status-seated)' : 'var(--fnb-text-muted)',
@@ -262,13 +387,14 @@ export default function KdsContent() {
           {/* Density toggle */}
           <button type="button"
             onClick={() => setDensity((d) => d === 'compact' ? 'standard' : d === 'standard' ? 'comfortable' : 'compact')}
-            className="px-2 py-1 rounded text-[10px] font-medium transition-colors"
+            className="px-2.5 py-1.5 rounded text-[10px] font-medium transition-colors min-h-11 flex items-center gap-1.5"
             style={{
               backgroundColor: 'rgba(148, 163, 184, 0.08)',
               color: 'var(--fnb-text-muted)',
             }}
             title="Cycle density (1/2/3)">
-            {density === 'compact' ? <Minimize2 className="h-3.5 w-3.5" /> : density === 'comfortable' ? <Maximize2 className="h-3.5 w-3.5" /> : <LayoutList className="h-3.5 w-3.5" />}
+            {density === 'compact' ? <Minimize2 className="h-4 w-4" /> : density === 'comfortable' ? <Maximize2 className="h-4 w-4" /> : <LayoutList className="h-4 w-4" />}
+            <span className="text-[10px] uppercase tracking-wide">{density}</span>
           </button>
 
           <div className="w-px h-5 mx-1" style={{ backgroundColor: 'rgba(148, 163, 184, 0.15)' }} />
@@ -278,7 +404,7 @@ export default function KdsContent() {
 
           {/* History toggle */}
           <button type="button" onClick={() => setShowHistory(!showHistory)}
-            className="p-1.5 rounded transition-colors"
+            className="p-2.5 rounded transition-colors min-h-11 min-w-11 flex items-center justify-center"
             style={{
               backgroundColor: showHistory ? 'rgba(34, 197, 94, 0.2)' : 'transparent',
               color: showHistory ? '#22c55e' : 'var(--fnb-text-muted)',
@@ -289,7 +415,7 @@ export default function KdsContent() {
 
           {/* Input mode toggle */}
           <button type="button" onClick={() => setInputMode(inputMode === 'touch' ? 'bump_bar' : 'touch')}
-            className="p-1.5 rounded transition-colors"
+            className="p-2.5 rounded transition-colors min-h-11 min-w-11 flex items-center justify-center"
             style={{
               backgroundColor: inputMode === 'bump_bar' ? 'rgba(99,102,241,0.2)' : 'transparent',
               color: inputMode === 'bump_bar' ? 'var(--fnb-status-seated)' : 'var(--fnb-text-muted)',
@@ -304,7 +430,7 @@ export default function KdsContent() {
               setIsPaused(!isPaused);
               if (resuming) refresh();
             }}
-            className="p-1.5 rounded transition-colors"
+            className="p-2.5 rounded transition-colors min-h-11 min-w-11 flex items-center justify-center"
             style={{
               backgroundColor: isPaused ? 'rgba(239,68,68,0.2)' : 'transparent',
               color: isPaused ? '#ef4444' : 'var(--fnb-text-muted)',
@@ -312,16 +438,46 @@ export default function KdsContent() {
             title={isPaused ? 'Resume auto-refresh' : 'Pause auto-refresh'}>
             {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
           </button>
+
+          {/* Shortcuts hint */}
+          <button type="button" onClick={() => setShowShortcuts(!showShortcuts)}
+            className="p-2.5 rounded transition-colors min-h-11 min-w-11 flex items-center justify-center"
+            style={{
+              backgroundColor: showShortcuts ? 'rgba(99,102,241,0.2)' : 'transparent',
+              color: showShortcuts ? 'var(--fnb-status-seated)' : 'var(--fnb-text-muted)',
+            }}
+            title="Keyboard shortcuts (?)">
+            <HelpCircle className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
-      {/* Kitchen Behind banner */}
-      <KitchenBehindBanner
-        tickets={sortedTickets}
-        warningThresholdSeconds={kdsView.warningThresholdSeconds}
-        criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
-      />
-      <StaleDataBanner lastRefreshedAt={lastRefreshedAt} />
+      {/* Banners area — capped to prevent pushing tickets off-screen */}
+      <div className="shrink-0 max-h-50 overflow-y-auto">
+        {/* Location mismatch warning */}
+        {locationFellBack && (
+          <div className="flex items-center gap-2 px-4 py-2 text-xs font-medium"
+            style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', borderBottom: '1px solid rgba(239, 68, 68, 0.2)' }}>
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            <span>
+              Location mismatch — URL location not found. Showing data for <strong>{resolvedLocationName}</strong>.
+              If this is wrong, go back and select the correct location.
+            </span>
+          </div>
+        )}
+        <KitchenBehindBanner
+          tickets={sortedTickets}
+          warningThresholdSeconds={kdsView.warningThresholdSeconds}
+          criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
+        />
+        <StaleDataBanner lastRefreshedAt={lastRefreshedAt} />
+
+        {/* Course Timeline / Fire Queue (#6) */}
+        {kdsView.upcomingCourses && kdsView.upcomingCourses.length > 0 && (
+          <CourseTimeline courses={kdsView.upcomingCourses} onFireCourse={handleFireCourse} />
+        )}
+
+      </div>
 
       {/* Bump bar mode indicator */}
       {inputMode === 'bump_bar' && (
@@ -329,6 +485,20 @@ export default function KdsContent() {
           style={{ backgroundColor: 'rgba(99,102,241,0.1)', color: 'var(--fnb-status-seated)' }}>
           <KeyboardIcon className="h-3 w-3" />
           Bump Bar — ←/→ Navigate | Enter Bump | 1/2/3 Density | G Grid | R Rail | S Summary | P Pause | Esc Back
+        </div>
+      )}
+
+      {/* Keyboard shortcuts overlay */}
+      {showShortcuts && (
+        <div className="shrink-0 px-4 py-2 flex flex-wrap gap-x-6 gap-y-1 text-[11px] border-b" role="status" aria-live="polite"
+          style={{ backgroundColor: 'var(--fnb-bg-elevated)', borderColor: 'rgba(148, 163, 184, 0.15)', color: 'var(--fnb-text-muted)' }}>
+          <span><kbd className="font-bold" style={{ color: 'var(--fnb-text-secondary)' }}>R</kbd> Rail view</span>
+          <span><kbd className="font-bold" style={{ color: 'var(--fnb-text-secondary)' }}>G</kbd> Grid view</span>
+          <span><kbd className="font-bold" style={{ color: 'var(--fnb-text-secondary)' }}>S</kbd> Summary</span>
+          <span><kbd className="font-bold" style={{ color: 'var(--fnb-text-secondary)' }}>H</kbd> History</span>
+          <span><kbd className="font-bold" style={{ color: 'var(--fnb-text-secondary)' }}>P</kbd> Pause</span>
+          <span><kbd className="font-bold" style={{ color: 'var(--fnb-text-secondary)' }}>1/2/3</kbd> Density</span>
+          <span><kbd className="font-bold" style={{ color: 'var(--fnb-text-secondary)' }}>Esc</kbd> Back</span>
         </div>
       )}
 
@@ -341,6 +511,12 @@ export default function KdsContent() {
               <div className="text-center">
                 <p className="text-lg font-bold" style={{ color: 'var(--fnb-text-muted)' }}>All Clear</p>
                 <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>No active tickets</p>
+                <div className="flex items-center justify-center gap-2 mt-3" aria-live="polite">
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: isPaused ? '#ef4444' : '#22c55e', animation: isPaused ? 'none' : 'pulse 2s ease-in-out infinite' }} />
+                  <span className="text-[11px]" style={{ color: 'var(--fnb-text-muted)' }}>
+                    {isPaused ? 'Polling paused' : 'Connected — polling every 5s'}
+                  </span>
+                </div>
               </div>
             </div>
           ) : viewMode === 'grid' ? (
@@ -361,6 +537,7 @@ export default function KdsContent() {
                     disabled={isActing}
                     density={density}
                     allDayCounts={allDayCounts}
+                    kdsLocationId={locationId}
                   />
                 </div>
               ))}
@@ -458,6 +635,7 @@ export default function KdsContent() {
                     disabled={isActing}
                     density={density}
                     allDayCounts={allDayCounts}
+                    kdsLocationId={locationId}
                   />
                 </div>
               ))}
@@ -465,7 +643,7 @@ export default function KdsContent() {
           )}
         </div>
 
-        {/* Item summary panel (right side) */}
+        {/* Item summary panel (right side) — enhanced with batch prep mode (#4) */}
         {showSummary && (
           <ItemSummaryPanel
             tickets={kdsView.tickets}

@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { useTerminalSession } from '@/components/terminal-session-provider';
 import { useStations, useKdsLocationCounts, useKdsStationCounts } from '@/hooks/use-fnb-kitchen';
-import { ArrowLeft, MapPin, AlertTriangle, Settings2 } from 'lucide-react';
+import { ArrowLeft, MapPin, AlertTriangle, Settings2, LayoutList, Activity, Monitor } from 'lucide-react';
 import { getKdsLocations, resolveInitialKdsLocationId } from '@/lib/kds-location';
 
 const STATION_TYPE_COLORS: Record<string, string> = {
@@ -36,6 +36,10 @@ export default function KdsSelectorContent() {
     const candidate = terminalSession?.locationId ?? locations?.[0]?.id ?? '';
     return resolveInitialKdsLocationId(candidate) || kdsLocations[0]?.id || '';
   });
+  const changeLocation = useCallback((newId: string) => {
+    setLocationId(newId);
+    router.replace(`/kds?locationId=${newId}`, { scroll: false });
+  }, [router]);
   const { stations, isLoading } = useStations({ locationId });
   const locationCounts = useKdsLocationCounts(kdsLocations.map((l) => l.id));
   const stationCounts = useKdsStationCounts(locationId);
@@ -85,7 +89,7 @@ export default function KdsSelectorContent() {
               <>
                 <select
                   value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
+                  onChange={(e) => changeLocation(e.target.value)}
                   className="rounded-lg border px-3 py-1.5 text-sm font-medium"
                   style={{
                     backgroundColor: 'var(--fnb-bg-elevated)',
@@ -127,7 +131,7 @@ export default function KdsSelectorContent() {
           </div>
           <button
             type="button"
-            onClick={() => router.push('/kds/settings')}
+            onClick={() => router.push(`/kds/settings?locationId=${locationId}`)}
             className="flex items-center justify-center rounded-lg h-10 w-10 transition-colors hover:opacity-80"
             style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-secondary)' }}
             aria-label="KDS Settings"
@@ -165,7 +169,7 @@ export default function KdsSelectorContent() {
             </p>
             <div className="flex flex-col gap-2 mt-5 w-full max-w-xs">
               <a
-                href="/kds/setup"
+                href={`/kds/setup?locationId=${locationId}`}
                 className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white"
                 style={{ backgroundColor: '#6366f1' }}
               >
@@ -179,6 +183,7 @@ export default function KdsSelectorContent() {
             </div>
           </div>
         ) : (
+          <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-3xl mx-auto">
             {hasExpo && (() => {
               // Expo shows all tickets across all stations
@@ -186,7 +191,7 @@ export default function KdsSelectorContent() {
               return (
                 <button
                   type="button"
-                  onClick={() => router.push('/expo')}
+                  onClick={() => router.push(`/expo?locationId=${locationId}`)}
                   className="relative flex flex-col items-center justify-center rounded-xl p-6 transition-colors hover:opacity-80"
                   style={{
                     backgroundColor: 'var(--fnb-bg-surface)',
@@ -229,7 +234,7 @@ export default function KdsSelectorContent() {
                 <button
                   key={station.id}
                   type="button"
-                  onClick={() => router.push(`/kds/${station.id}`)}
+                  onClick={() => router.push(`/kds/${station.id}?locationId=${locationId}`)}
                   className="relative flex flex-col items-center justify-center rounded-xl p-6 transition-colors hover:opacity-80"
                   style={{
                     backgroundColor: 'var(--fnb-bg-surface)',
@@ -270,6 +275,50 @@ export default function KdsSelectorContent() {
               );
             })}
           </div>
+
+          {/* Utility views */}
+          <div className="flex flex-wrap gap-3 max-w-3xl mx-auto mt-6 pt-6 border-t" style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}>
+            <button
+              type="button"
+              onClick={() => router.push(`/kds/all?locationId=${locationId}`)}
+              className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors hover:opacity-80"
+              style={{
+                backgroundColor: 'var(--fnb-bg-surface)',
+                border: '1px solid rgba(148, 163, 184, 0.15)',
+                color: 'var(--fnb-text-secondary)',
+              }}
+            >
+              <LayoutList className="h-4 w-4" style={{ color: '#8b5cf6' }} />
+              All Orders
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(`/kds/order-status?locationId=${locationId}`)}
+              className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors hover:opacity-80"
+              style={{
+                backgroundColor: 'var(--fnb-bg-surface)',
+                border: '1px solid rgba(148, 163, 184, 0.15)',
+                color: 'var(--fnb-text-secondary)',
+              }}
+            >
+              <Activity className="h-4 w-4" style={{ color: '#f59e0b' }} />
+              Send Status
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(`/kds/customer-board?locationId=${locationId}`)}
+              className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors hover:opacity-80"
+              style={{
+                backgroundColor: 'var(--fnb-bg-surface)',
+                border: '1px solid rgba(148, 163, 184, 0.15)',
+                color: 'var(--fnb-text-secondary)',
+              }}
+            >
+              <Monitor className="h-4 w-4" style={{ color: '#22c55e' }} />
+              Customer Board
+            </button>
+          </div>
+          </>
         )}
       </div>
     </div>

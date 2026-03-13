@@ -82,6 +82,7 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@oppsera/db', () => ({
   withTenant: vi.fn(async (_tenantId: string, fn: (tx: unknown) => unknown) => fn(mockTx)),
+  sqlArray: (values: string[]) => values,
   fnbKitchenTickets: {
     id: 'fnbKitchenTickets.id',
     tenantId: 'fnbKitchenTickets.tenantId',

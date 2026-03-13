@@ -39,5 +39,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'kds', permission: 'kds.view', writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.view', writeAccess: true, requireLocation: true },
 );

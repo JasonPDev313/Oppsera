@@ -373,6 +373,10 @@ export interface KdsTicketCard {
   alertLevel?: 'normal' | 'warning' | 'critical';
   /** Items grouped by course — only populated when items have courseName */
   courseGroups?: { courseName: string; items: KdsTicketItem[] }[];
+  /** Total active items across ALL stations for this order/tab */
+  totalOrderItems?: number;
+  /** Total ready items across ALL stations for this order/tab */
+  totalOrderReadyItems?: number;
 }
 
 export interface KdsCompletedTicket {
@@ -383,6 +387,16 @@ export interface KdsCompletedTicket {
   itemCount: number;
   completedAt: string;
   completedSecondsAgo: number;
+}
+
+/** Upcoming course that has not yet been fired */
+export interface KdsUpcomingCourse {
+  tabId: string;
+  courseNumber: number;
+  courseName: string | null;
+  courseStatus: string;
+  itemCount: number;
+  tableNumber: number | null;
 }
 
 export interface KdsView {
@@ -396,6 +410,10 @@ export interface KdsView {
   tickets: KdsTicketCard[];
   activeTicketCount: number;
   recentlyCompleted: KdsCompletedTicket[];
+  /** Count of tickets served/ready today at this station */
+  servedTodayCount: number;
+  /** Upcoming courses (held/unsent) for tabs with active tickets */
+  upcomingCourses: KdsUpcomingCourse[];
 }
 
 // ── Expo View ─────────────────────────────────────────────────────

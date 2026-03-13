@@ -165,6 +165,8 @@ export async function getKdsAllTickets(
         alertLevel: Number(t.elapsed_seconds) >= criticalThreshold ? 'critical' :
           Number(t.elapsed_seconds) >= warningThreshold ? 'warning' : 'normal',
         courseGroups: buildCourseGroups(items),
+        totalOrderItems: items.length,
+        totalOrderReadyItems: items.filter((i) => i.itemStatus === 'ready').length,
       });
     }
 

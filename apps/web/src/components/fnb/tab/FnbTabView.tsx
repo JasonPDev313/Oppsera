@@ -273,6 +273,40 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
 
   const [toastMsg, setToastMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Resolve the location name for a KDS send result (cross-location observability)
+  const resolveLocationName = useCallback((locId: string | undefined) => {
+    if (!locId) return undefined;
+    return locations?.find((l) => l.id === locId)?.name;
+  }, [locations]);
+
+  // Wrap sendCourse to surface KDS warnings + cross-location alerts as toast
+  const sendCourseWithWarning = useCallback(async (courseNumber: number) => {
+    try {
+      const result = await sendCourse(courseNumber);
+      // Surface cross-location routing — operator is at location A but tickets landed at B
+      if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId) {
+        const destName = resolveLocationName(result.effectiveKdsLocationId) ?? result.effectiveKdsLocationId;
+        const msg = result.warning
+          ? `${result.warning} (routed to ${destName})`
+          : `Course sent to KDS at ${destName} (different from current location)`;
+        setToastMsg({ type: 'error', text: msg });
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = setTimeout(() => setToastMsg(null), 8000);
+        return;
+      }
+      if (result?.warning) {
+        setToastMsg({ type: 'error', text: result.warning });
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = setTimeout(() => setToastMsg(null), 8000);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to send course';
+      setToastMsg({ type: 'error', text: msg });
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToastMsg(null), 8000);
+    }
+  }, [sendCourse, kdsLocationId, resolveLocationName]);
+
   // Clear toast timer on unmount to prevent setState on unmounted component
   useEffect(() => {
     return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
@@ -386,8 +420,19 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     }
 
     // 2. Send all unsent courses (including newly created ones)
+    const kdsWarnings: string[] = [];
     for (const courseNumber of courseNumbersToSend) {
-      await sendCourse(courseNumber);
+      const result = await sendCourse(courseNumber);
+      if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId) {
+        const destName = resolveLocationName(result.effectiveKdsLocationId) ?? result.effectiveKdsLocationId;
+        kdsWarnings.push(`Course ${courseNumber} routed to ${destName} (different location)`);
+      }
+      if (result?.warning) kdsWarnings.push(result.warning);
+    }
+    if (kdsWarnings.length > 0) {
+      setToastMsg({ type: 'error', text: kdsWarnings[0]! });
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToastMsg(null), 8000);
     }
 
     // 3. Auto-advance active course so new items go to a fresh unsent course.
@@ -674,7 +719,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
                 activeCourse={activeCourse}
                 courseNames={courseNames}
                 draftLines={draftLines}
-                onSendCourse={sendCourse}
+                onSendCourse={sendCourseWithWarning}
                 onFireCourse={fireCourse}
                 kdsSendEnabled={kdsSendEnabled}
                 disabled={isActing}
@@ -941,7 +986,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
             activeCourse={activeCourse}
             courseNames={courseNames}
             draftLines={draftLines}
-            onSendCourse={sendCourse}
+            onSendCourse={sendCourseWithWarning}
             onFireCourse={fireCourse}
             kdsSendEnabled={kdsSendEnabled}
           />

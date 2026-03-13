@@ -21,7 +21,10 @@ const CONCURRENCY_LIMIT = parseInt(process.env.DB_CONCURRENCY || String(POOL_MAX
 const BREAKER_COOLDOWN_MS = 10_000;
 const BREAKER_MAX_COOLDOWN_MS = 60_000;
 // After this many consecutive trips, reset the connection pool (stale connections).
-const POOL_RESET_THRESHOLD = 3;
+// Set to 1: on Vercel, stale connections from frozen instances are the #1 cause of
+// breaker trips. Resetting the pool immediately creates fresh TCP connections,
+// cutting recovery from ~70s (3 trips × backoff) to ~10s (1 trip + cooldown).
+const POOL_RESET_THRESHOLD = 1;
 // After this many consecutive trips, force breaker closed (dead man's switch).
 // Better to let some requests through and fail naturally than to stay dead forever.
 const DEAD_MANS_SWITCH_THRESHOLD = 50;

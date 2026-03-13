@@ -27,21 +27,41 @@ export const POST = withMiddleware(
     // Post-send verification: check if the inline event consumer created tickets.
     // By the time sendCourse returns, publishWithOutbox has already awaited inline dispatch.
     // If no tickets exist, the consumer silently failed — surface this to the POS.
-    let kdsStatus: { ticketCount: number; warning?: string } = { ticketCount: 0 };
+    let kdsStatus: {
+      ticketCount: number;
+      warning?: string;
+      effectiveKdsLocationId?: string;
+      ticketIds?: string[];
+      stationIds?: string[];
+    } = { ticketCount: 0 };
     try {
       const ticketRows = await withTenant(ctx.tenantId, (tx) =>
         tx.execute(sql`
-          SELECT count(*)::int AS cnt
-          FROM fnb_kitchen_tickets
-          WHERE tenant_id = ${ctx.tenantId}
-            AND tab_id = ${tabId}
-            AND course_number = ${parsed.data.courseNumber}
+          SELECT kt.id, kt.location_id,
+                 array_agg(DISTINCT kti.station_id) AS station_ids
+          FROM fnb_kitchen_tickets kt
+          INNER JOIN fnb_kitchen_ticket_items kti ON kti.ticket_id = kt.id
+          WHERE kt.tenant_id = ${ctx.tenantId}
+            AND kt.tab_id = ${tabId}
+            AND kt.course_number = ${parsed.data.courseNumber}
+          GROUP BY kt.id, kt.location_id
         `),
       );
-      const cnt = Number(
-        Array.from(ticketRows as Iterable<Record<string, unknown>>)[0]?.cnt ?? 0,
-      );
-      kdsStatus = { ticketCount: cnt };
+      const rows = Array.from(ticketRows as Iterable<Record<string, unknown>>);
+      const cnt = rows.length;
+      const ticketIds = rows.map((r) => r.id as string);
+      const stationIdSet = new Set<string>();
+      for (const r of rows) {
+        const sids = r.station_ids as string[] | null;
+        if (sids) for (const sid of sids) stationIdSet.add(sid);
+      }
+      const effectiveLocationId = (rows[0]?.location_id as string) ?? ctx.locationId;
+      kdsStatus = {
+        ticketCount: cnt,
+        effectiveKdsLocationId: effectiveLocationId,
+        ticketIds,
+        stationIds: [...stationIdSet],
+      };
       if (cnt === 0) {
         // No tickets created — run resend with diagnostics to find out WHY.
         // This both creates the tickets (if routing succeeds) and returns the failure trace.
@@ -50,7 +70,7 @@ export const POST = withMiddleware(
             tabId,
             courseNumber: parsed.data.courseNumber,
           });
-          (kdsStatus as Record<string, unknown>).ticketCount = resendResult.ticketsCreated;
+          kdsStatus.ticketCount = resendResult.ticketsCreated;
           (kdsStatus as Record<string, unknown>).diagnosis = resendResult.diagnosis;
           (kdsStatus as Record<string, unknown>).errors = resendResult.errors;
           if (resendResult.ticketsCreated === 0) {

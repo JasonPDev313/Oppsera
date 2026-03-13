@@ -9,16 +9,15 @@ export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const parts = request.nextUrl.pathname.split('/');
     const stationId = parts[parts.length - 2]!;
-    const url = new URL(request.url);
 
     const view = await getKdsView({
       tenantId: ctx.tenantId,
       stationId,
-      locationId: ctx.locationId ?? url.searchParams.get('locationId') ?? '',
-      businessDate: url.searchParams.get('businessDate') || new Date().toISOString().slice(0, 10), // UTC fallback — client should always send businessDate
+      locationId: ctx.locationId!, // guaranteed by requireLocation: true
+      businessDate: request.nextUrl.searchParams.get('businessDate') || new Date().toISOString().slice(0, 10),
     });
 
     return NextResponse.json({ data: view });
   },
-  { entitlement: 'kds', permission: 'kds.view' },
+  { entitlement: 'kds', permission: 'kds.view', requireLocation: true },
 );

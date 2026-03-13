@@ -52,8 +52,11 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
   const setCourseNames = useFnbPosStore((s) => s.setCourseNames);
   const setCourseRulesMap = useFnbPosStore((s) => s.setCourseRulesMap);
 
-  // Fetch fnb_ordering settings (course names, etc.) and push into store
-  const locationId = locations[0]?.id;
+  // Use the active room's locationId from the store (set by FnbFloorView)
+  // so settings are fetched for the correct venue. Falls back to locations[0]
+  // on first render before the floor view has resolved the active room.
+  const activeLocationId = useFnbPosStore((s) => s.activeLocationId);
+  const locationId = activeLocationId ?? locations[0]?.id;
   const { settings: orderingSettings } = useFnbSettings({
     moduleKey: 'fnb_ordering',
     locationId,

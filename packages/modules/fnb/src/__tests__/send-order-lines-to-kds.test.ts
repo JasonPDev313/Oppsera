@@ -47,6 +47,7 @@ const mockEnrichRoutableItems = vi.fn();
 vi.mock('../services/kds-routing-engine', () => ({
   resolveStationRouting: (...args: unknown[]) => mockResolveStationRouting(...args),
   enrichRoutableItems: (...args: unknown[]) => mockEnrichRoutableItems(...args),
+  resolveKdsLocationId: vi.fn(async (_tenantId: string, locationId: string) => locationId),
 }));
 
 const mockCreateKitchenTicket = vi.fn();

@@ -205,6 +205,11 @@ export default function KdsSetupContent() {
     return resolveInitialKdsLocationId(candidate) || kdsLocations[0]?.id || '';
   });
 
+  const changeLocation = useCallback((newId: string) => {
+    setLocationId(newId);
+    router.replace(`/kds/setup?locationId=${newId}`, { scroll: false });
+  }, [router]);
+
   // Sync locationId when locations load after initial render (race condition guard)
   useEffect(() => {
     if (!locationId && kdsLocations.length > 0) {
@@ -583,7 +588,7 @@ export default function KdsSetupContent() {
                 <select
                   id="kds-setup-location"
                   value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
+                  onChange={(e) => changeLocation(e.target.value)}
                   className="w-full rounded-lg border border-input bg-surface px-3 py-2.5 text-sm font-medium text-foreground focus:border-indigo-500 focus:outline-none"
                 >
                   {kdsLocations.map((loc) => (

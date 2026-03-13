@@ -320,7 +320,9 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     setupMocks(rules, stations);
 
     const results = await resolveStationRouting(makeContext({ orderType: undefined }), [makeItem()]);
-    expect(results[0]!.matchType).toBe('fallback');
+    // When orderType is absent (e.g. retail POS), the orderTypeCondition is
+    // skipped so the rule still matches via category — not fallback.
+    expect(results[0]!.matchType).toBe('category');
   });
 
   it('rule with channelCondition matches correct channel', async () => {

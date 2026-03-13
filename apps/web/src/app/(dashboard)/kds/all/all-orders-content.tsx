@@ -6,8 +6,8 @@
  * Uses a single backend query instead of per-station fan-out.
  */
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
 import { useTerminalSession } from '@/components/terminal-session-provider';
 import { apiFetch } from '@/lib/api-client';
@@ -36,9 +36,24 @@ const POLL_INTERVAL = 10_000; // 10s for all-stations view
 
 export default function AllOrdersContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { locations } = useAuthContext();
   const { session: terminalSession } = useTerminalSession();
-  const [locationId, setLocationId] = useState(() => terminalSession?.locationId ?? locations?.[0]?.id ?? '');
+  const [locationId, setLocationId] = useState(() => {
+    const fromUrl = searchParams.get('locationId');
+    if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
+    return terminalSession?.locationId ?? locations?.[0]?.id ?? '';
+  });
+  // Detect if the URL had a locationId that didn't match any known location
+  const locationFellBack = (() => {
+    const fromUrl = searchParams.get('locationId');
+    return fromUrl !== null && !locations?.some((l) => l.id === fromUrl);
+  })();
+  const resolvedLocationName = locations?.find((l) => l.id === locationId)?.name;
+  const changeLocation = useCallback((newId: string) => {
+    setLocationId(newId);
+    router.replace(`/kds/all?locationId=${newId}`, { scroll: false });
+  }, [router]);
   const hasMultipleLocations = (locations?.length ?? 0) > 1;
   const locationCounts = useKdsLocationCounts(locations?.map((l) => l.id) ?? []);
 
@@ -72,7 +87,10 @@ export default function AllOrdersContent() {
     try {
       const result = await apiFetch<{ data: KdsAllTicketsResponse }>(
         `/api/v1/fnb/kitchen/all?businessDate=${today}&locationId=${locationId}`,
-        { signal },
+        {
+          signal,
+          headers: locationId ? { 'X-Location-Id': locationId } : undefined,
+        },
       );
 
       if (signal?.aborted) return;
@@ -103,6 +121,7 @@ export default function AllOrdersContent() {
       await apiFetch(`/api/v1/fnb/kitchen/tickets/${ticketId}/void`, {
         method: 'POST',
         body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
       });
       // Optimistic removal
       setAllTickets((prev) => prev.filter((t) => t.ticketId !== ticketId));
@@ -168,7 +187,7 @@ export default function AllOrdersContent() {
         style={{ backgroundColor: 'var(--fnb-bg-surface)', borderColor: 'rgba(148, 163, 184, 0.15)' }}
       >
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => router.push('/kds')}
+          <button type="button" onClick={() => router.push(locationId ? `/kds?locationId=${locationId}` : '/kds')}
             className="flex items-center justify-center rounded-lg h-10 w-10 transition-colors hover:opacity-80"
             style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-secondary)' }}>
             <ArrowLeft className="h-5 w-5" />
@@ -196,7 +215,7 @@ export default function AllOrdersContent() {
               <MapPin className="h-3.5 w-3.5" style={{ color: 'var(--fnb-text-muted)' }} />
               <select
                 value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
+                onChange={(e) => changeLocation(e.target.value)}
                 className="rounded-md border px-2 py-1 text-xs font-medium"
                 style={{
                   backgroundColor: 'var(--fnb-bg-elevated)',
@@ -237,6 +256,17 @@ export default function AllOrdersContent() {
         </div>
       </div>
 
+      {/* Location mismatch warning */}
+      {locationFellBack && (
+        <div className="flex items-center gap-2 px-4 py-2 text-xs font-medium shrink-0"
+          style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', borderBottom: '1px solid rgba(239, 68, 68, 0.2)' }}>
+          <MapPin className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            Location mismatch — URL location not found. Showing data for <strong>{resolvedLocationName}</strong>.
+          </span>
+        </div>
+      )}
+
       {/* Kitchen Behind banner */}
       <KitchenBehindBanner
         tickets={allTickets}
@@ -266,6 +296,7 @@ export default function AllOrdersContent() {
                   disabled={isActing}
                   density={density}
                   allDayCounts={allDayCounts}
+                  kdsLocationId={locationId}
                 />
               ))}
             </div>
@@ -281,6 +312,7 @@ export default function AllOrdersContent() {
                   disabled={isActing}
                   density={density}
                   allDayCounts={allDayCounts}
+                  kdsLocationId={locationId}
                 />
               ))}
             </div>

@@ -98,6 +98,10 @@ export interface KdsTicketCard {
   alertLevel: 'normal' | 'warning' | 'critical';
   /** Items grouped by course — only populated when items have courseName */
   courseGroups: KdsCourseGroup[];
+  /** Total active items across ALL stations for this order/tab */
+  totalOrderItems: number;
+  /** Total ready items across ALL stations for this order/tab */
+  totalOrderReadyItems: number;
 }
 
 export interface KdsCompletedTicket {
@@ -108,6 +112,15 @@ export interface KdsCompletedTicket {
   itemCount: number;
   completedAt: string;
   completedSecondsAgo: number;
+}
+
+export interface KdsUpcomingCourse {
+  tabId: string;
+  courseNumber: number;
+  courseName: string | null;
+  courseStatus: string;
+  itemCount: number;
+  tableNumber: number | null;
 }
 
 export interface KdsView {
@@ -121,6 +134,10 @@ export interface KdsView {
   tickets: KdsTicketCard[];
   activeTicketCount: number;
   recentlyCompleted: KdsCompletedTicket[];
+  /** Count of tickets served/ready today at this station */
+  servedTodayCount: number;
+  /** Upcoming courses (held/unsent) for tabs with active tickets */
+  upcomingCourses: KdsUpcomingCourse[];
 }
 
 export async function getKdsView(
@@ -128,22 +145,27 @@ export async function getKdsView(
 ): Promise<KdsView> {
   return withTenant(input.tenantId, async (tx) => {
     // Get station info
+    // Location guard: always filter by location_id. If the caller didn't provide
+    // one (shouldn't happen — middleware requires it), fall back to a hard error
+    // rather than silently serving cross-location data.
+    if (!input.locationId) {
+      throw new StationNotFoundError(input.stationId);
+    }
+    const resolvedLocationId = input.locationId;
+
     const stationRows = await tx.execute(
       sql`SELECT id, name, display_name, station_type, color,
                  warning_threshold_seconds, critical_threshold_seconds,
                  rush_mode, location_id
           FROM fnb_kitchen_stations
           WHERE id = ${input.stationId} AND tenant_id = ${input.tenantId}
-            ${input.locationId ? sql`AND location_id = ${input.locationId}` : sql``}
+            AND location_id = ${resolvedLocationId}
           LIMIT 1`,
     );
     const stationArr = Array.from(stationRows as Iterable<Record<string, unknown>>);
     const station = stationArr[0];
     if (!station) throw new StationNotFoundError(input.stationId);
     if ((station.station_type as string) === 'expo') throw new ExpoStationError(input.stationId);
-
-    // Resolve locationId: prefer explicit input, fallback to station's own location_id
-    const resolvedLocationId = input.locationId || (station.location_id as string);
 
     // Get active tickets that have items at this station.
     // No business_date filter — tickets must remain visible until bumped or voided,
@@ -291,6 +313,8 @@ export async function getKdsView(
         stationReadyCount: items.filter((i) => i.itemStatus === 'ready').length,
         alertLevel,
         courseGroups: buildCourseGroups(items),
+        totalOrderItems: items.length,     // will be updated by cross-station query
+        totalOrderReadyItems: items.filter((i) => i.itemStatus === 'ready').length,
       };
     });
 
@@ -339,6 +363,34 @@ export async function getKdsView(
       for (const card of ticketCards) {
         card.otherStations = stationsByTicket.get(card.ticketId) ?? [];
       }
+
+      // Cross-station order progress: total/ready items across ALL stations for each order
+      const progressRows = await tx.execute(
+        sql`SELECT kt_this.id AS ticket_id,
+                   COUNT(kti_all.id)::integer AS total_order_items,
+                   COUNT(kti_all.id) FILTER (WHERE kti_all.item_status IN ('ready', 'served'))::integer AS ready_order_items
+            FROM fnb_kitchen_tickets kt_this
+            INNER JOIN fnb_kitchen_tickets kt_related
+              ON kt_related.tenant_id = kt_this.tenant_id
+              AND kt_related.location_id = kt_this.location_id
+              AND kt_related.status NOT IN ('voided')
+              AND (
+                (kt_related.order_id IS NOT NULL AND kt_related.order_id = kt_this.order_id)
+                OR (kt_related.tab_id IS NOT NULL AND kt_related.tab_id = kt_this.tab_id)
+              )
+            INNER JOIN fnb_kitchen_ticket_items kti_all
+              ON kti_all.ticket_id = kt_related.id
+              AND kti_all.item_status != 'voided'
+            WHERE kt_this.id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})
+            GROUP BY kt_this.id`,
+      );
+      for (const row of Array.from(progressRows as Iterable<Record<string, unknown>>)) {
+        const card = ticketCards.find((c) => c.ticketId === (row.ticket_id as string));
+        if (card) {
+          card.totalOrderItems = Number(row.total_order_items);
+          card.totalOrderReadyItems = Number(row.ready_order_items);
+        }
+      }
     }
 
     // Fetch recently completed tickets at this station (all items ready/served/voided)
@@ -377,6 +429,50 @@ export async function getKdsView(
       completedSecondsAgo: Number(r.completed_seconds_ago ?? 0),
     }));
 
+    // Served today count — tickets this station has completed today
+    const servedCountRows = await tx.execute(
+      sql`SELECT COUNT(DISTINCT kt.id)::integer AS served_count
+          FROM fnb_kitchen_tickets kt
+          WHERE kt.tenant_id = ${input.tenantId}
+            AND kt.location_id = ${resolvedLocationId}
+            AND kt.business_date = ${input.businessDate}
+            AND kt.status IN ('served', 'ready')
+            AND EXISTS (
+              SELECT 1 FROM fnb_kitchen_ticket_items kti
+              WHERE kti.ticket_id = kt.id AND kti.station_id = ${input.stationId}
+            )`,
+    );
+    const servedTodayCount = Number(
+      (Array.from(servedCountRows as Iterable<Record<string, unknown>>)[0]?.served_count) ?? 0,
+    );
+
+    // Upcoming courses — held/unsent courses for tabs with active tickets
+    const activeTabIds = [...new Set(ticketCards.map((c) => c.tabId).filter(Boolean))];
+    let upcomingCourses: KdsUpcomingCourse[] = [];
+    if (activeTabIds.length > 0) {
+      const courseRows = await tx.execute(
+        sql`SELECT tc.tab_id, tc.course_number, tc.course_name, tc.status AS course_status,
+                   t.table_number,
+                   (SELECT COUNT(*)::integer FROM fnb_tab_lines tl
+                    WHERE tl.tab_id = tc.tab_id AND tl.course_number = tc.course_number
+                      AND tl.tenant_id = tc.tenant_id AND tl.status != 'voided') AS item_count
+            FROM fnb_tab_courses tc
+            LEFT JOIN fnb_tabs t ON t.id = tc.tab_id AND t.tenant_id = tc.tenant_id
+            WHERE tc.tenant_id = ${input.tenantId}
+              AND tc.status IN ('unsent', 'sent', 'held')
+              AND tc.tab_id IN (${sql.join(activeTabIds.map((id) => sql`${id}`), sql`, `)})
+            ORDER BY tc.tab_id, tc.course_number`,
+      );
+      upcomingCourses = Array.from(courseRows as Iterable<Record<string, unknown>>).map((r) => ({
+        tabId: r.tab_id as string,
+        courseNumber: Number(r.course_number),
+        courseName: (r.course_name as string) ?? null,
+        courseStatus: r.course_status as string,
+        itemCount: Number(r.item_count ?? 0),
+        tableNumber: r.table_number != null ? Number(r.table_number) : null,
+      }));
+    }
+
     return {
       stationId: input.stationId,
       stationName: (station.display_name as string) ?? (station.name as string),
@@ -388,6 +484,8 @@ export async function getKdsView(
       tickets: ticketCards,
       activeTicketCount: ticketCards.length,
       recentlyCompleted,
+      servedTodayCount,
+      upcomingCourses,
     };
   });
 }

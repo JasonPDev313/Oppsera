@@ -14,5 +14,5 @@ export const GET = withMiddleware(
     }
     return NextResponse.json({ data: detail });
   },
-  { entitlement: 'kds', permission: 'kds.manage' },
+  { entitlement: 'kds', permission: 'kds.manage', requireLocation: true },
 );

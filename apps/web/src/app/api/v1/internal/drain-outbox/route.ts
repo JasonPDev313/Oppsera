@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { db, sql } from '@oppsera/db';
+import postgres from 'postgres';
+import { db, sql, recordZombieDetection, recordZombieKill } from '@oppsera/db';
 import { getOutboxWorker } from '@oppsera/core/events';
 import { cleanExpiredLocks } from '@oppsera/core';
 
@@ -31,7 +32,80 @@ export async function GET(request: Request) {
   const results: Record<string, unknown> = {};
 
   try {
-    // 1. Recover stale claims — events claimed >5 min ago but never consumed.
+    // 1. Kill zombie connections FIRST — uses a fresh connection that bypasses
+    // the shared pool. This is critical: if the shared pool is fully exhausted
+    // by zombies, all subsequent steps would hang. A fresh TCP connection
+    // ensures we can always reach Postgres to terminate zombie PIDs.
+    try {
+      const connectionString = process.env.DATABASE_URL;
+      if (connectionString) {
+        const freshConn = postgres(connectionString, {
+          max: 1,
+          prepare: false,
+          connect_timeout: 5,
+          idle_timeout: 1,
+        });
+        try {
+          let zombieTimer: ReturnType<typeof setTimeout> | undefined;
+          const zombies = await Promise.race([
+            freshConn`
+              SELECT pid, state,
+                     EXTRACT(EPOCH FROM (NOW() - state_change))::int AS idle_seconds,
+                     LEFT(query, 150) AS query_prefix
+              FROM pg_stat_activity
+              WHERE datname = current_database()
+                AND pid != pg_backend_pid()
+                AND backend_type = 'client backend'
+                AND state IN ('idle', 'active')
+                AND wait_event_type = 'Client'
+                AND wait_event = 'ClientRead'
+                AND NOW() - state_change > INTERVAL '60 seconds'
+                AND query NOT ILIKE '%LISTEN%'
+                AND query NOT ILIKE '%archive_mode%'
+                AND query NOT ILIKE '%get_auth%'
+                AND query NOT ILIKE '%pg_stat_wal_receiver%'
+            `,
+            new Promise<never>((_, reject) => {
+              zombieTimer = setTimeout(() => reject(new Error('zombie query timeout')), 5_000);
+            }),
+          ]).finally(() => { if (zombieTimer) clearTimeout(zombieTimer); }) as unknown as Array<{ pid: number; idle_seconds: number; query_prefix: string; state: string }>;
+          const zombieArr = Array.from(zombies as Iterable<{ pid: number; idle_seconds: number; query_prefix: string; state: string }>);
+
+          results.zombieConnectionsFound = zombieArr.length;
+          results.zombieConnectionsKilled = 0;
+
+          if (zombieArr.length > 0) {
+            recordZombieDetection(zombieArr.length);
+            for (const z of zombieArr) {
+              try {
+                await freshConn`SELECT pg_terminate_backend(${z.pid})`;
+                (results.zombieConnectionsKilled as number)++;
+                recordZombieKill();
+                console.warn(JSON.stringify({
+                  level: 'warn',
+                  event: 'zombie_connection_killed',
+                  pid: z.pid,
+                  state: z.state,
+                  idle_seconds: z.idle_seconds,
+                  query_prefix: z.query_prefix,
+                  source: 'drain-outbox-cron-fresh',
+                }));
+              } catch (killErr) {
+                console.error(`[drain-outbox] Failed to kill zombie PID ${z.pid}:`, killErr);
+              }
+            }
+          }
+        } finally {
+          try { await freshConn.end({ timeout: 1 }); } catch { /* best-effort */ }
+        }
+      }
+    } catch (zombieErr) {
+      console.warn('[drain-outbox] Zombie detection (fresh conn) failed:', (zombieErr as Error).message);
+      results.zombieConnectionsFound = -1;
+      results.zombieConnectionsKilled = -1;
+    }
+
+    // 2. Recover stale claims — events claimed >5 min ago but never consumed.
     // This happens when a Vercel instance claims events then gets frozen/killed.
     const staleRecovered = await db.execute(sql`
       UPDATE event_outbox
@@ -44,13 +118,13 @@ export async function GET(request: Request) {
     `) as unknown as { count: number };
     results.staleRecovered = staleRecovered.count ?? 0;
 
-    // 2. Check pending event count
+    // 3. Check pending event count
     const pending = await db.execute(sql`
       SELECT COUNT(*) as cnt FROM event_outbox WHERE published_at IS NULL
     `) as unknown as Array<{ cnt: string }>;
     results.pendingCount = Number(pending[0]?.cnt ?? 0);
 
-    // 3. Process a batch if there are pending events
+    // 4. Process a batch if there are pending events
     const pendingCount = results.pendingCount as number;
     if (pendingCount > 0) {
       const worker = getOutboxWorker();
@@ -60,7 +134,7 @@ export async function GET(request: Request) {
       results.publishedCount = 0;
     }
 
-    // 4. Check for idle-in-transaction connections (early warning)
+    // 5. Check for idle-in-transaction connections (early warning)
     const stuck = await db.execute(sql`
       SELECT COUNT(*) as cnt
       FROM pg_stat_activity
@@ -74,57 +148,6 @@ export async function GET(request: Request) {
     const stuckTxCount = results.stuckTransactions as number;
     if (stuckTxCount > 0) {
       console.error(`[drain-outbox] WARNING: ${stuckTxCount} connections stuck in idle-in-transaction >60s`);
-    }
-
-    // 5. Kill zombie idle+ClientRead connections (Vercel freeze survivors).
-    // When Vercel freezes the event loop after sending an HTTP response, in-flight
-    // DB operations (e.g., COMMIT) complete on Postgres but the client never reads
-    // the response. The connection sits in "idle" state with wait_event=ClientRead
-    // indefinitely. Neither statement_timeout nor idle_in_transaction_session_timeout
-    // catch this — only external monitoring can detect and kill these zombies.
-    // Threshold: 60s (normal idle_timeout is 10s, so 60s is clearly a zombie).
-    // Catch both idle AND active zombies. Active+ClientRead means the query
-    // completed on Postgres but the frozen Vercel client never read the response.
-    const zombies = await db.execute(sql`
-      SELECT pid,
-             state,
-             EXTRACT(EPOCH FROM (NOW() - state_change))::int AS idle_seconds,
-             LEFT(query, 150) AS query_prefix
-      FROM pg_stat_activity
-      WHERE datname = current_database()
-        AND pid != pg_backend_pid()
-        AND backend_type = 'client backend'
-        AND state IN ('idle', 'active')
-        AND wait_event_type = 'Client'
-        AND wait_event = 'ClientRead'
-        AND NOW() - state_change > INTERVAL '60 seconds'
-        AND query NOT ILIKE '%LISTEN%'
-        AND query NOT ILIKE '%archive_mode%'
-        AND query NOT ILIKE '%get_auth%'
-        AND query NOT ILIKE '%pg_stat_wal_receiver%'
-    `) as unknown as Array<{ pid: number; idle_seconds: number; query_prefix: string; state: string }>;
-    const zombieArr = Array.from(zombies as Iterable<{ pid: number; idle_seconds: number; query_prefix: string; state: string }>);
-
-    results.zombieConnectionsFound = zombieArr.length;
-    results.zombieConnectionsKilled = 0;
-
-    if (zombieArr.length > 0) {
-      for (const z of zombieArr) {
-        try {
-          await db.execute(sql`SELECT pg_terminate_backend(${z.pid})`);
-          (results.zombieConnectionsKilled as number)++;
-          console.warn(JSON.stringify({
-            level: 'warn',
-            event: 'zombie_connection_killed',
-            pid: z.pid,
-            idle_seconds: z.idle_seconds,
-            query_prefix: z.query_prefix,
-            source: 'drain-outbox-cron',
-          }));
-        } catch (killErr) {
-          console.error(`[drain-outbox] Failed to kill zombie PID ${z.pid}:`, killErr);
-        }
-      }
     }
 
     // 6. Clean expired distributed locks (housekeeping)

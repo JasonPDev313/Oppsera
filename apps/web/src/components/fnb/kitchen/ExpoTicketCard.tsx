@@ -1,11 +1,12 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import type { ExpoTicketCard as ExpoTicketCardType } from '@/types/fnb';
 import { TicketHeader, getAgingTier } from './TicketHeader';
 import { AlertBadges } from './AlertBadges';
 import { BumpButton } from './BumpButton';
 import { parseModifiers } from './TicketItemRow';
-import { Flame, Undo2, Clock, AlertTriangle } from 'lucide-react';
+import { Flame, Undo2, Clock, AlertTriangle, Trash2 } from 'lucide-react';
 
 /** Estimate seconds remaining based on max prep time of non-ready items minus elapsed */
 function estimateRemainingSeconds(
@@ -57,6 +58,44 @@ function computeStaleLevels(
   return map;
 }
 
+/** Tickets older than 2 hours with no ready items are considered stale and show a void button */
+const STALE_TICKET_SECONDS = 7200;
+
+/** Two-tap void confirmation. First tap shows "CONFIRM VOID", second tap fires. Auto-resets after 3s. */
+function VoidButton({ ticketId, onVoid, disabled }: { ticketId: string; onVoid: (id: string) => void; disabled?: boolean }) {
+  const [confirming, setConfirming] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  const handleClick = () => {
+    if (confirming) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setConfirming(false);
+      onVoid(ticketId);
+    } else {
+      setConfirming(true);
+      timerRef.current = setTimeout(() => setConfirming(false), 3000);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={disabled}
+      className="flex items-center justify-center gap-1 w-full rounded-md py-1.5 text-[10px] font-semibold uppercase transition-colors disabled:opacity-40"
+      style={{
+        backgroundColor: confirming ? 'rgba(239,68,68,0.25)' : 'rgba(239,68,68,0.1)',
+        color: '#ef4444',
+        border: confirming ? '2px solid #ef4444' : '1px solid rgba(239,68,68,0.2)',
+      }}
+    >
+      <Trash2 className="h-3 w-3" />
+      {confirming ? 'CONFIRM VOID' : 'VOID TICKET'}
+    </button>
+  );
+}
+
 interface ExpoTicketCardProps {
   ticket: ExpoTicketCardType;
   warningThresholdSeconds: number;
@@ -64,7 +103,10 @@ interface ExpoTicketCardProps {
   onBumpTicket: (ticketId: string) => void;
   onFireTicket?: (ticketId: string) => void;
   onRecallTicket?: (ticketId: string) => void;
+  onVoidTicket?: (ticketId: string) => void;
   disabled?: boolean;
+  /** KDS location ID for debug observability (renders as data-kds-location) */
+  kdsLocationId?: string;
 }
 
 export function ExpoTicketCard({
@@ -74,7 +116,9 @@ export function ExpoTicketCard({
   onBumpTicket,
   onFireTicket,
   onRecallTicket,
+  onVoidTicket,
   disabled,
+  kdsLocationId,
 }: ExpoTicketCardProps) {
   const tier = getAgingTier(ticket.elapsedSeconds, warningThresholdSeconds, criticalThresholdSeconds);
 
@@ -109,6 +153,8 @@ export function ExpoTicketCard({
   return (
     <div
       className="flex flex-col rounded-lg overflow-hidden"
+      data-kds-location={kdsLocationId}
+      data-ticket-id={ticket.ticketId}
       style={{
         backgroundColor: 'var(--fnb-bg-surface)',
         border: borderStyle,
@@ -346,6 +392,10 @@ export function ExpoTicketCard({
               </button>
             )}
           </>
+        )}
+        {/* Void button — two-tap confirm to prevent accidental voids */}
+        {!ticket.allItemsReady && ticket.elapsedSeconds >= STALE_TICKET_SECONDS && onVoidTicket && (
+          <VoidButton ticketId={ticket.ticketId} onVoid={onVoidTicket} disabled={disabled} />
         )}
       </div>
     </div>

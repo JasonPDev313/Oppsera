@@ -22,5 +22,5 @@ export const POST = withMiddleware(
     await clearKdsSend(ctx, sendId, parsed.data.reason);
     return NextResponse.json({ data: { success: true } });
   },
-  { entitlement: 'kds', permission: 'kds.manage', writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.manage', writeAccess: true, requireLocation: true },
 );

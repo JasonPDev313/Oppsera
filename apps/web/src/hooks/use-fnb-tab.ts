@@ -5,6 +5,15 @@ import { apiFetch } from '@/lib/api-client';
 import { onChannelRefresh } from '@/hooks/use-fnb-realtime';
 import type { FnbTabDetail, CheckSummary } from '@/types/fnb';
 
+/** Result from sendCourse — enriched KDS status */
+export interface KdsSendResult {
+  ticketCount: number;
+  warning?: string;
+  effectiveKdsLocationId?: string;
+  ticketIds?: string[];
+  stationIds?: string[];
+}
+
 // ── Module-level tab snapshot cache ─────────────────────────────
 // Survives React unmounts. Provides instant data when switching
 // between tabs (user taps Table A → Table B → back to Table A).
@@ -112,7 +121,8 @@ interface UseFnbTabReturn {
   transferTab: (input: { toServerUserId?: string; toTableId?: string; reason?: string; expectedVersion: number }) => Promise<void>;
   reopenTab: (expectedVersion: number) => Promise<void>;
   fireCourse: (courseNumber: number) => Promise<void>;
-  sendCourse: (courseNumber: number) => Promise<void>;
+  /** Returns KDS send result with location/ticket info, or undefined if not available. */
+  sendCourse: (courseNumber: number) => Promise<KdsSendResult | undefined>;
   addItems: (items: AddTabItemInput[]) => Promise<void>;
   updatePartySize: (newSize: number) => Promise<void>;
   isActing: boolean;
@@ -212,11 +222,12 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
 
   // ── Actions ──────────────────────────────────────────────────
 
-  const act = useCallback(async (fn: () => Promise<unknown>, skipRefetch = false) => {
+  const act = useCallback(async <T>(fn: () => Promise<T>, skipRefetch = false): Promise<T> => {
     setIsActing(true);
     try {
-      await fn();
+      const result = await fn();
       if (!skipRefetch) await fetchTab();
+      return result;
     } finally {
       setIsActing(false);
     }
@@ -266,12 +277,13 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
     }));
   }, [tabId, act, isActing]);
 
-  const sendCourseFn = useCallback(async (courseNumber: number) => {
-    if (!tabId || isActing) return;
-    await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/course/send`, {
+  const sendCourseFn = useCallback(async (courseNumber: number): Promise<KdsSendResult | undefined> => {
+    if (!tabId || isActing) return undefined;
+    const res = await act(() => apiFetch<{ data: unknown; kdsStatus?: KdsSendResult }>(`/api/v1/fnb/tabs/${tabId}/course/send`, {
       method: 'POST',
       body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
     }));
+    return res?.kdsStatus;
   }, [tabId, act, isActing]);
 
   const addItemsFn = useCallback(async (items: AddTabItemInput[]) => {

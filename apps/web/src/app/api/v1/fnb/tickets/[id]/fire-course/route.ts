@@ -8,8 +8,7 @@ import { fireCourseFromKds, fireCourseFromKdsSchema } from '@oppsera/module-fnb'
 // POST /api/v1/fnb/tickets/[id]/fire-course — fire a course from KDS
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const url = new URL(request.url);
-    const segments = url.pathname.split('/');
+    const segments = request.nextUrl.pathname.split('/');
     const fireCourseIdx = segments.indexOf('fire-course');
     const ticketId = fireCourseIdx > 0 ? segments[fireCourseIdx - 1] : undefined;
 
@@ -26,5 +25,5 @@ export const POST = withMiddleware(
     broadcastFnb(ctx, 'kds', 'tabs').catch(() => {});
     return NextResponse.json({ data: course });
   },
-  { entitlement: 'kds', permission: 'kds.manage', writeAccess: true },
+  { entitlement: 'kds', permission: 'kds.manage', writeAccess: true, requireLocation: true },
 );
