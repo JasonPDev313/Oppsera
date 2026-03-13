@@ -34,6 +34,12 @@
     "nuke": "pnpm clean && rm -rf node_modules apps/web/node_modules apps/admin/node_modules apps/member-portal/node_modules packages/*/node_modules packages/modules/*/node_modules && pnpm install",
     "postinstall": "node scripts/fix-oxide-win32.js"
   },
+  "pnpm": {
+    "overrides": {
+      "rollup": ">=4.58.0",
+      "esbuild": ">=0.25.0"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^9.16.0",
     "@testing-library/jest-dom": "^6.9.1",
