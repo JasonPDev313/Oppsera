@@ -13,6 +13,12 @@ export const GET = withMiddleware(
     const url = new URL(request.url);
     const parts = url.pathname.split('/');
     const accountId = parts[parts.indexOf('accounts') + 1];
+    if (!accountId) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Account ID is required' } },
+        { status: 400 },
+      );
+    }
 
     const entries = await getMinimumProgress({
       tenantId: ctx.tenantId,

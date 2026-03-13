@@ -14,6 +14,12 @@ export const GET = withMiddleware(
     const url = new URL(request.url);
     const parts = url.pathname.split('/');
     const accountId = parts[parts.indexOf('accounts') + 1];
+    if (!accountId) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Account ID is required' } },
+        { status: 400 },
+      );
+    }
 
     const result = await listSubscriptions({
       tenantId: ctx.tenantId,
@@ -35,6 +41,12 @@ export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const parts = new URL(request.url).pathname.split('/');
     const accountId = parts[parts.indexOf('accounts') + 1];
+    if (!accountId) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Account ID is required' } },
+        { status: 400 },
+      );
+    }
     const body = await request.json();
     const parsed = assignPlanSchema.safeParse({
       ...body,

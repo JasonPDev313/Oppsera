@@ -85,7 +85,6 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   const { tab, error: tabError, notFound: tabNotFound, refresh: refreshTab } = useFnbTab({ tabId });
   const {
     sessions,
-    sessions,
     startSession: _startSession,
     completeSession: _completeSession,
     failSession,
