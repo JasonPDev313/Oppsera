@@ -220,7 +220,7 @@ function BannerMessage({
           </span>
         );
       }
-      return <span>GL readiness check failed. Click retry to try again.</span>;
+      return <span>GL sync encountered an issue. Click retry to try again.</span>;
 
     default:
       return null;

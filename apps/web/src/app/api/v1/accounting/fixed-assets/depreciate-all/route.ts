@@ -15,8 +15,26 @@ export const POST = withMiddleware(
       );
     }
 
-    const result = await runMonthlyDepreciation(ctx, { periodDate });
-    return NextResponse.json({ data: result });
+    try {
+      const result = await runMonthlyDepreciation(ctx, { periodDate });
+      return NextResponse.json({ data: result });
+    } catch (err) {
+      console.error('[fixed-assets/depreciate-all] Error:', err);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      const name = (err as { constructor?: { name?: string } })?.constructor?.name ?? '';
+      const code = (err as { code?: string })?.code;
+      if (name === 'PeriodLockedError' || code === 'PERIOD_LOCKED') {
+        return NextResponse.json(
+          { error: { code: 'PERIOD_LOCKED', message } },
+          { status: 409 },
+        );
+      }
+      const status = (err as { statusCode?: number })?.statusCode ?? 500;
+      return NextResponse.json(
+        { error: { code: 'DEPRECIATION_FAILED', message } },
+        { status },
+      );
+    }
   },
   { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true },
 );

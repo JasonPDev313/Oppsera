@@ -15,9 +15,18 @@ export const POST = withMiddleware(
         { status: 400 },
       );
     }
-    const result = await importCoaFromCsv(ctx, parsed.data);
-
-    return NextResponse.json({ data: result }, { status: 201 });
+    try {
+      const result = await importCoaFromCsv(ctx, parsed.data);
+      return NextResponse.json({ data: result }, { status: 201 });
+    } catch (err) {
+      console.error('[import/execute] Error:', err);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      const status = (err as { statusCode?: number })?.statusCode ?? 500;
+      return NextResponse.json(
+        { error: { code: 'IMPORT_FAILED', message } },
+        { status },
+      );
+    }
   },
   { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true, replayGuard: true, stepUp: 'bulk_operations' },
 );

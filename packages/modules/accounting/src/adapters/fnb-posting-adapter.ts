@@ -5,7 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { getAccountingSettings, type AccountingSettings } from '../helpers/get-accounting-settings';
 import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
-import { logUnmappedEvent } from '../helpers/resolve-mapping';
+import { logUnmappedEvent, batchResolveSubDepartmentAccounts } from '../helpers/resolve-mapping';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { voidJournalEntry } from '../commands/void-journal-entry';
@@ -125,6 +125,9 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
       });
     }
 
+    // Batch-fetch sub-department GL mappings upfront (1 query instead of N per revenue line).
+    const subDeptMap = await batchResolveSubDepartmentAccounts(db, event.tenantId);
+
     const glLines: Array<{
       accountId: string;
       debitAmount?: string;
@@ -140,7 +143,7 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
 
       // For revenue lines with sub-department, resolve via catalog GL defaults
       if (jl.category === 'sales_revenue' && jl.subDepartmentId) {
-        accountId = await resolveRevenueBySubDepartment(event.tenantId, jl.subDepartmentId);
+        accountId = subDeptMap.get(jl.subDepartmentId)?.revenueAccountId ?? null;
         // Fallback to uncategorized revenue if sub-dept has no mapping
         if (!accountId) {
           accountId = settings.defaultUncategorizedRevenueAccountId ?? null;

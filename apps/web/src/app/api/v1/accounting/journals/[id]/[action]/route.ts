@@ -26,23 +26,48 @@ export const POST = withMiddleware(
     }
     const id = extractId(request);
 
-    switch (action) {
-      case 'post': {
-        const entry = await postDraftEntry(ctx, id);
-        return NextResponse.json({ data: entry });
-      }
-      case 'void': {
-        const body = await request.json();
-        const reason = body.reason;
-        if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
-          return NextResponse.json(
-            { error: { code: 'VALIDATION_ERROR', message: 'reason is required' } },
-            { status: 400 },
-          );
+    try {
+      switch (action) {
+        case 'post': {
+          const entry = await postDraftEntry(ctx, id);
+          return NextResponse.json({ data: entry });
         }
-        const result = await voidJournalEntry(ctx, id, reason.trim());
-        return NextResponse.json({ data: result });
+        case 'void': {
+          const body = await request.json();
+          const reason = body.reason;
+          if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+            return NextResponse.json(
+              { error: { code: 'VALIDATION_ERROR', message: 'reason is required' } },
+              { status: 400 },
+            );
+          }
+          const result = await voidJournalEntry(ctx, id, reason.trim());
+          return NextResponse.json({ data: result });
+        }
       }
+    } catch (err) {
+      console.error('[journals/[id]/[action]] Error:', err);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      const name = (err as { constructor?: { name?: string } })?.constructor?.name ?? '';
+      const code = (err as { code?: string })?.code;
+      if (name === 'PeriodLockedError' || code === 'PERIOD_LOCKED') {
+        return NextResponse.json(
+          { error: { code: 'PERIOD_LOCKED', message } },
+          { status: 409 },
+        );
+      }
+      if (name === 'NotFoundError' || code === 'NOT_FOUND') {
+        return NextResponse.json(
+          { error: { code: 'NOT_FOUND', message } },
+          { status: 404 },
+        );
+      }
+      const errorCode = action === 'void' ? 'VOID_FAILED' : 'POST_FAILED';
+      const status = (err as { statusCode?: number })?.statusCode ?? 500;
+      return NextResponse.json(
+        { error: { code: errorCode, message } },
+        { status },
+      );
     }
 
     // Unreachable — all actions handled above, unknown actions caught by guard

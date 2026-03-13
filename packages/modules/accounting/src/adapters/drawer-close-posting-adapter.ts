@@ -54,8 +54,10 @@ export async function handleDrawerSessionClosedForAccounting(event: EventEnvelop
     }
 
     const cashOverShortAccountId = settings.defaultCashOverShortAccountId;
-    const cashAccountId = settings.defaultUndepositedFundsAccountId
-      ?? settings.defaultUncategorizedRevenueAccountId;
+    // Cash on hand — NEVER fall back to revenue. Cash over/short is a
+    // debit/credit against cash accounts, not revenue. Falling back to
+    // uncategorized revenue would post cash variances as revenue, corrupting P&L.
+    const cashAccountId = settings.defaultUndepositedFundsAccountId ?? null;
 
     if (!cashOverShortAccountId || !cashAccountId) {
       try {

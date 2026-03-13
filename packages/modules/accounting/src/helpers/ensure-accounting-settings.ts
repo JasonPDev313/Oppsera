@@ -251,8 +251,10 @@ async function ensureDefaultPaymentTypeMappings(
       VALUES ${values}
       ON CONFLICT (tenant_id, payment_type_id) DO NOTHING
     `);
-  } catch {
-    // Never block — payment type mappings are non-critical fallbacks
+  } catch (err) {
+    // Never block — payment type mappings are non-critical fallbacks.
+    // Log so silent failures are visible in production logs.
+    console.warn(`[ensure-settings] ensureDefaultPaymentTypeMappings failed for tenant=${tenantId}:`, err instanceof Error ? err.message : err);
   }
 }
 

@@ -112,7 +112,7 @@ export async function handleMembershipBillingForAccounting(event: EventEnvelope)
       sourceReferenceId: `billing-${data.membershipId}-${data.billingPeriodStart}`,
       sourceIdempotencyKey: `membership:billing:${data.membershipId}:${data.billingPeriodStart}`,
       memo: `Membership billing: ${data.billingPeriodStart} to ${data.billingPeriodEnd}`,
-      currency: 'USD',
+      currency: settings.baseCurrency,
       lines: [
         {
           accountId: arAccountId,

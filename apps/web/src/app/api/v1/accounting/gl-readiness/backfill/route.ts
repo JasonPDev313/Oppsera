@@ -121,9 +121,18 @@ export const POST = withMiddleware(
 
     try {
       // 1. Run backfill (limit 500 to stay within Vercel 30s timeout)
-      const backfill = await withTenant(tenantId, async (tx) =>
-        backfillGlFromTenders(tx, tenantId, { limit: 500, afterTenderId }),
-      );
+      let backfill;
+      try {
+        backfill = await withTenant(tenantId, async (tx) =>
+          backfillGlFromTenders(tx, tenantId, { limit: 100, afterTenderId }),
+        );
+      } catch (err) {
+        console.error('[gl-readiness] Backfill DB query failed:', err);
+        return NextResponse.json(
+          { error: { code: 'BACKFILL_FAILED', message: `GL backfill failed: ${err instanceof Error ? err.message : 'Unknown error'}` } },
+          { status: 500 },
+        );
+      }
 
       // 2. Auto-apply high-confidence smart resolutions (only on last batch)
       let autoResolved = { applied: 0, remaining: 0 };

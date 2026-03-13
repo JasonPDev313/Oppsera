@@ -1,6 +1,7 @@
 import { db, glJournalEntries, glJournalLines } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import type { EventEnvelope } from '@oppsera/shared';
+import { PermanentPostingError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
@@ -168,8 +169,21 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
       });
     } catch { /* best-effort */ }
   } catch (error) {
-    // GL failures NEVER block tender operations
     console.error(`[tender-reversal-gl] GL posting failed for reversal ${data.reversalId}:`, error);
+    try {
+      await logUnmappedEvent(db, event.tenantId, {
+        eventType: 'tender.reversed.v1',
+        sourceModule: 'payments',
+        sourceReferenceId: data.reversalId,
+        entityType: error instanceof PermanentPostingError ? 'permanent_posting_error' : 'transient_posting_error',
+        entityId: data.reversalId,
+        reason: `GL reversal posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    } catch { /* best-effort tracking */ }
+
+    // Permanent errors swallowed, transient errors re-thrown for outbox retry.
+    if (error instanceof PermanentPostingError) return;
+    throw error;
   }
 }
 
@@ -284,7 +298,19 @@ export async function handleTipAdjustedForAccounting(event: EventEnvelope): Prom
       },
     );
   } catch (error) {
-    // GL failures NEVER block tender operations
     console.error(`[tip-adjust-gl] GL posting failed for tip adjustment on tender ${data.tenderId}:`, error);
+    try {
+      await logUnmappedEvent(db, event.tenantId, {
+        eventType: 'tender.tip_adjusted.v1',
+        sourceModule: 'payments',
+        sourceReferenceId: data.tenderId,
+        entityType: error instanceof PermanentPostingError ? 'permanent_posting_error' : 'transient_posting_error',
+        entityId: data.tenderId,
+        reason: `GL tip adjustment posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    } catch { /* best-effort tracking */ }
+
+    if (error instanceof PermanentPostingError) return;
+    throw error;
   }
 }

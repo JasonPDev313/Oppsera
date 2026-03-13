@@ -50,12 +50,15 @@ export async function getAuditCoverage(
             AND created_at >= ${dateRange.from}::timestamptz
             AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
         `),
-        // Audit entries for payment actions
+        // Audit entries for payment/tender actions
+        // record-tender writes 'tender.recorded', adjust-tip writes 'tender.tip_adjusted',
+        // reverse-tender writes 'tender.reversed' — all start with 'tender.'
+        // Other payment commands (authorize, refund, etc.) start with 'payment.'
         tx.execute(sql`
           SELECT COUNT(*)::int AS count
           FROM audit_log
           WHERE tenant_id = ${tenantId}
-            AND action LIKE 'payment.%'
+            AND (action LIKE 'payment.%' OR action LIKE 'tender.%')
             AND created_at >= ${dateRange.from}::timestamptz
             AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
         `),

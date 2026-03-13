@@ -2,6 +2,7 @@ import { db } from '@oppsera/db';
 import { glJournalEntries, tenders } from '@oppsera/db';
 import { eq, and, inArray } from 'drizzle-orm';
 import type { EventEnvelope } from '@oppsera/shared';
+import { PermanentPostingError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
@@ -160,19 +161,24 @@ export async function handleOrderVoidForAccounting(event: EventEnvelope): Promis
       }
     }
   } catch (error) {
-    // Never block voids — log and continue
     console.error(`GL void processing failed for order ${data.orderId}:`, error);
     try {
       await logUnmappedEvent(db, tenantId, {
         eventType: 'order.voided.v1',
         sourceModule: 'pos',
         sourceReferenceId: data.orderId,
-        entityType: 'void_processing_error',
+        entityType: error instanceof PermanentPostingError ? 'permanent_void_error' : 'transient_void_error',
         entityId: data.orderId,
         reason: `GL void processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     } catch {
-      // double-swallow — never fail the void
+      // best-effort tracking — never fail the void
     }
+
+    // Permanent errors (missing accounts, config issues) will never succeed
+    // on retry — swallow them. Transient errors (DB timeout, pool exhaustion)
+    // re-throw so the outbox worker retries with backoff.
+    if (error instanceof PermanentPostingError) return;
+    throw error;
   }
 }

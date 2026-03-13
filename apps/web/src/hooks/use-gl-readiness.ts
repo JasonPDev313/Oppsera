@@ -152,7 +152,10 @@ export function useGlReadiness() {
       cumulativeRef.current = { posted: 0, skipped: 0, errors: 0, batch: 0 };
       let lastResult: BackfillResult | null = null;
 
-      // Loop batches until done or rate-limited
+      // Loop batches until done, rate-limited, or safety cap reached.
+      // Cap at 500 batches (50,000 tenders at 100/batch) to prevent infinite loops
+      // from backend bugs where hasMore never becomes false.
+      const MAX_BATCHES = 500;
       while (true) {
         const result = await runBatch(cursorRef.current ?? undefined);
         lastResult = result;
@@ -173,6 +176,10 @@ export function useGlReadiness() {
         });
 
         if (!b.hasMore || !b.lastProcessedTenderId) break;
+        if (c.batch >= MAX_BATCHES) {
+          console.warn(`[gl-readiness] Hit max batch cap (${MAX_BATCHES}). Stopping backfill loop.`);
+          break;
+        }
         cursorRef.current = b.lastProcessedTenderId;
       }
 

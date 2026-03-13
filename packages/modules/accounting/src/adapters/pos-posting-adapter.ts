@@ -219,13 +219,18 @@ async function handleTenderForAccountingInner(
         console.info(`[pos-gl] Auto-wired ${autoWired} fallback account(s) for tenant=${tenantId}`);
       }
       settings = await getAccountingSettings(db, tenantId);
-    } catch {
-      // never block tender
+    } catch (ensureErr) {
+      // Distinguish transient DB errors from permanent config errors.
+      // If ensureAccountingSettings throws a DB/pool error, re-throw so
+      // the outbox retries. Only treat "settings truly absent" as permanent.
+      console.error(`[pos-gl] ensureAccountingSettings failed for tenant=${tenantId}:`, ensureErr instanceof Error ? ensureErr.message : ensureErr);
     }
     if (!settings) {
-      throw new PermanentPostingError(
-        `GL posting failed: accounting_settings could not be created for tenant=${tenantId}, tender=${data.tenderId}`,
-        'pos',
+      // If settings is still null after ensure failed, check if it was a transient
+      // error (DB timeout, pool exhaustion) vs permanent (no chart of accounts).
+      // Re-throw without PermanentPostingError so the outbox retries.
+      throw new Error(
+        `GL posting deferred: accounting_settings unavailable for tenant=${tenantId}, tender=${data.tenderId} — will retry`,
       );
     }
   }
@@ -335,12 +340,13 @@ async function handleTenderForAccountingInner(
 
   // ── 2. CREDIT: Revenue + Tax + COGS + Discounts + Svc Charges ──
   if (data.lines && data.lines.length > 0) {
-    // Batch-fetch all GL mappings upfront (1 query each instead of N per loop)
-    const [subDeptMap, taxGroupMap, discountGlMap] = await Promise.all([
-      batchResolveSubDepartmentAccounts(db, tenantId),
-      batchResolveTaxGroupAccounts(db, tenantId),
-      batchResolveDiscountGlMappings(db, tenantId),
-    ]);
+    // Batch-fetch all GL mappings upfront (1 query each instead of N per loop).
+    // Sequential: each uses the module-level `db` singleton (1 pool connection).
+    // Running in parallel required 3 connections simultaneously, which with
+    // Vercel pool max:2 causes deadlocks under any concurrent load.
+    const subDeptMap = await batchResolveSubDepartmentAccounts(db, tenantId);
+    const taxGroupMap = await batchResolveTaxGroupAccounts(db, tenantId);
+    const discountGlMap = await batchResolveDiscountGlMappings(db, tenantId);
 
     // Group revenue by subDepartmentId (applying proportional ratio)
     const revenueBySubDept = new Map<string, number>();

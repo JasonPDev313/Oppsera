@@ -24,13 +24,36 @@ export const POST = withMiddleware(
         { status: 400 },
       );
     }
-    const result = await closeAccountingPeriod(ctx, {
-      postingPeriod: period,
-      notes: parsed.data.notes,
-      forceClose: parsed.data.forceClose === true,
-    });
-
-    return NextResponse.json({ data: result });
+    try {
+      const result = await closeAccountingPeriod(ctx, {
+        postingPeriod: period,
+        notes: parsed.data.notes,
+        forceClose: parsed.data.forceClose === true,
+      });
+      return NextResponse.json({ data: result });
+    } catch (err) {
+      console.error('[close-periods/[period]/close] Error:', err);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      const name = (err as { constructor?: { name?: string } })?.constructor?.name ?? '';
+      const code = (err as { code?: string })?.code;
+      if (name === 'PeriodLockedError' || code === 'PERIOD_LOCKED') {
+        return NextResponse.json(
+          { error: { code: 'PERIOD_LOCKED', message } },
+          { status: 409 },
+        );
+      }
+      if (name === 'NotFoundError' || code === 'NOT_FOUND') {
+        return NextResponse.json(
+          { error: { code: 'NOT_FOUND', message } },
+          { status: 404 },
+        );
+      }
+      const status = (err as { statusCode?: number })?.statusCode ?? 500;
+      return NextResponse.json(
+        { error: { code: 'CLOSE_PERIOD_FAILED', message } },
+        { status },
+      );
+    }
   },
   { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true, replayGuard: true, stepUp: 'financial_critical' },
 );

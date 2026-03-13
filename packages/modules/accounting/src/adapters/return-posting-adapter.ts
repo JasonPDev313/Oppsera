@@ -1,4 +1,5 @@
 import type { EventEnvelope } from '@oppsera/shared';
+import { PermanentPostingError } from '@oppsera/shared';
 import { db } from '@oppsera/db';
 import {
   resolveSubDepartmentAccounts,
@@ -93,6 +94,10 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
     const postingApi = getAccountingPostingApi();
     const defaultReturnsAccountId = settings.defaultReturnsAccountId;
 
+    // Batch-fetch all sub-department GL mappings upfront (1 query instead of N per line).
+    // Replaces per-line resolveSubDepartmentAccounts calls that caused N+1 queries.
+    const subDeptMap = await batchResolveSubDepartmentAccounts(db, event.tenantId);
+
     const glLines: Array<{
       accountId: string;
       debitAmount: string;
@@ -114,7 +119,7 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
         // Split by component subdepartment
         // For components without mapping, fall back to line-level or uncategorized
         const lineMapping = line.subDepartmentId
-          ? await resolveSubDepartmentAccounts(db, event.tenantId, line.subDepartmentId)
+          ? (subDeptMap.get(line.subDepartmentId) ?? null)
           : null;
         const lineFallbackAccountId = resolveReturnsAccount(lineMapping, defaultReturnsAccountId)
           ?? settings.defaultUncategorizedRevenueAccountId;
@@ -146,7 +151,7 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
           let accountId: string | null = null;
 
           if (comp.subDepartmentId) {
-            const compMapping = await resolveSubDepartmentAccounts(db, event.tenantId, comp.subDepartmentId);
+            const compMapping = subDeptMap.get(comp.subDepartmentId) ?? null;
             accountId = resolveReturnsAccount(compMapping, defaultReturnsAccountId);
           }
 
@@ -184,7 +189,7 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
       } else {
         // Regular item
         const mapping = line.subDepartmentId
-          ? await resolveSubDepartmentAccounts(db, event.tenantId, line.subDepartmentId)
+          ? (subDeptMap.get(line.subDepartmentId) ?? null)
           : null;
 
         const accountId = resolveReturnsAccount(mapping, defaultReturnsAccountId);
@@ -372,17 +377,21 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
       forcePost: true,
     });
   } catch (err) {
-    // Never block returns
     console.error(`GL return posting failed for return ${data.returnOrderId}:`, err);
     try {
       await logUnmappedEvent(db, event.tenantId, {
         eventType: 'order.returned.v1',
         sourceModule: 'pos_return',
         sourceReferenceId: data.returnOrderId,
-        entityType: 'posting_error',
+        entityType: err instanceof PermanentPostingError ? 'permanent_posting_error' : 'transient_posting_error',
         entityId: data.returnOrderId,
         reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
       });
     } catch { /* best-effort tracking */ }
+
+    // Permanent errors (missing accounts, config) will never succeed on retry.
+    // Transient errors (DB timeout, pool exhaustion) re-throw for outbox retry.
+    if (err instanceof PermanentPostingError) return;
+    throw err;
   }
 }

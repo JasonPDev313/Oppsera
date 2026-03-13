@@ -1,4 +1,5 @@
 import type { EventEnvelope } from '@oppsera/shared';
+import { PermanentPostingError } from '@oppsera/shared';
 import { db } from '@oppsera/db';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
@@ -176,11 +177,14 @@ export async function handleChargebackReceivedForAccounting(event: EventEnvelope
         eventType: 'chargeback.received.v1',
         sourceModule: 'chargeback',
         sourceReferenceId: data.chargebackId,
-        entityType: 'posting_error',
+        entityType: err instanceof PermanentPostingError ? 'permanent_posting_error' : 'transient_posting_error',
         entityId: data.chargebackId,
         reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
       });
     } catch { /* best-effort tracking */ }
+
+    if (err instanceof PermanentPostingError) return;
+    throw err;
   }
 }
 
@@ -327,10 +331,13 @@ export async function handleChargebackResolvedForAccounting(event: EventEnvelope
         eventType: 'chargeback.resolved.v1',
         sourceModule: 'chargeback',
         sourceReferenceId: data.chargebackId,
-        entityType: 'posting_error',
+        entityType: err instanceof PermanentPostingError ? 'permanent_posting_error' : 'transient_posting_error',
         entityId: data.chargebackId,
         reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
       });
     } catch { /* best-effort tracking */ }
+
+    if (err instanceof PermanentPostingError) return;
+    throw err;
   }
 }

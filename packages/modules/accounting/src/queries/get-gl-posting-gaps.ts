@@ -61,37 +61,38 @@ export async function getGlPostingGaps(
 ): Promise<GlPostingGap> {
   const api = getReconciliationReadApi();
 
-  // Parallel: get tender summary count + list of GL-covered tender IDs
-  const [tenderSummary, glCoverage] = await Promise.all([
-    api.getTendersSummary(
-      input.tenantId,
-      input.startDate,
-      input.endDate,
-      input.locationId,
-    ),
-    withTenant(input.tenantId, async (tx) => {
-      // Count DISTINCT source_reference_id from posted GL entries for POS
-      // only. POS posts one journal per tender (source_reference_id = tenderId),
-      // giving a 1:1 comparison against ReconciliationReadApi's tender count.
-      // F&B uses closeBatchId as source_reference_id (1 batch = many tenders),
-      // so including it here would undercount coverage. F&B coverage is
-      // validated by the close checklist's "F&B close batches posted" item.
-      const rows = await tx.execute(sql`
-        SELECT COUNT(DISTINCT source_reference_id)::int AS gl_tender_count
-        FROM gl_journal_entries
-        WHERE tenant_id = ${input.tenantId}
-          AND source_module = 'pos'
-          AND status IN ('posted', 'voided')
-          AND business_date >= ${input.startDate}::date
-          AND business_date <= ${input.endDate}::date
-      `);
+  // Sequential: each call uses withTenant (1 DB connection). Running in parallel
+  // required 2 connections simultaneously, which with Vercel pool max:2 leaves
+  // zero headroom and causes timeouts under any concurrent load.
+  const tenderSummary = await api.getTendersSummary(
+    input.tenantId,
+    input.startDate,
+    input.endDate,
+    input.locationId,
+  );
 
-      const arr = Array.from(rows as Iterable<Record<string, unknown>>);
-      return {
-        glTenderCount: arr.length > 0 ? Number(arr[0]!.gl_tender_count) : 0,
-      };
-    }),
-  ]);
+  const glCoverage = await withTenant(input.tenantId, async (tx) => {
+    // Count DISTINCT source_reference_id from posted GL entries for POS
+    // only. POS posts one journal per tender (source_reference_id = tenderId),
+    // giving a 1:1 comparison against ReconciliationReadApi's tender count.
+    // F&B uses closeBatchId as source_reference_id (1 batch = many tenders),
+    // so including it here would undercount coverage. F&B coverage is
+    // validated by the close checklist's "F&B close batches posted" item.
+    const rows = await tx.execute(sql`
+      SELECT COUNT(DISTINCT source_reference_id)::int AS gl_tender_count
+      FROM gl_journal_entries
+      WHERE tenant_id = ${input.tenantId}
+        AND source_module = 'pos'
+        AND status IN ('posted', 'voided')
+        AND business_date >= ${input.startDate}::date
+        AND business_date <= ${input.endDate}::date
+    `);
+
+    const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+    return {
+      glTenderCount: arr.length > 0 ? Number(arr[0]!.gl_tender_count) : 0,
+    };
+  });
 
   const totalTenders = tenderSummary.tenderCount;
   const tendersWithGl = glCoverage.glTenderCount;
