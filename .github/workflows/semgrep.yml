@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 15
 
     container:
-      image: semgrep/semgrep
+      image: semgrep/semgrep@sha256:7dfd648242bcbfa1d0cbb58e624c7cb799e31419e627f1fc7b1d7537d7d139de # latest
 
     # Skip the scheduled run on forks (they won't have the token)
     if: github.repository_owner == 'JasonPDev313' || github.event_name != 'schedule'
