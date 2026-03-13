@@ -74,7 +74,7 @@ vi.mock('@oppsera/module-reporting', () => ({
 }));
 
 vi.mock('@oppsera/core', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     toCsv: mockToCsv,
@@ -82,7 +82,7 @@ vi.mock('@oppsera/core', async (importOriginal) => {
 });
 
 vi.mock('@oppsera/shared', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     AppError: class AppError extends Error {
