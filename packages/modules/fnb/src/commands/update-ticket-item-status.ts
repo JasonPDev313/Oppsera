@@ -8,6 +8,15 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { UpdateTicketItemStatusInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { TicketItemNotFoundError } from '../errors';
+import { ConflictError } from '@oppsera/shared';
+
+const VALID_ITEM_TRANSITIONS: Record<string, string[]> = {
+  pending: ['cooking', 'ready', 'voided'],
+  cooking: ['ready', 'voided'],
+  ready: ['served', 'voided'],
+  served: [],
+  voided: [],
+};
 
 export async function updateTicketItemStatus(
   ctx: RequestContext,
@@ -32,6 +41,13 @@ export async function updateTicketItemStatus(
       .limit(1);
     if (!item) throw new TicketItemNotFoundError(itemId);
 
+    const allowedNext = VALID_ITEM_TRANSITIONS[item.itemStatus] ?? [];
+    if (!allowedNext.includes(input.itemStatus)) {
+      throw new ConflictError(
+        `Cannot transition item from '${item.itemStatus}' to '${input.itemStatus}'`,
+      );
+    }
+
     const setFields: Record<string, unknown> = {
       itemStatus: input.itemStatus,
       updatedAt: new Date(),
@@ -45,7 +61,10 @@ export async function updateTicketItemStatus(
     const [updated] = await tx
       .update(fnbKitchenTicketItems)
       .set(setFields)
-      .where(eq(fnbKitchenTicketItems.id, itemId))
+      .where(and(
+        eq(fnbKitchenTicketItems.id, itemId),
+        eq(fnbKitchenTicketItems.tenantId, ctx.tenantId),
+      ))
       .returning();
 
     // Look up the ticket for locationId

@@ -143,6 +143,7 @@ export function RecallRefireDialog({
             {reasons.map((reason) => (
               <button
                 key={reason}
+                type="button"
                 onClick={() => onConfirm(reason)}
                 style={{
                   minHeight: '3rem',
@@ -207,6 +208,7 @@ export function RecallRefireDialog({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleCustomConfirm();
                 }}
+                maxLength={200}
                 placeholder="Type a custom reason…"
                 style={{
                   flex: 1,
@@ -221,6 +223,7 @@ export function RecallRefireDialog({
                 }}
               />
               <button
+                type="button"
                 onClick={handleCustomConfirm}
                 disabled={!customReason.trim()}
                 style={{
@@ -244,6 +247,7 @@ export function RecallRefireDialog({
 
           {/* Cancel */}
           <button
+            type="button"
             onClick={onCancel}
             style={{
               width: '100%',

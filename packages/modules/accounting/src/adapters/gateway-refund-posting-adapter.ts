@@ -78,9 +78,10 @@ export async function handleGatewayRefundForAccounting(event: EventEnvelope): Pr
     if (revenueAccountId === paymentAccountId) return;
 
     await postingApi.postEntry(ctx, {
-      businessDate: new Date().toISOString().split('T')[0]!,
+      businessDate: event.occurredAt.split('T')[0]!,
       sourceModule: 'payments',
       sourceReferenceId: `gateway-refund-${data.paymentIntentId}-${data.refundedAmountCents}`,
+      sourceIdempotencyKey: `payments:gateway-refund:${data.paymentIntentId}:${data.refundedAmountCents}`,
       memo: `Gateway refund: $${amountDollars} — intent ${data.paymentIntentId}${data.orderId ? ` order ${data.orderId}` : ''}`,
       lines: [
         {
@@ -154,9 +155,10 @@ export async function handleGatewayVoidForAccounting(event: EventEnvelope): Prom
     if (revenueAccountId === paymentAccountId) return;
 
     await postingApi.postEntry(ctx, {
-      businessDate: new Date().toISOString().split('T')[0]!,
+      businessDate: event.occurredAt.split('T')[0]!,
       sourceModule: 'payments',
       sourceReferenceId: `gateway-void-${data.paymentIntentId}-${data.amountCents}`,
+      sourceIdempotencyKey: `payments:gateway-void:${data.paymentIntentId}:${data.amountCents}`,
       memo: `Gateway void: $${amountDollars} — intent ${data.paymentIntentId}${data.orderId ? ` order ${data.orderId}` : ''}`,
       lines: [
         {

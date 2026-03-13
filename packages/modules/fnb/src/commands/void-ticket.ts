@@ -51,7 +51,10 @@ export async function voidTicket(
         version: ticket.version + 1,
         updatedAt: new Date(),
       })
-      .where(eq(fnbKitchenTickets.id, ticketId))
+      .where(and(
+        eq(fnbKitchenTickets.id, ticketId),
+        eq(fnbKitchenTickets.tenantId, ctx.tenantId),
+      ))
       .returning();
 
     // Void all items

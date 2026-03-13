@@ -41,6 +41,7 @@ export interface KdsTicketItem {
   priorityLevel: number;
   estimatedPrepSeconds: number | null;
   routingRuleId: string | null;
+  stationId: string | null;
   isRush: boolean;
   isAllergy: boolean;
   isVip: boolean;
@@ -235,7 +236,7 @@ export async function getKdsView(
       const allItemRows = await tx.execute(
         sql`SELECT ticket_id, id, order_line_id, item_name, kitchen_label, item_color,
                    modifier_summary, special_instructions,
-                   seat_number, course_name, quantity, item_status,
+                   seat_number, course_name, quantity, item_status, station_id,
                    priority_level, estimated_prep_seconds, routing_rule_id,
                    is_rush, is_allergy, is_vip,
                    started_at, ready_at, bumped_by,
@@ -263,6 +264,7 @@ export async function getKdsView(
           priorityLevel: Number(r.priority_level ?? 0),
           estimatedPrepSeconds: r.estimated_prep_seconds != null ? Number(r.estimated_prep_seconds) : null,
           routingRuleId: (r.routing_rule_id as string) ?? null,
+          stationId: (r.station_id as string) ?? null,
           isRush: r.is_rush as boolean,
           isAllergy: r.is_allergy as boolean,
           isVip: r.is_vip as boolean,

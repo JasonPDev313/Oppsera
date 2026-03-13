@@ -113,6 +113,13 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   const { user, locations } = useAuthContext();
   const { rooms, isLoading: roomsLoading } = useFnbRooms();
 
+  // ── Stable action selectors ──────────────────────────────────
+  // Extract actions via individual selectors so effects/callbacks don't depend
+  // on the full `store` object (which changes ref on every state update).
+  const setActiveRoom = useFnbPosStore((s) => s.setActiveRoom);
+  const setMySectionEditing = useFnbPosStore((s) => s.setMySectionEditing);
+  const navigateTo = useFnbPosStore((s) => s.navigateTo);
+
   // Select first room if none active, or if stored room was archived (no longer in active list).
   // While rooms are still loading, trust the stored roomId so the floor plan fetch can start
   // in parallel — avoids sequential room-then-floor-plan round trips on every mount.
@@ -124,9 +131,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   // Clear stale activeRoomId from store when the stored room is no longer available
   useEffect(() => {
     if (!roomsLoading && rooms.length > 0 && store.activeRoomId && !storedRoomExists) {
-      store.setActiveRoom(rooms[0]!.id);
+      setActiveRoom(rooms[0]!.id);
     }
-  }, [roomsLoading, rooms, store, storedRoomExists]);
+  }, [roomsLoading, rooms, store.activeRoomId, storedRoomExists, setActiveRoom]);
 
   const { data: floorPlan, tables, isLoading, isFetching, error: floorError, refresh } = useFnbFloor({
     roomId: activeRoomId,
@@ -194,10 +201,10 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       setActionMenuTable(null);
       setLockPinModalOpen(false);
       setDisplayMenuOpen(false);
-      store.setMySectionEditing(false);
+      setMySectionEditing(false);
       closeManagerPin();
     }
-  }, [isActive, store, closeManagerPin]);
+  }, [isActive, setMySectionEditing, closeManagerPin]);
 
   // Derive locationId from the active room (needed for API calls)
   const locationId = activeRoom?.locationId ?? null;
@@ -205,10 +212,14 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   // Push active room's locationId into the store so parent components
   // (fnb-pos-content) can use it for settings fetches instead of locations[0].
   // Cleanup on unmount prevents stale locationId when navigating away.
+  // Use a stable selector — depending on the full `store` object would cause
+  // the cleanup (→ null) to fire on every unrelated store update, creating an
+  // infinite activeLocationId toggle loop (gotcha: React error #185).
+  const setActiveLocationId = useFnbPosStore((s) => s.setActiveLocationId);
   useEffect(() => {
-    store.setActiveLocationId(locationId);
-    return () => { store.setActiveLocationId(null); };
-  }, [locationId, store]);
+    setActiveLocationId(locationId);
+    return () => { setActiveLocationId(null); };
+  }, [locationId, setActiveLocationId]);
 
   // ── Toast (global provider) ─────────────────────────────────
   const { toast } = useToast();
@@ -406,9 +417,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       setSeatModalOpen(true);
     } else if (table.currentTabId) {
       // Tap occupied with tab → navigate to tab view
-      store.navigateTo('tab', { tabId: table.currentTabId });
+      navigateTo('tab', { tabId: table.currentTabId });
     }
-  }, [tables, store]);
+  }, [tables, navigateTo]);
 
   const handleTableLongPress = useCallback((tableId: string) => {
     const table = tables.find((t) => t.tableId === tableId);
@@ -431,7 +442,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
         });
         setSeatModalOpen(false);
         setAddSeatMode(false);
-        store.navigateTo('tab', { tabId: seatTargetTable.currentTabId });
+        navigateTo('tab', { tabId: seatTargetTable.currentTabId });
       } else {
         const tab = await openTabApi({
           serverUserId: userId,
@@ -443,19 +454,19 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           locationId: locationId ?? undefined,
         });
         setSeatModalOpen(false);
-        store.navigateTo('tab', { tabId: tab.id });
+        navigateTo('tab', { tabId: tab.id });
       }
     } catch (err) {
       setSeatModalOpen(false);
       setAddSeatMode(false);
       toast.error(err instanceof Error ? err.message : 'Failed to seat guests');
     }
-  }, [seatTargetTable, addSeatMode, userId, store, locationId, locationTimezone, toast]);
+  }, [seatTargetTable, addSeatMode, userId, navigateTo, locationId, locationTimezone, toast]);
 
   const handleRoomChange = useCallback((roomId: string) => {
-    store.setActiveRoom(roomId);
+    setActiveRoom(roomId);
     setSelectedTableId(null);
-  }, [store]);
+  }, [setActiveRoom]);
 
   const handleAddTab = useCallback((tableId: string) => {
     const table = tables.find((t) => t.tableId === tableId);

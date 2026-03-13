@@ -98,6 +98,7 @@ export async function getKdsAllTickets(
         priorityLevel: Number(r.priority_level ?? 0),
         estimatedPrepSeconds: r.estimated_prep_seconds != null ? Number(r.estimated_prep_seconds) : null,
         routingRuleId: (r.routing_rule_id as string) ?? null,
+        stationId: (r.station_id as string) ?? null,
         isRush: r.is_rush as boolean,
         isAllergy: r.is_allergy as boolean,
         isVip: r.is_vip as boolean,

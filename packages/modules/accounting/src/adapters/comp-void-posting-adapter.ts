@@ -187,7 +187,11 @@ export async function handleLineVoidForAccounting(event: EventEnvelope): Promise
       // This represents product that was prepared but discarded
       const wasteAccountId = (settings as Record<string, any>).defaultCompExpenseAccountId
         ?? settings.defaultUncategorizedRevenueAccountId;
-      const inventoryAccountId = (settings as Record<string, any>).defaultInventoryAssetAccountId
+      // Credit side: use rounding/suspense account as the offset for waste.
+      // NOTE: defaultInventoryAssetAccountId does not exist on accounting_settings.
+      // If inventory GL tracking is needed, it should be configured via sub-department
+      // GL mappings (inventoryAccountId). For now, use rounding as a safe suspense.
+      const inventoryAccountId = settings.defaultRoundingAccountId
         ?? settings.defaultUncategorizedRevenueAccountId;
 
       // Guard: self-canceling entry when both resolve to same fallback account

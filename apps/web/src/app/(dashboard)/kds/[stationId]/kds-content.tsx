@@ -120,6 +120,9 @@ export default function KdsContent() {
     lastRefreshedAt,
   } = useKdsView({ stationId, locationId, pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
 
+  const handleBumpItem = useCallback((ticketItemId: string) => bumpItem(ticketItemId), [bumpItem]);
+  const handleBumpTicket = useCallback((ticketId: string) => bumpTicket(ticketId), [bumpTicket]);
+
   // Page-level audio alerts — single AudioContext, deduped, rate-limited
   useKdsAudioAlerts({
     tickets: kdsView?.tickets ?? [],
@@ -532,8 +535,8 @@ export default function KdsContent() {
                     ticket={ticket}
                     warningThresholdSeconds={kdsView.warningThresholdSeconds}
                     criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
-                    onBumpItem={bumpItem}
-                    onBumpTicket={bumpTicket}
+                    onBumpItem={handleBumpItem}
+                    onBumpTicket={handleBumpTicket}
                     disabled={isActing}
                     density={density}
                     allDayCounts={allDayCounts}
@@ -557,8 +560,8 @@ export default function KdsContent() {
                         ticket={ticket}
                         warningThresholdSeconds={kdsView.warningThresholdSeconds}
                         criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
-                        onBumpItem={bumpItem}
-                        onBumpTicket={bumpTicket}
+                        onBumpItem={handleBumpItem}
+                        onBumpTicket={handleBumpTicket}
                         disabled={isActing}
                         density={density}
                       />
@@ -630,8 +633,8 @@ export default function KdsContent() {
                     ticket={ticket}
                     warningThresholdSeconds={kdsView.warningThresholdSeconds}
                     criticalThresholdSeconds={kdsView.criticalThresholdSeconds}
-                    onBumpItem={bumpItem}
-                    onBumpTicket={bumpTicket}
+                    onBumpItem={handleBumpItem}
+                    onBumpTicket={handleBumpTicket}
                     disabled={isActing}
                     density={density}
                     allDayCounts={allDayCounts}

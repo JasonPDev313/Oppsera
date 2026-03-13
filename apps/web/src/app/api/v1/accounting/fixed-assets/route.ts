@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { listFixedAssets, createFixedAsset } from '@oppsera/module-accounting';
+import { listFixedAssets, createFixedAsset, createFixedAssetSchema } from '@oppsera/module-accounting';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -22,49 +22,17 @@ export const GET = withMiddleware(
 
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
-    const {
-      assetNumber,
-      name,
-      description,
-      category,
-      acquisitionDate,
-      acquisitionCost,
-      salvageValue,
-      usefulLifeMonths,
-      depreciationMethod,
-      locationId,
-      assetGlAccountId,
-      depreciationExpenseAccountId,
-      accumulatedDepreciationAccountId,
-      notes,
-      metadata,
-    } = body;
-
-    if (!name || !acquisitionDate || !acquisitionCost || !usefulLifeMonths || !depreciationMethod) {
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
+    const parsed = createFixedAssetSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: { code: 'VALIDATION_ERROR', message: 'name, acquisitionDate, acquisitionCost, usefulLifeMonths, and depreciationMethod are required' } },
+        { error: { code: 'VALIDATION_ERROR', message: 'Invalid input', details: parsed.error.issues } },
         { status: 400 },
       );
     }
 
-    const asset = await createFixedAsset(ctx, {
-      assetNumber,
-      name,
-      description,
-      category,
-      acquisitionDate,
-      acquisitionCost,
-      salvageValue,
-      usefulLifeMonths,
-      depreciationMethod,
-      locationId,
-      assetGlAccountId,
-      depreciationExpenseAccountId,
-      accumulatedDepreciationAccountId,
-      notes,
-      metadata,
-    });
+    const asset = await createFixedAsset(ctx, parsed.data);
     return NextResponse.json({ data: asset }, { status: 201 });
   },
   { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true },

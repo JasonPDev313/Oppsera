@@ -13,8 +13,8 @@ interface TicketCardProps {
   ticket: KdsTicketCardType;
   warningThresholdSeconds: number;
   criticalThresholdSeconds: number;
-  onBumpItem: (ticketItemId: string) => void;
-  onBumpTicket: (ticketId: string) => void;
+  onBumpItem: (ticketItemId: string, stationId?: string | null) => void | Promise<void>;
+  onBumpTicket: (ticketId: string) => void | Promise<void>;
   disabled?: boolean;
   /** DOM mode: show draft/unsent items as ghost preview */
   isDomTicket?: boolean;
@@ -57,7 +57,7 @@ export function TicketCard({
   const isDelta = ticket.status === 'pending' && ticket.items.length === 1;
   const hasVoidedItems = ticket.items.some((i) => i.itemStatus === 'voided');
   // Detect stale tickets from a previous business date
-  const isStale = !!ticket.businessDate && ticket.businessDate < new Date().toISOString().slice(0, 10);
+  const isStale = !!ticket.businessDate && ticket.businessDate < new Date().toLocaleDateString('en-CA');
   const hasRush = ticket.items.some((i) => i.isRush);
   const hasAllergy = ticket.items.some((i) => i.isAllergy);
   const hasVip = ticket.items.some((i) => i.isVip);

@@ -45,13 +45,16 @@ interface GetGlPostingGapsInput {
 }
 
 /**
- * Detects tenders that have no corresponding GL journal entry.
+ * Detects POS tenders that have no corresponding GL journal entry.
  *
  * Uses ReconciliationReadApi for tender data (cross-module boundary)
  * and local query on gl_journal_entries for GL coverage.
  *
- * Checks ALL GL source modules (pos, fnb, voucher, etc.) to avoid
- * undercounting when adapters use different source_module values.
+ * Scoped to POS module only (source_module = 'pos') because POS posts
+ * one GL entry per tender (1:1 mapping). F&B posts one GL entry per
+ * close batch (1:many with tenders) — F&B coverage is validated
+ * separately by the close checklist's "F&B close batches posted" item.
+ * Including F&B here would undercount coverage because closeBatchId ≠ tenderId.
  */
 export async function getGlPostingGaps(
   input: GetGlPostingGapsInput,
@@ -67,15 +70,17 @@ export async function getGlPostingGaps(
       input.locationId,
     ),
     withTenant(input.tenantId, async (tx) => {
-      // Count DISTINCT source_reference_id from posted GL entries
-      // for POS and FnB modules ONLY — these are the modules that post
-      // tender-level entries. Including other modules (returns, settlements,
-      // memberships, etc.) inflates coverage and masks missing tender postings.
+      // Count DISTINCT source_reference_id from posted GL entries for POS
+      // only. POS posts one journal per tender (source_reference_id = tenderId),
+      // giving a 1:1 comparison against ReconciliationReadApi's tender count.
+      // F&B uses closeBatchId as source_reference_id (1 batch = many tenders),
+      // so including it here would undercount coverage. F&B coverage is
+      // validated by the close checklist's "F&B close batches posted" item.
       const rows = await tx.execute(sql`
         SELECT COUNT(DISTINCT source_reference_id)::int AS gl_tender_count
         FROM gl_journal_entries
         WHERE tenant_id = ${input.tenantId}
-          AND source_module IN ('pos', 'fnb')
+          AND source_module = 'pos'
           AND status IN ('posted', 'voided')
           AND business_date >= ${input.startDate}::date
           AND business_date <= ${input.endDate}::date

@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, lt, sql } from 'drizzle-orm';
+import { eq, and, desc, gte, lte, lt, sql, or, ilike } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { glJournalEntries } from '@oppsera/db';
 
@@ -11,6 +11,7 @@ interface ListJournalEntriesInput {
   sourceModule?: string;
   status?: string;
   accountId?: string;
+  search?: string;
 }
 
 export async function listJournalEntries(input: ListJournalEntriesInput) {
@@ -34,6 +35,15 @@ export async function listJournalEntries(input: ListJournalEntriesInput) {
     if (input.status) {
       conditions.push(eq(glJournalEntries.status, input.status));
     }
+    if (input.search) {
+      const searchPattern = `%${input.search}%`;
+      conditions.push(
+        or(
+          sql`${glJournalEntries.journalNumber}::text ILIKE ${searchPattern}`,
+          ilike(glJournalEntries.memo, searchPattern),
+        )!,
+      );
+    }
 
     // If filtering by accountId, join through gl_journal_lines
     let rows;
@@ -49,6 +59,7 @@ export async function listJournalEntries(input: ListJournalEntriesInput) {
           ${input.endDate ? sql`AND je.business_date <= ${input.endDate}` : sql``}
           ${input.sourceModule ? sql`AND je.source_module = ${input.sourceModule}` : sql``}
           ${input.status ? sql`AND je.status = ${input.status}` : sql``}
+          ${input.search ? sql`AND (je.journal_number::text ILIKE ${'%' + input.search + '%'} OR je.memo ILIKE ${'%' + input.search + '%'})` : sql``}
         ORDER BY je.id DESC
         LIMIT ${limit + 1}
       `);

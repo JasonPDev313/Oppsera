@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { withTenant } from '@oppsera/db';
-import { paymentSettlements, paymentTypeGlDefaults } from '@oppsera/db';
+import { paymentSettlements, paymentTypeGlDefaults, bankAccounts } from '@oppsera/db';
 import { eq, and, sql } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -157,6 +157,31 @@ export async function postSettlementGl(
       );
     }
 
+    // 4. Resolve bankAccountId → GL account ID via bank_accounts table.
+    // bankAccountId is a bank_accounts.id — we need bank_accounts.gl_account_id
+    // for the actual GL posting. Using bankAccountId directly would post to a
+    // non-existent GL account (bank_accounts.id ≠ gl_accounts.id).
+    let bankGlAccountId: string | null = null;
+    const [bankRow] = await tx
+      .select({ glAccountId: bankAccounts.glAccountId })
+      .from(bankAccounts)
+      .where(
+        and(
+          eq(bankAccounts.tenantId, ctx.tenantId),
+          eq(bankAccounts.id, bankAccountId),
+        ),
+      )
+      .limit(1);
+    bankGlAccountId = bankRow?.glAccountId ?? null;
+
+    if (!bankGlAccountId) {
+      throw new AppError(
+        'MISSING_BANK_GL_ACCOUNT',
+        'Bank account has no linked GL account. Configure the GL account in bank account settings before posting.',
+        422,
+      );
+    }
+
     return {
       settlement,
       grossCents,
@@ -164,10 +189,11 @@ export async function postSettlementGl(
       netCents,
       clearingAccountId,
       feeAccountId,
+      bankGlAccountId,
     };
   });
 
-  const { settlement, grossCents, feeCents, netCents, clearingAccountId, feeAccountId } = readData;
+  const { settlement, grossCents, feeCents, netCents, clearingAccountId, feeAccountId, bankGlAccountId } = readData;
 
   const grossDollars = (grossCents / 100).toFixed(2);
   const feeDollars = (feeCents / 100).toFixed(2);
@@ -180,7 +206,7 @@ export async function postSettlementGl(
   // DR Bank Account — net settlement deposit (always add if gross > 0, even if net <= 0)
   if (grossCents > 0) {
     lines.push({
-      accountId: bankAccountId,
+      accountId: bankGlAccountId,
       debitAmount: netCents > 0 ? netDollars : '0',
       locationId: settlement.locationId ?? undefined,
       channel: 'settlement',
@@ -221,7 +247,7 @@ export async function postSettlementGl(
   if (chargebackCents > 0) {
     // DR Chargeback Loss — we'd need a chargeback account mapping
     // For now, use the fee account as a fallback
-    const chargebackAccountId = feeAccountId ?? bankAccountId;
+    const chargebackAccountId = feeAccountId ?? bankGlAccountId;
     lines.push({
       accountId: chargebackAccountId,
       debitAmount: chargebackDollars,
@@ -232,7 +258,7 @@ export async function postSettlementGl(
 
     // CR Bank — chargeback reduces bank balance
     lines.push({
-      accountId: bankAccountId,
+      accountId: bankGlAccountId,
       creditAmount: chargebackDollars,
       locationId: settlement.locationId ?? undefined,
       channel: 'settlement',
@@ -256,6 +282,7 @@ export async function postSettlementGl(
     businessDate: settlement.settlementDate,
     sourceModule: 'settlement',
     sourceReferenceId: settlementId,
+    sourceIdempotencyKey: `payments:settlement-gl:${settlementId}`,
     memo: `Card settlement — ${settlement.processorName} — ${settlement.settlementDate} — Batch ${settlement.processorBatchId ?? 'N/A'}`,
     lines,
     forcePost: true, // automated posting bypasses draft mode

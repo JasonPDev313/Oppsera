@@ -1,9 +1,9 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { fixedAssets } from '@oppsera/db';
+import { fixedAssets, glAccounts } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import { ACCOUNTING_EVENTS } from '../events/types';
 
@@ -21,6 +21,7 @@ export interface CreateFixedAssetInput {
   assetGlAccountId?: string;
   depreciationExpenseAccountId?: string;
   accumulatedDepreciationAccountId?: string;
+  disposalGlAccountId?: string;
   notes?: string;
   metadata?: Record<string, unknown>;
 }
@@ -43,6 +44,32 @@ export async function createFixedAsset(ctx: RequestContext, input: CreateFixedAs
       throw new Error(`Asset number "${input.assetNumber}" already exists`);
     }
 
+    // Validate GL account IDs belong to this tenant
+    const glAccountIds = [
+      input.assetGlAccountId,
+      input.depreciationExpenseAccountId,
+      input.accumulatedDepreciationAccountId,
+      input.disposalGlAccountId,
+    ].filter((id): id is string => !!id);
+
+    if (glAccountIds.length > 0) {
+      const ownedAccounts = await tx
+        .select({ id: glAccounts.id })
+        .from(glAccounts)
+        .where(
+          and(
+            eq(glAccounts.tenantId, ctx.tenantId),
+            inArray(glAccounts.id, glAccountIds),
+          ),
+        );
+      const ownedIds = new Set(ownedAccounts.map((a) => a.id));
+      for (const accountId of glAccountIds) {
+        if (!ownedIds.has(accountId)) {
+          throw new Error(`GL account "${accountId}" not found or does not belong to this tenant`);
+        }
+      }
+    }
+
     const id = generateUlid();
     const [created] = await tx
       .insert(fixedAssets)
@@ -63,6 +90,7 @@ export async function createFixedAsset(ctx: RequestContext, input: CreateFixedAs
         assetGlAccountId: input.assetGlAccountId ?? null,
         depreciationExpenseAccountId: input.depreciationExpenseAccountId ?? null,
         accumulatedDepreciationAccountId: input.accumulatedDepreciationAccountId ?? null,
+        disposalGlAccountId: input.disposalGlAccountId ?? null,
         notes: input.notes ?? null,
         metadata: input.metadata ?? {},
         createdBy: ctx.user.id,

@@ -984,6 +984,7 @@ describe('KDS Bump State Machine — callBackToStation', () => {
     const ticket = makeTicket({ status: 'in_progress' });
 
     mockTx.limit
+      .mockResolvedValueOnce([makeStation({ id: 'station-grill' })]) // station lookup
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket]);
     mockTx.returning.mockResolvedValueOnce([calledBack]);
@@ -1005,6 +1006,7 @@ describe('KDS Bump State Machine — callBackToStation', () => {
     const revertedTicket = { ...ticket, status: 'in_progress', version: 4 };
 
     mockTx.limit
+      .mockResolvedValueOnce([makeStation({ id: 'station-grill' })]) // station lookup
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket]);
     mockTx.returning
@@ -1022,6 +1024,7 @@ describe('KDS Bump State Machine — callBackToStation', () => {
     const ticket = makeTicket({ status: 'in_progress' });
 
     mockTx.limit
+      .mockResolvedValueOnce([makeStation({ id: 'station-grill' })]) // station lookup
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket]);
     mockTx.returning.mockResolvedValueOnce([calledBack]);
@@ -1034,20 +1037,26 @@ describe('KDS Bump State Machine — callBackToStation', () => {
 
   it('callBack: pending item → throws TicketItemStatusConflictError', async () => {
     const item = makeTicketItem({ itemStatus: 'pending' });
-    mockTx.limit.mockResolvedValueOnce([item]);
+    mockTx.limit
+      .mockResolvedValueOnce([makeStation({ id: 'station-grill' })]) // station lookup
+      .mockResolvedValueOnce([item]);
 
     await expect(callBackToStation(makeCtx(), baseInput)).rejects.toThrow(/Cannot call back item .+ in status 'pending'/);
   });
 
   it('callBack: voided item → throws TicketItemStatusConflictError', async () => {
     const item = makeTicketItem({ itemStatus: 'voided' });
-    mockTx.limit.mockResolvedValueOnce([item]);
+    mockTx.limit
+      .mockResolvedValueOnce([makeStation({ id: 'station-grill' })]) // station lookup
+      .mockResolvedValueOnce([item]);
 
     await expect(callBackToStation(makeCtx(), baseInput)).rejects.toThrow(/Cannot call back item .+ in status 'voided'/);
   });
 
   it('callBack: item not found → throws TicketItemNotFoundError', async () => {
-    mockTx.limit.mockResolvedValueOnce([]);
+    mockTx.limit
+      .mockResolvedValueOnce([makeStation({ id: 'station-grill' })]) // station lookup
+      .mockResolvedValueOnce([]);
 
     await expect(callBackToStation(makeCtx(), baseInput)).rejects.toThrow(/not found/);
   });
@@ -1055,7 +1064,9 @@ describe('KDS Bump State Machine — callBackToStation', () => {
   it('callBack: concurrent update → throws (optimistic lock)', async () => {
     const item = makeTicketItem({ itemStatus: 'ready' });
 
-    mockTx.limit.mockResolvedValueOnce([item]);
+    mockTx.limit
+      .mockResolvedValueOnce([makeStation({ id: 'station-grill' })]) // station lookup
+      .mockResolvedValueOnce([item]);
     mockTx.returning.mockResolvedValueOnce([]); // optimistic lock fails
 
     await expect(callBackToStation(makeCtx(), baseInput)).rejects.toThrow(/Cannot call back \(concurrent\)/);
@@ -1067,6 +1078,7 @@ describe('KDS Bump State Machine — callBackToStation', () => {
     const ticket = makeTicket({ status: 'ready', version: 1 });
 
     mockTx.limit
+      .mockResolvedValueOnce([makeStation({ id: 'station-grill' })]) // station lookup
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket]);
     mockTx.returning
@@ -1083,6 +1095,7 @@ describe('KDS Bump State Machine — callBackToStation', () => {
     const revertedTicket = { ...ticket, status: 'in_progress', version: 3 };
 
     mockTx.limit
+      .mockResolvedValueOnce([makeStation({ id: 'station-grill' })]) // station lookup
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket]);
     mockTx.returning
@@ -1105,6 +1118,7 @@ describe('KDS Bump State Machine — callBackToStation', () => {
     const ticket = makeTicket({ status: 'voided' });
 
     mockTx.limit
+      .mockResolvedValueOnce([makeStation({ id: 'station-grill' })]) // station lookup
       .mockResolvedValueOnce([item])
       .mockResolvedValueOnce([ticket]);
     mockTx.returning.mockResolvedValueOnce([calledBack]); // item update succeeds

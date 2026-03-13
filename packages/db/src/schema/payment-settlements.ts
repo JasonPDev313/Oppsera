@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   jsonb,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import { tenants } from './core';
 import { bankAccounts } from './accounting-mappings';
@@ -30,7 +31,7 @@ export const paymentSettlements = pgTable(
     feeAmount: numeric('fee_amount', { precision: 12, scale: 2 }).notNull().default('0'),
     netAmount: numeric('net_amount', { precision: 12, scale: 2 }).notNull(),
     chargebackAmount: numeric('chargeback_amount', { precision: 12, scale: 2 }).notNull().default('0'),
-    status: text('status').notNull().default('pending'), // pending | matched | posted | disputed
+    status: text('status').notNull().default('pending'), // pending | matched | posted | voided | failed | disputed
     bankAccountId: text('bank_account_id').references(() => bankAccounts.id),
     glJournalEntryId: text('gl_journal_entry_id'),
     importSource: text('import_source').notNull().default('manual'), // csv | webhook | manual
@@ -78,5 +79,8 @@ export const paymentSettlementLines = pgTable(
     index('idx_settlement_lines_settlement').on(table.settlementId),
     index('idx_settlement_lines_tender').on(table.tenderId),
     index('idx_settlement_lines_tenant_status').on(table.tenantId, table.status),
+    uniqueIndex('uq_settlement_lines_tenant_tender')
+      .on(table.tenantId, table.tenderId)
+      .where(sql`tender_id IS NOT NULL`),
   ],
 );

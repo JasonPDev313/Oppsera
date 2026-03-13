@@ -160,6 +160,7 @@ export async function disposeFixedAsset(ctx: RequestContext, input: DisposeFixed
       businessDate: input.disposalDate,
       sourceModule: 'fixed_assets',
       sourceReferenceId: `disposal-${input.assetId}`,
+      sourceIdempotencyKey: `fixed-assets:disposal:${input.assetId}`,
       memo: `Asset disposal - ${asset.name} (${asset.assetNumber})`,
       lines,
       forcePost: true,

@@ -161,6 +161,7 @@ export async function recordDepreciation(ctx: RequestContext, input: RecordDepre
       businessDate: input.periodDate,
       sourceModule: 'fixed_assets',
       sourceReferenceId: `depreciation-${input.assetId}-${input.periodDate}`,
+      sourceIdempotencyKey: `fixed-assets:depreciation:${input.assetId}:${input.periodDate}`,
       memo: `Depreciation - ${asset.name} (${asset.assetNumber}) - ${input.periodDate}`,
       lines: [
         {

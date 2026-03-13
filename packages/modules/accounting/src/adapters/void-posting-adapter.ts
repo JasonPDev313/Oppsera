@@ -10,7 +10,7 @@ import { logUnmappedEvent } from '../helpers/resolve-mapping';
 
 interface OrderVoidedPayload {
   orderId: string;
-  orderNumber?: number;
+  orderNumber?: string;
   reason: string;
   voidedBy?: string;
   locationId: string;

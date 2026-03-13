@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
   const batchResolveDiscountGlMappings = vi.fn();
   const logUnmappedEvent = vi.fn();
   const getAccountingSettings = vi.fn();
+  const ensureAccountingSettings = vi.fn().mockResolvedValue({ created: false, autoWired: 0 });
   const postEntry = vi.fn();
   const getAccountingPostingApi = vi.fn();
 
@@ -22,6 +23,7 @@ const mocks = vi.hoisted(() => {
     batchResolveDiscountGlMappings,
     logUnmappedEvent,
     getAccountingSettings,
+    ensureAccountingSettings,
     postEntry,
     getAccountingPostingApi,
   };
@@ -32,9 +34,13 @@ vi.mock('@oppsera/db', () => ({
   isBreakerOpen: vi.fn().mockReturnValue(false),
 }));
 
-vi.mock('@oppsera/shared', () => ({
-  generateUlid: vi.fn(() => `ulid-${Math.random().toString(36).slice(2, 8)}`),
-}));
+vi.mock('@oppsera/shared', async (importOriginal) => {
+  const original = await importOriginal<Record<string, unknown>>();
+  return {
+    ...original,
+    generateUlid: vi.fn(() => `ulid-${Math.random().toString(36).slice(2, 8)}`),
+  };
+});
 
 vi.mock('../helpers/resolve-mapping', () => ({
   resolveSubDepartmentAccounts: mocks.resolveSubDepartmentAccounts,
@@ -48,6 +54,10 @@ vi.mock('../helpers/resolve-mapping', () => ({
 
 vi.mock('../helpers/get-accounting-settings', () => ({
   getAccountingSettings: mocks.getAccountingSettings,
+}));
+
+vi.mock('../helpers/ensure-accounting-settings', () => ({
+  ensureAccountingSettings: mocks.ensureAccountingSettings,
 }));
 
 vi.mock('@oppsera/core/helpers/accounting-posting-api', () => ({
@@ -86,6 +96,8 @@ const defaultSettings = {
   defaultTipsPayableAccountId: null,
   defaultServiceChargeRevenueAccountId: null,
   defaultUncategorizedRevenueAccountId: 'acct-uncat',
+  defaultRoundingAccountId: 'acct-rounding',
+  defaultUndepositedFundsAccountId: 'acct-undeposited',
 };
 
 const defaultSubDeptMapping = {
@@ -134,7 +146,9 @@ describe('handleTenderForAccounting', () => {
   // ── Core behavior ──────────────────────────────────────────────
 
   it('should skip silently when accounting is not enabled', async () => {
-    mocks.getAccountingSettings.mockResolvedValueOnce(null);
+    // First call returns null, ensureAccountingSettings runs, second call also returns null
+    // → throws PermanentPostingError (swallowed by outer catch)
+    mocks.getAccountingSettings.mockResolvedValue(null);
 
     await handleTenderForAccounting(createEvent());
 
@@ -328,11 +342,30 @@ describe('handleTenderForAccounting', () => {
     );
   });
 
-  it('should never throw (POS adapter must not block tenders)', async () => {
+  it('should re-throw transient errors for outbox retry', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
     // subdept-1 already in beforeEach batch mock
     mocks.postEntry.mockRejectedValueOnce(new Error('DB connection lost'));
 
+    // Transient errors now propagate so the outbox worker can retry
+    await expect(handleTenderForAccounting(createEvent({
+      lines: [singleLine()],
+    }))).rejects.toThrow('DB connection lost');
+
+    expect(mocks.logUnmappedEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      'tenant-1',
+      expect.objectContaining({ entityType: 'transient_posting_error' }),
+    );
+  });
+
+  it('should swallow permanent posting errors (no retry)', async () => {
+    const { PermanentPostingError } = await import('@oppsera/shared');
+    // Both calls to getAccountingSettings return null → PermanentPostingError
+    mocks.getAccountingSettings.mockResolvedValue(null);
+    mocks.ensureAccountingSettings.mockResolvedValueOnce({ created: false, autoWired: 0 });
+
+    // PermanentPostingError (missing settings) should NOT propagate
     await expect(handleTenderForAccounting(createEvent({
       lines: [singleLine()],
     }))).resolves.toBeUndefined();
@@ -340,7 +373,7 @@ describe('handleTenderForAccounting', () => {
     expect(mocks.logUnmappedEvent).toHaveBeenCalledWith(
       expect.anything(),
       'tenant-1',
-      expect.objectContaining({ entityType: 'posting_error' }),
+      expect.objectContaining({ entityType: 'permanent_posting_error' }),
     );
   });
 

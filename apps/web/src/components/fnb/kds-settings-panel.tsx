@@ -1524,6 +1524,36 @@ function RoutingTab({ locationId }: { locationId?: string }) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingRule, setEditingRule] = useState<typeof rules[number] | null>(null);
   const [showRecommendations, setShowRecommendations] = useState(false);
+  const [diagnosticResult, setDiagnosticResult] = useState<{
+    stations: Array<{ id: string; name: string; displayName: string; stationType: string; isActive: boolean }>;
+    routingRules: Array<{ id: string; ruleName: string | null; ruleType: string; stationId: string; stationName: string | null; priority: number; isActive: boolean }>;
+    diagnosis: string[];
+  } | null>(null);
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+  const { toast } = useToast();
+
+  const runDiagnostic = useCallback(async () => {
+    if (!locationId) return;
+    setIsDiagnosing(true);
+    try {
+      const json = await apiFetch<{ data: typeof diagnosticResult }>(
+        `/api/v1/fnb/kds-settings/diagnostics?locationId=${locationId}`,
+      );
+      setDiagnosticResult(json.data);
+      setShowDiagnostic(true);
+    } catch {
+      toast.error('Failed to run routing diagnostic');
+    } finally {
+      setIsDiagnosing(false);
+    }
+  }, [locationId, toast]);
+
+  // Build lookup to flag rules targeting expo stations
+  const expoStationIds = useMemo(
+    () => new Set(stations.filter((s) => s.stationType === 'expo').map((s) => s.id)),
+    [stations],
+  );
 
   if (isLoading) {
     return <div className="py-8 text-center text-muted-foreground text-sm">Loading routing rules...</div>;
@@ -1540,6 +1570,20 @@ function RoutingTab({ locationId }: { locationId?: string }) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={runDiagnostic}
+            disabled={!locationId || isDiagnosing}
+            title={!locationId ? 'Select a location first' : 'Run routing diagnostic to check for misconfiguration'}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              showDiagnostic
+                ? 'bg-blue-500/10 text-blue-500 border border-blue-500/30'
+                : 'border border-border text-muted-foreground hover:text-foreground hover:bg-accent'
+            } disabled:opacity-50`}
+          >
+            <Search className="h-3.5 w-3.5" />
+            {isDiagnosing ? 'Diagnosing...' : 'Diagnose'}
+          </button>
           <button
             type="button"
             onClick={() => setShowRecommendations(!showRecommendations)}
@@ -1569,6 +1613,80 @@ function RoutingTab({ locationId }: { locationId?: string }) {
         <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           Select a location to manage routing rules.
+        </div>
+      )}
+
+      {/* Routing Diagnostic Results */}
+      {showDiagnostic && diagnosticResult && (
+        <div className="bg-surface border border-border rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <Search className="h-3.5 w-3.5 text-blue-500" />
+              Routing Diagnostic
+            </h4>
+            <button
+              type="button"
+              onClick={() => setShowDiagnostic(false)}
+              className="p-1 rounded hover:bg-accent text-muted-foreground"
+            >
+              <XIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Diagnosis messages */}
+          {diagnosticResult.diagnosis.length > 0 ? (
+            <div className="space-y-1.5">
+              {diagnosticResult.diagnosis.map((msg, i) => {
+                const isWarning = /warning|expo|missing|no\s+(active|routing)/i.test(msg);
+                const isError = /error|fail|critical/i.test(msg);
+                const color = isError ? 'text-red-500' : isWarning ? 'text-amber-500' : 'text-green-500';
+                const bg = isError ? 'bg-red-500/5' : isWarning ? 'bg-amber-500/5' : 'bg-green-500/5';
+                return (
+                  <p key={i} className={`text-[11px] ${color} ${bg} rounded px-2 py-1.5 flex items-start gap-1.5`}>
+                    {isError ? <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" /> :
+                     isWarning ? <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" /> :
+                     <CheckCircle2 className="h-3 w-3 shrink-0 mt-0.5" />}
+                    {msg}
+                  </p>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-[11px] text-green-500 bg-green-500/5 rounded px-2 py-1.5 flex items-center gap-1.5">
+              <CheckCircle2 className="h-3 w-3 shrink-0" />
+              No routing issues detected.
+            </p>
+          )}
+
+          {/* Station summary */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Stations ({diagnosticResult.stations.length})</p>
+            <div className="flex flex-wrap gap-1">
+              {diagnosticResult.stations.map((s) => (
+                <span
+                  key={s.id}
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                    !s.isActive ? 'bg-red-500/10 text-red-500 border-red-500/30' :
+                    s.stationType === 'expo' ? 'bg-blue-500/10 text-blue-500 border-blue-500/30' :
+                    'bg-green-500/10 text-green-500 border-green-500/30'
+                  }`}
+                >
+                  {s.displayName || s.name} ({s.stationType}){!s.isActive ? ' — inactive' : ''}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Rules targeting expo warning */}
+          {diagnosticResult.routingRules.some((r) =>
+            diagnosticResult.stations.find((s) => s.id === r.stationId)?.stationType === 'expo'
+          ) && (
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[11px]">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              Some routing rules target expo stations. Items routed to expo skip kitchen prep.
+              The routing engine now guards against this, but consider reassigning these rules.
+            </div>
+          )}
         </div>
       )}
 
@@ -1677,7 +1795,17 @@ function RoutingTab({ locationId }: { locationId?: string }) {
                       </span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-foreground">{rule.stationName ?? rule.stationId}</td>
+                  <td className="px-3 py-2 text-foreground">
+                    <span className="flex items-center gap-1.5">
+                      {rule.stationName ?? rule.stationId}
+                      {expoStationIds.has(rule.stationId) && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded bg-amber-500/15 text-amber-500 border border-amber-500/30" title="Expo stations are monitoring-only — items routed here will skip kitchen prep">
+                          <AlertTriangle className="h-2.5 w-2.5" />
+                          EXPO
+                        </span>
+                      )}
+                    </span>
+                  </td>
                   <td className="px-3 py-2 text-center">
                     <span className="font-mono text-[10px] bg-indigo-500/10 text-indigo-500 px-1.5 py-0.5 rounded">
                       {rule.priority}
@@ -2388,7 +2516,7 @@ function CreateRoutingRuleDialog({
   onClose,
   isActing,
 }: {
-  stations: Array<{ id: string; name: string; displayName: string }>;
+  stations: Array<{ id: string; name: string; displayName: string; stationType: string }>;
   onSubmit: (input: {
     ruleName?: string;
     ruleType: string;
@@ -2418,10 +2546,14 @@ function CreateRoutingRuleDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const backdropRef = useRef<HTMLDivElement>(null);
 
+  // Expo stations are monitoring-only — not valid routing targets
+  const routableStations = useMemo(() => stations.filter((s) => s.stationType !== 'expo'), [stations]);
+
   // Multi-select state for stations
   const [selectedStations, setSelectedStations] = useState<Set<string>>(() => {
     const initial = new Set<string>();
-    if (stations[0]) initial.add(stations[0].id);
+    const first = routableStations[0] ?? stations[0];
+    if (first) initial.add(first.id);
     return initial;
   });
 
@@ -2555,7 +2687,7 @@ function CreateRoutingRuleDialog({
               Target Station{stations.length > 1 ? '(s)' : ''} <span className="text-red-500">*</span>
             </span>
             <div className="flex flex-wrap gap-1.5">
-              {stations.map((s) => {
+              {routableStations.map((s) => {
                 const isSelected = selectedStations.has(s.id);
                 return (
                   <button
@@ -2574,6 +2706,12 @@ function CreateRoutingRuleDialog({
                 );
               })}
             </div>
+            {routableStations.length === 0 && stations.length > 0 && (
+              <p className="text-[10px] text-amber-500 flex items-center gap-1 mt-1">
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+                All stations are expo type. Create a prep/bar station first.
+              </p>
+            )}
           </div>
 
           {/* Rule Type */}
@@ -2754,7 +2892,7 @@ function EditRoutingRuleDialog({
     timeConditionStart: string | null; timeConditionEnd: string | null;
     isActive: boolean;
   };
-  stations: Array<{ id: string; name: string; displayName: string }>;
+  stations: Array<{ id: string; name: string; displayName: string; stationType: string }>;
   onSubmit: (input: {
     ruleName?: string;
     ruleType?: string;
@@ -2785,6 +2923,10 @@ function EditRoutingRuleDialog({
   const [timeEnd, setTimeEnd] = useState(rule.timeConditionEnd ?? '');
   const [isActive, setIsActive] = useState(rule.isActive);
   const backdropRef = useRef<HTMLDivElement>(null);
+
+  // Expo stations are monitoring-only — not valid routing targets
+  const routableStations = useMemo(() => stations.filter((s) => s.stationType !== 'expo'), [stations]);
+  const currentStationIsExpo = stations.find((s) => s.id === rule.stationId)?.stationType === 'expo';
 
   // Target state — single select for edit
   const currentTargetId = rule.catalogItemId ?? rule.modifierId ?? rule.departmentId ?? rule.subDepartmentId ?? rule.categoryId ?? '';
@@ -2877,10 +3019,16 @@ function EditRoutingRuleDialog({
               onChange={(e) => setStationId(e.target.value)}
               className="w-full bg-surface border border-input rounded-md px-3 py-2 text-sm text-foreground"
             >
-              {stations.map((s) => (
+              {routableStations.map((s) => (
                 <option key={s.id} value={s.id}>{s.displayName || s.name}</option>
               ))}
             </select>
+            {currentStationIsExpo && (
+              <p className="text-[10px] text-amber-500 flex items-center gap-1 mt-1">
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+                This rule targets an expo station — items will skip kitchen prep. Select a prep station above.
+              </p>
+            )}
           </label>
 
           {/* Rule Type */}

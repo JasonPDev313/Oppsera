@@ -3,6 +3,7 @@ import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glDocumentAttachments } from '@oppsera/db';
 import { withTenant } from '@oppsera/db';
+import { deleteFile } from '@oppsera/core/storage';
 
 export async function removeDocument(ctx: RequestContext, documentId: string) {
   const result = await withTenant(ctx.tenantId, async (tx) => {
@@ -22,6 +23,13 @@ export async function removeDocument(ctx: RequestContext, documentId: string) {
 
     return deleted;
   });
+
+  // Delete from storage — best-effort, don't fail the operation
+  try {
+    await deleteFile(result.storageKey);
+  } catch {
+    // Storage deletion failure is non-critical — the DB record is already removed
+  }
 
   auditLogDeferred(ctx, 'accounting.document.removed', 'gl_document_attachment', result.id);
   return result;

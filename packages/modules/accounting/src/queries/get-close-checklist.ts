@@ -18,6 +18,10 @@ export interface CloseChecklist {
 interface GetCloseChecklistInput {
   tenantId: string;
   postingPeriod: string; // 'YYYY-MM'
+  /** Optional transaction handle — when provided (e.g. from publishWithOutbox),
+   *  all local queries run inside this transaction, eliminating the TOCTOU race
+   *  between checklist evaluation and period close. */
+  tx?: Parameters<Parameters<typeof withTenant>[1]>[0];
 }
 
 export async function getCloseChecklist(
@@ -34,22 +38,9 @@ export async function getCloseChecklist(
     0,
   ).toISOString().slice(0, 10);
 
-  const [apiResults, localResults] = await Promise.all([
-    // Cross-module status checks via ReconciliationReadApi
-    Promise.all([
-      api.getDrawerSessionStatus(input.tenantId, input.postingPeriod),
-      api.getRetailCloseStatus(input.tenantId, input.postingPeriod),
-      api.getFnbCloseStatus(input.tenantId, input.postingPeriod),
-      api.getPendingTipCount(input.tenantId, input.postingPeriod),
-      api.getDepositStatus(input.tenantId, input.postingPeriod),
-      api.getSettlementStatusCounts(input.tenantId, input.postingPeriod),
-      api.getAchPendingCount(input.tenantId),
-      api.getAchReturnSummary(input.tenantId, periodStartDate, periodEndDate),
-      // GL posting gap check: count of tenders in the period
-      api.getTendersSummary(input.tenantId, periodStartDate, periodEndDate),
-    ]),
-    // Local queries (accounting-owned tables)
-    withTenant(input.tenantId, async (tx) => {
+  // If a tx was provided, run local queries directly on it (same transaction);
+  // otherwise open a new withTenant connection (standalone checklist view).
+  const runLocal = async (tx: Parameters<Parameters<typeof withTenant>[1]>[0]) => {
       // ── Wave 1: All independent queries in parallel ─────────────────
       // Combines the two accounting_settings queries into one and pipelines
       // all independent queries to eliminate sequential round-trip latency.
@@ -95,6 +86,7 @@ export async function getCloseChecklist(
             default_service_charge_revenue_account_id,
             cogs_posting_mode,
             default_ap_control_account_id,
+            default_ar_control_account_id,
             supported_currencies,
             strict_period_close
           FROM accounting_settings
@@ -134,13 +126,15 @@ export async function getCloseChecklist(
           WHERE ba.tenant_id = ${input.tenantId}
             AND ba.is_active = true
         `),
-        // 21. GL posting coverage — count DISTINCT tenders posted to GL (all adapter modules)
-        // Uses shared GL_SOURCE_MODULES constant (single source of truth with gap detection)
+        // 21. GL posting coverage — count DISTINCT POS tenders posted to GL.
+        // Scoped to source_module = 'pos' only because POS posts one journal per
+        // tender (1:1 mapping). F&B uses closeBatchId (1:many), so including it
+        // inflates coverage. F&B coverage is validated by checklist item 13.
         tx.execute(sql`
           SELECT COUNT(DISTINCT source_reference_id)::int AS gl_tender_count
           FROM gl_journal_entries
           WHERE tenant_id = ${input.tenantId}
-            AND source_module IN (${sql.join(GL_SOURCE_MODULES.map((m) => sql`${m}`), sql`, `)})
+            AND source_module = 'pos'
             AND status IN ('posted', 'voided')
             AND posting_period = ${input.postingPeriod}
         `),
@@ -183,6 +177,9 @@ export async function getCloseChecklist(
       const apControlAccountId = settingsArr.length > 0 && settingsArr[0]!.default_ap_control_account_id
         ? String(settingsArr[0]!.default_ap_control_account_id)
         : null;
+      const arControlAccountId = settingsArr.length > 0 && settingsArr[0]!.default_ar_control_account_id
+        ? String(settingsArr[0]!.default_ar_control_account_id)
+        : null;
       const supportedCurrencies: string[] = settingsArr.length > 0 && Array.isArray(settingsArr[0]!.supported_currencies)
         ? (settingsArr[0]!.supported_currencies as string[])
         : ['USD'];
@@ -211,6 +208,7 @@ export async function getCloseChecklist(
 
       // ── Wave 2: Conditional queries (depend on settings from Wave 1) ──
       let apReconciliation: { glBalance: number; subledgerBalance: number } | null = null;
+      let arReconciliation: { glBalance: number; subledgerBalance: number } | null = null;
       let legacyReconciliation: { legacyTotal: number; properTotal: number } | null = null;
       let cogsCounts: { total: number; posted: number } | null = null;
 
@@ -244,6 +242,40 @@ export async function getCloseChecklist(
           const apPayArr = Array.from(apPayRows as Iterable<Record<string, unknown>>);
           const apPayTotal = apPayArr.length > 0 ? Number(apPayArr[0]!.total) : 0;
           apReconciliation = { glBalance: apGlBalance, subledgerBalance: apBillTotal - apPayTotal };
+        })());
+      }
+
+      if (arControlAccountId) {
+        wave2.push((async () => {
+          const [arGlRows, arInvRows, arRecRows] = await Promise.all([
+            // AR control account GL balance (debit - credit for asset accounts)
+            tx.execute(sql`
+              SELECT
+                COALESCE(SUM(jl.debit_amount), 0) - COALESCE(SUM(jl.credit_amount), 0) AS balance
+              FROM gl_journal_lines jl
+              JOIN gl_journal_entries je ON je.id = jl.journal_entry_id
+              WHERE jl.account_id = ${arControlAccountId}
+                AND je.tenant_id = ${input.tenantId}
+                AND je.status = 'posted'
+            `),
+            // AR subledger: outstanding invoices
+            tx.execute(sql`
+              SELECT COALESCE(SUM(total_amount::numeric), 0) AS total
+              FROM ar_invoices WHERE tenant_id = ${input.tenantId} AND status IN ('posted', 'partial')
+            `),
+            // AR subledger: receipts applied
+            tx.execute(sql`
+              SELECT COALESCE(SUM(amount::numeric), 0) AS total
+              FROM ar_receipts WHERE tenant_id = ${input.tenantId} AND status = 'posted'
+            `),
+          ]);
+          const arGlArr = Array.from(arGlRows as Iterable<Record<string, unknown>>);
+          const arGlBalance = arGlArr.length > 0 ? Number(arGlArr[0]!.balance) : 0;
+          const arInvArr = Array.from(arInvRows as Iterable<Record<string, unknown>>);
+          const arInvTotal = arInvArr.length > 0 ? Number(arInvArr[0]!.total) : 0;
+          const arRecArr = Array.from(arRecRows as Iterable<Record<string, unknown>>);
+          const arRecTotal = arRecArr.length > 0 ? Number(arRecArr[0]!.total) : 0;
+          arReconciliation = { glBalance: arGlBalance, subledgerBalance: arInvTotal - arRecTotal };
         })());
       }
 
@@ -302,7 +334,7 @@ export async function getCloseChecklist(
       return {
         periodStatus,
         draftCount, unmappedCount, totalDebits, totalCredits,
-        apReconciliation,
+        apReconciliation, arReconciliation,
         legacyEnabled, tipsAccountId, svcAccountId, cogsMode,
         totalMapped, missingDiscount,
         legacyReconciliation,
@@ -314,7 +346,24 @@ export async function getCloseChecklist(
         foreignCurrencyCount, supportedCurrencies,
         strictPeriodClose,
       };
-    }),
+    }; // end runLocal
+
+  const [apiResults, localResults] = await Promise.all([
+    // Cross-module status checks via ReconciliationReadApi
+    Promise.all([
+      api.getDrawerSessionStatus(input.tenantId, input.postingPeriod),
+      api.getRetailCloseStatus(input.tenantId, input.postingPeriod),
+      api.getFnbCloseStatus(input.tenantId, input.postingPeriod),
+      api.getPendingTipCount(input.tenantId, input.postingPeriod),
+      api.getDepositStatus(input.tenantId, input.postingPeriod),
+      api.getSettlementStatusCounts(input.tenantId, input.postingPeriod),
+      api.getAchPendingCount(input.tenantId),
+      api.getAchReturnSummary(input.tenantId, periodStartDate, periodEndDate),
+      // GL posting gap check: count of tenders in the period
+      api.getTendersSummary(input.tenantId, periodStartDate, periodEndDate),
+    ]),
+    // Local queries (accounting-owned tables) — use provided tx or open new connection
+    input.tx ? runLocal(input.tx) : withTenant(input.tenantId, runLocal),
   ]);
 
   const [drawerStatus, retailCloseStatus, fnbCloseStatus, pendingTipCount, depositStatus, settlementCounts, achPendingCount, achReturnSummary, tenderSummary] = apiResults;
@@ -325,6 +374,7 @@ export async function getCloseChecklist(
     totalDebits: number;
     totalCredits: number;
     apReconciliation: { glBalance: number; subledgerBalance: number } | null;
+    arReconciliation: { glBalance: number; subledgerBalance: number } | null;
     legacyEnabled: boolean;
     tipsAccountId: string | null;
     svcAccountId: string | null;
@@ -380,6 +430,18 @@ export async function getCloseChecklist(
       detail: apDiff >= 0.01
         ? `AP GL: $${l.apReconciliation.glBalance.toFixed(2)}, Subledger: $${l.apReconciliation.subledgerBalance.toFixed(2)}, Diff: $${apDiff.toFixed(2)}`
         : 'AP balanced',
+    });
+  }
+
+  // 5b. AR subledger reconciliation — blocking item (same as AP)
+  if (l.arReconciliation) {
+    const arDiff = Math.abs(l.arReconciliation.glBalance - l.arReconciliation.subledgerBalance);
+    items.push({
+      label: 'AR subledger reconciled to GL',
+      status: arDiff < 0.01 ? 'pass' : 'fail',
+      detail: arDiff >= 0.01
+        ? `AR GL: $${l.arReconciliation.glBalance.toFixed(2)}, Subledger: $${l.arReconciliation.subledgerBalance.toFixed(2)}, Diff: $${arDiff.toFixed(2)}`
+        : 'AR balanced',
     });
   }
 
@@ -563,17 +625,19 @@ export async function getCloseChecklist(
     });
   }
 
-  // 21. GL posting coverage — every tender should have a GL entry
+  // 21. POS GL posting coverage — every POS tender should have a GL entry.
+  // F&B coverage is validated by item 13 (F&B close batches posted) since
+  // F&B posts one journal per batch, not per tender.
   if (tenderSummary.tenderCount > 0) {
     const tenderTotal = tenderSummary.tenderCount;
     const glCovered = l.glTenderCount;
     const gap = Math.max(0, tenderTotal - glCovered);
     items.push({
-      label: 'All tenders posted to GL',
+      label: 'POS tenders posted to GL',
       status: gap === 0 ? 'pass' : 'fail',
       detail: gap > 0
-        ? `${gap} of ${tenderTotal} tender${tenderTotal !== 1 ? 's' : ''} missing GL journal entries — check unmapped events for details`
-        : `All ${tenderTotal} tenders have corresponding GL entries`,
+        ? `${gap} of ${tenderTotal} POS tender${tenderTotal !== 1 ? 's' : ''} missing GL journal entries — check unmapped events for details`
+        : `All ${tenderTotal} POS tenders have corresponding GL entries`,
     });
   }
 

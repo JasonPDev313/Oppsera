@@ -288,6 +288,41 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     expect(results[0]!.stationId).toBeNull();
   });
 
+  it('routing rule pointing to expo station is skipped — falls through to prep station', async () => {
+    // Expo is a monitoring view, not a prep target. Rules that point to expo
+    // should be ignored so items route to the next eligible prep station.
+    const rules = [
+      makeRule({ id: 'rule-expo', rule_type: 'department', department_id: 'dept-food', station_id: 'station-expo', priority: 10 }),
+      makeRule({ id: 'rule-kitchen', rule_type: 'department', department_id: 'dept-food', station_id: 'station-grill', priority: 5 }),
+    ];
+    const stations = [
+      makeStation({ id: 'station-grill', station_type: 'prep', sort_order: 1 }),
+      makeStation({ id: 'station-expo', station_type: 'expo', sort_order: 2 }),
+    ];
+    setupMocks(rules, stations);
+
+    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    expect(results[0]!.stationId).toBe('station-grill');
+    expect(results[0]!.matchType).toBe('department');
+  });
+
+  it('routing rule pointing to expo station with no prep alternative → fallback station', async () => {
+    // When the only matching rule points to expo and no other rule matches,
+    // the item should fall through to the fallback prep station.
+    const rules = [
+      makeRule({ id: 'rule-expo-only', rule_type: 'category', category_id: 'cat-steaks', station_id: 'station-expo', priority: 10 }),
+    ];
+    const stations = [
+      makeStation({ id: 'station-grill', station_type: 'prep', sort_order: 1 }),
+      makeStation({ id: 'station-expo', station_type: 'expo', sort_order: 2 }),
+    ];
+    setupMocks(rules, stations);
+
+    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    expect(results[0]!.stationId).toBe('station-grill');
+    expect(results[0]!.matchType).toBe('fallback');
+  });
+
   // ── Condition Filtering ────────────────────────────────────
 
   it('rule with orderTypeCondition matches correct order type', async () => {

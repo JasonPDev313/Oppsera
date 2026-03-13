@@ -245,6 +245,16 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   const isTabScreen = store.currentScreen === 'tab';
   const menuMode = store.menuMode;
   const leftHandMode = store.leftHandMode;
+
+  // ── Stable action selectors ──────────────────────────────────
+  // Avoid depending on the full `store` object in effects/callbacks.
+  const setActiveTab = useFnbPosStore((s) => s.setActiveTab);
+  const navigateTo = useFnbPosStore((s) => s.navigateTo);
+  const goBack = useFnbPosStore((s) => s.goBack);
+  const setMenuMode = useFnbPosStore((s) => s.setMenuMode);
+  const addDraftLine = useFnbPosStore((s) => s.addDraftLine);
+  const repeatLastItem = useFnbPosStore((s) => s.repeatLastItem);
+  const getEffectiveCourseForItem = useFnbPosStore((s) => s.getEffectiveCourseForItem);
   const isHandheld = useIsHandheld();
   const [handheldPanel, setHandheldPanel] = useState<HandheldPanel>('menu');
 
@@ -264,10 +274,10 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   // Auto-navigate back to floor when tab was closed/voided elsewhere
   useEffect(() => {
     if (notFound) {
-      store.setActiveTab(null);
-      store.navigateTo('floor');
+      setActiveTab(null);
+      navigateTo('floor');
     }
-  }, [notFound, store]);
+  }, [notFound, setActiveTab, navigateTo]);
 
   const menu = useFnbMenu({ isActive });
 
@@ -356,8 +366,8 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   } | null>(null);
 
   const handleBack = useCallback(() => {
-    store.goBack();
-  }, [store]);
+    goBack();
+  }, [goBack]);
 
   const handleSendAll = async () => {
     if (!tab || !tabId) return;
@@ -528,8 +538,8 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   };
 
   const handleSelectMenuMode = useCallback((mode: 'all_items' | 'hot_sellers' | 'tools') => {
-    store.setMenuMode(mode);
-  }, [store]);
+    setMenuMode(mode);
+  }, [setMenuMode]);
 
   // Item tap handler — checks for modifier groups before adding to cart
   const handleItemTap = useCallback((itemId: string, itemName: string, priceCents: number, itemType: string) => {
@@ -547,7 +557,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     }
 
     // No modifiers — add directly to cart
-    store.addDraftLine(tabId, {
+    addDraftLine(tabId, {
       localId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       catalogItemId: itemId,
       catalogItemName: itemName,
@@ -557,10 +567,10 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       seatNumber: activeSeat || 1,
       modifiers: [] as Array<{ modifierId: string; name: string; priceAdjustment: number }>,
       specialInstructions: null,
-      courseNumber: store.getEffectiveCourseForItem(itemId),
+      courseNumber: getEffectiveCourseForItem(itemId),
       addedAt: Date.now(),
     });
-  }, [tabId, store, activeSeat, activeCourse, menu]);
+  }, [tabId, addDraftLine, getEffectiveCourseForItem, activeSeat, activeCourse, menu]);
 
   // Modifier drawer confirm handler — adds item with selected modifiers to cart
   const handleModifierConfirm = useCallback((
@@ -569,7 +579,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     notes: string,
   ) => {
     if (!tabId || !modifierDrawerItem) return;
-    store.addDraftLine(tabId, {
+    addDraftLine(tabId, {
       localId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       catalogItemId: modifierDrawerItem.id,
       catalogItemName: modifierDrawerItem.name,
@@ -585,17 +595,17 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
         instruction: m.instruction ?? null,
       })),
       specialInstructions: notes || null,
-      courseNumber: store.getEffectiveCourseForItem(modifierDrawerItem.id),
+      courseNumber: getEffectiveCourseForItem(modifierDrawerItem.id),
       addedAt: Date.now(),
     });
     setModifierDrawerItem(null);
-  }, [tabId, modifierDrawerItem, store, activeSeat, activeCourse]);
+  }, [tabId, modifierDrawerItem, addDraftLine, getEffectiveCourseForItem, activeSeat, activeCourse]);
 
   // Repeat last item handler
   const handleRepeatLast = useCallback(() => {
     if (!tabId) return;
-    store.repeatLastItem(tabId);
-  }, [tabId, store]);
+    repeatLastItem(tabId);
+  }, [tabId, repeatLastItem]);
 
   // ── Determine content state ────────────────────────────────────
 

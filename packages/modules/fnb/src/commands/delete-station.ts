@@ -158,7 +158,10 @@ export async function deleteStation(
     // Delete the station
     await tx
       .delete(fnbKitchenStations)
-      .where(eq(fnbKitchenStations.id, stationId));
+      .where(and(
+        eq(fnbKitchenStations.id, stationId),
+        eq(fnbKitchenStations.tenantId, ctx.tenantId),
+      ));
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.STATION_DELETED, {
       stationId,

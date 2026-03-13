@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { withTenant, sql } from '@oppsera/db';
+import { withTenant, glUnmappedEvents } from '@oppsera/db';
+import { eq, and, isNull } from 'drizzle-orm';
+import { z } from 'zod';
+
+const resolveBodySchema = z.object({
+  resolutionMethod: z.enum(['manual', 'remapped']).optional().default('manual'),
+}).strict();
 
 function extractUnmappedEventId(request: NextRequest): string {
   const url = new URL(request.url);
@@ -15,27 +21,38 @@ export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = extractUnmappedEventId(request);
 
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body is valid */ }
+    const parsed = resolveBodySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Invalid input', details: parsed.error.issues } },
+        { status: 400 },
+      );
+    }
+
     const result = await withTenant(ctx.tenantId, async (tx) => {
-      const rows = await tx.execute(sql`
-        UPDATE gl_unmapped_events
-        SET resolved_at = NOW(),
-            resolved_by = ${ctx.user.id}
-        WHERE id = ${id}
-          AND tenant_id = ${ctx.tenantId}
-          AND resolved_at IS NULL
-        RETURNING id, resolved_at, resolved_by
-      `);
+      const [updated] = await tx
+        .update(glUnmappedEvents)
+        .set({
+          resolvedAt: new Date(),
+          resolvedBy: ctx.user.id,
+          resolutionMethod: parsed.data.resolutionMethod,
+        })
+        .where(
+          and(
+            eq(glUnmappedEvents.id, id),
+            eq(glUnmappedEvents.tenantId, ctx.tenantId),
+            isNull(glUnmappedEvents.resolvedAt),
+          ),
+        )
+        .returning({
+          id: glUnmappedEvents.id,
+          resolvedAt: glUnmappedEvents.resolvedAt,
+          resolvedBy: glUnmappedEvents.resolvedBy,
+        });
 
-      const updated = Array.from(rows as Iterable<Record<string, unknown>>);
-      if (updated.length === 0) {
-        return null;
-      }
-
-      return {
-        id: String(updated[0]!.id),
-        resolvedAt: String(updated[0]!.resolved_at),
-        resolvedBy: String(updated[0]!.resolved_by),
-      };
+      return updated ?? null;
     });
 
     if (!result) {
@@ -47,5 +64,5 @@ export const PATCH = withMiddleware(
 
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
+  { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true },
 );

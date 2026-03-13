@@ -66,3 +66,15 @@ export class ModuleViewOnlyError extends AppError {
     super('MODULE_VIEW_ONLY', `The ${moduleKey} module is in view-only mode`, 403);
   }
 }
+
+/**
+ * Permanent posting failure — will never succeed on retry.
+ * Examples: missing GL mapping, unconfigured accounting settings, invalid account.
+ * The outbox worker should NOT retry these — they go straight to dead-letter/unmapped.
+ */
+export class PermanentPostingError extends AppError {
+  constructor(message: string, public sourceModule?: string) {
+    super('PERMANENT_POSTING_ERROR', message, 422);
+    this.name = 'PermanentPostingError';
+  }
+}

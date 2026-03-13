@@ -27,6 +27,8 @@ export interface AccountingPostJournalInput {
     memo?: string;
   }>;
   forcePost?: boolean;
+  /** Deterministic dedup key: pos:tender:{id}, fnb:close-batch:{id}, etc. */
+  sourceIdempotencyKey?: string;
 }
 
 // ── Interface ───────────────────────────────────────────────────

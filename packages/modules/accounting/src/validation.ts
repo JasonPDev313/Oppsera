@@ -29,6 +29,8 @@ export const postJournalEntrySchema = z.object({
   exchangeRate: z.number().positive().optional(),
   lines: z.array(journalLineSchema).min(1),
   forcePost: z.boolean().optional().default(false),
+  /** Deterministic dedup key: pos:tender:{id}, fnb:close-batch:{id}, etc. */
+  sourceIdempotencyKey: z.string().optional(),
 });
 
 export type PostJournalEntryInput = z.input<typeof postJournalEntrySchema>;
@@ -298,7 +300,7 @@ export type MatchSettlementTendersInput = z.input<typeof matchSettlementTendersS
 export const postSettlementSchema = z.object({
   settlementId: z.string().min(1),
   force: z.boolean().optional().default(false),
-  clientRequestId: z.string().optional(),
+  clientRequestId: z.string().min(1),
 });
 
 export type PostSettlementInput = z.input<typeof postSettlementSchema>;
@@ -306,7 +308,7 @@ export type PostSettlementInput = z.input<typeof postSettlementSchema>;
 export const voidSettlementSchema = z.object({
   settlementId: z.string().min(1),
   reason: z.string().min(1),
-  clientRequestId: z.string().optional(),
+  clientRequestId: z.string().min(1),
 });
 
 export type VoidSettlementInput = z.input<typeof voidSettlementSchema>;
@@ -575,6 +577,7 @@ export const createFixedAssetSchema = z.object({
   assetGlAccountId: z.string().optional(),
   depreciationExpenseAccountId: z.string().optional(),
   accumulatedDepreciationAccountId: z.string().optional(),
+  disposalGlAccountId: z.string().optional(),
   notes: z.string().max(2000).optional(),
   metadata: z.record(z.unknown()).optional(),
 });

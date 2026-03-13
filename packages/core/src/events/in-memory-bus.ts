@@ -42,13 +42,28 @@ export class InMemoryEventBus implements EventBus {
 
     const handlers = this.getMatchingHandlers(event.eventType);
 
-    // Process handlers with concurrency limit to avoid overwhelming the DB pool
+    // Process handlers with concurrency limit to avoid overwhelming the DB pool.
+    // Collect failures so the outbox worker knows delivery was incomplete and
+    // can leave the row for stale-recovery retry instead of deleting it.
+    const failures: Error[] = [];
     for (let i = 0; i < handlers.length; i += MAX_CONCURRENT_HANDLERS) {
       const batch = handlers.slice(i, i + MAX_CONCURRENT_HANDLERS);
       const promises = batch.map(({ handler, consumerName }) =>
         this.dispatchWithRetry(event, handler, consumerName),
       );
-      await Promise.allSettled(promises);
+      const results = await Promise.allSettled(promises);
+      for (const r of results) {
+        if (r.status === 'rejected') {
+          failures.push(r.reason instanceof Error ? r.reason : new Error(String(r.reason)));
+        }
+      }
+    }
+
+    if (failures.length > 0) {
+      throw new AggregateError(
+        failures,
+        `${failures.length} handler(s) failed for event ${event.eventType}`,
+      );
     }
   }
 
@@ -195,6 +210,13 @@ export class InMemoryEventBus implements EventBus {
           error: unclaimErr,
         });
       }
+
+      // Re-throw so publish() can signal incomplete delivery to the outbox
+      // worker. Without this, publish() returns successfully and the outbox
+      // deletes the row — permanently losing the event.
+      throw new Error(
+        `Handler ${consumerName} failed after ${this.maxRetries} retries for event ${event.eventId}`,
+      );
     }
   }
 

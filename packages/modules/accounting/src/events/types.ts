@@ -14,6 +14,11 @@ export const ACCOUNTING_EVENTS = {
   FIXED_ASSET_UPDATED: 'accounting.fixed_asset.updated.v1',
   FIXED_ASSET_DEPRECIATED: 'accounting.fixed_asset.depreciated.v1',
   FIXED_ASSET_DISPOSED: 'accounting.fixed_asset.disposed.v1',
+  SETTLEMENT_CREATED: 'accounting.settlement.created.v1',
+  SETTLEMENT_IMPORTED: 'accounting.settlement.imported.v1',
+  SETTLEMENT_MATCHED: 'accounting.settlement.matched.v1',
+  SETTLEMENT_POSTED: 'payment.settlement.posted.v1',
+  SETTLEMENT_VOIDED: 'accounting.settlement.voided.v1',
 } as const;
 
 export interface JournalPostedPayload {

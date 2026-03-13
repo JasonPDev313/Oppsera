@@ -63,7 +63,10 @@ export async function updateTicketStatus(
     const [updated] = await tx
       .update(fnbKitchenTickets)
       .set(setFields)
-      .where(eq(fnbKitchenTickets.id, ticketId))
+      .where(and(
+        eq(fnbKitchenTickets.id, ticketId),
+        eq(fnbKitchenTickets.tenantId, ctx.tenantId),
+      ))
       .returning();
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.TICKET_STATUS_CHANGED, {

@@ -84,6 +84,7 @@ export async function postJournalEntry(
         status,
         memo: input.memo ?? null,
         postedAt,
+        sourceIdempotencyKey: input.sourceIdempotencyKey ?? null,
         createdBy: ctx.user.id,
       })
       .returning();

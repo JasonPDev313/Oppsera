@@ -6,6 +6,7 @@ import { orders, fnbTabs } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
 import { sendOrderLinesToKds } from '@oppsera/module-fnb';
+import { broadcastFnb } from '@oppsera/core/realtime';
 
 function extractOrderId(request: NextRequest): string {
   const parts = new URL(request.url).pathname.split('/');
@@ -48,6 +49,7 @@ export const POST = withMiddleware(
     }
 
     const result = await sendOrderLinesToKds(ctx, orderId, order.businessDate, order.orderType ?? undefined);
+    broadcastFnb(ctx, 'kds').catch(() => {});
     return NextResponse.json({ data: result });
   },
   { entitlement: 'orders', permission: 'orders.manage', writeAccess: true },

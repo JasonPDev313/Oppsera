@@ -6,9 +6,14 @@ import {
   matchSettlementTenders,
   matchSettlementTendersSchema,
   postSettlement,
+  postSettlementSchema,
   voidSettlement,
   voidSettlementSchema,
 } from '@oppsera/module-accounting';
+import { postSettlementGl } from '@oppsera/module-payments';
+import { db } from '@oppsera/db';
+import { paymentSettlements } from '@oppsera/db';
+import { eq, and } from 'drizzle-orm';
 
 const ACTIONS: Record<string, true> = { match: true, post: true, void: true };
 
@@ -50,16 +55,61 @@ export const POST = withMiddleware(
         return NextResponse.json({ data: result });
       }
       case 'post': {
-        let force = false;
-        let clientRequestId: string | undefined;
-        try {
-          const body = await request.json();
-          force = body.force === true;
-          clientRequestId = body.clientRequestId;
-        } catch {
-          // No body is fine — defaults to force=false
+        let body: Record<string, unknown> = {};
+        try { body = await request.json(); } catch { /* empty body → defaults apply */ }
+        const force = body.force === true;
+
+        if (force) {
+          // Force-posting unmatched settlements: use accounting module path
+          // (supports force=true, runs in publishWithOutbox transaction).
+          const parsed = postSettlementSchema.safeParse({
+            settlementId,
+            force: true,
+            clientRequestId: (body.clientRequestId as string) ?? crypto.randomUUID(),
+          });
+          if (!parsed.success) {
+            throw new ValidationError(
+              'Validation failed',
+              parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+            );
+          }
+          const result = await postSettlement(ctx, parsed.data);
+          return NextResponse.json({ data: result });
         }
-        const result = await postSettlement(ctx, { settlementId, force, clientRequestId });
+
+        // Normal posting: use the canonical payments module path.
+        // This is Vercel-safe (3-phase, no connection held during GL I/O)
+        // and calculates from line-level cents instead of header dollars.
+        // Read bankAccountId from the settlement record (set during create/import).
+        const [settlement] = await db
+          .select({ bankAccountId: paymentSettlements.bankAccountId })
+          .from(paymentSettlements)
+          .where(
+            and(
+              eq(paymentSettlements.tenantId, ctx.tenantId),
+              eq(paymentSettlements.id, settlementId),
+            ),
+          )
+          .limit(1);
+
+        if (!settlement) {
+          return NextResponse.json(
+            { error: { code: 'NOT_FOUND', message: 'Settlement not found' } },
+            { status: 404 },
+          );
+        }
+
+        if (!settlement.bankAccountId) {
+          return NextResponse.json(
+            { error: { code: 'MISSING_BANK_ACCOUNT', message: 'Assign a bank account to the settlement before posting' } },
+            { status: 422 },
+          );
+        }
+
+        const result = await postSettlementGl(ctx, {
+          settlementId,
+          bankAccountId: settlement.bankAccountId,
+        });
         return NextResponse.json({ data: result });
       }
       case 'void': {

@@ -326,6 +326,7 @@ export interface KdsTicketItem {
   priorityLevel: number;
   estimatedPrepSeconds: number | null;
   routingRuleId: string | null;
+  stationId?: string | null;
   isRush: boolean;
   isAllergy: boolean;
   isVip: boolean;

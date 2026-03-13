@@ -1578,6 +1578,9 @@ export const fnbCloseBatches = pgTable(
     postedBy: text('posted_by'),
     lockedAt: timestamp('locked_at', { withTimezone: true }),
     glJournalEntryId: text('gl_journal_entry_id'), // FK to gl_journal_entries
+    glPostingStatus: text('gl_posting_status').notNull().default('not_required'), // not_required | pending | posted | failed
+    glPostingError: text('gl_posting_error'),
+    lastPostingAttemptAt: timestamp('last_posting_attempt_at', { withTimezone: true }),
     notes: text('notes'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

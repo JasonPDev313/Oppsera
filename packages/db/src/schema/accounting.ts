@@ -98,6 +98,7 @@ export const glJournalEntries = pgTable(
     voidedAt: timestamp('voided_at', { withTimezone: true }),
     voidReason: text('void_reason'),
     reversalOfId: text('reversal_of_id'),
+    sourceIdempotencyKey: text('source_idempotency_key'), // deterministic dedup: pos:tender:{id}, fnb:close-batch:{id}, etc.
     createdBy: text('created_by').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -106,6 +107,9 @@ export const glJournalEntries = pgTable(
     uniqueIndex('uq_gl_journal_entries_tenant_src_ref')
       .on(table.tenantId, table.sourceModule, table.sourceReferenceId)
       .where(sql`source_reference_id IS NOT NULL`),
+    uniqueIndex('uq_gl_journal_idempotency_key')
+      .on(table.tenantId, table.sourceIdempotencyKey)
+      .where(sql`source_idempotency_key IS NOT NULL`),
     index('idx_gl_journal_entries_tenant_date').on(table.tenantId, table.businessDate),
     index('idx_gl_journal_entries_tenant_status').on(table.tenantId, table.status),
     index('idx_gl_journal_entries_tenant_period').on(table.tenantId, table.postingPeriod),

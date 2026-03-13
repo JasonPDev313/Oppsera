@@ -169,8 +169,9 @@ function matchItem(
     for (const rule of candidates) {
       if (!ruleMatchesConditions(rule, context)) continue;
       const station = stationMap.get(rule.stationId);
-      // Skip if station was deleted/inactive or doesn't accept this order
-      if (!station || !stationAcceptsOrder(station, context)) continue;
+      // Skip if station was deleted/inactive, doesn't accept this order,
+      // or is an expo station (expo is a monitoring view, not a prep target)
+      if (!station || station.stationType === 'expo' || !stationAcceptsOrder(station, context)) continue;
       return { rule, matchType };
     }
     return null;

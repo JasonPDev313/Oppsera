@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
   const postEntry = vi.fn();
   const getAccountingPostingApi = vi.fn();
   const voidJournalEntry = vi.fn();
+  const ensureAccountingSettings = vi.fn().mockResolvedValue({ created: false, autoWired: 0 });
 
   // Mutable result for DB query chains
   let _queryResult: any[] = [];
@@ -45,6 +46,7 @@ const mocks = vi.hoisted(() => {
     postEntry,
     getAccountingPostingApi,
     voidJournalEntry,
+    ensureAccountingSettings,
     db,
     setupDbChain,
     setQueryResult,
@@ -64,9 +66,13 @@ vi.mock('@oppsera/db', () => ({
   },
 }));
 
-vi.mock('@oppsera/shared', () => ({
-  generateUlid: vi.fn(() => `ulid-${Math.random().toString(36).slice(2, 8)}`),
-}));
+vi.mock('@oppsera/shared', async (importOriginal) => {
+  const original = await importOriginal<Record<string, unknown>>();
+  return {
+    ...original,
+    generateUlid: vi.fn(() => `ulid-${Math.random().toString(36).slice(2, 8)}`),
+  };
+});
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((a: string, b: string) => ({ op: 'eq', a, b })),
@@ -96,6 +102,10 @@ vi.mock('@oppsera/core/helpers/accounting-posting-api', () => ({
 
 vi.mock('../commands/void-journal-entry', () => ({
   voidJournalEntry: mocks.voidJournalEntry,
+}));
+
+vi.mock('../helpers/ensure-accounting-settings', () => ({
+  ensureAccountingSettings: mocks.ensureAccountingSettings,
 }));
 
 import { handleTenderForAccounting } from '../adapters/pos-posting-adapter';
@@ -358,13 +368,13 @@ describe('MEDIUM-9: Void adapter logs unmapped event when settings are null', ()
 // GL adapter never-throw guarantee
 // ═══════════════════════════════════════════════════════════════
 
-describe('GL adapters never throw', () => {
+describe('GL adapter error classification', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.logUnmappedEvent.mockResolvedValue(undefined);
   });
 
-  it('POS adapter swallows postEntry errors without throwing', async () => {
+  it('POS adapter re-throws transient postEntry errors for outbox retry', async () => {
     mocks.getAccountingSettings.mockResolvedValue(makeSettings());
     mocks.getAccountingPostingApi.mockReturnValue({
       postEntry: vi.fn().mockRejectedValue(new Error('DB connection failed')),
@@ -377,8 +387,8 @@ describe('GL adapters never throw', () => {
     });
 
     const event = createTenderEvent();
-    // Must not throw — GL failures never block tenders
-    await expect(handleTenderForAccounting(event)).resolves.toBeUndefined();
+    // Transient errors propagate so the outbox worker can retry
+    await expect(handleTenderForAccounting(event)).rejects.toThrow('DB connection failed');
   });
 
   it('Void adapter swallows voidJournalEntry errors without throwing', async () => {

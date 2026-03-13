@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, ne } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
@@ -9,6 +9,7 @@ import { paymentSettlements, paymentSettlementLines, bankAccounts } from '@oppse
 import { NotFoundError } from '@oppsera/shared';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import type { PostSettlementInput } from '../validation';
+import { ACCOUNTING_EVENTS } from '../events/types';
 
 /**
  * Post GL journal entry for a settlement (accounting module path).
@@ -141,7 +142,7 @@ export async function postSettlement(
         try {
           const { logUnmappedEvent } = await import('../helpers/resolve-mapping');
           await logUnmappedEvent(tx, ctx.tenantId, {
-            eventType: 'payment.settlement.posted.v1',
+            eventType: ACCOUNTING_EVENTS.SETTLEMENT_POSTED,
             sourceModule: 'settlement',
             sourceReferenceId: settlement.id,
             entityType: 'processing_fee_account',
@@ -160,32 +161,23 @@ export async function postSettlement(
       memo: `Settlement clearing - ${settlement.processorName}`,
     });
 
-    // Post GL journal entry
-    const postingApi = getAccountingPostingApi();
-    const journalResult = await postingApi.postEntry(ctx, {
-      businessDate: settlement.settlementDate,
-      sourceModule: 'settlement',
-      sourceReferenceId: settlement.id,
-      memo: `Card settlement - ${settlement.processorName} ${settlement.processorBatchId ?? ''}`.trim(),
-      lines,
-      forcePost: true,
-    });
-
-    // Update settlement status — atomic guard: only transition draft→posted.
-    // Prevents double-post race where two concurrent requests both read 'draft'
-    // and both create GL entries. The loser's UPDATE matches 0 rows.
+    // Atomic guard: claim settlement as 'posted' BEFORE creating GL entry.
+    // This prevents the orphan-GL-entry race where two concurrent requests both
+    // create GL entries but only one can update the status. By claiming first,
+    // only the winner proceeds to create the GL entry. If GL posting fails,
+    // the entire publishWithOutbox transaction rolls back (including the status
+    // change), so no orphaned entries are left.
     const [posted] = await tx
       .update(paymentSettlements)
       .set({
         status: 'posted',
-        glJournalEntryId: journalResult.id,
         updatedAt: new Date(),
       })
       .where(
         and(
           eq(paymentSettlements.tenantId, ctx.tenantId),
           eq(paymentSettlements.id, input.settlementId),
-          eq(paymentSettlements.status, 'draft'),
+          ne(paymentSettlements.status, 'posted'),
         ),
       )
       .returning({ id: paymentSettlements.id });
@@ -194,7 +186,34 @@ export async function postSettlement(
       throw new Error('Settlement was already posted by a concurrent request');
     }
 
-    const event = buildEventFromContext(ctx, 'payment.settlement.posted.v1', {
+    // Post GL journal entry — settlement is already claimed, so if this fails
+    // the entire transaction rolls back (including the status change above).
+    const postingApi = getAccountingPostingApi();
+    const journalResult = await postingApi.postEntry(ctx, {
+      businessDate: settlement.settlementDate,
+      sourceModule: 'settlement',
+      sourceReferenceId: settlement.id,
+      sourceIdempotencyKey: `payments:settlement:${settlement.id}`,
+      memo: `Card settlement - ${settlement.processorName} ${settlement.processorBatchId ?? ''}`.trim(),
+      lines,
+      forcePost: true,
+    });
+
+    // Backfill the GL journal entry ID on the settlement row
+    await tx
+      .update(paymentSettlements)
+      .set({
+        glJournalEntryId: journalResult.id,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(paymentSettlements.tenantId, ctx.tenantId),
+          eq(paymentSettlements.id, input.settlementId),
+        ),
+      );
+
+    const event = buildEventFromContext(ctx, ACCOUNTING_EVENTS.SETTLEMENT_POSTED, {
       settlementId: settlement.id,
       grossAmount: settlement.grossAmount,
       netAmount: settlement.netAmount,

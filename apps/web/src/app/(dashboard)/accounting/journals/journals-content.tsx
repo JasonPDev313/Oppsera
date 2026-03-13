@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Plus, Search, ChevronDown, MoreHorizontal, CheckCircle, XCircle } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
@@ -21,20 +21,45 @@ function getDefaultDateRange() {
 
 export default function JournalsContent() {
   const defaults = getDefaultDateRange();
-  const [filters, setFilters] = useState<JournalFilters>({
+  const [filters, setFilters] = useState<Omit<JournalFilters, 'cursor'>>({
     startDate: defaults.startDate,
     endDate: defaults.endDate,
   });
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(true);
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [accumulatedEntries, setAccumulatedEntries] = useState<JournalEntry[]>([]);
 
   const queryFilters = useMemo(() => ({
     ...filters,
     search: search.trim() || undefined,
+    cursor,
     limit: 50,
-  }), [filters, search]);
+  }), [filters, search, cursor]);
 
-  const { data: entries, isLoading, meta, mutate } = useJournalEntries(queryFilters);
+  const { data: pageEntries, isLoading, meta, mutate } = useJournalEntries(queryFilters);
+
+  // Accumulate pages: first page replaces, subsequent pages append
+  const entries = useMemo(() => {
+    if (!cursor) return pageEntries;
+    const seen = new Set(accumulatedEntries.map((e) => e.id));
+    const newItems = pageEntries.filter((e) => !seen.has(e.id));
+    return [...accumulatedEntries, ...newItems];
+  }, [pageEntries, cursor, accumulatedEntries]);
+
+  const handleLoadMore = useCallback(() => {
+    if (meta.cursor) {
+      setAccumulatedEntries(entries);
+      setCursor(meta.cursor);
+    }
+  }, [meta.cursor, entries]);
+
+  // Reset pagination when filters change
+  const updateFilters = useCallback((updater: (f: Omit<JournalFilters, 'cursor'>) => Omit<JournalFilters, 'cursor'>) => {
+    setFilters(updater);
+    setCursor(undefined);
+    setAccumulatedEntries([]);
+  }, []);
 
   const sourceModules = ['manual', 'pos', 'ap', 'ar', 'inventory'];
 
@@ -62,7 +87,7 @@ export default function JournalsContent() {
               type="text"
               placeholder="Search by journal # or memo..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCursor(undefined); setAccumulatedEntries([]); }}
               className="w-full rounded-lg border border-border bg-surface py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
@@ -80,19 +105,19 @@ export default function JournalsContent() {
           <input
             type="date"
             value={filters.startDate ?? ''}
-            onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value }))}
+            onChange={(e) => updateFilters((f) => ({ ...f, startDate: e.target.value }))}
             className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
           <span className="self-center text-sm text-muted-foreground">to</span>
           <input
             type="date"
             value={filters.endDate ?? ''}
-            onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value }))}
+            onChange={(e) => updateFilters((f) => ({ ...f, endDate: e.target.value }))}
             className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
           <select
             value={filters.sourceModule ?? ''}
-            onChange={(e) => setFilters((f) => ({ ...f, sourceModule: e.target.value || undefined }))}
+            onChange={(e) => updateFilters((f) => ({ ...f, sourceModule: e.target.value || undefined }))}
             className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           >
             <option value="">All Sources</option>
@@ -102,7 +127,7 @@ export default function JournalsContent() {
           </select>
           <select
             value={filters.status ?? ''}
-            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value || undefined }))}
+            onChange={(e) => updateFilters((f) => ({ ...f, status: e.target.value || undefined }))}
             className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           >
             <option value="">All Statuses</option>
@@ -170,7 +195,7 @@ export default function JournalsContent() {
             <div className="flex justify-center pt-4">
               <button
                 type="button"
-                onClick={() => setFilters((f) => ({ ...f, cursor: meta.cursor ?? undefined }))}
+                onClick={handleLoadMore}
                 className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 Load More

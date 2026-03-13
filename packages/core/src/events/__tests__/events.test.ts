@@ -498,7 +498,9 @@ describe('InMemoryEventBus', () => {
     bus.subscribe('test.dummy_event.created.v1', handler);
 
     const event = makeEvent();
-    await bus.publish(event);
+    // publish() now re-throws after max retries so the outbox worker
+    // knows delivery was incomplete
+    await expect(bus.publish(event)).rejects.toThrow(/handler\(s\) failed/);
 
     // Handler called 3 times (all failures)
     expect(handler).toHaveBeenCalledTimes(3);

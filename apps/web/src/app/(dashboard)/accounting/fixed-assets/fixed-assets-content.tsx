@@ -383,6 +383,145 @@ function AddAssetDialog({ open, onClose, onSave, isSaving }: AddAssetDialogProps
   );
 }
 
+// ── Edit Asset Dialog ────────────────────────────────────────
+
+interface EditAssetDialogProps {
+  open: boolean;
+  onClose: () => void;
+  asset: FixedAssetListItem;
+  onSave: (data: Record<string, unknown>) => Promise<void>;
+  isSaving: boolean;
+}
+
+function EditAssetDialog({ open, onClose, asset, onSave, isSaving }: EditAssetDialogProps) {
+  const [name, setName] = useState(asset.name);
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState(asset.category);
+  const [locationId, setLocationId] = useState(asset.locationId ?? '');
+  const [assetGlAccountId, setAssetGlAccountId] = useState('');
+  const [depreciationExpenseGlAccountId, setDepreciationExpenseGlAccountId] = useState('');
+  const [accumulatedDepreciationGlAccountId, setAccumulatedDepreciationGlAccountId] = useState('');
+  const [disposalGlAccountId, setDisposalGlAccountId] = useState('');
+  const [notes, setNotes] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  if (!open) return null;
+
+  const handleSubmit = async () => {
+    setError(null);
+    if (!name.trim()) { setError('Name is required'); return; }
+
+    try {
+      await onSave({
+        assetId: asset.id,
+        name: name.trim(),
+        description: description.trim() || null,
+        category,
+        locationId: locationId.trim() || null,
+        assetGlAccountId: assetGlAccountId.trim() || null,
+        depreciationExpenseAccountId: depreciationExpenseGlAccountId.trim() || null,
+        accumulatedDepreciationAccountId: accumulatedDepreciationGlAccountId.trim() || null,
+        disposalGlAccountId: disposalGlAccountId.trim() || null,
+        notes: notes.trim() || null,
+      });
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update asset');
+    }
+  };
+
+  const inputCls = 'w-full px-3 py-2 border border-input bg-surface text-foreground rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-muted-foreground';
+  const labelCls = 'block text-sm font-medium text-foreground mb-1';
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
+        <div className="p-6 space-y-5">
+          <h2 className="text-lg font-semibold text-foreground">Edit Fixed Asset</h2>
+          <p className="text-sm text-muted-foreground">{asset.assetNumber}</p>
+
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded text-sm text-red-500">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          {/* Name + Category */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="edit-asset-name" className={labelCls}>Name *</label>
+              <input id="edit-asset-name" type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label htmlFor="edit-asset-category" className={labelCls}>Category</label>
+              <select id="edit-asset-category" value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
+                {ASSET_CATEGORIES.filter((c) => c.value).map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label htmlFor="edit-asset-description" className={labelCls}>Description</label>
+            <input id="edit-asset-description" type="text" value={description} onChange={(e) => setDescription(e.target.value)} className={inputCls} placeholder="Optional description" />
+          </div>
+
+          {/* Location */}
+          <div>
+            <label htmlFor="edit-asset-location" className={labelCls}>Location ID</label>
+            <input id="edit-asset-location" type="text" value={locationId} onChange={(e) => setLocationId(e.target.value)} className={inputCls} placeholder="Optional location ID" />
+          </div>
+
+          {/* GL Accounts */}
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-muted-foreground">GL Account IDs (optional)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="edit-asset-gl" className={labelCls}>Asset Account</label>
+                <input id="edit-asset-gl" type="text" value={assetGlAccountId} onChange={(e) => setAssetGlAccountId(e.target.value)} className={inputCls} placeholder="GL account ID" />
+              </div>
+              <div>
+                <label htmlFor="edit-depr-expense-gl" className={labelCls}>Depreciation Expense</label>
+                <input id="edit-depr-expense-gl" type="text" value={depreciationExpenseGlAccountId} onChange={(e) => setDepreciationExpenseGlAccountId(e.target.value)} className={inputCls} placeholder="GL account ID" />
+              </div>
+              <div>
+                <label htmlFor="edit-accum-depr-gl" className={labelCls}>Accumulated Depreciation</label>
+                <input id="edit-accum-depr-gl" type="text" value={accumulatedDepreciationGlAccountId} onChange={(e) => setAccumulatedDepreciationGlAccountId(e.target.value)} className={inputCls} placeholder="GL account ID" />
+              </div>
+              <div>
+                <label htmlFor="edit-disposal-gl" className={labelCls}>Disposal Account</label>
+                <input id="edit-disposal-gl" type="text" value={disposalGlAccountId} onChange={(e) => setDisposalGlAccountId(e.target.value)} className={inputCls} placeholder="GL account ID" />
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label htmlFor="edit-asset-notes" className={labelCls}>Notes</label>
+            <textarea id="edit-asset-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inputCls} placeholder="Optional notes" />
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-foreground bg-surface border border-border rounded-md hover:bg-accent">
+              Cancel
+            </button>
+            <button type="button" onClick={handleSubmit} disabled={isSaving} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500 disabled:opacity-50">
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 // ── Depreciate Dialog ────────────────────────────────────────
 
 interface DepreciateDialogProps {
@@ -544,14 +683,39 @@ export default function FixedAssetsContent() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [depreciateTarget, setDepreciateTarget] = useState<FixedAssetListItem | null>(null);
   const [disposeTarget, setDisposeTarget] = useState<FixedAssetListItem | null>(null);
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [accumulatedAssets, setAccumulatedAssets] = useState<FixedAssetListItem[]>([]);
 
   // ── Data ─────────────────────────────────────────────────────
-  const { data: assets, isLoading } = useFixedAssets({
+  const { data: pageAssets, meta, isLoading } = useFixedAssets({
     status: statusFilter || undefined,
     category: categoryFilter || undefined,
+    cursor,
   });
   const { data: summary } = useAssetSummary();
   const mutations = useFixedAssetMutations();
+
+  // Accumulate pages: first page replaces, subsequent pages append
+  const assets = useMemo(() => {
+    if (!cursor) return pageAssets;
+    const seen = new Set(accumulatedAssets.map((a) => a.id));
+    const newItems = pageAssets.filter((a) => !seen.has(a.id));
+    return [...accumulatedAssets, ...newItems];
+  }, [pageAssets, cursor, accumulatedAssets]);
+
+  const handleLoadMore = () => {
+    if (meta.cursor) {
+      setAccumulatedAssets(assets);
+      setCursor(meta.cursor);
+    }
+  };
+
+  // Reset pagination when filters change
+  const handleFilterChange = (setter: (v: string) => void) => (value: string) => {
+    setter(value);
+    setCursor(undefined);
+    setAccumulatedAssets([]);
+  };
 
   // ── Client-side search filter ────────────────────────────────
   const filteredAssets = useMemo(() => {
@@ -579,11 +743,14 @@ export default function FixedAssetsContent() {
     await mutations.disposeAsset.mutateAsync({ assetId: disposeTarget.id, ...data });
   };
 
+  const [editTarget, setEditTarget] = useState<FixedAssetListItem | null>(null);
+
   const handleEditAsset = (asset: FixedAssetListItem) => {
-    // For now, edit opens the same create form pattern. A full edit flow
-    // would use useFixedAsset(id) to load detail + updateAsset mutation.
-    // Placeholder: log to console until the edit dialog is implemented.
-    console.log('Edit asset:', asset.id);
+    setEditTarget(asset);
+  };
+
+  const handleUpdateAsset = async (data: Record<string, unknown>) => {
+    await mutations.updateAsset.mutateAsync(data as { assetId: string });
   };
 
   // ── Render ───────────────────────────────────────────────────
@@ -645,7 +812,7 @@ export default function FixedAssetsContent() {
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => handleFilterChange(setStatusFilter)(e.target.value)}
           className="px-3 py-2 border border-input bg-surface text-foreground rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           {ASSET_STATUSES.map((s) => (
@@ -654,7 +821,7 @@ export default function FixedAssetsContent() {
         </select>
         <select
           value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
+          onChange={(e) => handleFilterChange(setCategoryFilter)(e.target.value)}
           className="px-3 py-2 border border-input bg-surface text-foreground rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           {ASSET_CATEGORIES.map((c) => (
@@ -675,62 +842,77 @@ export default function FixedAssetsContent() {
           )}
         </div>
       ) : (
-        <div className="border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Asset #</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Category</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Acq. Date</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Cost</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Accum. Depr.</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Net Book Value</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                  <th className="px-4 py-3 w-10" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredAssets.map((asset) => (
-                  <tr key={asset.id} className="hover:bg-accent">
-                    <td className="px-4 py-3 font-mono text-foreground text-xs">{asset.assetNumber}</td>
-                    <td className="px-4 py-3 text-foreground font-medium">{asset.name}</td>
-                    <td className="px-4 py-3"><CategoryBadge category={asset.category} /></td>
-                    <td className="px-4 py-3 text-muted-foreground">{asset.acquisitionDate}</td>
-                    <td className="px-4 py-3 text-right text-foreground tabular-nums">{formatAccountingMoney(asset.acquisitionCost)}</td>
-                    <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">{formatAccountingMoney(asset.accumulatedDepreciation)}</td>
-                    <td className="px-4 py-3 text-right text-foreground font-medium tabular-nums">{formatAccountingMoney(asset.netBookValue)}</td>
-                    <td className="px-4 py-3"><StatusBadge status={asset.status} /></td>
-                    <td className="px-4 py-3">
-                      <ActionsDropdown
-                        asset={asset}
-                        onEdit={() => handleEditAsset(asset)}
-                        onDepreciate={() => setDepreciateTarget(asset)}
-                        onDispose={() => setDisposeTarget(asset)}
-                      />
-                    </td>
+        <>
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Asset #</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Category</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Acq. Date</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Cost</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Accum. Depr.</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Net Book Value</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                    <th className="px-4 py-3 w-10" />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredAssets.map((asset) => (
+                    <tr key={asset.id} className="hover:bg-accent">
+                      <td className="px-4 py-3 font-mono text-foreground text-xs">{asset.assetNumber}</td>
+                      <td className="px-4 py-3 text-foreground font-medium">{asset.name}</td>
+                      <td className="px-4 py-3"><CategoryBadge category={asset.category} /></td>
+                      <td className="px-4 py-3 text-muted-foreground">{asset.acquisitionDate}</td>
+                      <td className="px-4 py-3 text-right text-foreground tabular-nums">{formatAccountingMoney(asset.acquisitionCost)}</td>
+                      <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">{formatAccountingMoney(asset.accumulatedDepreciation)}</td>
+                      <td className="px-4 py-3 text-right text-foreground font-medium tabular-nums">{formatAccountingMoney(asset.netBookValue)}</td>
+                      <td className="px-4 py-3"><StatusBadge status={asset.status} /></td>
+                      <td className="px-4 py-3">
+                        <ActionsDropdown
+                          asset={asset}
+                          onEdit={() => handleEditAsset(asset)}
+                          onDepreciate={() => setDepreciateTarget(asset)}
+                          onDispose={() => setDisposeTarget(asset)}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          {/* Footer summary */}
-          <div className="border-t-2 border-border bg-muted px-4 py-3 flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              {filteredAssets.length} asset{filteredAssets.length !== 1 ? 's' : ''}
-            </span>
-            <div className="flex items-center gap-6 text-sm">
-              <span className="text-muted-foreground">
-                Total Cost: <span className="font-medium text-foreground tabular-nums">{formatAccountingMoney(filteredAssets.reduce((sum, a) => sum + a.acquisitionCost, 0))}</span>
+            {/* Footer summary */}
+            <div className="border-t-2 border-border bg-muted px-4 py-3 flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                {filteredAssets.length} asset{filteredAssets.length !== 1 ? 's' : ''}
               </span>
-              <span className="text-muted-foreground">
-                Net Book Value: <span className="font-medium text-foreground tabular-nums">{formatAccountingMoney(filteredAssets.reduce((sum, a) => sum + a.netBookValue, 0))}</span>
-              </span>
+              <div className="flex items-center gap-6 text-sm">
+                <span className="text-muted-foreground">
+                  Total Cost: <span className="font-medium text-foreground tabular-nums">{formatAccountingMoney(filteredAssets.reduce((sum, a) => sum + a.acquisitionCost, 0))}</span>
+                </span>
+                <span className="text-muted-foreground">
+                  Net Book Value: <span className="font-medium text-foreground tabular-nums">{formatAccountingMoney(filteredAssets.reduce((sum, a) => sum + a.netBookValue, 0))}</span>
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+
+          {/* Load More */}
+          {meta.hasMore && (
+            <div className="flex justify-center pt-4">
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+              >
+                Load More
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Add Asset Dialog */}
@@ -740,6 +922,17 @@ export default function FixedAssetsContent() {
         onSave={handleCreateAsset}
         isSaving={mutations.createAsset.isPending}
       />
+
+      {/* Edit Asset Dialog */}
+      {editTarget && (
+        <EditAssetDialog
+          open={!!editTarget}
+          onClose={() => setEditTarget(null)}
+          asset={editTarget}
+          onSave={handleUpdateAsset}
+          isSaving={mutations.updateAsset.isPending}
+        />
+      )}
 
       {/* Depreciate Dialog */}
       {depreciateTarget && (

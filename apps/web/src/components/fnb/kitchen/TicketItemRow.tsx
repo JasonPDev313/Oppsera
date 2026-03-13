@@ -6,7 +6,7 @@ import type { KdsTicketItem } from '@/types/fnb';
 interface TicketItemRowProps {
   item: KdsTicketItem;
   showSeat?: boolean;
-  onBump?: (itemId: string) => void;
+  onBump?: (itemId: string, stationId?: string | null) => void | Promise<void>;
   density?: 'compact' | 'standard' | 'comfortable';
   /** "All Day" count — total of this item across all open tickets */
   allDayCount?: number;
@@ -87,7 +87,7 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
   const isServed = item.itemStatus === 'served';
   const isVoided = item.itemStatus === 'voided';
   const isTerminal = isServed || isVoided;
-  const isTappable = !!onBump && !isTerminal;
+  const isTappable = !!onBump && !isTerminal && Boolean(item.stationId);
   const isRemake = item.specialInstructions?.startsWith('REMAKE:') ?? false;
   const { cookTemp, noMods, regularMods } = parseModifiers(item.modifierSummary ?? null);
 
@@ -151,20 +151,22 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
         WebkitTapHighlightColor: isTappable ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
       }}
       onClick={isTappable ? () => {
+        if (isBumping) return;
         setIsBumping(true);
         navigator.vibrate?.(50);
         playBumpSound();
-        onBump(item.itemId);
+        void onBump(item.itemId, item.stationId);
         // Auto-clear after animation
         setTimeout(() => setIsBumping(false), 600);
       } : undefined}
       onKeyDown={isTappable ? (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
+          if (isBumping) return;
           setIsBumping(true);
           navigator.vibrate?.(50);
           playBumpSound();
-          onBump(item.itemId);
+          void onBump(item.itemId, item.stationId);
           setTimeout(() => setIsBumping(false), 600);
         }
       } : undefined}

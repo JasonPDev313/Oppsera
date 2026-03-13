@@ -24,6 +24,10 @@ vi.mock('../helpers/resolve-mapping', () => ({
   logUnmappedEvent: vi.fn(),
 }));
 
+vi.mock('../helpers/ensure-accounting-settings', () => ({
+  ensureAccountingSettings: vi.fn().mockResolvedValue({ created: false, autoWired: 0 }),
+}));
+
 const mockPostEntry = vi.fn().mockResolvedValue({ id: 'je-1', journalNumber: 1, status: 'posted' });
 vi.mock('@oppsera/core/helpers/accounting-posting-api', () => ({
   getAccountingPostingApi: () => ({
@@ -312,12 +316,12 @@ describe('handleFnbGlPostingForAccounting', () => {
     expect(overShortLine?.accountId).toBe('acct-rounding');
   });
 
-  it('should never throw — catches all errors', async () => {
+  it('should re-throw transient errors for outbox retry', async () => {
     const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
     (getAccountingSettings as any).mockRejectedValueOnce(new Error('DB down'));
 
-    // Should NOT throw
-    await expect(handleFnbGlPostingForAccounting(baseEvent as any)).resolves.toBeUndefined();
+    // Transient errors now propagate so the outbox worker can retry
+    await expect(handleFnbGlPostingForAccounting(baseEvent as any)).rejects.toThrow('DB down');
   });
 
   it('should convert cents to dollars correctly', async () => {

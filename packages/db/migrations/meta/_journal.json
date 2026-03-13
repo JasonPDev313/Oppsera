@@ -2178,6 +2178,20 @@
       "when": 1773355464510,
       "tag": "0310_kds_resolve_to_clear",
       "breakpoints": true
+    },
+    {
+      "idx": 311,
+      "version": "7",
+      "when": 1773368018759,
+      "tag": "0311_accounting_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 312,
+      "version": "7",
+      "when": 1773452400000,
+      "tag": "0312_accounting_settlement_hardening",
+      "breakpoints": true
     }
   ]
 }

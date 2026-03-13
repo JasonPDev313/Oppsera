@@ -1,5 +1,6 @@
 import { db, isBreakerOpen } from '@oppsera/db';
 import type { EventEnvelope } from '@oppsera/shared';
+import { PermanentPostingError } from '@oppsera/shared';
 import {
   resolvePaymentTypeAccounts,
   batchResolveSubDepartmentAccounts,
@@ -154,25 +155,30 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
   try {
     await handleTenderForAccountingInner(event, tenantId, data);
   } catch (error) {
-    // Top-level safety net: NEVER let any error propagate to the event consumer.
-    // All known failure paths are already caught below, so this only fires on
-    // truly unexpected errors (e.g., OOM, network partition, driver bug).
-    console.error(`[pos-gl] UNHANDLED: GL posting failed for tender ${data.tenderId}:`, error);
+    console.error(`[pos-gl] GL posting failed for tender ${data.tenderId}:`, error);
 
-    // Only attempt DB logging if the breaker is still closed — writing
-    // to gl_unmapped_events when the pool is exhausted just adds fuel.
+    // Log to gl_unmapped_events for visibility (best-effort)
     if (!isBreakerOpen()) {
       try {
         await logUnmappedEvent(db, tenantId, {
           eventType: 'tender.recorded.v1',
           sourceModule: 'pos',
           sourceReferenceId: data.tenderId,
-          entityType: 'unhandled_error',
+          entityType: error instanceof PermanentPostingError ? 'permanent_posting_error' : 'transient_posting_error',
           entityId: data.tenderId,
-          reason: `GL posting failed (unhandled): ${error instanceof Error ? error.message : 'Unknown error'}`,
+          reason: `GL posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         });
-      } catch { /* absolute last resort — swallow */ }
+      } catch { /* best-effort — don't compound the failure */ }
     }
+
+    // Permanent errors (missing mappings, unconfigured settings) will never
+    // succeed on retry — swallow them so the outbox worker marks the event done.
+    // Transient errors (DB timeout, connection failure, unexpected runtime error)
+    // re-throw so the outbox worker unclaims the event for retry with backoff.
+    if (error instanceof PermanentPostingError) {
+      return; // logged above, no retry
+    }
+    throw error; // transient — let outbox retry
   }
 }
 
@@ -217,20 +223,10 @@ async function handleTenderForAccountingInner(
       // never block tender
     }
     if (!settings) {
-      console.warn(`[pos-gl] GL posting skipped: accounting_settings still missing after ensure (tenant=${tenantId}, tender=${data.tenderId})`);
-      try {
-        await logUnmappedEvent(db, tenantId, {
-          eventType: 'tender.recorded.v1',
-          sourceModule: 'pos',
-          sourceReferenceId: data.tenderId,
-          entityType: 'accounting_settings',
-          entityId: tenantId,
-          reason: 'GL posting skipped: accounting_settings could not be created for tenant',
-        });
-      } catch {
-        // never block tender
-      }
-      return;
+      throw new PermanentPostingError(
+        `GL posting failed: accounting_settings could not be created for tenant=${tenantId}, tender=${data.tenderId}`,
+        'pos',
+      );
     }
   }
 
@@ -798,31 +794,16 @@ async function handleTenderForAccountingInner(
   }
 
   // ── 8. Post GL entry via accounting API ────────────────────────
-  try {
-    await accountingApi.postEntry(ctx, {
-      businessDate: data.businessDate,
-      sourceModule: 'pos',
-      sourceReferenceId: data.tenderId,
-      memo: `POS Sale - Order ${data.orderId}`,
-      currency: settings.baseCurrency,
-      lines: glLines,
-      forcePost: true,
-    });
-  } catch (error) {
-    // POS adapter must NEVER block tenders — log and continue
-    console.error(`[pos-gl] GL posting failed for tender ${data.tenderId}:`, error);
-    // Skip DB logging when breaker is open — don't pile onto an exhausted pool
-    if (!isBreakerOpen()) {
-      try {
-        await logUnmappedEvent(db, tenantId, {
-          eventType: 'tender.recorded.v1',
-          sourceModule: 'pos',
-          sourceReferenceId: data.tenderId,
-          entityType: 'posting_error',
-          entityId: data.tenderId,
-          reason: `GL posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        });
-      } catch { /* never let error logging propagate */ }
-    }
-  }
+  // Let errors propagate to the top-level catch which classifies them
+  // as permanent (swallow) or transient (re-throw for outbox retry).
+  await accountingApi.postEntry(ctx, {
+    businessDate: data.businessDate,
+    sourceModule: 'pos',
+    sourceReferenceId: data.tenderId,
+    sourceIdempotencyKey: `pos:tender:${data.tenderId}`,
+    memo: `POS Sale - Order ${data.orderId}`,
+    currency: settings.baseCurrency,
+    lines: glLines,
+    forcePost: true,
+  });
 }

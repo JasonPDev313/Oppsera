@@ -62,7 +62,10 @@ export async function updateStation(
     const [updated] = await tx
       .update(fnbKitchenStations)
       .set(setFields)
-      .where(eq(fnbKitchenStations.id, stationId))
+      .where(and(
+        eq(fnbKitchenStations.id, stationId),
+        eq(fnbKitchenStations.tenantId, ctx.tenantId),
+      ))
       .returning();
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.STATION_UPDATED, {

@@ -5,6 +5,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { paymentSettlements, paymentSettlementLines } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import type { ImportSettlementCsvInput } from '../validation';
+import { ACCOUNTING_EVENTS } from '../events/types';
 
 interface ParsedSettlementLine {
   date: string;
@@ -164,7 +165,7 @@ export async function importSettlementCsv(
           });
       }
 
-      const event = buildEventFromContext(ctx, 'accounting.settlement.imported.v1', {
+      const event = buildEventFromContext(ctx, ACCOUNTING_EVENTS.SETTLEMENT_IMPORTED, {
         settlementId,
         processorName: input.processorName,
         lineCount: batchLines.length,

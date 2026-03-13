@@ -78,6 +78,10 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   const { locations } = useAuthContext();
   const locationId = locations?.[0]?.id;
   const tabId = store.activeTabId;
+
+  // ── Stable action selectors ──────────────────────────────────
+  const setActiveTab = useFnbPosStore((s) => s.setActiveTab);
+  const navigateTo = useFnbPosStore((s) => s.navigateTo);
   const { tab, error: tabError, notFound: tabNotFound, refresh: refreshTab } = useFnbTab({ tabId });
   const {
     sessions,
@@ -115,10 +119,10 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   // ── Auto-navigate back when tab was closed/voided by another terminal ──
   useEffect(() => {
     if (tabNotFound) {
-      store.setActiveTab(null);
-      store.navigateTo('floor');
+      setActiveTab(null);
+      navigateTo('floor');
     }
-  }, [tabNotFound, store]);
+  }, [tabNotFound, setActiveTab, navigateTo]);
 
   // ── Reusable check-fetch (uses tab.primaryOrderId or prepared fallback) ──
   const refreshCheck = useCallback(async () => {
@@ -378,9 +382,9 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
 
   const handleClose = useCallback(() => {
     sessionIdRef.current = null;
-    store.navigateTo('floor');
-    store.setActiveTab(null);
-  }, [store]);
+    navigateTo('floor');
+    setActiveTab(null);
+  }, [navigateTo, setActiveTab]);
 
   const handleFailSession = useCallback(async () => {
     const sessionId = sessionIdRef.current;
@@ -392,8 +396,8 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
       });
       sessionIdRef.current = null;
     }
-    store.navigateTo('tab');
-  }, [failSession, store]);
+    navigateTo('tab');
+  }, [failSession, navigateTo]);
 
   // ── Error state: tab failed to load ────────────────────────────
   if (tabError && !tab) {

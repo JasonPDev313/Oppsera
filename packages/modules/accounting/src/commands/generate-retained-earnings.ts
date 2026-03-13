@@ -105,6 +105,7 @@ export async function generateRetainedEarnings(
       journalNumber,
       sourceModule: 'accounting',
       sourceReferenceId: sourceRef,
+      sourceIdempotencyKey: `accounting:retained-earnings:${startDate}:${endDate}`,
       businessDate: endDate,
       postingPeriod,
       currency: baseCurrency,

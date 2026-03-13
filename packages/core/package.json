@@ -12,7 +12,8 @@
     "./usage/*": "./src/usage/*.ts",
     "./auth/*": "./src/auth/*.ts",
     "./security": "./src/security/index.ts",
-    "./realtime": "./src/realtime/index.ts"
+    "./realtime": "./src/realtime/index.ts",
+    "./storage": "./src/storage/index.ts"
   },
   "scripts": {
     "lint": "eslint src/",

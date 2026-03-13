@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
-import { Paperclip, Upload, Trash2, FileText, Image, FileSpreadsheet, File } from 'lucide-react';
+import { Paperclip, Upload, Trash2, Download, FileText, Image, FileSpreadsheet, File } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
 interface DocumentAttachment {
@@ -13,6 +13,7 @@ interface DocumentAttachment {
   fileType: string;
   fileSizeBytes: number;
   storageKey: string;
+  downloadUrl: string | null;
   description: string | null;
   uploadedBy: string;
   createdAt: string;
@@ -64,22 +65,27 @@ export default function DocumentAttachments({ journalEntryId, canManage = false 
 
   const attachMutation = useMutation({
     mutationFn: async (file: globalThis.File) => {
-      const fileType = file.name.split('.').pop()?.toLowerCase() ?? 'unknown';
-      return apiFetch(`/api/v1/accounting/journals/${journalEntryId}/documents`, {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (description) formData.append('description', description);
+
+      const res = await fetch(`/api/v1/accounting/journals/${journalEntryId}/documents`, {
         method: 'POST',
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType,
-          fileSizeBytes: file.size,
-          storageKey: `local/${Date.now()}-${file.name}`,
-          description: description || undefined,
-        }),
+        body: formData,
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message ?? 'Upload failed');
+      }
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['journal-documents', journalEntryId] });
       setDescription('');
       if (fileInputRef.current) fileInputRef.current.value = '';
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
     },
   });
 
@@ -173,35 +179,48 @@ export default function DocumentAttachments({ journalEntryId, canManage = false 
                     )}
                   </div>
                 </div>
-                {canManage && (
-                  <>
-                    {deleteConfirmId === doc.id ? (
-                      <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1">
+                  {doc.downloadUrl && (
+                    <a
+                      href={doc.downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      aria-label={`Download ${doc.fileName}`}
+                    >
+                      <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                    </a>
+                  )}
+                  {canManage && (
+                    <>
+                      {deleteConfirmId === doc.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => deleteMutation.mutate(doc.id)}
+                            disabled={deleteMutation.isPending}
+                            className="rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-500/10"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
                         <button
-                          onClick={() => deleteMutation.mutate(doc.id)}
-                          disabled={deleteMutation.isPending}
-                          className="rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-500/10"
+                          onClick={() => setDeleteConfirmId(doc.id)}
+                          className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
+                          aria-label={`Delete ${doc.fileName}`}
                         >
-                          Confirm
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                         </button>
-                        <button
-                          onClick={() => setDeleteConfirmId(null)}
-                          className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setDeleteConfirmId(doc.id)}
-                        className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
-                        aria-label={`Delete ${doc.fileName}`}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                      </button>
-                    )}
-                  </>
-                )}
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             );
           })}

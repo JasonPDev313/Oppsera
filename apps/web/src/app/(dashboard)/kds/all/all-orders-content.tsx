@@ -113,25 +113,43 @@ export default function AllOrdersContent() {
     }
   }, [locationId]);
 
-  // Void a ticket directly from All Orders view
-  const voidTicket = useCallback(async (ticketId: string) => {
+  const bumpItem = useCallback(async (ticketItemId: string, stationId?: string | null) => {
     if (isActing) return;
+    if (!stationId) {
+      fetchAll();
+      return;
+    }
     setIsActing(true);
     try {
-      await apiFetch(`/api/v1/fnb/kitchen/tickets/${ticketId}/void`, {
+      await apiFetch(`/api/v1/fnb/stations/${stationId}/bump-item`, {
         method: 'POST',
-        body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
+        body: JSON.stringify({ ticketItemId, stationId, clientRequestId: crypto.randomUUID() }),
         headers: locationId ? { 'X-Location-Id': locationId } : undefined,
       });
-      // Optimistic removal
-      setAllTickets((prev) => prev.filter((t) => t.ticketId !== ticketId));
+      await fetchAll();
     } catch {
-      // Refresh to get accurate state
       fetchAll();
     } finally {
       setIsActing(false);
     }
-  }, [isActing, fetchAll]);
+  }, [isActing, fetchAll, locationId]);
+
+  const bumpTicket = useCallback(async (ticketId: string) => {
+    if (isActing) return;
+    setIsActing(true);
+    try {
+      await apiFetch('/api/v1/fnb/stations/expo', {
+        method: 'POST',
+        body: JSON.stringify({ ticketId, clientRequestId: crypto.randomUUID() }),
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
+      });
+      await fetchAll();
+    } catch {
+      fetchAll();
+    } finally {
+      setIsActing(false);
+    }
+  }, [isActing, fetchAll, locationId]);
 
   // "All Day" counts — total quantity of each item across all open tickets
   const allDayCounts = useMemo(() => {
@@ -155,6 +173,7 @@ export default function AllOrdersContent() {
     return () => {
       controller.abort();
       clearInterval(interval);
+      fetchingRef.current = false;
     };
   }, [fetchAll, isPaused]);
 
@@ -291,8 +310,8 @@ export default function AllOrdersContent() {
                   ticket={ticket}
                   warningThresholdSeconds={defaultWarning}
                   criticalThresholdSeconds={defaultCritical}
-                  onBumpItem={() => {}}
-                  onBumpTicket={voidTicket}
+                  onBumpItem={bumpItem}
+                  onBumpTicket={bumpTicket}
                   disabled={isActing}
                   density={density}
                   allDayCounts={allDayCounts}
@@ -307,8 +326,8 @@ export default function AllOrdersContent() {
                   ticket={ticket}
                   warningThresholdSeconds={defaultWarning}
                   criticalThresholdSeconds={defaultCritical}
-                  onBumpItem={() => {}}
-                  onBumpTicket={voidTicket}
+                  onBumpItem={bumpItem}
+                  onBumpTicket={bumpTicket}
                   disabled={isActing}
                   density={density}
                   allDayCounts={allDayCounts}

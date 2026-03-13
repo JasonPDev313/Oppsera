@@ -90,9 +90,10 @@ export async function getExpoView(
   input: GetExpoViewInput,
 ): Promise<ExpoView> {
   return withTenant(input.tenantId, async (tx) => {
-    // Get active tickets from the last 24 hours. Tickets older than 24h are
-    // almost certainly stale (never bumped/voided) and should not clutter the
-    // expo view. Operators can still void old tickets via the void button.
+    // Expo should only show tickets that prep has explicitly bumped to ready.
+    // Pending/in-progress work belongs on prep stations and All Orders.
+    // Tickets older than 24h are almost certainly stale and should not clutter
+    // the expo view. Operators can still void old tickets via the void button.
     const ticketRows = await tx.execute(
       sql`SELECT id, ticket_number, tab_id, course_number, status,
                  priority_level, is_held, order_type, channel,
@@ -102,7 +103,7 @@ export async function getExpoView(
           FROM fnb_kitchen_tickets
           WHERE tenant_id = ${input.tenantId}
             AND location_id = ${input.locationId}
-            AND status IN ('pending', 'in_progress', 'ready')
+            AND status = 'ready'
             AND sent_at > NOW() - INTERVAL '24 hours'
           ORDER BY priority_level DESC NULLS LAST, sent_at ASC
           LIMIT ${input.limit ?? 200}`,

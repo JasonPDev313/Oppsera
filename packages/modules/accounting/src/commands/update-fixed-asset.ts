@@ -1,9 +1,9 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { fixedAssets } from '@oppsera/db';
+import { fixedAssets, glAccounts } from '@oppsera/db';
 import { ACCOUNTING_EVENTS } from '../events/types';
 
 export interface UpdateFixedAssetInput {
@@ -39,6 +39,32 @@ export async function updateFixedAsset(ctx: RequestContext, input: UpdateFixedAs
 
     if (existing.status !== 'active') {
       throw new Error(`Cannot update a fixed asset with status "${existing.status}". Only active assets can be updated.`);
+    }
+
+    // Validate GL account IDs belong to this tenant
+    const glAccountIds = [
+      input.assetGlAccountId,
+      input.depreciationExpenseAccountId,
+      input.accumulatedDepreciationAccountId,
+      input.disposalGlAccountId,
+    ].filter((id): id is string => !!id && id !== '');
+
+    if (glAccountIds.length > 0) {
+      const ownedAccounts = await tx
+        .select({ id: glAccounts.id })
+        .from(glAccounts)
+        .where(
+          and(
+            eq(glAccounts.tenantId, ctx.tenantId),
+            inArray(glAccounts.id, glAccountIds),
+          ),
+        );
+      const ownedIds = new Set(ownedAccounts.map((a) => a.id));
+      for (const accountId of glAccountIds) {
+        if (!ownedIds.has(accountId)) {
+          throw new Error(`GL account "${accountId}" not found or does not belong to this tenant`);
+        }
+      }
     }
 
     const updates: Record<string, unknown> = { updatedAt: new Date() };

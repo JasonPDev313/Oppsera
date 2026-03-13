@@ -4,11 +4,12 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { logger } from '@oppsera/core/observability';
-import { fnbKitchenTicketItems, fnbKitchenTickets } from '@oppsera/db';
+import { fnbKitchenTicketItems, fnbKitchenTickets, fnbKitchenStations } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { CallBackToStationInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { TicketItemNotFoundError, TicketItemStatusConflictError, TicketVersionConflictError } from '../errors';
+import { NotFoundError } from '@oppsera/shared';
 
 export async function callBackToStation(
   ctx: RequestContext,
@@ -21,6 +22,17 @@ export async function callBackToStation(
     if (idempotencyCheck.isDuplicate) {
       return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
+
+    // Validate target station belongs to this tenant
+    const [station] = await tx
+      .select()
+      .from(fnbKitchenStations)
+      .where(and(
+        eq(fnbKitchenStations.id, input.stationId),
+        eq(fnbKitchenStations.tenantId, ctx.tenantId),
+      ))
+      .limit(1);
+    if (!station) throw new NotFoundError('Target station not found');
 
     const [item] = await tx
       .select()

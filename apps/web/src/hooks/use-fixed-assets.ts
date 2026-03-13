@@ -10,7 +10,7 @@ import type {
 } from '@oppsera/module-accounting';
 
 // ── useFixedAssets (list) ───────────────────────────────────────
-export function useFixedAssets(params?: { status?: string; category?: string; locationId?: string }) {
+export function useFixedAssets(params?: { status?: string; category?: string; locationId?: string; cursor?: string }) {
   const result = useQuery({
     queryKey: ['fixed-assets', params],
     queryFn: () => {
@@ -18,16 +18,18 @@ export function useFixedAssets(params?: { status?: string; category?: string; lo
       if (params?.status) p.set('status', params.status);
       if (params?.category) p.set('category', params.category);
       if (params?.locationId) p.set('locationId', params.locationId);
+      if (params?.cursor) p.set('cursor', params.cursor);
       const qs = p.toString();
       return apiFetch<{ data: FixedAssetListItem[]; meta: { cursor: string | null; hasMore: boolean } }>(
         `/api/v1/accounting/fixed-assets${qs ? `?${qs}` : ''}`,
-      ).then((r) => r.data);
+      );
     },
     staleTime: 30_000,
   });
 
   return {
-    data: result.data ?? [],
+    data: result.data?.data ?? [],
+    meta: result.data?.meta ?? { cursor: null, hasMore: false },
     isLoading: result.isLoading,
     error: result.error,
     mutate: result.refetch,

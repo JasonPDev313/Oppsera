@@ -1,4 +1,5 @@
 import type { EventEnvelope } from '@oppsera/shared';
+import { PermanentPostingError } from '@oppsera/shared';
 import { db, fnbGlAccountMappings, subDepartmentGlDefaults, glJournalEntries } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
@@ -72,21 +73,26 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
   const data = event.data as unknown as FnbGlPostingPayload;
 
   try {
+    // Mark batch as pending GL posting at the start of processing
+    try {
+      await db.execute(
+        sql`UPDATE fnb_close_batches
+            SET gl_posting_status = 'pending',
+                last_posting_attempt_at = NOW(),
+                updated_at = NOW()
+            WHERE tenant_id = ${event.tenantId}
+              AND id = ${data.closeBatchId}
+              AND gl_posting_status != 'posted'`,
+      );
+    } catch { /* best-effort — don't block GL posting if batch update fails */ }
+
     try { await ensureAccountingSettings(db, event.tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, event.tenantId);
     if (!settings) {
-      try {
-        await logUnmappedEvent(db, event.tenantId, {
-          eventType: 'fnb.gl.posting_created.v1',
-          sourceModule: 'fnb',
-          sourceReferenceId: data.closeBatchId,
-          entityType: 'accounting_settings',
-          entityId: event.tenantId,
-          reason: 'CRITICAL: GL F&B posting skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
-        });
-      } catch { /* never block F&B ops */ }
-      console.error(`[fnb-gl] CRITICAL: accounting settings missing for tenant=${event.tenantId} after ensureAccountingSettings`);
-      return;
+      throw new PermanentPostingError(
+        `GL F&B posting failed: accounting settings missing for tenant=${event.tenantId} after ensureAccountingSettings, batch=${data.closeBatchId}`,
+        'fnb',
+      );
     }
 
     if (!data.journalLines || data.journalLines.length === 0) return;
@@ -265,18 +271,21 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
       businessDate: data.businessDate,
       sourceModule: 'fnb',
       sourceReferenceId: data.closeBatchId,
+      sourceIdempotencyKey: `fnb:close-batch:${data.closeBatchId}`,
       memo: `F&B Close Batch ${data.closeBatchId}`,
       currency: settings.baseCurrency,
       lines: glLines,
       forcePost: true,
     });
 
-    // Write the real GL journal entry ID back to fnb_close_batches so the batch
-    // record points to the actual GL entry rather than the synthetic placeholder.
+    // Write GL state back to fnb_close_batches: journal entry ID + posting status.
     try {
       await db.execute(
         sql`UPDATE fnb_close_batches
             SET gl_journal_entry_id = ${glEntry.id},
+                gl_posting_status = 'posted',
+                gl_posting_error = NULL,
+                last_posting_attempt_at = NOW(),
                 updated_at = NOW()
             WHERE tenant_id = ${event.tenantId}
               AND id = ${data.closeBatchId}`,
@@ -284,21 +293,45 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
     } catch (updateErr) {
       // Non-fatal — the GL entry was posted successfully; the batch column is
       // best-effort. The real entry can always be looked up by sourceModule+sourceReferenceId.
-      console.warn(`[fnb-gl] Failed to write real gl_journal_entry_id back to batch ${data.closeBatchId}:`, updateErr);
+      console.warn(`[fnb-gl] Failed to write GL state back to batch ${data.closeBatchId}:`, updateErr);
     }
   } catch (err) {
-    // Never block F&B operations
-    console.error(`F&B GL posting failed for batch ${data.closeBatchId}:`, err);
+    console.error(`[fnb-gl] GL posting failed for batch ${data.closeBatchId}:`, err);
+
+    const isPermanent = err instanceof PermanentPostingError;
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
+    // Write failure state to fnb_close_batches (best-effort)
+    try {
+      await db.execute(
+        sql`UPDATE fnb_close_batches
+            SET gl_posting_status = 'failed',
+                gl_posting_error = ${errorMessage},
+                last_posting_attempt_at = NOW(),
+                updated_at = NOW()
+            WHERE tenant_id = ${event.tenantId}
+              AND id = ${data.closeBatchId}`,
+      );
+    } catch { /* best-effort — don't compound the failure */ }
+
+    // Log to gl_unmapped_events for visibility (best-effort)
     try {
       await logUnmappedEvent(db, event.tenantId, {
         eventType: 'fnb.gl.posting_created.v1',
         sourceModule: 'fnb',
         sourceReferenceId: data.closeBatchId,
-        entityType: 'posting_error',
+        entityType: isPermanent ? 'permanent_posting_error' : 'transient_posting_error',
         entityId: data.closeBatchId,
-        reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        reason: `GL posting failed: ${errorMessage}`,
       });
-    } catch { /* best-effort tracking */ }
+    } catch { /* best-effort — don't compound the failure */ }
+
+    // Permanent errors (missing settings/mappings) will never succeed on retry.
+    // Transient errors (DB timeout, connection failure) re-throw for outbox retry.
+    if (isPermanent) {
+      return; // logged above, no retry
+    }
+    throw err; // transient — let outbox retry
   }
 }
 
@@ -483,17 +516,21 @@ export async function handleFnbGlPostingReversedForAccounting(event: EventEnvelo
       `fnb-gl-reversal-${data.closeBatchId}`,
     );
   } catch (err) {
-    // Never block F&B operations
-    console.error(`F&B GL reversal failed for batch ${data.closeBatchId}:`, err);
+    console.error(`[fnb-gl] GL reversal failed for batch ${data.closeBatchId}:`, err);
     try {
       await logUnmappedEvent(db, event.tenantId, {
         eventType: 'fnb.gl.posting_reversed.v1',
         sourceModule: 'fnb',
         sourceReferenceId: data.closeBatchId,
-        entityType: 'reversal_error',
+        entityType: err instanceof PermanentPostingError ? 'permanent_reversal_error' : 'transient_reversal_error',
         entityId: data.closeBatchId,
         reason: `GL reversal failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
       });
-    } catch { /* best-effort tracking */ }
+    } catch { /* best-effort — don't compound the failure */ }
+
+    if (err instanceof PermanentPostingError) {
+      return;
+    }
+    throw err; // transient — let outbox retry
   }
 }

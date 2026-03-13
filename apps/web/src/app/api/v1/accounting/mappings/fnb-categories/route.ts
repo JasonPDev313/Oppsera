@@ -96,5 +96,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: { id } }, { status: 201 });
   },
-  { entitlement: 'accounting', permission: 'accounting.mappings.manage', writeAccess: true },
+  { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true },
 );

@@ -5,6 +5,7 @@ import { db, sql } from '@oppsera/db';
 import { glJournalEntries, glJournalLines } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import { getReconciliationReadApi } from '@oppsera/core/helpers/reconciliation-read-api';
+import { z } from 'zod';
 import {
   resolveSubDepartmentAccounts,
   resolvePaymentTypeAccounts,
@@ -12,18 +13,23 @@ import {
   getAccountingSettings,
 } from '@oppsera/module-accounting';
 
+const remapPreviewSchema = z.object({
+  tenderIds: z.array(z.string().min(1)).min(1).max(50),
+}).strict();
+
 // POST /api/v1/accounting/unmapped-events/remap/preview — dry-run showing GL diff
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
-    const tenderIds: string[] = body.tenderIds;
-
-    if (!Array.isArray(tenderIds) || tenderIds.length === 0 || tenderIds.length > 50) {
+    let body = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
+    const parsed = remapPreviewSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: { code: 'VALIDATION_ERROR', message: 'tenderIds must be an array of 1-50 strings' } },
+        { error: { code: 'VALIDATION_ERROR', message: 'Invalid input', details: parsed.error.issues } },
         { status: 400 },
       );
     }
+    const tenderIds = parsed.data.tenderIds;
 
     const settings = await getAccountingSettings(db, ctx.tenantId);
     if (!settings) {
@@ -121,11 +127,11 @@ export const POST = withMiddleware(
         let depositAccountId: string | null = null;
         let depositFallback = false;
         if (paymentTypeMapping) {
-          depositAccountId = (settings as any).enableUndepositedFundsWorkflow && paymentTypeMapping.clearingAccountId
+          depositAccountId = settings.enableUndepositedFundsWorkflow && paymentTypeMapping.clearingAccountId
             ? paymentTypeMapping.clearingAccountId
             : paymentTypeMapping.depositAccountId;
         } else {
-          depositAccountId = (settings as any).defaultUndepositedFundsAccountId ?? null;
+          depositAccountId = settings.defaultUndepositedFundsAccountId ?? null;
           depositFallback = true;
         }
 
@@ -156,7 +162,7 @@ export const POST = withMiddleware(
             revenueAccountId = mapping?.revenueAccountId ?? null;
           }
           if (!revenueAccountId) {
-            revenueAccountId = (settings as any).defaultUncategorizedRevenueAccountId ?? null;
+            revenueAccountId = settings.defaultUncategorizedRevenueAccountId ?? null;
             revenueFallback = true;
           }
 
@@ -178,7 +184,7 @@ export const POST = withMiddleware(
             let taxAccountId = await resolveTaxGroupAccount(db, ctx.tenantId, line.taxGroupId);
             let taxFallback = false;
             if (!taxAccountId) {
-              taxAccountId = (settings as any).defaultSalesTaxPayableAccountId ?? null;
+              taxAccountId = settings.defaultSalesTaxPayableAccountId ?? null;
               taxFallback = true;
             }
             if (taxAccountId) {

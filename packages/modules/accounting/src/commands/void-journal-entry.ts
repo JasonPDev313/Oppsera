@@ -72,10 +72,11 @@ export async function voidJournalEntry(
       origDebits = Math.round(origDebits * 100) / 100;
       origCredits = Math.round(origCredits * 100) / 100;
       if (origDebits !== origCredits) {
-        console.error(
-          `[void-journal-entry] Original entry ${entryId} is unbalanced: ` +
-          `debits=${origDebits}, credits=${origCredits}. ` +
-          `Reversal will also be unbalanced — investigate data corruption.`,
+        throw new AppError(
+          'UNBALANCED_ENTRY',
+          `Cannot void journal entry ${entryId}: original is unbalanced (debits=${origDebits}, credits=${origCredits}). ` +
+          `A reversal would double the corruption. Create a manual correcting entry first.`,
+          409,
         );
       }
     }
@@ -109,6 +110,7 @@ export async function voidJournalEntry(
         memo: `Reversal of JE #${entry.journalNumber}: ${reason}`,
         postedAt: new Date(),
         reversalOfId: entryId,
+        sourceIdempotencyKey: `void:${entryId}`,
         createdBy: ctx.user.id,
       })
       .returning();

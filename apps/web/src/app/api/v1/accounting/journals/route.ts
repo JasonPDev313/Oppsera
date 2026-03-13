@@ -21,6 +21,7 @@ export const GET = withMiddleware(
       sourceModule: url.searchParams.get('sourceModule') ?? undefined,
       status: url.searchParams.get('status') ?? undefined,
       accountId: url.searchParams.get('accountId') ?? undefined,
+      search: url.searchParams.get('search') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
       limit: limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined,
     });

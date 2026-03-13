@@ -7,6 +7,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { paymentSettlements, paymentSettlementLines } from '@oppsera/db';
 import { generateUlid, ConflictError } from '@oppsera/shared';
 import type { CreateSettlementInput } from '../validation';
+import { ACCOUNTING_EVENTS } from '../events/types';
 
 export async function createSettlement(
   ctx: RequestContext,
@@ -82,7 +83,7 @@ export async function createSettlement(
       }
     }
 
-    const event = buildEventFromContext(ctx, 'accounting.settlement.created.v1', {
+    const event = buildEventFromContext(ctx, ACCOUNTING_EVENTS.SETTLEMENT_CREATED, {
       settlementId,
       processorName: input.processorName,
       grossAmount: input.grossAmount,
