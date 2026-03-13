@@ -29,6 +29,9 @@ interface UseKdsViewReturn {
   lastRefreshedAt: number | null;
 }
 
+// Debounce delay (ms) before refreshing KDS after rapid item bumps
+const BUMP_REFRESH_DEBOUNCE_MS = 600;
+
 export function useKdsView({
   stationId,
   locationId,
@@ -124,6 +127,11 @@ export function useKdsView({
       document.removeEventListener('visibilitychange', onVisibility);
       abortRef.current?.abort();
       fetchingRef.current = false;
+      if (bumpRefreshTimerRef.current) {
+        clearTimeout(bumpRefreshTimerRef.current);
+        bumpRefreshTimerRef.current = null;
+      }
+      inFlightItemBumpsRef.current.clear();
     };
   }, [stationId, fetchKds, pollIntervalMs]);
 
@@ -138,8 +146,22 @@ export function useKdsView({
   }, [fetchKds]);
 
   const locQs = locationId ? `?locationId=${locationId}` : '';
+  // Track in-flight item bumps so we can allow concurrent item bumps
+  // while still blocking ticket-level actions during mutations.
+  const inFlightItemBumpsRef = useRef(new Set<string>());
+  const bumpRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Shared mutation helper: run mutation → force-refresh KDS view → report errors
+  // Schedule a debounced KDS refresh after item bumps settle
+  const scheduleBumpRefresh = useCallback(() => {
+    if (bumpRefreshTimerRef.current) clearTimeout(bumpRefreshTimerRef.current);
+    bumpRefreshTimerRef.current = setTimeout(() => {
+      bumpRefreshTimerRef.current = null;
+      fetchKds(true);
+    }, BUMP_REFRESH_DEBOUNCE_MS);
+  }, [fetchKds]);
+
+  // Shared mutation helper for ticket-level & non-bump actions:
+  // run mutation → force-refresh KDS view → report errors
   const runAction = useCallback(async (
     url: string,
     body: Record<string, unknown>,
@@ -162,14 +184,67 @@ export function useKdsView({
     }
   }, [fetchKds, locationId]);
 
+  // Item bump: concurrent-safe, optimistic UI, debounced refresh.
+  // Does NOT block on `isActing` — each item has its own DB-level optimistic lock.
   const bumpItem = useCallback(async (ticketItemId: string) => {
-    if (!stationId || isActing) return;
-    await runAction(`/api/v1/fnb/stations/${stationId}/bump-item${locQs}`, { ticketItemId, stationId });
-  }, [stationId, locQs, runAction, isActing]);
+    if (!stationId) return;
+    // Prevent double-bumping the same item
+    if (inFlightItemBumpsRef.current.has(ticketItemId)) return;
+    inFlightItemBumpsRef.current.add(ticketItemId);
+
+    // Optimistic UI: immediately mark item as ready in local state
+    setKdsView((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        tickets: prev.tickets.map((ticket) => ({
+          ...ticket,
+          items: ticket.items.map((item) =>
+            item.itemId === ticketItemId
+              ? { ...item, itemStatus: 'ready' as const }
+              : item,
+          ),
+        })),
+      };
+    });
+
+    try {
+      await apiFetch(`/api/v1/fnb/stations/${stationId}/bump-item${locQs}`, {
+        method: 'POST',
+        body: JSON.stringify({ ticketItemId, stationId, clientRequestId: crypto.randomUUID() }),
+        headers: locationId ? { 'X-Location-Id': locationId } : undefined,
+      });
+    } catch (err: unknown) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setError(err instanceof Error ? err.message : 'Item bump failed');
+      }
+      // On failure, force refresh to revert optimistic state
+      fetchKds(true);
+    } finally {
+      inFlightItemBumpsRef.current.delete(ticketItemId);
+      // Debounced refresh: after rapid item bumps settle, sync server state
+      scheduleBumpRefresh();
+    }
+  }, [stationId, locQs, locationId, fetchKds, scheduleBumpRefresh]);
 
   const bumpTicket = useCallback(async (ticketId: string) => {
     if (!stationId || isActing) return;
-    await runAction(`/api/v1/fnb/stations/${stationId}/bump-ticket${locQs}`, { ticketId });
+
+    // Optimistic UI: remove ticket from view immediately
+    setKdsView((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        tickets: prev.tickets.filter((t) => t.ticketId !== ticketId),
+      };
+    });
+
+    try {
+      await runAction(`/api/v1/fnb/stations/${stationId}/bump-ticket${locQs}`, { ticketId });
+    } catch {
+      // runAction already sets error and force-refreshes on failure,
+      // which will restore the ticket if the bump actually failed.
+    }
   }, [stationId, locQs, runAction, isActing]);
 
   const recallItem = useCallback(async (ticketItemId: string) => {

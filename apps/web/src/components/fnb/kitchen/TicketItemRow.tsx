@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { KdsTicketItem } from '@/types/fnb';
 
 interface TicketItemRowProps {
@@ -83,13 +83,22 @@ function PrepCountdown({ estimatedPrepSeconds, elapsedSeconds }: { estimatedPrep
 
 export function TicketItemRow({ item, showSeat = true, onBump, density = 'standard', allDayCount }: TicketItemRowProps) {
   const [isBumping, setIsBumping] = useState(false);
+  const bumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isReady = item.itemStatus === 'ready';
   const isServed = item.itemStatus === 'served';
   const isVoided = item.itemStatus === 'voided';
-  const isTerminal = isServed || isVoided;
+  const isTerminal = isReady || isServed || isVoided;
   const isTappable = !!onBump && !isTerminal && Boolean(item.stationId);
   const isRemake = item.specialInstructions?.startsWith('REMAKE:') ?? false;
   const { cookTemp, noMods, regularMods } = parseModifiers(item.modifierSummary ?? null);
+
+  // Clean up bump animation timer on unmount or when item becomes ready (optimistic)
+  useEffect(() => {
+    if (isReady && isBumping) setIsBumping(false);
+    return () => {
+      if (bumpTimerRef.current) clearTimeout(bumpTimerRef.current);
+    };
+  }, [isReady, isBumping]);
 
   const playBumpSound = () => {
     try {
@@ -156,8 +165,9 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
         navigator.vibrate?.(50);
         playBumpSound();
         void onBump(item.itemId, item.stationId);
-        // Auto-clear after animation
-        setTimeout(() => setIsBumping(false), 600);
+        // Auto-clear after animation (cleanup handled in useEffect)
+        if (bumpTimerRef.current) clearTimeout(bumpTimerRef.current);
+        bumpTimerRef.current = setTimeout(() => { bumpTimerRef.current = null; setIsBumping(false); }, 600);
       } : undefined}
       onKeyDown={isTappable ? (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -167,7 +177,8 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
           navigator.vibrate?.(50);
           playBumpSound();
           void onBump(item.itemId, item.stationId);
-          setTimeout(() => setIsBumping(false), 600);
+          if (bumpTimerRef.current) clearTimeout(bumpTimerRef.current);
+          bumpTimerRef.current = setTimeout(() => { bumpTimerRef.current = null; setIsBumping(false); }, 600);
         }
       } : undefined}
     >

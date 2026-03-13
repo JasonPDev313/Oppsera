@@ -35,7 +35,7 @@ const executedSql: string[] = [];
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock passes tx through
   publishWithOutbox: vi.fn(async (_ctx: unknown, fn: (tx: any) => any) => {
-    const { result, events } = await fn(mockTx);
+    const { result, events: _events } = await fn(mockTx);
     return result;
   }),
 }));
@@ -99,6 +99,7 @@ vi.mock('@oppsera/db', () => ({
 }));
 
 vi.mock('@oppsera/shared', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   const actual = await importOriginal<typeof import('@oppsera/shared')>();
   return { ...actual };
 });
@@ -162,8 +163,8 @@ describe('KDS Workflow Safety', () => {
 
     it('returns false (prep bump) for a valid prep station', async () => {
       const ticket = makeTicket({ status: 'in_progress', version: 1 });
-      const items = [{ itemStatus: 'ready' }];
-      const updatedTicket = { ...ticket, status: 'ready', version: 2 };
+      const _items = [{ itemStatus: 'ready' }];
+      const _updatedTicket = { ...ticket, status: 'ready', version: 2 };
 
       mockTx.execute = vi.fn()
         // station lookup returns prep station

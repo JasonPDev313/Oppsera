@@ -20,11 +20,12 @@ export function BumpButton({ onClick, disabled, label, variant = 'bump' }: BumpB
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="w-full rounded-lg font-bold text-sm transition-colors hover:opacity-90 disabled:opacity-40 kds-bump-lg"
+      className="w-full rounded-lg font-bold text-sm transition-colors hover:opacity-90 kds-bump-lg"
       style={{
         height: '64px',
-        backgroundColor: v.bg,
-        color: v.text,
+        backgroundColor: disabled ? 'var(--fnb-bg-elevated)' : v.bg,
+        color: disabled ? 'var(--fnb-text-muted)' : v.text,
+        cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >
       {label ?? v.label}

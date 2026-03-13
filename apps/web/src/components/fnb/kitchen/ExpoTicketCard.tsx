@@ -83,7 +83,7 @@ function VoidButton({ ticketId, onVoid, disabled }: { ticketId: string; onVoid: 
       type="button"
       onClick={handleClick}
       disabled={disabled}
-      className="flex items-center justify-center gap-1 w-full rounded-md py-1.5 text-[10px] font-semibold uppercase transition-colors disabled:opacity-40"
+      className="flex items-center justify-center gap-1 w-full rounded-md py-1.5 text-[10px] font-semibold uppercase transition-colors disabled:opacity-50"
       style={{
         backgroundColor: confirming ? 'rgba(239,68,68,0.25)' : 'rgba(239,68,68,0.1)',
         color: '#ef4444',
@@ -357,7 +357,7 @@ export function ExpoTicketCard({
             type="button"
             onClick={() => onFireTicket(ticket.ticketId)}
             disabled={disabled}
-            className="flex items-center justify-center gap-1.5 w-full rounded-md py-2 text-xs font-bold uppercase transition-colors disabled:opacity-40"
+            className="flex items-center justify-center gap-1.5 w-full rounded-md py-2 text-xs font-bold uppercase transition-colors disabled:opacity-50"
             style={{
               backgroundColor: 'rgba(249,115,22,0.2)',
               color: '#f97316',
@@ -380,7 +380,7 @@ export function ExpoTicketCard({
                 type="button"
                 onClick={() => onRecallTicket(ticket.ticketId)}
                 disabled={disabled}
-                className="flex items-center justify-center gap-1 w-full rounded-md py-1.5 text-[10px] font-semibold uppercase transition-colors disabled:opacity-40"
+                className="flex items-center justify-center gap-1 w-full rounded-md py-1.5 text-[10px] font-semibold uppercase transition-colors disabled:opacity-50"
                 style={{
                   backgroundColor: 'rgba(148,163,184,0.1)',
                   color: 'var(--fnb-text-muted)',
