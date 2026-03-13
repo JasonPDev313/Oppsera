@@ -5,8 +5,9 @@ import { NotFoundError } from '@oppsera/shared';
 import { getStatementDetail } from '@oppsera/module-membership';
 
 export const GET = withMiddleware(
-  async (_request: NextRequest, ctx) => {
-    const statementId = (ctx as any).params?.statementId;
+  async (request: NextRequest, ctx) => {
+    const parts = new URL(request.url).pathname.split('/');
+    const statementId = parts[parts.indexOf('statements') + 1];
     if (!statementId) {
       throw new NotFoundError('Statement');
     }

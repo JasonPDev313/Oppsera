@@ -6,8 +6,9 @@ import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const accountId = (ctx as any).params?.accountId;
     const url = new URL(request.url);
+    const parts = url.pathname.split('/');
+    const accountId = parts[parts.indexOf('accounts') + 1];
 
     const result = await getMinimumHistory({
       tenantId: ctx.tenantId,

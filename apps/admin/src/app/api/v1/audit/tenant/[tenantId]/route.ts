@@ -42,7 +42,7 @@ export const GET = withAdminPermission(
       if (action) {
         // Support prefix match with wildcard
         if (action.includes('*')) {
-          conditions.push(sql`al.action LIKE ${action.replace('*', '%')}`);
+          conditions.push(sql`al.action LIKE ${action.replaceAll('*', '%')}`);
         } else {
           conditions.push(sql`al.action = ${action}`);
         }

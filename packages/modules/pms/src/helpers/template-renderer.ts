@@ -14,6 +14,7 @@ export function renderTemplate(
   });
 }
 
+// nosemgrep: prototype-pollution-loop — read-only traversal, no writes to object properties
 function resolveNestedValue(obj: Record<string, unknown>, path: string): unknown {
   const parts = path.split('.');
   let current: unknown = obj;

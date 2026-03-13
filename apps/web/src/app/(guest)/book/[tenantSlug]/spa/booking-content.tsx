@@ -351,7 +351,7 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
     (type: string, payload?: Record<string, unknown>) => {
       if (!isEmbed) return;
       try {
-        window.parent.postMessage({ source: 'oppsera-booking', type, ...payload }, '*');
+        window.parent.postMessage({ source: 'oppsera-booking', type, ...payload }, '*'); // nosemgrep: wildcard-postmessage-configuration — intentional: embed widget communicates with unknown merchant origins
       } catch {
         // ignore — parent may be same-origin or blocked
       }

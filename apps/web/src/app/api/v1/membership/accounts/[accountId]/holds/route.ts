@@ -11,7 +11,8 @@ import {
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const accountId = (ctx as any).params?.accountId;
+    const parts = new URL(request.url).pathname.split('/');
+    const accountId = parts[parts.indexOf('accounts') + 1];
     if (!accountId) {
       return NextResponse.json(
         { error: { code: 'VALIDATION_ERROR', message: 'Account ID is required' } },
@@ -57,7 +58,8 @@ export const GET = withMiddleware(
 
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const accountId = (ctx as any).params?.accountId;
+    const parts = new URL(request.url).pathname.split('/');
+    const accountId = parts[parts.indexOf('accounts') + 1];
     if (!accountId) {
       return NextResponse.json(
         { error: { code: 'VALIDATION_ERROR', message: 'Account ID is required' } },

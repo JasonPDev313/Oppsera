@@ -124,11 +124,11 @@ function normalizeVoicePatterns(text: string): string {
   // Only convert when followed by percent or preceded by "top/last/past"
   for (const [word, digit] of Object.entries(numberWords)) {
     normalized = normalized.replace(
-      new RegExp(`\\b(top|last|past|first)\\s+${word}\\b`, 'gi'),
+      new RegExp(`\\b(top|last|past|first)\\s+${word}\\b`, 'gi'), // nosemgrep: detect-non-literal-regexp — compile-time number words
       `$1 ${digit}`,
     );
     normalized = normalized.replace(
-      new RegExp(`\\b${word}\\s+percent\\b`, 'gi'),
+      new RegExp(`\\b${word}\\s+percent\\b`, 'gi'), // nosemgrep: detect-non-literal-regexp
       `${digit}%`,
     );
   }

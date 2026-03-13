@@ -38,7 +38,7 @@ export function convertHardcodedStateToPlaceholder(name: string): {
   // 1. Try full state names first (longest match wins)
   const fullNames = Object.values(US_STATES).sort((a, b) => b.length - a.length);
   for (const fullName of fullNames) {
-    const regex = new RegExp(`\\b${escapeRegex(fullName)}\\b`, 'i');
+    const regex = new RegExp(`\\b${escapeRegex(fullName)}\\b`, 'i'); // nosemgrep: detect-non-literal-regexp — static constant + escapeRegex
     if (regex.test(name)) {
       return {
         converted: name.replace(regex, STATE_PLACEHOLDER),
@@ -54,7 +54,7 @@ export function convertHardcodedStateToPlaceholder(name: string): {
   if (hasTaxContext) {
     for (const [abbrev, fullName] of Object.entries(US_STATES)) {
       // Match abbreviation as a word boundary (e.g., "MI " or "MI-")
-      const regex = new RegExp(`\\b${abbrev}\\b`, 'i');
+      const regex = new RegExp(`\\b${abbrev}\\b`, 'i'); // nosemgrep: detect-non-literal-regexp — static constant keys
       if (regex.test(name)) {
         return {
           converted: name.replace(regex, STATE_PLACEHOLDER),

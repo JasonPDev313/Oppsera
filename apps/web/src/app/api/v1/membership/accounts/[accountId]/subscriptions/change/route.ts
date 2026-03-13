@@ -9,7 +9,8 @@ import {
 
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const accountId = (ctx as any).params?.accountId;
+    const parts = new URL(request.url).pathname.split('/');
+    const accountId = parts[parts.indexOf('accounts') + 1];
     const body = await request.json();
     const parsed = changePlanSchema.safeParse({
       ...body,

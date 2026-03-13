@@ -91,6 +91,7 @@ export default function WidgetContent() {
       if (token) {
         setSuccess(true);
         // Notify parent iframe
+        // nosemgrep: wildcard-postmessage-configuration — intentional: embed widget communicates with unknown merchant origins
         try { window.parent.postMessage({ type: 'waitlist-joined', token, position: json.data.position }, '*'); } catch { /* no parent */ }
         // Redirect to status page
         setTimeout(() => router.push(`/waitlist/${tenantSlug}/status/${token}`), 1500);

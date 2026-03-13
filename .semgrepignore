@@ -1,0 +1,22 @@
+# ── Semgrep Ignore ────────────────────────────────────────────────
+# Paths excluded from Semgrep scanning.
+
+# Test fixtures — hardcoded secrets are intentional
+packages/core/src/__tests__/
+
+# Load test helpers — not production code
+load-tests/
+
+# Build/dev scripts — no user input, not deployed
+apps/web/scripts/
+scripts/
+
+# Migration tooling — offline CLI, not deployed
+tools/
+
+# Vitest config files — test infrastructure
+vitest.config.ts
+
+# Terraform state (if ever checked in)
+*.tfstate
+*.tfstate.backup

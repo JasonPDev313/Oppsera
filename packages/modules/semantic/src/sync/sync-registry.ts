@@ -19,10 +19,10 @@ import { fileURLToPath } from 'url';
 // Load env from monorepo root (this script runs from packages/modules/semantic/)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '../../../../..');
-dotenv.config({ path: path.join(root, 'apps/web/.env.local') });
-dotenv.config({ path: path.join(root, '.env.local') });
-dotenv.config({ path: path.join(root, '.env') });
+const root = path.resolve(__dirname, '../../../../..'); // nosemgrep: path-join-resolve-traversal — static __dirname-relative paths
+dotenv.config({ path: path.join(root, 'apps/web/.env.local') }); // nosemgrep: path-join-resolve-traversal
+dotenv.config({ path: path.join(root, '.env.local') }); // nosemgrep: path-join-resolve-traversal
+dotenv.config({ path: path.join(root, '.env') }); // nosemgrep: path-join-resolve-traversal
 
 import { syncRegistryToDb } from '../registry/sync';
 

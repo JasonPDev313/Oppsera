@@ -394,7 +394,7 @@ export function detectLanguage(text: string): LanguageDetection {
     // Count keyword matches
     for (const keyword of pattern.keywords) {
       // Use word boundary-aware matching for multi-word keywords
-      const regex = new RegExp(`\\b${escapeRegex(keyword)}\\b`, 'gi');
+      const regex = new RegExp(`\\b${escapeRegex(keyword)}\\b`, 'gi'); // nosemgrep: detect-non-literal-regexp — compile-time constants + escapeRegex
       const matches = normalized.match(regex);
       if (matches) {
         score += matches.length;
@@ -497,8 +497,8 @@ export function normalizeQueryForEnglish(
     const isCjkOrArabic = ['zh', 'ja', 'ko', 'ar'].includes(detectedLang);
 
     const pattern = isCjkOrArabic
-      ? new RegExp(escapeRegex(foreign), 'gi')
-      : new RegExp(`\\b${escapeRegex(foreign)}\\b`, 'gi');
+      ? new RegExp(escapeRegex(foreign), 'gi') // nosemgrep: detect-non-literal-regexp — internal terms + escapeRegex
+      : new RegExp(`\\b${escapeRegex(foreign)}\\b`, 'gi'); // nosemgrep: detect-non-literal-regexp
 
     normalized = normalized.replace(pattern, english);
   }

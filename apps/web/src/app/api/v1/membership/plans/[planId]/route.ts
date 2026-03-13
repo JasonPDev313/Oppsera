@@ -11,7 +11,8 @@ import {
 
 export const GET = withMiddleware(
   async (_request: NextRequest, ctx) => {
-    const planId = (ctx as any).params?.planId;
+    const parts = new URL(_request.url).pathname.split('/');
+    const planId = parts[parts.indexOf('plans') + 1];
     if (!planId) {
       throw new NotFoundError('MembershipPlan');
     }
@@ -72,7 +73,8 @@ export const GET = withMiddleware(
 
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const planId = (ctx as any).params?.planId;
+    const parts = new URL(request.url).pathname.split('/');
+    const planId = parts[parts.indexOf('plans') + 1];
     if (!planId) {
       throw new NotFoundError('MembershipPlan');
     }

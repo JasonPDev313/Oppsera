@@ -46,6 +46,8 @@ import {
   customerContacts,
   customerPreferences,
   customerAuthAccounts,
+  minimumSpendRules,
+  minimumPeriodRollups,
   terminalLocations,
   terminals,
   paymentProviders,
@@ -1172,6 +1174,102 @@ async function seed() {
     },
   ]);
   console.log('Customer Memberships: 2 enrolled (Johnson=Gold, Smith=Silver)');
+
+  // ── Minimum Spend Rules & Rollups ───────────────────────────────
+  const ruleIds = {
+    goldMinimum: generateUlid(),
+    silverMinimum: generateUlid(),
+  };
+
+  await db.insert(minimumSpendRules).values([
+    {
+      id: ruleIds.goldMinimum,
+      tenantId,
+      title: 'Gold F&B Minimum',
+      membershipPlanId: planIds.gold,
+      amountCents: 50000, // $500/month
+      bucketType: 'food_beverage',
+      allocationMethod: 'first_match',
+      rolloverPolicy: 'monthly_to_monthly',
+      excludeTax: true,
+      excludeTips: true,
+      excludeServiceCharges: true,
+      excludeDues: true,
+    },
+    {
+      id: ruleIds.silverMinimum,
+      tenantId,
+      title: 'Silver F&B Minimum',
+      membershipPlanId: planIds.silver,
+      amountCents: 25000, // $250/month
+      bucketType: 'food_beverage',
+      allocationMethod: 'first_match',
+      rolloverPolicy: 'none',
+      excludeTax: true,
+      excludeTips: true,
+      excludeServiceCharges: true,
+      excludeDues: true,
+    },
+  ]);
+  console.log('Minimum Spend Rules: 2 created (Gold=$500, Silver=$250)');
+
+  // Seed rollups for last 3 months + current month
+  const now = new Date();
+  const rollupRows: Array<{
+    tenantId: string; customerId: string; minimumSpendRuleId: string;
+    periodStart: string; periodEnd: string; requiredCents: number;
+    satisfiedCents: number; shortfallCents: number;
+    rolloverInCents: number; rolloverOutCents: number; status: string;
+  }> = [];
+
+  for (let monthsBack = 3; monthsBack >= 0; monthsBack--) {
+    const pStart = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
+    const pEnd = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 0);
+    const periodStart = pStart.toISOString().slice(0, 10);
+    const periodEnd = pEnd.toISOString().slice(0, 10);
+    const isCurrent = monthsBack === 0;
+
+    // Deterministic spend amounts per member per month offset
+    // Johnson (Gold, $500 min) — good spender, usually meets minimum
+    const johnsonSpendByMonth = [55000, 52000, 48000, 35000]; // 3-back, 2-back, 1-back, current
+    const johnsonSpent = johnsonSpendByMonth[3 - monthsBack]!;
+    const johnsonShortfall = Math.max(0, 50000 - johnsonSpent);
+    rollupRows.push({
+      tenantId, customerId: custIds.johnson, minimumSpendRuleId: ruleIds.goldMinimum,
+      periodStart, periodEnd, requiredCents: 50000,
+      satisfiedCents: johnsonSpent, shortfallCents: johnsonShortfall,
+      rolloverInCents: monthsBack === 3 ? 0 : 5000,
+      rolloverOutCents: isCurrent ? 0 : Math.max(0, johnsonSpent - 50000),
+      status: isCurrent ? 'open' : 'closed',
+    });
+
+    // Smith (Silver, $250 min) — inconsistent, at-risk this month
+    const smithSpendByMonth = [28000, 18000, 30000, 12000]; // 3-back, 2-back, 1-back, current
+    const smithSpent = smithSpendByMonth[3 - monthsBack]!;
+    const smithShortfall = Math.max(0, 25000 - smithSpent);
+    rollupRows.push({
+      tenantId, customerId: custIds.smith, minimumSpendRuleId: ruleIds.silverMinimum,
+      periodStart, periodEnd, requiredCents: 25000,
+      satisfiedCents: smithSpent, shortfallCents: smithShortfall,
+      rolloverInCents: 0, rolloverOutCents: 0,
+      status: isCurrent ? 'open' : 'closed',
+    });
+
+    // Williams (Gold, $500 min) — low spender, below minimum
+    const williamsSpendByMonth = [22000, 28000, 19000, 8000]; // 3-back, 2-back, 1-back, current
+    const williamsSpent = williamsSpendByMonth[3 - monthsBack]!;
+    const williamsShortfall = Math.max(0, 50000 - williamsSpent);
+    rollupRows.push({
+      tenantId, customerId: custIds.williams, minimumSpendRuleId: ruleIds.goldMinimum,
+      periodStart, periodEnd, requiredCents: 50000,
+      satisfiedCents: williamsSpent, shortfallCents: williamsShortfall,
+      rolloverInCents: 0, rolloverOutCents: 0,
+      status: isCurrent ? 'open' : 'closed',
+    });
+  }
+
+  await db.insert(minimumPeriodRollups).values(rollupRows);
+  console.log(`Minimum Period Rollups: ${rollupRows.length} created (3 members × 4 months)`);
 
   // ── Profit Centers & Terminals ─────────────────────────────────
   const profitCenterIds = {

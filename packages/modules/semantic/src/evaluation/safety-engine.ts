@@ -3,6 +3,32 @@ import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import { NotFoundError } from '@oppsera/shared';
 
+// ── Regex Safety ─────────────────────────────────────────────────
+
+/**
+ * Validates that a regex pattern is syntactically valid and unlikely to cause
+ * catastrophic backtracking (ReDoS). Rejects patterns with nested quantifiers
+ * like (a+)+, (a*)+, (a+)*, etc.
+ */
+function validateRegexSafety(pattern: string, flags?: string): void {
+  // First check syntax
+  try {
+    new RegExp(pattern, flags);
+  } catch {
+    throw new Error(`Invalid regex pattern: ${pattern}`);
+  }
+
+  // Reject nested quantifiers — the primary cause of catastrophic backtracking.
+  // Matches patterns like (group)+, (group)*, (group){n,} where group itself
+  // contains a quantifier (+, *, {n,}).
+  const nestedQuantifier = /\([^)]*[+*}][^)]*\)[+*]|\([^)]*[+*}][^)]*\)\{/;
+  if (nestedQuantifier.test(pattern)) {
+    throw new Error(
+      `Regex pattern rejected: nested quantifiers detected (potential ReDoS). Pattern: ${pattern}`,
+    );
+  }
+}
+
 // ── Types ────────────────────────────────────────────────────────
 
 export type SafetyRuleType =
@@ -130,12 +156,25 @@ export interface ListViolationsResult {
 const RULES_TABLE = 'semantic_eval_safety_rules';
 const VIOLATIONS_TABLE = 'semantic_eval_safety_violations';
 
+function validateRuleConfig(ruleType: SafetyRuleType, config: SafetyRuleConfig): void {
+  if (ruleType === 'pii_detection') {
+    const c = config as PiiDetectionConfig;
+    for (const pattern of c.patterns ?? []) {
+      validateRegexSafety(pattern, 'gi');
+    }
+  } else if (ruleType === 'custom_regex') {
+    const c = config as CustomRegexConfig;
+    validateRegexSafety(c.pattern, c.flags);
+  }
+}
+
 // ── createSafetyRule ─────────────────────────────────────────────
 
 export async function createSafetyRule(
   adminId: string,
   input: SafetyRuleInput,
 ): Promise<string> {
+  validateRuleConfig(input.ruleType, input.config);
   const id = generateUlid();
 
   await db.execute(
@@ -163,6 +202,12 @@ export async function updateSafetyRule(
   const rule = await getRuleRow(ruleId);
   if (!rule) {
     throw new NotFoundError('Safety rule', ruleId);
+  }
+
+  if (input.ruleType !== undefined && input.config !== undefined) {
+    validateRuleConfig(input.ruleType, input.config);
+  } else if (input.config !== undefined) {
+    validateRuleConfig(rule.rule_type as SafetyRuleType, input.config);
   }
 
   const setClauses: ReturnType<typeof sql>[] = [sql`updated_at = NOW()`];

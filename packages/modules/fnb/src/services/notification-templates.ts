@@ -30,7 +30,7 @@ export function renderTemplate(
 ): string {
   let text: string = NOTIFICATION_TEMPLATES[templateKey].sms;
   for (const [key, value] of Object.entries(variables)) {
-    text = text.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value));
+    text = text.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value)); // nosemgrep: detect-non-literal-regexp — internal template keys
   }
   return text;
 }

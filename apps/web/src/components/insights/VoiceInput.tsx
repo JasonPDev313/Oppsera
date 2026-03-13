@@ -49,7 +49,7 @@ function cleanTranscript(raw: string): string {
   for (const filler of FILLER_WORDS) {
     if (filler.includes(' ')) {
       // Use word boundary regex for multi-word fillers
-      const pattern = new RegExp(`\\b${filler}\\b`, 'gi');
+      const pattern = new RegExp(`\\b${filler}\\b`, 'gi'); // nosemgrep: detect-non-literal-regexp — compile-time filler word set
       text = text.replace(pattern, '');
     }
   }

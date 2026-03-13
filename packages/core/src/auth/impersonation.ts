@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { eq, and, sql, type SQL } from 'drizzle-orm';
 import { db, adminImpersonationSessions, tenants, guardedQuery } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
+import { DEV_SECRET } from './dev-adapter';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -50,8 +51,6 @@ export interface ImpersonationSession {
 }
 
 // ── Secrets ──────────────────────────────────────────────────────
-
-const DEV_SECRET = 'oppsera-dev-secret-do-not-use-in-production';
 
 function getImpersonationSecret(): string {
   const secret = process.env.ADMIN_AUTH_SECRET;

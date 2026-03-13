@@ -33,7 +33,7 @@ export const GET = withAdminPermission(
         conditions.push(sql`al.action = ${action}`);
       }
       if (actionPrefix) {
-        conditions.push(sql`al.action LIKE ${actionPrefix.replace('*', '%')}`);
+        conditions.push(sql`al.action LIKE ${actionPrefix.replaceAll('*', '%')}`);
       }
       if (entityType) {
         conditions.push(sql`al.entity_type = ${entityType}`);

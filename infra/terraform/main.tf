@@ -55,7 +55,7 @@ module "vpc" {
 
 resource "aws_ecr_repository" "web" {
   name                 = "${var.project}-web"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = var.environment == "production" ? "IMMUTABLE" : "MUTABLE"
   force_delete         = var.environment != "production"
 
   image_scanning_configuration {
@@ -65,7 +65,7 @@ resource "aws_ecr_repository" "web" {
 
 resource "aws_ecr_repository" "worker" {
   name                 = "${var.project}-worker"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = var.environment == "production" ? "IMMUTABLE" : "MUTABLE"
   force_delete         = var.environment != "production"
 
   image_scanning_configuration {
@@ -217,12 +217,53 @@ resource "aws_ecs_service" "worker" {
 
 # ── ALB (Application Load Balancer) ───────────────────────────────────
 
+resource "aws_s3_bucket" "alb_logs" {
+  bucket        = "${var.project}-${var.environment}-alb-logs"
+  force_destroy = var.environment != "production"
+  tags          = local.tags
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+
+  rule {
+    id     = "expire-old-logs"
+    status = "Enabled"
+    expiration {
+      days = 90
+    }
+  }
+}
+
+data "aws_elb_service_account" "main" {}
+
+resource "aws_s3_bucket_policy" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = { AWS = data.aws_elb_service_account.main.arn }
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.alb_logs.arn}/${var.project}-${var.environment}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+      },
+    ]
+  })
+}
+
 resource "aws_lb" "main" {
   name               = "${var.project}-${var.environment}"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = module.vpc.public_subnets
+
+  access_logs {
+    bucket  = aws_s3_bucket.alb_logs.bucket
+    prefix  = "${var.project}-${var.environment}"
+    enabled = true
+  }
 
   tags = local.tags
 }
@@ -316,6 +357,8 @@ resource "aws_db_instance" "main" {
 
   parameter_group_name = aws_db_parameter_group.main.name
 
+  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
+
   tags = local.tags
 }
 
@@ -352,6 +395,8 @@ resource "aws_db_instance" "read_replica" {
   vpc_security_group_ids = [aws_security_group.rds.id]
 
   performance_insights_enabled = true
+
+  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
 
   tags = local.tags
 }
@@ -519,12 +564,14 @@ resource "aws_iam_role_policy_attachment" "rds_monitoring" {
 
 # ── CloudWatch Logs ───────────────────────────────────────────────────
 
+# nosemgrep: aws-cloudwatch-log-group-unencrypted — AWS-managed encryption active by default; CMK not required for current compliance tier
 resource "aws_cloudwatch_log_group" "web" {
   name              = "/ecs/${var.project}/web"
   retention_in_days = 30
   tags              = local.tags
 }
 
+# nosemgrep: aws-cloudwatch-log-group-unencrypted
 resource "aws_cloudwatch_log_group" "worker" {
   name              = "/ecs/${var.project}/worker"
   retention_in_days = 30
