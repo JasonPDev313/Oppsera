@@ -135,7 +135,7 @@ async function fetchMissingTenderIds(
   tenantId: string,
   startDate: string,
   endDate: string,
-  locationId?: string,
+  _locationId?: string,
 ): Promise<string[]> {
   // Use the reconciliation API to get tender IDs, then check against GL
   // Since we can't query tenders directly from accounting module (gotcha #283),
