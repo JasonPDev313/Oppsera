@@ -347,6 +347,88 @@ describe('createReturn', () => {
     ).rejects.toThrow('not found');
   });
 
+  it('should auto-resolve refund method from single original tender', async () => {
+    const { publishWithOutbox } = await import('@oppsera/core/events/publish-with-outbox');
+    const { buildEventFromContext } = await import('@oppsera/core/events/build-event');
+
+    const originalOrder = {
+      id: 'order-1',
+      tenantId: 'tenant-1',
+      locationId: 'loc-1',
+      orderNumber: 'ORD-010',
+      status: 'paid',
+      customerId: null,
+      terminalId: 'term-1',
+    };
+
+    const originalLines = [
+      {
+        id: 'line-1',
+        catalogItemId: 'item-1',
+        catalogItemName: 'Widget C',
+        catalogItemSku: null,
+        itemType: 'retail',
+        qty: '1.0000',
+        unitPrice: 1500,
+        lineSubtotal: 1500,
+        lineTax: 0,
+        lineTotal: 1500,
+        subDepartmentId: 'subdept-x',
+        taxGroupId: 'tax-x',
+        packageComponents: null,
+      },
+    ];
+
+    const { fetchOrderForMutation } = await import('../helpers/optimistic-lock');
+    (fetchOrderForMutation as any).mockResolvedValue(originalOrder);
+
+    (publishWithOutbox as any).mockImplementation(async (_ctx: any, fn: any) => {
+      const mockTx = {
+        select: vi.fn().mockReturnThis(),
+        from: vi.fn().mockReturnThis(),
+        innerJoin: vi.fn().mockReturnThis(),
+        where: vi.fn()
+          .mockResolvedValueOnce(originalLines)                                           // fetch matching lines
+          .mockReturnValueOnce({ groupBy: vi.fn().mockResolvedValue([]) })               // prior returns query
+          .mockResolvedValueOnce(undefined)                                              // update order totals
+          .mockResolvedValueOnce([{ id: 'tender-card-1', tenderType: 'card' }]),        // auto-resolve: exactly 1 tender
+        insert: vi.fn().mockReturnThis(),
+        values: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        returning: vi.fn().mockResolvedValue([{}]),
+      };
+      return (await fn(mockTx)).result;
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: any = await createReturn(baseCtx as any, 'order-1', {
+      clientRequestId: 'cr-autoref',
+      returnLines: [{ originalLineId: 'line-1', qty: 1, reason: 'customer request' }],
+      // No refundMethod provided — should be auto-resolved from the single tender
+    });
+
+    expect(result.returnType).toBe('full');
+    expect(result.originalOrderId).toBe('order-1');
+    expect(result.lines).toHaveLength(1);
+
+    // Assert the emitted event contains auto-resolved refundMethod + originalTenderId
+    expect(buildEventFromContext).toHaveBeenCalledWith(
+      expect.anything(),
+      'order.returned.v1',
+      expect.objectContaining({
+        refundMethod: 'card',
+        originalTenderId: 'tender-card-1',
+        lines: expect.arrayContaining([
+          expect.objectContaining({
+            subDepartmentId: 'subdept-x',
+            taxGroupId: 'tax-x',
+          }),
+        ]),
+      }),
+    );
+  });
+
   it('should be idempotent', async () => {
     const { checkIdempotency } = await import('../helpers/idempotency');
     const { publishWithOutbox } = await import('@oppsera/core/events/publish-with-outbox');

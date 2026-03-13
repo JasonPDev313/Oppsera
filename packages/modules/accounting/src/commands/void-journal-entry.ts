@@ -130,6 +130,11 @@ export async function voidJournalEntry(
           creditAmount: origLine.debitAmount, // swap
           locationId: origLine.locationId,
           departmentId: origLine.departmentId,
+          profitCenterId: origLine.profitCenterId,
+          subDepartmentId: origLine.subDepartmentId,
+          terminalId: origLine.terminalId,
+          channel: origLine.channel,
+          discountClassification: origLine.discountClassification,
           customerId: origLine.customerId,
           vendorId: origLine.vendorId,
           memo: origLine.memo ? `Reversal: ${origLine.memo}` : 'Reversal',

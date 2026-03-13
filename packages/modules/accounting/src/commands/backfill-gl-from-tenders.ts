@@ -18,6 +18,8 @@ export interface BackfillTenderError {
 }
 
 export interface BackfillGlResult {
+  /** Tenders processed without error. Includes adapter no-ops (idempotent/skip).
+   *  TODO: refine when adapters return explicit outcome (posted|skipped|retryable|permanent). */
   posted: number;
   skipped: number;
   errors: number;
@@ -117,6 +119,7 @@ export async function backfillGlFromTenders(
     JOIN orders o ON o.id = t.order_id AND o.tenant_id = t.tenant_id
     WHERE t.tenant_id = ${tenantId}
       AND t.status = 'captured'
+      AND o.total > 0
       AND NOT EXISTS (
         SELECT 1 FROM gl_journal_entries gje
         WHERE gje.tenant_id = ${tenantId}

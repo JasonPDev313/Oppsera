@@ -4,6 +4,7 @@ import { db } from '@oppsera/db';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
+import { handleGlPostingError } from '../helpers/handle-gl-posting-error';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
@@ -210,21 +211,16 @@ export async function handleSpaCheckoutForAccounting(event: EventEnvelope): Prom
       sourceModule: 'spa',
       sourceReferenceId: `checkout-${data.appointmentId}`,
       memo: `Spa appointment checkout: ${data.appointmentId}`,
-      currency: 'USD',
+      currency: settings.baseCurrency,
       lines,
       forcePost: true,
     });
   } catch (err) {
-    console.error(`Spa checkout GL posting failed for ${data.appointmentId}:`, err);
-    try {
-      await logUnmappedEvent(db, event.tenantId, {
-        eventType: 'spa.appointment.checked_out.v1',
-        sourceModule: 'spa',
-        sourceReferenceId: data.appointmentId,
-        entityType: 'posting_error',
-        entityId: data.appointmentId,
-        reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-      });
-    } catch { /* best-effort tracking */ }
+    await handleGlPostingError(err, db, event.tenantId, {
+      eventType: 'spa.appointment.checked_out.v1',
+      sourceModule: 'spa',
+      sourceReferenceId: data.appointmentId,
+      entityId: data.appointmentId,
+    }, 'spa-gl');
   }
 }

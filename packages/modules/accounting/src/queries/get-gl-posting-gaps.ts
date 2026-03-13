@@ -50,11 +50,14 @@ interface GetGlPostingGapsInput {
  * Uses ReconciliationReadApi for tender data (cross-module boundary)
  * and local query on gl_journal_entries for GL coverage.
  *
- * Scoped to POS module only (source_module = 'pos') because POS posts
- * one GL entry per tender (1:1 mapping). F&B posts one GL entry per
- * close batch (1:many with tenders) — F&B coverage is validated
- * separately by the close checklist's "F&B close batches posted" item.
- * Including F&B here would undercount coverage because closeBatchId ≠ tenderId.
+ * Both sides are scoped to POS-only:
+ *   - totalTenders: filtered to orders.source = 'pos' via ReconciliationReadApi
+ *   - tendersWithGl: filtered to source_module = 'pos' in gl_journal_entries
+ *
+ * F&B posts one GL entry per close batch (1:many with tenders), so F&B
+ * coverage is validated separately by the close checklist's "F&B close
+ * batches posted" item. Including F&B here would undercount coverage
+ * because closeBatchId ≠ tenderId.
  */
 export async function getGlPostingGaps(
   input: GetGlPostingGapsInput,
@@ -64,11 +67,15 @@ export async function getGlPostingGaps(
   // Sequential: each call uses withTenant (1 DB connection). Running in parallel
   // required 2 connections simultaneously, which with Vercel pool max:2 leaves
   // zero headroom and causes timeouts under any concurrent load.
+  // Filter to POS-only tenders so the denominator matches the GL coverage
+  // query (source_module = 'pos'). Without this filter, F&B and other non-POS
+  // tenders inflate the gap banner because they have no 1:1 GL entry.
   const tenderSummary = await api.getTendersSummary(
     input.tenantId,
     input.startDate,
     input.endDate,
     input.locationId,
+    'pos',
   );
 
   const glCoverage = await withTenant(input.tenantId, async (tx) => {
@@ -86,6 +93,7 @@ export async function getGlPostingGaps(
         AND status IN ('posted', 'voided')
         AND business_date >= ${input.startDate}::date
         AND business_date <= ${input.endDate}::date
+        ${input.locationId ? sql`AND location_id = ${input.locationId}` : sql``}
     `);
 
     const arr = Array.from(rows as Iterable<Record<string, unknown>>);
@@ -127,7 +135,7 @@ async function fetchMissingTenderIds(
   tenantId: string,
   startDate: string,
   endDate: string,
-  _locationId?: string,
+  locationId?: string,
 ): Promise<string[]> {
   // Use the reconciliation API to get tender IDs, then check against GL
   // Since we can't query tenders directly from accounting module (gotcha #283),
@@ -135,6 +143,12 @@ async function fetchMissingTenderIds(
   // 1. Get GL-covered tender IDs from our own tables
   // 2. The ReconciliationReadApi summary gives us the count but not IDs
   //    So we query gl_unmapped_events for logged gaps instead
+  //
+  // Note: gl_unmapped_events has no location_id column, so this helper
+  // cannot filter by location. The returned IDs are tenant-wide even when
+  // getGlPostingGaps was called with a locationId. This is acceptable
+  // because the IDs are only used for debugging — the gap *count* itself
+  // (from getGlPostingGaps) is location-aware on both sides.
   const result = await withTenant(tenantId, async (tx) => {
     const rows = await tx.execute(sql`
       SELECT source_reference_id AS tender_id, reason

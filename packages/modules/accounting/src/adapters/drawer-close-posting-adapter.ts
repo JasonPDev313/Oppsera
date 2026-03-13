@@ -4,6 +4,7 @@ import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-postin
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
+import { handleGlPostingError } from '../helpers/handle-gl-posting-error';
 
 interface DrawerSessionClosedData {
   drawerSessionId: string;
@@ -131,7 +132,11 @@ export async function handleDrawerSessionClosedForAccounting(event: EventEnvelop
       },
     );
   } catch (error) {
-    // GL failures NEVER block drawer operations
-    console.error(`[drawer-gl] GL posting failed for drawer session ${data.drawerSessionId}:`, error);
+    await handleGlPostingError(error, db, event.tenantId, {
+      eventType: 'drawer.session.closed.v1',
+      sourceModule: 'drawer_session',
+      sourceReferenceId: data.drawerSessionId,
+      entityId: data.drawerSessionId,
+    }, 'drawer-gl');
   }
 }

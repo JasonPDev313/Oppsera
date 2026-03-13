@@ -291,6 +291,20 @@ export interface TenderForGlRepostData {
   lines: TenderForGlRepostLineData[];
 }
 
+// ── Reversal Repost Return Types ────────────────────────────
+
+export interface ReversalForGlRepostData {
+  reversalId: string;
+  originalTenderId: string;
+  orderId: string;
+  amount: number; // cents
+  reason: string;
+  reversalType: string;
+  refundMethod: string | null;
+  businessDate: string | null;
+  locationId: string;
+}
+
 // ── ACH Domain Return Types ────────────────────────────────
 
 export interface AchReturnSummaryData {
@@ -340,7 +354,7 @@ export interface ReconciliationReadApi {
 
   // ── Tenders Domain (4 methods → payments module) ──────────
   getTendersSummary(
-    tenantId: string, startDate: string, endDate: string, locationId?: string,
+    tenantId: string, startDate: string, endDate: string, locationId?: string, orderSource?: string,
   ): Promise<TendersSummaryData>;
 
   getTenderAuditTrail(
@@ -426,10 +440,14 @@ export interface ReconciliationReadApi {
     tenantId: string, periodStart: string, periodEnd: string,
   ): Promise<number>;
 
-  // ── GL Remap Domain (1 method → payments module) ──────────
+  // ── GL Remap Domain (2 methods → payments module) ──────────
   getTenderForGlRepost(
     tenantId: string, tenderId: string,
   ): Promise<TenderForGlRepostData | null>;
+
+  getReversalForGlRepost(
+    tenantId: string, reversalId: string,
+  ): Promise<ReversalForGlRepostData | null>;
 
   // ── ACH Domain (3 methods → payments module) ──────────────
   getAchPendingCount(

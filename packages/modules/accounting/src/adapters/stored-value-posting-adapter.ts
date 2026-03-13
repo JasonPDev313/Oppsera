@@ -4,6 +4,7 @@ import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-postin
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
+import { handleGlPostingError } from '../helpers/handle-gl-posting-error';
 
 interface StoredValueIssuedData {
   instrumentId: string;
@@ -63,9 +64,8 @@ export async function handleStoredValueIssuedForAccounting(event: EventEnvelope)
     }
 
     // Liability account: prefer instrument-specific, fall back to settings default
-    const settingsAny = settings as Record<string, any>;
     const liabilityAccountId = data.liabilityGlAccountId
-      ?? (settingsAny.defaultStoredValueLiabilityAccountId as string | null)
+      ?? settings.defaultGiftCardLiabilityAccountId
       ?? settings.defaultUncategorizedRevenueAccountId;
 
     // Debit: cash/undeposited funds
@@ -119,8 +119,12 @@ export async function handleStoredValueIssuedForAccounting(event: EventEnvelope)
       },
     );
   } catch (error) {
-    // GL failures NEVER block stored value operations
-    console.error(`[stored-value-gl] GL posting failed for issuance ${data.instrumentId}:`, error);
+    await handleGlPostingError(error, db, event.tenantId, {
+      eventType: 'customer.stored_value.issued.v1',
+      sourceModule: 'stored_value',
+      sourceReferenceId: data.instrumentId,
+      entityId: data.instrumentId,
+    }, 'stored-value-gl');
   }
 }
 
@@ -159,9 +163,8 @@ export async function handleStoredValueRedeemedForAccounting(event: EventEnvelop
     }
 
     // Liability account: prefer instrument-specific, fall back to settings default
-    const settingsAny2 = settings as Record<string, any>;
     const liabilityAccountId = data.liabilityGlAccountId
-      ?? (settingsAny2.defaultStoredValueLiabilityAccountId as string | null)
+      ?? settings.defaultGiftCardLiabilityAccountId
       ?? settings.defaultUncategorizedRevenueAccountId;
 
     // Credit: revenue
@@ -214,8 +217,12 @@ export async function handleStoredValueRedeemedForAccounting(event: EventEnvelop
       },
     );
   } catch (error) {
-    // GL failures NEVER block stored value operations
-    console.error(`[stored-value-gl] GL posting failed for redemption ${data.instrumentId}:`, error);
+    await handleGlPostingError(error, db, event.tenantId, {
+      eventType: 'customer.stored_value.redeemed.v1',
+      sourceModule: 'stored_value',
+      sourceReferenceId: data.instrumentId,
+      entityId: data.instrumentId,
+    }, 'stored-value-gl');
   }
 }
 
@@ -284,9 +291,8 @@ export async function handleStoredValueVoidedForAccounting(event: EventEnvelope)
       return;
     }
 
-    const settingsAny = settings as Record<string, any>;
     const liabilityAccountId = data.liabilityGlAccountId
-      ?? (settingsAny.defaultStoredValueLiabilityAccountId as string | null)
+      ?? settings.defaultGiftCardLiabilityAccountId
       ?? settings.defaultUncategorizedRevenueAccountId;
 
     // Credit side: return cash or recognize breakage income
@@ -340,7 +346,12 @@ export async function handleStoredValueVoidedForAccounting(event: EventEnvelope)
       },
     );
   } catch (error) {
-    console.error(`[stored-value-gl] GL posting failed for void ${data.instrumentId}:`, error);
+    await handleGlPostingError(error, db, event.tenantId, {
+      eventType: 'customer.stored_value.voided.v1',
+      sourceModule: 'stored_value',
+      sourceReferenceId: data.instrumentId,
+      entityId: data.instrumentId,
+    }, 'stored-value-gl');
   }
 }
 
@@ -376,9 +387,8 @@ export async function handleStoredValueReloadedForAccounting(event: EventEnvelop
       return;
     }
 
-    const settingsAny = settings as Record<string, any>;
     const liabilityAccountId = data.liabilityGlAccountId
-      ?? (settingsAny.defaultStoredValueLiabilityAccountId as string | null)
+      ?? settings.defaultGiftCardLiabilityAccountId
       ?? settings.defaultUncategorizedRevenueAccountId;
 
     const debitAccountId = settings.defaultUndepositedFundsAccountId
@@ -431,7 +441,12 @@ export async function handleStoredValueReloadedForAccounting(event: EventEnvelop
       },
     );
   } catch (error) {
-    console.error(`[stored-value-gl] GL posting failed for reload ${data.instrumentId}:`, error);
+    await handleGlPostingError(error, db, event.tenantId, {
+      eventType: 'customer.stored_value.reloaded.v1',
+      sourceModule: 'stored_value',
+      sourceReferenceId: data.instrumentId,
+      entityId: data.instrumentId,
+    }, 'stored-value-gl');
   }
 }
 
@@ -470,8 +485,7 @@ export async function handleStoredValueTransferredForAccounting(event: EventEnve
       return;
     }
 
-    const settingsAny = settings as Record<string, any>;
-    const liabilityAccountId = (settingsAny.defaultStoredValueLiabilityAccountId as string | null)
+    const liabilityAccountId = settings.defaultGiftCardLiabilityAccountId
       ?? settings.defaultUncategorizedRevenueAccountId;
 
     if (!liabilityAccountId) {
@@ -521,6 +535,11 @@ export async function handleStoredValueTransferredForAccounting(event: EventEnve
       },
     );
   } catch (error) {
-    console.error(`[stored-value-gl] GL posting failed for transfer from ${data.sourceInstrumentId}:`, error);
+    await handleGlPostingError(error, db, event.tenantId, {
+      eventType: 'customer.stored_value.transferred.v1',
+      sourceModule: 'stored_value',
+      sourceReferenceId: data.sourceInstrumentId,
+      entityId: data.sourceInstrumentId,
+    }, 'stored-value-gl');
   }
 }

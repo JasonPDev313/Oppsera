@@ -18,6 +18,7 @@ import type {
   LocationCloseStatusData,
   TenderForGlRepostData,
   TenderForGlRepostLineData,
+  ReversalForGlRepostData,
   AchReturnSummaryData,
   AchSettlementSummaryData,
 } from '@oppsera/core/helpers/reconciliation-read-api';
@@ -29,11 +30,20 @@ export async function getTendersSummary(
   startDate: string,
   endDate: string,
   locationId?: string,
+  orderSource?: string,
 ): Promise<TendersSummaryData> {
   return withTenant(tenantId, async (tx) => {
     const locationFilter = locationId
       ? sql`AND t.location_id = ${locationId}`
       : sql``;
+    const sourceFilter = orderSource
+      ? sql`AND o.source = ${orderSource}`
+      : sql``;
+    // When filtering by order source, join to orders to access the source column.
+    // Without the filter, skip the join for efficiency.
+    const fromClause = orderSource
+      ? sql`FROM tenders t JOIN orders o ON o.id = t.order_id AND o.tenant_id = t.tenant_id`
+      : sql`FROM tenders t`;
 
     const rows = await tx.execute(sql`
       SELECT
@@ -43,12 +53,13 @@ export async function getTendersSummary(
         COALESCE(SUM(t.amount), 0)::integer AS total,
         COUNT(*)::int AS tender_count,
         COALESCE(SUM(t.tip_amount), 0)::integer AS tips
-      FROM tenders t
+      ${fromClause}
       WHERE t.tenant_id = ${tenantId}
         AND t.business_date >= ${startDate}
         AND t.business_date <= ${endDate}
         AND t.status = 'captured'
         ${locationFilter}
+        ${sourceFilter}
     `);
 
     const arr = Array.from(rows as Iterable<Record<string, unknown>>);
@@ -1147,6 +1158,40 @@ export async function getTenderForGlRepost(
       totalTendered,
       businessDate: String(t.business_date),
       lines,
+    };
+  });
+}
+
+// ── 22. getReversalForGlRepost ────────────────────────────────
+
+export async function getReversalForGlRepost(
+  tenantId: string,
+  reversalId: string,
+): Promise<ReversalForGlRepostData | null> {
+  return withTenant(tenantId, async (tx) => {
+    const rows = await tx.execute(sql`
+      SELECT r.id, r.original_tender_id, r.order_id, r.amount,
+             r.reason, r.reversal_type, r.refund_method, r.location_id,
+             t.business_date::text AS business_date
+      FROM tender_reversals r
+      JOIN tenders t ON t.id = r.original_tender_id AND t.tenant_id = r.tenant_id
+      WHERE r.id = ${reversalId} AND r.tenant_id = ${tenantId}
+      LIMIT 1
+    `);
+    const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+    if (arr.length === 0) return null;
+    const r = arr[0]!;
+
+    return {
+      reversalId: String(r.id),
+      originalTenderId: String(r.original_tender_id),
+      orderId: String(r.order_id),
+      amount: Number(r.amount),
+      reason: String(r.reason ?? ''),
+      reversalType: String(r.reversal_type),
+      refundMethod: r.refund_method ? String(r.refund_method) : null,
+      businessDate: r.business_date ? String(r.business_date) : null,
+      locationId: String(r.location_id ?? ''),
     };
   });
 }

@@ -375,6 +375,7 @@ export {
   getDepositStatus,
   getLocationCloseStatus,
   getTenderForGlRepost,
+  getReversalForGlRepost,
   // ACH reconciliation methods
   getAchPendingCount,
   getAchReturnSummary,

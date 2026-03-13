@@ -8,6 +8,7 @@ import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { getReconciliationReadApi } from '@oppsera/core/helpers/reconciliation-read-api';
 import { voidJournalEntry } from './void-journal-entry';
 import { handleTenderForAccounting } from '../adapters/pos-posting-adapter';
+import { handleTenderReversalForAccounting } from '../adapters/tender-reversal-posting-adapter';
 
 export interface RemapResult {
   tenderId: string;
@@ -128,7 +129,73 @@ export async function remapGlForTender(
     )
     .limit(1);
 
-  // 6. Mark related unmapped events as resolved
+  // 6. Re-process any reversal_no_original events for this tender.
+  //    Now that the tender has a GL entry, the reversal adapter can find
+  //    the original and post the reversal correctly.
+  const pendingReversals = await db.execute(sql`
+    SELECT id, source_reference_id AS reversal_id
+    FROM gl_unmapped_events
+    WHERE tenant_id = ${ctx.tenantId}
+      AND entity_id = ${tenderId}
+      AND entity_type = 'reversal_no_original'
+      AND resolved_at IS NULL
+  `);
+  const reversalRows = Array.from(pendingReversals as Iterable<Record<string, unknown>>);
+
+  for (const row of reversalRows) {
+    const reversalId = String(row.reversal_id);
+    try {
+      const reversalData = await api.getReversalForGlRepost(ctx.tenantId, reversalId);
+      if (reversalData) {
+        const reversalEvent: EventEnvelope = {
+          eventId: generateUlid(),
+          eventType: 'tender.reversed.v1',
+          occurredAt: new Date().toISOString(),
+          tenantId: ctx.tenantId,
+          locationId: reversalData.locationId,
+          actorUserId: ctx.user.id,
+          idempotencyKey: `remap-reversal-${reversalId}`,
+          data: {
+            reversalId: reversalData.reversalId,
+            originalTenderId: reversalData.originalTenderId,
+            orderId: reversalData.orderId,
+            amount: reversalData.amount,
+            reason: reversalData.reason,
+            reversalType: reversalData.reversalType,
+            refundMethod: reversalData.refundMethod,
+            businessDate: reversalData.businessDate,
+          },
+        };
+        await handleTenderReversalForAccounting(reversalEvent);
+
+        // Only resolve after successful repost
+        await db.execute(sql`
+          UPDATE gl_unmapped_events
+          SET resolved_at = NOW(),
+              resolved_by = ${ctx.user.id},
+              resolution_method = 'remapped',
+              remapped_journal_entry_id = ${newEntry?.id ?? null}
+          WHERE id = ${String(row.id)}
+        `);
+      } else {
+        // Reversal record not found — update reason but leave unresolved
+        await db.execute(sql`
+          UPDATE gl_unmapped_events
+          SET reason = 'reversal_no_original: reversal record not found for repost'
+          WHERE id = ${String(row.id)}
+        `);
+      }
+    } catch (err) {
+      console.warn(
+        `[gl-remap] Failed to re-process reversal ${reversalId} for tender ${tenderId}:`,
+        err instanceof Error ? err.message : err,
+      );
+      // Non-fatal: leave the unmapped event unresolved for manual investigation
+    }
+  }
+
+  // 7. Mark remaining unmapped events as resolved (excluding reversal_no_original
+  //    which were handled individually above)
   const resolveResult = await db.execute(sql`
     UPDATE gl_unmapped_events
     SET resolved_at = NOW(),
@@ -142,7 +209,7 @@ export async function remapGlForTender(
 
   const resolvedCount = (resolveResult as any)?.count ?? 0;
 
-  // 7. Audit log
+  // 8. Audit log
   auditLogDeferred(ctx, 'accounting.gl.remapped', 'tender', tenderId);
 
   return {

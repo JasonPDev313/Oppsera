@@ -4,6 +4,7 @@ import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-postin
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
+import { handleGlPostingError } from '../helpers/handle-gl-posting-error';
 
 interface CompEventData {
   compEventId: string;
@@ -133,7 +134,12 @@ export async function handleCompForAccounting(event: EventEnvelope): Promise<voi
       },
     );
   } catch (error) {
-    console.error(`[comp-gl] GL posting failed for comp ${data.compEventId}:`, error);
+    await handleGlPostingError(error, db, event.tenantId, {
+      eventType: 'order.line.comped.v1',
+      sourceModule: 'pos',
+      sourceReferenceId: data.compEventId,
+      entityId: data.compEventId,
+    }, 'comp-gl');
   }
 }
 
@@ -252,6 +258,11 @@ export async function handleLineVoidForAccounting(event: EventEnvelope): Promise
     // POS adapter proportional allocation will handle the discrepancy at final tender.
 
   } catch (error) {
-    console.error(`[void-line-gl] GL posting failed for line void ${data.orderId}/${data.orderLineId}:`, error);
+    await handleGlPostingError(error, db, event.tenantId, {
+      eventType: 'order.line.voided.v1',
+      sourceModule: 'pos',
+      sourceReferenceId: `${data.orderId}-${data.orderLineId}`,
+      entityId: data.orderLineId,
+    }, 'void-line-gl');
   }
 }

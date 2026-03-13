@@ -6,11 +6,13 @@
  * Authorization (hold):  Dr Undeposited Funds, Cr Guest Deposits Liability
  * Capture (charge):      Dr Guest Deposits Liability, Cr Guest Ledger (applies to folio)
  *
- * Follows the never-throw pattern — GL failures are logged, never block PMS operations.
+ * Permanent errors (bad config/mapping) are swallowed — retry won't help.
+ * Transient errors are re-thrown so the outbox retries this event.
  */
 import { db } from '@oppsera/db';
 import type { EventEnvelope } from '@oppsera/shared';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
+import { handleGlPostingError } from '../helpers/handle-gl-posting-error';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
@@ -52,45 +54,6 @@ async function resolveDepositLiabilityAccount(
   return arr[0]!.account_id ? String(arr[0]!.account_id) : null;
 }
 
-/**
- * Resolve the Undeposited Funds account from settings.
- */
-async function resolveUndepositedFundsAccount(
-  tenantId: string,
-): Promise<string | null> {
-  const rows = await db.execute(sql`
-    SELECT default_undeposited_funds_account_id
-    FROM accounting_settings
-    WHERE tenant_id = ${tenantId}
-    LIMIT 1
-  `);
-
-  const arr = Array.from(rows as Iterable<Record<string, unknown>>);
-  if (arr.length === 0) return null;
-  return arr[0]!.default_undeposited_funds_account_id
-    ? String(arr[0]!.default_undeposited_funds_account_id)
-    : null;
-}
-
-/**
- * Resolve the PMS Guest Ledger control account from settings.
- */
-async function resolveGuestLedgerAccount(
-  tenantId: string,
-): Promise<string | null> {
-  const rows = await db.execute(sql`
-    SELECT default_pms_guest_ledger_account_id
-    FROM accounting_settings
-    WHERE tenant_id = ${tenantId}
-    LIMIT 1
-  `);
-
-  const arr = Array.from(rows as Iterable<Record<string, unknown>>);
-  if (arr.length === 0) return null;
-  return arr[0]!.default_pms_guest_ledger_account_id
-    ? String(arr[0]!.default_pms_guest_ledger_account_id)
-    : null;
-}
 
 /**
  * Handles deposit authorization — creates a liability for the held deposit.
@@ -121,7 +84,7 @@ export async function handleDepositAuthorizedForAccounting(event: EventEnvelope)
 
     const accountingApi = getAccountingPostingApi();
 
-    const undepositedFundsAccountId = await resolveUndepositedFundsAccount(tenantId);
+    const undepositedFundsAccountId = settings.defaultUndepositedFundsAccountId;
     if (!undepositedFundsAccountId) {
       await logUnmappedEvent(db, tenantId, {
         eventType: 'pms.payment.authorized.v1',
@@ -186,15 +149,12 @@ export async function handleDepositAuthorizedForAccounting(event: EventEnvelope)
       forcePost: true,
     });
   } catch (error) {
-    console.error(`PMS Deposit auth GL posting failed for ${data.transactionId}:`, error);
-    await logUnmappedEvent(db, tenantId, {
+    await handleGlPostingError(error, db, tenantId, {
       eventType: 'pms.payment.authorized.v1',
       sourceModule: 'pms',
       sourceReferenceId: data.transactionId,
-      entityType: 'posting_error',
       entityId: data.transactionId,
-      reason: `GL posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    }).catch((err) => console.error('[deposit-posting-adapter] GL posting failed:', err));
+    }, 'deposit-gl');
   }
 }
 
@@ -240,7 +200,7 @@ export async function handleDepositCapturedForAccounting(event: EventEnvelope): 
       return;
     }
 
-    const guestLedgerAccountId = await resolveGuestLedgerAccount(tenantId);
+    const guestLedgerAccountId = settings.defaultPmsGuestLedgerAccountId;
     if (!guestLedgerAccountId) {
       await logUnmappedEvent(db, tenantId, {
         eventType: 'pms.payment.captured.v1',
@@ -292,14 +252,11 @@ export async function handleDepositCapturedForAccounting(event: EventEnvelope): 
       forcePost: true,
     });
   } catch (error) {
-    console.error(`PMS Deposit capture GL posting failed for ${data.transactionId}:`, error);
-    await logUnmappedEvent(db, tenantId, {
+    await handleGlPostingError(error, db, tenantId, {
       eventType: 'pms.payment.captured.v1',
       sourceModule: 'pms',
       sourceReferenceId: data.transactionId,
-      entityType: 'posting_error',
       entityId: data.transactionId,
-      reason: `GL posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    }).catch((err) => console.error('[deposit-posting-adapter] GL posting failed:', err));
+    }, 'deposit-gl');
   }
 }

@@ -138,6 +138,7 @@ export async function createReturn(
       returnedTax: number;
       returnedTotal: number;
       subDepartmentId: string | null;
+      taxGroupId: string | null;
       packageComponents: unknown;
       costCents: number | null;
     }> = [];
@@ -196,6 +197,7 @@ export async function createReturn(
         returnedTax: -lineTax,
         returnedTotal: -(lineSubtotal + lineTax),
         subDepartmentId: orig.subDepartmentId ?? null,
+        taxGroupId: orig.taxGroupId ?? null,
         packageComponents: orig.packageComponents ?? null,
         costCents: orig.costPrice != null ? Number(orig.costPrice) : null,
       });
@@ -251,6 +253,7 @@ export async function createReturn(
         returnedTax: rl.returnedTax,
         returnedTotal: rl.returnedTotal,
         subDepartmentId: rl.subDepartmentId,
+        taxGroupId: rl.taxGroupId,
         packageComponents: rl.packageComponents,
         costCents: rl.costCents,
       })),

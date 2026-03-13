@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { getGlPostingGaps, getSmartResolutionSuggestions, listUnmappedEvents } from '@oppsera/module-accounting';
+import { getGlPostingGaps, getSmartResolutionSuggestions } from '@oppsera/module-accounting';
 
 /**
  * GET /api/v1/accounting/gl-readiness
@@ -48,27 +48,22 @@ export const GET = withMiddleware(
       });
     }
 
-    // 2. No gaps — check unmapped events
-    const unmapped = await listUnmappedEvents({
-      tenantId,
-      limit: 1,
-      resolved: false,
-    }).catch(() => ({ items: [] as unknown[], cursor: null, hasMore: false }));
+    // 2. No gaps — check unmapped events via smart resolution suggestions.
+    //    This gives us the real totalEvents count (not a limit-1 presence check)
+    //    plus autoResolvable in a single query, avoiding an extra listUnmappedEvents call.
+    const suggestions = await getSmartResolutionSuggestions(tenantId).catch(() => ({
+      suggestions: [],
+      totalEvents: 0,
+      autoResolvable: 0,
+      alreadyMapped: 0,
+      skippedErrors: 0,
+    }));
 
-    const unmappedEventCount = unmapped.items.length;
-
-    // 3. Only fetch suggestions if there are unmapped events to resolve
-    let autoResolvableCount = 0;
-    if (unmappedEventCount > 0) {
-      const suggestions = await getSmartResolutionSuggestions(tenantId).catch(() => ({
-        suggestions: [],
-        totalEvents: 0,
-        autoResolvable: 0,
-        alreadyMapped: 0,
-        skippedErrors: 0,
-      }));
-      autoResolvableCount = suggestions.autoResolvable ?? 0;
-    }
+    // Exclude non-actionable events (zero_dollar_order, reversal_no_original, etc.)
+    // from the review count — same logic the backfill route uses at line 158/164.
+    const actionableEvents = Math.max(0, (suggestions.totalEvents ?? 0) - (suggestions.skippedErrors ?? 0));
+    const unmappedEventCount = actionableEvents;
+    const autoResolvableCount = suggestions.autoResolvable ?? 0;
 
     const status: 'ready' | 'needs_backfill' | 'needs_review' =
       unmappedEventCount > 0 ? 'needs_review' : 'ready';
