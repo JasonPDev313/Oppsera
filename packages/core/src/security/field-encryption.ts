@@ -142,7 +142,7 @@ export function decryptField(value: string | null | undefined): string | null | 
   const ciphertext = packed.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
 
   try {
-    const decipher = createDecipheriv(ALGORITHM, key, iv);
+    const decipher = createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
     decipher.setAuthTag(authTag);
     const decrypted = Buffer.concat([
       decipher.update(ciphertext),

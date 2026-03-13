@@ -24,3 +24,4 @@ backups/
 
 # Temp test files
 tmp_test_api.js
+tmp_login.json

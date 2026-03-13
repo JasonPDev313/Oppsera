@@ -44,7 +44,7 @@ function decryptTaxId(blob: string): string {
     const iv = packed.subarray(0, TAX_ID_IV_LEN);
     const tag = packed.subarray(TAX_ID_IV_LEN, TAX_ID_IV_LEN + TAX_ID_TAG_LEN);
     const ciphertext = packed.subarray(TAX_ID_IV_LEN + TAX_ID_TAG_LEN);
-    const decipher = createDecipheriv(TAX_ID_ALGO, key, iv);
+    const decipher = createDecipheriv(TAX_ID_ALGO, key, iv, { authTagLength: TAX_ID_TAG_LEN });
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
   } catch {

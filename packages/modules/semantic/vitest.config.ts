@@ -4,6 +4,9 @@ export default defineConfig({
   test: {
     globals: true,
     passWithNoTests: true,
+    env: {
+      DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary', 'lcov'],

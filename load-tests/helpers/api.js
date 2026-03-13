@@ -22,14 +22,11 @@ import { recordColdStart } from './metrics.js';
  * @returns {Object} Headers object
  */
 function buildHeaders(tenantAuth, extraHeaders = {}) {
-  return Object.assign(
-    {},
-    tenantAuth.headers,
-    {
-      'X-Request-Id': uuidv4(),
-    },
-    extraHeaders
-  );
+  return {
+    ...tenantAuth.headers,
+    'X-Request-Id': uuidv4(),
+    ...extraHeaders,
+  };
 }
 
 /**
