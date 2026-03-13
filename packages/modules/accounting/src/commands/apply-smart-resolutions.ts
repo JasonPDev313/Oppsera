@@ -130,6 +130,51 @@ export async function applySmartResolutions(
           WHERE tenant_id = ${tenantId}
         `);
         mappingsCreated++;
+      } else if (entityType === 'discount_classification') {
+        // Discount classifications use the tenant-level default discount account.
+        // No per-classification table exists — set the default if not already configured.
+        await tx.execute(sql`
+          UPDATE accounting_settings
+          SET default_discount_account_id = COALESCE(default_discount_account_id, ${suggestedAccountId})
+          WHERE tenant_id = ${tenantId}
+        `);
+        mappingsCreated++;
+      } else if (entityType === 'payment_type_incomplete') {
+        // Payment type row exists but cash_account_id is null — fill it in
+        await tx.execute(sql`
+          INSERT INTO payment_type_gl_defaults (
+            tenant_id, payment_type_id, cash_account_id
+          ) VALUES (
+            ${tenantId}, ${entityId}, ${suggestedAccountId}
+          )
+          ON CONFLICT (tenant_id, payment_type_id)
+          DO UPDATE SET cash_account_id = EXCLUDED.cash_account_id
+        `);
+        mappingsCreated++;
+      } else if (entityType === 'revenue_account_null') {
+        // Sub-department mapping exists but revenue_account_id is null — set it
+        await tx.execute(sql`
+          INSERT INTO sub_department_gl_defaults (
+            tenant_id, sub_department_id, revenue_account_id
+          ) VALUES (
+            ${tenantId}, ${entityId}, ${suggestedAccountId}
+          )
+          ON CONFLICT (tenant_id, sub_department_id)
+          DO UPDATE SET revenue_account_id = EXCLUDED.revenue_account_id
+        `);
+        mappingsCreated++;
+      } else if (entityType === 'tax_account_null') {
+        // Tax group has no account resolved — upsert tax_group_gl_defaults
+        await tx.execute(sql`
+          INSERT INTO tax_group_gl_defaults (
+            tenant_id, tax_group_id, tax_payable_account_id
+          ) VALUES (
+            ${tenantId}, ${entityId}, ${suggestedAccountId}
+          )
+          ON CONFLICT (tenant_id, tax_group_id)
+          DO UPDATE SET tax_payable_account_id = EXCLUDED.tax_payable_account_id
+        `);
+        mappingsCreated++;
       } else if (entityType === 'tips_payable_account') {
         // Set/confirm the tips payable account in accounting settings
         await tx.execute(sql`
