@@ -360,7 +360,7 @@ describe('handleTenderForAccounting', () => {
   });
 
   it('should swallow permanent posting errors (no retry)', async () => {
-    const { PermanentPostingError } = await import('@oppsera/shared');
+    const { PermanentPostingError: _PermanentPostingError } = await import('@oppsera/shared');
     // Both calls to getAccountingSettings return null → PermanentPostingError
     mocks.getAccountingSettings.mockResolvedValue(null);
     mocks.ensureAccountingSettings.mockResolvedValueOnce({ created: false, autoWired: 0 });

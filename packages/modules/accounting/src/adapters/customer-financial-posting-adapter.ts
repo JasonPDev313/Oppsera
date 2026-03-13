@@ -112,6 +112,7 @@ export async function handleLedgerEntryForAccounting(event: EventEnvelope): Prom
           businessDate: new Date().toISOString().split('T')[0]!,
           sourceModule: 'customers',
           sourceReferenceId: `ledger-${data.transactionId}`,
+          sourceIdempotencyKey: `customer:manual_charge:${data.transactionId}`,
           memo: `Manual charge: $${absDollars} — customer ${data.customerId}`,
           lines: [
             { accountId: arAccountId, debitAmount: absDollars, creditAmount: '0', memo: 'AR manual charge' },
@@ -132,6 +133,7 @@ export async function handleLedgerEntryForAccounting(event: EventEnvelope): Prom
           businessDate: new Date().toISOString().split('T')[0]!,
           sourceModule: 'customers',
           sourceReferenceId: `ledger-${data.transactionId}`,
+          sourceIdempotencyKey: `customer:credit_memo:${data.transactionId}`,
           memo: `Credit memo: $${absDollars} — customer ${data.customerId}`,
           lines: [
             { accountId: revenueAccountId, debitAmount: absDollars, creditAmount: '0', memo: 'Revenue reversal — credit memo' },
@@ -152,6 +154,7 @@ export async function handleLedgerEntryForAccounting(event: EventEnvelope): Prom
           businessDate: new Date().toISOString().split('T')[0]!,
           sourceModule: 'customers',
           sourceReferenceId: `ledger-${data.transactionId}`,
+          sourceIdempotencyKey: `customer:writeoff:${data.transactionId}`,
           memo: `Writeoff: $${absDollars} — customer ${data.customerId}`,
           lines: [
             { accountId: badDebtAccountId!, debitAmount: absDollars, creditAmount: '0', memo: 'Bad debt expense — writeoff' },
@@ -232,6 +235,7 @@ export async function handleAccountTransferForAccounting(event: EventEnvelope): 
         businessDate: new Date().toISOString().split('T')[0]!,
         sourceModule: 'customers',
         sourceReferenceId: `acct-transfer-${data.debitTransactionId}`,
+        sourceIdempotencyKey: `customer:account_transfer:${data.debitTransactionId}`,
         memo: `AR transfer: $${amountDollars} between billing accounts — customer ${data.customerId}`,
         lines: [
           { accountId: arAccountId, debitAmount: amountDollars, creditAmount: '0', memo: `AR transfer debit — from ${data.fromAccountId}` },
@@ -319,6 +323,7 @@ export async function handleWalletAdjustedForAccounting(event: EventEnvelope): P
         businessDate: new Date().toISOString().split('T')[0]!,
         sourceModule: 'customers',
         sourceReferenceId: `wallet-adjust-${data.walletAccountId}-${event.eventId}`,
+        sourceIdempotencyKey: `customer:wallet_adjust:${data.walletAccountId}:${event.eventId}`,
         memo: `Wallet ${isIncrease ? 'increase' : 'decrease'}: $${absDollars} (${data.walletType}) — customer ${data.customerId}`,
         lines: isIncrease
           ? [

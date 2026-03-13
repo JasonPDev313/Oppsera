@@ -86,6 +86,7 @@ export async function handleDrawerSessionClosedForAccounting(event: EventEnvelop
         businessDate: data.businessDate,
         sourceModule: 'drawer_session',
         sourceReferenceId: `drawer-close-${data.drawerSessionId}`,
+        sourceIdempotencyKey: `pos:drawer-close:${data.drawerSessionId}`,
         memo: `Drawer close variance: $${absAmount} ${isOver ? 'over' : 'short'} — terminal ${data.terminalId}`,
         lines: isOver
           ? [

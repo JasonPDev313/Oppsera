@@ -113,6 +113,7 @@ export async function handleCompForAccounting(event: EventEnvelope): Promise<voi
         businessDate: data.businessDate,
         sourceModule: 'pos',
         sourceReferenceId: `comp-${data.compEventId}`,
+        sourceIdempotencyKey: `pos:comp:${data.compEventId}`,
         memo: `Comp: $${amountDollars} — ${data.compCategory}: ${data.reason} (order ${data.orderId})`,
         lines: [
           {
@@ -223,6 +224,7 @@ export async function handleLineVoidForAccounting(event: EventEnvelope): Promise
             businessDate: new Date().toISOString().split('T')[0]!,
             sourceModule: 'pos',
             sourceReferenceId: `void-line-${data.orderId}-${data.orderLineId}`,
+            sourceIdempotencyKey: `pos:line-void:${data.orderId}:${data.orderLineId}`,
             memo: `Line void (waste): $${amountDollars} — ${data.catalogItemName ?? 'item'} — ${data.reason}`,
             lines: [
               {

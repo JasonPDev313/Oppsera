@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { listBudgets, createBudget } from '@oppsera/module-accounting';
+
+const CreateBudgetSchema = z
+  .object({
+    name: z.string().min(1),
+    fiscalYear: z.number(),
+    description: z.string().optional(),
+    locationId: z.string().optional(),
+  })
+  .strict();
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -25,16 +35,14 @@ export const GET = withMiddleware(
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const body = await request.json();
-    const { name, fiscalYear, description, locationId } = body;
-
-    if (!name || !fiscalYear) {
+    const parsed = CreateBudgetSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: { code: 'VALIDATION_ERROR', message: 'name and fiscalYear are required' } },
+        { error: { code: 'VALIDATION_ERROR', message: 'Invalid input', details: parsed.error.issues } },
         { status: 400 },
       );
     }
-
-    const budget = await createBudget(ctx, { name, fiscalYear, description, locationId });
+    const budget = await createBudget(ctx, parsed.data);
     return NextResponse.json({ data: budget }, { status: 201 });
   },
   { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true },

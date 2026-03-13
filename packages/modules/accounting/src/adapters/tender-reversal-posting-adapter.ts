@@ -139,6 +139,7 @@ export async function handleTenderReversalForAccounting(event: EventEnvelope): P
           businessDate: reversalBusinessDate,
           sourceModule: 'payments',
           sourceReferenceId: `reversal-${data.reversalId}`,
+          sourceIdempotencyKey: `pos:tender-reversal:${data.reversalId}`,
           memo: `Tender reversal: $${amountDollars} (${data.reversalType}) — order ${data.orderId}`,
           lines: reversalLines,
           forcePost: true,
@@ -248,6 +249,7 @@ export async function handleTipAdjustedForAccounting(event: EventEnvelope): Prom
         // Use deterministic sourceReferenceId — event.eventId changes on retry (outbox re-dispatch)
         // which would create duplicate GL entries. The tip amounts are stable and unique per adjustment.
         sourceReferenceId: `tip-adjust-${data.tenderId}-${data.previousTipAmount}-${data.newTipAmount}`,
+        sourceIdempotencyKey: `pos:tip-adjust:${data.tenderId}:${data.previousTipAmount}:${data.newTipAmount}`,
         memo: `Tip ${isIncrease ? 'increase' : 'decrease'}: $${absDollars} on tender ${data.tenderId}`,
         lines: isIncrease
           ? [

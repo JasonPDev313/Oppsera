@@ -1,7 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { getReconciliationReadApi } from '@oppsera/core/helpers/reconciliation-read-api';
-import { GL_SOURCE_MODULES } from './get-gl-posting-gaps';
 
 export interface CloseChecklistItem {
   label: string;

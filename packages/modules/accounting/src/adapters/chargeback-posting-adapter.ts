@@ -163,6 +163,7 @@ export async function handleChargebackReceivedForAccounting(event: EventEnvelope
       businessDate: data.businessDate,
       sourceModule: 'chargeback',
       sourceReferenceId: `received-${data.chargebackId}`,
+      sourceIdempotencyKey: `chargeback:received:${data.chargebackId}`,
       memo: `Chargeback received: order ${data.orderId} — ${data.chargebackReason}`,
       currency: settings.baseCurrency,
       lines: glLines,
@@ -265,6 +266,7 @@ export async function handleChargebackResolvedForAccounting(event: EventEnvelope
         businessDate: data.businessDate,
         sourceModule: 'chargeback',
         sourceReferenceId: `won-${data.chargebackId}`,
+        sourceIdempotencyKey: `chargeback:won:${data.chargebackId}`,
         memo: `Chargeback won: order ${data.orderId} — funds returned`,
         currency: settings.baseCurrency,
         lines: [
@@ -294,6 +296,7 @@ export async function handleChargebackResolvedForAccounting(event: EventEnvelope
           businessDate: data.businessDate,
           sourceModule: 'chargeback',
           sourceReferenceId: `lost-fee-${data.chargebackId}`,
+          sourceIdempotencyKey: `chargeback:lost-fee:${data.chargebackId}`,
           memo: `Chargeback lost: order ${data.orderId} — fee charged`,
           currency: settings.baseCurrency,
           lines: [

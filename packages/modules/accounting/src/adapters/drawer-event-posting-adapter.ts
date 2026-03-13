@@ -96,6 +96,7 @@ export async function handleDrawerEventForAccounting(event: EventEnvelope): Prom
           businessDate: new Date().toISOString().split('T')[0]!,
           sourceModule: 'drawer_session',
           sourceReferenceId: `drawer-event-${data.drawerSessionEventId}`,
+          sourceIdempotencyKey: `pos:drawer-paid_in:${data.drawerSessionEventId}`,
           memo: `Paid In: $${amountDollars} added to drawer`,
           lines: [
             {
@@ -126,6 +127,7 @@ export async function handleDrawerEventForAccounting(event: EventEnvelope): Prom
           businessDate: new Date().toISOString().split('T')[0]!,
           sourceModule: 'drawer_session',
           sourceReferenceId: `drawer-event-${data.drawerSessionEventId}`,
+          sourceIdempotencyKey: `pos:drawer-paid_out:${data.drawerSessionEventId}`,
           memo: `Paid Out: $${amountDollars} removed from drawer`,
           lines: [
             {
@@ -156,6 +158,7 @@ export async function handleDrawerEventForAccounting(event: EventEnvelope): Prom
           businessDate: new Date().toISOString().split('T')[0]!,
           sourceModule: 'drawer_session',
           sourceReferenceId: `drawer-event-${data.drawerSessionEventId}`,
+          sourceIdempotencyKey: `pos:drawer-cash_drop:${data.drawerSessionEventId}`,
           memo: `Cash Drop: $${amountDollars} moved to safe`,
           lines: [
             {

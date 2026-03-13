@@ -163,6 +163,7 @@ export async function handleAchOriginatedForAccounting(event: EventEnvelope): Pr
       businessDate: new Date().toISOString().split('T')[0]!,
       sourceModule: 'ach',
       sourceReferenceId: sourceRef,
+      sourceIdempotencyKey: `ach:originated:${data.paymentIntentId}`,
       memo: `ACH Originated — Intent ${data.paymentIntentId}`,
       currency: 'USD',
       lines: [
@@ -286,6 +287,7 @@ export async function handleAchSettledForAccounting(event: EventEnvelope): Promi
       businessDate: data.fundingDate,
       sourceModule: 'ach',
       sourceReferenceId: sourceRef,
+      sourceIdempotencyKey: `ach:settled:${data.paymentIntentId}`,
       memo: `ACH Settled — Intent ${data.paymentIntentId}`,
       currency: 'USD',
       lines: [

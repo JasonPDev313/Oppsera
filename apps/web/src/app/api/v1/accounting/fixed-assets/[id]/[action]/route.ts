@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { recordDepreciation, disposeFixedAsset } from '@oppsera/module-accounting';
+
+const DisposeFixedAssetSchema = z
+  .object({
+    disposalDate: z.string().min(1),
+    disposalProceeds: z.string().default('0'),
+    disposalGlAccountId: z.string().optional(),
+  })
+  .strict();
 
 function extractIdAndAction(request: NextRequest): { id: string; action: string } {
   const segments = request.nextUrl.pathname.split('/');
@@ -30,20 +39,18 @@ export const POST = withMiddleware(
 
       case 'dispose': {
         const body = await request.json();
-        const { disposalDate, disposalProceeds, disposalGlAccountId } = body;
-
-        if (!disposalDate) {
+        const parsed = DisposeFixedAssetSchema.safeParse(body);
+        if (!parsed.success) {
           return NextResponse.json(
-            { error: { code: 'VALIDATION_ERROR', message: 'disposalDate is required' } },
+            { error: { code: 'VALIDATION_ERROR', message: 'Invalid input', details: parsed.error.issues } },
             { status: 400 },
           );
         }
-
         const result = await disposeFixedAsset(ctx, {
           assetId: id,
-          disposalDate,
-          disposalProceeds,
-          disposalGlAccountId,
+          disposalDate: parsed.data.disposalDate,
+          disposalProceeds: parsed.data.disposalProceeds,
+          disposalGlAccountId: parsed.data.disposalGlAccountId,
         });
         return NextResponse.json({ data: result });
       }

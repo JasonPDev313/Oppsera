@@ -123,6 +123,7 @@ export async function migrateLegacyJournalEntries(
           businessDate: String(row.business_date),
           sourceModule: 'pos_legacy',
           sourceReferenceId: String(row.id),
+          sourceIdempotencyKey: `legacy:pos_legacy:${String(row.id)}`,
           memo: `Legacy POS ${String(row.reference_type)} - Order ${String(row.order_id)}`,
           currency: 'USD',
           lines: glLines,

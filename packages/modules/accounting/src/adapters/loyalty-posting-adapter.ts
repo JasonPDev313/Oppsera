@@ -151,6 +151,7 @@ export async function handleLoyaltyRedemptionForAccounting(event: EventEnvelope)
       businessDate,
       sourceModule: 'pms',
       sourceReferenceId: `loyalty-redeem-${data.transactionId}`,
+      sourceIdempotencyKey: `loyalty:redeem:${data.transactionId}`,
       memo: `PMS Loyalty Redemption - ${data.points} pts${data.reservationId ? ` (Res: ${data.reservationId})` : ''}`,
       currency: 'USD',
       lines: glLines,

@@ -1,5 +1,5 @@
-import { EventEnvelopeSchema } from '@oppsera/shared';
-import { db, sql, guardedQuery } from '@oppsera/db';
+import { EventEnvelopeSchema, generateUlid } from '@oppsera/shared';
+import { db, sql, guardedQuery, eventDeadLetters } from '@oppsera/db';
 import type { EventBus } from './bus';
 
 export class OutboxWorker {
@@ -206,16 +206,53 @@ export class OutboxWorker {
     const deleteIds: string[] = [];
 
     for (const row of claimed) {
+      // Try to parse first so we can distinguish a malformed payload (which
+      // will NEVER succeed on retry) from a transient publish failure.
+      const parsed = EventEnvelopeSchema.safeParse(row.payload);
+
+      if (!parsed.success) {
+        // Malformed event — retrying will never help. Dead-letter it and
+        // delete the outbox row so stale recovery doesn't waste cycles on it.
+        console.error('[outbox] Malformed event payload — moving to dead letters:', {
+          outboxId: row.id,
+          eventType: row.event_type,
+          eventId: row.event_id,
+          error: parsed.error.message,
+        });
+        try {
+          await guardedQuery('outbox:deadLetterMalformed', () =>
+            db.insert(eventDeadLetters).values({
+              id: generateUlid(),
+              tenantId: null, // payload is malformed — tenant not extractable
+              eventId: row.event_id,
+              eventType: row.event_type,
+              eventData: row.payload as Record<string, unknown>,
+              consumerName: 'outbox-worker',
+              errorMessage: `Malformed outbox payload: ${parsed.error.message}`,
+              errorStack: null,
+              attemptCount: 1,
+              maxRetries: 1,
+              firstFailedAt: new Date(),
+              lastFailedAt: new Date(),
+              status: 'failed',
+            }),
+          );
+        } catch (dlqErr) {
+          console.error('[outbox] Failed to dead-letter malformed event:', dlqErr);
+        }
+        // Always delete the outbox row — it can never be processed successfully.
+        deleteIds.push(row.id);
+        continue;
+      }
+
       try {
-        const event = EventEnvelopeSchema.parse(row.payload);
-        await this.eventBus.publish(event);
+        await this.eventBus.publish(parsed.data);
         publishedCount++;
         // Successfully processed — delete from outbox
         deleteIds.push(row.id);
       } catch (error) {
-        const parsed = EventEnvelopeSchema.safeParse(row.payload);
-        const tenantId = parsed.success ? parsed.data.tenantId : undefined;
-        const correlationId = parsed.success ? (parsed.data as Record<string, unknown>).correlationId : undefined;
+        const tenantId = parsed.data.tenantId;
+        const correlationId = (parsed.data as Record<string, unknown>).correlationId;
         console.error('Failed to publish outbox event:', {
           outboxId: row.id,
           eventType: row.event_type,

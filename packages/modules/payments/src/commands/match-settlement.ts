@@ -141,7 +141,7 @@ export async function matchSettlement(
       if (candidateArr.length > 0) {
         const tenderId = String(candidateArr[0]!.tender_id);
 
-        await tx
+        const updateResult = await tx
           .update(paymentSettlementLines)
           .set({
             tenderId,
@@ -152,8 +152,17 @@ export async function matchSettlement(
             and(
               eq(paymentSettlementLines.id, line.id),
               eq(paymentSettlementLines.tenantId, ctx.tenantId),
+              eq(paymentSettlementLines.status, 'unmatched'),
             ),
+          )
+          .returning({ id: paymentSettlementLines.id });
+
+        if (updateResult.length === 0) {
+          console.warn(
+            `[matchSettlement] Concurrent match detected for line ${line.id} — skipping`,
           );
+          continue;
+        }
 
         matchedCount++;
       } else {
@@ -252,8 +261,8 @@ export async function manualMatchSettlementLine(
       throw new AppError('SETTLEMENT_POSTED', 'Cannot modify a posted settlement', 409);
     }
 
-    // Update the line
-    await tx
+    // Update the line — include status guard for optimistic concurrency
+    const updateResult = await tx
       .update(paymentSettlementLines)
       .set({
         tenderId: input.tenderId,
@@ -264,8 +273,18 @@ export async function manualMatchSettlementLine(
         and(
           eq(paymentSettlementLines.id, input.lineId),
           eq(paymentSettlementLines.tenantId, ctx.tenantId),
+          eq(paymentSettlementLines.status, 'unmatched'),
         ),
+      )
+      .returning({ id: paymentSettlementLines.id });
+
+    if (updateResult.length === 0) {
+      throw new AppError(
+        'CONCURRENT_MATCH',
+        'Settlement line was matched by a concurrent request',
+        409,
       );
+    }
 
     // Check if all lines are now matched → update settlement status
     const unmatchedRows = await tx.execute(sql`

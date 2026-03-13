@@ -177,10 +177,23 @@ export class InMemoryEventBus implements EventBus {
           });
 
           // Persist to DB (best-effort — don't let DLQ insert failure crash the bus)
+          let deadLetterPersisted = true;
           try {
             await this.persistDeadLetter(event, consumerName, err, this.maxRetries);
           } catch (dlqErr) {
+            deadLetterPersisted = false;
             console.error('Failed to persist dead letter to DB:', dlqErr);
+          }
+
+          // If dead-letter persistence failed, the only remaining safety net is
+          // the outbox stale recovery (10 min) + purge (1 hour). The unclaim
+          // below will attempt to remove the processed_events row so the event
+          // can be retried. If unclaim also fails, the event is permanently
+          // blocked for this consumer with no DB record — log CRITICAL so
+          // operators are alerted. The outbox row will be purged after 1 hour.
+          if (!deadLetterPersisted) {
+            // Store for deferred unclaim-failure check below
+            (err as Error & { _dlqPersistFailed?: boolean })._dlqPersistFailed = true;
           }
 
           console.error(`Event moved to dead letter queue:`, {
@@ -197,6 +210,11 @@ export class InMemoryEventBus implements EventBus {
     // never processed" — the outbox worker sees it in processedEvents and
     // skips it, even though the handler never succeeded.
     if (!handlerSucceeded) {
+      // Check if dead-letter persistence failed (flagged above)
+      const lastErr = this.deadLetterQueue.at(-1);
+      const dlqPersistFailed = lastErr?.event?.eventId === event.eventId
+        && (lastErr?.error as Error & { _dlqPersistFailed?: boolean })?._dlqPersistFailed === true;
+
       try {
         await guardedQuery('bus:unclaimEvent', () =>
           db.execute(
@@ -204,11 +222,27 @@ export class InMemoryEventBus implements EventBus {
           ),
         );
       } catch (unclaimErr) {
-        console.error('Failed to unclaim event after handler failure:', {
-          eventId: event.eventId,
-          consumerName,
-          error: unclaimErr,
-        });
+        // Unclaim failed — the processed_events row remains. Combined with a
+        // failed dead-letter insert, this consumer has NO DB record and cannot
+        // be retried. Log CRITICAL so operators can manually intervene.
+        // Safety net: the outbox row will be purged after 1 hour by stale recovery.
+        if (dlqPersistFailed) {
+          console.error(
+            '[CRITICAL] Dead-letter persist AND unclaim both failed — event permanently blocked for this consumer with no DB record. Manual intervention required.',
+            {
+              eventId: event.eventId,
+              eventType: event.eventType,
+              consumerName,
+              unclaimError: unclaimErr instanceof Error ? unclaimErr.message : String(unclaimErr),
+            },
+          );
+        } else {
+          console.error('Failed to unclaim event after handler failure:', {
+            eventId: event.eventId,
+            consumerName,
+            error: unclaimErr,
+          });
+        }
       }
 
       // Re-throw so publish() can signal incomplete delivery to the outbox

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { withTenant } from '@oppsera/db';
 import { paymentSettlements, paymentTypeGlDefaults, bankAccounts } from '@oppsera/db';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, ne, sql } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
@@ -292,7 +292,7 @@ export async function postSettlementGl(
 
   // Phase 3: write-back — update settlement record with GL reference in a new transaction
   await withTenant(ctx.tenantId, async (tx) => {
-    await tx
+    const updated = await tx
       .update(paymentSettlements)
       .set({
         status: 'posted',
@@ -304,8 +304,18 @@ export async function postSettlementGl(
         and(
           eq(paymentSettlements.id, settlementId),
           eq(paymentSettlements.tenantId, ctx.tenantId),
+          ne(paymentSettlements.status, 'posted'),
         ),
+      )
+      .returning({ id: paymentSettlements.id });
+
+    if (updated.length === 0) {
+      throw new AppError(
+        'ALREADY_POSTED',
+        'Settlement was already posted by a concurrent request',
+        409,
       );
+    }
   });
 
   return {

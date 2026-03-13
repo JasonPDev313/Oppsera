@@ -181,5 +181,5 @@ export const POST = withMiddleware(
       releaseBackfillLock(tenantId);
     }
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true },
 );

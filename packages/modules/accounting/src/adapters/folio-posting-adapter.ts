@@ -202,6 +202,7 @@ export async function handleFolioChargeForAccounting(event: EventEnvelope): Prom
       businessDate,
       sourceModule: 'pms',
       sourceReferenceId: data.entryId,
+      sourceIdempotencyKey: `folio:${data.entryType.toLowerCase()}:${data.entryId}`,
       memo: `PMS Folio ${data.folioId} - ${data.entryType}${data.reservationId ? ` (Res: ${data.reservationId})` : ''}`,
       currency: 'USD',
       lines: glLines,

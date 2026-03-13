@@ -234,6 +234,7 @@ export async function handleInitiationContractForAccounting(event: EventEnvelope
       businessDate: new Date().toISOString().split('T')[0]!,
       sourceModule: 'membership',
       sourceReferenceId: `initiation-contract-${data.contractId}`,
+      sourceIdempotencyKey: `initiation:contract:${data.contractId}`,
       memo: `Initiation contract created: ${data.contractId}`,
       currency: 'USD',
       lines,
@@ -389,6 +390,7 @@ export async function handleInitiationInstallmentForAccounting(event: EventEnvel
       businessDate: data.dueDate,
       sourceModule: 'membership',
       sourceReferenceId: `initiation-installment-${data.scheduleEntryId}`,
+      sourceIdempotencyKey: `initiation:installment:${data.scheduleEntryId}`,
       memo: `Initiation installment ${data.periodIndex + 1} billed: contract ${data.contractId}`,
       currency: 'USD',
       lines,
@@ -485,6 +487,7 @@ export async function handleInitiationExtraPrincipalForAccounting(event: EventEn
       businessDate: data.effectiveDate,
       sourceModule: 'membership',
       sourceReferenceId: `initiation-extra-principal-${data.contractId}-${data.effectiveDate}`,
+      sourceIdempotencyKey: `initiation:extra-principal:${data.contractId}:${data.effectiveDate}`,
       memo: `Extra principal payment on initiation contract ${data.contractId}`,
       currency: 'USD',
       lines: [

@@ -99,6 +99,7 @@ export async function handleStoredValueIssuedForAccounting(event: EventEnvelope)
         businessDate: new Date().toISOString().split('T')[0]!,
         sourceModule: 'stored_value',
         sourceReferenceId: `issue-${data.instrumentId}`,
+        sourceIdempotencyKey: `stored-value:issue:${data.instrumentId}`,
         memo: `Stored value issued: ${data.instrumentType} ${data.code} ($${amountDollars})`,
         lines: [
           {
@@ -193,6 +194,7 @@ export async function handleStoredValueRedeemedForAccounting(event: EventEnvelop
         businessDate: new Date().toISOString().split('T')[0]!,
         sourceModule: 'stored_value',
         sourceReferenceId: `redeem-${data.instrumentId}-${event.eventId}`,
+        sourceIdempotencyKey: `stored-value:redeem:${data.instrumentId}:${event.eventId}`,
         memo: `Stored value redeemed: ${data.instrumentType} ${data.code} ($${amountDollars})`,
         lines: [
           {
@@ -318,6 +320,7 @@ export async function handleStoredValueVoidedForAccounting(event: EventEnvelope)
         businessDate: new Date().toISOString().split('T')[0]!,
         sourceModule: 'stored_value',
         sourceReferenceId: `void-${data.instrumentId}`,
+        sourceIdempotencyKey: `stored-value:void:${data.instrumentId}`,
         memo: `Stored value voided: ${data.instrumentType} ${data.code} ($${amountDollars})`,
         lines: [
           {
@@ -408,6 +411,7 @@ export async function handleStoredValueReloadedForAccounting(event: EventEnvelop
         businessDate: new Date().toISOString().split('T')[0]!,
         sourceModule: 'stored_value',
         sourceReferenceId: `reload-${data.instrumentId}-${event.eventId}`,
+        sourceIdempotencyKey: `stored-value:reload:${data.instrumentId}:${event.eventId}`,
         memo: `Stored value reloaded: ${data.instrumentType} ${data.code} ($${amountDollars})`,
         lines: [
           {
@@ -497,6 +501,7 @@ export async function handleStoredValueTransferredForAccounting(event: EventEnve
         businessDate: new Date().toISOString().split('T')[0]!,
         sourceModule: 'stored_value',
         sourceReferenceId: `transfer-${data.sourceInstrumentId}-to-${data.targetInstrumentId}-${event.eventId}`,
+        sourceIdempotencyKey: `stored-value:transfer:${data.sourceInstrumentId}:${data.targetInstrumentId}:${event.eventId}`,
         memo: `Stored value transfer: $${amountDollars} from ${data.sourceInstrumentId} to ${data.targetInstrumentId}`,
         lines: [
           {

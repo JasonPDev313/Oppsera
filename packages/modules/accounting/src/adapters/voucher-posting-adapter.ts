@@ -116,6 +116,7 @@ export async function handleVoucherPurchaseForAccounting(event: EventEnvelope): 
       businessDate: data.businessDate,
       sourceModule: 'voucher',
       sourceReferenceId: `purchase-${data.voucherId}`,
+      sourceIdempotencyKey: `voucher:purchase:${data.voucherId}`,
       memo: `Voucher purchased: ${data.voucherNumber}`,
       currency: 'USD',
       lines: [
@@ -219,6 +220,7 @@ export async function handleVoucherRedemptionForAccounting(event: EventEnvelope)
       businessDate: data.businessDate,
       sourceModule: 'voucher',
       sourceReferenceId: `redeem-${data.voucherId}-${data.tenderId ?? data.amountCents}`,
+      sourceIdempotencyKey: `voucher:redeem:${data.voucherId}:${data.tenderId ?? data.amountCents}`,
       memo: `Voucher redeemed: ${data.voucherNumber}`,
       currency: 'USD',
       lines: [
@@ -337,6 +339,7 @@ export async function handleVoucherExpirationForAccounting(event: EventEnvelope)
       businessDate: data.expirationDate,
       sourceModule: 'voucher',
       sourceReferenceId: `expire-${data.voucherId}`,
+      sourceIdempotencyKey: `voucher:expire:${data.voucherId}`,
       memo: `Voucher expired: ${data.voucherNumber} — breakage income`,
       currency: 'USD',
       lines: [

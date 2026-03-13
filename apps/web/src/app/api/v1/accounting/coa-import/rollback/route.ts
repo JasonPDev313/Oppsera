@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant, glCoaImportLogs } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -67,7 +67,7 @@ async function handler(req: NextRequest, ctx: RequestContext) {
       // Mark import log as rolled back
       await tx.update(glCoaImportLogs).set({
         status: 'rolled_back',
-      }).where(sql`id = ${importLogId}`);
+      }).where(and(eq(glCoaImportLogs.id, importLogId), eq(glCoaImportLogs.tenantId, ctx.tenantId)));
     });
 
     return NextResponse.json({ data: { success: true, importLogId } });

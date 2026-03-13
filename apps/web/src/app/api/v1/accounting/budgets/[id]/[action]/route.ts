@@ -1,7 +1,33 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { approveBudget, lockBudget, upsertBudgetLines } from '@oppsera/module-accounting';
+
+const BudgetLineItemSchema = z
+  .object({
+    glAccountId: z.string(),
+    month1: z.number().optional(),
+    month2: z.number().optional(),
+    month3: z.number().optional(),
+    month4: z.number().optional(),
+    month5: z.number().optional(),
+    month6: z.number().optional(),
+    month7: z.number().optional(),
+    month8: z.number().optional(),
+    month9: z.number().optional(),
+    month10: z.number().optional(),
+    month11: z.number().optional(),
+    month12: z.number().optional(),
+    notes: z.string().optional(),
+  })
+  .strict();
+
+const BudgetLinesSchema = z
+  .object({
+    lines: z.array(BudgetLineItemSchema).min(1),
+  })
+  .strict();
 
 function extractId(request: NextRequest): string {
   const parts = request.nextUrl.pathname.split('/');
@@ -30,16 +56,14 @@ export const POST = withMiddleware(
 
       case 'lines': {
         const body = await request.json();
-        const { lines } = body;
-
-        if (!Array.isArray(lines) || lines.length === 0) {
+        const parsed = BudgetLinesSchema.safeParse(body);
+        if (!parsed.success) {
           return NextResponse.json(
-            { error: { code: 'VALIDATION_ERROR', message: 'lines array is required' } },
+            { error: { code: 'VALIDATION_ERROR', message: 'Invalid input', details: parsed.error.issues } },
             { status: 400 },
           );
         }
-
-        const result = await upsertBudgetLines(ctx, id, lines);
+        const result = await upsertBudgetLines(ctx, id, parsed.data.lines);
         return NextResponse.json({ data: result });
       }
 

@@ -365,6 +365,7 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
       businessDate: data.businessDate,
       sourceModule: 'pos_return',
       sourceReferenceId: data.returnOrderId,
+      sourceIdempotencyKey: `returns:return:${data.returnOrderId}`,
       memo: `Return for order ${data.originalOrderId}`,
       currency: settings.baseCurrency,
       lines: glLines,

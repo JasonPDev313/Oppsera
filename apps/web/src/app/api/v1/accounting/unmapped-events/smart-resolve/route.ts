@@ -44,5 +44,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true },
 );

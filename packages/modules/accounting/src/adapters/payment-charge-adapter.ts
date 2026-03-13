@@ -120,6 +120,7 @@ export async function handlePaymentChargedForAccounting(event: EventEnvelope): P
       businessDate,
       sourceModule: 'pms',
       sourceReferenceId: data.transactionId,
+      sourceIdempotencyKey: `payments:charge:${data.transactionId}`,
       memo: `PMS Card Charge - Folio ${data.folioId}${data.reservationId ? ` (Res: ${data.reservationId})` : ''}`,
       currency: settings.baseCurrency,
       lines: [
@@ -200,6 +201,7 @@ export async function handlePaymentRefundedForAccounting(event: EventEnvelope): 
       businessDate,
       sourceModule: 'pms',
       sourceReferenceId: data.transactionId,
+      sourceIdempotencyKey: `payments:refund:${data.transactionId}`,
       memo: `PMS Card Refund - Res ${data.reservationId} (orig: ${data.originalTransactionId})`,
       currency: settings.baseCurrency,
       lines: [
