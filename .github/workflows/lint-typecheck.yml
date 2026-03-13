@@ -1,5 +1,6 @@
 name: CI — Lint, Type Check & Build
 
+# Required status check for branch protection (OpenSSF Scorecard CI-Tests)
 on:
   push:
     branches: [main]

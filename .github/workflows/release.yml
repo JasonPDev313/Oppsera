@@ -1,0 +1,46 @@
+name: Signed Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions: {}
+
+jobs:
+  release:
+    name: Build & Sign Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Create source archive
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          git archive --format=tar.gz --prefix="oppsera-${TAG}/" HEAD \
+            -o "oppsera-${TAG}.tar.gz"
+          sha256sum "oppsera-${TAG}.tar.gz" > "oppsera-${TAG}.tar.gz.sha256"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@520d128f165991a6c774bcb264f323e3d70747f0 # v2.2.0
+        with:
+          subject-path: "oppsera-${{ github.ref_name }}.tar.gz"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          gh release create "${TAG}" \
+            --title "${TAG}" \
+            --generate-notes \
+            "oppsera-${TAG}.tar.gz" \
+            "oppsera-${TAG}.tar.gz.sha256"
