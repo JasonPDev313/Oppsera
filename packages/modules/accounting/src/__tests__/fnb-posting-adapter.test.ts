@@ -22,6 +22,7 @@ vi.mock('../helpers/get-accounting-settings', () => ({
 
 vi.mock('../helpers/resolve-mapping', () => ({
   logUnmappedEvent: vi.fn(),
+  batchResolveSubDepartmentAccounts: vi.fn().mockResolvedValue(new Map()),
 }));
 
 vi.mock('../helpers/ensure-accounting-settings', () => ({

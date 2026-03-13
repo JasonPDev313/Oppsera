@@ -145,12 +145,14 @@ describe('handleTenderForAccounting', () => {
 
   // ── Core behavior ──────────────────────────────────────────────
 
-  it('should skip silently when accounting is not enabled', async () => {
-    // First call returns null, ensureAccountingSettings runs, second call also returns null
-    // → throws PermanentPostingError (swallowed by outer catch)
+  it('should re-throw transient error when accounting settings unavailable after ensure', async () => {
+    // Both calls to getAccountingSettings return null (ensure ran but settings still absent)
+    // → throws transient error so outbox worker retries
     mocks.getAccountingSettings.mockResolvedValue(null);
 
-    await handleTenderForAccounting(createEvent());
+    await expect(handleTenderForAccounting(createEvent())).rejects.toThrow(
+      'GL posting deferred',
+    );
 
     expect(mocks.resolvePaymentTypeAccounts).not.toHaveBeenCalled();
     expect(mocks.postEntry).not.toHaveBeenCalled();
@@ -359,21 +361,20 @@ describe('handleTenderForAccounting', () => {
     );
   });
 
-  it('should swallow permanent posting errors (no retry)', async () => {
-    const { PermanentPostingError: _PermanentPostingError } = await import('@oppsera/shared');
-    // Both calls to getAccountingSettings return null → PermanentPostingError
+  it('should re-throw when settings unavailable after ensure (transient error for outbox retry)', async () => {
+    // Both calls to getAccountingSettings return null after ensureAccountingSettings
+    // → throws transient error (not PermanentPostingError) so outbox retries
     mocks.getAccountingSettings.mockResolvedValue(null);
     mocks.ensureAccountingSettings.mockResolvedValueOnce({ created: false, autoWired: 0 });
 
-    // PermanentPostingError (missing settings) should NOT propagate
     await expect(handleTenderForAccounting(createEvent({
       lines: [singleLine()],
-    }))).resolves.toBeUndefined();
+    }))).rejects.toThrow('GL posting deferred');
 
     expect(mocks.logUnmappedEvent).toHaveBeenCalledWith(
       expect.anything(),
       'tenant-1',
-      expect.objectContaining({ entityType: 'permanent_posting_error' }),
+      expect.objectContaining({ entityType: 'transient_posting_error' }),
     );
   });
 

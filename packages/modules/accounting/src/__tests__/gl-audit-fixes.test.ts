@@ -77,6 +77,7 @@ vi.mock('@oppsera/shared', async (importOriginal) => {
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((a: string, b: string) => ({ op: 'eq', a, b })),
   and: vi.fn((...args: unknown[]) => ({ op: 'and', args })),
+  inArray: vi.fn((col: unknown, vals: unknown[]) => ({ op: 'inArray', col, vals })),
   sql: Object.assign(vi.fn((...args: unknown[]) => args), {
     raw: vi.fn((s: string) => s),
   }),
@@ -319,18 +320,19 @@ describe('HIGH-6: POS adapter logs unmapped event when settings are null', () =>
     mocks.logUnmappedEvent.mockResolvedValue(undefined);
   });
 
-  it('logs unmapped event when accounting settings are null (not bootstrapped)', async () => {
+  it('re-throws transient error and logs unmapped event when settings unavailable', async () => {
     mocks.getAccountingSettings.mockResolvedValue(null);
 
     const event = createTenderEvent();
-    await handleTenderForAccounting(event);
+    // Transient error propagates so outbox worker retries
+    await expect(handleTenderForAccounting(event)).rejects.toThrow('GL posting deferred');
 
     expect(mocks.logUnmappedEvent).toHaveBeenCalledWith(
       expect.anything(),
       'tenant-1',
       expect.objectContaining({
         eventType: 'tender.recorded.v1',
-        reason: expect.stringContaining('accounting_settings could not be created'),
+        entityType: 'transient_posting_error',
       }),
     );
   });

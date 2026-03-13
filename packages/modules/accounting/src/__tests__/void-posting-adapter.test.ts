@@ -297,7 +297,7 @@ describe('handleOrderVoidForAccounting', () => {
     );
   });
 
-  it('should never throw even when DB query fails', async () => {
+  it('should re-throw transient DB errors for outbox retry', async () => {
     mocks.db.select.mockImplementationOnce(() => ({
       from: vi.fn(() => ({
         where: vi.fn(() => Promise.reject(new Error('Connection timeout'))),
@@ -305,21 +305,13 @@ describe('handleOrderVoidForAccounting', () => {
     }));
     mocks.logUnmappedEvent.mockResolvedValue(undefined);
 
+    // Transient errors now propagate so the outbox worker can retry
     await expect(
       handleOrderVoidForAccounting(createVoidEvent()),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.logUnmappedEvent).toHaveBeenCalledWith(
-      expect.anything(),
-      'tenant-1',
-      expect.objectContaining({
-        entityType: 'void_processing_error',
-        reason: expect.stringContaining('Connection timeout'),
-      }),
-    );
+    ).rejects.toThrow('Connection timeout');
   });
 
-  it('should never throw even when logUnmappedEvent fails', async () => {
+  it('should re-throw transient DB errors even when logUnmappedEvent also fails', async () => {
     mocks.db.select.mockImplementationOnce(() => ({
       from: vi.fn(() => ({
         where: vi.fn(() => Promise.reject(new Error('Query failed'))),
@@ -327,9 +319,9 @@ describe('handleOrderVoidForAccounting', () => {
     }));
     mocks.logUnmappedEvent.mockRejectedValue(new Error('Log failed too'));
 
-    // Double failure — should still not throw
+    // Transient error still re-thrown even if logging also fails
     await expect(
       handleOrderVoidForAccounting(createVoidEvent()),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow('Query failed');
   });
 });

@@ -750,7 +750,7 @@ describe('GL Posting Matrix — Balance Validation', () => {
       } as any)).resolves.toBeUndefined();
     });
 
-    it('chargeback received does not throw on error', async () => {
+    it('chargeback received re-throws transient errors for outbox retry', async () => {
       const { getAccountingSettings } = await import(
         '../helpers/get-accounting-settings'
       );
@@ -759,13 +759,14 @@ describe('GL Posting Matrix — Balance Validation', () => {
       const { handleChargebackReceivedForAccounting } = await import(
         '../adapters/chargeback-posting-adapter'
       );
+      // Transient errors now propagate so the outbox worker can retry
       await expect(handleChargebackReceivedForAccounting({
         eventId: 'e', eventType: 'v', occurredAt: '', tenantId: 't',
         idempotencyKey: 'k', data: { chargebackId: 'cb1' },
-      } as any)).resolves.toBeUndefined();
+      } as any)).rejects.toThrow('DB down');
     });
 
-    it('chargeback resolved does not throw on error', async () => {
+    it('chargeback resolved re-throws transient errors for outbox retry', async () => {
       const { getAccountingSettings } = await import(
         '../helpers/get-accounting-settings'
       );
@@ -774,10 +775,11 @@ describe('GL Posting Matrix — Balance Validation', () => {
       const { handleChargebackResolvedForAccounting } = await import(
         '../adapters/chargeback-posting-adapter'
       );
+      // Transient errors now propagate so the outbox worker can retry
       await expect(handleChargebackResolvedForAccounting({
         eventId: 'e', eventType: 'v', occurredAt: '', tenantId: 't',
         idempotencyKey: 'k', data: { chargebackId: 'cb1', resolution: 'won' },
-      } as any)).resolves.toBeUndefined();
+      } as any)).rejects.toThrow('DB down');
     });
   });
 });

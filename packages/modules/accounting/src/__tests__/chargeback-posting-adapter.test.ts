@@ -193,11 +193,12 @@ describe('Chargeback GL Posting Adapters', () => {
       expect(lines[1].creditAmount).toBe('123.45');
     });
 
-    it('should never throw — catches all errors', async () => {
+    it('should re-throw transient errors for outbox retry', async () => {
       const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
       (getAccountingSettings as any).mockRejectedValueOnce(new Error('DB down'));
 
-      await expect(handleChargebackReceivedForAccounting(baseReceivedEvent as any)).resolves.toBeUndefined();
+      // Transient errors now propagate so the outbox worker can retry
+      await expect(handleChargebackReceivedForAccounting(baseReceivedEvent as any)).rejects.toThrow('DB down');
     });
 
     it('should include locationId on GL lines', async () => {
@@ -251,11 +252,12 @@ describe('Chargeback GL Posting Adapters', () => {
       expect(input.lines[1].creditAmount).toBe('50.00');
     });
 
-    it('should never throw — catches all errors', async () => {
+    it('should re-throw transient errors for outbox retry', async () => {
       const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
       (getAccountingSettings as any).mockRejectedValueOnce(new Error('DB down'));
 
-      await expect(handleChargebackResolvedForAccounting(baseResolvedEvent as any)).resolves.toBeUndefined();
+      // Transient errors now propagate so the outbox worker can retry
+      await expect(handleChargebackResolvedForAccounting(baseResolvedEvent as any)).rejects.toThrow('DB down');
     });
   });
 
