@@ -20,6 +20,7 @@ import { ActionMenu } from '@/components/ui/action-menu';
 import type { ActionMenuItem } from '@/components/ui/action-menu';
 import { useSpaAppointments, useSpaProviders } from '@/hooks/use-spa';
 import { useAuthContext } from '@/components/auth-provider';
+import { formatCentsLocale } from '@oppsera/shared';
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -77,12 +78,7 @@ function formatTime(dateStr: string): string {
   });
 }
 
-function formatMoney(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  });
-}
+const formatMoney = formatCentsLocale;
 
 // ── Status Badge ────────────────────────────────────────────────
 

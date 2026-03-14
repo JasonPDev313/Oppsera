@@ -183,9 +183,7 @@ export function getDateRange(start: Date, count: number): string[] {
   return dates;
 }
 
-export function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+export { formatCents as formatMoney } from '@oppsera/shared';
 
 export function nightsBetween(checkIn: string, checkOut: string): number {
   const a = new Date(`${checkIn}T00:00:00`);

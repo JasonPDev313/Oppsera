@@ -1,6 +1,7 @@
 'use client';
 
 import { User, Check, Clock } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 
 interface ServerCheckout {
   id: string;
@@ -19,8 +20,6 @@ interface ServerCheckoutListProps {
 }
 
 export function ServerCheckoutList({ checkouts, onBeginCheckout }: ServerCheckoutListProps) {
-  const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
-
   return (
     <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'rgba(148, 163, 184, 0.15)', backgroundColor: 'var(--fnb-bg-surface)' }}>
       <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}>
@@ -36,7 +35,7 @@ export function ServerCheckoutList({ checkouts, onBeginCheckout }: ServerCheckou
                   {co.serverName ?? 'Unknown'}
                 </span>
                 <div className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
-                  {co.tabCount} tabs · Sales: {formatMoney(co.salesCents)} · Tips: {formatMoney(co.tipsCents)}
+                  {co.tabCount} tabs · Sales: {formatCents(co.salesCents)} · Tips: {formatCents(co.tipsCents)}
                 </div>
               </div>
             </div>
@@ -45,7 +44,7 @@ export function ServerCheckoutList({ checkouts, onBeginCheckout }: ServerCheckou
                 className="text-xs font-mono font-bold"
                 style={{ color: 'var(--fnb-text-primary)', fontFamily: 'var(--fnb-font-mono)' }}
               >
-                {formatMoney(co.cashOwedCents)}
+                {formatCents(co.cashOwedCents)}
               </span>
               {co.status === 'completed' ? (
                 <Check className="h-4 w-4" style={{ color: 'var(--fnb-status-available)' }} />

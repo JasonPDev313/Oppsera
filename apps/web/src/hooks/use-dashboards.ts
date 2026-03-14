@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
-import { useMutation } from '@/hooks/use-mutation';
+import { useToast } from '@/components/ui/toast';
 import type { SavedDashboard, DashboardTile } from '@/types/custom-reports';
 
 // ── List Dashboards ──────────────────────────────────────────
@@ -96,22 +97,32 @@ interface SaveDashboardInput {
 }
 
 export function useSaveDashboard() {
-  return useMutation<SaveDashboardInput, SavedDashboard>(async (input) => {
-    const method = input.id ? 'PUT' : 'POST';
-    const path = input.id ? `/api/v1/dashboards/${input.id}` : '/api/v1/dashboards';
+  const { toast } = useToast();
+  const { mutateAsync, isPending, error } = useMutation<SavedDashboard, Error, SaveDashboardInput>({
+    mutationFn: async (input) => {
+      const method = input.id ? 'PUT' : 'POST';
+      const path = input.id ? `/api/v1/dashboards/${input.id}` : '/api/v1/dashboards';
 
-    const res = await apiFetch<{ data: SavedDashboard }>(path, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-    return res.data;
+      const res = await apiFetch<{ data: SavedDashboard }>(path, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      return res.data;
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
+  return { mutate: mutateAsync, isLoading: isPending, error };
 }
 
 // ── Delete Dashboard ─────────────────────────────────────────
 export function useDeleteDashboard() {
-  return useMutation<string, void>(async (dashboardId) => {
-    await apiFetch(`/api/v1/dashboards/${dashboardId}`, { method: 'DELETE' });
+  const { toast } = useToast();
+  const { mutateAsync, isPending, error } = useMutation<void, Error, string>({
+    mutationFn: async (dashboardId) => {
+      await apiFetch(`/api/v1/dashboards/${dashboardId}`, { method: 'DELETE' });
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
+  return { mutate: mutateAsync, isLoading: isPending, error };
 }

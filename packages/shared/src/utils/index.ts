@@ -1,5 +1,18 @@
 export { generateUlid, isValidUlid } from './ulid';
-export { toCents, toDollars, addMoney, subtractMoney, multiplyMoney, formatMoney } from './money';
+export {
+  toCents,
+  toDollars,
+  addMoney,
+  subtractMoney,
+  multiplyMoney,
+  formatMoney,
+  formatCents,
+  formatCentsRaw,
+  formatDollarsLocale,
+  formatCentsLocale,
+  formatDollarString,
+  formatCompact,
+} from './money';
 export { nowUTC, toBusinessDate } from './date';
 export { generateSlug } from './slug';
 export { getItemTypeGroup, ITEM_TYPE_MAP } from './item-types';

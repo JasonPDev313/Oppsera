@@ -15,13 +15,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { getItemTypeGroup } from '@/types/catalog';
 import type { Order, OrderLine } from '@/types/pos';
+import { formatCents } from '@oppsera/shared';
 import type { FnbMetadata } from '@oppsera/shared';
 import { LineItemEditPanel } from './LineItemEditPanel';
 import type { LineEditPermissions } from './LineItemEditPanel';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 // ── Type-specific line renderers ──────────────────────────────────
 
@@ -82,10 +79,10 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
           {line.originalUnitPrice != null && (
             <div className="mt-0.5 flex items-center gap-1.5">
               <span className="text-xs text-muted-foreground line-through">
-                {formatMoney(line.originalUnitPrice)}
+                {formatCents(line.originalUnitPrice)}
               </span>
               <span className="text-xs font-medium text-foreground">
-                {formatMoney(line.unitPrice)}
+                {formatCents(line.unitPrice)}
               </span>
               {line.priceOverrideReason && (
                 <Badge variant="warning" className="text-[10px]">
@@ -106,7 +103,7 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
                   {mod.name}
                   {mod.priceAdjustment !== 0 && (
                     <span className="ml-1 text-muted-foreground">
-                      {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
+                      {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatCents(Math.abs(mod.priceAdjustment))}
                     </span>
                   )}
                 </div>
@@ -134,11 +131,11 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
               className="text-sm font-semibold text-foreground"
               style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
             >
-              {formatMoney(line.lineTotal)}
+              {formatCents(line.lineTotal)}
             </div>
             {line.lineTax > 0 && (
               <div className="text-[10px] text-muted-foreground">
-                tax {formatMoney(line.lineTax)}
+                tax {formatCents(line.lineTax)}
               </div>
             )}
           </div>
@@ -213,10 +210,10 @@ function RetailLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
           {line.originalUnitPrice != null && (
             <div className="mt-0.5 flex items-center gap-1.5">
               <span className="text-xs text-muted-foreground line-through">
-                {formatMoney(line.originalUnitPrice)}
+                {formatCents(line.originalUnitPrice)}
               </span>
               <span className="text-xs font-medium text-foreground">
-                {formatMoney(line.unitPrice)}
+                {formatCents(line.unitPrice)}
               </span>
               {line.priceOverrideReason && (
                 <Badge variant="warning" className="text-[10px]">
@@ -243,7 +240,7 @@ function RetailLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
                   {mod.name}
                   {mod.priceAdjustment !== 0 && (
                     <span className="ml-1">
-                      {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
+                      {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatCents(Math.abs(mod.priceAdjustment))}
                     </span>
                   )}
                 </div>
@@ -263,11 +260,11 @@ function RetailLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
               className="text-sm font-semibold text-foreground"
               style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
             >
-              {formatMoney(line.lineTotal)}
+              {formatCents(line.lineTotal)}
             </div>
             {line.lineTax > 0 && (
               <div className="text-[10px] text-muted-foreground">
-                tax {formatMoney(line.lineTax)}
+                tax {formatCents(line.lineTax)}
               </div>
             )}
           </div>
@@ -333,10 +330,10 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
         {line.originalUnitPrice != null && (
           <div className="mt-0.5 flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground line-through">
-              {formatMoney(line.originalUnitPrice)}
+              {formatCents(line.originalUnitPrice)}
             </span>
             <span className="text-xs font-medium text-foreground">
-              {formatMoney(line.unitPrice)}
+              {formatCents(line.unitPrice)}
             </span>
             {line.priceOverrideReason && (
               <Badge variant="warning" className="text-[10px]">
@@ -354,7 +351,7 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
                 {mod.name}
                 {mod.priceAdjustment !== 0 && (
                   <span className="ml-1">
-                    {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
+                    {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatCents(Math.abs(mod.priceAdjustment))}
                   </span>
                 )}
               </div>
@@ -374,11 +371,11 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
             className="text-sm font-semibold text-foreground"
             style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
           >
-            {formatMoney(line.lineTotal)}
+            {formatCents(line.lineTotal)}
           </div>
           {line.lineTax > 0 && (
             <div className="text-[10px] text-muted-foreground">
-              tax {formatMoney(line.lineTax)}
+              tax {formatCents(line.lineTax)}
             </div>
           )}
         </div>
@@ -410,10 +407,10 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
         {line.originalUnitPrice != null && (
           <div className="mt-0.5 flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground line-through">
-              {formatMoney(line.originalUnitPrice)}
+              {formatCents(line.originalUnitPrice)}
             </span>
             <span className="text-xs font-medium text-foreground">
-              {formatMoney(line.unitPrice)}
+              {formatCents(line.unitPrice)}
             </span>
             {line.priceOverrideReason && (
               <Badge variant="warning" className="text-[10px]">
@@ -441,7 +438,7 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
                 {mod.name}
                 {mod.priceAdjustment !== 0 && (
                   <span className="ml-1">
-                    {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
+                    {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatCents(Math.abs(mod.priceAdjustment))}
                   </span>
                 )}
               </div>
@@ -461,11 +458,11 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
             className="text-sm font-semibold text-foreground"
             style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
           >
-            {formatMoney(line.lineTotal)}
+            {formatCents(line.lineTotal)}
           </div>
           {line.lineTax > 0 && (
             <div className="text-[10px] text-muted-foreground">
-              tax {formatMoney(line.lineTax)}
+              tax {formatCents(line.lineTax)}
             </div>
           )}
         </div>
@@ -604,10 +601,10 @@ function GroupSubRow({
           {line.originalUnitPrice != null && (
             <div className="mt-0.5 flex items-center gap-1">
               <span className="text-[10px] text-muted-foreground line-through">
-                {formatMoney(line.originalUnitPrice)}
+                {formatCents(line.originalUnitPrice)}
               </span>
               <span className="text-[10px] font-medium text-foreground">
-                {formatMoney(line.unitPrice)}
+                {formatCents(line.unitPrice)}
               </span>
               {line.priceOverrideReason && (
                 <Badge variant="warning" className="text-[9px] px-1 py-0">
@@ -625,7 +622,7 @@ function GroupSubRow({
                   <span className="h-1 w-1 rounded-full bg-muted-foreground/50 shrink-0" />
                   <span>{mod.name}</span>
                   {mod.priceAdjustment !== 0 && (
-                    <span>{mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}</span>
+                    <span>{mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatCents(Math.abs(mod.priceAdjustment))}</span>
                   )}
                 </div>
               ))}
@@ -666,7 +663,7 @@ function GroupSubRow({
             className="text-xs font-semibold text-foreground"
             style={{ fontSize: 'calc(0.75rem * var(--pos-font-scale, 1))' }}
           >
-            {formatMoney(line.lineTotal)}
+            {formatCents(line.lineTotal)}
           </span>
           <button
             type="button"
@@ -952,7 +949,7 @@ export const Cart = memo(function Cart({
                           className="text-sm font-semibold text-foreground"
                           style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
                         >
-                          {formatMoney(group.totalCents)}
+                          {formatCents(group.totalCents)}
                         </div>
                         <button
                           type="button"

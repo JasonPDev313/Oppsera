@@ -2,12 +2,13 @@
 
 import { memo, useEffect } from 'react';
 import { WifiOff } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthContext } from '@/components/auth-provider';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
 import { usePosLocation } from '@/hooks/use-pos-location';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbSettings } from '@/hooks/use-fnb-settings';
-import { useFetch } from '@/hooks/use-fetch';
+import { apiFetch } from '@/lib/api-client';
 import { FnbFloorView } from '@/components/fnb/floor/FnbFloorView';
 import { FnbTabView } from '@/components/fnb/tab/FnbTabView';
 import { FnbSplitView } from '@/components/fnb/FnbSplitView';
@@ -84,9 +85,11 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
   }, [defaultCourses, setCourseNames]);
 
   // Fetch course rules for POS auto-select
-  const { data: courseRulesData } = useFetch<{ data: Record<string, unknown> }>(
-    locationId ? '/api/v1/fnb/course-rules/pos' : null,
-  );
+  const { data: courseRulesData } = useQuery({
+    queryKey: ['fnb-course-rules-pos', locationId],
+    queryFn: () => apiFetch<{ data: Record<string, unknown> }>('/api/v1/fnb/course-rules/pos'),
+    enabled: !!locationId,
+  });
 
   useEffect(() => {
     if (courseRulesData?.data) {

@@ -29,14 +29,10 @@ import {
   EXPENSE_CATEGORIES,
   EXPENSE_STATUSES,
   EXPENSE_PAYMENT_METHODS,
+  formatDollarsLocale,
 } from '@oppsera/shared';
 
 // ── Helpers ──────────────────────────────────────────────────
-
-function formatMoney(amount: number | null | undefined): string {
-  if (amount == null) return '$0.00';
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-}
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '—';
@@ -219,7 +215,7 @@ function ExpenseListTab() {
                     <td className="px-4 py-3 text-sm text-foreground">{formatDate(exp.expenseDate)}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{categoryLabel(exp.category)}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{exp.vendorName ?? '—'}</td>
-                    <td className="px-4 py-3 text-right text-sm font-medium tabular-nums text-foreground">{formatMoney(exp.amount)}</td>
+                    <td className="px-4 py-3 text-right text-sm font-medium tabular-nums text-foreground">{formatDollarsLocale(exp.amount)}</td>
                     <td className="px-4 py-3"><StatusBadge status={exp.status} /></td>
                   </tr>
                 ))}
@@ -242,7 +238,7 @@ function ExpenseListTab() {
                 </div>
                 <div className="mt-2 flex items-baseline justify-between">
                   <span className="text-sm text-muted-foreground">{categoryLabel(exp.category)}</span>
-                  <span className="text-sm font-medium tabular-nums text-foreground">{formatMoney(exp.amount)}</span>
+                  <span className="text-sm font-medium tabular-nums text-foreground">{formatDollarsLocale(exp.amount)}</span>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   {formatDate(exp.expenseDate)} {exp.vendorName ? `· ${exp.vendorName}` : ''}
@@ -347,7 +343,7 @@ function ApprovalsTab() {
                 <p className="mt-1 text-xs text-muted-foreground">{exp.description}</p>
               )}
             </div>
-            <span className="text-sm font-medium tabular-nums text-foreground">{formatMoney(exp.amount)}</span>
+            <span className="text-sm font-medium tabular-nums text-foreground">{formatDollarsLocale(exp.amount)}</span>
           </div>
           <div className="mt-3 flex items-center gap-2">
             <button
@@ -437,10 +433,10 @@ function SummaryTab() {
     <div className="space-y-6">
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Total Expenses" value={formatMoney(totals.total)} icon={DollarSign} accent="text-blue-500" />
+        <KpiCard label="Total Expenses" value={formatDollarsLocale(totals.total)} icon={DollarSign} accent="text-blue-500" />
         <KpiCard label="Expense Count" value={String(totals.count)} icon={Receipt} accent="text-indigo-500" />
-        <KpiCard label="Reimbursed" value={formatMoney(totals.reimbursed)} icon={CheckCircle2} accent="text-green-500" />
-        <KpiCard label="Outstanding" value={formatMoney(totals.outstanding)} icon={Clock} accent="text-amber-500" />
+        <KpiCard label="Reimbursed" value={formatDollarsLocale(totals.reimbursed)} icon={CheckCircle2} accent="text-green-500" />
+        <KpiCard label="Outstanding" value={formatDollarsLocale(totals.outstanding)} icon={Clock} accent="text-amber-500" />
       </div>
 
       {/* By Category Table */}
@@ -462,8 +458,8 @@ function SummaryTab() {
                   <td className="px-4 py-3 text-sm text-foreground">{categoryLabel(s.category)}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{s.fiscalPeriod}</td>
                   <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">{s.expenseCount}</td>
-                  <td className="px-4 py-3 text-right text-sm font-medium tabular-nums text-foreground">{formatMoney(s.totalAmount)}</td>
-                  <td className="px-4 py-3 text-right text-sm tabular-nums text-green-500">{formatMoney(s.reimbursedAmount)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium tabular-nums text-foreground">{formatDollarsLocale(s.totalAmount)}</td>
+                  <td className="px-4 py-3 text-right text-sm tabular-nums text-green-500">{formatDollarsLocale(s.reimbursedAmount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -542,7 +538,7 @@ function ExpenseDetailPanel({ expenseId, onClose }: { expenseId: string; onClose
 
         {/* Details */}
         <div className="mt-4 space-y-3">
-          <DetailRow label="Amount" value={formatMoney(expense.amount)} />
+          <DetailRow label="Amount" value={formatDollarsLocale(expense.amount)} />
           <DetailRow label="Category" value={categoryLabel(expense.category)} />
           <DetailRow label="Date" value={formatDate(expense.expenseDate)} />
           <DetailRow label="Vendor" value={expense.vendorName ?? '—'} />

@@ -11,6 +11,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { Select } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/empty-state';
 import CreateReservationDialog from '@/components/pms/CreateReservationDialog';
+import { formatCents } from '@oppsera/shared';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -62,10 +63,6 @@ const STATUS_BADGES: Record<string, { label: string; variant: string }> = {
 };
 
 // ── Helpers ──────────────────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function guestName(r: Reservation): string {
   // Prefer joined pmsGuests columns (always correct); fall back to JSONB snapshot
@@ -281,7 +278,7 @@ export default function ReservationsContent() {
         width: '110px',
         render: (row: ReservationRow) => (
           <span className="text-sm text-foreground">
-            {formatMoney((row as Reservation).nightlyRateCents)}
+            {formatCents((row as Reservation).nightlyRateCents)}
           </span>
         ),
       },

@@ -22,6 +22,7 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { useSpaAppointment, useAppointmentAction } from '@/hooks/use-spa';
+import { formatCentsLocale } from '@oppsera/shared';
 import type { SpaAppointmentDetail } from '@/hooks/use-spa';
 import { CheckoutToPosDialog } from '@/components/spa/checkout-to-pos-dialog';
 import type { CheckoutToPosResult } from '@/components/spa/checkout-to-pos-dialog';
@@ -56,12 +57,7 @@ function formatShortDate(dateStr: string): string {
   });
 }
 
-function formatMoney(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  });
-}
+const formatMoney = formatCentsLocale;
 
 function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes}min`;

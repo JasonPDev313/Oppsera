@@ -1,11 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { formatCents } from '@oppsera/shared';
 import { POSSlidePanel } from './shared/POSSlidePanel';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 // ── Quick Button ──────────────────────────────────────────────────
 
@@ -99,7 +96,7 @@ export function DiscountDialog({ open, onClose, subtotalCents, onApplyDiscount }
     <POSSlidePanel open={open} onClose={onClose} title="Apply Discount">
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Subtotal: {formatMoney(subtotalCents)}
+          Subtotal: {formatCents(subtotalCents)}
         </p>
         <div className="flex gap-2">
           <QuickButton label="5%" onClick={() => handleQuick(5)} />

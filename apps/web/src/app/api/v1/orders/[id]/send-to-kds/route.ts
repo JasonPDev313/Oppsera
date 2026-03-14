@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant } from '@oppsera/db';
@@ -49,7 +49,16 @@ export const POST = withMiddleware(
     }
 
     const result = await sendOrderLinesToKds(ctx, orderId, order.businessDate, (order.orderType ?? undefined) as KdsOrderType | undefined);
-    broadcastFnb(ctx, 'kds').catch(() => {});
+
+    // Defer background work (dispatch attempt tracking + broadcast) via after()
+    // so fire-and-forget promises don't become zombie connections on Vercel
+    after(async () => {
+      await Promise.allSettled([
+        result.pendingWork,
+        broadcastFnb(ctx, 'kds'),
+      ].filter(Boolean));
+    });
+
     return NextResponse.json({
       data: {
         sentCount: result.sentCount,

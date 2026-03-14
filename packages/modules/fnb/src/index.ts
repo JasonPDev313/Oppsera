@@ -517,7 +517,7 @@ export type { PrintJobDetail } from './queries/get-print-job';
 
 // Helpers — Chit Layout Renderers
 export {
-  fitLine, rightAlign, centerText, formatDollars,
+  fitLine, rightAlign, centerText,
   renderKitchenChitText,
   renderDeltaChitText,
   renderGuestCheckText,
@@ -1350,7 +1350,7 @@ export {
   getStationPrepTimesForItems,
 } from './services/kds-routing-engine';
 export type {
-  RoutingContext, RoutableItem, RoutingResult,
+  RoutingContext, RoutableItem, RoutingResult, RoutingResultSet, CatalogChainEntry,
 } from './services/kds-routing-engine';
 
 // KDS Validation Schemas

@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { useProfileDrawer } from './ProfileDrawerContext';
 import { useCustomerHeader } from '@/hooks/use-customer-360';
-import { getInitials, formatPhone } from '@oppsera/shared';
+import { getInitials, formatPhone, formatCents, formatDollarsLocale } from '@oppsera/shared';
 import { Badge } from '@/components/ui/badge';
 import type { CustomerHeaderData } from '@/types/customer-360';
 
@@ -261,13 +261,8 @@ const LEGACY_TAB_MAP: Record<string, { section: SectionKey; subTab?: string }> =
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
-function formatMoneyDollars(dollars: number): string {
-  return dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-}
+const formatMoney = formatCents;
+const formatMoneyDollars = formatDollarsLocale;
 
 const FLAG_COLORS: Record<string, string> = {
   critical: 'bg-red-500/20 text-red-500',

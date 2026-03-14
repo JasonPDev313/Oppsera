@@ -1,11 +1,8 @@
 'use client';
 
 import { memo } from 'react';
+import { formatCents } from '@oppsera/shared';
 import type { Order } from '@/types/pos';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 interface ReadOnlyOrderSummaryProps {
   order: Order;
@@ -33,7 +30,7 @@ export const ReadOnlyOrderSummary = memo(function ReadOnlyOrderSummary({ order }
               {line.catalogItemName}
             </span>
             <span className="shrink-0 text-sm font-medium text-foreground">
-              {formatMoney(line.lineTotal)}
+              {formatCents(line.lineTotal)}
             </span>
           </div>
         ))}
@@ -43,29 +40,29 @@ export const ReadOnlyOrderSummary = memo(function ReadOnlyOrderSummary({ order }
       <div className="border-t border-border px-3 py-2 space-y-1">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Subtotal</span>
-          <span className="text-foreground">{formatMoney(order.subtotal)}</span>
+          <span className="text-foreground">{formatCents(order.subtotal)}</span>
         </div>
         {order.discountTotal > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-green-500">Discount</span>
-            <span className="text-green-500">-{formatMoney(order.discountTotal)}</span>
+            <span className="text-green-500">-{formatCents(order.discountTotal)}</span>
           </div>
         )}
         {order.serviceChargeTotal > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Charges</span>
-            <span className="text-foreground">{formatMoney(order.serviceChargeTotal)}</span>
+            <span className="text-foreground">{formatCents(order.serviceChargeTotal)}</span>
           </div>
         )}
         {order.taxTotal > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Tax</span>
-            <span className="text-foreground">{formatMoney(order.taxTotal)}</span>
+            <span className="text-foreground">{formatCents(order.taxTotal)}</span>
           </div>
         )}
         <div className="flex justify-between border-t border-border pt-1 text-base font-bold">
           <span className="text-foreground">Total</span>
-          <span className="text-foreground">{formatMoney(order.total)}</span>
+          <span className="text-foreground">{formatCents(order.total)}</span>
         </div>
       </div>
     </div>

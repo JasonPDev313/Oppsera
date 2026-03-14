@@ -10,13 +10,10 @@ import { useTerminalDevice } from '@/hooks/use-terminal-device';
 import { CardPresentIndicator } from '@/components/pos/CardPresentIndicator';
 import { useSurchargeSettings } from '@/hooks/use-payment-processors';
 import { usePaymentMethods } from '@/hooks/use-payment-methods';
+import { formatCents } from '@oppsera/shared';
 import type { POSConfig, Order, TenderSummary, RecordTenderResult } from '@/types/pos';
 
 type CardPresentStatus = 'idle' | 'waiting' | 'processing' | 'approved' | 'declined' | 'timeout' | 'cancelled';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function todayBusinessDate(): string {
   const d = new Date();
@@ -257,10 +254,10 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       isPlacedRef.current = true;
 
       if (result.isFullyPaid) {
-        toast.success(`Payment complete! ${tenderType === 'cash' && result.changeGiven > 0 ? `Change: ${formatMoney(result.changeGiven)}` : ''}`);
+        toast.success(`Payment complete! ${tenderType === 'cash' && result.changeGiven > 0 ? `Change: ${formatCents(result.changeGiven)}` : ''}`);
         onPaymentComplete(result);
       } else {
-        toast.info(`Partial payment recorded. Remaining: ${formatMoney(result.remainingBalance)}`);
+        toast.info(`Partial payment recorded. Remaining: ${formatCents(result.remainingBalance)}`);
         onPartialPayment?.(result.remainingBalance, 0);
         setAmountGiven('');
         setTipAmount('');
@@ -373,7 +370,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
           toast.success('Card payment complete!');
           onPaymentComplete(result);
         } else {
-          toast.info(`Partial payment recorded. Remaining: ${formatMoney(result.remainingBalance)}`);
+          toast.info(`Partial payment recorded. Remaining: ${formatCents(result.remainingBalance)}`);
           onPartialPayment?.(result.remainingBalance, 0);
           setAmountGiven('');
           setTipAmount('');
@@ -437,7 +434,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
           <h2 className="mt-4 text-xl font-bold text-foreground">Payment Complete</h2>
           {tenderType === 'cash' && lastResult.changeGiven > 0 && (
             <p className="mt-2 text-2xl font-bold text-green-500">
-              Change: {formatMoney(lastResult.changeGiven)}
+              Change: {formatCents(lastResult.changeGiven)}
             </p>
           )}
           <p className="mt-2 text-sm text-muted-foreground">Order fully paid</p>
@@ -471,17 +468,17 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
           <div className="rounded-lg bg-muted p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Order Total</span>
-              <span className="font-medium text-foreground">{formatMoney(order.total)}</span>
+              <span className="font-medium text-foreground">{formatCents(order.total)}</span>
             </div>
             {tenderSummary && tenderSummary.summary.totalTendered > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Already Paid</span>
-                <span className="font-medium text-green-500">{formatMoney(tenderSummary.summary.totalTendered)}</span>
+                <span className="font-medium text-green-500">{formatCents(tenderSummary.summary.totalTendered)}</span>
               </div>
             )}
             <div className="flex justify-between text-base font-bold border-t border-border pt-2">
               <span className="text-foreground">Remaining</span>
-              <span className="text-foreground">{formatMoney(remaining)}</span>
+              <span className="text-foreground">{formatCents(remaining)}</span>
             </div>
           </div>
 
@@ -490,14 +487,14 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 space-y-1">
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-amber-500">Credit Card Surcharge ({(effectiveSurchargeRate * 100).toFixed(2)}%)</span>
-                <span className="font-semibold text-amber-500">{formatMoney(surchargeAmountCents)}</span>
+                <span className="font-semibold text-amber-500">{formatCents(surchargeAmountCents)}</span>
               </div>
               {surchargeDisclosure && (
                 <p className="text-xs text-amber-500">{surchargeDisclosure}</p>
               )}
               <div className="flex justify-between text-sm font-bold border-t border-amber-500/30 pt-1">
                 <span className="text-amber-500">Total with Surcharge</span>
-                <span className="text-amber-500">{formatMoney(chargeAmountForSurcharge + surchargeAmountCents)}</span>
+                <span className="text-amber-500">{formatCents(chargeAmountForSurcharge + surchargeAmountCents)}</span>
               </div>
             </div>
           )}
@@ -736,7 +733,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                     })}
                     className="rounded-lg border border-border bg-surface px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:border-muted-foreground"
                   >
-                    +{formatMoney(cents)}
+                    +{formatCents(cents)}
                   </button>
                 ))}
                 {billAmounts.map((cents) => (
@@ -749,7 +746,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                     })}
                     className="rounded-lg border border-border bg-surface px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:border-muted-foreground"
                   >
-                    +{formatMoney(cents)}
+                    +{formatCents(cents)}
                   </button>
                 ))}
               </div>
@@ -759,7 +756,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                 disabled={isSubmitting}
                 className="w-full rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-semibold text-green-500 transition-colors hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? 'Processing...' : `Pay Exact — ${formatMoney(remaining)}`}
+                {isSubmitting ? 'Processing...' : `Pay Exact — ${formatCents(remaining)}`}
               </button>
 
               {/* Cash: Tip section (only if enabled) */}
@@ -788,7 +785,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
               {amountCents > remaining && (
                 <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-3 text-center">
                   <span className="text-sm text-green-500">Change Due: </span>
-                  <span className="text-lg font-bold text-green-500">{formatMoney(amountCents - remaining)}</span>
+                  <span className="text-lg font-bold text-green-500">{formatCents(amountCents - remaining)}</span>
                 </div>
               )}
             </>
@@ -834,9 +831,9 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
               ? 'Processing...'
               : isCardPresent
                 ? (cardPresentStatus === 'idle' || cardPresentStatus === 'cancelled')
-                  ? `Charge ${amountCents > 0 ? formatMoney(Math.min(amountCents, remaining)) : formatMoney(remaining)}`
+                  ? `Charge ${amountCents > 0 ? formatCents(Math.min(amountCents, remaining)) : formatCents(remaining)}`
                   : 'Processing...'
-                : `Pay ${amountCents > 0 ? formatMoney(Math.min(amountCents, remaining)) : ''}`
+                : `Pay ${amountCents > 0 ? formatCents(Math.min(amountCents, remaining)) : ''}`
             }
           </button>
         </div>

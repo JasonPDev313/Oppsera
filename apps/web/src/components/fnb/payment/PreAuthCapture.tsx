@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { CreditCard, Check, XCircle, AlertTriangle, Clock } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 
 interface PreAuth {
   id: string;
@@ -38,7 +39,6 @@ export function PreAuthCapture({ preauths, totalCents, onCapture, onVoid, disabl
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tipInput, setTipInput] = useState('');
 
-  const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
   const tipCents = tipInput ? Math.round(parseFloat(tipInput) * 100) : 0;
 
   const activePreauths = preauths.filter(
@@ -130,7 +130,7 @@ export function PreAuthCapture({ preauths, totalCents, onCapture, onVoid, disabl
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                Auth: {formatMoney(pa.authAmountCents)}
+                Auth: {formatCents(pa.authAmountCents)}
               </span>
             </button>
 
@@ -158,7 +158,7 @@ export function PreAuthCapture({ preauths, totalCents, onCapture, onVoid, disabl
                     className="text-xs font-mono"
                     style={{ color: 'var(--fnb-text-muted)' }}
                   >
-                    Total: {formatMoney(totalCents + tipCents)}
+                    Total: {formatCents(totalCents + tipCents)}
                   </span>
                 </div>
 
@@ -170,7 +170,7 @@ export function PreAuthCapture({ preauths, totalCents, onCapture, onVoid, disabl
                   >
                     <AlertTriangle className="h-3 w-3 shrink-0" />
                     Capture exceeds auth by{' '}
-                    {formatMoney(totalCents + tipCents - pa.authAmountCents)}
+                    {formatCents(totalCents + tipCents - pa.authAmountCents)}
                   </div>
                 )}
 

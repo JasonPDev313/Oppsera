@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronDown, ChevronUp } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import type { ShiftSummary } from '@/types/pos';
 
 // Denomination breakdown for cash counting
@@ -18,10 +19,6 @@ const DENOMINATIONS = [
   { label: '5¢', value: 5 },
   { label: '1¢', value: 1 },
 ] as const;
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 interface CloseShiftDialogProps {
   open: boolean;
@@ -103,29 +100,29 @@ export function CloseShiftDialog({
               <div className="text-muted-foreground">Sales Count</div>
               <div className="text-right font-medium">{summary.salesCount}</div>
               <div className="text-muted-foreground">Sales Total</div>
-              <div className="text-right font-medium">{formatMoney(summary.salesTotal)}</div>
+              <div className="text-right font-medium">{formatCents(summary.salesTotal)}</div>
               <div className="text-muted-foreground">Cash Received</div>
-              <div className="text-right font-medium">{formatMoney(summary.cashReceived)}</div>
+              <div className="text-right font-medium">{formatCents(summary.cashReceived)}</div>
               <div className="text-muted-foreground">Card Received</div>
-              <div className="text-right font-medium">{formatMoney(summary.cardReceived)}</div>
+              <div className="text-right font-medium">{formatCents(summary.cardReceived)}</div>
               <div className="text-muted-foreground">Tips Collected</div>
-              <div className="text-right font-medium">{formatMoney(summary.tipsCollected)}</div>
+              <div className="text-right font-medium">{formatCents(summary.tipsCollected)}</div>
               <div className="text-muted-foreground">Paid In</div>
-              <div className="text-right font-medium">{formatMoney(summary.paidInTotal)}</div>
+              <div className="text-right font-medium">{formatCents(summary.paidInTotal)}</div>
               <div className="text-muted-foreground">Paid Out</div>
-              <div className="text-right font-medium">{formatMoney(summary.paidOutTotal)}</div>
+              <div className="text-right font-medium">{formatCents(summary.paidOutTotal)}</div>
               <div className="text-muted-foreground">Cash Drops</div>
-              <div className="text-right font-medium">{formatMoney(summary.cashDropTotal)}</div>
+              <div className="text-right font-medium">{formatCents(summary.cashDropTotal)}</div>
               <div className="border-t border-border col-span-2" />
               <div className="text-muted-foreground">Opening Balance</div>
-              <div className="text-right font-medium">{formatMoney(summary.openingBalanceCents)}</div>
+              <div className="text-right font-medium">{formatCents(summary.openingBalanceCents)}</div>
               <div className="text-muted-foreground">Expected Cash</div>
-              <div className="text-right font-medium">{formatMoney(summary.expectedCashCents)}</div>
+              <div className="text-right font-medium">{formatCents(summary.expectedCashCents)}</div>
               <div className="text-muted-foreground">Counted Cash</div>
-              <div className="text-right font-medium">{formatMoney(summary.closingCountCents ?? 0)}</div>
+              <div className="text-right font-medium">{formatCents(summary.closingCountCents ?? 0)}</div>
               <div className="text-muted-foreground font-semibold">Variance</div>
               <div className={`text-right font-bold ${(summary.varianceCents ?? 0) === 0 ? 'text-green-500' : (summary.varianceCents ?? 0) > 0 ? 'text-blue-500' : 'text-red-500'}`}>
-                {(summary.varianceCents ?? 0) === 0 ? 'Balanced' : formatMoney(summary.varianceCents ?? 0)}
+                {(summary.varianceCents ?? 0) === 0 ? 'Balanced' : formatCents(summary.varianceCents ?? 0)}
               </div>
             </div>
 
@@ -135,7 +132,7 @@ export function CloseShiftDialog({
                 {summary.salesByDepartment.map((dept) => (
                   <div key={dept.departmentName} className="flex justify-between text-sm py-0.5">
                     <span>{dept.departmentName}</span>
-                    <span className="font-medium">{formatMoney(dept.total)} ({dept.count})</span>
+                    <span className="font-medium">{formatCents(dept.total)} ({dept.count})</span>
                   </div>
                 ))}
               </div>
@@ -154,7 +151,7 @@ export function CloseShiftDialog({
           <div className="space-y-4">
             <div className="rounded-lg bg-muted p-3 text-center">
               <div className="text-sm text-muted-foreground">Opening Balance</div>
-              <div className="text-lg font-semibold">{formatMoney(openingBalanceCents)}</div>
+              <div className="text-lg font-semibold">{formatCents(openingBalanceCents)}</div>
             </div>
 
             <button
@@ -194,7 +191,7 @@ export function CloseShiftDialog({
                         +
                       </button>
                       <span className="w-20 text-right text-sm text-muted-foreground">
-                        {formatMoney((counts[d.value] ?? 0) * d.value)}
+                        {formatCents((counts[d.value] ?? 0) * d.value)}
                       </span>
                     </div>
                   </div>
@@ -204,7 +201,7 @@ export function CloseShiftDialog({
 
             <div className="rounded-lg bg-indigo-500/10 p-3 text-center">
               <div className="text-sm text-indigo-400">Counted Cash</div>
-              <div className="text-2xl font-bold text-indigo-400">{formatMoney(totalCents)}</div>
+              <div className="text-2xl font-bold text-indigo-400">{formatCents(totalCents)}</div>
             </div>
 
             <div>

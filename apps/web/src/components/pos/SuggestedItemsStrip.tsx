@@ -2,11 +2,8 @@
 
 import { memo, useMemo, useRef, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import type { CatalogItemForPOS, OrderLine } from '@/types/pos';
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 interface SuggestedItemsStripProps {
   /** All catalog items available */
@@ -145,7 +142,7 @@ export const SuggestedItemsStrip = memo(function SuggestedItemsStrip({
               )}
               <div className="min-w-0 text-left">
                 <p className="truncate text-xs font-medium text-foreground">{item.name}</p>
-                <p className="text-xs text-muted-foreground">{formatPrice(item.price)}</p>
+                <p className="text-xs text-muted-foreground">{formatCents(item.price)}</p>
               </div>
             </button>
           );

@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/toast';
 import { apiFetch } from '@/lib/api-client';
 import { ManagerPinModal } from '@/components/ui/manager-pin-modal';
 import type { OrderLine } from '@/types/pos';
+import { formatCents } from '@oppsera/shared';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -19,12 +20,6 @@ interface ReturnLineState {
   returnQty: number;
   unitPrice: number;
   reason: string;
-}
-
-// ── Helpers ──────────────────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return `$${(Math.abs(cents) / 100).toFixed(2)}`;
 }
 
 // ── ReturnLineSelector ──────────────────────────────────────────
@@ -98,7 +93,7 @@ function ReturnLineSelector({
                     {line.catalogItemName}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    {formatMoney(line.unitPrice)} each
+                    {formatCents(line.unitPrice)} each
                   </span>
                 </div>
 
@@ -155,7 +150,7 @@ function ReturnLineSelector({
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Line refund:</span>
                       <span className="font-medium text-red-500">
-                        -{formatMoney(refundAmount)}
+                        -{formatCents(refundAmount)}
                       </span>
                     </div>
                   </div>
@@ -322,7 +317,7 @@ export default function ReturnContent() {
               Process Return
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Order {order.orderNumber} &middot; Original total: {formatMoney(order.total)}
+              Order {order.orderNumber} &middot; Original total: {formatCents(order.total)}
             </p>
           </div>
         </div>
@@ -359,7 +354,7 @@ export default function ReturnContent() {
             <div className="text-right">
               <span className="text-sm text-muted-foreground">Total refund: </span>
               <span className="text-lg font-semibold text-red-500">
-                -{formatMoney(totalRefund)}
+                -{formatCents(totalRefund)}
               </span>
             </div>
           </div>

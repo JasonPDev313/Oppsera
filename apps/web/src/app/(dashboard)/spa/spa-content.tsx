@@ -14,17 +14,13 @@ import {
 } from 'lucide-react';
 import { useSpaDashboard } from '@/hooks/use-spa';
 import { useAuthContext } from '@/components/auth-provider';
+import { formatDollarsLocale } from '@oppsera/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDollars(dollars: number): string {
-  return dollars.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  });
-}
+const formatDollars = formatDollarsLocale;
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', {

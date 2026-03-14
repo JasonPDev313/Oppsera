@@ -7,6 +7,7 @@ import { useModifierGroups } from '@/hooks/use-catalog';
 import { InstructionButtons } from './InstructionButtons';
 import type { ModifierInstruction } from './InstructionButtons';
 import type { CatalogItemForPOS, AddLineItemInput } from '@/types/pos';
+import { formatCents } from '@oppsera/shared';
 import type { FnbMetadata } from '@oppsera/shared';
 
 // ── Constants ─────────────────────────────────────────────────────
@@ -85,10 +86,6 @@ interface ResolvedGroup {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function modifierPriceCents(priceAdjustment: string): number {
   return Math.round(parseFloat(priceAdjustment) * 100);
@@ -427,7 +424,7 @@ export function ModifierDialog({
           <div className="flex-1">
             <h3 id="modifier-dialog-title" className="text-lg font-semibold text-foreground">{item.name}</h3>
           </div>
-          <span className="text-lg font-semibold text-foreground">{formatPrice(item.price)}</span>
+          <span className="text-lg font-semibold text-foreground">{formatCents(item.price)}</span>
           <button
             ref={firstFocusRef}
             type="button"
@@ -532,7 +529,7 @@ export function ModifierDialog({
                           {effectivePrice !== 0 && (
                             <span className="text-sm text-muted-foreground">
                               {effectivePrice > 0 ? '+' : ''}
-                              {formatPrice(effectivePrice)}
+                              {formatCents(effectivePrice)}
                             </span>
                           )}
                           {effectivePrice === 0 && instr === 'none' && (
@@ -592,7 +589,7 @@ export function ModifierDialog({
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-border px-6 py-4">
-          <div className="text-lg font-semibold text-foreground">Total: {formatPrice(total)}</div>
+          <div className="text-lg font-semibold text-foreground">Total: {formatCents(total)}</div>
           <div className="flex gap-3">
             <button
               type="button"

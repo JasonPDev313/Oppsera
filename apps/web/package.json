@@ -41,6 +41,7 @@
     "@oppsera/module-project-costing": "workspace:*",
     "@oppsera/module-reporting": "workspace:*",
     "@oppsera/module-room-layouts": "workspace:*",
+    "@oppsera/module-ai-support": "workspace:*",
     "@oppsera/module-semantic": "workspace:*",
     "@oppsera/module-spa": "workspace:*",
     "@oppsera/shared": "workspace:*",

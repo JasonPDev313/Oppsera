@@ -2,6 +2,7 @@
 
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Search, User, ShoppingBag, Package, X } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import type { CatalogItemForPOS } from '@/types/pos';
 
@@ -47,10 +48,6 @@ const SECTION_META: Record<SearchMode, { label: string; icon: React.ReactNode }>
 };
 
 // ── Helpers ───────────────────────────────────────────────────────
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function detectMode(query: string): { mode: SearchMode; term: string } {
   if (query.startsWith('@')) return { mode: 'customers', term: query.slice(1).trim() };
@@ -143,7 +140,7 @@ export const POSSearchBar = memo(function POSSearchBar({
         type: 'items',
         id: item.id,
         label: item.name,
-        sublabel: item.sku ? `${item.sku} - ${formatPrice(item.price)}` : formatPrice(item.price),
+        sublabel: item.sku ? `${item.sku} - ${formatCents(item.price)}` : formatCents(item.price),
       });
     }
     for (const c of customerResults) {

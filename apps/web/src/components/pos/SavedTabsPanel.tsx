@@ -2,14 +2,9 @@
 
 import { useState, useCallback } from 'react';
 import { Archive, History, Loader2 } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { useSavedTabs } from '@/hooks/use-saved-tabs';
 import type { HeldOrder } from '@/types/pos';
-
-// ── Helpers ────────────────────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString('en-US', {
@@ -162,7 +157,7 @@ function SavedTabRow({
       </div>
       <div className="ml-3 flex items-center gap-3">
         <p className="text-sm font-semibold text-foreground">
-          {formatMoney(order.total)}
+          {formatCents(order.total)}
         </p>
         <button
           type="button"

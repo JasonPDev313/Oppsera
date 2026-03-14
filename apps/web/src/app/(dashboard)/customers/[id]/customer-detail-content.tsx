@@ -26,7 +26,7 @@ import {
   Calendar,
   ShoppingBag,
 } from 'lucide-react';
-import { getInitials, formatPhone } from '@oppsera/shared';
+import { getInitials, formatPhone, formatCents, formatDollarsLocale } from '@oppsera/shared';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
 import { apiFetch } from '@/lib/api-client';
@@ -116,13 +116,8 @@ const TABS = [
 type TabKey = (typeof TABS)[number]['key'];
 
 // ── Helpers ─────────────────────────────────────────────────────────
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
-function formatMoneyDollars(dollars: number): string {
-  return dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-}
+const formatMoney = formatCents;
+const formatMoneyDollars = formatDollarsLocale;
 
 const FLAG_COLORS: Record<string, string> = {
   critical: 'bg-red-500/20 text-red-500',

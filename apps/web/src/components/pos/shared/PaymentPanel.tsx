@@ -17,11 +17,8 @@ import type { HouseAccountMeta } from './HouseAccountPanel';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
+import { formatCents } from '@oppsera/shared';
 import type { Order, POSConfig, TenderSummary, RecordTenderResult } from '@/types/pos';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function todayBusinessDate(): string {
   const d = new Date();
@@ -215,11 +212,11 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         setPaymentSuccess(result);
         toast.success(
           selectedType === 'cash' && result.changeGiven > 0
-            ? `Payment complete! Change: ${formatMoney(result.changeGiven)}`
+            ? `Payment complete! Change: ${formatCents(result.changeGiven)}`
             : 'Payment complete!',
         );
       } else {
-        toast.info(`Partial payment. Remaining: ${formatMoney(result.remainingBalance)}`);
+        toast.info(`Partial payment. Remaining: ${formatCents(result.remainingBalance)}`);
         setAmount('');
         setTipAmount('');
         setCheckNumber('');
@@ -268,7 +265,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         <h2 className="mt-4 text-xl font-bold text-foreground">Payment Complete</h2>
         {selectedType === 'cash' && paymentSuccess.changeGiven > 0 && (
           <p className="mt-2 text-3xl font-bold text-green-500">
-            Change: {formatMoney(paymentSuccess.changeGiven)}
+            Change: {formatCents(paymentSuccess.changeGiven)}
           </p>
         )}
         <p className="mt-3 text-sm text-muted-foreground">Tap anywhere to continue</p>
@@ -291,7 +288,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
           </button>
           <div>
             <h2 className="text-base font-semibold text-foreground">Payment</h2>
-            <p className="text-sm text-muted-foreground">Total: {formatMoney(order.total)}</p>
+            <p className="text-sm text-muted-foreground">Total: {formatCents(order.total)}</p>
           </div>
         </div>
 
@@ -393,7 +390,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
           setPaymentSuccess(result);
           toast.success('House account charge complete!');
         } else {
-          toast.info(`Partial payment. Remaining: ${formatMoney(result.remainingBalance)}`);
+          toast.info(`Partial payment. Remaining: ${formatCents(result.remainingBalance)}`);
           setSelectedType(null);
         }
       } catch (err) {
@@ -450,10 +447,10 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
           <p className="text-xs font-medium uppercase text-muted-foreground">
             {tenderSummary && tenderSummary.summary.totalTendered > 0 ? 'Remaining' : 'Total Due'}
           </p>
-          <p className="mt-1 text-3xl font-bold text-foreground">{formatMoney(remaining)}</p>
+          <p className="mt-1 text-3xl font-bold text-foreground">{formatCents(remaining)}</p>
           {tenderSummary && tenderSummary.summary.totalTendered > 0 && (
             <p className="mt-1 text-xs text-green-500">
-              Paid: {formatMoney(tenderSummary.summary.totalTendered)}
+              Paid: {formatCents(tenderSummary.summary.totalTendered)}
             </p>
           )}
         </div>
@@ -469,7 +466,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
           {/* Change preview */}
           {selectedType === 'cash' && amountCents > remaining && (
             <p className="mt-1 text-sm font-semibold text-green-500">
-              Change: {formatMoney(amountCents - remaining)}
+              Change: {formatCents(amountCents - remaining)}
             </p>
           )}
         </div>
@@ -530,7 +527,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
                 })}
                 className="rounded-lg border border-border px-2 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent active:scale-[0.97] disabled:opacity-40"
               >
-                +{formatMoney(cents)}
+                +{formatCents(cents)}
               </button>
             ))}
           </div>
@@ -543,7 +540,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
           onClick={() => { flushSync(() => setAmount((remaining / 100).toFixed(2))); handleSubmit(remaining, { payExact: true }); }}
           className="w-full rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-semibold text-green-500 transition-colors hover:bg-green-500/20 active:scale-[0.97] disabled:opacity-50"
         >
-          {isSubmitting ? 'Processing...' : `Pay Exact — ${formatMoney(remaining)}`}
+          {isSubmitting ? 'Processing...' : `Pay Exact — ${formatCents(remaining)}`}
         </button>
 
         {/* Tip section */}
@@ -617,7 +614,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
           disabled={isSubmitting || amountCents <= 0 || (selectedType === 'check' && !checkNumber.trim()) || (selectedType === 'card' && !cardToken.trim())}
           className="flex-[2] rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isSubmitting ? 'Processing...' : `Pay ${amountCents > 0 ? formatMoney(Math.min(amountCents, remaining)) : ''}`}
+          {isSubmitting ? 'Processing...' : `Pay ${amountCents > 0 ? formatCents(Math.min(amountCents, remaining)) : ''}`}
         </button>
       </div>
     </div>

@@ -2,13 +2,10 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { ShoppingCart, Check } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { useCustomerDisplayReceiver } from '@/hooks/use-customer-display';
 import type { CustomerDisplayMessage } from '@/hooks/use-customer-display';
 import type { Order } from '@/types/pos';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 export default function CustomerDisplayContent() {
   const [order, setOrder] = useState<Order | null>(null);
@@ -95,7 +92,7 @@ export default function CustomerDisplayContent() {
                   {line.modifiers && line.modifiers.length > 0 && (
                     <p className="text-sm text-muted-foreground">
                       {line.modifiers.map((m: { name: string; priceAdjustment?: number }) =>
-                        m.priceAdjustment ? `${m.name} (+${formatMoney(m.priceAdjustment)})` : m.name,
+                        m.priceAdjustment ? `${m.name} (+${formatCents(m.priceAdjustment)})` : m.name,
                       ).join(', ')}
                     </p>
                   )}
@@ -107,7 +104,7 @@ export default function CustomerDisplayContent() {
                 </div>
               </div>
               <span className="text-lg font-semibold tabular-nums text-foreground">
-                {formatMoney(line.lineSubtotal)}
+                {formatCents(line.lineSubtotal)}
               </span>
             </div>
           ))}
@@ -119,27 +116,27 @@ export default function CustomerDisplayContent() {
         <div className="mx-auto max-w-xl space-y-2">
           <div className="flex justify-between text-base text-muted-foreground">
             <span>Subtotal</span>
-            <span className="tabular-nums">{formatMoney(order.subtotal)}</span>
+            <span className="tabular-nums">{formatCents(order.subtotal)}</span>
           </div>
 
           {hasDiscount && (
             <div className="flex justify-between text-base text-red-500">
               <span>Discount</span>
-              <span className="tabular-nums">-{formatMoney(order.discountTotal)}</span>
+              <span className="tabular-nums">-{formatCents(order.discountTotal)}</span>
             </div>
           )}
 
           {hasCharges && (
             <div className="flex justify-between text-base text-muted-foreground">
               <span>Service Charge</span>
-              <span className="tabular-nums">{formatMoney(order.serviceChargeTotal)}</span>
+              <span className="tabular-nums">{formatCents(order.serviceChargeTotal)}</span>
             </div>
           )}
 
           <div className="flex justify-between text-base text-muted-foreground">
             <span>Tax{order.taxExempt ? ' (Exempt)' : ''}</span>
             <span className={`tabular-nums ${order.taxExempt ? 'text-purple-500 font-medium' : ''}`}>
-              {order.taxExempt ? '$0.00' : formatMoney(order.taxTotal)}
+              {order.taxExempt ? '$0.00' : formatCents(order.taxTotal)}
             </span>
           </div>
 
@@ -147,7 +144,7 @@ export default function CustomerDisplayContent() {
             <div className="flex justify-between">
               <span className="text-2xl font-bold text-foreground">TOTAL</span>
               <span className="text-3xl font-bold text-foreground tabular-nums">
-                {formatMoney(order.total)}
+                {formatCents(order.total)}
               </span>
             </div>
           </div>

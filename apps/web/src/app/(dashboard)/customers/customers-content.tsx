@@ -11,14 +11,13 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
 import { useCustomers } from '@/hooks/use-customers';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import type { Customer } from '@/types/customers';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+const formatMoney = formatCents;
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', {

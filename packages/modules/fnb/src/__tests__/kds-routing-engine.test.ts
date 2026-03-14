@@ -95,6 +95,7 @@ interface MockStation {
   id: string;
   station_type: string;
   sort_order: number;
+  display_name: string;
   pause_receiving: boolean;
   allowed_order_types: string[];
   allowed_channels: string[];
@@ -105,6 +106,7 @@ function makeStation(overrides: Partial<MockStation> = {}): MockStation {
     id: 'station-grill',
     station_type: 'grill',
     sort_order: 1,
+    display_name: 'Grill',
     pause_receiving: false,
     allowed_order_types: [],
     allowed_channels: [],
@@ -135,14 +137,15 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
   // ── Empty / Edge Cases ─────────────────────────────────────
 
   it('returns empty array for empty items', async () => {
-    const results = await resolveStationRouting(makeContext(), []);
+    const { results } = await resolveStationRouting(makeContext(), []);
     expect(results).toEqual([]);
+    // stationNames is an empty Map for empty input
     expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it('returns null stationId when no stations exist', async () => {
     setupMocks([], []);
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     expect(results).toHaveLength(1);
     expect(results[0]!.stationId).toBeNull();
     expect(results[0]!.matchType).toBeNull();
@@ -161,7 +164,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     ];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     expect(results[0]!.stationId).toBe('station-grill');
     expect(results[0]!.matchType).toBe('item');
     expect(results[0]!.routingRuleId).toBe('r-item');
@@ -174,7 +177,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     const stations = [makeStation()];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     expect(results[0]!.stationId).toBe('station-grill');
     expect(results[0]!.matchType).toBe('category');
   });
@@ -186,7 +189,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     const stations = [makeStation()];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     expect(results[0]!.stationId).toBe('station-grill');
     expect(results[0]!.matchType).toBe('sub_department');
   });
@@ -198,7 +201,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     const stations = [makeStation()];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     expect(results[0]!.stationId).toBe('station-grill');
     expect(results[0]!.matchType).toBe('department');
   });
@@ -211,7 +214,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     setupMocks(rules, stations);
 
     const item = makeItem({ modifierIds: ['mod-spicy'] });
-    const results = await resolveStationRouting(makeContext(), [item]);
+    const { results } = await resolveStationRouting(makeContext(), [item]);
     expect(results[0]!.stationId).toBe('station-grill');
     expect(results[0]!.matchType).toBe('modifier');
   });
@@ -224,7 +227,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     setupMocks(rules, stations);
 
     const item = makeItem({ modifierIds: [] });
-    const results = await resolveStationRouting(makeContext(), [item]);
+    const { results } = await resolveStationRouting(makeContext(), [item]);
     expect(results[0]!.matchType).toBe('fallback');
   });
 
@@ -240,7 +243,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     ];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     // Rules come pre-sorted by priority DESC from the SQL query
     // The higher-priority rule (r-high, priority=20) should appear first
     expect(results[0]!.stationId).toBe('station-grill');
@@ -257,7 +260,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     ];
     setupMocks([], stations);
 
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     expect(results[0]!.stationId).toBe('station-grill');
     expect(results[0]!.matchType).toBe('fallback');
   });
@@ -270,7 +273,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     ];
     setupMocks([], stations);
 
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     expect(results[0]!.stationId).toBeNull();
     expect(results[0]!.matchType).toBeNull();
   });
@@ -284,7 +287,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     ];
     setupMocks([], stations);
 
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     expect(results[0]!.stationId).toBeNull();
   });
 
@@ -301,7 +304,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     ];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     expect(results[0]!.stationId).toBe('station-grill');
     expect(results[0]!.matchType).toBe('department');
   });
@@ -318,7 +321,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     ];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     expect(results[0]!.stationId).toBe('station-grill');
     expect(results[0]!.matchType).toBe('fallback');
   });
@@ -332,7 +335,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     const stations = [makeStation()];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext({ orderType: 'dine_in' }), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext({ orderType: 'dine_in' }), [makeItem()]);
     expect(results[0]!.matchType).toBe('category');
   });
 
@@ -343,7 +346,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     const stations = [makeStation()];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext({ orderType: 'takeout' }), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext({ orderType: 'takeout' }), [makeItem()]);
     expect(results[0]!.matchType).toBe('fallback');
   });
 
@@ -354,7 +357,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     const stations = [makeStation()];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext({ orderType: undefined }), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext({ orderType: undefined }), [makeItem()]);
     // When orderType is absent (e.g. retail POS), the orderTypeCondition is
     // skipped so the rule still matches via category — not fallback.
     expect(results[0]!.matchType).toBe('category');
@@ -367,7 +370,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     const stations = [makeStation()];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext({ channel: 'pos' }), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext({ channel: 'pos' }), [makeItem()]);
     expect(results[0]!.matchType).toBe('category');
   });
 
@@ -378,7 +381,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     const stations = [makeStation()];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext({ channel: 'pos' }), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext({ channel: 'pos' }), [makeItem()]);
     expect(results[0]!.matchType).toBe('fallback');
   });
 
@@ -394,7 +397,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     ];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     // Rule targets grill but it's paused → falls through cascade → fallback to prep
     expect(results[0]!.stationId).toBe('station-prep');
     expect(results[0]!.matchType).toBe('fallback');
@@ -410,7 +413,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     ];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext({ orderType: 'dine_in' }), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext({ orderType: 'dine_in' }), [makeItem()]);
     expect(results[0]!.stationId).toBe('station-prep');
     expect(results[0]!.matchType).toBe('fallback');
   });
@@ -425,7 +428,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     ];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext({ channel: 'pos' }), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext({ channel: 'pos' }), [makeItem()]);
     expect(results[0]!.stationId).toBe('station-prep');
     expect(results[0]!.matchType).toBe('fallback');
   });
@@ -439,7 +442,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     ];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext({ orderType: 'dine_in' }), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext({ orderType: 'dine_in' }), [makeItem()]);
     expect(results[0]!.stationId).toBe('station-grill');
     expect(results[0]!.matchType).toBe('category');
   });
@@ -461,7 +464,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
       makeItem({ orderLineId: 'line-1', catalogItemId: 'item-steak', categoryId: 'cat-steaks' }),
       makeItem({ orderLineId: 'line-2', catalogItemId: 'item-caesar', categoryId: 'cat-salads' }),
     ];
-    const results = await resolveStationRouting(makeContext(), items);
+    const { results } = await resolveStationRouting(makeContext(), items);
 
     expect(results).toHaveLength(2);
     expect(results[0]!.stationId).toBe('station-grill');
@@ -486,7 +489,7 @@ describe('KDS Routing Engine — resolveStationRouting', () => {
     const stations = [makeStation()];
     setupMocks(rules, stations);
 
-    const results = await resolveStationRouting(makeContext(), [makeItem()]);
+    const { results } = await resolveStationRouting(makeContext(), [makeItem()]);
     // The routing engine checks: (ruleType === 'department' && departmentId === item.subDepartmentId)
     // at the sub_department cascade level
     expect(results[0]!.stationId).toBe('station-grill');

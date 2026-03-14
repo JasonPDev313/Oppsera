@@ -115,6 +115,11 @@ export const PERMISSION_MATRIX: PermissionDefinition[] = [
   { key: 'semantic.manage', module: 'semantic', description: 'Create and edit custom lenses', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: false },
   { key: 'semantic.admin', module: 'semantic', description: 'View semantic metrics, invalidate cache', defaultRoles: ['owner'], requiresManagerPin: false, requiresAudit: false },
 
+  // ── AI Support Assistant ──────────────────────────────────────
+  { key: 'ai_support.view', module: 'ai_support', description: 'Access the AI Assistant panel', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'server'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'ai_support.chat', module: 'ai_support', description: 'Send messages to AI Assistant', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'server'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'ai_support.admin', module: 'ai_support', description: 'Manage AI Assistant manifests, answer cards, and settings', defaultRoles: ['owner'], requiresManagerPin: false, requiresAudit: false },
+
   // ── F&B POS ─────────────────────────────────────────────────
   { key: 'pos_fnb.floor_plan.view', module: 'pos_fnb', description: 'View floor plan and table status', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'server'], requiresManagerPin: false, requiresAudit: false },
   { key: 'pos_fnb.floor_plan.manage', module: 'pos_fnb', description: 'Edit table assignments and sections', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },

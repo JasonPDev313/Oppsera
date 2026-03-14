@@ -68,6 +68,9 @@ importers:
       '@oppsera/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@oppsera/module-ai-support':
+        specifier: workspace:*
+        version: link:../../packages/modules/ai-support
       '@oppsera/module-business-types':
         specifier: workspace:*
         version: link:../../packages/modules/business-types
@@ -211,6 +214,9 @@ importers:
       '@oppsera/module-accounting':
         specifier: workspace:*
         version: link:../../packages/modules/accounting
+      '@oppsera/module-ai-support':
+        specifier: workspace:*
+        version: link:../../packages/modules/ai-support
       '@oppsera/module-ap':
         specifier: workspace:*
         version: link:../../packages/modules/ap
@@ -417,6 +423,34 @@ importers:
         version: 0.37.0(@opentelemetry/api@1.9.0)(@types/pg@8.15.6)(@types/react@19.2.14)(postgres@3.4.8)(react@19.2.4)
       zod:
         specifier: ^3.24.0
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.11
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.19.11)(jsdom@28.1.0)(lightningcss@1.30.2)(terser@5.46.0)
+
+  packages/modules/ai-support:
+    dependencies:
+      '@oppsera/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@oppsera/db':
+        specifier: workspace:*
+        version: link:../../db
+      '@oppsera/shared':
+        specifier: workspace:*
+        version: link:../../shared
+      drizzle-orm:
+        specifier: ^0.37.0
+        version: 0.37.0(@opentelemetry/api@1.9.0)(@types/pg@8.15.6)(@types/react@19.2.14)(postgres@3.4.8)(react@19.2.4)
+      zod:
+        specifier: ^3.22.0
         version: 3.25.76
     devDependencies:
       '@types/node':

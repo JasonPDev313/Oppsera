@@ -11,6 +11,7 @@ import {
 } from '@/hooks/use-spa';
 import type { SpaService, SpaServiceCategory } from '@/hooks/use-spa';
 import { useAuthContext } from '@/components/auth-provider';
+import { formatCents } from '@oppsera/shared';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -21,9 +22,6 @@ function formatDuration(minutes: number): string {
   return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
 }
 
-function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function getStatusBadge(service: SpaService) {
   if (service.archivedAt) {

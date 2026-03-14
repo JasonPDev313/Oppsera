@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { formatCents } from '@oppsera/shared';
 import type { TokenizeResult, TokenizerClientConfig } from '@oppsera/shared';
 import type { FnbTabDetail, CheckSummary } from '@/types/fnb';
 import { PaymentMethodCapture } from '@/components/payments/payment-method-capture';
@@ -125,8 +126,6 @@ export function PaymentScreen({
 
   const effectiveRemainingCents = Math.max(0, check.remainingCents - localPaidCents);
   const effectivePaidCents = check.paidCents + localPaidCents;
-
-  const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   // ── Card tokenize handlers ──────────────────────────────────────
   const handleCardTokenize = useCallback((result: TokenizeResult) => {
@@ -412,7 +411,7 @@ export function PaymentScreen({
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatMoney(line.extendedPriceCents)}
+                {formatCents(line.extendedPriceCents)}
               </span>
             </div>
           ))}
@@ -432,7 +431,7 @@ export function PaymentScreen({
                 fontFamily: 'var(--fnb-font-mono)',
               }}
             >
-              {formatMoney(check.subtotalCents)}
+              {formatCents(check.subtotalCents)}
             </span>
           </div>
           {check.discountTotalCents > 0 && (
@@ -445,7 +444,7 @@ export function PaymentScreen({
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                -{formatMoney(check.discountTotalCents)}
+                -{formatCents(check.discountTotalCents)}
               </span>
             </div>
           )}
@@ -458,7 +457,7 @@ export function PaymentScreen({
                 fontFamily: 'var(--fnb-font-mono)',
               }}
             >
-              {formatMoney(check.taxTotalCents)}
+              {formatCents(check.taxTotalCents)}
             </span>
           </div>
 
@@ -479,7 +478,7 @@ export function PaymentScreen({
                 <div key={i} className="flex justify-between text-xs mb-0.5">
                   <span style={{ color: 'var(--fnb-status-available)' }}>
                     {t.type.replace('_', ' ')}
-                    {t.tipCents > 0 && ` (+${formatMoney(t.tipCents)} tip)`}
+                    {t.tipCents > 0 && ` (+${formatCents(t.tipCents)} tip)`}
                   </span>
                   <span
                     className="font-mono"
@@ -488,7 +487,7 @@ export function PaymentScreen({
                       fontFamily: 'var(--fnb-font-mono)',
                     }}
                   >
-                    {formatMoney(t.amountCents)}
+                    {formatCents(t.amountCents)}
                   </span>
                 </div>
               ))}
@@ -509,7 +508,7 @@ export function PaymentScreen({
                 fontFamily: 'var(--fnb-font-mono)',
               }}
             >
-              {formatMoney(effectiveRemainingCents)}
+              {formatCents(effectiveRemainingCents)}
             </span>
           </div>
           {effectivePaidCents > 0 && (
@@ -522,7 +521,7 @@ export function PaymentScreen({
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatMoney(effectivePaidCents)}
+                {formatCents(effectivePaidCents)}
               </span>
             </div>
           )}
@@ -554,7 +553,7 @@ export function PaymentScreen({
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatMoney(effectiveRemainingCents)}
+                {formatCents(effectiveRemainingCents)}
               </div>
             </div>
 
@@ -619,7 +618,7 @@ export function PaymentScreen({
                 }}
               >
                 <Undo2 className="h-3.5 w-3.5" />
-                Undo Last Payment ({formatMoney(tenders[tenders.length - 1]!.amountCents)})
+                Undo Last Payment ({formatCents(tenders[tenders.length - 1]!.amountCents)})
               </button>
             )}
 
@@ -834,7 +833,7 @@ export function PaymentScreen({
                     fontFamily: 'var(--fnb-font-mono)',
                   }}
                 >
-                  {formatMoney(pendingAmount)}
+                  {formatCents(pendingAmount)}
                 </span>
               </div>
               {pendingTip > 0 && (
@@ -847,7 +846,7 @@ export function PaymentScreen({
                       fontFamily: 'var(--fnb-font-mono)',
                     }}
                   >
-                    {formatMoney(pendingTip)}
+                    {formatCents(pendingTip)}
                   </span>
                 </div>
               )}
@@ -861,7 +860,7 @@ export function PaymentScreen({
                       fontFamily: 'var(--fnb-font-mono)',
                     }}
                   >
-                    {formatMoney(pendingAmount - effectiveRemainingCents)}
+                    {formatCents(pendingAmount - effectiveRemainingCents)}
                   </span>
                 </div>
               )}
@@ -919,7 +918,7 @@ export function PaymentScreen({
                 Partial Payment Recorded
               </h3>
               <p className="text-sm mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
-                {formatMoney(lastTenderAmount)} applied
+                {formatCents(lastTenderAmount)} applied
               </p>
             </div>
 
@@ -942,7 +941,7 @@ export function PaymentScreen({
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatMoney(effectiveRemainingCents)}
+                {formatCents(effectiveRemainingCents)}
               </div>
             </div>
 
@@ -996,7 +995,7 @@ export function PaymentScreen({
                 Payment Complete
               </h3>
               <p className="text-sm mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
-                {formatMoney(check.totalCents)} paid
+                {formatCents(check.totalCents)} paid
                 {tenders.length > 1 && ` (${tenders.length} payments)`}
               </p>
             </div>

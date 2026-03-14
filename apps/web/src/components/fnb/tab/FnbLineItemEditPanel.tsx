@@ -11,10 +11,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import type { FnbTabLine } from '@/types/fnb';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+import { formatCents } from '@oppsera/shared';
 
 // ── Status helpers ──────────────────────────────────────────────
 
@@ -153,8 +150,8 @@ function DiscountSubPanel({
       </div>
       {customValue && parseFloat(customValue) > 0 && (
         <p className="text-[10px] text-muted-foreground">
-          {formatMoney(basePrice)} &rarr;{' '}
-          {formatMoney(
+          {formatCents(basePrice)} &rarr;{' '}
+          {formatCents(
             Math.max(
               0,
               mode === 'percent'
@@ -398,7 +395,7 @@ function PriceChangeSubPanel({
       </div>
       {newPrice && parseFloat(newPrice) >= 0 && Math.round(parseFloat(newPrice) * 100) !== currentPriceCents && (
         <p className="text-[10px] text-muted-foreground">
-          {formatMoney(currentPriceCents)} &rarr; {formatMoney(Math.round(parseFloat(newPrice) * 100))}
+          {formatCents(currentPriceCents)} &rarr; {formatCents(Math.round(parseFloat(newPrice) * 100))}
         </p>
       )}
     </div>
@@ -471,7 +468,7 @@ export const FnbLineItemEditPanel = memo(function FnbLineItemEditPanel({
           </p>
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-xs text-muted-foreground">
-              {formatMoney(line.unitPriceCents)} each
+              {formatCents(line.unitPriceCents)} each
             </span>
             {line.qty > 1 && (
               <span className="text-xs text-muted-foreground">
@@ -485,7 +482,7 @@ export const FnbLineItemEditPanel = memo(function FnbLineItemEditPanel({
         </div>
         <div className="text-right shrink-0">
           <p className="font-semibold text-foreground text-sm">
-            {formatMoney(line.extendedPriceCents)}
+            {formatCents(line.extendedPriceCents)}
           </p>
         </div>
       </div>
@@ -503,7 +500,7 @@ export const FnbLineItemEditPanel = memo(function FnbLineItemEditPanel({
                 <span>{String(mod.name ?? '')}</span>
                 {Number(mod.priceAdjustment ?? 0) !== 0 && (
                   <span>
-                    {Number(mod.priceAdjustment) > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(Number(mod.priceAdjustment)))}
+                    {Number(mod.priceAdjustment) > 0 ? '+' : '\u2212'}{formatCents(Math.abs(Number(mod.priceAdjustment)))}
                   </span>
                 )}
               </div>
@@ -562,7 +559,7 @@ export const FnbLineItemEditPanel = memo(function FnbLineItemEditPanel({
             icon={DollarSign}
             iconColor="text-indigo-400"
             label="Change Price"
-            detail={formatMoney(line.unitPriceCents)}
+            detail={formatCents(line.unitPriceCents)}
             onClick={() => toggleAction('price')}
             expanded={expandedAction === 'price'}
           >

@@ -12726,3 +12726,86 @@ When a fire/send operation fails at the KDS dispatch stage, the API returns HTTP
 
 **Reference:** `apps/web/src/app/api/v1/fnb/tabs/[id]/course/fire/route.ts`, `apps/web/src/hooks/use-fnb-tab.ts`.
 
+## §259 AI Support Module — Tiered RAG Architecture
+
+The `@oppsera/module-ai-support` package implements a multi-tenant AI assistant using Claude with retrieval-augmented generation (RAG). The architecture uses tiered evidence retrieval, streaming responses, and mode-based content sanitization.
+
+### Tiered Evidence Retrieval
+
+Evidence sources are ranked by trust tier (lower = higher trust):
+
+| Tier | Source | Description |
+|------|--------|-------------|
+| T2 | Answer Cards | Curated, active Q&A cards (highest trust) |
+| T3 | Answer Memory | Past reviewed/approved answers |
+| T4 | Route Manifests | Per-page metadata (actions, context) |
+| T5 | Support Docs | Customer-safe documentation |
+| T6 | Internal Docs | Internal reference (staff mode only) |
+| T7 | Code Chunks | Code context (staff mode only) |
+
+Results are merged and deduplicated across tiers before being passed to Claude as context.
+
+### Streaming Orchestrator Pattern
+
+`runOrchestrator()` returns a `ReadableStream<Uint8Array>` emitting SSE-formatted JSON events:
+- `{ type: 'chunk', text }` — streamed markdown text
+- `{ type: 'done', confidence, sourceTier, sources }` — completion metadata
+- `{ type: 'error', message }` — error notification
+
+Confidence and source tier are computed from evidence retrieval quality, not from model output.
+
+### Content Guard (Mode-Gated Sanitization)
+
+`sanitizeResponse(text, mode)` post-processes output:
+- **Customer mode:** Strips API paths, code keywords, DB table names, `@oppsera/*` package refs, internal URLs, connection strings, stack traces, env var refs, and 32+ char key-like strings.
+- **Staff mode:** Passthrough (no sanitization).
+
+### Context Snapshots
+
+Each message includes an `AiAssistantContext` snapshot (route, screenTitle, moduleKey, tenantId, locationId, roleKeys, permissions, featureFlags, enabledModules, selectedRecord, uiState). This powers evidence routing by module and route.
+
+### Gotchas
+
+1. **In-memory rate limiter** — `checkRateLimit()`/`recordUsage()` use a module-level `Map`. On Vercel serverless, this resets per cold start and does not enforce limits across instances. Needs Redis or DB-backed limiting for production scale.
+2. **`semanticSearch()` is keyword-based** — Despite pgvector schema (`embedding vector(1536)` column + ivfflat index), the actual `semanticSearch()` function scores by keyword overlap from `metadata_json.keywordIndex`. True vector similarity is not yet wired.
+3. **Git indexer requires git binary** — `git-indexer.ts` uses `child_process.execSync` for git commands. Not compatible with Vercel serverless — call only from admin server or CI.
+
+**Reference:** `packages/modules/ai-support/src/`, migrations 0316–0317, 0319.
+
+## §260 Shared Money Formatting Utilities
+
+`@oppsera/shared/src/utils/money.ts` provides centralized money formatting. Use these instead of local one-off formatters:
+
+| Function | Input | Output | Use Case |
+|----------|-------|--------|----------|
+| `formatMoney(cents)` | Integer cents | `"$12.34"` | General display |
+| `formatCents(cents)` | Integer cents | `"$12.34"` | Order/payment display (handles negative) |
+| `formatCentsRaw(cents)` | Integer cents | `"12.34"` | Receipt line items (no `$` prefix) |
+| `formatDollarsLocale(dollars)` | Dollar float | `"$1,234.50"` | Dashboard/report display with thousands separator |
+| `formatCentsLocale(cents)` | Integer cents | `"$1,234.50"` | Dashboard/report display from cents |
+| `formatDollarString(value)` | Drizzle NUMERIC string | `"$12.50"` or `"—"` | Catalog/GL columns (handles null/empty) |
+| `formatCompact(dollars)` | Dollar float | `"$1.2M"` / `"$45K"` | Summary widgets/dashboards |
+
+All exported from `@oppsera/shared/src/utils/index.ts`.
+
+**Rules:**
+1. New UI code SHOULD use shared formatters instead of local `Number(x).toFixed(2)` patterns.
+2. `formatDollarString` is specifically for Drizzle `numeric` columns that return strings — do NOT use `Number()` + `formatCents()` for these.
+3. `formatCentsRaw` omits the `$` prefix — use for receipt renderers and CSV exports.
+
+**Reference:** `packages/shared/src/utils/money.ts`, `packages/shared/src/__tests__/money.test.ts`.
+
+## §261 KDS Order Type Filtering Rules
+
+KDS stations can optionally constrain which order types they accept via `allowed_order_types` (JSONB array on `fnb_kds_stations`).
+
+**Rules:**
+1. When `orderType` is `undefined` or `null` (retail POS, no tab concept), the `allowed_order_types` filter is **bypassed entirely** — the station accepts the ticket.
+2. When `orderType` is present (F&B POS: `dine_in`, `bar`, `takeout`, `quick_service`), it MUST appear in `allowed_order_types` (if that array is non-empty).
+3. An empty `allowed_order_types` array means the station accepts all order types.
+4. Stations with constrained `allowed_order_types` that omit F&B tab types will silently reject all F&B POS dispatches — this is a common misconfiguration.
+
+**Migration 0318** backfills any constrained station that was missing F&B types.
+
+**Reference:** `packages/modules/fnb/src/services/kds-routing-engine.ts`, migration `0318_kds_station_fnb_order_types.sql`.
+

@@ -16,6 +16,7 @@ import {
   Check,
   X,
 } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
@@ -67,10 +68,6 @@ const RES_STATUS_BADGES: Record<string, { label: string; variant: string }> = {
 };
 
 // ── Helpers ──────────────────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', {
@@ -347,10 +344,10 @@ export default function GuestDetailContent() {
                         </Badge>
                       </td>
                       <td className="border-b border-border px-3 py-2.5 text-right text-sm text-muted-foreground">
-                        {formatMoney(r.nightlyRateCents)}
+                        {formatCents(r.nightlyRateCents)}
                       </td>
                       <td className="border-b border-border px-3 py-2.5 text-right text-sm font-medium text-foreground">
-                        {formatMoney(r.totalCents)}
+                        {formatCents(r.totalCents)}
                       </td>
                     </tr>
                   );

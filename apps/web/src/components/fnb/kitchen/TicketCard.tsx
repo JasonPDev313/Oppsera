@@ -280,9 +280,9 @@ export function TicketCard({
               disabled={disabled}
               className="w-full rounded-lg text-sm font-bold uppercase tracking-wider transition-colors animate-pulse"
               style={{
-                backgroundColor: 'rgba(239, 68, 68, 0.3)',
-                color: '#ef4444',
-                border: '1px solid rgba(239, 68, 68, 0.5)',
+                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                color: '#dc2626',
+                border: '2px solid #dc2626',
                 cursor: disabled ? 'not-allowed' : 'pointer',
                 minHeight: '64px',
               }}

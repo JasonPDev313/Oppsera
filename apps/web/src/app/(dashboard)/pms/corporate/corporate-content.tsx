@@ -14,6 +14,7 @@ import {
   Banknote,
   Wallet,
 } from 'lucide-react';
+import { formatCentsLocale } from '@oppsera/shared';
 import { useAuthContext } from '@/components/auth-provider';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
@@ -57,7 +58,7 @@ interface CorporateAccount {
 
 function formatCents(cents: number | null): string {
   if (cents == null) return '\u2014';
-  return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatCentsLocale(cents);
 }
 
 const BILLING_TYPE_BADGE: Record<string, { label: string; variant: string; icon: typeof CreditCard }> = {

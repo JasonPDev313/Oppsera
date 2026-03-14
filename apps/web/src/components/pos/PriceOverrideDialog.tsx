@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { CurrencyInput } from '@/components/ui/currency-input';
 
 // ── Constants ─────────────────────────────────────────────────────
@@ -15,12 +16,6 @@ const REASONS = [
 ] as const;
 
 type ReasonValue = (typeof REASONS)[number]['value'];
-
-// ── Helpers ───────────────────────────────────────────────────────
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 // ── Component ─────────────────────────────────────────────────────
 
@@ -136,7 +131,7 @@ export function PriceOverrideDialog({
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Current Price</p>
-            <p className="text-sm font-medium text-foreground">{formatPrice(currentPrice)}</p>
+            <p className="text-sm font-medium text-foreground">{formatCents(currentPrice)}</p>
           </div>
 
           {/* New price */}

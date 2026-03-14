@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { CalendarRange } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import { Badge } from '@/components/ui/badge';
@@ -55,10 +56,6 @@ const STATUS_BADGES: Record<string, { label: string; variant: string }> = {
 };
 
 // ── Helpers ──────────────────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function guestName(g: { firstName: string; lastName: string } | null): string {
   if (!g) return '\u2014';
@@ -247,7 +244,7 @@ export default function ReservationListView({
         width: '110px',
         render: (row: ReservationRow) => (
           <span className="text-sm text-foreground">
-            {formatMoney((row as Reservation).nightlyRateCents)}
+            {formatCents((row as Reservation).nightlyRateCents)}
           </span>
         ),
       },

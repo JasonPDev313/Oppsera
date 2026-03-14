@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { Delete, ArrowLeft } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 
 interface CashKeypadProps {
   totalCents: number;
@@ -57,8 +58,6 @@ export function CashKeypad({ totalCents, onSubmit, onBack, disabled }: CashKeypa
       onSubmit(inputCents);
     }
   }, [inputCents, totalCents, onSubmit]);
-
-  const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   return (
     <div className="flex flex-col gap-3 fnb-fade-scale-in">
@@ -124,7 +123,7 @@ export function CashKeypad({ totalCents, onSubmit, onBack, disabled }: CashKeypa
               fontFamily: 'var(--fnb-font-mono)',
             }}
           >
-            {formatMoney(changeCents)}
+            {formatCents(changeCents)}
           </div>
         </div>
       )}
@@ -190,7 +189,7 @@ export function CashKeypad({ totalCents, onSubmit, onBack, disabled }: CashKeypa
         className="rounded-xl py-3.5 text-sm font-bold text-white transition-all hover:scale-[1.01] active:scale-[0.99] hover:opacity-90 disabled:opacity-40"
         style={{ backgroundColor: 'var(--fnb-status-available)' }}
       >
-        Pay {input ? formatMoney(inputCents) : 'Cash'}
+        Pay {input ? formatCents(inputCents) : 'Cash'}
       </button>
     </div>
   );

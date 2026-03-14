@@ -2213,6 +2213,34 @@
       "when": 1773711700000,
       "tag": "0315_kds_dispatch_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 316,
+      "version": "7",
+      "when": 1773515992086,
+      "tag": "0316_ai_assistant_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 317,
+      "version": "7",
+      "when": 1773518340310,
+      "tag": "0317_ai_support_embeddings",
+      "breakpoints": true
+    },
+    {
+      "idx": 318,
+      "version": "7",
+      "when": 1773520276630,
+      "tag": "0318_kds_station_fnb_order_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 319,
+      "version": "7",
+      "when": 1773522037211,
+      "tag": "0319_ai_support_permissions",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,7 @@ import {
   TIP_PAYOUT_TYPE_CONFIG,
   type TipBalanceItem,
 } from '@/types/accounting';
+import { formatCentsLocale } from '@oppsera/shared';
 
 type Tab = 'balances' | 'history';
 
@@ -60,10 +61,6 @@ export default function TipPayoutsContent() {
     refreshPayouts();
   }, [voidPayout, refreshBalances, refreshPayouts]);
 
-  const formatMoney = (cents: number) => {
-    const dollars = cents / 100;
-    return `$${dollars.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
 
   return (
     <div className="p-6 space-y-6">
@@ -84,7 +81,7 @@ export default function TipPayoutsContent() {
             <DollarSign className="h-4 w-4" />
             Outstanding Tips
           </div>
-          <p className="text-2xl font-bold text-foreground">{formatMoney(totalOutstanding)}</p>
+          <p className="text-2xl font-bold text-foreground">{formatCentsLocale(totalOutstanding)}</p>
         </div>
         <div className="bg-surface border border-border rounded-lg p-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
@@ -162,13 +159,13 @@ export default function TipPayoutsContent() {
                       {b.employeeName ?? b.employeeId.slice(0, 8)}
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground text-right">
-                      {formatMoney(b.totalTipsCents)}
+                      {formatCentsLocale(b.totalTipsCents)}
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground text-right">
-                      {formatMoney(b.totalPaidCents)}
+                      {formatCentsLocale(b.totalPaidCents)}
                     </td>
                     <td className="px-6 py-4 text-sm font-semibold text-foreground text-right">
-                      {formatMoney(b.balanceCents)}
+                      {formatCentsLocale(b.balanceCents)}
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground text-right">
                       {b.lastTipDate ?? '—'}
@@ -245,7 +242,7 @@ export default function TipPayoutsContent() {
                             {typeCfg?.label ?? p.payoutType}
                           </td>
                           <td className="px-6 py-4 text-sm font-medium text-foreground text-right">
-                            {formatMoney(p.amountCents)}
+                            {formatCentsLocale(p.amountCents)}
                           </td>
                           <td className="px-6 py-4 text-center">
                             <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${

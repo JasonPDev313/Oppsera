@@ -25,16 +25,9 @@ import type {
   ReceiptItem,
 } from '../types';
 import { CHARS_PER_LINE } from '../types';
+import { formatCents, formatCentsRaw } from '../../utils/money';
 
 // ── Text helpers ─────────────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
-
-function formatMoneyWithSign(cents: number): string {
-  return `$${formatMoney(cents)}`;
-}
 
 function padLine(left: string, right: string, w: number): string {
   const gap = w - left.length - right.length;
@@ -149,8 +142,8 @@ function renderItems(block: ItemsBlock, w: number): string[] {
 
     // Qty x price = total
     if (block.showPrices) {
-      const qtyStr = `  ${item.qty} x ${formatMoney(item.unitPriceCents)}`;
-      lines.push(padLine(qtyStr, formatMoney(item.lineTotalCents), w));
+      const qtyStr = `  ${item.qty} x ${formatCentsRaw(item.unitPriceCents)}`;
+      lines.push(padLine(qtyStr, formatCentsRaw(item.lineTotalCents), w));
     } else {
       lines.push(`  Qty: ${item.qty}`);
     }
@@ -160,7 +153,7 @@ function renderItems(block: ItemsBlock, w: number): string[] {
       for (const mod of item.modifiers) {
         const modStr = `    + ${mod.name}`;
         if (mod.priceCents !== 0 && block.showPrices) {
-          lines.push(padLine(modStr, formatMoney(mod.priceCents), w));
+          lines.push(padLine(modStr, formatCentsRaw(mod.priceCents), w));
         } else {
           for (const ml of wrapText(modStr, w, 6)) {
             lines.push(ml);
@@ -209,26 +202,26 @@ function renderTotals(block: TotalsBlock, w: number): string[] {
   const lines: string[] = [];
   lines.push(separator(w, 'thin'));
 
-  lines.push(padLine('Subtotal', formatMoney(block.subtotalCents), w));
+  lines.push(padLine('Subtotal', formatCentsRaw(block.subtotalCents), w));
 
   for (const disc of block.discounts) {
-    lines.push(padLine(disc.label, `-${formatMoney(disc.amountCents)}`, w));
+    lines.push(padLine(disc.label, `-${formatCentsRaw(disc.amountCents)}`, w));
   }
 
   for (const charge of block.charges) {
-    lines.push(padLine(charge.label, formatMoney(charge.amountCents), w));
+    lines.push(padLine(charge.label, formatCentsRaw(charge.amountCents), w));
   }
 
   if (block.taxBreakdown && block.taxBreakdown.length > 0) {
     for (const tax of block.taxBreakdown) {
-      lines.push(padLine(`  ${tax.name} (${tax.rate})`, formatMoney(tax.amountCents), w));
+      lines.push(padLine(`  ${tax.name} (${tax.rate})`, formatCentsRaw(tax.amountCents), w));
     }
   } else if (block.taxCents > 0) {
-    lines.push(padLine('Tax', formatMoney(block.taxCents), w));
+    lines.push(padLine('Tax', formatCentsRaw(block.taxCents), w));
   }
 
   lines.push(separator(w, 'thick'));
-  lines.push(padLine('TOTAL', formatMoneyWithSign(block.totalCents), w));
+  lines.push(padLine('TOTAL', formatCents(block.totalCents), w));
   lines.push(separator(w, 'thick'));
 
   return lines;
@@ -247,26 +240,26 @@ function renderPayment(block: PaymentBlock, w: number): string[] {
     } else if (tender.cardLast4) {
       label = `CARD ****${tender.cardLast4}`;
     }
-    lines.push(padLine(label, formatMoney(tender.amountCents), w));
+    lines.push(padLine(label, formatCentsRaw(tender.amountCents), w));
 
     if (tender.authCode) {
       lines.push(padLine('  Auth:', tender.authCode, w));
     }
     if (tender.surchargeAmountCents > 0) {
-      lines.push(padLine('  Surcharge', formatMoney(tender.surchargeAmountCents), w));
+      lines.push(padLine('  Surcharge', formatCentsRaw(tender.surchargeAmountCents), w));
     }
     if (tender.tipCents > 0) {
-      lines.push(padLine('  Tip', formatMoney(tender.tipCents), w));
+      lines.push(padLine('  Tip', formatCentsRaw(tender.tipCents), w));
     }
   }
 
   if (block.changeCents > 0) {
-    lines.push(padLine('Change', formatMoney(block.changeCents), w));
+    lines.push(padLine('Change', formatCentsRaw(block.changeCents), w));
   }
 
   if (block.totalTipCents > 0 && block.tenders.length > 1) {
     lines.push('');
-    lines.push(padLine('Total Tips', formatMoney(block.totalTipCents), w));
+    lines.push(padLine('Total Tips', formatCentsRaw(block.totalTipCents), w));
   }
 
   lines.push(separator(w, 'thin'));
@@ -364,7 +357,7 @@ function renderRefundInfo(block: RefundInfoBlock, w: number): string[] {
   const lines: string[] = [];
   lines.push('');
   lines.push(padLine('Original Order:', block.originalOrderNumber, w));
-  lines.push(padLine('Refund Amount:', formatMoneyWithSign(block.refundAmountCents), w));
+  lines.push(padLine('Refund Amount:', formatCents(block.refundAmountCents), w));
   lines.push(padLine('Refund Method:', block.refundMethod, w));
   lines.push('');
   return lines;

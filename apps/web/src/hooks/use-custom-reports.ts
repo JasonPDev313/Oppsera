@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
-import { useMutation } from '@/hooks/use-mutation';
+import { useToast } from '@/components/ui/toast';
 import { downloadCsvExport } from '@/hooks/use-reports';
 import type { SavedReport, RunReportResult, ReportFilter } from '@/types/custom-reports';
 
@@ -108,26 +109,36 @@ interface SaveReportInput {
 }
 
 export function useSaveReport() {
-  return useMutation<SaveReportInput, SavedReport>(async (input) => {
-    const method = input.id ? 'PUT' : 'POST';
-    const path = input.id
-      ? `/api/v1/reports/custom/${input.id}`
-      : '/api/v1/reports/custom';
+  const { toast } = useToast();
+  const { mutateAsync, isPending, error } = useMutation<SavedReport, Error, SaveReportInput>({
+    mutationFn: async (input) => {
+      const method = input.id ? 'PUT' : 'POST';
+      const path = input.id
+        ? `/api/v1/reports/custom/${input.id}`
+        : '/api/v1/reports/custom';
 
-    const res = await apiFetch<{ data: SavedReport }>(path, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-    return res.data;
+      const res = await apiFetch<{ data: SavedReport }>(path, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      return res.data;
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
+  return { mutate: mutateAsync, isLoading: isPending, error };
 }
 
 // ── Delete Report ────────────────────────────────────────────
 export function useDeleteReport() {
-  return useMutation<string, void>(async (reportId) => {
-    await apiFetch(`/api/v1/reports/custom/${reportId}`, { method: 'DELETE' });
+  const { toast } = useToast();
+  const { mutateAsync, isPending, error } = useMutation<void, Error, string>({
+    mutationFn: async (reportId) => {
+      await apiFetch(`/api/v1/reports/custom/${reportId}`, { method: 'DELETE' });
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
+  return { mutate: mutateAsync, isLoading: isPending, error };
 }
 
 // ── Run Report ───────────────────────────────────────────────
@@ -137,17 +148,22 @@ interface RunReportInput {
 }
 
 export function useRunReport() {
-  return useMutation<RunReportInput, RunReportResult>(async (input) => {
-    const res = await apiFetch<{ data: RunReportResult }>(
-      `/api/v1/reports/custom/${input.reportId}/run`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ overrides: input.overrides }),
-      },
-    );
-    return res.data;
+  const { toast } = useToast();
+  const { mutateAsync, isPending, error } = useMutation<RunReportResult, Error, RunReportInput>({
+    mutationFn: async (input) => {
+      const res = await apiFetch<{ data: RunReportResult }>(
+        `/api/v1/reports/custom/${input.reportId}/run`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ overrides: input.overrides }),
+        },
+      );
+      return res.data;
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
+  return { mutate: mutateAsync, isLoading: isPending, error };
 }
 
 // ── Preview Report (no save required) ────────────────────
@@ -164,17 +180,22 @@ interface PreviewReportInput {
 }
 
 export function usePreviewReport() {
-  return useMutation<PreviewReportInput, RunReportResult>(async (input) => {
-    const res = await apiFetch<{ data: RunReportResult }>(
-      '/api/v1/reports/custom/preview',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      },
-    );
-    return res.data;
+  const { toast } = useToast();
+  const { mutateAsync, isPending, error } = useMutation<RunReportResult, Error, PreviewReportInput>({
+    mutationFn: async (input) => {
+      const res = await apiFetch<{ data: RunReportResult }>(
+        '/api/v1/reports/custom/preview',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
+  return { mutate: mutateAsync, isLoading: isPending, error };
 }
 
 // ── Export Report CSV ────────────────────────────────────────

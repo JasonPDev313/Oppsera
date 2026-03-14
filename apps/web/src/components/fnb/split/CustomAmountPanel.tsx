@@ -1,15 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { formatCents } from '@oppsera/shared';
 
 interface CustomAmountPanelProps {
   totalCents: number;
   onApply: (amounts: { label: string; amountCents: number }[]) => void;
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 export function CustomAmountPanel({ totalCents, onApply }: CustomAmountPanelProps) {
   const [entries, setEntries] = useState<{ label: string; amountCents: number }[]>([
@@ -83,11 +81,11 @@ export function CustomAmountPanel({ totalCents, onApply }: CustomAmountPanelProp
         <div className="text-right">
           <p className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
             Remaining: <span className="fnb-mono font-bold" style={{ color: remainingCents > 0 ? 'var(--fnb-status-dirty)' : 'var(--fnb-status-available)' }}>
-              {formatMoney(remainingCents)}
+              {formatCents(remainingCents)}
             </span>
           </p>
           <p className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
-            Total: {formatMoney(totalCents)}
+            Total: {formatCents(totalCents)}
           </p>
         </div>
       </div>

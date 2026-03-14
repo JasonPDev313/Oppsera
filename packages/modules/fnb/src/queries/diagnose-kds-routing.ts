@@ -313,7 +313,7 @@ export async function diagnoseKdsRouting(
 
         // Run actual routing
         try {
-          const [routingResult] = await resolveStationRouting(
+          const routingResultSet = await resolveStationRouting(
             {
               tenantId: input.tenantId,
               locationId: input.locationId,
@@ -322,6 +322,7 @@ export async function diagnoseKdsRouting(
             },
             [enriched ?? routableItem],
           );
+          const routingResult = routingResultSet.results[0];
           result.routingResult = routingResult ?? null;
 
           if (routingResult?.stationId) {

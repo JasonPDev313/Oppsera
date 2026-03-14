@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Search, ChevronRight, Minus, Plus, Check, RotateCcw } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import type { Order } from '@/types/pos';
@@ -25,10 +26,6 @@ interface ReturnLineSelection {
 }
 
 type Step = 'find' | 'select' | 'reason' | 'confirm';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function generateClientRequestId(): string {
   return `ret-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -160,7 +157,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
         body: JSON.stringify(payload),
       });
 
-      toast.success(`Return processed for ${formatMoney(returnTotal)}`);
+      toast.success(`Return processed for ${formatCents(returnTotal)}`);
       onComplete();
       onClose();
     } catch {
@@ -255,7 +252,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                           <span className="ml-2 text-sm text-muted-foreground">{order.customerName}</span>
                         )}
                         <p className="text-xs text-muted-foreground">
-                          {order.lines?.length ?? 0} items &middot; {formatMoney(order.total)}
+                          {order.lines?.length ?? 0} items &middot; {formatCents(order.total)}
                         </p>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -286,7 +283,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                   <div className="flex-1 min-w-0">
                     <span className="text-sm font-medium text-foreground truncate block">{rl.lineName}</span>
                     <span className="text-xs text-muted-foreground">
-                      {formatMoney(rl.unitPrice)} each &middot; Max: {rl.maxQty}
+                      {formatCents(rl.unitPrice)} each &middot; Max: {rl.maxQty}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -379,13 +376,13 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                       <p className="text-xs text-muted-foreground">x{rl.returnQty} &middot; {rl.reason}</p>
                     </div>
                     <span className="text-sm font-semibold text-foreground">
-                      {formatMoney(rl.returnQty * rl.unitPrice)}
+                      {formatCents(rl.returnQty * rl.unitPrice)}
                     </span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between bg-muted px-4 py-3">
                   <span className="text-sm font-semibold text-foreground">Refund Total</span>
-                  <span className="text-base font-bold text-indigo-600">{formatMoney(returnTotal)}</span>
+                  <span className="text-base font-bold text-indigo-600">{formatCents(returnTotal)}</span>
                 </div>
               </div>
             </div>
@@ -440,7 +437,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                 className="flex items-center gap-1.5 rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
               >
                 <Check className="h-4 w-4" />
-                {isSubmitting ? 'Processing...' : `Process Return ${formatMoney(returnTotal)}`}
+                {isSubmitting ? 'Processing...' : `Process Return ${formatCents(returnTotal)}`}
               </button>
             )}
           </div>

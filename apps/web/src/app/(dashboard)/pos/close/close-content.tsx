@@ -17,6 +17,7 @@ import { useRetailClose } from '@/hooks/use-retail-close';
 import { useToast } from '@/components/ui/toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { RetailCloseBatch, TenderBreakdownEntry, DepartmentSalesEntry } from '@oppsera/core/retail-close';
+import { formatCents } from '@oppsera/shared';
 
 // ── Denomination counting (reused from CloseShiftDialog) ─────
 const DENOMINATIONS = [
@@ -31,10 +32,6 @@ const DENOMINATIONS = [
   { label: '5¢', value: 5 },
   { label: '1¢', value: 1 },
 ] as const;
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 // ── Status Stepper ───────────────────────────────────────────
 const STEPS = [
@@ -92,26 +89,26 @@ function ZReport({ batch }: { batch: RetailCloseBatch }) {
           <span className="text-muted-foreground">Orders</span>
           <span className="text-right font-medium">{batch.orderCount}</span>
           <span className="text-muted-foreground">Gross Sales</span>
-          <span className="text-right font-medium">{formatMoney(batch.grossSalesCents)}</span>
+          <span className="text-right font-medium">{formatCents(batch.grossSalesCents)}</span>
           <span className="text-muted-foreground">Discounts</span>
-          <span className="text-right font-medium text-red-500">-{formatMoney(batch.discountTotalCents)}</span>
+          <span className="text-right font-medium text-red-500">-{formatCents(batch.discountTotalCents)}</span>
           <span className="text-muted-foreground font-semibold">Net Sales</span>
-          <span className="text-right font-bold">{formatMoney(batch.netSalesCents)}</span>
+          <span className="text-right font-bold">{formatCents(batch.netSalesCents)}</span>
           <div className="col-span-2 border-t border-border my-1" />
           <span className="text-muted-foreground">Tax Collected</span>
-          <span className="text-right font-medium">{formatMoney(batch.taxCollectedCents)}</span>
+          <span className="text-right font-medium">{formatCents(batch.taxCollectedCents)}</span>
           <span className="text-muted-foreground">Service Charges</span>
-          <span className="text-right font-medium">{formatMoney(batch.serviceChargeCents)}</span>
+          <span className="text-right font-medium">{formatCents(batch.serviceChargeCents)}</span>
           <span className="text-muted-foreground">Tips (Credit)</span>
-          <span className="text-right font-medium">{formatMoney(batch.tipsCreditCents)}</span>
+          <span className="text-right font-medium">{formatCents(batch.tipsCreditCents)}</span>
           <span className="text-muted-foreground">Tips (Cash)</span>
-          <span className="text-right font-medium">{formatMoney(batch.tipsCashCents)}</span>
+          <span className="text-right font-medium">{formatCents(batch.tipsCashCents)}</span>
           {batch.voidCount > 0 && (
             <>
               <div className="col-span-2 border-t border-border my-1" />
               <span className="text-muted-foreground">Voids</span>
               <span className="text-right font-medium text-red-500">
-                {batch.voidCount} ({formatMoney(batch.voidTotalCents)})
+                {batch.voidCount} ({formatCents(batch.voidTotalCents)})
               </span>
             </>
           )}
@@ -126,7 +123,7 @@ function ZReport({ batch }: { batch: RetailCloseBatch }) {
             {tenderBreakdown.map((t) => (
               <div key={t.tenderType} className="flex justify-between text-sm">
                 <span className="capitalize">{t.tenderType} ({t.count})</span>
-                <span className="font-medium">{formatMoney(t.totalCents)}</span>
+                <span className="font-medium">{formatCents(t.totalCents)}</span>
               </div>
             ))}
           </div>
@@ -141,7 +138,7 @@ function ZReport({ batch }: { batch: RetailCloseBatch }) {
             {salesByDept.map((d) => (
               <div key={d.departmentName} className="flex justify-between text-sm">
                 <span>{d.departmentName} ({d.count})</span>
-                <span className="font-medium">{formatMoney(d.totalCents)}</span>
+                <span className="font-medium">{formatCents(d.totalCents)}</span>
               </div>
             ))}
           </div>
@@ -153,10 +150,10 @@ function ZReport({ batch }: { batch: RetailCloseBatch }) {
         <h3 className="mb-2 text-sm font-semibold text-muted-foreground uppercase">Cash Accountability</h3>
         <div className="grid grid-cols-2 gap-y-1.5 text-sm">
           <span className="text-muted-foreground">Expected Cash</span>
-          <span className="text-right font-medium">{formatMoney(batch.cashExpectedCents)}</span>
+          <span className="text-right font-medium">{formatCents(batch.cashExpectedCents)}</span>
           <span className="text-muted-foreground">Counted Cash</span>
           <span className="text-right font-medium">
-            {batch.cashCountedCents != null ? formatMoney(batch.cashCountedCents) : '—'}
+            {batch.cashCountedCents != null ? formatCents(batch.cashCountedCents) : '—'}
           </span>
           {batch.cashOverShortCents != null && (
             <>
@@ -172,7 +169,7 @@ function ZReport({ batch }: { batch: RetailCloseBatch }) {
               >
                 {batch.cashOverShortCents === 0
                   ? 'Balanced'
-                  : formatMoney(batch.cashOverShortCents)}
+                  : formatCents(batch.cashOverShortCents)}
               </span>
             </>
           )}
@@ -211,7 +208,7 @@ function CashCountForm({
     <div className="space-y-4">
       <div className="rounded-lg bg-muted/50 p-3 text-center">
         <div className="text-sm text-muted-foreground">Expected Cash in Drawer</div>
-        <div className="text-lg font-semibold">{formatMoney(expectedCents)}</div>
+        <div className="text-lg font-semibold">{formatCents(expectedCents)}</div>
       </div>
 
       <button
@@ -251,7 +248,7 @@ function CashCountForm({
                   +
                 </button>
                 <span className="w-20 text-right text-sm text-muted-foreground">
-                  {formatMoney((counts[d.value] ?? 0) * d.value)}
+                  {formatCents((counts[d.value] ?? 0) * d.value)}
                 </span>
               </div>
             </div>
@@ -261,7 +258,7 @@ function CashCountForm({
 
       <div className="rounded-lg bg-indigo-500/10 p-3 text-center">
         <div className="text-sm text-indigo-600">Counted Cash</div>
-        <div className="text-2xl font-bold text-indigo-500">{formatMoney(totalCents)}</div>
+        <div className="text-2xl font-bold text-indigo-500">{formatCents(totalCents)}</div>
       </div>
 
       <div>

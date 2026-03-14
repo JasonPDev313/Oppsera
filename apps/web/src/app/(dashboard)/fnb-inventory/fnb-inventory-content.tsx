@@ -12,16 +12,13 @@ import { ActionMenu } from '@/components/ui/action-menu';
 import type { ActionMenuItem } from '@/components/ui/action-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
-import { useFetch } from '@/hooks/use-fetch';
+import { useQuery } from '@tanstack/react-query';
+import { apiFetch } from '@/lib/api-client';
 import { useCatalogItems, useDepartments, useSubDepartments, useCategories, archiveCatalogItem, unarchiveCatalogItem } from '@/hooks/use-catalog';
 import { getItemTypeGroup, ITEM_TYPE_BADGES } from '@/types/catalog';
 import type { CatalogItemRow } from '@/types/catalog';
 import { ItemChangeLogModal } from '@/components/catalog/ItemChangeLogModal';
-
-function formatPrice(price: string | null): string {
-  if (!price) return '-';
-  return `$${Number(price).toFixed(2)}`;
-}
+import { formatDollarString } from '@oppsera/shared';
 
 function formatQty(val: number): string {
   if (Number.isInteger(val)) return val.toString();
@@ -63,9 +60,15 @@ export default function FnbInventoryContent() {
   // Course rules for displaying in the table
   interface CourseRuleSummary { defaultCourseNumber: number | null; allowedCourseNumbers: number[] | null; lockCourse: boolean }
   interface ResolvedCourseEntry { effectiveRule: CourseRuleSummary; source: string; defaultSource: string }
-  const { data: courseRulesData } = useFetch<{ data: Record<string, ResolvedCourseEntry> }>('/api/v1/fnb/course-rules/pos');
+  const { data: courseRulesData } = useQuery({
+    queryKey: ['fnb-course-rules-pos'],
+    queryFn: () => apiFetch<{ data: Record<string, ResolvedCourseEntry> }>('/api/v1/fnb/course-rules/pos'),
+  });
   const courseRulesMap = courseRulesData?.data ?? {};
-  const { data: courseDefsData } = useFetch<{ data: Array<{ courseNumber: number; courseName: string; isActive: boolean }> }>('/api/v1/fnb/course-definitions');
+  const { data: courseDefsData } = useQuery({
+    queryKey: ['fnb-course-definitions'],
+    queryFn: () => apiFetch<{ data: Array<{ courseNumber: number; courseName: string; isActive: boolean }> }>('/api/v1/fnb/course-definitions'),
+  });
   const courseDefsMap = useMemo(() => {
     const map = new Map<number, string>();
     for (const d of courseDefsData?.data ?? []) {
@@ -238,7 +241,7 @@ export default function FnbInventoryContent() {
     {
       key: 'defaultPrice',
       header: 'Price',
-      render: (row: EnrichedRow) => formatPrice(row.defaultPrice),
+      render: (row: EnrichedRow) => formatDollarString(row.defaultPrice as string | null | undefined),
     },
     {
       key: 'onHand',

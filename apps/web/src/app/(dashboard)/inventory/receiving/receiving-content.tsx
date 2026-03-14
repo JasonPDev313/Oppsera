@@ -13,6 +13,7 @@ import { ReorderSuggestionsPanel } from '@/components/receiving/reorder-suggesti
 import { useReceipts, useVendors, useReorderSuggestions } from '@/hooks/use-receiving';
 import { apiFetch } from '@/lib/api-client';
 import type { ReceiptSummary, ReceiptStatus } from '@/types/receiving';
+import { formatDollarsLocale } from '@oppsera/shared';
 
 const statusOptions = [
   { value: '', label: 'All Statuses' },
@@ -21,9 +22,6 @@ const statusOptions = [
   { value: 'voided', label: 'Voided' },
 ];
 
-function formatMoney(value: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-}
 
 type ReceiptRow = ReceiptSummary & Record<string, unknown>;
 
@@ -97,7 +95,7 @@ export default function ReceivingContent() {
       key: 'total',
       header: 'Total',
       render: (row: ReceiptRow) => (
-        <span className="text-sm font-medium text-foreground">{formatMoney(row.total)}</span>
+        <span className="text-sm font-medium text-foreground">{formatDollarsLocale(row.total)}</span>
       ),
     },
     {

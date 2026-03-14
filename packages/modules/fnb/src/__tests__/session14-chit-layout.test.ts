@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { formatCents } from '@oppsera/shared';
 import {
   fitLine,
   rightAlign,
   centerText,
-  formatDollars,
   renderKitchenChitText,
   renderDeltaChitText,
   renderGuestCheckText,
@@ -42,11 +42,11 @@ describe('Utility functions', () => {
     expect(result).toBe('    HI');
   });
 
-  it('formatDollars converts cents to dollars', () => {
-    expect(formatDollars(1050)).toBe('$10.50');
-    expect(formatDollars(0)).toBe('$0.00');
-    expect(formatDollars(99)).toBe('$0.99');
-    expect(formatDollars(100000)).toBe('$1000.00');
+  it('formatCents converts cents to dollars', () => {
+    expect(formatCents(1050)).toBe('$10.50');
+    expect(formatCents(0)).toBe('$0.00');
+    expect(formatCents(99)).toBe('$0.99');
+    expect(formatCents(100000)).toBe('$1000.00');
   });
 });
 

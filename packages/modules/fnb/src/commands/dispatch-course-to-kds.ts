@@ -16,7 +16,7 @@ import { eq, and, inArray, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { fnbTabs, fnbTabItems, fnbTabCourses, fnbTables } from '@oppsera/db';
 import { logger } from '@oppsera/core/observability';
-import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems } from '../services/kds-routing-engine';
+import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems, resolveKdsLocationId } from '../services/kds-routing-engine';
 import type { RoutableItem, RoutingResult } from '../services/kds-routing-engine';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { normalizeBusinessDate } from '../helpers/normalize-business-date';
@@ -240,8 +240,14 @@ export async function prepareCourseDispatch(
     diagnosis.push(`LOCATION MISMATCH: client sent ${clientLocationId} but tab owns ${tab.locationId} — using tab location`);
   }
 
-  // 2. Each location/venue owns its own KDS stations — no venue→site promotion
-  const effectiveLocationId = rawLocationId;
+  // 2. Resolve the effective KDS location via the site↔venue hierarchy.
+  //    The tab's locationId may be at a different level (venue) than where
+  //    KDS stations are configured (site, or vice versa). resolveKdsLocationId
+  //    handles the fallback so dispatch matches what the station listing shows.
+  const effectiveLocationId = await resolveKdsLocationId(ctx.tenantId, rawLocationId);
+  if (effectiveLocationId !== rawLocationId) {
+    diagnosis.push(`KDS location resolved: tab=${rawLocationId} → effective=${effectiveLocationId}`);
+  }
   diagnosis.push(`Tab: locationId=${effectiveLocationId}, tabType=${tab.tabType ?? 'null'}`);
 
   if (items.length === 0) {
@@ -288,13 +294,17 @@ export async function prepareCourseDispatch(
     modifierIds: extractModifierIds(item.modifiers),
   }));
 
-  routableItems = await enrichRoutableItems(ctx.tenantId, routableItems);
+  const enrichResult = await enrichRoutableItems(ctx.tenantId, routableItems, { returnChainMap: true });
+  routableItems = enrichResult.items;
+  const catalogChainMap = enrichResult.chainMap;
 
-  // 5. Resolve routing
-  const routingResults = await resolveStationRouting(
+  // 5. Resolve routing (includes station names + diagnosis — no separate query needed)
+  const routingResultSet = await resolveStationRouting(
     { tenantId: ctx.tenantId, locationId: effectiveLocationId, orderType: tab.tabType ?? undefined, channel: 'pos' },
     routableItems,
   );
+  const routingResults = routingResultSet.results;
+  const stationNameMap = routingResultSet.stationNames;
 
   let itemsRouted = 0;
   let itemsUnrouted = 0;
@@ -334,28 +344,16 @@ export async function prepareCourseDispatch(
     stationGroups.set(r.stationId, group);
   }
 
-  if (stationGroups.size === 0) return failPrep('No stations resolved — no tickets will be created');
+  if (stationGroups.size === 0) {
+    for (const d of routingResultSet.diagnosis) {
+      diagnosis.push(d);
+    }
+    return failPrep('No stations resolved — no tickets will be created');
+  }
 
   diagnosis.push(`Grouped into ${stationGroups.size} station(s)`);
 
-  // 7. Pre-fetch station names (cosmetic, non-critical)
-  const stationNameMap = new Map<string, string>();
-  try {
-    const stationIds = Array.from(stationGroups.keys());
-    const stationNameRows = await withTenant(ctx.tenantId, (tx) =>
-      tx.execute(sql`
-        SELECT id, display_name FROM fnb_kitchen_stations
-        WHERE tenant_id = ${ctx.tenantId} AND id IN (${sql.join(stationIds.map((id) => sql`${id}`), sql`, `)})
-      `),
-    );
-    for (const row of Array.from(stationNameRows as Iterable<Record<string, unknown>>)) {
-      stationNameMap.set(row.id as string, (row.display_name as string) ?? 'Unknown');
-    }
-  } catch {
-    // Non-critical
-  }
-
-  // 8. Pre-fetch prep times
+  // 7. Pre-fetch prep times — pass catalogChainMap to avoid duplicate catalog hierarchy query
   const prepTimeLookups: Array<{ orderLineId: string; catalogItemId: string; stationId: string }> = [];
   for (const item of items) {
     const routing = routingMap.get(item.id);
@@ -363,7 +361,7 @@ export async function prepareCourseDispatch(
       prepTimeLookups.push({ orderLineId: item.id, catalogItemId: item.catalogItemId, stationId: routing.stationId });
     }
   }
-  const prepTimeMap = await getStationPrepTimesForItems(ctx.tenantId, prepTimeLookups);
+  const prepTimeMap = await getStationPrepTimesForItems(ctx.tenantId, prepTimeLookups, catalogChainMap);
 
   return {
     tab,

@@ -27,6 +27,7 @@ import type {
   ReceiptItem,
 } from '../types';
 import { CHARS_PER_LINE } from '../types';
+import { formatCents, formatCentsRaw } from '../../utils/money';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -37,14 +38,6 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function formatMoney(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
-
-function formatMoneyWithSign(cents: number): string {
-  return `$${formatMoney(cents)}`;
 }
 
 function formatReceiptDate(dateStr: string): string {
@@ -128,7 +121,7 @@ function renderSingleItem(item: ReceiptItem, showPrices: boolean, showModifiers:
 
   // Qty x price
   if (showPrices) {
-    parts.push(`<div class="row indent"><span>${item.qty} x ${formatMoney(item.unitPriceCents)}</span><span>${formatMoney(item.lineTotalCents)}</span></div>`);
+    parts.push(`<div class="row indent"><span>${item.qty} x ${formatCentsRaw(item.unitPriceCents)}</span><span>${formatCentsRaw(item.lineTotalCents)}</span></div>`);
   } else {
     parts.push(`<div class="indent dim">Qty: ${item.qty}</div>`);
   }
@@ -137,7 +130,7 @@ function renderSingleItem(item: ReceiptItem, showPrices: boolean, showModifiers:
   if (showModifiers && item.modifiers.length > 0) {
     for (const mod of item.modifiers) {
       if (mod.priceCents !== 0 && showPrices) {
-        parts.push(`<div class="row indent2"><span>+ ${escapeHtml(mod.name)}</span><span>${formatMoney(mod.priceCents)}</span></div>`);
+        parts.push(`<div class="row indent2"><span>+ ${escapeHtml(mod.name)}</span><span>${formatCentsRaw(mod.priceCents)}</span></div>`);
       } else {
         parts.push(`<div class="indent2 dim">+ ${escapeHtml(mod.name)}</div>`);
       }
@@ -189,27 +182,27 @@ function renderTotals(block: TotalsBlock): string {
   parts.push('<div class="sep"></div>');
   parts.push('<div class="totals">');
 
-  parts.push(`<div class="row"><span>Subtotal</span><span>${formatMoney(block.subtotalCents)}</span></div>`);
+  parts.push(`<div class="row"><span>Subtotal</span><span>${formatCentsRaw(block.subtotalCents)}</span></div>`);
 
   for (const disc of block.discounts) {
-    parts.push(`<div class="row discount"><span>${escapeHtml(disc.label)}</span><span>-${formatMoney(disc.amountCents)}</span></div>`);
+    parts.push(`<div class="row discount"><span>${escapeHtml(disc.label)}</span><span>-${formatCentsRaw(disc.amountCents)}</span></div>`);
   }
 
   for (const charge of block.charges) {
-    parts.push(`<div class="row"><span>${escapeHtml(charge.label)}</span><span>${formatMoney(charge.amountCents)}</span></div>`);
+    parts.push(`<div class="row"><span>${escapeHtml(charge.label)}</span><span>${formatCentsRaw(charge.amountCents)}</span></div>`);
   }
 
   if (block.taxBreakdown && block.taxBreakdown.length > 0) {
     for (const tax of block.taxBreakdown) {
-      parts.push(`<div class="row dim indent"><span>${escapeHtml(tax.name)} (${escapeHtml(tax.rate)})</span><span>${formatMoney(tax.amountCents)}</span></div>`);
+      parts.push(`<div class="row dim indent"><span>${escapeHtml(tax.name)} (${escapeHtml(tax.rate)})</span><span>${formatCentsRaw(tax.amountCents)}</span></div>`);
     }
   } else if (block.taxCents > 0) {
-    parts.push(`<div class="row"><span>Tax</span><span>${formatMoney(block.taxCents)}</span></div>`);
+    parts.push(`<div class="row"><span>Tax</span><span>${formatCentsRaw(block.taxCents)}</span></div>`);
   }
 
   parts.push('</div>');
   parts.push('<div class="sep-thick"></div>');
-  parts.push(`<div class="grand-total"><div class="row"><span>TOTAL</span><span>${formatMoneyWithSign(block.totalCents)}</span></div></div>`);
+  parts.push(`<div class="grand-total"><div class="row"><span>TOTAL</span><span>${formatCents(block.totalCents)}</span></div></div>`);
   parts.push('<div class="sep-thick"></div>');
 
   return parts.join('\n');
@@ -228,25 +221,25 @@ function renderPayment(block: PaymentBlock): string {
     } else if (tender.cardLast4) {
       label = `CARD ****${escapeHtml(tender.cardLast4)}`;
     }
-    parts.push(`<div class="row"><span>${label}</span><span>${formatMoney(tender.amountCents)}</span></div>`);
+    parts.push(`<div class="row"><span>${label}</span><span>${formatCentsRaw(tender.amountCents)}</span></div>`);
 
     if (tender.authCode) {
       parts.push(`<div class="row indent dim"><span>Auth:</span><span>${escapeHtml(tender.authCode)}</span></div>`);
     }
     if (tender.surchargeAmountCents > 0) {
-      parts.push(`<div class="row indent dim"><span>Surcharge</span><span>${formatMoney(tender.surchargeAmountCents)}</span></div>`);
+      parts.push(`<div class="row indent dim"><span>Surcharge</span><span>${formatCentsRaw(tender.surchargeAmountCents)}</span></div>`);
     }
     if (tender.tipCents > 0) {
-      parts.push(`<div class="row indent dim"><span>Tip</span><span>${formatMoney(tender.tipCents)}</span></div>`);
+      parts.push(`<div class="row indent dim"><span>Tip</span><span>${formatCentsRaw(tender.tipCents)}</span></div>`);
     }
   }
 
   if (block.changeCents > 0) {
-    parts.push(`<div class="row"><span>Change</span><span>${formatMoney(block.changeCents)}</span></div>`);
+    parts.push(`<div class="row"><span>Change</span><span>${formatCentsRaw(block.changeCents)}</span></div>`);
   }
 
   if (block.totalTipCents > 0 && block.tenders.length > 1) {
-    parts.push(`<div class="row" style="margin-top:6px;"><span><strong>Total Tips</strong></span><span>${formatMoney(block.totalTipCents)}</span></div>`);
+    parts.push(`<div class="row" style="margin-top:6px;"><span><strong>Total Tips</strong></span><span>${formatCentsRaw(block.totalTipCents)}</span></div>`);
   }
 
   parts.push('</div>');
@@ -329,7 +322,7 @@ function renderWatermark(block: WatermarkBlock): string {
 function renderRefundInfo(block: RefundInfoBlock): string {
   return `<div class="refund-info">
   <div class="row"><span>Original Order:</span><span>${escapeHtml(block.originalOrderNumber)}</span></div>
-  <div class="row"><span>Refund Amount:</span><span>${formatMoneyWithSign(block.refundAmountCents)}</span></div>
+  <div class="row"><span>Refund Amount:</span><span>${formatCents(block.refundAmountCents)}</span></div>
   <div class="row"><span>Refund Method:</span><span>${escapeHtml(block.refundMethod)}</span></div>
 </div>`;
 }

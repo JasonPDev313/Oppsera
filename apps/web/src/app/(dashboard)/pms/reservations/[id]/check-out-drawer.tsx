@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { formatCentsLocale } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
@@ -62,10 +63,6 @@ interface FolioData {
 type FolioDelivery = 'print' | 'email' | 'both' | 'none';
 
 // ── Helpers ──────────────────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
@@ -240,7 +237,7 @@ export function CheckOutDrawer({
               </div>
               <div className="text-right">
                 <p className="text-lg font-semibold text-foreground">
-                  {formatMoney(reservation.totalCents)}
+                  {formatCentsLocale(reservation.totalCents)}
                 </p>
                 <p className="text-xs text-muted-foreground">Total Stay</p>
               </div>
@@ -280,7 +277,7 @@ export function CheckOutDrawer({
                         : 'text-green-500'
                   }`}
                 >
-                  {formatMoney(balanceDue)}
+                  {formatCentsLocale(balanceDue)}
                 </span>
               )}
             </div>
@@ -289,16 +286,16 @@ export function CheckOutDrawer({
               <div className="mt-3 space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Charges</span>
-                  <span className="text-foreground">{formatMoney(folio.summary.totalCharges)}</span>
+                  <span className="text-foreground">{formatCentsLocale(folio.summary.totalCharges)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Payments</span>
-                  <span className="text-green-500">-{formatMoney(folio.summary.totalPayments)}</span>
+                  <span className="text-green-500">-{formatCentsLocale(folio.summary.totalPayments)}</span>
                 </div>
                 {folio.summary.totalRefunds > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Refunds</span>
-                    <span className="text-red-400">{formatMoney(folio.summary.totalRefunds)}</span>
+                    <span className="text-red-400">{formatCentsLocale(folio.summary.totalRefunds)}</span>
                   </div>
                 )}
               </div>
@@ -310,7 +307,7 @@ export function CheckOutDrawer({
                 <div className="flex items-start gap-2 text-sm text-amber-400">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <div>
-                    <p className="font-medium">Outstanding balance of {formatMoney(balanceDue)}</p>
+                    <p className="font-medium">Outstanding balance of {formatCentsLocale(balanceDue)}</p>
                     <p className="mt-1 text-amber-400/80">
                       The folio has an unpaid balance. You can still proceed, but the balance will remain on the closed folio.
                     </p>
@@ -366,7 +363,7 @@ export function CheckOutDrawer({
                               </td>
                               <td className="px-3 py-1.5 text-foreground">{entry.description}</td>
                               <td className={`px-3 py-1.5 text-right font-medium ${isPayment ? 'text-green-500' : 'text-foreground'}`}>
-                                {isPayment ? '-' : ''}{formatMoney(Math.abs(entry.amountCents))}
+                                {isPayment ? '-' : ''}{formatCentsLocale(Math.abs(entry.amountCents))}
                               </td>
                             </tr>
                           );

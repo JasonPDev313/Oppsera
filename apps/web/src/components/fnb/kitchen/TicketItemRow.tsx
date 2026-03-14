@@ -304,9 +304,9 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
                 minWidth: '44px',
                 minHeight: '36px',
                 padding: '4px 8px',
-                backgroundColor: 'rgba(99, 102, 241, 0.12)',
-                color: '#818cf8',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
+                backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                color: '#4f46e5',
+                border: '1px solid rgba(99, 102, 241, 0.4)',
               }}
             >
               Bump
@@ -320,8 +320,8 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
                 minHeight: '36px',
                 padding: '4px 8px',
                 backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                color: '#22c55e',
-                border: '1px solid rgba(34, 197, 94, 0.4)',
+                color: '#16a34a',
+                border: '1px solid rgba(34, 197, 94, 0.5)',
               }}
             >
               ✓

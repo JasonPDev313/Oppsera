@@ -6,6 +6,8 @@
  * deposit refund status, and a "Book Again" link.
  */
 
+import { formatCents } from '@oppsera/shared';
+
 export interface SpaCancellationEmailData {
   spaName: string;
   logoUrl?: string | null;
@@ -36,10 +38,6 @@ function formatTime(d: Date): string {
   });
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -52,10 +50,10 @@ export function spaBookingCancellationEmail(
   data: SpaCancellationEmailData,
 ): { subject: string; html: string } {
   const feeBlock = data.cancellationFeeCents
-    ? `<tr><td style="padding: 6px 0; color: #71717a;">Cancellation Fee</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #dc2626;">${formatMoney(data.cancellationFeeCents)}</td></tr>`
+    ? `<tr><td style="padding: 6px 0; color: #71717a;">Cancellation Fee</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #dc2626;">${formatCents(data.cancellationFeeCents)}</td></tr>`
     : '';
   const refundBlock = data.depositRefundCents
-    ? `<tr><td style="padding: 6px 0; color: #71717a;">Deposit Refund</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #16a34a;">${formatMoney(data.depositRefundCents)}</td></tr>`
+    ? `<tr><td style="padding: 6px 0; color: #71717a;">Deposit Refund</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #16a34a;">${formatCents(data.depositRefundCents)}</td></tr>`
     : '';
   const logoBlock = data.logoUrl
     ? `<img src="${escapeHtml(data.logoUrl)}" alt="${escapeHtml(data.spaName)}" style="max-height: 48px; margin-bottom: 16px;" />`
@@ -85,7 +83,7 @@ export function spaBookingCancellationEmail(
 
   <p style="margin: 0 0 20px; font-size: 14px; color: #71717a;">
     Your appointment has been cancelled. ${data.cancellationFeeCents ? 'The cancellation fee shown above may apply.' : 'No cancellation fee applies.'}
-    ${data.depositRefundCents ? ` A refund of ${formatMoney(data.depositRefundCents)} will be processed to your original payment method.` : ''}
+    ${data.depositRefundCents ? ` A refund of ${formatCents(data.depositRefundCents)} will be processed to your original payment method.` : ''}
   </p>
 
   <div style="margin: 0 0 20px; text-align: center;">

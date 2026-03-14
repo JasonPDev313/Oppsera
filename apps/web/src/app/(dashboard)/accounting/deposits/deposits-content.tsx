@@ -13,10 +13,7 @@ import {
 import { useAuthContext } from '@/components/auth-provider';
 import { useDepositSlips, useDepositMutations } from '@/hooks/use-deposits';
 import type { DenominationBreakdown } from '@/types/accounting';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+import { formatCents } from '@oppsera/shared';
 
 const STATUS_TABS = ['all', 'pending', 'prepared', 'deposited', 'reconciled'] as const;
 
@@ -152,7 +149,7 @@ function PrepareDepositDialog({
                 </button>
               </div>
               <span className="text-sm text-muted-foreground text-right w-16 font-mono">
-                {formatMoney(breakdown[denom.key] * denom.valueCents)}
+                {formatCents(breakdown[denom.key] * denom.valueCents)}
               </span>
             </div>
           ))}
@@ -162,17 +159,17 @@ function PrepareDepositDialog({
         <div className="rounded-lg bg-muted p-3 mb-4 space-y-1">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Expected</span>
-            <span className="font-mono">{formatMoney(currentAmountCents)}</span>
+            <span className="font-mono">{formatCents(currentAmountCents)}</span>
           </div>
           <div className="flex justify-between text-sm font-semibold">
             <span className="text-foreground">Counted</span>
-            <span className="font-mono">{formatMoney(total)}</span>
+            <span className="font-mono">{formatCents(total)}</span>
           </div>
           {total !== currentAmountCents && (
             <div className={`flex justify-between text-sm font-medium ${total > currentAmountCents ? 'text-blue-500' : 'text-red-500'}`}>
               <span>Variance</span>
               <span className="font-mono">
-                {total > currentAmountCents ? '+' : ''}{formatMoney(total - currentAmountCents)}
+                {total > currentAmountCents ? '+' : ''}{formatCents(total - currentAmountCents)}
               </span>
             </div>
           )}
@@ -299,7 +296,7 @@ export default function DepositsContent() {
                 <tr key={d.id} className="hover:bg-accent transition-colors">
                   <td className="px-4 py-3 text-sm text-foreground">{d.businessDate}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{d.depositType}</td>
-                  <td className="px-4 py-3 text-sm text-foreground text-right font-mono">{formatMoney(d.totalAmountCents)}</td>
+                  <td className="px-4 py-3 text-sm text-foreground text-right font-mono">{formatCents(d.totalAmountCents)}</td>
                   <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
                   <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{d.slipNumber ?? '-'}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">

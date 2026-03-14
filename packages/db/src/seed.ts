@@ -281,6 +281,9 @@ async function seed() {
         'kds.view',
         'kds.manage',
         'kds.settings.manage',
+        'ai_support.view',
+        'ai_support.chat',
+        'ai_support.admin',
       ],
     },
     {
@@ -305,6 +308,8 @@ async function seed() {
         'spa.appointments.create',
         'spa.packages.view',
         'spa.waitlist.view',
+        'ai_support.view',
+        'ai_support.chat',
       ],
     },
     {
@@ -365,6 +370,8 @@ async function seed() {
         'spa.operations.manage',
         'pos.register_tabs.view_all',
         'pos.register_tabs.transfer',
+        'ai_support.view',
+        'ai_support.chat',
       ],
     },
     {
@@ -388,6 +395,8 @@ async function seed() {
         'spa.appointments.create',
         'spa.packages.view',
         'spa.waitlist.view',
+        'ai_support.view',
+        'ai_support.chat',
       ],
     },
     {
@@ -404,6 +413,8 @@ async function seed() {
         'spa.appointments.view',
         'spa.packages.view',
         'spa.waitlist.view',
+        'ai_support.view',
+        'ai_support.chat',
       ],
     },
     {
@@ -451,6 +462,7 @@ async function seed() {
         'spa.settings.view',
         'spa.reports.view',
         'spa.waitlist.view',
+        'ai_support.view',
       ],
     },
   ];

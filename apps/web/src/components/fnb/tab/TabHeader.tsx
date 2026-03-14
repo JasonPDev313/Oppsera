@@ -2,6 +2,7 @@
 
 import { ArrowLeft, Clock, Users, Flame, CheckCircle2 } from 'lucide-react';
 import type { FnbTabDetail } from '@/types/fnb';
+import { formatCents } from '@oppsera/shared';
 
 function getFireStatus(tab: FnbTabDetail): { label: string; color: string; bg: string; icon: 'flame' | 'check' } | null {
   const lines = tab.lines ?? [];
@@ -37,9 +38,6 @@ function formatElapsed(openedAt: string): string {
   return `${Math.floor(minutes / 60)}h${minutes % 60}m`;
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 export function TabHeader({ tab, onBack }: TabHeaderProps) {
   const typeLabels: Record<string, string> = {
@@ -126,7 +124,7 @@ export function TabHeader({ tab, onBack }: TabHeaderProps) {
       {/* Running total */}
       <div className="text-right">
         <span className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
-          {formatMoney(tab.runningTotalCents ?? 0)}
+          {formatCents(tab.runningTotalCents ?? 0)}
         </span>
       </div>
     </div>

@@ -11,14 +11,13 @@ import { FormField } from '@/components/ui/form-field';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { useToast } from '@/components/ui/toast';
 import { useBillingAccount, useArLedger, useAgingReport } from '@/hooks/use-customers';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import type { BillingAccountMember, ArTransaction } from '@/types/customers';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+const formatMoney = formatCents;
 
 function formatDateTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString('en-US', {

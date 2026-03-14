@@ -28,6 +28,7 @@ import {
   CreditCard,
   MessageSquare,
 } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -232,10 +233,6 @@ const MARKET_SEGMENT_LABELS: Record<string, string> = {
 };
 
 // ── Helpers ──────────────────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', {
@@ -1096,7 +1093,7 @@ function FolioSection({
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Nightly Rate</p>
                   <p className="mt-0.5 text-sm text-foreground">
-                    {formatMoney(folio.nightlyRateCents)}
+                    {formatCents(folio.nightlyRateCents)}
                     {folio.ratePlanCode ? <span className="ml-1 text-xs text-muted-foreground">({folio.ratePlanCode})</span> : ''}
                   </p>
                 </div>
@@ -1163,7 +1160,7 @@ function FolioSection({
                   }`}
                 >
                   {folio.summary.balanceDue < 0 && '('}
-                  {formatMoney(Math.abs(folio.summary.balanceDue))}
+                  {formatCents(Math.abs(folio.summary.balanceDue))}
                   {folio.summary.balanceDue < 0 && ')'}
                 </span>
               </div>
@@ -1171,7 +1168,7 @@ function FolioSection({
                 <div className="mt-1.5 flex items-center justify-between border-t border-border/50 pt-1.5">
                   <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Deposit Held</span>
                   <span className="text-sm font-mono tabular-nums text-amber-400">
-                    {formatMoney(folio.depositHeldCents)}
+                    {formatCents(folio.depositHeldCents)}
                   </span>
                 </div>
               )}
@@ -1320,15 +1317,15 @@ function FolioSection({
                         )}
                       </td>
                       <td className={`px-4 py-2 text-right font-mono tabular-nums ${isVoided ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                        {!isCredit ? formatMoney(Math.abs(entry.amountCents)) : ''}
+                        {!isCredit ? formatCents(Math.abs(entry.amountCents)) : ''}
                       </td>
                       <td className={`px-4 py-2 text-right font-mono tabular-nums ${isVoided ? 'line-through text-muted-foreground' : 'text-green-500'}`}>
-                        {isCredit ? formatMoney(Math.abs(entry.amountCents)) : ''}
+                        {isCredit ? formatCents(Math.abs(entry.amountCents)) : ''}
                       </td>
                       <td className={`px-4 py-2 text-right font-mono tabular-nums font-medium ${isVoided ? 'text-muted-foreground' : 'text-foreground'}`}>
                         {entry.runningBalanceCents < 0
-                          ? `(${formatMoney(Math.abs(entry.runningBalanceCents))})`
-                          : formatMoney(entry.runningBalanceCents)}
+                          ? `(${formatCents(Math.abs(entry.runningBalanceCents))})`
+                          : formatCents(entry.runningBalanceCents)}
                       </td>
                     </tr>
                   );
@@ -1342,15 +1339,15 @@ function FolioSection({
                   Totals
                 </td>
                 <td className="px-4 py-2 text-right font-mono tabular-nums font-semibold text-foreground">
-                  {formatMoney(folio.summary.totalCharges)}
+                  {formatCents(folio.summary.totalCharges)}
                 </td>
                 <td className="px-4 py-2 text-right font-mono tabular-nums font-semibold text-green-500">
-                  {formatMoney(folio.summary.totalPayments + folio.summary.totalRefunds)}
+                  {formatCents(folio.summary.totalPayments + folio.summary.totalRefunds)}
                 </td>
                 <td className="px-4 py-2 text-right font-mono tabular-nums font-semibold text-foreground">
                   {folio.summary.balanceDue < 0
-                    ? `(${formatMoney(Math.abs(folio.summary.balanceDue))})`
-                    : formatMoney(folio.summary.balanceDue)}
+                    ? `(${formatCents(Math.abs(folio.summary.balanceDue))})`
+                    : formatCents(folio.summary.balanceDue)}
                 </td>
               </tr>
             </tfoot>
@@ -1363,29 +1360,29 @@ function FolioSection({
         <div className="ml-auto max-w-xs space-y-1.5">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Subtotal</span>
-            <span className="font-mono tabular-nums text-foreground">{formatMoney(folio.subtotalCents)}</span>
+            <span className="font-mono tabular-nums text-foreground">{formatCents(folio.subtotalCents)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Tax</span>
-            <span className="font-mono tabular-nums text-foreground">{formatMoney(folio.taxCents)}</span>
+            <span className="font-mono tabular-nums text-foreground">{formatCents(folio.taxCents)}</span>
           </div>
           {folio.feeCents > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Fees</span>
-              <span className="font-mono tabular-nums text-foreground">{formatMoney(folio.feeCents)}</span>
+              <span className="font-mono tabular-nums text-foreground">{formatCents(folio.feeCents)}</span>
             </div>
           )}
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Payments</span>
             <span className="font-mono tabular-nums text-green-500">
-              ({formatMoney(folio.summary.totalPayments)})
+              ({formatCents(folio.summary.totalPayments)})
             </span>
           </div>
           {folio.summary.totalRefunds > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Refunds</span>
               <span className="font-mono tabular-nums text-red-500">
-                {formatMoney(folio.summary.totalRefunds)}
+                {formatCents(folio.summary.totalRefunds)}
               </span>
             </div>
           )}
@@ -1398,7 +1395,7 @@ function FolioSection({
                 }`}
               >
                 {folio.summary.balanceDue < 0 && '('}
-                {formatMoney(Math.abs(folio.summary.balanceDue))}
+                {formatCents(Math.abs(folio.summary.balanceDue))}
                 {folio.summary.balanceDue < 0 && ')'}
               </span>
             </div>
@@ -1418,7 +1415,7 @@ function FolioSection({
             {guestName && <><dt>Guest</dt><dd>{guestName}</dd></>}
             {folio.confirmationNumber && <><dt>Confirmation #</dt><dd>{folio.confirmationNumber}</dd></>}
             {folio.roomNumber && <><dt>Room</dt><dd>{folio.roomNumber}{folio.roomTypeName ? ` (${folio.roomTypeName})` : ''}</dd></>}
-            {folio.nightlyRateCents != null && <><dt>Nightly Rate</dt><dd>{formatMoney(folio.nightlyRateCents)}{folio.ratePlanCode ? ` (${folio.ratePlanCode})` : ''}</dd></>}
+            {folio.nightlyRateCents != null && <><dt>Nightly Rate</dt><dd>{formatCents(folio.nightlyRateCents)}{folio.ratePlanCode ? ` (${folio.ratePlanCode})` : ''}</dd></>}
             {folio.checkInDate && <><dt>Arrival</dt><dd>{formatDate(folio.checkInDate)}</dd></>}
             {folio.checkOutDate && <><dt>Departure</dt><dd>{formatDate(folio.checkOutDate)}</dd></>}
             {nightCount != null && <><dt>Nights</dt><dd>{nightCount}</dd></>}
@@ -1427,7 +1424,7 @@ function FolioSection({
               <><dt>Payment</dt><dd>{folio.paymentMethod.cardBrand}{folio.paymentMethod.cardLastFour ? ` ••••${folio.paymentMethod.cardLastFour}` : ''}</dd></>
             )}
             {folio.depositHeldCents > 0 && (
-              <><dt>Deposit Held</dt><dd>{formatMoney(folio.depositHeldCents)}</dd></>
+              <><dt>Deposit Held</dt><dd>{formatCents(folio.depositHeldCents)}</dd></>
             )}
           </div>
           <table>
@@ -1455,12 +1452,12 @@ function FolioSection({
                     <td>{typeLabel}{entry.departmentCode ? ` (${entry.departmentCode})` : ''}{entry.isVoided ? ' [VOID]' : ''}{entry.voidedEntryId ? ' [REVERSAL]' : ''}</td>
                     <td>{entry.sourceRef ?? '—'}</td>
                     <td>{entry.description}{entry.postedByName ? ` (${entry.postedByName})` : ''}</td>
-                    <td className="text-right">{!isCredit ? formatMoney(Math.abs(entry.amountCents)) : ''}</td>
-                    <td className="text-right">{isCredit ? formatMoney(Math.abs(entry.amountCents)) : ''}</td>
+                    <td className="text-right">{!isCredit ? formatCents(Math.abs(entry.amountCents)) : ''}</td>
+                    <td className="text-right">{isCredit ? formatCents(Math.abs(entry.amountCents)) : ''}</td>
                     <td className="text-right">
                       {entry.runningBalanceCents < 0
-                        ? `(${formatMoney(Math.abs(entry.runningBalanceCents))})`
-                        : formatMoney(entry.runningBalanceCents)}
+                        ? `(${formatCents(Math.abs(entry.runningBalanceCents))})`
+                        : formatCents(entry.runningBalanceCents)}
                     </td>
                   </tr>
                 );
@@ -1468,16 +1465,16 @@ function FolioSection({
             </tbody>
           </table>
           <div className="summary">
-            <div className="summary-row"><span>Subtotal</span><span>{formatMoney(folio.subtotalCents)}</span></div>
-            <div className="summary-row"><span>Tax</span><span>{formatMoney(folio.taxCents)}</span></div>
+            <div className="summary-row"><span>Subtotal</span><span>{formatCents(folio.subtotalCents)}</span></div>
+            <div className="summary-row"><span>Tax</span><span>{formatCents(folio.taxCents)}</span></div>
             {folio.feeCents > 0 && (
-              <div className="summary-row"><span>Fees</span><span>{formatMoney(folio.feeCents)}</span></div>
+              <div className="summary-row"><span>Fees</span><span>{formatCents(folio.feeCents)}</span></div>
             )}
-            <div className="summary-row"><span>Payments</span><span className="credit">({formatMoney(folio.summary.totalPayments)})</span></div>
+            <div className="summary-row"><span>Payments</span><span className="credit">({formatCents(folio.summary.totalPayments)})</span></div>
             {folio.summary.totalRefunds > 0 && (
-              <div className="summary-row"><span>Refunds</span><span>{formatMoney(folio.summary.totalRefunds)}</span></div>
+              <div className="summary-row"><span>Refunds</span><span>{formatCents(folio.summary.totalRefunds)}</span></div>
             )}
-            <div className="summary-row summary-total"><span>Balance Due</span><span>{formatMoney(Math.abs(folio.summary.balanceDue))}</span></div>
+            <div className="summary-row summary-total"><span>Balance Due</span><span>{formatCents(Math.abs(folio.summary.balanceDue))}</span></div>
           </div>
         </div>
       </div>
@@ -1583,7 +1580,7 @@ function FolioSection({
               <option value="">Select an entry...</option>
               {folio.entries.filter((e) => !e.isVoided && !e.voidedEntryId).map((e) => (
                 <option key={e.id} value={e.id}>
-                  {ENTRY_TYPE_LABELS[e.entryType] ?? e.entryType} — {e.description} ({formatMoney(e.amountCents)})
+                  {ENTRY_TYPE_LABELS[e.entryType] ?? e.entryType} — {e.description} ({formatCents(e.amountCents)})
                 </option>
               ))}
             </select>
@@ -1599,7 +1596,7 @@ function FolioSection({
               <option value="">Select a folio...</option>
               {otherFolios.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.label ?? 'Guest'}{f.folioNumber != null ? ` #${f.folioNumber}` : ''} ({formatMoney(f.balanceCents)})
+                  {f.label ?? 'Guest'}{f.folioNumber != null ? ` #${f.folioNumber}` : ''} ({formatCents(f.balanceCents)})
                 </option>
               ))}
             </select>
@@ -1926,11 +1923,11 @@ export default function ReservationDetailContent() {
             )}
             <DetailRow
               label="Nightly Rate"
-              value={formatMoney(reservation.nightlyRateCents)}
+              value={formatCents(reservation.nightlyRateCents)}
             />
             <DetailRow
               label="Total"
-              value={formatMoney(reservation.totalCents)}
+              value={formatCents(reservation.totalCents)}
               highlight
             />
             {reservation.eta && (

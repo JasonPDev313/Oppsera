@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { formatCents } from '@oppsera/shared';
 
 interface CashCountFormProps {
   onSubmit: (totalCents: number, denominations: Record<string, number>) => void;
@@ -38,8 +39,6 @@ export function CashCountForm({ onSubmit, disabled }: CashCountFormProps) {
     onSubmit(totalCents, counts);
   };
 
-  const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
-
   return (
     <div className="rounded-xl border p-4" style={{ borderColor: 'rgba(148, 163, 184, 0.15)', backgroundColor: 'var(--fnb-bg-surface)' }}>
       <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--fnb-text-primary)' }}>Cash Count</h3>
@@ -65,7 +64,7 @@ export function CashCountForm({ onSubmit, disabled }: CashCountFormProps) {
                 className="w-16 text-xs font-mono text-right"
                 style={{ color: 'var(--fnb-text-muted)', fontFamily: 'var(--fnb-font-mono)' }}
               >
-                {formatMoney((counts[d.key] ?? 0) * d.valueCents)}
+                {formatCents((counts[d.key] ?? 0) * d.valueCents)}
               </span>
             </div>
           </div>
@@ -78,7 +77,7 @@ export function CashCountForm({ onSubmit, disabled }: CashCountFormProps) {
           className="text-lg font-bold font-mono"
           style={{ color: 'var(--fnb-accent-primary)', fontFamily: 'var(--fnb-font-mono)' }}
         >
-          {formatMoney(totalCents)}
+          {formatCents(totalCents)}
         </span>
       </div>
 

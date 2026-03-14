@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { Building2, Search, AlertTriangle, ShieldCheck, Ban } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import { ManagerPinModal } from '../manager/ManagerPinModal';
 import { SignaturePad } from './SignaturePad';
@@ -33,8 +34,6 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);
-
-  const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) return;
@@ -213,7 +212,7 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {account.creditLimitCents > 0 ? formatMoney(account.creditLimitCents) : 'Unlimited'}
+                {account.creditLimitCents > 0 ? formatCents(account.creditLimitCents) : 'Unlimited'}
               </span>
             </div>
             <div className="flex justify-between text-xs">
@@ -225,7 +224,7 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatMoney(account.outstandingBalanceCents)}
+                {formatCents(account.outstandingBalanceCents)}
               </span>
             </div>
             <div className="flex justify-between text-xs font-bold">
@@ -240,7 +239,7 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
                 }}
               >
                 {account.availableCreditCents != null
-                  ? formatMoney(account.availableCreditCents)
+                  ? formatCents(account.availableCreditCents)
                   : 'Unlimited'}
               </span>
             </div>
@@ -254,7 +253,7 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
                     fontFamily: 'var(--fnb-font-mono)',
                   }}
                 >
-                  {formatMoney(account.spendingLimitCents)}
+                  {formatCents(account.spendingLimitCents)}
                 </span>
               </div>
             )}
@@ -270,7 +269,7 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
               >
                 <AlertTriangle className="h-3 w-3 shrink-0" />
                 Charge exceeds available credit by{' '}
-                {formatMoney(remainingCents - effectiveAvailableCents)}
+                {formatCents(remainingCents - effectiveAvailableCents)}
               </div>
             )}
 
@@ -282,7 +281,7 @@ export function HouseAccountPanel({ remainingCents, onTender, disabled }: HouseA
                 className="flex-1 rounded-lg py-2 text-xs font-bold text-white transition-colors hover:opacity-90 disabled:opacity-40"
                 style={{ backgroundColor: 'var(--fnb-tender-house)' }}
               >
-                {!signatureData ? 'Sign to Charge' : `Charge ${formatMoney(chargeAmount)}`}
+                {!signatureData ? 'Sign to Charge' : `Charge ${formatCents(chargeAmount)}`}
               </button>
 
               {/* Override button for when exceeds credit */}

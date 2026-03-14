@@ -3,6 +3,7 @@
 import { memo, useCallback } from 'react';
 import { Star } from 'lucide-react';
 import { getContrastTextColor } from '@/lib/contrast';
+import { formatCents } from '@oppsera/shared';
 
 export type TileSize = 'compact' | 'standard' | 'large';
 
@@ -32,9 +33,6 @@ interface FnbItemTileProps {
   hasModifiers?: boolean;
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 export const FnbItemTile = memo(function FnbItemTile({
   itemId,
@@ -120,7 +118,7 @@ export const FnbItemTile = memo(function FnbItemTile({
             textShadow: hasImage ? '0 1px 3px rgba(0,0,0,0.6)' : undefined,
           }}
         >
-          {formatMoney(priceCents)}
+          {formatCents(priceCents)}
         </span>
       </div>
 

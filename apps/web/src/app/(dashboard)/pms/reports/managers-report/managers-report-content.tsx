@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Printer,
 } from 'lucide-react';
+import { formatCentsLocale } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import { Select } from '@/components/ui/select';
@@ -85,8 +86,7 @@ function todayISO(): string {
 }
 
 function formatCents(cents: number | null | undefined): string {
-  const v = Number(cents) || 0;
-  return (v / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  return formatCentsLocale(Number(cents) || 0);
 }
 
 function formatPct(pct: number | null | undefined): string {

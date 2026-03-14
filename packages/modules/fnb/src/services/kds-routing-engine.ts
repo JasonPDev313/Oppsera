@@ -53,6 +53,12 @@ export interface RoutingResult {
   matchType: 'item' | 'category' | 'sub_department' | 'department' | 'modifier' | 'fallback' | null;
 }
 
+export interface RoutingResultSet {
+  results: RoutingResult[];
+  stationNames: Map<string, string>;
+  diagnosis: string[];
+}
+
 // ── Internal Types ──────────────────────────────────────────────
 
 interface RoutingRule {
@@ -248,15 +254,29 @@ function matchItem(
 export async function enrichRoutableItems(
   tenantId: string,
   items: RoutableItem[],
-): Promise<RoutableItem[]> {
+): Promise<RoutableItem[]>;
+export async function enrichRoutableItems(
+  tenantId: string,
+  items: RoutableItem[],
+  opts: { returnChainMap: true },
+): Promise<{ items: RoutableItem[]; chainMap: Map<string, CatalogChainEntry> }>;
+export async function enrichRoutableItems(
+  tenantId: string,
+  items: RoutableItem[],
+  opts?: { returnChainMap?: boolean },
+): Promise<RoutableItem[] | { items: RoutableItem[]; chainMap: Map<string, CatalogChainEntry> }> {
   // Collect catalogItemIds that need enrichment (any missing hierarchy level)
   const needsEnrichment = items.filter(
     (item) => !item.categoryId || !item.subDepartmentId || !item.departmentId,
   );
-  if (needsEnrichment.length === 0) return items;
+  if (needsEnrichment.length === 0) {
+    return opts?.returnChainMap ? { items, chainMap: new Map() } : items;
+  }
 
   const catalogItemIds = [...new Set(needsEnrichment.map((i) => i.catalogItemId))];
-  if (catalogItemIds.length === 0) return items;
+  if (catalogItemIds.length === 0) {
+    return opts?.returnChainMap ? { items, chainMap: new Map() } : items;
+  }
 
   const enrichmentMap = await withTenant(tenantId, async (tx) => {
     // Walk the full 3-level category chain: item → category → sub-dept → dept
@@ -302,7 +322,17 @@ export async function enrichRoutableItems(
     });
   }
 
-  return items.map((item) => {
+  // Build the catalog chain map for prep-time reuse (avoids duplicate catalog query)
+  const chainMap = new Map<string, CatalogChainEntry>();
+  for (const [catalogItemId, e] of enrichmentMap) {
+    chainMap.set(catalogItemId, {
+      catId: e.categoryId,
+      subDeptId: e.subDepartmentId,
+      deptId: e.departmentId,
+    });
+  }
+
+  const enrichedItems = items.map((item) => {
     const enrichment = enrichmentMap.get(item.catalogItemId);
     if (!enrichment) return item;
     return {
@@ -312,6 +342,11 @@ export async function enrichRoutableItems(
       departmentId: item.departmentId ?? enrichment.departmentId,
     };
   });
+
+  if (opts?.returnChainMap) {
+    return { items: enrichedItems, chainMap };
+  }
+  return enrichedItems;
 }
 
 // ── Main Entry Point ────────────────────────────────────────────
@@ -330,8 +365,8 @@ export async function enrichRoutableItems(
 export async function resolveStationRouting(
   context: RoutingContext,
   items: RoutableItem[],
-): Promise<RoutingResult[]> {
-  if (items.length === 0) return [];
+): Promise<RoutingResultSet> {
+  if (items.length === 0) return { results: [], stationNames: new Map(), diagnosis: [] };
 
   return withTenant(context.tenantId, async (tx) => {
     // Auto-fetch venue timezone for time-window routing when not provided.
@@ -386,9 +421,9 @@ export async function resolveStationRouting(
       timeConditionEnd: normalizeTimeHHMM((r.time_condition_end as string) ?? null),
     }));
 
-    // Fetch all active stations with filtering metadata
+    // Fetch all active stations with filtering metadata + display_name (avoids separate query)
     const stationRows = await tx.execute(
-      sql`SELECT id, station_type, sort_order,
+      sql`SELECT id, station_type, sort_order, display_name,
                  COALESCE(pause_receiving, false) AS pause_receiving,
                  COALESCE(allowed_order_types, '{}') AS allowed_order_types,
                  COALESCE(allowed_channels, '{}') AS allowed_channels
@@ -400,16 +435,20 @@ export async function resolveStationRouting(
             CASE WHEN station_type = 'expo' THEN 1 ELSE 0 END,
             sort_order ASC`,
     );
+    const stationNameMap = new Map<string, string>();
     const stations: StationMeta[] = Array.from(
       stationRows as Iterable<Record<string, unknown>>,
-    ).map((r) => ({
-      id: r.id as string,
-      stationType: r.station_type as string,
-      sortOrder: Number(r.sort_order),
-      pauseReceiving: r.pause_receiving === true || r.pause_receiving === 't',
-      allowedOrderTypes: parseTextArray(r.allowed_order_types),
-      allowedChannels: parseTextArray(r.allowed_channels),
-    }));
+    ).map((r) => {
+      stationNameMap.set(r.id as string, (r.display_name as string) ?? 'Unknown');
+      return {
+        id: r.id as string,
+        stationType: r.station_type as string,
+        sortOrder: Number(r.sort_order),
+        pauseReceiving: r.pause_receiving === true || r.pause_receiving === 't',
+        allowedOrderTypes: parseTextArray(r.allowed_order_types),
+        allowedChannels: parseTextArray(r.allowed_channels),
+      };
+    });
 
     // Build station lookup map for rule validation
     const stationMap = new Map<string, StationMeta>();
@@ -445,6 +484,44 @@ export async function resolveStationRouting(
       logger.warn('[kds-routing] no active routing rules — all items will use fallback station', routingMeta);
     } else {
       logger.info('[kds-routing] resolveStationRouting loaded', routingMeta);
+    }
+
+    // Build station-rejection diagnosis — only populated when stations exist but
+    // all are filtered out (keeps the happy path clean).
+    const routingDiagnosis: string[] = [];
+
+    if (stations.length === 0) {
+      routingDiagnosis.push(`0 active stations found for location ${context.locationId}`);
+    } else if (!fallbackStationId) {
+      // Stations exist but none passed the filter — explain each rejection
+      for (const s of stations) {
+        if (s.stationType === 'expo') {
+          routingDiagnosis.push(`Station '${stationNameMap.get(s.id) ?? s.id}' (id=${s.id}): skipped — expo type`);
+          continue;
+        }
+        if (s.pauseReceiving) {
+          routingDiagnosis.push(`Station '${stationNameMap.get(s.id) ?? s.id}' (id=${s.id}): rejected — paused`);
+          continue;
+        }
+        if (s.allowedOrderTypes.length > 0 && effectiveContext.orderType && !s.allowedOrderTypes.includes(effectiveContext.orderType)) {
+          routingDiagnosis.push(
+            `Station '${stationNameMap.get(s.id) ?? s.id}' (id=${s.id}): rejected — allowed_order_types=[${s.allowedOrderTypes.join(',')}] does not include '${effectiveContext.orderType}'`,
+          );
+          continue;
+        }
+        if (s.allowedChannels.length > 0 && effectiveContext.channel && !s.allowedChannels.includes(effectiveContext.channel)) {
+          routingDiagnosis.push(
+            `Station '${stationNameMap.get(s.id) ?? s.id}' (id=${s.id}): rejected — allowed_channels=[${s.allowedChannels.join(',')}] does not include '${effectiveContext.channel}'`,
+          );
+          continue;
+        }
+      }
+      // Also note if rules exist but conditions may be filtering them out
+      if (rules.length > 0) {
+        routingDiagnosis.push(
+          `${rules.length} routing rules loaded but none matched (order_type_condition or channel_condition may be filtering)`,
+        );
+      }
     }
 
     // Match each item
@@ -507,7 +584,7 @@ export async function resolveStationRouting(
       });
     }
 
-    return results;
+    return { results, stationNames: stationNameMap, diagnosis: routingDiagnosis };
   });
 }
 
@@ -750,6 +827,13 @@ export interface PrepTimeLookup {
   stationId: string;
 }
 
+/** Pre-resolved catalog category chain — avoids a duplicate DB query when enrichment was already done. */
+export interface CatalogChainEntry {
+  catId: string | null;
+  subDeptId: string | null;
+  deptId: string | null;
+}
+
 /**
  * Batched version of getStationPrepTimeForItem — resolves prep times for
  * multiple (catalogItemId, stationId) pairs with hierarchical category fallback.
@@ -764,6 +848,7 @@ export interface PrepTimeLookup {
 export async function getStationPrepTimesForItems(
   tenantId: string,
   lookups: PrepTimeLookup[],
+  preEnrichedChainMap?: Map<string, CatalogChainEntry>,
 ): Promise<Map<string, number>> {
   if (lookups.length === 0) return new Map();
 
@@ -771,30 +856,32 @@ export async function getStationPrepTimesForItems(
   const stationIds = [...new Set(lookups.map((l) => l.stationId))];
 
   return withTenant(tenantId, async (tx) => {
-    // 1. Enrich with category chain: item → category → sub-dept → dept
-    const chainRows = await tx.execute(
-      sql`SELECT ci.id AS catalog_item_id,
-                 ci.category_id AS cat_id,
-                 c1.parent_id AS sub_dept_id,
-                 c2.parent_id AS dept_id
-          FROM catalog_items ci
-          LEFT JOIN catalog_categories c1 ON c1.id = ci.category_id
-          LEFT JOIN catalog_categories c2 ON c2.id = c1.parent_id
-          WHERE ci.tenant_id = ${tenantId}
-            AND ci.id IN (${sql.join(catalogItemIds.map((id) => sql`${id}`), sql`, `)})`,
-    );
+    // 1. Enrich with category chain — skip DB query if caller already resolved this
+    let chainMap: Map<string, CatalogChainEntry>;
 
-    const chainMap = new Map<string, {
-      catId: string | null;
-      subDeptId: string | null;
-      deptId: string | null;
-    }>();
-    for (const r of Array.from(chainRows as Iterable<Record<string, unknown>>)) {
-      chainMap.set(r.catalog_item_id as string, {
-        catId: (r.cat_id as string) ?? null,
-        subDeptId: (r.sub_dept_id as string) ?? null,
-        deptId: (r.dept_id as string) ?? null,
-      });
+    if (preEnrichedChainMap && preEnrichedChainMap.size > 0) {
+      chainMap = preEnrichedChainMap;
+    } else {
+      const chainRows = await tx.execute(
+        sql`SELECT ci.id AS catalog_item_id,
+                   ci.category_id AS cat_id,
+                   c1.parent_id AS sub_dept_id,
+                   c2.parent_id AS dept_id
+            FROM catalog_items ci
+            LEFT JOIN catalog_categories c1 ON c1.id = ci.category_id
+            LEFT JOIN catalog_categories c2 ON c2.id = c1.parent_id
+            WHERE ci.tenant_id = ${tenantId}
+              AND ci.id IN (${sql.join(catalogItemIds.map((id) => sql`${id}`), sql`, `)})`,
+      );
+
+      chainMap = new Map<string, CatalogChainEntry>();
+      for (const r of Array.from(chainRows as Iterable<Record<string, unknown>>)) {
+        chainMap.set(r.catalog_item_id as string, {
+          catId: (r.cat_id as string) ?? null,
+          subDeptId: (r.sub_dept_id as string) ?? null,
+          deptId: (r.dept_id as string) ?? null,
+        });
+      }
     }
 
     // 2. Collect all category IDs we need to search for

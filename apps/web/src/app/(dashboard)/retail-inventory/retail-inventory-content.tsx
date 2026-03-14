@@ -16,11 +16,7 @@ import { useCatalogItems, useDepartments, useSubDepartments, useCategories, arch
 import { getItemTypeGroup, ITEM_TYPE_BADGES } from '@/types/catalog';
 import type { CatalogItemRow } from '@/types/catalog';
 import { ItemChangeLogModal } from '@/components/catalog/ItemChangeLogModal';
-
-function formatPrice(price: string | null): string {
-  if (!price) return '-';
-  return `$${Number(price).toFixed(2)}`;
-}
+import { formatDollarString } from '@oppsera/shared';
 
 function formatQty(val: number): string {
   if (Number.isInteger(val)) return val.toString();
@@ -200,7 +196,7 @@ export default function RetailInventoryContent() {
     {
       key: 'defaultPrice',
       header: 'Price',
-      render: (row: EnrichedRow) => formatPrice(row.defaultPrice),
+      render: (row: EnrichedRow) => formatDollarString(row.defaultPrice as string | null | undefined),
     },
     {
       key: 'onHand',

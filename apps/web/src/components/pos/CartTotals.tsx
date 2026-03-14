@@ -1,11 +1,8 @@
 'use client';
 
 import { memo } from 'react';
+import { formatCents } from '@oppsera/shared';
 import type { Order } from '@/types/pos';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 interface CartTotalsProps {
   order: Order | null;
@@ -35,7 +32,7 @@ export const CartTotals = memo(function CartTotals({ order }: CartTotalsProps) {
       // value is stored as the raw percentage (e.g. 10 for 10%)
       return `Discount (${firstDiscount.value}%)`;
     }
-    return `Discount (${formatMoney(firstDiscount.value)})`;
+    return `Discount (${formatCents(firstDiscount.value)})`;
   })();
 
   return (
@@ -43,14 +40,14 @@ export const CartTotals = memo(function CartTotals({ order }: CartTotalsProps) {
       {/* Subtotal */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>Subtotal</span>
-        <span>{formatMoney(order.subtotal)}</span>
+        <span>{formatCents(order.subtotal)}</span>
       </div>
 
       {/* Discount (applied first) */}
       {hasDiscount && (
         <div className="mt-1 flex items-center justify-between text-sm text-red-500">
           <span>{discountLabel}</span>
-          <span>-{formatMoney(order.discountTotal)}</span>
+          <span>-{formatCents(order.discountTotal)}</span>
         </div>
       )}
 
@@ -58,7 +55,7 @@ export const CartTotals = memo(function CartTotals({ order }: CartTotalsProps) {
       {hasCharges && (
         <div className="mt-1 flex items-center justify-between text-sm text-muted-foreground">
           <span>{chargeLabel}</span>
-          <span>{formatMoney(order.serviceChargeTotal)}</span>
+          <span>{formatCents(order.serviceChargeTotal)}</span>
         </div>
       )}
 
@@ -66,7 +63,7 @@ export const CartTotals = memo(function CartTotals({ order }: CartTotalsProps) {
       <div className="mt-1 flex items-center justify-between text-sm text-muted-foreground">
         <span>Tax{order.taxExempt ? ' (Exempt)' : ''}</span>
         <span className={order.taxExempt ? 'text-purple-500 font-medium' : ''}>
-          {order.taxExempt ? '$0.00' : formatMoney(order.taxTotal)}
+          {order.taxExempt ? '$0.00' : formatCents(order.taxTotal)}
         </span>
       </div>
 
@@ -92,7 +89,7 @@ export const CartTotals = memo(function CartTotals({ order }: CartTotalsProps) {
           className="text-lg font-bold text-foreground"
           style={{ fontSize: 'calc(1.125rem * var(--pos-font-scale, 1))' }}
         >
-          {formatMoney(order.total)}
+          {formatCents(order.total)}
         </span>
       </div>
     </div>

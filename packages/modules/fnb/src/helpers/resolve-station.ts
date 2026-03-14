@@ -16,7 +16,7 @@ export async function resolveStation(
 ): Promise<string | null> {
   if (!item.catalogItemId) return null;
 
-  const results = await resolveStationRouting(
+  const { results } = await resolveStationRouting(
     { tenantId, locationId },
     [{
       orderLineId: 'legacy',

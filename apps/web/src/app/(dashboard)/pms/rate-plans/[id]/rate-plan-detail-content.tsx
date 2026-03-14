@@ -12,6 +12,7 @@ import {
   Loader2,
   Calendar,
 } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import { Badge } from '@/components/ui/badge';
@@ -66,10 +67,6 @@ function formatDate(dateStr: string): string {
     month: 'short',
     day: 'numeric',
   });
-}
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
 }
 
 // ── Page Component ───────────────────────────────────────────────
@@ -277,7 +274,7 @@ export default function RatePlanDetailContent() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Default Rate:{' '}
                 <span className="font-medium text-foreground">
-                  {formatMoney(ratePlan.defaultNightlyRateCents)}
+                  {formatCents(ratePlan.defaultNightlyRateCents)}
                 </span>
                 /night
               </p>
@@ -402,7 +399,7 @@ export default function RatePlanDetailContent() {
                         {formatDate(price.endDate)}
                       </td>
                       <td className="px-6 py-3 text-right text-sm font-medium text-foreground">
-                        {formatMoney(price.nightlyBaseCents)}
+                        {formatCents(price.nightlyBaseCents)}
                       </td>
                     </tr>
                   ))}
@@ -422,7 +419,7 @@ export default function RatePlanDetailContent() {
                     {formatDate(price.endDate)}
                   </span>
                   <span className="text-sm font-medium text-foreground">
-                    {formatMoney(price.nightlyBaseCents)}
+                    {formatCents(price.nightlyBaseCents)}
                   </span>
                 </div>
               ))}
@@ -709,7 +706,7 @@ function SetRateDialog({
         }),
       });
       toast.success(
-        `Rate set: ${formatMoney(nightlyBaseCents)}/night`,
+        `Rate set: ${formatCents(nightlyBaseCents)}/night`,
       );
       onSaved();
     } catch (err) {

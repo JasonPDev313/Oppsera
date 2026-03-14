@@ -1,13 +1,12 @@
 'use client';
 
 import { usePortalSummary, usePortalAutopay } from '@/hooks/use-portal-data';
+import { formatCents } from '@oppsera/shared';
 import { CreditCard, FileText, TrendingUp, Calendar, Shield, ChevronRight } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
-function formatMoney(cents: number): string {
-  return '$' + (cents / 100).toFixed(2);
-}
+const formatMoney = formatCents;
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {

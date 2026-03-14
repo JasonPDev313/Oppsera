@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { toCents, toDollars, addMoney, subtractMoney, multiplyMoney, formatMoney } from '../utils/money';
+import {
+  toCents,
+  toDollars,
+  addMoney,
+  subtractMoney,
+  multiplyMoney,
+  formatMoney,
+  formatCents,
+  formatCentsRaw,
+  formatDollarsLocale,
+  formatCentsLocale,
+  formatDollarString,
+  formatCompact,
+} from '../utils/money';
 
 describe('money utilities', () => {
   describe('toCents', () => {
@@ -52,11 +65,83 @@ describe('money utilities', () => {
   });
 
   describe('formatMoney', () => {
-    it('formats as USD with 2 decimal places', () => {
+    it('formats dollars as USD with 2 decimal places', () => {
       expect(formatMoney(12.5)).toBe('$12.50');
       expect(formatMoney(0)).toBe('$0.00');
       expect(formatMoney(1000)).toBe('$1000.00');
       expect(formatMoney(99.99)).toBe('$99.99');
+    });
+  });
+
+  describe('formatCents', () => {
+    it('formats cents as USD display string', () => {
+      expect(formatCents(1250)).toBe('$12.50');
+      expect(formatCents(0)).toBe('$0.00');
+      expect(formatCents(999)).toBe('$9.99');
+      expect(formatCents(100)).toBe('$1.00');
+    });
+
+    it('handles negative cents', () => {
+      expect(formatCents(-500)).toBe('-$5.00');
+    });
+  });
+
+  describe('formatCentsRaw', () => {
+    it('formats cents without dollar sign', () => {
+      expect(formatCentsRaw(1250)).toBe('12.50');
+      expect(formatCentsRaw(0)).toBe('0.00');
+      expect(formatCentsRaw(99)).toBe('0.99');
+    });
+  });
+
+  describe('formatDollarsLocale', () => {
+    it('formats dollars with thousands separator', () => {
+      expect(formatDollarsLocale(1234.5)).toBe('$1,234.50');
+      expect(formatDollarsLocale(0)).toBe('$0.00');
+      expect(formatDollarsLocale(1000000)).toBe('$1,000,000.00');
+    });
+  });
+
+  describe('formatCentsLocale', () => {
+    it('formats cents with thousands separator', () => {
+      expect(formatCentsLocale(123450)).toBe('$1,234.50');
+      expect(formatCentsLocale(0)).toBe('$0.00');
+    });
+  });
+
+  describe('formatDollarString', () => {
+    it('formats Drizzle NUMERIC string', () => {
+      expect(formatDollarString('12.50')).toBe('$12.50');
+      expect(formatDollarString('0')).toBe('$0.00');
+      expect(formatDollarString('99.9')).toBe('$99.90');
+    });
+
+    it('returns dash for null/undefined/empty', () => {
+      expect(formatDollarString(null)).toBe('—');
+      expect(formatDollarString(undefined)).toBe('—');
+      expect(formatDollarString('')).toBe('—');
+    });
+  });
+
+  describe('formatCompact', () => {
+    it('formats millions', () => {
+      expect(formatCompact(1200000)).toBe('$1.2M');
+      expect(formatCompact(5500000)).toBe('$5.5M');
+    });
+
+    it('formats thousands', () => {
+      expect(formatCompact(45000)).toBe('$45.0K');
+      expect(formatCompact(1500)).toBe('$1.5K');
+    });
+
+    it('formats small amounts', () => {
+      expect(formatCompact(123)).toBe('$123');
+      expect(formatCompact(0)).toBe('$0');
+    });
+
+    it('handles negative amounts', () => {
+      expect(formatCompact(-1200000)).toBe('-$1.2M');
+      expect(formatCompact(-500)).toBe('-$500');
     });
   });
 });

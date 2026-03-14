@@ -23,6 +23,7 @@ import {
   Printer,
   Hash,
 } from 'lucide-react';
+import { formatCentsLocale } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import { Select } from '@/components/ui/select';
@@ -179,13 +180,6 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-function formatCents(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  });
 }
 
 function formatPct(pct: number): string {
@@ -347,19 +341,19 @@ function OverviewTab({
         </div>
         <KpiCard
           label="ADR"
-          value={formatCents(data.adrCents)}
+          value={formatCentsLocale(data.adrCents)}
           color="bg-indigo-500/20 text-indigo-500"
           icon={TrendingUp}
         />
         <KpiCard
           label="RevPAR"
-          value={formatCents(data.revParCents)}
+          value={formatCentsLocale(data.revParCents)}
           color="bg-purple-500/20 text-purple-500"
           icon={DollarSign}
         />
         <KpiCard
           label="Room Revenue"
-          value={formatCents(data.roomRevenueCents)}
+          value={formatCentsLocale(data.roomRevenueCents)}
           color="bg-emerald-500/20 text-emerald-500"
           icon={DollarSign}
         />
@@ -448,7 +442,7 @@ function RevenueTab({
           Revenue by Room Type
         </h2>
         <p className="text-sm text-muted-foreground">
-          Total: {formatCents(totalRevenue)} &middot; {totalNights} room nights
+          Total: {formatCentsLocale(totalRevenue)} &middot; {totalNights} room nights
         </p>
       </div>
 
@@ -483,10 +477,10 @@ function RevenueTab({
                   {row.roomNights}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
-                  {formatCents(row.revenueCents)}
+                  {formatCentsLocale(row.revenueCents)}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
-                  {formatCents(row.adrCents)}
+                  {formatCentsLocale(row.adrCents)}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
                   <span
@@ -563,7 +557,7 @@ function OperationsTab({
             {data.length} no-show{data.length !== 1 ? 's' : ''}
           </p>
           <p className="text-sm font-medium text-red-500">
-            Lost revenue: {formatCents(totalLost)}
+            Lost revenue: {formatCentsLocale(totalLost)}
           </p>
         </div>
       </div>
@@ -602,10 +596,10 @@ function OperationsTab({
                   {row.checkInDate}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
-                  {formatCents(row.nightlyRateCents)}
+                  {formatCentsLocale(row.nightlyRateCents)}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-red-500">
-                  {formatCents(row.lostRevenueCents)}
+                  {formatCentsLocale(row.lostRevenueCents)}
                 </td>
               </tr>
             ))}
@@ -832,7 +826,7 @@ function ActivityByDayTab({
             <p className="text-xs font-medium text-muted-foreground">Day Net</p>
           </div>
           <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
-            {formatCents(data.totals.netCents)}
+            {formatCentsLocale(data.totals.netCents)}
           </p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4 print:border-gray-300 print:p-2">
@@ -843,7 +837,7 @@ function ActivityByDayTab({
             <p className="text-xs font-medium text-muted-foreground">PTD Net</p>
           </div>
           <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
-            {formatCents(data.totals.ptdNetCents)}
+            {formatCentsLocale(data.totals.ptdNetCents)}
           </p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4 print:border-gray-300 print:p-2">
@@ -854,7 +848,7 @@ function ActivityByDayTab({
             <p className="text-xs font-medium text-muted-foreground">YTD Net</p>
           </div>
           <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
-            {formatCents(data.totals.ytdNetCents)}
+            {formatCentsLocale(data.totals.ytdNetCents)}
           </p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4 print:border-gray-300 print:p-2">
@@ -956,31 +950,31 @@ function ActivityByDayTab({
                   {row.description}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                  {formatCents(row.grossCents)}
+                  {formatCentsLocale(row.grossCents)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                  {formatCents(row.adjustCents)}
+                  {formatCentsLocale(row.adjustCents)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-medium tabular-nums text-foreground">
-                  {formatCents(row.netCents)}
+                  {formatCentsLocale(row.netCents)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                  {formatCents(row.ptdGrossCents)}
+                  {formatCentsLocale(row.ptdGrossCents)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                  {formatCents(row.ptdAdjustCents)}
+                  {formatCentsLocale(row.ptdAdjustCents)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-medium tabular-nums text-foreground">
-                  {formatCents(row.ptdNetCents)}
+                  {formatCentsLocale(row.ptdNetCents)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                  {formatCents(row.ytdGrossCents)}
+                  {formatCentsLocale(row.ytdGrossCents)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                  {formatCents(row.ytdAdjustCents)}
+                  {formatCentsLocale(row.ytdAdjustCents)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-medium tabular-nums text-foreground">
-                  {formatCents(row.ytdNetCents)}
+                  {formatCentsLocale(row.ytdNetCents)}
                 </td>
               </tr>
             ))}
@@ -992,31 +986,31 @@ function ActivityByDayTab({
               </td>
               <td />
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.totals.grossCents)}
+                {formatCentsLocale(data.totals.grossCents)}
               </td>
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.totals.adjustCents)}
+                {formatCentsLocale(data.totals.adjustCents)}
               </td>
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.totals.netCents)}
+                {formatCentsLocale(data.totals.netCents)}
               </td>
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.totals.ptdGrossCents)}
+                {formatCentsLocale(data.totals.ptdGrossCents)}
               </td>
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.totals.ptdAdjustCents)}
+                {formatCentsLocale(data.totals.ptdAdjustCents)}
               </td>
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.totals.ptdNetCents)}
+                {formatCentsLocale(data.totals.ptdNetCents)}
               </td>
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.totals.ytdGrossCents)}
+                {formatCentsLocale(data.totals.ytdGrossCents)}
               </td>
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.totals.ytdAdjustCents)}
+                {formatCentsLocale(data.totals.ytdAdjustCents)}
               </td>
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.totals.ytdNetCents)}
+                {formatCentsLocale(data.totals.ytdNetCents)}
               </td>
             </tr>
           </tfoot>
@@ -1040,43 +1034,43 @@ function ActivityByDayTab({
               <div>
                 <p className="font-medium text-muted-foreground">Day</p>
                 <p className="tabular-nums text-foreground">
-                  {formatCents(row.grossCents)}
+                  {formatCentsLocale(row.grossCents)}
                 </p>
                 {row.adjustCents !== 0 && (
                   <p className="tabular-nums text-muted-foreground">
-                    Adj {formatCents(row.adjustCents)}
+                    Adj {formatCentsLocale(row.adjustCents)}
                   </p>
                 )}
                 <p className="font-medium tabular-nums text-foreground">
-                  Net {formatCents(row.netCents)}
+                  Net {formatCentsLocale(row.netCents)}
                 </p>
               </div>
               <div>
                 <p className="font-medium text-muted-foreground">PTD</p>
                 <p className="tabular-nums text-foreground">
-                  {formatCents(row.ptdGrossCents)}
+                  {formatCentsLocale(row.ptdGrossCents)}
                 </p>
                 {row.ptdAdjustCents !== 0 && (
                   <p className="tabular-nums text-muted-foreground">
-                    Adj {formatCents(row.ptdAdjustCents)}
+                    Adj {formatCentsLocale(row.ptdAdjustCents)}
                   </p>
                 )}
                 <p className="font-medium tabular-nums text-foreground">
-                  Net {formatCents(row.ptdNetCents)}
+                  Net {formatCentsLocale(row.ptdNetCents)}
                 </p>
               </div>
               <div>
                 <p className="font-medium text-muted-foreground">YTD</p>
                 <p className="tabular-nums text-foreground">
-                  {formatCents(row.ytdGrossCents)}
+                  {formatCentsLocale(row.ytdGrossCents)}
                 </p>
                 {row.ytdAdjustCents !== 0 && (
                   <p className="tabular-nums text-muted-foreground">
-                    Adj {formatCents(row.ytdAdjustCents)}
+                    Adj {formatCentsLocale(row.ytdAdjustCents)}
                   </p>
                 )}
                 <p className="font-medium tabular-nums text-foreground">
-                  Net {formatCents(row.ytdNetCents)}
+                  Net {formatCentsLocale(row.ytdNetCents)}
                 </p>
               </div>
             </div>
@@ -1089,19 +1083,19 @@ function ActivityByDayTab({
             <div>
               <p className="font-medium text-muted-foreground">Day Net</p>
               <p className="font-bold tabular-nums text-foreground">
-                {formatCents(data.totals.netCents)}
+                {formatCentsLocale(data.totals.netCents)}
               </p>
             </div>
             <div>
               <p className="font-medium text-muted-foreground">PTD Net</p>
               <p className="font-bold tabular-nums text-foreground">
-                {formatCents(data.totals.ptdNetCents)}
+                {formatCentsLocale(data.totals.ptdNetCents)}
               </p>
             </div>
             <div>
               <p className="font-medium text-muted-foreground">YTD Net</p>
               <p className="font-bold tabular-nums text-foreground">
-                {formatCents(data.totals.ytdNetCents)}
+                {formatCentsLocale(data.totals.ytdNetCents)}
               </p>
             </div>
           </div>
@@ -1258,7 +1252,7 @@ function DepartmentAuditTab({
           </div>
           <div className="mt-1.5">
             <span className="text-xl font-semibold tabular-nums text-foreground">
-              {formatCents(data.grandTotalNetCents)}
+              {formatCentsLocale(data.grandTotalNetCents)}
             </span>
           </div>
         </div>
@@ -1269,7 +1263,7 @@ function DepartmentAuditTab({
           </div>
           <div className="mt-1.5">
             <span className="text-xl font-semibold tabular-nums text-foreground">
-              {formatCents(data.grandTotalGrossCents)}
+              {formatCentsLocale(data.grandTotalGrossCents)}
             </span>
           </div>
         </div>
@@ -1430,16 +1424,16 @@ function DepartmentAuditTab({
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums font-medium text-foreground">
-                    {formatCents(dept.totalGrossCents)}
+                    {formatCentsLocale(dept.totalGrossCents)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums text-foreground">
-                    {formatCents(dept.totalVoidCents)}
+                    {formatCentsLocale(dept.totalVoidCents)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums text-foreground">
-                    {formatCents(dept.totalAdjustCents)}
+                    {formatCentsLocale(dept.totalAdjustCents)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums font-bold text-foreground">
-                    {formatCents(dept.totalNetCents)}
+                    {formatCentsLocale(dept.totalNetCents)}
                   </td>
                   <td colSpan={2} />
                 </tr>
@@ -1471,16 +1465,16 @@ function DepartmentAuditTab({
                         {e.description}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums text-foreground">
-                        {formatCents(e.grossCents)}
+                        {formatCentsLocale(e.grossCents)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums text-foreground">
-                        {formatCents(e.voidCents)}
+                        {formatCentsLocale(e.voidCents)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums text-foreground">
-                        {formatCents(e.adjustCents)}
+                        {formatCentsLocale(e.adjustCents)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right text-sm tabular-nums font-medium text-foreground">
-                        {formatCents(e.netCents)}
+                        {formatCentsLocale(e.netCents)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-foreground">
                         {e.ledger}
@@ -1500,16 +1494,16 @@ function DepartmentAuditTab({
                 Grand Totals
               </td>
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.grandTotalGrossCents)}
+                {formatCentsLocale(data.grandTotalGrossCents)}
               </td>
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.grandTotalVoidCents)}
+                {formatCentsLocale(data.grandTotalVoidCents)}
               </td>
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.grandTotalAdjustCents)}
+                {formatCentsLocale(data.grandTotalAdjustCents)}
               </td>
               <td className="whitespace-nowrap px-3 py-3 text-right text-sm tabular-nums text-foreground">
-                {formatCents(data.grandTotalNetCents)}
+                {formatCentsLocale(data.grandTotalNetCents)}
               </td>
               <td colSpan={2} />
             </tr>
@@ -1542,7 +1536,7 @@ function DepartmentAuditTab({
                   {dept.entryCount}
                 </span>
                 <span className="ml-2 text-sm font-semibold tabular-nums text-foreground">
-                  {formatCents(dept.totalNetCents)}
+                  {formatCentsLocale(dept.totalNetCents)}
                 </span>
               </button>
               {!isCollapsed && (
@@ -1555,7 +1549,7 @@ function DepartmentAuditTab({
                         <span>Folio {e.folioNumber ?? '—'}</span>
                         <span>Room {e.roomNumber ?? '—'}</span>
                         <span className="ml-auto tabular-nums font-medium text-foreground">
-                          {formatCents(e.netCents)}
+                          {formatCentsLocale(e.netCents)}
                         </span>
                       </div>
                     </div>
@@ -1570,7 +1564,7 @@ function DepartmentAuditTab({
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold text-foreground">Grand Total</span>
             <span className="text-sm font-bold tabular-nums text-foreground">
-              {formatCents(data.grandTotalNetCents)}
+              {formatCentsLocale(data.grandTotalNetCents)}
             </span>
           </div>
         </div>

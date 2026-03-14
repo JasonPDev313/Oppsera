@@ -1,6 +1,7 @@
 'use client';
 
 import { Clock, User, MapPin, AlertTriangle } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 
 interface ManageTabCardProps {
   tab: {
@@ -33,10 +34,6 @@ const STATUS_COLORS: Record<string, string> = {
   voided: 'var(--fnb-status-dirty)',
 };
 
-function formatMoney(cents: number | null): string {
-  if (cents == null) return '$0.00';
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function formatDuration(minutes: number | null): string {
   if (minutes == null) return '--';
@@ -136,14 +133,14 @@ export function ManageTabCard({ tab, selected, onToggle, isStale }: ManageTabCar
             className="text-sm font-semibold tabular-nums"
             style={{ color: 'var(--fnb-text-primary)' }}
           >
-            {formatMoney(tab.balance)}
+            {formatCents(tab.balance ?? 0)}
           </div>
           {tab.orderTotal != null && tab.orderTotal !== tab.balance && (
             <div
               className="text-xs tabular-nums"
               style={{ color: 'var(--fnb-text-muted)' }}
             >
-              of {formatMoney(tab.orderTotal)}
+              of {formatCents(tab.orderTotal ?? 0)}
             </div>
           )}
         </div>

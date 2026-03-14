@@ -17,20 +17,13 @@ import { FormField } from '@/components/ui/form-field';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { useToast } from '@/components/ui/toast';
 import { useMembershipPlans } from '@/hooks/use-membership';
+import { formatCentsLocale } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import type { MembershipPlanV2 } from '@/types/membership';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-function formatMoney(cents: number): string {
-  const abs = Math.abs(cents);
-  const formatted = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(abs / 100);
-  if (cents < 0) return `(${formatted})`;
-  return formatted;
-}
+const formatMoney = formatCentsLocale;
 
 const FREQUENCY_LABELS: Record<string, string> = {
   monthly: 'Monthly',

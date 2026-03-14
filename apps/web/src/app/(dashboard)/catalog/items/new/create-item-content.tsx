@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   UtensilsCrossed,
@@ -28,7 +28,7 @@ import {
   useModifierGroups,
   useCatalogItems,
 } from '@/hooks/use-catalog';
-import { useMutation } from '@/hooks/use-mutation';
+import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import type {
   ItemTypeGroup,
@@ -284,17 +284,26 @@ export default function CreateItemContent() {
 
   // ── Mutation ──────────────────────────────────────────────────
 
-  const { mutate: createItem, isLoading: isSubmitting } = useMutation(
-    useCallback(
-      async (payload: Record<string, unknown>) => {
-        return apiFetch<{ data: CatalogItemRow }>('/api/v1/catalog/items', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-      },
-      [],
-    ),
-  );
+  const { mutateAsync: _createItem, isPending: isSubmitting } = useMutation<
+    { data: CatalogItemRow },
+    Error,
+    Record<string, unknown>
+  >({
+    mutationFn: async (payload) => {
+      return apiFetch<{ data: CatalogItemRow }>('/api/v1/catalog/items', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+  const createItem = async (payload: Record<string, unknown>) => {
+    try {
+      return await _createItem(payload);
+    } catch {
+      return undefined;
+    }
+  };
 
   // ── Handlers ──────────────────────────────────────────────────
 

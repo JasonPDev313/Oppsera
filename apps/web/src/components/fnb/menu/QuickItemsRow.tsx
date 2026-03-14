@@ -1,5 +1,7 @@
 'use client';
 
+import { formatCents } from '@oppsera/shared';
+
 interface QuickItem {
   id: string;
   name: string;
@@ -11,9 +13,6 @@ interface QuickItemsRowProps {
   onTap: (itemId: string) => void;
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 export function QuickItemsRow({ items, onTap }: QuickItemsRowProps) {
   if (items.length === 0) return null;
@@ -35,7 +34,7 @@ export function QuickItemsRow({ items, onTap }: QuickItemsRowProps) {
           }}
         >
           <span className="text-[10px] font-semibold text-white whitespace-nowrap">{item.name}</span>
-          <span className="text-[9px] fnb-mono text-white/70">{formatMoney(item.priceCents)}</span>
+          <span className="text-[9px] fnb-mono text-white/70">{formatCents(item.priceCents)}</span>
         </button>
       ))}
     </div>

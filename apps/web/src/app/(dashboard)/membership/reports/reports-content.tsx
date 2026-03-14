@@ -14,19 +14,12 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useMinimumCompliance } from '@/hooks/use-membership';
+import { formatCentsLocale } from '@oppsera/shared';
 import type { MinimumComplianceEntry } from '@/types/membership';
 
 // ── Helpers ─────────────────────────────────────────────────────
 
-function formatMoney(cents: number): string {
-  const abs = Math.abs(cents);
-  const formatted = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(abs / 100);
-  if (cents < 0) return `(${formatted})`;
-  return formatted;
-}
+const formatMoney = formatCentsLocale;
 
 function formatDate(iso: string | null): string {
   if (!iso) return '--';

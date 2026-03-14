@@ -38,7 +38,7 @@ export async function createKitchenTicket(
       modifierIds: item.modifierIds,
     }));
 
-    routingResults = await resolveStationRouting(
+    const routingResultSet = await resolveStationRouting(
       {
         tenantId: ctx.tenantId,
         locationId: ctx.locationId,
@@ -47,6 +47,7 @@ export async function createKitchenTicket(
       },
       routableItems,
     );
+    routingResults = routingResultSet.results;
   }
 
   // Build a lookup map: orderLineId → routing result

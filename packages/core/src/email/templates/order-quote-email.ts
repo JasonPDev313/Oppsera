@@ -5,6 +5,8 @@
  * Includes: line items, modifiers, totals, business info.
  */
 
+import { formatCents } from '@oppsera/shared';
+
 export interface OrderQuoteEmailData {
   businessName: string;
   orderNumber: string;
@@ -34,10 +36,6 @@ function escapeHtml(str: string): string {
     .replace(/"/g, '&quot;');
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
 export function orderQuoteEmail(
   data: OrderQuoteEmailData,
 ): { subject: string; html: string } {
@@ -59,8 +57,8 @@ export function orderQuoteEmail(
           <span style="font-size: 14px;">${escapeHtml(line.name)}${modLine}${noteLine}</span>
         </td>
         <td style="padding: 8px 0; border-bottom: 1px solid #e4e4e7; text-align: center; width: 50px; vertical-align: top; font-size: 14px;">${line.qty}</td>
-        <td style="padding: 8px 0; border-bottom: 1px solid #e4e4e7; text-align: right; width: 80px; vertical-align: top; font-size: 14px;">${formatMoney(line.unitPriceCents)}</td>
-        <td style="padding: 8px 0; border-bottom: 1px solid #e4e4e7; text-align: right; width: 90px; vertical-align: top; font-size: 14px; font-weight: 600;">${formatMoney(line.extendedPriceCents)}</td>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e4e4e7; text-align: right; width: 80px; vertical-align: top; font-size: 14px;">${formatCents(line.unitPriceCents)}</td>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e4e4e7; text-align: right; width: 90px; vertical-align: top; font-size: 14px; font-weight: 600;">${formatCents(line.extendedPriceCents)}</td>
       </tr>`;
       },
     )
@@ -68,12 +66,12 @@ export function orderQuoteEmail(
 
   const discountRow =
     data.discountTotalCents > 0
-      ? `<tr><td colspan="3" style="padding: 4px 0; text-align: right; font-size: 14px; color: #ef4444;">Discount</td><td style="padding: 4px 0; text-align: right; font-size: 14px; color: #ef4444;">-${formatMoney(data.discountTotalCents)}</td></tr>`
+      ? `<tr><td colspan="3" style="padding: 4px 0; text-align: right; font-size: 14px; color: #ef4444;">Discount</td><td style="padding: 4px 0; text-align: right; font-size: 14px; color: #ef4444;">-${formatCents(data.discountTotalCents)}</td></tr>`
       : '';
 
   const serviceChargeRow =
     data.serviceChargeTotalCents > 0
-      ? `<tr><td colspan="3" style="padding: 4px 0; text-align: right; font-size: 14px; color: #71717a;">Service Charge</td><td style="padding: 4px 0; text-align: right; font-size: 14px;">${formatMoney(data.serviceChargeTotalCents)}</td></tr>`
+      ? `<tr><td colspan="3" style="padding: 4px 0; text-align: right; font-size: 14px; color: #71717a;">Service Charge</td><td style="padding: 4px 0; text-align: right; font-size: 14px;">${formatCents(data.serviceChargeTotalCents)}</td></tr>`
       : '';
 
   const notesBlock = data.notes
@@ -118,17 +116,17 @@ export function orderQuoteEmail(
       <tr><td colspan="4" style="padding: 8px 0;"></td></tr>
       <tr>
         <td colspan="3" style="padding: 4px 0; text-align: right; font-size: 14px; color: #71717a;">Subtotal</td>
-        <td style="padding: 4px 0; text-align: right; font-size: 14px;">${formatMoney(data.subtotalCents)}</td>
+        <td style="padding: 4px 0; text-align: right; font-size: 14px;">${formatCents(data.subtotalCents)}</td>
       </tr>
       ${discountRow}
       ${serviceChargeRow}
       <tr>
         <td colspan="3" style="padding: 4px 0; text-align: right; font-size: 14px; color: #71717a;">Tax</td>
-        <td style="padding: 4px 0; text-align: right; font-size: 14px;">${formatMoney(data.taxTotalCents)}</td>
+        <td style="padding: 4px 0; text-align: right; font-size: 14px;">${formatCents(data.taxTotalCents)}</td>
       </tr>
       <tr style="border-top: 2px solid #1a1a1a;">
         <td colspan="3" style="padding: 10px 0 4px; text-align: right; font-size: 18px; font-weight: 700;">Total</td>
-        <td style="padding: 10px 0 4px; text-align: right; font-size: 18px; font-weight: 700;">${formatMoney(data.totalCents)}</td>
+        <td style="padding: 10px 0 4px; text-align: right; font-size: 18px; font-weight: 700;">${formatCents(data.totalCents)}</td>
       </tr>
     </tfoot>
   </table>

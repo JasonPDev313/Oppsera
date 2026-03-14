@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuthContext } from '@/components/auth-provider';
 import { apiFetch } from '@/lib/api-client';
 import { ArrowLeft, TrendingUp, Users, UtensilsCrossed, DollarSign, AlertTriangle } from 'lucide-react';
+import { formatMoney } from '@oppsera/shared';
 import { useRouter } from 'next/navigation';
 
 interface DashboardMetrics {
@@ -37,16 +38,14 @@ export default function ManagerContent() {
       .finally(() => setIsLoading(false));
   }, [locationId, today]);
 
-  const formatDollars = (dollars: number) => `$${Number(dollars).toFixed(2)}`;
-
   const kpiCards = metrics
     ? [
-        { label: 'Net Sales', value: formatDollars(metrics.totalSales), icon: DollarSign, color: 'var(--fnb-status-available)' },
+        { label: 'Net Sales', value: formatMoney(metrics.totalSales), icon: DollarSign, color: 'var(--fnb-status-available)' },
         { label: 'Covers', value: String(metrics.totalCovers), icon: Users, color: 'var(--fnb-status-seated)' },
-        { label: 'Avg Check', value: formatDollars(metrics.avgCheck), icon: TrendingUp, color: 'var(--fnb-status-ordered)' },
+        { label: 'Avg Check', value: formatMoney(metrics.avgCheck), icon: TrendingUp, color: 'var(--fnb-status-ordered)' },
         { label: 'Tables Turned', value: String(metrics.tablesTurned), icon: UtensilsCrossed, color: 'var(--fnb-status-entrees-fired)' },
-        { label: 'Tips', value: formatDollars(metrics.tipTotal), icon: DollarSign, color: 'var(--fnb-status-dessert)' },
-        { label: 'Voids + Comps', value: formatDollars(metrics.totalComps + metrics.totalDiscounts), icon: AlertTriangle, color: 'var(--fnb-status-dirty)' },
+        { label: 'Tips', value: formatMoney(metrics.tipTotal), icon: DollarSign, color: 'var(--fnb-status-dessert)' },
+        { label: 'Voids + Comps', value: formatMoney(metrics.totalComps + metrics.totalDiscounts), icon: AlertTriangle, color: 'var(--fnb-status-dirty)' },
       ]
     : [];
 

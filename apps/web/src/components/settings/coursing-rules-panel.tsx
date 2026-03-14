@@ -2,8 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { Plus, Trash2, Lock, Layers, AlertCircle } from 'lucide-react';
-import { useFetch } from '@/hooks/use-fetch';
-import { useMutation } from '@/hooks/use-mutation';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import { useDepartments, useSubDepartments, useCategories } from '@/hooks/use-catalog';
 import { useToast } from '@/components/ui/toast';
@@ -61,10 +60,18 @@ function scopeBadgeColor(scopeType: string): string {
 
 export function CoursingRulesPanel() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Fetch existing data
-  const { data: defsData } = useFetch<{ data: CourseDefinition[] }>('/api/v1/fnb/course-definitions');
-  const { data: rulesData, mutate: refreshRules } = useFetch<{ data: CourseRuleListItem[] }>('/api/v1/fnb/course-rules');
+  const { data: defsData } = useQuery({
+    queryKey: ['fnb-course-definitions'],
+    queryFn: () => apiFetch<{ data: CourseDefinition[] }>('/api/v1/fnb/course-definitions'),
+  });
+  const { data: rulesData } = useQuery({
+    queryKey: ['fnb-course-rules'],
+    queryFn: () => apiFetch<{ data: CourseRuleListItem[] }>('/api/v1/fnb/course-rules'),
+  });
+  const refreshRules = () => queryClient.invalidateQueries({ queryKey: ['fnb-course-rules'] });
   const definitions = defsData?.data ?? [];
   const rules = rulesData?.data ?? [];
   const activeDefs = definitions.filter((d) => d.isActive);
@@ -97,8 +104,8 @@ export function CoursingRulesPanel() {
   }, [scopeType, deptId, subDeptId, catId]);
 
   // Apply rule
-  const { mutate: applyRule, isLoading: isApplying } = useMutation<void, { data: unknown }>(
-    useCallback(async () => {
+  const { mutateAsync: applyRule, isPending: isApplying } = useMutation<{ data: unknown }, Error, void>({
+    mutationFn: async () => {
       const scopeId = getScopeId();
       if (!scopeId) throw new Error('Select a scope target');
 
@@ -113,8 +120,8 @@ export function CoursingRulesPanel() {
           overrideItemRules: overrideItems,
         }),
       });
-    }, [scopeType, getScopeId, defaultCourseNumber, allowedCourses, lockCourse, overrideItems]),
-  );
+    },
+  });
 
   const handleApply = async () => {
     try {

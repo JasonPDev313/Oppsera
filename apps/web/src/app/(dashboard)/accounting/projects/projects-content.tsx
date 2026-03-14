@@ -8,6 +8,7 @@ import { ProjectListTab } from '@/components/accounting/project-list-tab';
 import { ProjectDetailPanel } from '@/components/accounting/project-detail-panel';
 import { CreateProjectDialog } from '@/components/accounting/create-project-dialog';
 import { useProject, useProjectMutations, useProjectProfitability, useProjectCostDetail } from '@/hooks/use-project-costing';
+import { formatDollarsLocale } from '@oppsera/shared';
 
 const tabs: SectionTab[] = [
   { id: 'projects', label: 'Projects', icon: FolderOpen },
@@ -198,10 +199,10 @@ function TasksTabContent({ projectId }: { projectId: string }) {
                     <td className="px-4 py-2.5">
                       <StatusBadge status={task.status} />
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{budget ? formatMoney(budget) : '—'}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{formatMoney(actual)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{budget ? formatDollarsLocale(budget) : '—'}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{formatDollarsLocale(actual)}</td>
                     <td className={`px-4 py-2.5 text-right tabular-nums ${variance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      {budget ? formatMoney(variance) : '—'}
+                      {budget ? formatDollarsLocale(variance) : '—'}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       {task.status !== 'closed' && (
@@ -242,11 +243,11 @@ function ProfitabilityTabContent({ projectId }: { projectId: string }) {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <KpiCard label="Total Revenue" value={formatMoney(totals.totalRevenue)} />
-        <KpiCard label="Total Cost" value={formatMoney(totals.totalDirectCost + totals.totalLaborCost + totals.totalMaterialCost + totals.totalOtherCost)} />
+        <KpiCard label="Total Revenue" value={formatDollarsLocale(totals.totalRevenue)} />
+        <KpiCard label="Total Cost" value={formatDollarsLocale(totals.totalDirectCost + totals.totalLaborCost + totals.totalMaterialCost + totals.totalOtherCost)} />
         <KpiCard
           label="Gross Margin"
-          value={formatMoney(totals.totalGrossMargin)}
+          value={formatDollarsLocale(totals.totalGrossMargin)}
           accent={totals.totalGrossMargin >= 0 ? 'green' : 'red'}
         />
         <KpiCard
@@ -263,7 +264,7 @@ function ProfitabilityTabContent({ projectId }: { projectId: string }) {
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div>
               <span className="text-muted-foreground">Budget</span>
-              <p className="text-foreground font-medium tabular-nums">{formatMoney(project.budgetAmount)}</p>
+              <p className="text-foreground font-medium tabular-nums">{formatDollarsLocale(project.budgetAmount)}</p>
             </div>
             <div>
               <span className="text-muted-foreground">Used</span>
@@ -272,7 +273,7 @@ function ProfitabilityTabContent({ projectId }: { projectId: string }) {
             <div>
               <span className="text-muted-foreground">Variance</span>
               <p className={`font-medium tabular-nums ${(budgetVariance ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {budgetVariance != null ? formatMoney(budgetVariance) : '—'}
+                {budgetVariance != null ? formatDollarsLocale(budgetVariance) : '—'}
               </p>
             </div>
           </div>
@@ -305,12 +306,12 @@ function ProfitabilityTabContent({ projectId }: { projectId: string }) {
               {data.periods.map((p: any) => (
                 <tr key={p.fiscalPeriod} className="hover:bg-accent/50 transition-colors">
                   <td className="px-4 py-2.5 text-foreground">{p.fiscalPeriod}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{formatMoney(p.revenue)}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{formatMoney(p.directCost)}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{formatMoney(p.laborCost)}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{formatMoney(p.materialCost)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{formatDollarsLocale(p.revenue)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{formatDollarsLocale(p.directCost)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{formatDollarsLocale(p.laborCost)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{formatDollarsLocale(p.materialCost)}</td>
                   <td className={`px-4 py-2.5 text-right tabular-nums ${p.grossMargin >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {formatMoney(p.grossMargin)}
+                    {formatDollarsLocale(p.grossMargin)}
                   </td>
                 </tr>
               ))}
@@ -350,16 +351,16 @@ function CostDetailTabContent({ projectId }: { projectId: string }) {
       <div className="grid grid-cols-3 gap-4">
         <div className="rounded-lg border border-border bg-surface p-3">
           <p className="text-xs text-muted-foreground">Total Debits</p>
-          <p className="text-lg font-semibold tabular-nums text-foreground">{formatMoney(meta.totals.totalDebits)}</p>
+          <p className="text-lg font-semibold tabular-nums text-foreground">{formatDollarsLocale(meta.totals.totalDebits)}</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-3">
           <p className="text-xs text-muted-foreground">Total Credits</p>
-          <p className="text-lg font-semibold tabular-nums text-foreground">{formatMoney(meta.totals.totalCredits)}</p>
+          <p className="text-lg font-semibold tabular-nums text-foreground">{formatDollarsLocale(meta.totals.totalCredits)}</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-3">
           <p className="text-xs text-muted-foreground">Net Amount</p>
           <p className={`text-lg font-semibold tabular-nums ${meta.totals.netAmount >= 0 ? 'text-foreground' : 'text-red-500'}`}>
-            {formatMoney(meta.totals.netAmount)}
+            {formatDollarsLocale(meta.totals.netAmount)}
           </p>
         </div>
       </div>
@@ -388,8 +389,8 @@ function CostDetailTabContent({ projectId }: { projectId: string }) {
                   <td className="px-4 py-2.5 text-foreground">{line.accountNumber} — {line.accountName}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{line.description || line.memo || '—'}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{line.taskName || '—'}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{line.debitAmount > 0 ? formatMoney(line.debitAmount) : ''}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{line.creditAmount > 0 ? formatMoney(line.creditAmount) : ''}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{line.debitAmount > 0 ? formatDollarsLocale(line.debitAmount) : ''}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-foreground">{line.creditAmount > 0 ? formatDollarsLocale(line.creditAmount) : ''}</td>
                 </tr>
               ))}
             </tbody>
@@ -413,14 +414,6 @@ function CostDetailTabContent({ projectId }: { projectId: string }) {
 }
 
 // ── Shared helpers ───────────────────────────────────────────
-
-function formatMoney(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(amount);
-}
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {

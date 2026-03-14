@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useFetch } from '@/hooks/use-fetch';
+import { useQuery } from '@tanstack/react-query';
+import { apiFetch } from '@/lib/api-client';
 import { Lock, Unlock, Info } from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -74,9 +75,10 @@ function sourceBadge(source: string) {
 
 export function CoursingSection({ itemId, categoryId, state, onChange }: CoursingSectionProps) {
   // Fetch course definitions for this location
-  const { data: defsData } = useFetch<{ data: CourseDefinition[] }>(
-    '/api/v1/fnb/course-definitions',
-  );
+  const { data: defsData } = useQuery({
+    queryKey: ['fnb-course-definitions'],
+    queryFn: () => apiFetch<{ data: CourseDefinition[] }>('/api/v1/fnb/course-definitions'),
+  });
   const definitions = defsData?.data ?? [];
 
   // Fetch resolved rule for inherited preview
@@ -86,7 +88,11 @@ export function CoursingSection({ itemId, categoryId, state, onChange }: Coursin
       ? `/api/v1/fnb/course-rules/resolve?categoryId=${categoryId}`
       : null;
 
-  const { data: resolvedData } = useFetch<{ data: ResolvedRule }>(resolveUrl);
+  const { data: resolvedData } = useQuery({
+    queryKey: ['fnb-course-rules-resolve', itemId, categoryId],
+    queryFn: () => apiFetch<{ data: ResolvedRule }>(resolveUrl!),
+    enabled: !!resolveUrl,
+  });
   const resolved = resolvedData?.data ?? null;
 
   const setField = useCallback(<K extends keyof CoursingState>(key: K, value: CoursingState[K]) => {

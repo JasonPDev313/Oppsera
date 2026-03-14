@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronRight, Pause, Flame } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { HelpTip } from '@/components/ui/help-tip';
 
 interface CourseSectionProps {
   courseNumber: number;
@@ -202,6 +203,14 @@ export function CourseSection({
         </span>
 
         {/* Inline action buttons */}
+        {courseNumber === 1 && (courseStatus === 'unsent' || courseStatus === 'sent') && (
+          <HelpTip
+            storageKey="oppsera:kds-course-actions-help"
+            title="Course actions"
+            description="Send queues this course to the kitchen. Fire tells the kitchen to start cooking. Hold pauses the course."
+            placement="top"
+          />
+        )}
         {courseStatus === 'unsent' && onSend && (
           // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
           <span

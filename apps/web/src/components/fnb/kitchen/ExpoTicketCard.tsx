@@ -85,9 +85,9 @@ function VoidButton({ ticketId, onVoid, disabled }: { ticketId: string; onVoid: 
       disabled={disabled}
       className="flex items-center justify-center gap-1 w-full rounded-md py-1.5 text-[10px] font-semibold uppercase transition-colors disabled:opacity-50"
       style={{
-        backgroundColor: confirming ? 'rgba(239,68,68,0.25)' : 'rgba(239,68,68,0.1)',
-        color: '#ef4444',
-        border: confirming ? '2px solid #ef4444' : '1px solid rgba(239,68,68,0.2)',
+        backgroundColor: confirming ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.08)',
+        color: '#dc2626',
+        border: confirming ? '2px solid #dc2626' : '1px solid rgba(220,38,38,0.35)',
       }}
     >
       <Trash2 className="h-3 w-3" />
@@ -359,9 +359,9 @@ export function ExpoTicketCard({
             disabled={disabled}
             className="flex items-center justify-center gap-1.5 w-full rounded-md py-2 text-xs font-bold uppercase transition-colors disabled:opacity-50"
             style={{
-              backgroundColor: 'rgba(249,115,22,0.2)',
-              color: '#f97316',
-              border: '1px solid rgba(249,115,22,0.3)',
+              backgroundColor: 'rgba(249,115,22,0.15)',
+              color: '#c2410c',
+              border: '2px solid #c2410c',
             }}
           >
             <Flame className="h-3.5 w-3.5" />
@@ -382,9 +382,9 @@ export function ExpoTicketCard({
                 disabled={disabled}
                 className="flex items-center justify-center gap-1 w-full rounded-md py-1.5 text-[10px] font-semibold uppercase transition-colors disabled:opacity-50"
                 style={{
-                  backgroundColor: 'rgba(148,163,184,0.1)',
-                  color: 'var(--fnb-text-muted)',
-                  border: '1px solid rgba(148,163,184,0.15)',
+                  backgroundColor: 'rgba(148,163,184,0.12)',
+                  color: 'var(--fnb-text-secondary)',
+                  border: '1px solid rgba(148,163,184,0.3)',
                 }}
               >
                 <Undo2 className="h-3 w-3" />

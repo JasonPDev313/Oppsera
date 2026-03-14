@@ -4,20 +4,10 @@ import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { getItemTypeGroup } from '@oppsera/shared';
+import { getItemTypeGroup, formatCents, formatDollarsLocale } from '@oppsera/shared';
+import type { PackageMetadata } from '@oppsera/shared';
 import { ITEM_TYPE_BADGES } from '@/types/catalog';
 import type { CatalogItemForPOS, AddLineItemInput } from '@/types/pos';
-import type { PackageMetadata } from '@oppsera/shared';
-
-// ── Helpers ───────────────────────────────────────────────────────
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
-function formatDollars(dollars: number): string {
-  return `$${dollars.toFixed(2)}`;
-}
 
 // ── Component ─────────────────────────────────────────────────────
 
@@ -93,7 +83,7 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
           <div className="flex-1">
             <h3 id="package-confirm-dialog-title" className="text-lg font-semibold text-foreground">{item.name}</h3>
           </div>
-          <span className="text-lg font-semibold text-foreground">{formatPrice(item.price)}</span>
+          <span className="text-lg font-semibold text-foreground">{formatCents(item.price)}</span>
           <button
             ref={firstFocusRef}
             type="button"
@@ -135,10 +125,10 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
                           <span className="text-foreground">{comp.itemName}</span>
                         </div>
                       </td>
-                      <td className="py-1.5 text-right text-muted-foreground">{formatDollars(unitPrice)}</td>
+                      <td className="py-1.5 text-right text-muted-foreground">{formatDollarsLocale(unitPrice)}</td>
                       <td className="py-1.5 text-right text-muted-foreground">{comp.qty}</td>
                       <td className="py-1.5 text-right">
-                        <span className="font-medium text-foreground">{formatDollars(extended)}</span>
+                        <span className="font-medium text-foreground">{formatDollarsLocale(extended)}</span>
                         <span className="ml-1 text-xs text-muted-foreground">({allocPct}%)</span>
                       </td>
                     </tr>
@@ -149,7 +139,7 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
                 <tr className="border-t border-border">
                   <td colSpan={3} className="pt-2 text-sm font-medium text-foreground">Total</td>
                   <td className="pt-2 text-right text-base font-semibold text-foreground">
-                    {formatDollars(componentsSubtotal ?? 0)}
+                    {formatDollarsLocale(componentsSubtotal ?? 0)}
                   </td>
                 </tr>
               </tfoot>
@@ -185,7 +175,7 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
               <div className="mt-4 border-t border-border pt-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-foreground">Package price:</span>
-                  <span className="text-lg font-semibold text-foreground">{formatPrice(item.price)}</span>
+                  <span className="text-lg font-semibold text-foreground">{formatCents(item.price)}</span>
                 </div>
               </div>
             </>

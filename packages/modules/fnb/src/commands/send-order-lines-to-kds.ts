@@ -18,8 +18,8 @@ import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idem
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { logger } from '@oppsera/core/observability';
-import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems } from '../services/kds-routing-engine';
-import type { RoutableItem } from '../services/kds-routing-engine';
+import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems, resolveKdsLocationId } from '../services/kds-routing-engine';
+import type { RoutableItem, CatalogChainEntry } from '../services/kds-routing-engine';
 import { extractModifierIds, formatModifierSummary } from '../helpers/kds-modifier-helpers';
 import { recordDispatchAttempt, emptyDispatchResult } from './dispatch-course-to-kds';
 import type { DispatchCourseResult } from './dispatch-course-to-kds';
@@ -44,6 +44,8 @@ export interface RetailKdsSendResult {
   failedCount: number;
   totalStations: number;
   dispatch: DispatchCourseResult;
+  /** Non-critical background work (dispatch attempt tracking). Use waitUntil() in API routes to keep Vercel alive. */
+  pendingWork: Promise<unknown> | null;
 }
 
 /**
@@ -64,6 +66,7 @@ export async function sendOrderLinesToKds(
   orderType?: KdsOrderType,
 ): Promise<RetailKdsSendResult> {
   const startMs = Date.now();
+  const timings: Record<string, number> = {};
   const dispatch = emptyDispatchResult();
   dispatch.orderId = orderId;
   dispatch.businessDate = businessDate;
@@ -119,11 +122,13 @@ export async function sendOrderLinesToKds(
     };
   });
 
+  timings.fetchLinesMs = Date.now() - startMs;
+
   if (!lines.length) {
     logger.debug('[kds] sendOrderLinesToKds: no food/bev lines for order', {
       domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
     });
-    return { sentCount: 0, failedCount: 0, totalStations: -1, dispatch };
+    return { sentCount: 0, failedCount: 0, totalStations: -1, dispatch, pendingWork: null };
   }
 
   const newLines = lines.filter((l) => !alreadySentIds.has(l.id));
@@ -132,7 +137,7 @@ export async function sendOrderLinesToKds(
       domain: 'kds', tenantId: ctx.tenantId, orderId, totalLines: lines.length,
       alreadySent: alreadySentIds.size,
     });
-    return { sentCount: 0, failedCount: 0, totalStations: -1, dispatch };
+    return { sentCount: 0, failedCount: 0, totalStations: -1, dispatch, pendingWork: null };
   }
 
   dispatch.itemCount = newLines.length;
@@ -143,26 +148,38 @@ export async function sendOrderLinesToKds(
     newLineCount: newLines.length, alreadySent: alreadySentIds.size,
   });
 
-  // 2. Each location/venue owns its own KDS stations — no venue→site promotion
-  const effectiveLocationId = ctx.locationId!;
+  // 2. Resolve the effective KDS location via the site↔venue hierarchy.
+  //    The POS session location may be at a different level than where KDS
+  //    stations are configured. resolveKdsLocationId handles the fallback.
+  const effectiveLocationId = await resolveKdsLocationId(ctx.tenantId, ctx.locationId!);
   dispatch.effectiveKdsLocationId = effectiveLocationId;
+  if (effectiveLocationId !== ctx.locationId) {
+    dispatch.diagnosis.push(`KDS location resolved: session=${ctx.locationId} → effective=${effectiveLocationId}`);
+  }
   dispatch.diagnosis.push(`Location: ${effectiveLocationId}`);
+  timings.resolveLocationMs = Date.now() - startMs;
 
-  // 3. Build routable items and enrich with catalog hierarchy
-  let routableItems: RoutableItem[] = newLines.map((line) => ({
+  // 3. Build routable items and enrich with catalog hierarchy (+ capture chain map for prep-time reuse)
+  const rawRoutableItems: RoutableItem[] = newLines.map((line) => ({
     orderLineId: line.id,
     catalogItemId: line.catalogItemId,
     subDepartmentId: line.subDepartmentId ?? null,
     modifierIds: extractModifierIds(line.modifiers),
   }));
 
-  routableItems = await enrichRoutableItems(ctx.tenantId, routableItems);
+  const enrichResult = await enrichRoutableItems(ctx.tenantId, rawRoutableItems, { returnChainMap: true });
+  const routableItems = enrichResult.items;
+  const catalogChainMap: Map<string, CatalogChainEntry> = enrichResult.chainMap;
+  timings.enrichMs = Date.now() - startMs;
 
-  // 4. Bulk-resolve stations using the effective location
-  const routingResults = await resolveStationRouting(
+  // 4. Bulk-resolve stations using the effective location (includes station names + diagnosis — no separate query needed)
+  const routingResultSet = await resolveStationRouting(
     { tenantId: ctx.tenantId, locationId: effectiveLocationId, orderType, channel: 'pos' },
     routableItems,
   );
+  const routingResults = routingResultSet.results;
+  const stationNameMap = routingResultSet.stationNames;
+  timings.routingMs = Date.now() - startMs;
 
   // Count routed/unrouted
   for (const r of routingResults) {
@@ -221,34 +238,20 @@ export async function sendOrderLinesToKds(
     dispatch.status = 'routing_failed';
     dispatch.failureStage = 'routing';
     dispatch.errors.push('No stations resolved — no tickets will be created');
+    for (const d of routingResultSet.diagnosis) {
+      dispatch.diagnosis.push(d);
+    }
     logger.warn('[kds] sendOrderLinesToKds: no stations resolved — no tickets created', {
       domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
     });
-    await recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs);
-    return { sentCount: 0, failedCount: 0, totalStations: 0, dispatch };
+    const pendingWork = recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs).catch(() => {});
+    return { sentCount: 0, failedCount: 0, totalStations: 0, dispatch, pendingWork };
   }
 
   dispatch.stationIds = Array.from(stationGroups.keys());
   dispatch.diagnosis.push(`Grouped into ${stationGroups.size} station(s)`);
 
-  // 6. Pre-fetch station names (cosmetic, non-critical)
-  const stationNameMap = new Map<string, string>();
-  try {
-    const stationIds = Array.from(stationGroups.keys());
-    const stationNameRows = await withTenant(ctx.tenantId, (tx) =>
-      tx.execute(sql`
-        SELECT id, display_name FROM fnb_kitchen_stations
-        WHERE tenant_id = ${ctx.tenantId} AND id IN (${sql.join(stationIds.map((id) => sql`${id}`), sql`, `)})
-      `),
-    );
-    for (const row of Array.from(stationNameRows as Iterable<Record<string, unknown>>)) {
-      stationNameMap.set(row.id as string, (row.display_name as string) ?? 'Unknown');
-    }
-  } catch {
-    // Non-critical
-  }
-
-  // 7. Pre-fetch prep times (same pattern as F&B sendCourse)
+  // 6. Pre-fetch prep times — pass catalogChainMap to avoid duplicate catalog hierarchy query
   const prepTimeLookups: Array<{ orderLineId: string; catalogItemId: string; stationId: string }> = [];
   for (const [stationId, items] of stationGroups) {
     for (const item of items) {
@@ -257,7 +260,8 @@ export async function sendOrderLinesToKds(
       }
     }
   }
-  const prepTimeMap = await getStationPrepTimesForItems(ctx.tenantId, prepTimeLookups);
+  const prepTimeMap = await getStationPrepTimesForItems(ctx.tenantId, prepTimeLookups, catalogChainMap);
+  timings.prepTimesMs = Date.now() - startMs;
 
   // ── Phase 2: Atomic transaction ────────────────────────────────
   const effectiveCtx = effectiveLocationId !== ctx.locationId
@@ -292,7 +296,17 @@ export async function sendOrderLinesToKds(
       const lastNumber = Number(counterRow.last_number);
       let ticketNumberOffset = lastNumber - stationCount;
 
-      // 3. Create tickets + items for each station (inside single transaction)
+      // 3. Create tickets for each station, collect items + tracking for batch insert
+      const sendTrackingRows: Array<{ ticketId: string; ticketNumber: number; stationId: string; stationName: string; sendToken: string; itemCount: number }> = [];
+      const allTicketItemValues: Array<{
+        tenantId: string; ticketId: string; orderLineId: string;
+        itemStatus: 'pending'; stationId: string; itemName: string;
+        modifierSummary: string | null; specialInstructions: string | null;
+        seatNumber: number | null; quantity: string;
+        isRush: boolean; isAllergy: boolean; isVip: boolean;
+        estimatedPrepSeconds: number | null;
+      }> = [];
+
       for (const [stationId, ticketItems] of stationGroups) {
         const sortedLineIds = ticketItems.map((i) => i.orderLineId).sort().join(',');
         const perTicketClientReqId = `retail-kds-send-${orderId}-${stationId}-${sortedLineIds}`;
@@ -319,7 +333,7 @@ export async function sendOrderLinesToKds(
           estimatedPickupAt = new Date(Date.now() + maxPrepSeconds * 1000);
         }
 
-        // Insert ticket
+        // Insert ticket (needs .returning() for ticketId — must be per-station)
         const [ticket] = await tx
           .insert(fnbKitchenTickets)
           .values({
@@ -338,69 +352,33 @@ export async function sendOrderLinesToKds(
           })
           .returning();
 
-        // Insert ticket items
-        if (ticketItems.length > 0) {
-          await tx
-            .insert(fnbKitchenTicketItems)
-            .values(
-              ticketItems.map((item) => ({
-                tenantId: ctx.tenantId,
-                ticketId: ticket!.id,
-                orderLineId: item.orderLineId,
-                itemStatus: 'pending' as const,
-                stationId: item.stationId,
-                itemName: item.itemName,
-                modifierSummary: item.modifierSummary ?? null,
-                specialInstructions: item.specialInstructions ?? null,
-                seatNumber: item.seatNumber ?? null,
-                quantity: String(item.quantity ?? 1),
-                isRush: false,
-                isAllergy: false,
-                isVip: false,
-                estimatedPrepSeconds: prepTimeMap.get(item.orderLineId) ?? null,
-              })),
-            );
+        // Collect ticket items for batch insert after the loop
+        for (const item of ticketItems) {
+          allTicketItemValues.push({
+            tenantId: ctx.tenantId,
+            ticketId: ticket!.id,
+            orderLineId: item.orderLineId,
+            itemStatus: 'pending' as const,
+            stationId: item.stationId,
+            itemName: item.itemName,
+            modifierSummary: item.modifierSummary ?? null,
+            specialInstructions: item.specialInstructions ?? null,
+            seatNumber: item.seatNumber ?? null,
+            quantity: String(item.quantity ?? 1),
+            isRush: false,
+            isAllergy: false,
+            isVip: false,
+            estimatedPrepSeconds: prepTimeMap.get(item.orderLineId) ?? null,
+          });
         }
 
         // Save per-ticket idempotency key
         await saveIdempotencyKey(tx, ctx.tenantId, perTicketClientReqId, 'createKitchenTicket', ticket);
 
-        // Send tracking — inline SQL (can't call withTenant inside tx)
+        // Collect send tracking data for batch insert
         const sendToken = `retail-send-${ticket!.id}-${stationId}`;
         const stationName = stationNameMap.get(stationId) ?? stationId;
-        await tx.execute(sql`
-          INSERT INTO fnb_kds_send_tracking (
-            id, tenant_id, location_id, order_id, ticket_id, ticket_number,
-            station_id, station_name,
-            employee_id, employee_name,
-            send_token, send_type, routing_reason,
-            status, item_count, order_type,
-            business_date, queued_at, sent_at, created_at, updated_at
-          ) VALUES (
-            gen_ulid(), ${ctx.tenantId}, ${effectiveLocationId},
-            ${orderId}, ${ticket!.id}, ${ticketNumber},
-            ${stationId}, ${stationName},
-            ${ctx.user.id}, ${ctx.user.email ?? 'System'},
-            ${sendToken}, ${'initial'}, ${'routing_rule'},
-            ${'sent'}, ${ticketItems.length}, ${orderType ?? null},
-            ${businessDate}, NOW(), NOW(), NOW(), NOW()
-          )
-        `);
-
-        // Send tracking event
-        await tx.execute(sql`
-          INSERT INTO fnb_kds_send_events (
-            id, tenant_id, location_id, send_tracking_id, send_token,
-            ticket_id, station_id, event_type, event_at, actor_type,
-            new_status, created_at
-          ) VALUES (
-            gen_ulid(), ${ctx.tenantId}, ${effectiveLocationId},
-            (SELECT id FROM fnb_kds_send_tracking WHERE tenant_id = ${ctx.tenantId} AND send_token = ${sendToken} LIMIT 1),
-            ${sendToken},
-            ${ticket!.id}, ${stationId},
-            ${'sent'}, NOW(), ${'system'}, ${'sent'}, NOW()
-          )
-        `);
+        sendTrackingRows.push({ ticketId: ticket!.id, ticketNumber, stationId, stationName, sendToken, itemCount: ticketItems.length });
 
         ticketIds.push(ticket!.id);
         totalItems += ticketItems.length;
@@ -423,6 +401,58 @@ export async function sendOrderLinesToKds(
         );
       }
 
+      // 3b. Batch-insert ALL ticket items across stations (1 query instead of N)
+      if (allTicketItemValues.length > 0) {
+        await tx.insert(fnbKitchenTicketItems).values(allTicketItemValues);
+      }
+
+      // 4. Batch-insert send tracking + events (2 queries instead of 2×N)
+      if (sendTrackingRows.length > 0) {
+        // Build multi-row VALUES for send tracking with RETURNING id
+        const trackingValues = sendTrackingRows.map((r) =>
+          sql`(gen_ulid(), ${ctx.tenantId}, ${effectiveLocationId},
+               ${orderId}, ${r.ticketId}, ${r.ticketNumber},
+               ${r.stationId}, ${r.stationName},
+               ${ctx.user.id}, ${ctx.user.email ?? 'System'},
+               ${r.sendToken}, ${'initial'}, ${'routing_rule'},
+               ${'sent'}, ${r.itemCount}, ${orderType ?? null},
+               ${businessDate}, NOW(), NOW(), NOW(), NOW())`,
+        );
+        const trackingResult = await tx.execute(sql`
+          INSERT INTO fnb_kds_send_tracking (
+            id, tenant_id, location_id, order_id, ticket_id, ticket_number,
+            station_id, station_name,
+            employee_id, employee_name,
+            send_token, send_type, routing_reason,
+            status, item_count, order_type,
+            business_date, queued_at, sent_at, created_at, updated_at
+          ) VALUES ${sql.join(trackingValues, sql`, `)}
+          RETURNING id, send_token
+        `);
+
+        // Build tracking ID lookup from RETURNING (avoids correlated subquery)
+        const trackingIdMap = new Map<string, string>();
+        for (const row of Array.from(trackingResult as Iterable<Record<string, unknown>>)) {
+          trackingIdMap.set(row.send_token as string, row.id as string);
+        }
+
+        // Batch-insert send events using the returned tracking IDs
+        const eventValues = sendTrackingRows.map((r) => {
+          const trackingId = trackingIdMap.get(r.sendToken) ?? '';
+          return sql`(gen_ulid(), ${ctx.tenantId}, ${effectiveLocationId},
+                      ${trackingId}, ${r.sendToken},
+                      ${r.ticketId}, ${r.stationId},
+                      ${'sent'}, NOW(), ${'system'}, ${'sent'}, NOW())`;
+        });
+        await tx.execute(sql`
+          INSERT INTO fnb_kds_send_events (
+            id, tenant_id, location_id, send_tracking_id, send_token,
+            ticket_id, station_id, event_type, event_at, actor_type,
+            new_status, created_at
+          ) VALUES ${sql.join(eventValues, sql`, `)}
+        `);
+      }
+
       // Save top-level idempotency key
       await saveIdempotencyKey(tx, ctx.tenantId, clientRequestId, 'retailKdsSend', { ticketIds, totalItems });
 
@@ -434,8 +464,8 @@ export async function sendOrderLinesToKds(
     if (txData.isDuplicate) {
       dispatch.status = 'succeeded';
       dispatch.diagnosis.push('Idempotency duplicate — returning original result');
-      await recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs);
-      return { sentCount: 0, failedCount: 0, totalStations: stationGroups.size, dispatch };
+      const pendingWork = recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs).catch(() => {});
+      return { sentCount: 0, failedCount: 0, totalStations: stationGroups.size, dispatch, pendingWork };
     }
 
     // Success
@@ -443,14 +473,16 @@ export async function sendOrderLinesToKds(
     dispatch.ticketsCreated = txData.ticketIds.length;
     dispatch.ticketIds = txData.ticketIds;
 
-    await recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs);
+    const pendingWork = recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs).catch(() => {});
 
+    timings.transactionMs = Date.now() - startMs;
     logger.info('[kds] sendOrderLinesToKds: atomic dispatch succeeded', {
       domain: 'kds', tenantId: ctx.tenantId, orderId,
       ticketsCreated: txData.ticketIds.length,
       totalItems: txData.totalItems,
       stationCount: stationGroups.size,
       durationMs: Date.now() - startMs,
+      timings,
     });
 
     return {
@@ -458,6 +490,7 @@ export async function sendOrderLinesToKds(
       failedCount: 0,
       totalStations: stationGroups.size,
       dispatch,
+      pendingWork,
     };
   } catch (err) {
     // Transaction failed — no tickets created (atomic rollback)
@@ -465,7 +498,7 @@ export async function sendOrderLinesToKds(
     dispatch.failureStage = 'transaction';
     dispatch.errors.push(err instanceof Error ? err.message : String(err));
 
-    await recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs);
+    const pendingWork = recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs).catch(() => {});
 
     logger.error('[kds] sendOrderLinesToKds: atomic transaction failed — no tickets created', {
       domain: 'kds', tenantId: ctx.tenantId, orderId,
@@ -477,6 +510,7 @@ export async function sendOrderLinesToKds(
       failedCount: stationGroups.size,
       totalStations: stationGroups.size,
       dispatch,
+      pendingWork,
     };
   }
 }

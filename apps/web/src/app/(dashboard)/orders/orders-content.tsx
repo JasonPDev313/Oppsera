@@ -36,7 +36,7 @@ import { RefundDialog } from '@/components/orders/RefundDialog';
 import { TipAdjustDialog } from '@/components/orders/TipAdjustDialog';
 import { useSalesHistory } from '@/hooks/use-sales-history';
 import { downloadCsvExport } from '@/hooks/use-reports';
-import { getSourceDef, getSortedSources } from '@oppsera/shared';
+import { getSourceDef, getSortedSources, formatDollarsLocale } from '@oppsera/shared';
 import type { SalesHistoryItem } from '@oppsera/module-reporting';
 
 // ── Constants ───────────────────────────────────────────────────
@@ -106,10 +106,6 @@ const PAYMENT_LABELS: Record<string, string> = {
 };
 
 // ── Helpers ────────────────────────────────────────────────────
-
-function formatDollars(amount: number): string {
-  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 function formatDateTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString('en-US', {
@@ -209,7 +205,7 @@ function SummaryBar({
       <div className="rounded-lg border border-border bg-surface px-4 py-3">
         <p className="text-xs font-medium text-muted-foreground">Total Revenue</p>
         <p className="mt-1 text-lg font-semibold text-foreground tabular-nums">
-          {formatDollars(summary.totalAmount)}
+          {formatDollarsLocale(summary.totalAmount)}
         </p>
       </div>
       <div className="rounded-lg border border-border bg-surface px-4 py-3">
@@ -222,7 +218,7 @@ function SummaryBar({
         <div className="rounded-lg border border-border bg-surface px-4 py-3">
           <p className="text-xs font-medium text-muted-foreground">Avg Transaction</p>
           <p className="mt-1 text-lg font-semibold text-foreground tabular-nums">
-            {formatDollars(avg)}
+            {formatDollarsLocale(avg)}
           </p>
         </div>
       )}
@@ -249,7 +245,7 @@ function SummaryBar({
                   {resolveLabel(s.source)}
                 </span>
                 <span className="font-medium text-foreground tabular-nums">
-                  {formatDollars(s.totalAmount)}
+                  {formatDollarsLocale(s.totalAmount)}
                 </span>
               </div>
             );
@@ -615,7 +611,7 @@ export default function OrdersPage() {
         width: '90px',
         render: (row: SalesRow) => (
           <span className="text-sm tabular-nums text-muted-foreground">
-            {row.subtotalDollars > 0 ? formatDollars(row.subtotalDollars) : '\u2014'}
+            {row.subtotalDollars > 0 ? formatDollarsLocale(row.subtotalDollars) : '\u2014'}
           </span>
         ),
       },
@@ -626,7 +622,7 @@ export default function OrdersPage() {
         render: (row: SalesRow) =>
           row.discountDollars > 0 ? (
             <span className="text-sm tabular-nums text-red-500">
-              -{formatDollars(row.discountDollars)}
+              -{formatDollarsLocale(row.discountDollars)}
             </span>
           ) : (
             <span className="text-sm text-muted-foreground">{'\u2014'}</span>
@@ -638,7 +634,7 @@ export default function OrdersPage() {
         width: '80px',
         render: (row: SalesRow) => (
           <span className="text-sm tabular-nums text-muted-foreground">
-            {row.taxDollars > 0 ? formatDollars(row.taxDollars) : '\u2014'}
+            {row.taxDollars > 0 ? formatDollarsLocale(row.taxDollars) : '\u2014'}
           </span>
         ),
       },
@@ -649,7 +645,7 @@ export default function OrdersPage() {
         render: (row: SalesRow) =>
           row.serviceChargeDollars > 0 ? (
             <span className="text-sm tabular-nums text-muted-foreground">
-              {formatDollars(row.serviceChargeDollars)}
+              {formatDollarsLocale(row.serviceChargeDollars)}
             </span>
           ) : (
             <span className="text-sm text-muted-foreground">{'\u2014'}</span>
@@ -661,7 +657,7 @@ export default function OrdersPage() {
         width: '100px',
         render: (row: SalesRow) => (
           <span className="text-sm font-semibold tabular-nums text-foreground">
-            {formatDollars(row.amountDollars)}
+            {formatDollarsLocale(row.amountDollars)}
           </span>
         ),
       },
@@ -672,7 +668,7 @@ export default function OrdersPage() {
         render: (row: SalesRow) =>
           row.tipDollars > 0 ? (
             <span className="text-sm tabular-nums text-blue-500">
-              {formatDollars(row.tipDollars)}
+              {formatDollarsLocale(row.tipDollars)}
             </span>
           ) : (
             <span className="text-sm text-muted-foreground">{'\u2014'}</span>

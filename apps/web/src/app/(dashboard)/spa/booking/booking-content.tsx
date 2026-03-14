@@ -14,6 +14,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
+import { formatCents } from '@oppsera/shared';
 import {
   useSpaBookingConfig,
   useSpaBookingStats,
@@ -23,9 +24,7 @@ import type { BookingWidgetConfig } from '@/hooks/use-spa';
 
 // ── Helpers ─────────────────────────────────────────────────────
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+const formatMoney = formatCents;
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('en-US', {

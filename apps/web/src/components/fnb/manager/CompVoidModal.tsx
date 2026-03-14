@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Gift, Trash2, X } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import type { FnbTabLine } from '@/types/fnb';
 
 type ModalTab = 'comp' | 'void';
@@ -23,8 +24,6 @@ export function CompVoidModal({ open, onClose, lines, onComp, onVoid, disabled }
   const [activeTab, setActiveTab] = useState<ModalTab>('comp');
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(new Set());
   const [reason, setReason] = useState('');
-
-  const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   const toggleLine = (lineId: string) => {
     setSelectedLineIds((prev) => {
@@ -108,7 +107,7 @@ export function CompVoidModal({ open, onClose, lines, onComp, onVoid, disabled }
                 {line.catalogItemName ?? 'Item'}
               </span>
               <span className="text-xs font-mono" style={{ color: 'var(--fnb-text-muted)', fontFamily: 'var(--fnb-font-mono)' }}>
-                {formatMoney(line.extendedPriceCents)}
+                {formatCents(line.extendedPriceCents)}
               </span>
             </button>
           ))}

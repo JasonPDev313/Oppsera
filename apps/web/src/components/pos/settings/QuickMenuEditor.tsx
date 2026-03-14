@@ -14,6 +14,7 @@ import {
   FolderOpen,
   Zap,
 } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import type { CatalogItemForPOS } from '@/types/pos';
 import type { QuickMenuTile, QuickMenuPage } from '@/components/pos/shared/QuickMenuGrid';
 
@@ -57,7 +58,7 @@ function saveQuickMenuPages(locationId: string, pages: QuickMenuPage[]) {
   } catch { /* storage full */ }
 }
 
-// ── Helper ───────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────
 
 function getContrastColor(hexColor: string): string {
   const r = parseInt(hexColor.slice(1, 3), 16);
@@ -69,10 +70,6 @@ function getContrastColor(hexColor: string): string {
 
 function generateId() {
   return `tile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
 }
 
 // ── Tile Type Picker ─────────────────────────────────────────────────
@@ -178,7 +175,7 @@ function TileTypePicker({ allItems, onAdd, onClose }: TileTypePickerProps) {
               className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-accent"
             >
               <span className="truncate">{item.name}</span>
-              <span className="ml-2 shrink-0 text-xs text-muted-foreground">{formatPrice(item.price)}</span>
+              <span className="ml-2 shrink-0 text-xs text-muted-foreground">{formatCents(item.price)}</span>
             </button>
           ))}
 

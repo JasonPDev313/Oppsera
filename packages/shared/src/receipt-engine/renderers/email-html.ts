@@ -27,6 +27,7 @@ import type {
   ReprintInfoBlock,
   ReceiptItem,
 } from '../types';
+import { formatCents, formatCentsRaw } from '../../utils/money';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -37,14 +38,6 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function formatMoney(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
-
-function formatMoneyWithSign(cents: number): string {
-  return `$${formatMoney(cents)}`;
 }
 
 function formatReceiptDate(dateStr: string): string {
@@ -154,8 +147,8 @@ function renderItem(item: ReceiptItem, showPrices: boolean, showModifiers: boole
   // Qty x price
   if (showPrices) {
     parts.push(`<table style="width:100%;border-collapse:collapse;"><tr>`);
-    parts.push(`<td style="font-size:12px;color:#666666;padding:1px 0;">&nbsp;&nbsp;${item.qty} x ${formatMoney(item.unitPriceCents)}</td>`);
-    parts.push(`<td style="font-size:13px;text-align:right;padding:1px 0;font-weight:500;">${formatMoney(item.lineTotalCents)}</td>`);
+    parts.push(`<td style="font-size:12px;color:#666666;padding:1px 0;">&nbsp;&nbsp;${item.qty} x ${formatCentsRaw(item.unitPriceCents)}</td>`);
+    parts.push(`<td style="font-size:13px;text-align:right;padding:1px 0;font-weight:500;">${formatCentsRaw(item.lineTotalCents)}</td>`);
     parts.push('</tr></table>');
   } else {
     parts.push(`<div style="font-size:12px;color:#666666;">&nbsp;&nbsp;Qty: ${item.qty}</div>`);
@@ -167,7 +160,7 @@ function renderItem(item: ReceiptItem, showPrices: boolean, showModifiers: boole
       if (mod.priceCents !== 0 && showPrices) {
         parts.push(`<table style="width:100%;border-collapse:collapse;"><tr>`);
         parts.push(`<td style="${STYLES.modifier}">+ ${escapeHtml(mod.name)}</td>`);
-        parts.push(`<td style="font-size:12px;text-align:right;color:#666666;">${formatMoney(mod.priceCents)}</td>`);
+        parts.push(`<td style="font-size:12px;text-align:right;color:#666666;">${formatCentsRaw(mod.priceCents)}</td>`);
         parts.push('</tr></table>');
       } else {
         parts.push(`<div style="${STYLES.modifier}">+ ${escapeHtml(mod.name)}</div>`);
@@ -222,22 +215,22 @@ function renderTotals(block: TotalsBlock): string {
   parts.push(`<hr style="${STYLES.hr}" />`);
   parts.push(`<div style="${STYLES.section}"><table style="width:100%;border-collapse:collapse;">`);
 
-  parts.push(row('Subtotal', formatMoney(block.subtotalCents)));
+  parts.push(row('Subtotal', formatCentsRaw(block.subtotalCents)));
 
   for (const disc of block.discounts) {
-    parts.push(row(escapeHtml(disc.label), `-${formatMoney(disc.amountCents)}`, 'color:#16a34a;'));
+    parts.push(row(escapeHtml(disc.label), `-${formatCentsRaw(disc.amountCents)}`, 'color:#16a34a;'));
   }
 
   for (const charge of block.charges) {
-    parts.push(row(escapeHtml(charge.label), formatMoney(charge.amountCents)));
+    parts.push(row(escapeHtml(charge.label), formatCentsRaw(charge.amountCents)));
   }
 
   if (block.taxBreakdown && block.taxBreakdown.length > 0) {
     for (const tax of block.taxBreakdown) {
-      parts.push(row(`&nbsp;&nbsp;${escapeHtml(tax.name)} (${escapeHtml(tax.rate)})`, formatMoney(tax.amountCents), 'color:#666666;'));
+      parts.push(row(`&nbsp;&nbsp;${escapeHtml(tax.name)} (${escapeHtml(tax.rate)})`, formatCentsRaw(tax.amountCents), 'color:#666666;'));
     }
   } else if (block.taxCents > 0) {
-    parts.push(row('Tax', formatMoney(block.taxCents)));
+    parts.push(row('Tax', formatCentsRaw(block.taxCents)));
   }
 
   parts.push('</table></div>');
@@ -245,7 +238,7 @@ function renderTotals(block: TotalsBlock): string {
   // Grand total
   parts.push(`<hr style="${STYLES.hrThick}" />`);
   parts.push(`<div style="${STYLES.section}"><table style="width:100%;border-collapse:collapse;">`);
-  parts.push(`<tr><td style="${STYLES.total}">TOTAL</td><td style="${STYLES.total}text-align:right;">${formatMoneyWithSign(block.totalCents)}</td></tr>`);
+  parts.push(`<tr><td style="${STYLES.total}">TOTAL</td><td style="${STYLES.total}text-align:right;">${formatCents(block.totalCents)}</td></tr>`);
   parts.push('</table></div>');
   parts.push(`<hr style="${STYLES.hrThick}" />`);
 
@@ -265,25 +258,25 @@ function renderPayment(block: PaymentBlock): string {
     } else if (tender.cardLast4) {
       label = `CARD ****${escapeHtml(tender.cardLast4)}`;
     }
-    parts.push(row(`<strong>${label}</strong>`, formatMoney(tender.amountCents), 'font-size:14px;'));
+    parts.push(row(`<strong>${label}</strong>`, formatCentsRaw(tender.amountCents), 'font-size:14px;'));
 
     if (tender.authCode) {
       parts.push(row('&nbsp;&nbsp;Auth', escapeHtml(tender.authCode), 'color:#666666;font-size:12px;'));
     }
     if (tender.surchargeAmountCents > 0) {
-      parts.push(row('&nbsp;&nbsp;Surcharge', formatMoney(tender.surchargeAmountCents), 'color:#666666;font-size:12px;'));
+      parts.push(row('&nbsp;&nbsp;Surcharge', formatCentsRaw(tender.surchargeAmountCents), 'color:#666666;font-size:12px;'));
     }
     if (tender.tipCents > 0) {
-      parts.push(row('&nbsp;&nbsp;Tip', formatMoney(tender.tipCents), 'color:#666666;font-size:12px;'));
+      parts.push(row('&nbsp;&nbsp;Tip', formatCentsRaw(tender.tipCents), 'color:#666666;font-size:12px;'));
     }
   }
 
   if (block.changeCents > 0) {
-    parts.push(row('Change', formatMoney(block.changeCents)));
+    parts.push(row('Change', formatCentsRaw(block.changeCents)));
   }
 
   if (block.totalTipCents > 0 && block.tenders.length > 1) {
-    parts.push(row('<strong>Total Tips</strong>', formatMoney(block.totalTipCents), 'padding-top:8px;'));
+    parts.push(row('<strong>Total Tips</strong>', formatCentsRaw(block.totalTipCents), 'padding-top:8px;'));
   }
 
   parts.push('</table></div>');
@@ -350,7 +343,7 @@ function renderRefundInfo(block: RefundInfoBlock): string {
   const parts: string[] = [];
   parts.push(`<div style="${STYLES.section};background:#fef2f2;border-radius:4px;"><table style="width:100%;border-collapse:collapse;">`);
   parts.push(row('Original Order', escapeHtml(block.originalOrderNumber)));
-  parts.push(row('Refund Amount', formatMoneyWithSign(block.refundAmountCents), 'color:#dc2626;font-weight:600;'));
+  parts.push(row('Refund Amount', formatCents(block.refundAmountCents), 'color:#dc2626;font-weight:600;'));
   parts.push(row('Refund Method', escapeHtml(block.refundMethod)));
   parts.push('</table></div>');
   return parts.join('');

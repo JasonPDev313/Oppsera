@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Building2, Search, AlertTriangle, ShieldCheck, Ban, Eraser, ArrowLeft, Loader2, CheckCircle2, RotateCcw } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
 
 export interface HouseAccountMeta {
@@ -29,10 +30,6 @@ interface HouseAccountPanelProps {
   disabled?: boolean;
   /** Manager PIN verification for credit limit overrides */
   onManagerOverride?: (callback: () => void) => void;
-}
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
 }
 
 // ── Inline Signature Pad (standard Tailwind) ──────────────────────
@@ -299,7 +296,7 @@ export function HouseAccountPanel({
         <div className="flex-1">
           <h2 className="text-base font-semibold text-foreground">House Account</h2>
           <p className="text-sm text-muted-foreground">
-            Charge: <span className="font-semibold text-foreground">{formatMoney(remainingCents)}</span>
+            Charge: <span className="font-semibold text-foreground">{formatCents(remainingCents)}</span>
           </p>
         </div>
       </div>
@@ -382,13 +379,13 @@ export function HouseAccountPanel({
               <div className="text-center">
                 <span className="block text-[10px] font-medium uppercase text-muted-foreground">Limit</span>
                 <span className="font-mono text-sm font-semibold text-foreground">
-                  {account.creditLimitCents > 0 ? formatMoney(account.creditLimitCents) : '∞'}
+                  {account.creditLimitCents > 0 ? formatCents(account.creditLimitCents) : '∞'}
                 </span>
               </div>
               <div className="text-center">
                 <span className="block text-[10px] font-medium uppercase text-muted-foreground">Owed</span>
                 <span className={`font-mono text-sm font-semibold ${account.outstandingBalanceCents > 0 ? 'text-amber-500' : 'text-foreground'}`}>
-                  {formatMoney(account.outstandingBalanceCents)}
+                  {formatCents(account.outstandingBalanceCents)}
                 </span>
               </div>
               <div className="text-center">
@@ -399,7 +396,7 @@ export function HouseAccountPanel({
                     : 'text-red-500'
                 }`}>
                   {account.availableCreditCents != null
-                    ? formatMoney(account.availableCreditCents)
+                    ? formatCents(account.availableCreditCents)
                     : '∞'}
                 </span>
               </div>
@@ -408,7 +405,7 @@ export function HouseAccountPanel({
             {account.spendingLimitCents != null && (
               <div className="flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs">
                 <span className="text-amber-500">Member Spending Limit</span>
-                <span className="font-mono font-semibold text-amber-500">{formatMoney(account.spendingLimitCents)}</span>
+                <span className="font-mono font-semibold text-amber-500">{formatCents(account.spendingLimitCents)}</span>
               </div>
             )}
 
@@ -417,8 +414,8 @@ export function HouseAccountPanel({
               <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-500">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span>
-                  Exceeds credit by <span className="font-semibold">{formatMoney(remainingCents - effectiveAvailableCents)}</span>
-                  {chargeAmount > 0 && <> — will charge {formatMoney(chargeAmount)} (partial)</>}
+                  Exceeds credit by <span className="font-semibold">{formatCents(remainingCents - effectiveAvailableCents)}</span>
+                  {chargeAmount > 0 && <> — will charge {formatCents(chargeAmount)} (partial)</>}
                 </span>
               </div>
             )}
@@ -430,7 +427,7 @@ export function HouseAccountPanel({
             {signatureData && (
               <div className="flex items-center gap-2 rounded-lg bg-green-500/10 px-3 py-2 text-sm text-green-500">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>Ready to charge <span className="font-bold">{formatMoney(chargeAmount)}</span> to {account.customerName}</span>
+                <span>Ready to charge <span className="font-bold">{formatCents(chargeAmount)}</span> to {account.customerName}</span>
               </div>
             )}
           </div>
@@ -457,7 +454,7 @@ export function HouseAccountPanel({
               ? 'Processing...'
               : !signatureData
                 ? 'Sign to Charge'
-                : `Charge ${formatMoney(chargeAmount)}`}
+                : `Charge ${formatCents(chargeAmount)}`}
           </button>
 
           {/* Override button for when exceeds credit */}

@@ -2,6 +2,7 @@
 
 import { memo, useState, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import type { CatalogItemForPOS } from '@/types/pos';
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -36,10 +37,6 @@ interface QuickMenuGridProps {
   onItemTap: (item: CatalogItemForPOS) => void;
   onCategoryTap?: (categoryId: string) => void;
   onAction?: (action: string) => void;
-}
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
 }
 
 function getContrastColor(hexColor: string): string {
@@ -105,7 +102,7 @@ const GridTile = memo(function GridTile({
         {tile.label}
       </span>
       {tile.type === 'item' && item && (
-        <span className="text-xs opacity-80">{formatPrice(item.price)}</span>
+        <span className="text-xs opacity-80">{formatCents(item.price)}</span>
       )}
     </button>
   );

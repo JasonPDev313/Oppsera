@@ -1,13 +1,12 @@
 'use client';
 
 import { usePortalAccount, usePortalAutopay, useUpdateAutopay } from '@/hooks/use-portal-data';
+import { formatCents } from '@oppsera/shared';
 import { CreditCard, Settings, ArrowLeft, Wallet, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
-function formatMoney(cents: number): string {
-  return '$' + (cents / 100).toFixed(2);
-}
+const formatMoney = formatCents;
 
 export default function AccountPage() {
   const { data: account, isLoading, error } = usePortalAccount();

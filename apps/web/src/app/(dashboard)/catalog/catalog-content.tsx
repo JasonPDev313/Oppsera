@@ -18,6 +18,7 @@ import { getItemTypeGroup, ITEM_TYPE_BADGES } from '@/types/catalog';
 import type { CatalogItemRow } from '@/types/catalog';
 import { ItemChangeLogModal } from '@/components/catalog/ItemChangeLogModal';
 import { InventoryImportWizard } from '@/components/catalog/InventoryImportWizard';
+import { formatDollarString } from '@oppsera/shared';
 
 const typeFilterOptions = [
   { value: '', label: 'All Types' },
@@ -33,10 +34,6 @@ const typeToBackend: Record<string, string | undefined> = {
   package: 'other',
 };
 
-function formatPrice(price: string | null): string {
-  if (!price) return '-';
-  return `$${Number(price).toFixed(2)}`;
-}
 
 function formatQty(val: number): string {
   if (Number.isInteger(val)) return val.toString();
@@ -217,7 +214,7 @@ export default function CatalogPage() {
     {
       key: 'defaultPrice',
       header: 'Price',
-      render: (row: EnrichedRow) => formatPrice(row.defaultPrice),
+      render: (row: EnrichedRow) => formatDollarString(row.defaultPrice as string | null | undefined),
     },
     {
       key: 'onHand',

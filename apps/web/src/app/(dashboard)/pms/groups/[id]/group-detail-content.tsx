@@ -16,8 +16,9 @@ import {
   RefreshCw,
   AlertTriangle,
 } from 'lucide-react';
-import { useFetch } from '@/hooks/use-fetch';
-import { useMutation } from '@/hooks/use-mutation';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { apiFetch } from '@/lib/api-client';
+import { useToast } from '@/components/ui/toast';
 import type {
   GroupDetail,
   GroupRoomMatrixResult,
@@ -28,12 +29,9 @@ import type {
   GroupProjectedRevenueResult,
   GroupRevenueByRoomType,
 } from '@oppsera/module-pms';
+import { formatCentsLocale } from '@oppsera/shared';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatMoney(cents: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-}
 
 function formatDate(d: string | null | undefined) {
   if (!d) return '—';
@@ -111,48 +109,56 @@ function GroupInfoTab({ group, onSaved }: { group: GroupDetail; onSaved: () => v
     notes: group.notes ?? '',
   });
 
-  const { mutate: save, isLoading, error } = useMutation(async (data: typeof form) => {
-    const res = await fetch(`/api/v1/pms/groups/${group.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: data.name || undefined,
-        groupCode: data.groupCode || undefined,
-        groupType: data.groupType || undefined,
-        contactName: data.contactName || null,
-        contactEmail: data.contactEmail || null,
-        contactPhone: data.contactPhone || null,
-        source: data.source || null,
-        market: data.market || null,
-        bookingMethod: data.bookingMethod || null,
-        negotiatedRateCents: data.negotiatedRate ? Math.round(parseFloat(data.negotiatedRate) * 100) : undefined,
-        billingType: data.billingType || undefined,
-        status: data.status || undefined,
-        cutoffDate: data.cutoffDate || null,
-        autoReleaseAtCutoff: data.autoReleaseAtCutoff,
-        shoulderDatesEnabled: data.shoulderDatesEnabled,
-        shoulderStartDate: data.shoulderStartDate || null,
-        shoulderEndDate: data.shoulderEndDate || null,
-        shoulderRateCents: data.shoulderRate ? Math.round(parseFloat(data.shoulderRate) * 100) : null,
-        autoRoutePackagesToMaster: data.autoRoutePackagesToMaster,
-        autoRouteSpecialsToMaster: data.autoRouteSpecialsToMaster,
-        specialRequests: data.specialRequests || null,
-        groupComments: data.groupComments || null,
-        reservationComments: data.reservationComments || null,
-        notes: data.notes || null,
-        version: group.version,
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err?.error?.message ?? 'Save failed');
-    }
-    return res.json();
+  const { toast } = useToast();
+  const { mutateAsync: save, isPending: isLoading, error } = useMutation<unknown, Error, typeof form>({
+    mutationFn: async (data) => {
+      const res = await fetch(`/api/v1/pms/groups/${group.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: data.name || undefined,
+          groupCode: data.groupCode || undefined,
+          groupType: data.groupType || undefined,
+          contactName: data.contactName || null,
+          contactEmail: data.contactEmail || null,
+          contactPhone: data.contactPhone || null,
+          source: data.source || null,
+          market: data.market || null,
+          bookingMethod: data.bookingMethod || null,
+          negotiatedRateCents: data.negotiatedRate ? Math.round(parseFloat(data.negotiatedRate) * 100) : undefined,
+          billingType: data.billingType || undefined,
+          status: data.status || undefined,
+          cutoffDate: data.cutoffDate || null,
+          autoReleaseAtCutoff: data.autoReleaseAtCutoff,
+          shoulderDatesEnabled: data.shoulderDatesEnabled,
+          shoulderStartDate: data.shoulderStartDate || null,
+          shoulderEndDate: data.shoulderEndDate || null,
+          shoulderRateCents: data.shoulderRate ? Math.round(parseFloat(data.shoulderRate) * 100) : null,
+          autoRoutePackagesToMaster: data.autoRoutePackagesToMaster,
+          autoRouteSpecialsToMaster: data.autoRouteSpecialsToMaster,
+          specialRequests: data.specialRequests || null,
+          groupComments: data.groupComments || null,
+          reservationComments: data.reservationComments || null,
+          notes: data.notes || null,
+          version: group.version,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err?.error?.message ?? 'Save failed');
+      }
+      return res.json();
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const handleSave = async () => {
-    await save(form);
-    onSaved();
+    try {
+      await save(form);
+      onSaved();
+    } catch {
+      // error already handled by onError
+    }
   };
 
   const set = (key: keyof typeof form, value: unknown) =>
@@ -327,9 +333,10 @@ function GroupInfoTab({ group, onSaved }: { group: GroupDetail; onSaved: () => v
 // ── Room Matrix Tab ────────────────────────────────────────────────────────────
 
 function RoomMatrixTab({ groupId }: { groupId: string }) {
-  const { data, isLoading, error, mutate } = useFetch<{ data: GroupRoomMatrixResult }>(
-    `/api/v1/pms/groups/${groupId}/matrix`,
-  );
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['pms-group-matrix', groupId],
+    queryFn: () => apiFetch<{ data: GroupRoomMatrixResult }>(`/api/v1/pms/groups/${groupId}/matrix`),
+  });
 
   if (isLoading) return <div className="text-zinc-400 text-sm py-8 text-center">Loading matrix…</div>;
   if (error) return <div className="text-red-400 text-sm py-8 text-center">Failed to load room matrix.</div>;
@@ -343,7 +350,7 @@ function RoomMatrixTab({ groupId }: { groupId: string }) {
         <p className="text-sm text-zinc-400">
           {formatDate(matrix.startDate)} → {formatDate(matrix.endDate)}
         </p>
-        <button onClick={() => mutate()} className="btn-secondary flex items-center gap-1.5 text-sm">
+        <button onClick={() => refetch()} className="btn-secondary flex items-center gap-1.5 text-sm">
           <RefreshCw className="w-3.5 h-3.5" /> Refresh
         </button>
       </div>
@@ -408,9 +415,10 @@ function RoomMatrixTab({ groupId }: { groupId: string }) {
 // ── Rooming List Tab ───────────────────────────────────────────────────────────
 
 function RoomingListTab({ groupId }: { groupId: string }) {
-  const { data, isLoading, error } = useFetch<{ data: GetGroupRoomingListResult }>(
-    `/api/v1/pms/groups/${groupId}/rooming-list`,
-  );
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['pms-group-rooming-list', groupId],
+    queryFn: () => apiFetch<{ data: GetGroupRoomingListResult }>(`/api/v1/pms/groups/${groupId}/rooming-list`),
+  });
 
   if (isLoading) return <div className="text-zinc-400 text-sm py-8 text-center">Loading rooming list…</div>;
   if (error) return <div className="text-red-400 text-sm py-8 text-center">Failed to load rooming list.</div>;
@@ -471,10 +479,10 @@ function RoomingListTab({ groupId }: { groupId: string }) {
                   <td className="px-4 py-2 text-zinc-300">{formatDate(r.checkInDate)}</td>
                   <td className="px-4 py-2 text-zinc-300">{formatDate(r.checkOutDate)}</td>
                   <td className="px-4 py-2 text-right text-zinc-300">{r.nights}</td>
-                  <td className="px-4 py-2 text-right text-zinc-300">{formatMoney(r.nightlyRateCents)}</td>
-                  <td className="px-4 py-2 text-right text-zinc-200">{formatMoney(r.totalCents)}</td>
+                  <td className="px-4 py-2 text-right text-zinc-300">{formatCentsLocale(r.nightlyRateCents)}</td>
+                  <td className="px-4 py-2 text-right text-zinc-200">{formatCentsLocale(r.totalCents)}</td>
                   <td className={`px-4 py-2 text-right font-medium ${r.folioBalance > 0 ? 'text-amber-400' : 'text-zinc-400'}`}>
-                    {formatMoney(r.folioBalance)}
+                    {formatCentsLocale(r.folioBalance)}
                   </td>
                   <td className="px-4 py-2 text-center">{resvStatusBadge(r.status)}</td>
                 </tr>
@@ -490,9 +498,10 @@ function RoomingListTab({ groupId }: { groupId: string }) {
 // ── Projected Revenue Tab ──────────────────────────────────────────────────────
 
 function ProjectedRevenueTab({ groupId }: { groupId: string }) {
-  const { data, isLoading, error } = useFetch<{ data: GroupProjectedRevenueResult }>(
-    `/api/v1/pms/groups/${groupId}/projected-revenue`,
-  );
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['pms-group-projected-revenue', groupId],
+    queryFn: () => apiFetch<{ data: GroupProjectedRevenueResult }>(`/api/v1/pms/groups/${groupId}/projected-revenue`),
+  });
 
   if (isLoading) return <div className="text-zinc-400 text-sm py-8 text-center">Loading revenue data…</div>;
   if (error) return <div className="text-red-400 text-sm py-8 text-center">Failed to load revenue data.</div>;
@@ -510,9 +519,9 @@ function ProjectedRevenueTab({ groupId }: { groupId: string }) {
           { label: 'Projected Rooms', value: String(totals.projectedRooms) },
           { label: 'Confirmed Rooms', value: String(totals.confirmedRooms) },
           { label: 'Pickup %', value: `${totals.pickupPct}%` },
-          { label: 'Projected Revenue', value: formatMoney(totals.projectedRevenueCents) },
-          { label: 'Confirmed Revenue', value: formatMoney(totals.confirmedRevenueCents) },
-          { label: 'Revenue at Risk', value: formatMoney(totals.revenueAtRiskCents) },
+          { label: 'Projected Revenue', value: formatCentsLocale(totals.projectedRevenueCents) },
+          { label: 'Confirmed Revenue', value: formatCentsLocale(totals.confirmedRevenueCents) },
+          { label: 'Revenue at Risk', value: formatCentsLocale(totals.revenueAtRiskCents) },
         ].map(({ label, value }) => (
           <div key={label} className="bg-zinc-800 rounded-lg px-4 py-3">
             <div className="text-lg font-bold text-zinc-200">{value}</div>
@@ -548,10 +557,10 @@ function ProjectedRevenueTab({ groupId }: { groupId: string }) {
                   <td className={`px-4 py-2 text-right font-medium ${rt.washFactor > 0.3 ? 'text-red-400' : rt.washFactor > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>
                     {Math.round(rt.washFactor * 100)}%
                   </td>
-                  <td className="px-4 py-2 text-right text-zinc-300">{formatMoney(rt.projectedRevenueCents)}</td>
-                  <td className="px-4 py-2 text-right text-green-400">{formatMoney(rt.confirmedRevenueCents)}</td>
+                  <td className="px-4 py-2 text-right text-zinc-300">{formatCentsLocale(rt.projectedRevenueCents)}</td>
+                  <td className="px-4 py-2 text-right text-green-400">{formatCentsLocale(rt.confirmedRevenueCents)}</td>
                   <td className={`px-4 py-2 text-right font-medium ${rt.projectedRevenueCents - rt.confirmedRevenueCents > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>
-                    {formatMoney(rt.projectedRevenueCents - rt.confirmedRevenueCents)}
+                    {formatCentsLocale(rt.projectedRevenueCents - rt.confirmedRevenueCents)}
                   </td>
                 </tr>
               ))}
@@ -576,9 +585,13 @@ export default function GroupDetailContent() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  const { data, isLoading, error, mutate } = useFetch<{ data: GroupDetail }>(
-    `/api/v1/pms/groups/${id}`,
-  );
+  const queryClient = useQueryClient();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['pms-group-detail', id],
+    queryFn: () => apiFetch<{ data: GroupDetail }>(`/api/v1/pms/groups/${id}`),
+    enabled: !!id,
+  });
+  const mutate = () => queryClient.invalidateQueries({ queryKey: ['pms-group-detail', id] });
   const group = data?.data;
 
   const clearMessages = () => { setActionError(null); setActionSuccess(null); };
@@ -691,7 +704,7 @@ export default function GroupDetailContent() {
               <span>Picked Up: <span className="text-zinc-300 font-medium">{group.roomsPickedUp}</span></span>
               <span>Pickup: <span className={`font-medium ${group.pickupPct >= 75 ? 'text-green-400' : group.pickupPct >= 50 ? 'text-amber-400' : 'text-zinc-300'}`}>{group.pickupPct}%</span></span>
               {group.negotiatedRateCents != null && (
-                <span>Rate: <span className="text-zinc-300 font-medium">{formatMoney(group.negotiatedRateCents)}/night</span></span>
+                <span>Rate: <span className="text-zinc-300 font-medium">{formatCentsLocale(group.negotiatedRateCents)}/night</span></span>
               )}
             </div>
           </div>

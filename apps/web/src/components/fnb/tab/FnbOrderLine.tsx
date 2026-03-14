@@ -2,6 +2,7 @@
 
 import { memo, useRef, useCallback } from 'react';
 import { MessageSquare } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 
 interface FnbOrderLineProps {
   seatNumber: number;
@@ -40,9 +41,6 @@ function getModChipStyle(mod: string): { label: string; bg: string; text: string
   return { label: mod, bg: 'var(--fnb-bg-elevated)', text: 'var(--fnb-text-secondary)' };
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 const STATUS_ICONS: Record<string, string> = {
   draft: '\u25CF',
@@ -146,7 +144,7 @@ export const FnbOrderLine = memo(function FnbOrderLine({ seatNumber, itemName, m
 
       {/* Price */}
       <span className="text-xs shrink-0" style={{ color: 'var(--fnb-text-secondary)' }}>
-        {formatMoney(priceCents * qty)}
+        {formatCents(priceCents * qty)}
       </span>
 
       {/* Status icon */}

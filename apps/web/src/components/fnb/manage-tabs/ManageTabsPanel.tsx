@@ -13,6 +13,7 @@ import {
   type ManageTabsViewMode,
   type ManageTabsGroupBy,
 } from '@/hooks/use-manage-tabs';
+import { formatCents } from '@oppsera/shared';
 import { ApiError } from '@/lib/api-client';
 import { ManageTabCard } from './ManageTabCard';
 import { BulkActionConfirmDialog } from './BulkActionConfirmDialog';
@@ -555,7 +556,7 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
                   <div className="flex justify-between text-xs">
                     <span style={{ color: 'var(--fnb-text-muted)' }}>Total balance</span>
                     <span className="font-semibold tabular-nums" style={{ color: 'var(--fnb-text-primary)' }}>
-                      {formatMoney(selBalance)}
+                      {formatCents(selBalance)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs mt-1">
@@ -716,10 +717,6 @@ export function ManageTabsPanel({ locationId, onClose }: ManageTabsPanelProps) {
     </div>,
     document.body,
   );
-}
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
 }
 
 function getUndoMessage(snapshot: { action: string; tabIds: string[]; result: unknown }): string {

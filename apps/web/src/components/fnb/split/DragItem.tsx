@@ -1,15 +1,13 @@
 'use client';
 
 import type { FnbTabLine } from '@/types/fnb';
+import { formatCents } from '@oppsera/shared';
 
 interface DragItemProps {
   line: FnbTabLine;
   onDragStart: (lineId: string) => void;
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 export function DragItem({ line, onDragStart }: DragItemProps) {
   return (
@@ -41,7 +39,7 @@ export function DragItem({ line, onDragStart }: DragItemProps) {
         </span>
       </div>
       <span className="text-xs fnb-mono shrink-0 ml-2" style={{ color: 'var(--fnb-text-secondary)' }}>
-        {formatMoney(line.extendedPriceCents)}
+        {formatCents(line.extendedPriceCents)}
       </span>
     </div>
   );

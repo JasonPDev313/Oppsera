@@ -41,6 +41,9 @@ import {
   Blocks,
   Rocket,
   TrendingDown,
+  MessageCircle,
+  ClipboardEdit,
+  FileCheck,
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useCommandPalette } from './search/CommandPaletteProvider';
@@ -150,6 +153,17 @@ const MODULES: NavModule[] = [
       { href: '/backups', label: 'Database Backups', icon: HardDrive },
       { href: '/backups/restores', label: 'Restore Operations', icon: RotateCcw },
       { href: '/backups/settings', label: 'Backup Settings', icon: Settings },
+    ],
+  },
+  {
+    label: 'AI Assistant',
+    icon: MessageCircle,
+    prefix: '/ai-assistant',
+    children: [
+      { href: '/ai-assistant', label: 'Inbox', icon: MessageSquare },
+      { href: '/ai-assistant/reviews', label: 'Reviews', icon: ClipboardEdit },
+      { href: '/ai-assistant/answers', label: 'Answer Cards', icon: FileCheck },
+      { href: '/ai-assistant/analytics', label: 'Analytics', icon: BarChart3 },
     ],
   },
   {

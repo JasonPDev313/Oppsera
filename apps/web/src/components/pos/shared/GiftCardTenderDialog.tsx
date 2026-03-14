@@ -3,12 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Gift, Search, X, CreditCard } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 interface GiftCardTenderDialogProps {
   open: boolean;
@@ -111,7 +108,7 @@ export function GiftCardTenderDialog({
     const maxAllowed = Math.min(balance.balanceCents, remainingBalanceCents);
     if (parsedCents > maxAllowed) {
       toast.error(
-        `Amount cannot exceed ${formatMoney(maxAllowed)}`,
+        `Amount cannot exceed ${formatCents(maxAllowed)}`,
       );
       return;
     }
@@ -174,7 +171,7 @@ export function GiftCardTenderDialog({
         {/* Remaining balance on order */}
         <div className="mb-4 rounded-lg bg-muted px-4 py-3 text-sm">
           <span className="text-muted-foreground">Amount Due:</span>{' '}
-          <span className="font-semibold">{formatMoney(remainingBalanceCents)}</span>
+          <span className="font-semibold">{formatCents(remainingBalanceCents)}</span>
         </div>
 
         {/* Card number input + lookup */}
@@ -225,13 +222,13 @@ export function GiftCardTenderDialog({
             <div className="flex items-center justify-between">
               <span className="text-sm text-green-500">Card Balance</span>
               <span className="text-lg font-bold text-green-500">
-                {formatMoney(balance.balanceCents)}
+                {formatCents(balance.balanceCents)}
               </span>
             </div>
             {balance.balanceCents < remainingBalanceCents && (
               <p className="mt-1 text-xs text-green-500">
                 Full balance will be applied. Remaining{' '}
-                {formatMoney(remainingBalanceCents - balance.balanceCents)} due
+                {formatCents(remainingBalanceCents - balance.balanceCents)} due
                 after.
               </p>
             )}
@@ -266,7 +263,7 @@ export function GiftCardTenderDialog({
               />
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Max: {formatMoney(maxRedeem)}
+              Max: {formatCents(maxRedeem)}
             </p>
           </div>
         )}

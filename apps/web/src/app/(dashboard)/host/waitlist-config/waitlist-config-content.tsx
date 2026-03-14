@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useMutation } from '@/hooks/use-mutation';
+import { useMutation } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/toast';
 import { usePosLocation } from '@/hooks/use-pos-location';
 import {
@@ -211,37 +211,44 @@ export default function WaitlistConfigContent() {
   }, [locationId]);
 
   // Save mutation
-  const { mutate: save, isLoading: saving } = useMutation(async (data: WaitlistConfigData) => {
-    const res = await fetch(`/api/v1/fnb/host/waitlist-config?locationId=${locationId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        enabled: data.enabled,
-        slugOverride: data.slugOverride,
-        formConfig: data.formConfig,
-        notificationConfig: data.notificationConfig,
-        queueConfig: data.queueConfig,
-        branding: data.branding,
-        contentConfig: data.contentConfig,
-        operatingHours: data.operatingHours,
-      }),
-    });
-    if (!res.ok) {
-      const json = await res.json().catch(() => null);
-      throw new Error(json?.error?.message ?? 'Failed to save');
-    }
-    const json = await res.json();
-    return json.data;
+  const { mutateAsync: _save, isPending: saving } = useMutation<WaitlistConfigData, Error, WaitlistConfigData>({
+    mutationFn: async (data) => {
+      const res = await fetch(`/api/v1/fnb/host/waitlist-config?locationId=${locationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: data.enabled,
+          slugOverride: data.slugOverride,
+          formConfig: data.formConfig,
+          notificationConfig: data.notificationConfig,
+          queueConfig: data.queueConfig,
+          branding: data.branding,
+          contentConfig: data.contentConfig,
+          operatingHours: data.operatingHours,
+        }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error?.message ?? 'Failed to save');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const handleSave = useCallback(async () => {
     if (!config) return;
-    const result = await save(config);
-    if (result) {
-      setConfig(result);
-      toast.success('Waitlist configuration saved');
+    try {
+      const result = await _save(config);
+      if (result) {
+        setConfig(result);
+        toast.success('Waitlist configuration saved');
+      }
+    } catch {
+      // error already handled by onError
     }
-  }, [config, save, toast]);
+  }, [config, _save, toast]);
 
   // Update helpers
   const update = useCallback(<K extends keyof WaitlistConfigData>(key: K, value: WaitlistConfigData[K]) => {

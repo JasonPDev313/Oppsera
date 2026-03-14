@@ -8,6 +8,7 @@ import { ITEM_TYPE_BADGES } from '@/types/catalog';
 import { InventoryIndicator } from './InventoryIndicator';
 import { getContrastTextColor } from '@/lib/contrast';
 import type { CatalogItemForPOS } from '@/types/pos';
+import { formatCents } from '@oppsera/shared';
 import type { ItemTypeGroup } from '@oppsera/shared';
 
 const TYPE_BAR_COLORS: Record<ItemTypeGroup, string> = {
@@ -16,10 +17,6 @@ const TYPE_BAR_COLORS: Record<ItemTypeGroup, string> = {
   service: 'bg-purple-500',
   package: 'bg-green-500',
 };
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 interface ItemButtonProps {
   item: CatalogItemForPOS;
@@ -172,7 +169,7 @@ export const ItemButton = memo(function ItemButton({
               ...(textColor ? { color: textColor, opacity: 0.85 } : {}),
             }}
           >
-            {formatPrice(item.price)}
+            {formatCents(item.price)}
           </span>
 
           {/* Bottom row: type badge + favorite + stock */}

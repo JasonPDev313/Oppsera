@@ -1,6 +1,7 @@
 'use client';
 
 import { Send, Flame, CreditCard, Split, Trash2, QrCode, FileText } from 'lucide-react';
+import { HelpTip } from '@/components/ui/help-tip';
 
 interface TabActionBarProps {
   onSendAll: () => void;
@@ -37,7 +38,7 @@ export function TabActionBar({
     >
       {/* Row 1: Send All, Fire Next (hidden when KDS routing excludes this POS mode) */}
       {kdsSendEnabled && (
-        <div className="flex gap-1.5 mb-1.5">
+        <div className="flex items-center gap-1.5 mb-1.5">
           <button
             type="button"
             onClick={onSendAll}
@@ -66,6 +67,12 @@ export function TabActionBar({
             <Flame className="h-4 w-4" />
             FIRE NEXT
           </button>
+          <HelpTip
+            storageKey="oppsera:kds-send-fire-help"
+            title="Send & Fire"
+            description="Send All queues items to the kitchen. Fire Next tells the kitchen to start cooking the next course."
+            placement="top"
+          />
         </div>
       )}
 

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Heart } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 
 interface TipPromptProps {
   subtotalCents: number;
@@ -34,8 +35,6 @@ export function TipPrompt({ subtotalCents, onSelect, disabled }: TipPromptProps)
   const isPausedRef = useRef(false);
 
   const tipPercentages = getTipPercentages(subtotalCents);
-
-  const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   // Phase 3B: Countdown timer — auto-selects "No Tip" when expired
   useEffect(() => {
@@ -184,7 +183,7 @@ export function TipPrompt({ subtotalCents, onSelect, disabled }: TipPromptProps)
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatMoney(tipCents)}
+                {formatCents(tipCents)}
               </span>
             </button>
           );

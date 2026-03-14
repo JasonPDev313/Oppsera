@@ -17,6 +17,7 @@ import {
   ToggleRight,
   Pencil,
 } from 'lucide-react';
+import { formatCents as _formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import { Badge } from '@/components/ui/badge';
@@ -100,7 +101,7 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function formatCents(cents: number | null | undefined): string {
   if (cents == null) return '\u2014';
-  return `$${(cents / 100).toFixed(2)}`;
+  return _formatCents(cents);
 }
 
 function formatAdjustmentSummary(adj: PricingAdjustments): string {

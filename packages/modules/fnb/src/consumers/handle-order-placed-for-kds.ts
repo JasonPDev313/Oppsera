@@ -116,7 +116,7 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
     routableItems = await enrichRoutableItems(event.tenantId, routableItems);
 
     // 4. Bulk-resolve stations with full context
-    const routingResults = await resolveStationRouting(
+    const { results: routingResults } = await resolveStationRouting(
       { tenantId: event.tenantId, locationId: data.locationId, orderType: data.orderType, channel: 'pos' },
       routableItems,
     );

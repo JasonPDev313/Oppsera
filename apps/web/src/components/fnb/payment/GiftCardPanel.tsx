@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { Gift, Search, AlertTriangle } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 
 interface GiftCardPanelProps {
@@ -21,8 +22,6 @@ export function GiftCardPanel({ remainingCents, onTender, disabled }: GiftCardPa
   const [balance, setBalance] = useState<GiftCardBalance | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState('');
-
-  const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   const handleCheckBalance = useCallback(async () => {
     if (!cardNumber.trim()) return;
@@ -125,7 +124,7 @@ export function GiftCardPanel({ remainingCents, onTender, disabled }: GiftCardPa
                 fontFamily: 'var(--fnb-font-mono)',
               }}
             >
-              {formatMoney(balance.balanceCents)}
+              {formatCents(balance.balanceCents)}
             </span>
           </div>
 
@@ -136,8 +135,8 @@ export function GiftCardPanel({ remainingCents, onTender, disabled }: GiftCardPa
               style={{ color: 'var(--fnb-warning)' }}
             >
               <AlertTriangle className="h-3 w-3 shrink-0" />
-              Balance covers {formatMoney(balance.balanceCents)} of{' '}
-              {formatMoney(remainingCents)} — additional payment needed
+              Balance covers {formatCents(balance.balanceCents)} of{' '}
+              {formatCents(remainingCents)} — additional payment needed
             </div>
           )}
 
@@ -148,7 +147,7 @@ export function GiftCardPanel({ remainingCents, onTender, disabled }: GiftCardPa
             className="rounded-lg py-2 text-xs font-bold text-white transition-colors hover:opacity-90 disabled:opacity-40"
             style={{ backgroundColor: 'var(--fnb-tender-gift)' }}
           >
-            Apply {formatMoney(Math.min(balance.balanceCents, remainingCents))}
+            Apply {formatCents(Math.min(balance.balanceCents, remainingCents))}
           </button>
         </div>
       )}

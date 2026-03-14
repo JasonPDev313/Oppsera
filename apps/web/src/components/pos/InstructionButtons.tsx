@@ -6,6 +6,8 @@
  * Shared between Retail ModifierDialog and F&B FnbModifierDrawer.
  */
 
+import { formatCents } from '@oppsera/shared';
+
 export type ModifierInstruction = 'none' | 'extra' | 'on_side' | null;
 
 interface InstructionButtonsProps {
@@ -21,10 +23,6 @@ interface InstructionButtonsProps {
   basePriceCents?: number;
   /** Use F&B design tokens instead of Tailwind classes */
   variant?: 'retail' | 'fnb';
-}
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
 }
 
 export function InstructionButtons({
@@ -79,7 +77,7 @@ export function InstructionButtons({
                 : '1.5px solid rgba(148, 163, 184, 0.35)',
             }}
           >
-            Extra{extraPrice > 0 ? ` +${formatPrice(extraPrice)}` : ''}
+            Extra{extraPrice > 0 ? ` +${formatCents(extraPrice)}` : ''}
           </button>
         )}
         {allowOnSide && (
@@ -128,7 +126,7 @@ export function InstructionButtons({
               : 'border border-border bg-surface text-muted-foreground hover:bg-accent'
           }`}
         >
-          Extra{extraPrice > 0 ? ` +${formatPrice(extraPrice)}` : ''}
+          Extra{extraPrice > 0 ? ` +${formatCents(extraPrice)}` : ''}
         </button>
       )}
       {allowOnSide && (

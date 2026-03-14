@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle, XCircle, X, ChevronRight } from 'lucide-react';
 import { ApiError } from '@/lib/api-client';
 import { InlinePinPad } from './InlinePinPad';
+import { formatCents } from '@oppsera/shared';
 
 type ActionType = 'void' | 'transfer' | 'close';
 type ReasonCode = 'server_leaving' | 'end_of_shift' | 'stale_tab' | 'error_correction' | 'other';
@@ -49,9 +50,6 @@ const REASON_OPTIONS: { code: ReasonCode; label: string }[] = [
   { code: 'other', label: 'Other' },
 ];
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function getRiskLevel(count: number, balance: number): { label: string; color: string } {
   if (count > 10 || balance > 100000) return { label: 'High', color: 'var(--fnb-status-dirty)' };
@@ -210,7 +208,7 @@ export function BulkActionConfirmDialog({
               <div className="flex justify-between text-sm">
                 <span style={{ color: 'var(--fnb-text-secondary)' }}>Total balance</span>
                 <span className="font-semibold tabular-nums" style={{ color: 'var(--fnb-text-primary)' }}>
-                  {formatMoney(totalBalance)}
+                  {formatCents(totalBalance)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">

@@ -12,6 +12,7 @@ import { apiFetch } from '@/lib/api-client';
 import { getItemTypeGroup, ITEM_TYPE_BADGES } from '@/types/catalog';
 import { ReceiptPreviewDialog } from '@/components/pos/shared/ReceiptPreviewDialog';
 import type { OrderLine, OrderCharge, OrderDiscount } from '@/types/pos';
+import { formatCents } from '@oppsera/shared';
 
 // ── Badge mappings ────────────────────────────────────────────────
 
@@ -30,10 +31,6 @@ const SOURCE_BADGES: Record<string, { label: string; variant: string }> = {
 };
 
 // ── Helpers ───────────────────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function formatDateTime(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', {
@@ -119,7 +116,7 @@ function LineItemsSection({ lines }: { lines: OrderLine[] }) {
                             + {mod.name}
                             {mod.priceAdjustment !== 0 && (
                               <span className="ml-1">
-                                {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
+                                {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatCents(Math.abs(mod.priceAdjustment))}
                               </span>
                             )}
                           </div>
@@ -178,16 +175,16 @@ function LineItemsSection({ lines }: { lines: OrderLine[] }) {
                   <td className="px-4 py-3 text-right text-sm text-foreground">
                     {hasOverride && (
                       <span className="mr-1 text-muted-foreground line-through">
-                        {formatMoney(line.originalUnitPrice!)}
+                        {formatCents(line.originalUnitPrice!)}
                       </span>
                     )}
-                    {formatMoney(line.unitPrice)}
+                    {formatCents(line.unitPrice)}
                   </td>
                   <td className="px-4 py-3 text-right text-sm text-muted-foreground">
-                    {formatMoney(line.lineTax)}
+                    {formatCents(line.lineTax)}
                   </td>
                   <td className="px-4 py-3 text-right text-sm font-medium text-foreground">
-                    {formatMoney(line.lineTotal)}
+                    {formatCents(line.lineTotal)}
                   </td>
                 </tr>
               );
@@ -219,7 +216,7 @@ function ChargesSection({ charges }: { charges: OrderCharge[] }) {
             )}
           </div>
           <span className="text-sm font-medium text-foreground">
-            {formatMoney(charge.amount)}
+            {formatCents(charge.amount)}
           </span>
         </div>
       ))}
@@ -249,7 +246,7 @@ function DiscountsSection({ discounts }: { discounts: OrderDiscount[] }) {
             )}
           </div>
           <span className="text-sm font-medium text-red-500">
-            -{formatMoney(discount.amount)}
+            -{formatCents(discount.amount)}
           </span>
         </div>
       ))}
@@ -321,16 +318,16 @@ function TendersSection({ orderId, orderTotal, locationId }: { orderId: string; 
           </div>
           <div className="text-right">
             <span className={`text-sm font-medium ${tender.isReversed ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-              {formatMoney(tender.amount)}
+              {formatCents(tender.amount)}
             </span>
             {tender.changeGiven > 0 && !tender.isReversed && (
               <span className="ml-2 text-xs text-muted-foreground">
-                (Change: {formatMoney(tender.changeGiven)})
+                (Change: {formatCents(tender.changeGiven)})
               </span>
             )}
             {tender.tipAmount > 0 && !tender.isReversed && (
               <span className="ml-2 text-xs text-blue-500">
-                +{formatMoney(tender.tipAmount)} tip
+                +{formatCents(tender.tipAmount)} tip
               </span>
             )}
           </div>
@@ -341,12 +338,12 @@ function TendersSection({ orderId, orderTotal, locationId }: { orderId: string; 
       <div className="border-t border-border pt-2 mt-2">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Total Tendered</span>
-          <span className="font-medium text-green-500">{formatMoney(tenderData.summary.totalTendered)}</span>
+          <span className="font-medium text-green-500">{formatCents(tenderData.summary.totalTendered)}</span>
         </div>
         {tenderData.summary.remainingBalance > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Remaining</span>
-            <span className="font-medium text-red-500">{formatMoney(tenderData.summary.remainingBalance)}</span>
+            <span className="font-medium text-red-500">{formatCents(tenderData.summary.remainingBalance)}</span>
           </div>
         )}
       </div>
@@ -405,14 +402,14 @@ function ReturnsSection({ orderId, locationId }: { orderId: string; locationId: 
             </span>
           </div>
           <span className="text-sm font-medium text-red-500">
-            -{formatMoney(Math.abs(r.total))}
+            -{formatCents(Math.abs(r.total))}
           </span>
         </div>
       ))}
       <div className="border-t border-border pt-2 mt-2">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Total Returned</span>
-          <span className="font-medium text-red-500">-{formatMoney(totalReturned)}</span>
+          <span className="font-medium text-red-500">-{formatCents(totalReturned)}</span>
         </div>
       </div>
     </div>
@@ -656,25 +653,25 @@ export default function OrderDetailPage() {
         <div className="space-y-2 px-4 py-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Subtotal</span>
-            <span className="text-sm text-foreground">{formatMoney(order.subtotal)}</span>
+            <span className="text-sm text-foreground">{formatCents(order.subtotal)}</span>
           </div>
           {order.serviceChargeTotal > 0 && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Service Charges</span>
               <span className="text-sm text-foreground">
-                {formatMoney(order.serviceChargeTotal)}
+                {formatCents(order.serviceChargeTotal)}
               </span>
             </div>
           )}
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Tax</span>
-            <span className="text-sm text-foreground">{formatMoney(order.taxTotal)}</span>
+            <span className="text-sm text-foreground">{formatCents(order.taxTotal)}</span>
           </div>
           {order.discountTotal > 0 && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Discounts</span>
               <span className="text-sm text-red-500">
-                -{formatMoney(order.discountTotal)}
+                -{formatCents(order.discountTotal)}
               </span>
             </div>
           )}
@@ -682,7 +679,7 @@ export default function OrderDetailPage() {
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold text-foreground">Total</span>
               <span className="text-base font-semibold text-foreground">
-                {formatMoney(order.total)}
+                {formatCents(order.total)}
               </span>
             </div>
           </div>

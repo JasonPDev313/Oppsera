@@ -1,12 +1,9 @@
 'use client';
 
 import { memo, useCallback } from 'react';
+import { formatCents } from '@oppsera/shared';
 import { InventoryIndicator } from '../InventoryIndicator';
 import type { CatalogItemForPOS } from '@/types/pos';
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 interface ItemListRowProps {
   item: CatalogItemForPOS;
@@ -38,7 +35,7 @@ export const ItemListRow = memo(function ItemListRow({ item, onTap }: ItemListRo
 
       {/* Price */}
       <span className="w-20 shrink-0 text-right text-sm font-semibold text-foreground">
-        {formatPrice(item.price)}
+        {formatCents(item.price)}
       </span>
 
       {/* Stock */}

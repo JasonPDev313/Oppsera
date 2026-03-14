@@ -18,6 +18,7 @@ import {
   ChevronUp,
   RefreshCw,
 } from 'lucide-react';
+import { formatCentsLocale } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import { Badge } from '@/components/ui/badge';
@@ -77,10 +78,6 @@ function todayISO(): string {
 function guestName(g: { firstName: string; lastName: string } | null): string {
   if (!g) return '\u2014';
   return `${g.lastName}, ${g.firstName}`;
-}
-
-function formatDollars(cents: number): string {
-  return `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /** Count reservations by sourceType, returning "X Transient · Y Group" or similar */
@@ -328,7 +325,7 @@ export default function PmsContent() {
     : undefined;
 
   const rateDetails = flash
-    ? `RevPAR ${formatDollars(flash.revParCents)} \u00b7 Rev ${formatDollars(flash.roomRevenueCents)}`
+    ? `RevPAR ${formatCentsLocale(flash.revParCents)} \u00b7 Rev ${formatCentsLocale(flash.roomRevenueCents)}`
     : undefined;
 
   // ── Occupancy chart segments ───────────────────────────────────
@@ -442,7 +439,7 @@ export default function PmsContent() {
             : cents < 0
               ? 'text-emerald-400'
               : 'text-foreground';
-          return <span className={colorClass}>{formatDollars(cents)}</span>;
+          return <span className={colorClass}>{formatCentsLocale(cents)}</span>;
         },
       },
       {
@@ -596,7 +593,7 @@ export default function PmsContent() {
         <KpiCard
           icon={DollarSign}
           label="Tonight's Rate"
-          value={isLoading ? '\u2014' : formatDollars(flash?.adrCents ?? 0)}
+          value={isLoading ? '\u2014' : formatCentsLocale(flash?.adrCents ?? 0)}
           color="bg-teal-500/20 text-teal-500"
           details={!isLoading ? rateDetails : undefined}
         />

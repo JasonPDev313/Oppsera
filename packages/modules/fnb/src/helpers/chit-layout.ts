@@ -4,6 +4,7 @@
  * No side effects — these functions only produce formatted strings.
  */
 
+import { formatCents } from '@oppsera/shared';
 import { renderQrText } from './qr-text';
 
 const LINE_WIDTH = 40;
@@ -28,11 +29,6 @@ export function centerText(text: string, width: number = LINE_WIDTH): string {
   if (text.length >= width) return text.slice(0, width);
   const pad = Math.floor((width - text.length) / 2);
   return ' '.repeat(pad) + text;
-}
-
-/** Format cents as dollar string */
-export function formatDollars(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
 }
 
 // ── Kitchen Chit ─────────────────────────────────────────────────
@@ -201,28 +197,28 @@ export function renderGuestCheckText(data: GuestCheckData): string {
       lines.push(`  SEAT ${seat}:`);
       for (const item of seatItems) {
         lines.push(rightAlign(
-          `    ${item.name}  ${item.qty} x ${formatDollars(item.unitPriceCents)}`,
-          formatDollars(item.lineTotalCents),
+          `    ${item.name}  ${item.qty} x ${formatCents(item.unitPriceCents)}`,
+          formatCents(item.lineTotalCents),
         ));
       }
     }
   } else {
     for (const item of data.items) {
       lines.push(rightAlign(
-        `  ${item.name}  ${item.qty} x ${formatDollars(item.unitPriceCents)}`,
-        formatDollars(item.lineTotalCents),
+        `  ${item.name}  ${item.qty} x ${formatCents(item.unitPriceCents)}`,
+        formatCents(item.lineTotalCents),
       ));
     }
   }
 
   lines.push('');
   lines.push(SEPARATOR);
-  lines.push(rightAlign('SUBTOTAL:', formatDollars(data.subtotalCents)));
-  lines.push(rightAlign('TAX:', formatDollars(data.taxCents)));
+  lines.push(rightAlign('SUBTOTAL:', formatCents(data.subtotalCents)));
+  lines.push(rightAlign('TAX:', formatCents(data.taxCents)));
   if (data.serviceChargeCents > 0) {
-    lines.push(rightAlign('SERVICE CHARGE:', formatDollars(data.serviceChargeCents)));
+    lines.push(rightAlign('SERVICE CHARGE:', formatCents(data.serviceChargeCents)));
   }
-  lines.push(rightAlign('TOTAL:', formatDollars(data.totalCents)));
+  lines.push(rightAlign('TOTAL:', formatCents(data.totalCents)));
   lines.push('');
   lines.push(SEPARATOR);
   lines.push('TIP LINE: $____________');
@@ -282,16 +278,16 @@ export function renderGuestCheckWithQRText(data: GuestCheckWithQRData): string {
       lines.push(`  SEAT ${seat}:`);
       for (const item of seatItems) {
         lines.push(rightAlign(
-          `    ${item.name}  ${item.qty} x ${formatDollars(item.unitPriceCents)}`,
-          formatDollars(item.lineTotalCents),
+          `    ${item.name}  ${item.qty} x ${formatCents(item.unitPriceCents)}`,
+          formatCents(item.lineTotalCents),
         ));
       }
     }
   } else {
     for (const item of data.items) {
       lines.push(rightAlign(
-        `  ${item.name}  ${item.qty} x ${formatDollars(item.unitPriceCents)}`,
-        formatDollars(item.lineTotalCents),
+        `  ${item.name}  ${item.qty} x ${formatCents(item.unitPriceCents)}`,
+        formatCents(item.lineTotalCents),
       ));
     }
   }
@@ -299,12 +295,12 @@ export function renderGuestCheckWithQRText(data: GuestCheckWithQRData): string {
   // Totals
   lines.push('');
   lines.push(SEPARATOR);
-  lines.push(rightAlign('SUBTOTAL:', formatDollars(data.subtotalCents)));
-  lines.push(rightAlign('TAX:', formatDollars(data.taxCents)));
+  lines.push(rightAlign('SUBTOTAL:', formatCents(data.subtotalCents)));
+  lines.push(rightAlign('TAX:', formatCents(data.taxCents)));
   if (data.serviceChargeCents > 0) {
-    lines.push(rightAlign('SERVICE CHARGE:', formatDollars(data.serviceChargeCents)));
+    lines.push(rightAlign('SERVICE CHARGE:', formatCents(data.serviceChargeCents)));
   }
-  lines.push(rightAlign('TOTAL:', formatDollars(data.totalCents)));
+  lines.push(rightAlign('TOTAL:', formatCents(data.totalCents)));
   lines.push('');
 
   // QR Pay section (replaces tip line)
@@ -369,9 +365,9 @@ export function renderReceiptText(data: ReceiptData): string {
     lines.push(`  METHOD: ${data.paymentMethod}`);
   }
 
-  lines.push(`  AMOUNT: ${formatDollars(data.amountChargedCents)}`);
-  lines.push(`  TIP: ${formatDollars(data.tipAmountCents)}`);
-  lines.push(`  TOTAL CHARGED: ${formatDollars(data.totalWithTipCents)}`);
+  lines.push(`  AMOUNT: ${formatCents(data.amountChargedCents)}`);
+  lines.push(`  TIP: ${formatCents(data.tipAmountCents)}`);
+  lines.push(`  TOTAL CHARGED: ${formatCents(data.totalWithTipCents)}`);
 
   if (data.transactionReference) {
     lines.push(`  REFERENCE: ${data.transactionReference}`);
@@ -483,47 +479,47 @@ export function renderZReportText(data: ZReportData): string {
   lines.push(DOUBLE_SEP);
   lines.push('');
   lines.push('SALES SUMMARY:');
-  lines.push(rightAlign('  Gross Sales:', formatDollars(data.grossSalesCents)));
-  lines.push(rightAlign('  Discounts:', `-${formatDollars(data.totalDiscountsCents)}`));
-  lines.push(rightAlign('  Comps:', `-${formatDollars(data.totalCompsCents)}`));
-  lines.push(rightAlign('  Net Sales:', formatDollars(data.netSalesCents)));
+  lines.push(rightAlign('  Gross Sales:', formatCents(data.grossSalesCents)));
+  lines.push(rightAlign('  Discounts:', `-${formatCents(data.totalDiscountsCents)}`));
+  lines.push(rightAlign('  Comps:', `-${formatCents(data.totalCompsCents)}`));
+  lines.push(rightAlign('  Net Sales:', formatCents(data.netSalesCents)));
   lines.push('');
-  lines.push(rightAlign('TAX COLLECTED:', formatDollars(data.taxCollectedCents)));
+  lines.push(rightAlign('TAX COLLECTED:', formatCents(data.taxCollectedCents)));
   lines.push('');
   lines.push('PAYMENT BREAKDOWN:');
-  lines.push(rightAlign('  Cash:', formatDollars(data.cashTotalCents)));
-  lines.push(rightAlign('  Credit Cards:', formatDollars(data.cardTotalCents)));
-  lines.push(rightAlign('  Gift Cards:', formatDollars(data.giftCardTotalCents)));
-  lines.push(rightAlign('  House Accounts:', formatDollars(data.houseTotalCents)));
+  lines.push(rightAlign('  Cash:', formatCents(data.cashTotalCents)));
+  lines.push(rightAlign('  Credit Cards:', formatCents(data.cardTotalCents)));
+  lines.push(rightAlign('  Gift Cards:', formatCents(data.giftCardTotalCents)));
+  lines.push(rightAlign('  House Accounts:', formatCents(data.houseTotalCents)));
   lines.push('');
   lines.push('VOID SUMMARY:');
   lines.push(rightAlign('  Void Count:', String(data.voidCount)));
-  lines.push(rightAlign('  Void Amount:', `-${formatDollars(data.voidTotalCents)}`));
+  lines.push(rightAlign('  Void Amount:', `-${formatCents(data.voidTotalCents)}`));
   lines.push('');
   lines.push('SERVICE CHARGES:');
-  lines.push(rightAlign('  Total:', formatDollars(data.serviceChargeTotalCents)));
+  lines.push(rightAlign('  Total:', formatCents(data.serviceChargeTotalCents)));
   lines.push('');
   lines.push('TIPS COLLECTED:');
-  lines.push(rightAlign('  Card Tips:', formatDollars(data.cardTipsTotalCents)));
-  lines.push(rightAlign('  Cash Tips Declared:', formatDollars(data.cashTipsTotalCents)));
+  lines.push(rightAlign('  Card Tips:', formatCents(data.cardTipsTotalCents)));
+  lines.push(rightAlign('  Cash Tips Declared:', formatCents(data.cashTipsTotalCents)));
   lines.push('');
   lines.push('OPERATIONAL METRICS:');
   lines.push(rightAlign('  Total Covers:', String(data.coversCount)));
   lines.push(rightAlign('  Total Checks:', String(data.checkCount)));
-  lines.push(rightAlign('  Avg Check Amount:', formatDollars(data.avgCheckAmountCents)));
+  lines.push(rightAlign('  Avg Check Amount:', formatCents(data.avgCheckAmountCents)));
   lines.push('');
   lines.push('CASH ACCOUNTABILITY:');
-  lines.push(rightAlign('  Starting Float:', formatDollars(data.startingFloatCents)));
-  lines.push(rightAlign('  Cash Sales:', formatDollars(data.cashSalesCents)));
-  lines.push(rightAlign('  + Cash Tips:', formatDollars(data.cashTipsCents)));
-  lines.push(rightAlign('  - Cash Drops:', formatDollars(data.cashDropsCents)));
-  lines.push(rightAlign('  - Paid Outs:', formatDollars(data.paidOutsCents)));
-  lines.push(rightAlign('  = Expected Cash:', formatDollars(data.expectedCashCents)));
+  lines.push(rightAlign('  Starting Float:', formatCents(data.startingFloatCents)));
+  lines.push(rightAlign('  Cash Sales:', formatCents(data.cashSalesCents)));
+  lines.push(rightAlign('  + Cash Tips:', formatCents(data.cashTipsCents)));
+  lines.push(rightAlign('  - Cash Drops:', formatCents(data.cashDropsCents)));
+  lines.push(rightAlign('  - Paid Outs:', formatCents(data.paidOutsCents)));
+  lines.push(rightAlign('  = Expected Cash:', formatCents(data.expectedCashCents)));
   lines.push('');
-  lines.push(rightAlign('  Actual Cash Count:', formatDollars(data.actualCashCountCents)));
+  lines.push(rightAlign('  Actual Cash Count:', formatCents(data.actualCashCountCents)));
   const overShort = data.varianceCents >= 0
-    ? formatDollars(data.varianceCents)
-    : `(${formatDollars(Math.abs(data.varianceCents))})`;
+    ? formatCents(data.varianceCents)
+    : `(${formatCents(Math.abs(data.varianceCents))})`;
   lines.push(rightAlign('  Over / (Short):', overShort));
   lines.push('');
   lines.push(`TIMESTAMP: ${data.timestamp}`);

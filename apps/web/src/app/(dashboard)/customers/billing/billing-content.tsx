@@ -11,14 +11,13 @@ import { FormField } from '@/components/ui/form-field';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { useToast } from '@/components/ui/toast';
 import { useBillingAccounts } from '@/hooks/use-customers';
+import { formatCents } from '@oppsera/shared';
 import { apiFetch } from '@/lib/api-client';
 import type { BillingAccount } from '@/types/customers';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+const formatMoney = formatCents;
 
 const STATUS_BADGES: Record<string, { label: string; variant: string }> = {
   active: { label: 'Active', variant: 'success' },

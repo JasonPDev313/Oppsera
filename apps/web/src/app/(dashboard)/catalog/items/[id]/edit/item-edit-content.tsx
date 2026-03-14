@@ -11,12 +11,12 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useToast } from '@/components/ui/toast';
 import { useCatalogItem, useDepartments, useSubDepartments, useCategories, useModifierGroups } from '@/hooks/use-catalog';
+import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import { getItemTypeGroup, ITEM_TYPE_BADGES } from '@/types/catalog';
 import type { FnbMetadata, RetailMetadata, ServiceMetadata } from '@/types/catalog';
 import { CoursingSection } from '@/components/catalog/coursing-section';
 import type { CoursingState } from '@/components/catalog/coursing-section';
-import { useFetch } from '@/hooks/use-fetch';
 
 interface OptionSet {
   name: string;
@@ -98,19 +98,23 @@ export default function EditItemPage() {
   }, [item]);
 
   // Hydrate department + sub-department from the category's ancestry
-  const { data: ancestryData } = useFetch<{
-    data: {
-      id: string;
-      name: string;
-      parentId: string | null;
-      ancestry: {
-        departmentId: string | null;
-        departmentName: string | null;
-        subDepartmentId: string | null;
-        subDepartmentName: string | null;
+  const { data: ancestryData } = useQuery({
+    queryKey: ['catalog-category-ancestry', item?.categoryId],
+    queryFn: () => apiFetch<{
+      data: {
+        id: string;
+        name: string;
+        parentId: string | null;
+        ancestry: {
+          departmentId: string | null;
+          departmentName: string | null;
+          subDepartmentId: string | null;
+          subDepartmentName: string | null;
+        };
       };
-    };
-  }>(item?.categoryId ? `/api/v1/catalog/categories/${item.categoryId}` : null);
+    }>(`/api/v1/catalog/categories/${item!.categoryId}`),
+    enabled: !!item?.categoryId,
+  });
 
   useEffect(() => {
     if (!ancestryData?.data?.ancestry) return;
@@ -120,9 +124,13 @@ export default function EditItemPage() {
   }, [ancestryData, deptId, subDeptId]);
 
   // Load existing course rule to determine inherit/override state
-  const { data: resolvedRuleData } = useFetch<{
-    data: { effectiveRule: { defaultCourseNumber: number | null; allowedCourseNumbers: number[] | null; lockCourse: boolean }; source: string };
-  }>(itemId ? `/api/v1/fnb/course-rules/resolve?itemId=${itemId}` : null);
+  const { data: resolvedRuleData } = useQuery({
+    queryKey: ['fnb-course-rules-resolve-item', itemId],
+    queryFn: () => apiFetch<{
+      data: { effectiveRule: { defaultCourseNumber: number | null; allowedCourseNumbers: number[] | null; lockCourse: boolean }; source: string };
+    }>(`/api/v1/fnb/course-rules/resolve?itemId=${itemId}`),
+    enabled: !!itemId,
+  });
 
   useEffect(() => {
     if (!resolvedRuleData?.data) return;

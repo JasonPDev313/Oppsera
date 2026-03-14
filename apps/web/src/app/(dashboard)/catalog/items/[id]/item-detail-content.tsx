@@ -26,6 +26,7 @@ import {
   type PackageMetadata,
   type CategoryRow,
 } from '@/types/catalog';
+import { formatDollarString } from '@oppsera/shared';
 
 // ---------- Extended types for the full item detail response ----------
 
@@ -72,10 +73,6 @@ interface ItemDetailResponse {
 
 // ---------- Helpers ----------
 
-function formatCurrency(value: string | null | undefined): string {
-  if (!value) return '-';
-  return `$${Number(value).toFixed(2)}`;
-}
 
 function calcMargin(price: string | null, cost: string | null): string {
   if (!price || !cost) return '-';
@@ -487,8 +484,8 @@ export default function ItemDetailPage() {
           </div>
           {/* Right column */}
           <div className="space-y-4">
-            <DetailRow label="Price" value={formatCurrency(item.defaultPrice)} />
-            <DetailRow label="Cost" value={formatCurrency(item.cost)} />
+            <DetailRow label="Price" value={formatDollarString(item.defaultPrice)} />
+            <DetailRow label="Cost" value={formatDollarString(item.cost)} />
             <DetailRow label="Margin" value={calcMargin(item.defaultPrice, item.cost)} />
             <div className="flex items-center justify-between border-b border-border pb-3">
               <span className="text-sm font-medium text-muted-foreground">Status</span>
@@ -884,7 +881,7 @@ export default function ItemDetailPage() {
               {
                 key: 'price',
                 header: 'Override Price',
-                render: (row) => formatCurrency(row.price as string),
+                render: (row) => formatDollarString(row.price as string),
               },
               {
                 key: 'actions',
@@ -1296,7 +1293,7 @@ function ModifierGroupCard({ group }: { group: ModifierGroupDetail }) {
               {Number(m.priceAdjustment) !== 0 && (
                 <span className="ml-1 text-xs">
                   ({Number(m.priceAdjustment) > 0 ? '+' : ''}
-                  {formatCurrency(m.priceAdjustment)})
+                  {formatDollarString(m.priceAdjustment)})
                 </span>
               )}
             </Badge>

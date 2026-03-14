@@ -12,11 +12,8 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { formatCents } from '@oppsera/shared';
 import type { OrderLine } from '@/types/pos';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 // ── Permissions shape ──────────────────────────────────────────────
 
@@ -141,8 +138,8 @@ function DiscountSubPanel({
       {/* Preview */}
       {customValue && parseFloat(customValue) > 0 && (
         <p className="text-[10px] text-muted-foreground">
-          {formatMoney(basePrice)} &rarr;{' '}
-          {formatMoney(
+          {formatCents(basePrice)} &rarr;{' '}
+          {formatCents(
             Math.max(
               0,
               mode === 'percent'
@@ -259,12 +256,12 @@ export const LineItemEditPanel = memo(function LineItemEditPanel({
           </p>
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-xs text-muted-foreground">
-              {formatMoney(line.unitPrice)} each
+              {formatCents(line.unitPrice)} each
             </span>
             {isOverridden && (
               <>
                 <span className="text-xs text-muted-foreground line-through">
-                  {formatMoney(line.originalUnitPrice!)}
+                  {formatCents(line.originalUnitPrice!)}
                 </span>
                 {line.priceOverrideReason && (
                   <Badge variant="warning" className="text-[10px]">
@@ -280,11 +277,11 @@ export const LineItemEditPanel = memo(function LineItemEditPanel({
             className="font-semibold text-foreground"
             style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
           >
-            {formatMoney(line.lineTotal)}
+            {formatCents(line.lineTotal)}
           </p>
           {line.lineTax > 0 && (
             <p className="text-[10px] text-muted-foreground">
-              tax {formatMoney(line.lineTax)}
+              tax {formatCents(line.lineTax)}
             </p>
           )}
         </div>
@@ -303,7 +300,7 @@ export const LineItemEditPanel = memo(function LineItemEditPanel({
                 <span>{mod.name}</span>
                 {mod.priceAdjustment !== 0 && (
                   <span className="text-muted-foreground">
-                    {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatMoney(Math.abs(mod.priceAdjustment))}
+                    {mod.priceAdjustment > 0 ? '+' : '\u2212'}{formatCents(Math.abs(mod.priceAdjustment))}
                   </span>
                 )}
               </div>
@@ -349,7 +346,7 @@ export const LineItemEditPanel = memo(function LineItemEditPanel({
             icon={DollarSign}
             iconColor="text-indigo-400"
             label="Change Price"
-            detail={formatMoney(line.unitPrice)}
+            detail={formatCents(line.unitPrice)}
             badge={isOverridden ? 'overridden' : undefined}
             onClick={() => onPriceOverride(line)}
           />

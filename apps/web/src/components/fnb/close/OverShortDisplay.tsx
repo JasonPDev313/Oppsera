@@ -1,6 +1,7 @@
 'use client';
 
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { formatCents } from '@oppsera/shared';
 
 interface OverShortDisplayProps {
   expectedCents: number;
@@ -9,7 +10,6 @@ interface OverShortDisplayProps {
 
 export function OverShortDisplay({ expectedCents, actualCents }: OverShortDisplayProps) {
   const diff = actualCents - expectedCents;
-  const formatMoney = (cents: number) => `$${(Math.abs(cents) / 100).toFixed(2)}`;
 
   const isOver = diff > 0;
   const isShort = diff < 0;
@@ -32,11 +32,11 @@ export function OverShortDisplay({ expectedCents, actualCents }: OverShortDispla
       <div className="space-y-2 font-mono text-xs" style={{ fontFamily: 'var(--fnb-font-mono)' }}>
         <div className="flex justify-between">
           <span style={{ color: 'var(--fnb-text-muted)' }}>Expected</span>
-          <span style={{ color: 'var(--fnb-text-secondary)' }}>{formatMoney(expectedCents)}</span>
+          <span style={{ color: 'var(--fnb-text-secondary)' }}>{formatCents(expectedCents)}</span>
         </div>
         <div className="flex justify-between">
           <span style={{ color: 'var(--fnb-text-muted)' }}>Actual Count</span>
-          <span style={{ color: 'var(--fnb-text-secondary)' }}>{formatMoney(actualCents)}</span>
+          <span style={{ color: 'var(--fnb-text-secondary)' }}>{formatCents(actualCents)}</span>
         </div>
         <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}>
           <span className="flex items-center gap-1 font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
@@ -49,7 +49,7 @@ export function OverShortDisplay({ expectedCents, actualCents }: OverShortDispla
               color: isOver ? 'var(--fnb-status-available)' : isShort ? 'var(--fnb-status-dirty)' : 'var(--fnb-text-primary)',
             }}
           >
-            {isOver ? '+' : isShort ? '-' : ''}{formatMoney(diff)}
+            {isOver ? '+' : isShort ? '-' : ''}{formatCents(Math.abs(diff))}
           </span>
         </div>
       </div>

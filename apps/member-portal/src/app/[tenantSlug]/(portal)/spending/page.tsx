@@ -1,13 +1,12 @@
 'use client';
 
 import { usePortalMinimums } from '@/hooks/use-portal-data';
+import { formatCents } from '@oppsera/shared';
 import { TrendingUp, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
-function formatMoney(cents: number): string {
-  return '$' + (cents / 100).toFixed(2);
-}
+const formatMoney = formatCents;
 
 export default function SpendingPage() {
   const { data: minimums, isLoading, error } = usePortalMinimums();

@@ -49,11 +49,9 @@ interface InlineModifierPanelProps {
   onCancel: () => void;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────
+import { formatCents } from '@oppsera/shared';
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+// ── Helpers ───────────────────────────────────────────────────────
 
 function resolveModPrice(
   basePriceCents: number,
@@ -204,12 +202,12 @@ export function InlineModifierPanel({
               {itemName}
             </p>
             <p className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
-              {formatMoney(itemPriceCents)}
+              {formatCents(itemPriceCents)}
             </p>
           </div>
         </div>
         <div className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
-          {formatMoney(totalCents)}
+          {formatCents(totalCents)}
         </div>
       </div>
 
@@ -300,7 +298,7 @@ export function InlineModifierPanel({
                         color: isSelected ? '#fff' : 'var(--fnb-text-primary)',
                       }}
                     >
-                      +{formatMoney(effectivePrice)}
+                      +{formatCents(effectivePrice)}
                     </span>
                   )}
                   {currentInstruction === 'none' && (
@@ -388,7 +386,7 @@ export function InlineModifierPanel({
                 color: '#fff',
               }}
             >
-              Add · {formatMoney(totalCents)}
+              Add · {formatCents(totalCents)}
             </button>
           </>
         )}

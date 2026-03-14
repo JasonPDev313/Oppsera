@@ -1,6 +1,7 @@
 'use client';
 
 import type { FnbSplitCheck, FnbTabLine } from '@/types/fnb';
+import { formatCents } from '@oppsera/shared';
 
 interface CheckPanelProps {
   check: FnbSplitCheck;
@@ -10,9 +11,6 @@ interface CheckPanelProps {
   onRemoveItem?: (lineId: string) => void;
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 export function CheckPanel({ check, lines, isActive, onSelect, onRemoveItem }: CheckPanelProps) {
   const checkLines = lines.filter((l) => check.lineIds.includes(l.id));
@@ -69,7 +67,7 @@ export function CheckPanel({ check, lines, isActive, onSelect, onRemoveItem }: C
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-xs fnb-mono" style={{ color: 'var(--fnb-text-secondary)' }}>
-                  {formatMoney(line.extendedPriceCents)}
+                  {formatCents(line.extendedPriceCents)}
                 </span>
                 {onRemoveItem && !check.isPaid && (
                   <button
@@ -97,7 +95,7 @@ export function CheckPanel({ check, lines, isActive, onSelect, onRemoveItem }: C
             Subtotal
           </span>
           <span className="text-xs fnb-mono" style={{ color: 'var(--fnb-text-secondary)' }}>
-            {formatMoney(check.subtotalCents)}
+            {formatCents(check.subtotalCents)}
           </span>
         </div>
         {check.taxCents > 0 && (
@@ -106,7 +104,7 @@ export function CheckPanel({ check, lines, isActive, onSelect, onRemoveItem }: C
               Tax
             </span>
             <span className="text-xs fnb-mono" style={{ color: 'var(--fnb-text-secondary)' }}>
-              {formatMoney(check.taxCents)}
+              {formatCents(check.taxCents)}
             </span>
           </div>
         )}
@@ -115,7 +113,7 @@ export function CheckPanel({ check, lines, isActive, onSelect, onRemoveItem }: C
             Total
           </span>
           <span className="text-sm font-bold fnb-mono" style={{ color: 'var(--fnb-text-primary)' }}>
-            {formatMoney(check.totalCents)}
+            {formatCents(check.totalCents)}
           </span>
         </div>
       </div>

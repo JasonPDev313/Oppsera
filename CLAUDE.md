@@ -26,7 +26,7 @@ apps/admin/         — Platform admin panel
 packages/shared/    — @oppsera/shared (types, Zod, utils)
 packages/core/      — @oppsera/core (auth, RBAC, events, audit)
 packages/db/        — @oppsera/db (Drizzle, schema, migrations)
-packages/modules/*  — Domain modules (catalog, orders, payments, inventory, customers, reporting, fnb, kds, accounting, ap, ar, spa, pms, semantic, business-types, expenses, golf-ops, golf-reporting, marketing, membership, project-costing, etc.)
+packages/modules/*  — Domain modules (ai-support, catalog, orders, payments, inventory, customers, reporting, fnb, kds, accounting, ap, ar, spa, pms, semantic, business-types, expenses, golf-ops, golf-reporting, import, marketing, membership, project-costing, room-layouts, etc.)
 ```
 
 ## Package Dependency Rule

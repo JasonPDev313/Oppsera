@@ -22,13 +22,12 @@ import {
 } from '@/hooks/use-payment-methods';
 import { PaymentMethodCapture } from '@/components/payments/payment-method-capture';
 import { useTokenizerConfig } from '@/hooks/use-tokenizer-config';
+import { formatCents } from '@oppsera/shared';
 import type { TokenizeResult } from '@oppsera/shared';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-function formatMoney(cents: number): string {
-  return '$' + (cents / 100).toFixed(2);
-}
+const formatMoney = formatCents;
 
 function brandDisplay(brand: string | null): string {
   if (!brand) return 'Card';

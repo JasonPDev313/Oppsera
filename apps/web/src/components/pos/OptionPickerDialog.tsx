@@ -4,13 +4,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { CatalogItemForPOS, AddLineItemInput } from '@/types/pos';
+import { formatCents } from '@oppsera/shared';
 import type { RetailMetadata } from '@oppsera/shared';
-
-// ── Helpers ───────────────────────────────────────────────────────
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 // ── Component ─────────────────────────────────────────────────────
 
@@ -101,7 +96,7 @@ export function OptionPickerDialog({ open, onClose, item, onAdd }: OptionPickerD
           <div className="flex-1">
             <h3 id="option-picker-dialog-title" className="text-lg font-semibold text-foreground">{item.name}</h3>
           </div>
-          <span className="text-lg font-semibold text-foreground">{formatPrice(item.price)}</span>
+          <span className="text-lg font-semibold text-foreground">{formatCents(item.price)}</span>
           <button
             ref={firstFocusRef}
             type="button"

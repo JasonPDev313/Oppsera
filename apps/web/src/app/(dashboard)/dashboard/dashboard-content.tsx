@@ -28,6 +28,7 @@ import { apiFetch } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
 import { PosInsightCard } from '@/components/insights/PosInsightCard';
 import type { InventoryItem } from '@/types/inventory';
+import { formatDollarsLocale } from '@oppsera/shared';
 
 // ── Dashboard Preferences (localStorage V1) ─────────────────────
 
@@ -98,11 +99,6 @@ function saveNotes(notes: string) {
   } catch { /* ignore */ }
 }
 
-// ── Formatting helpers ──────────────────────────────────────────
-
-function formatDollars(dollars: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(dollars);
-}
 
 function getTodayBusinessDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -209,11 +205,11 @@ export default function DashboardContent() {
     ? metrics.nonPosRevenue.pms + metrics.nonPosRevenue.ar + metrics.nonPosRevenue.membership + metrics.nonPosRevenue.voucher + metrics.nonPosRevenue.spa
     : 0;
   const totalSalesDisplay = metrics
-    ? formatDollars(nonPosTotal > 0 ? metrics.totalBusinessRevenue : metrics.todaySales)
+    ? formatDollarsLocale(nonPosTotal > 0 ? metrics.totalBusinessRevenue : metrics.todaySales)
     : null;
   const salesTrend = metrics && metrics.todayOrders > 0
     ? nonPosTotal > 0
-      ? `${metrics.todayOrders} orders · incl. ${formatDollars(nonPosTotal)} non-POS`
+      ? `${metrics.todayOrders} orders · incl. ${formatDollarsLocale(nonPosTotal)} non-POS`
       : `${metrics.todayOrders} orders`
     : undefined;
   const orderCountDisplay = metrics
@@ -364,7 +360,7 @@ export default function DashboardContent() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-semibold text-foreground">{formatDollars(item.amountDollars)}</p>
+                          <p className="text-sm font-semibold text-foreground">{formatDollarsLocale(item.amountDollars)}</p>
                           <ActivityStatusBadge status={item.status} />
                         </div>
                       </div>

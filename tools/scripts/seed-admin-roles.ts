@@ -72,6 +72,12 @@ const SYSTEM_ROLES: RoleDef[] = [
       // Evaluations
       { module: 'evaluations', submodule: null, action: 'view', scope: 'global' },
       { module: 'evaluations', submodule: null, action: 'edit', scope: 'global' },
+      // AI Support (admin portal — metrics, analytics, reviews, answers)
+      { module: 'ai_support', submodule: null, action: 'admin', scope: 'global' },
+      { module: 'ai_support', submodule: 'reviews', action: 'read', scope: 'global' },
+      { module: 'ai_support', submodule: 'reviews', action: 'write', scope: 'global' },
+      { module: 'ai_support', submodule: 'answers', action: 'read', scope: 'global' },
+      { module: 'ai_support', submodule: 'answers', action: 'write', scope: 'global' },
       // System
       { module: 'system', submodule: null, action: 'view', scope: 'global' },
       { module: 'system', submodule: 'roles', action: 'view', scope: 'global' },
@@ -87,6 +93,10 @@ const SYSTEM_ROLES: RoleDef[] = [
       { module: 'users', submodule: 'customers', action: 'reset_password', scope: 'global' },
       { module: 'users', submodule: 'customers', action: 'invite', scope: 'global' },
       { module: 'ai_train', submodule: null, action: 'view', scope: 'global' },
+      // AI Support — view metrics + review queue (read-only)
+      { module: 'ai_support', submodule: null, action: 'admin', scope: 'global' },
+      { module: 'ai_support', submodule: 'reviews', action: 'read', scope: 'global' },
+      { module: 'ai_support', submodule: 'answers', action: 'read', scope: 'global' },
     ],
   },
   {
@@ -98,6 +108,10 @@ const SYSTEM_ROLES: RoleDef[] = [
       { module: 'ai_train', submodule: 'examples', action: 'view', scope: 'global' },
       { module: 'evaluations', submodule: null, action: 'view', scope: 'global' },
       { module: 'users', submodule: 'customers', action: 'view', scope: 'global' },
+      // AI Support — view metrics + analytics
+      { module: 'ai_support', submodule: null, action: 'admin', scope: 'global' },
+      { module: 'ai_support', submodule: 'reviews', action: 'read', scope: 'global' },
+      { module: 'ai_support', submodule: 'answers', action: 'read', scope: 'global' },
     ],
   },
   {

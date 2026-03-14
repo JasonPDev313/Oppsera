@@ -80,12 +80,18 @@ vi.mock('@oppsera/core/helpers/idempotency', () => ({
 const mockResolveStationRouting = vi.fn();
 const mockEnrichRoutableItems = vi.fn();
 const mockGetStationPrepTimesForItems = vi.fn();
+const mockResolveKdsLocationId = vi.fn();
 
 vi.mock('../services/kds-routing-engine', () => ({
-  resolveStationRouting: (...args: unknown[]) => mockResolveStationRouting(...args),
+  resolveStationRouting: async (...args: unknown[]) => {
+    const raw = await mockResolveStationRouting(...args);
+    // Allow tests to pass a plain array (legacy) — wrap into RoutingResultSet shape
+    if (Array.isArray(raw)) return { results: raw, stationNames: new Map(), diagnosis: [] };
+    return raw;
+  },
   enrichRoutableItems: (...args: unknown[]) => mockEnrichRoutableItems(...args),
   getStationPrepTimesForItems: (...args: unknown[]) => mockGetStationPrepTimesForItems(...args),
-  resolveKdsLocationId: vi.fn(async (_tenantId: string, locationId: string) => locationId),
+  resolveKdsLocationId: (...args: unknown[]) => mockResolveKdsLocationId(...args),
 }));
 
 const mockRecordDispatchAttempt = vi.fn();
@@ -236,7 +242,11 @@ describe('sendOrderLinesToKds', () => {
     // resetAllMocks clears call history AND once-queues, preventing bleed between tests
     vi.resetAllMocks();
     // Re-establish persistent defaults after reset
-    mockEnrichRoutableItems.mockImplementation(async (_tid: string, items: unknown[]) => items);
+    mockEnrichRoutableItems.mockImplementation(async (_tid: string, items: unknown[]) => ({
+      items,
+      chainMap: new Map(),
+    }));
+    mockResolveKdsLocationId.mockImplementation(async (_tenantId: string, locationId: string) => locationId);
     mockGetStationPrepTimesForItems.mockResolvedValue(new Map());
     mockRecordDispatchAttempt.mockResolvedValue(undefined);
     mockBuildEventFromContext.mockReturnValue({ type: 'fnb.ticket.created.v1' });
@@ -336,9 +346,6 @@ describe('sendOrderLinesToKds', () => {
       lines: [line],
       alreadySentIds: new Set(),
     });
-    // Phase 1.5: station names lookup (returns empty rows)
-    mockWithTenant.mockResolvedValueOnce([]);
-
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
     ]);
@@ -368,7 +375,6 @@ describe('sendOrderLinesToKds', () => {
       lines: [line1, line2],
       alreadySentIds: new Set(),
     });
-    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -395,7 +401,6 @@ describe('sendOrderLinesToKds', () => {
       lines: [line],
       alreadySentIds: new Set(),
     });
-    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -418,7 +423,6 @@ describe('sendOrderLinesToKds', () => {
       lines: [line],
       alreadySentIds: new Set(),
     });
-    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -442,7 +446,6 @@ describe('sendOrderLinesToKds', () => {
       lines: [line],
       alreadySentIds: new Set(),
     });
-    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -470,7 +473,6 @@ describe('sendOrderLinesToKds', () => {
       lines: [line],
       alreadySentIds: new Set(),
     });
-    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -498,7 +500,6 @@ describe('sendOrderLinesToKds', () => {
       lines: [line],
       alreadySentIds: new Set(),
     });
-    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -516,6 +517,7 @@ describe('sendOrderLinesToKds', () => {
           modifierIds: ['mod-spicy', 'mod-no-onion'],
         }),
       ]),
+      { returnChainMap: true },
     );
   });
 
@@ -526,7 +528,6 @@ describe('sendOrderLinesToKds', () => {
       lines: [lineNoMods],
       alreadySentIds: new Set(),
     });
-    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -544,6 +545,7 @@ describe('sendOrderLinesToKds', () => {
           modifierIds: [],
         }),
       ]),
+      { returnChainMap: true },
     );
   });
 
@@ -558,7 +560,6 @@ describe('sendOrderLinesToKds', () => {
       lines: [line1, line2],
       alreadySentIds: new Set(['line-1']),
     });
-    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-2', 'station-fry'),
@@ -572,6 +573,7 @@ describe('sendOrderLinesToKds', () => {
     expect(mockEnrichRoutableItems).toHaveBeenCalledWith(
       TENANT,
       [expect.objectContaining({ orderLineId: 'line-2' })],
+      { returnChainMap: true },
     );
     expect(result.sentCount).toBe(1);
     expect(result.totalStations).toBe(1);
@@ -586,7 +588,6 @@ describe('sendOrderLinesToKds', () => {
       lines: [line],
       alreadySentIds: new Set(),
     });
-    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -612,8 +613,6 @@ describe('sendOrderLinesToKds', () => {
       lines: [line1, line2],
       alreadySentIds: new Set(),
     });
-    // Station names — only reached because at least line-1 resolved to a station
-    mockWithTenant.mockResolvedValueOnce([]);
 
     // line-1 routed, line-2 unrouted
     mockResolveStationRouting.mockResolvedValueOnce([
@@ -640,7 +639,6 @@ describe('sendOrderLinesToKds', () => {
       lines: [line],
       alreadySentIds: new Set(),
     });
-    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),

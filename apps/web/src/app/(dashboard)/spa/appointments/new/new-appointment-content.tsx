@@ -23,17 +23,13 @@ import {
 } from '@/hooks/use-spa';
 import type { SpaService, SpaProvider, AvailableSlot } from '@/hooks/use-spa';
 import { useAuthContext } from '@/components/auth-provider';
+import { formatCentsLocale } from '@oppsera/shared';
 
 // ═══════════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════════
 
-function formatMoney(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  });
-}
+const formatMoney = formatCentsLocale;
 
 function formatSlotTime(isoStr: string): string {
   return new Date(isoStr).toLocaleTimeString('en-US', {

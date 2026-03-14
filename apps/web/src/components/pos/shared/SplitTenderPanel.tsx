@@ -14,11 +14,8 @@ import { Numpad } from './Numpad';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
+import { formatCents } from '@oppsera/shared';
 import type { Order, POSConfig, TenderSummary, RecordTenderResult, Tender } from '@/types/pos';
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function todayBusinessDate(): string {
   const d = new Date();
@@ -188,11 +185,11 @@ export function SplitTenderPanel({
       if (result.isFullyPaid) {
         toast.success(
           selectedType === 'cash' && result.changeGiven > 0
-            ? `Payment complete! Change: ${formatMoney(result.changeGiven)}`
+            ? `Payment complete! Change: ${formatCents(result.changeGiven)}`
             : 'All payments recorded!',
         );
       } else {
-        toast.info(`Payment added. Remaining: ${formatMoney(result.remainingBalance)}`);
+        toast.info(`Payment added. Remaining: ${formatCents(result.remainingBalance)}`);
       }
 
       // Refresh tenders and go back to summary
@@ -245,7 +242,7 @@ export function SplitTenderPanel({
         <div className="border-b border-border bg-muted px-6 py-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Order Total</span>
-            <span className="font-semibold text-foreground">{formatMoney(order.total)}</span>
+            <span className="font-semibold text-foreground">{formatCents(order.total)}</span>
           </div>
         </div>
 
@@ -277,12 +274,12 @@ export function SplitTenderPanel({
                           </p>
                           {t.tenderType === 'cash' && t.changeGiven > 0 && (
                             <p className="text-xs text-muted-foreground">
-                              Given: {formatMoney(t.amountGiven)} / Change: {formatMoney(t.changeGiven)}
+                              Given: {formatCents(t.amountGiven)} / Change: {formatCents(t.changeGiven)}
                             </p>
                           )}
                         </div>
                         <span className="text-sm font-semibold text-foreground shrink-0">
-                          {formatMoney(t.amount)}
+                          {formatCents(t.amount)}
                         </span>
                       </div>
                     );
@@ -292,7 +289,7 @@ export function SplitTenderPanel({
                   <div className="flex items-center justify-between border-t border-border pt-2 px-1">
                     <span className="text-sm text-muted-foreground">Total Paid</span>
                     <span className="text-sm font-semibold text-green-500">
-                      {formatMoney(totalTendered)}
+                      {formatCents(totalTendered)}
                     </span>
                   </div>
                 </div>
@@ -319,7 +316,7 @@ export function SplitTenderPanel({
                   Remaining Balance
                 </p>
                 <p className={`mt-1 text-3xl font-bold ${isFullyPaid ? 'text-green-500' : 'text-foreground'}`}>
-                  {isFullyPaid ? '$0.00' : formatMoney(remaining)}
+                  {isFullyPaid ? '$0.00' : formatCents(remaining)}
                 </p>
               </div>
 
@@ -376,7 +373,7 @@ export function SplitTenderPanel({
                   {selectedType} Payment
                 </span>
                 <span className="ml-auto text-xs text-muted-foreground">
-                  Remaining: {formatMoney(remaining)}
+                  Remaining: {formatCents(remaining)}
                 </span>
               </div>
 
@@ -386,7 +383,7 @@ export function SplitTenderPanel({
                 <p className="text-2xl font-bold text-foreground">${amount || '0.00'}</p>
                 {selectedType === 'cash' && amountCents > remaining && remaining > 0 && (
                   <p className="mt-1 text-sm font-semibold text-green-500">
-                    Change: {formatMoney(amountCents - remaining)}
+                    Change: {formatCents(amountCents - remaining)}
                   </p>
                 )}
               </div>
@@ -401,7 +398,7 @@ export function SplitTenderPanel({
                 onClick={() => setAmount((remaining / 100).toFixed(2))}
                 className="w-full rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-2.5 text-sm font-semibold text-green-500 transition-colors hover:bg-green-500/20 active:scale-[0.97] disabled:opacity-50"
               >
-                Exact Amount  {formatMoney(remaining)}
+                Exact Amount  {formatCents(remaining)}
               </button>
 
               {/* Submit / Back buttons */}
@@ -422,7 +419,7 @@ export function SplitTenderPanel({
                 >
                   {isSubmitting
                     ? 'Processing...'
-                    : `Record ${formatMoney(Math.min(amountCents, remaining))}`}
+                    : `Record ${formatCents(Math.min(amountCents, remaining))}`}
                 </button>
               </div>
             </div>

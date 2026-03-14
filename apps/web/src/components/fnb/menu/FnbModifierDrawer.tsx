@@ -6,6 +6,7 @@ import { X, Minus, Plus, Check, ChevronRight, ChevronLeft, SkipForward } from 'l
 import { InstructionButtons } from '@/components/pos/InstructionButtons';
 import type { ModifierInstruction } from '@/components/pos/InstructionButtons';
 import { shouldSuppressInstructions } from '@/lib/modifier-intelligence';
+import { formatCents } from '@oppsera/shared';
 
 interface ModifierOption {
   id: string;
@@ -54,9 +55,6 @@ interface FnbModifierDrawerProps {
   onConfirm: (selectedModifiers: SelectedModifierOutput[], qty: number, notes: string) => void;
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 /** Resolve modifier price based on instruction */
 function resolveModPrice(
@@ -293,7 +291,7 @@ function GroupView({
                         color: isSelected ? '#fff' : 'var(--fnb-info)',
                       }}
                     >
-                      +{formatMoney(effectivePrice)}
+                      +{formatCents(effectivePrice)}
                     </span>
                   )}
                   {effectivePrice === 0 && isSelected && instr !== 'none' && (
@@ -559,14 +557,14 @@ export function FnbModifierDrawer({
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatMoney(itemPriceCents)}
+                {formatCents(itemPriceCents)}
               </span>
               {modTotal > 0 && (
                 <span
                   className="text-xs font-medium"
                   style={{ color: 'var(--fnb-info)', fontFamily: 'var(--fnb-font-mono)' }}
                 >
-                  +{formatMoney(modTotal)}
+                  +{formatCents(modTotal)}
                 </span>
               )}
             </div>
@@ -860,7 +858,7 @@ export function FnbModifierDrawer({
                 className="flex-1 rounded-xl py-3.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                 style={{ backgroundColor: 'var(--fnb-status-seated)' }}
               >
-                Add {formatMoney(lineTotal)}
+                Add {formatCents(lineTotal)}
               </button>
             </>
           )}

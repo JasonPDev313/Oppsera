@@ -1,6 +1,6 @@
 # OppsEra — Conventions Index
 
-> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (12,516 lines, 252 numbered sections).
+> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (~12,811 lines, 261 numbered sections).
 > Read only the sections you need by line range. Do NOT load the entire file into context.
 
 ---
@@ -344,7 +344,7 @@
 | §246 | Emergency Cleanup Payment Verification | 12339–12356 | Verify SUM(tenders) >= total, location-scoped locks |
 | §247 | Help Tip Pattern | 12357–12395 | Portal-mounted `?` popover, placement props, first-visit auto-open, 3-cycle pulse |
 
-### Domain Patterns (§248–§258) — Updated 2026-03-14
+### Domain Patterns (§248–§261) — Updated 2026-03-14
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
@@ -359,6 +359,9 @@
 | §256 | Pre-Transaction Routing with Atomic Commit | 12642–12659 | Pre-check → pre-transaction routing → atomic publishWithOutbox → post-transaction audit, no ghost sends/fires |
 | §257 | Dispatch Attempt Tracking (Observability Table) | 12660–12679 | Purpose-built attempt log, failure_stage enum, JSONB diagnosis/errors, prior_attempt_id retry chains, partial failure index |
 | §258 | Client-Side KDS Location Resolution and Structured Dispatch Errors | 12681–12728 | useKdsLocation priority chain, locationFellBack/locationDefaulted flags, LocationBanner, nav ?locationId, 422 kdsStatus body, non-throwing client dispatch errors |
+| §259 | AI Support Module — Tiered RAG Architecture | 12729–12774 | Multi-tenant AI assistant, tiered evidence retrieval (T2–T7), streaming orchestrator, content guard sanitization, context snapshots |
+| §260 | Shared Money Formatting Utilities | 12775–12797 | formatCents, formatCentsRaw, formatDollarsLocale, formatCentsLocale, formatDollarString, formatCompact |
+| §261 | KDS Order Type Filtering Rules | 12798–12811 | allowed_order_types filter bypass for retail POS, F&B type requirements, migration 0318 backfill |
 
 ---
 
@@ -366,7 +369,7 @@
 
 | Topic | Sections |
 |-------|----------|
-| **Money (dollars vs cents)** | §21, §76, §183, §231 |
+| **Money (dollars vs cents)** | §21, §76, §183, §231, §260 |
 | **Dark mode** | §15, §145, §172 |
 | **GL / Accounting** | §76–§80, §84, §114, §117–§118, §149, §177, §183, §185, §187–§188, §195–§197, §201–§203, §220, §238–§239, §249–§250, §254 |
 | **POS** | §31–§35, §57, §61–§64, §132a, §140–§141, §164, §169, §196, §228 |
@@ -377,7 +380,7 @@
 | **Events / Consumers** | §9, §26, §104, §159, §186, §202, §231, §232 |
 | **Testing** | §11, §204 |
 | **Reporting / Read Models** | §52, §56, §111, §153, §175, §231 |
-| **Semantic / AI** | §65–§72, §74, §121, §123, §127, §160, §178, §189–§194, §200, §217 |
+| **Semantic / AI** | §65–§72, §74, §121, §123, §127, §160, §178, §189–§194, §200, §217, §259 |
 | **PMS** | §122, §126, §166, §214, §219 |
 | **Settings / Config** | §90, §95, §110, §112, §115–§116, §130, §134b, §135b, §136, §142, §149, §155–§156, §165 |
 | **Inventory / Receiving** | §41, §53–§55, §58–§60 |
@@ -388,7 +391,7 @@
 | **Infrastructure / Cron** | §47–§49, §83, §157, §161–§162, §167, §206, §226, §254 |
 | **Frontend Patterns** | §15, §57, §228, §234–§237, §245, §247, §258 |
 | **A11y / Accessibility** | §154, §174, §236 |
-| **KDS** | §176, §181, §222, §235, §240, §243, §253, §255–§258 |
+| **KDS** | §176, §181, §222, §235, §240, §243, §253, §255–§258, §261 |
 
 ---
 
@@ -396,7 +399,7 @@
 
 - **Duplicate section numbers**: §98, §131–§135 each appear twice in the file (legacy numbering). Disambiguated as `a`/`b` suffixes above.
 - **Unnumbered sections**: "Local Server Fix (Windows)" at line 7246 (between §127 and §128), and "Answer"/"Metrics in This Query" subsections within §74 at lines 4571–4652.
-- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~12,728 lines, 258 numbered sections)
+- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~12,811 lines, 261 numbered sections)
 - **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (570 numbered gotchas)
 - **What's Built / What's Next**: `docs/conventions/whats-built.md`
 

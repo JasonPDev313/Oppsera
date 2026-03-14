@@ -3,6 +3,8 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { ChevronLeft, Users, ShoppingCart, QrCode, Copy, XCircle, Sparkles, Hand, UtensilsCrossed, LayoutGrid, Repeat } from 'lucide-react';
 
+import { formatCents } from '@oppsera/shared';
+
 // ── Handheld detection hook ─────────────────────────────────────
 
 function useIsHandheld(): boolean {
@@ -108,11 +110,6 @@ interface FnbTabViewProps {
   kdsSendEnabled?: boolean;
 }
 
-// ── Money formatter ────────────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 // ── Skeleton for loading state ──────────────────────────────────
 
@@ -880,7 +877,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
                   style={{ color: 'var(--fnb-text-primary)' }}
                 >
                   <span>Total</span>
-                  <span>{formatMoney(totalCents)}</span>
+                  <span>{formatCents(totalCents)}</span>
                 </div>
               </div>
 
@@ -1161,12 +1158,12 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
           >
             <div className="flex justify-between text-xs" style={{ color: 'var(--fnb-text-secondary)' }}>
               <span>Subtotal</span>
-              <span>{formatMoney(subtotalCents)}</span>
+              <span>{formatCents(subtotalCents)}</span>
             </div>
             {taxCents > 0 && (
               <div className="flex justify-between text-xs mt-0.5" style={{ color: 'var(--fnb-text-muted)' }}>
                 <span>Tax</span>
-                <span>{formatMoney(taxCents)}</span>
+                <span>{formatCents(taxCents)}</span>
               </div>
             )}
             <div
@@ -1174,7 +1171,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
               style={{ color: 'var(--fnb-text-primary)', borderTop: 'var(--fnb-border-subtle)' }}
             >
               <span>Total</span>
-              <span>{formatMoney(totalCents)}</span>
+              <span>{formatCents(totalCents)}</span>
             </div>
           </div>
 

@@ -6,6 +6,8 @@
  * cancellation policy, manage appointment link, calendar links.
  */
 
+import { formatCents } from '@oppsera/shared';
+
 export interface SpaConfirmationEmailData {
   spaName: string;
   logoUrl?: string | null;
@@ -44,10 +46,6 @@ function formatTime(d: Date): string {
   });
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
 function buildCancellationPolicyText(data: SpaConfirmationEmailData): string {
   if (!data.cancellationWindowHours) return '';
 
@@ -55,7 +53,7 @@ function buildCancellationPolicyText(data: SpaConfirmationEmailData): string {
   if (data.cancellationFeeType === 'percentage' && data.cancellationFeeValue) {
     feeText = `a ${data.cancellationFeeValue}% cancellation fee`;
   } else if (data.cancellationFeeType === 'flat' && data.cancellationFeeValue) {
-    feeText = `a ${formatMoney(data.cancellationFeeValue)} cancellation fee`;
+    feeText = `a ${formatCents(data.cancellationFeeValue)} cancellation fee`;
   }
 
   if (feeText) {
@@ -69,10 +67,10 @@ export function spaBookingConfirmationEmail(
 ): { subject: string; html: string } {
   const cancelPolicy = buildCancellationPolicyText(data);
   const depositLine = data.depositAmountCents
-    ? `<tr><td style="padding: 6px 0; color: #71717a;">Deposit Paid</td><td style="padding: 6px 0; text-align: right; font-weight: 600;">${formatMoney(data.depositAmountCents)}</td></tr>`
+    ? `<tr><td style="padding: 6px 0; color: #71717a;">Deposit Paid</td><td style="padding: 6px 0; text-align: right; font-weight: 600;">${formatCents(data.depositAmountCents)}</td></tr>`
     : '';
   const priceLine = data.priceCents
-    ? `<tr><td style="padding: 6px 0; color: #71717a;">Service Price</td><td style="padding: 6px 0; text-align: right;">${formatMoney(data.priceCents)}</td></tr>`
+    ? `<tr><td style="padding: 6px 0; color: #71717a;">Service Price</td><td style="padding: 6px 0; text-align: right;">${formatCents(data.priceCents)}</td></tr>`
     : '';
   const providerLine = data.providerName
     ? `<tr><td style="padding: 6px 0; color: #71717a;">Provider</td><td style="padding: 6px 0; text-align: right;">${escapeHtml(data.providerName)}</td></tr>`

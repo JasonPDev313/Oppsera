@@ -100,13 +100,8 @@ const PriceOverrideDialog = dynamic(() => import('@/components/pos/PriceOverride
 const VoidLineDialog = dynamic(() => import('@/components/pos/VoidLineDialog').then(m => ({ default: m.VoidLineDialog })), { ssr: false });
 const CompDialog = dynamic(() => import('@/components/pos/CompDialog').then(m => ({ default: m.CompDialog })), { ssr: false });
 import type { CatalogItemForPOS, AddLineItemInput, HeldOrder, RecordTenderResult, OrderLine, Order } from '@/types/pos';
+import { formatCents } from '@oppsera/shared';
 import type { FnbMetadata, RetailMetadata } from '@oppsera/shared';
-
-// ── Helpers ───────────────────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 // ── Recall Dialog (inline) ────────────────────────────────────────
 
@@ -177,7 +172,7 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-foreground">
-                      {formatMoney(held.total)}
+                      {formatCents(held.total)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(held.heldAt).toLocaleTimeString([], {
@@ -444,7 +439,7 @@ const CustomItemPortal = memo(function CustomItemPortal({
               {/* Total preview */}
               {priceCents > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Total: {formatMoney(priceCents * qty)}
+                  Total: {formatCents(priceCents * qty)}
                 </p>
               )}
             </>
@@ -2030,7 +2025,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                   >
                     Pay
                     {(remainingBalance ?? pos.currentOrder?.total) ? (
-                      <span className="ml-1">{formatMoney(remainingBalance ?? pos.currentOrder?.total ?? 0)}</span>
+                      <span className="ml-1">{formatCents(remainingBalance ?? pos.currentOrder?.total ?? 0)}</span>
                     ) : null}
                   </button>
                 </div>
@@ -2272,7 +2267,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
               </div>
               <div className="px-6 py-4">
                 <p className="text-sm text-muted-foreground">
-                  Package price: <span className="font-semibold">{formatMoney(packageItem.price)}</span>
+                  Package price: <span className="font-semibold">{formatCents(packageItem.price)}</span>
                 </p>
                 {packageItem.metadata &&
                   (packageItem.metadata as { packageComponents?: Array<{ itemName: string; qty: number }> }).packageComponents && (
