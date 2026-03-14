@@ -453,15 +453,15 @@ export async function getKdsView(
     let upcomingCourses: KdsUpcomingCourse[] = [];
     if (activeTabIds.length > 0) {
       const courseRows = await tx.execute(
-        sql`SELECT tc.tab_id, tc.course_number, tc.course_name, tc.status AS course_status,
+        sql`SELECT tc.tab_id, tc.course_number, tc.course_name, tc.course_status,
                    t.table_number,
-                   (SELECT COUNT(*)::integer FROM fnb_tab_lines tl
+                   (SELECT COUNT(*)::integer FROM fnb_tab_items tl
                     WHERE tl.tab_id = tc.tab_id AND tl.course_number = tc.course_number
                       AND tl.tenant_id = tc.tenant_id AND tl.status != 'voided') AS item_count
             FROM fnb_tab_courses tc
             LEFT JOIN fnb_tabs t ON t.id = tc.tab_id AND t.tenant_id = tc.tenant_id
             WHERE tc.tenant_id = ${input.tenantId}
-              AND tc.status IN ('unsent', 'sent', 'held')
+              AND tc.course_status IN ('unsent', 'sent', 'held')
               AND tc.tab_id IN (${sql.join(activeTabIds.map((id) => sql`${id}`), sql`, `)})
             ORDER BY tc.tab_id, tc.course_number`,
       );

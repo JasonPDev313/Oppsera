@@ -2737,7 +2737,7 @@ export const fnbKdsSendTracking = pgTable(
     firstInteractionAt: timestamp('first_interaction_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     failedAt: timestamp('failed_at', { withTimezone: true }),
-    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    clearedAt: timestamp('cleared_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     deletedByEmployeeId: text('deleted_by_employee_id'),
     deleteReason: text('delete_reason'),
