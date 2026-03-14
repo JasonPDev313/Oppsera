@@ -293,6 +293,24 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     return locations?.find((l) => l.id === locId)?.name;
   }, [locations]);
 
+  // Clear toast timer on unmount to prevent setState on unmounted component
+  useEffect(() => {
+    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
+  }, []);
+
+  const guestPay = useFnbGuestPay({
+    tabId,
+    pollEnabled: isTabScreen,
+    onPaymentConfirmed: (session) => {
+      const tipLabel = session.tipCents ? ` (tip $${(session.tipCents / 100).toFixed(2)})` : '';
+      setToastMsg({ type: 'success', text: `Guest paid $${(session.totalCents / 100).toFixed(2)}${tipLabel}` });
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToastMsg(null), 5000);
+    },
+  });
+
+  const draftLines = tabId ? (store.draftLines[tabId] ?? []) : [];
+
   // ── Persist client-side draft items for a specific course ──────
   // Drafts live in zustand until this is called. Without it, server-side
   // dispatch queries fnb_tab_items and finds nothing → "No items found".
@@ -346,24 +364,6 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     await persistDraftsForCourse(courseNumber);
     await fireCourse(courseNumber);
   }, [persistDraftsForCourse, fireCourse]);
-
-  // Clear toast timer on unmount to prevent setState on unmounted component
-  useEffect(() => {
-    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
-  }, []);
-
-  const guestPay = useFnbGuestPay({
-    tabId,
-    pollEnabled: isTabScreen,
-    onPaymentConfirmed: (session) => {
-      const tipLabel = session.tipCents ? ` (tip $${(session.tipCents / 100).toFixed(2)})` : '';
-      setToastMsg({ type: 'success', text: `Guest paid $${(session.totalCents / 100).toFixed(2)}${tipLabel}` });
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => setToastMsg(null), 5000);
-    },
-  });
-
-  const draftLines = tabId ? (store.draftLines[tabId] ?? []) : [];
 
   // ── Modifier drawer state ──────────────────────────────────────
   const [modifierDrawerOpen, setModifierDrawerOpen] = useState(false);
