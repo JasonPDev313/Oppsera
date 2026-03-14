@@ -48,6 +48,10 @@ export function useKdsView({
   const hasLoadedRef = useRef(false);
   const consecutiveFailuresRef = useRef(0);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track in-flight item bumps so we can allow concurrent item bumps
+  // while still blocking ticket-level actions during mutations.
+  const inFlightItemBumpsRef = useRef(new Set<string>());
+  const bumpRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Generation counter: incremented on each effect cycle so stale promises from
   // aborted fetches don't clobber state (e.g., setting isLoading=false after cleanup).
   const generationRef = useRef(0);
@@ -78,7 +82,25 @@ export function useKdsView({
       );
       // Guard: only apply state if this is still the current generation
       if (gen !== generationRef.current) return;
-      setKdsView(json.data);
+      // Preserve optimistic 'ready' status for items with in-flight bump POSTs.
+      // Without this, a poll/realtime refetch that started before the POST committed
+      // would overwrite the optimistic state with stale 'pending' data, causing the
+      // item to visually revert and require a second tap.
+      const inFlight = inFlightItemBumpsRef.current;
+      const merged = inFlight.size > 0
+        ? {
+            ...json.data,
+            tickets: json.data.tickets.map((ticket) => ({
+              ...ticket,
+              items: ticket.items.map((item) =>
+                inFlight.has(item.itemId)
+                  ? { ...item, itemStatus: 'ready' as const }
+                  : item,
+              ),
+            })),
+          }
+        : json.data;
+      setKdsView(merged);
       setError(null);
       setLastRefreshedAt(Date.now());
       hasLoadedRef.current = true;
@@ -175,10 +197,6 @@ export function useKdsView({
   }, [fetchKds, schedulePoll]);
 
   const locQs = locationId ? `?locationId=${locationId}` : '';
-  // Track in-flight item bumps so we can allow concurrent item bumps
-  // while still blocking ticket-level actions during mutations.
-  const inFlightItemBumpsRef = useRef(new Set<string>());
-  const bumpRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Schedule a debounced KDS refresh after item bumps settle
   const scheduleBumpRefresh = useCallback(() => {

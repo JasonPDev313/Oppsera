@@ -100,6 +100,8 @@ interface UseFnbTabOptions {
   pollIntervalMs?: number;
   /** Set to false to pause polling (e.g. when screen is hidden). Initial fetch always fires. */
   pollEnabled?: boolean;
+  /** Explicit location ID for KDS dispatch headers. Prevents location drift. */
+  locationId?: string;
 }
 
 interface AddTabItemInput {
@@ -133,7 +135,7 @@ interface UseFnbTabReturn {
   isActing: boolean;
 }
 
-export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }: UseFnbTabOptions): UseFnbTabReturn {
+export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true, locationId }: UseFnbTabOptions): UseFnbTabReturn {
   const [tab, setTab] = useState<FnbTabDetail | null>(() =>
     tabId ? getTabSnapshot(tabId) ?? null : null,
   );
@@ -277,9 +279,12 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
   const fireCourseFn = useCallback(async (courseNumber: number): Promise<KdsSendResult | undefined> => {
     if (!tabId || isActing) return undefined;
     try {
+      const headers: Record<string, string> = {};
+      if (locationId) headers['X-Location-Id'] = locationId;
       const res = await act(() => apiFetch<{ data: unknown; kdsStatus?: KdsSendResult }>(`/api/v1/fnb/tabs/${tabId}/course/fire`, {
         method: 'POST',
         body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
+        headers,
       }));
       return res?.kdsStatus;
     } catch (e) {
@@ -301,14 +306,17 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
       }
       throw e;
     }
-  }, [tabId, act, isActing, fetchTab]);
+  }, [tabId, act, isActing, fetchTab, locationId]);
 
   const sendCourseFn = useCallback(async (courseNumber: number): Promise<KdsSendResult | undefined> => {
     if (!tabId || isActing) return undefined;
     try {
+      const headers: Record<string, string> = {};
+      if (locationId) headers['X-Location-Id'] = locationId;
       const res = await act(() => apiFetch<{ data: unknown; kdsStatus?: KdsSendResult }>(`/api/v1/fnb/tabs/${tabId}/course/send`, {
         method: 'POST',
         body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
+        headers,
       }));
       return res?.kdsStatus;
     } catch (e) {
@@ -332,7 +340,7 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
       }
       throw e;
     }
-  }, [tabId, act, isActing, fetchTab]);
+  }, [tabId, act, isActing, fetchTab, locationId]);
 
   const addItemsFn = useCallback(async (items: AddTabItemInput[]) => {
     if (!tabId || items.length === 0 || isActing) return;

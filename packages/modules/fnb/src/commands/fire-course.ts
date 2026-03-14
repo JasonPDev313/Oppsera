@@ -113,6 +113,25 @@ export async function fireCourse(
       );
       throw new KdsDispatchError(dispatch);
     }
+
+    // Refuse ghost-fire: if unsent and 0 items in DB, don't advance course state.
+    // Same guard as sendCourse — prevents firing a course whose items are still
+    // only in Zustand (not yet persisted to fnb_tab_items).
+    if (prep && prep.itemCount === 0) {
+      dispatch!.status = 'routing_failed';
+      dispatch!.failureStage = 'no_items';
+      dispatch!.errors.push('No dispatchable items in database — course stays unsent. Items may not have been persisted yet.');
+      dispatch!.diagnosis.push('BLOCKED: 0 items found for this course — refusing ghost-fire');
+      await recordDispatchAttempt(
+        ctx.tenantId,
+        { tabId: input.tabId, courseNumber: input.courseNumber, source: 'fnb_course_fire' },
+        dispatch!, startMs,
+      );
+      logger.warn('[kds] fireCourse: refusing ghost-fire — 0 items in DB for course', {
+        domain: 'kds', tenantId: ctx.tenantId, tabId: input.tabId, courseNumber: input.courseNumber,
+      });
+      throw new KdsDispatchError(dispatch!);
+    }
   }
 
   // ── Atomic transaction ──────────────────────────────────────────────

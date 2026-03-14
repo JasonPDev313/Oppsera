@@ -271,7 +271,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     addItems,
     updatePartySize,
     isActing,
-  } = useFnbTab({ tabId, pollEnabled: isTabScreen });
+  } = useFnbTab({ tabId, pollEnabled: isTabScreen, locationId: kdsLocationId });
 
   // Auto-navigate back to floor when tab was closed/voided elsewhere
   useEffect(() => {
@@ -314,6 +314,9 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   // ── Persist client-side draft items for a specific course ──────
   // Drafts live in zustand until this is called. Without it, server-side
   // dispatch queries fnb_tab_items and finds nothing → "No items found".
+  // After persisting, we refresh the tab to confirm items landed in the DB
+  // before dispatch proceeds. This closes the race window between persist
+  // and send/fire.
   const persistDraftsForCourse = useCallback(async (courseNumber: number) => {
     if (!tabId) return;
     const courseDrafts = draftLines.filter((d) => d.courseNumber === courseNumber);
@@ -332,7 +335,10 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     for (const d of courseDrafts) {
       store.removeDraftLine(tabId, d.localId);
     }
-  }, [tabId, draftLines, addItems, store]);
+    // Refresh tab to confirm items are now in the DB before dispatch.
+    // Without this, sendCourse/fireCourse could still read stale state.
+    await refreshTab();
+  }, [tabId, draftLines, addItems, store, refreshTab]);
 
   // Wrap sendCourse to surface KDS warnings + cross-location alerts as persistent banner
   const sendCourseWithWarning = useCallback(async (courseNumber: number) => {

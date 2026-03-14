@@ -105,30 +105,20 @@ export async function sendCourse(
     throw new KdsDispatchError(dispatch);
   }
 
-  // No dispatchable items (all voided/served or empty course) — mark sent, no tickets
+  // No dispatchable items — refuse to advance course state.
+  // This prevents ghost-sends where drafts weren't persisted yet (items only
+  // in Zustand, not in fnb_tab_items) or all items are voided/served.
+  // The course stays 'unsent' so the POS can retry after persisting.
   if (prep.itemCount === 0) {
-    dispatch.status = 'succeeded';
-    dispatch.diagnosis.push('No dispatchable items — marking course as sent (no tickets)');
-    await publishWithOutbox(ctx, async (tx) => {
-      const [course] = await tx
-        .select()
-        .from(fnbTabCourses)
-        .where(and(eq(fnbTabCourses.tenantId, ctx.tenantId), eq(fnbTabCourses.tabId, input.tabId), eq(fnbTabCourses.courseNumber, input.courseNumber)))
-        .limit(1);
-      if (!course) throw new CourseNotFoundError(input.tabId, input.courseNumber);
-      if (course.courseStatus !== 'unsent') throw new CourseStatusConflictError(input.courseNumber, course.courseStatus, 'send');
-      const [updated] = await tx
-        .update(fnbTabCourses)
-        .set({ courseStatus: 'sent', sentAt: new Date(), updatedAt: new Date() })
-        .where(eq(fnbTabCourses.id, course.id))
-        .returning();
-      return { result: updated, events: [] };
-    });
+    dispatch.status = 'routing_failed';
+    dispatch.failureStage = 'no_items';
+    dispatch.errors.push('No dispatchable items in database — course stays unsent. Items may not have been persisted yet.');
+    dispatch.diagnosis.push('BLOCKED: 0 items found for this course — refusing ghost-send');
     await recordDispatchAttempt(ctx.tenantId, { tabId: input.tabId, courseNumber: input.courseNumber, source: 'fnb_course_send' }, dispatch, startMs);
-    logger.info('[kds] sendCourse: empty course marked as sent (no tickets)', {
+    logger.warn('[kds] sendCourse: refusing ghost-send — 0 items in DB for course', {
       domain: 'kds', tenantId: ctx.tenantId, tabId: input.tabId, courseNumber: input.courseNumber,
     });
-    return { course: null, dispatch };
+    throw new KdsDispatchError(dispatch);
   }
 
   dispatch.stationIds = Array.from(prep.stationGroups.keys());
