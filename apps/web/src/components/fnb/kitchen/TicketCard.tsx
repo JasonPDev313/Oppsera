@@ -26,6 +26,8 @@ interface TicketCardProps {
   allDayCounts?: Map<string, number>;
   /** KDS location ID for debug observability (renders as data-kds-location) */
   kdsLocationId?: string;
+  /** Location name shown in the ticket header (e.g., "Pro Shop 1") */
+  locationName?: string;
 }
 
 export function TicketCard({
@@ -40,6 +42,7 @@ export function TicketCard({
   density = 'standard',
   allDayCounts,
   kdsLocationId,
+  locationName,
 }: TicketCardProps) {
   const [confirmBump, setConfirmBump] = useState(false);
 
@@ -157,6 +160,11 @@ export function TicketCard({
           warningThresholdSeconds={warningThresholdSeconds}
           criticalThresholdSeconds={criticalThresholdSeconds}
           density={density}
+          terminalName={ticket.terminalName ?? null}
+          sentAt={ticket.sentAt}
+          locationName={locationName ?? null}
+          serverName={ticket.serverName}
+          itemCount={ticket.items.filter((i) => i.itemStatus !== 'voided').length}
         />
       )}
 

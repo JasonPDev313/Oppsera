@@ -417,6 +417,14 @@ export interface KdsView {
   upcomingCourses: KdsUpcomingCourse[];
 }
 
+export interface KdsHistoryView {
+  stationId: string;
+  stationName: string;
+  stationType: string;
+  tickets: KdsTicketCard[];
+  totalCount: number;
+}
+
 // ── Expo View ─────────────────────────────────────────────────────
 
 export interface ExpoTicketItem {

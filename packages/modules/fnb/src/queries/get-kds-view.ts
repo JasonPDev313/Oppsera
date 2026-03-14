@@ -6,12 +6,12 @@ import type { GetKdsViewInput } from '../validation';
 import { StationNotFoundError, ExpoStationError } from '../errors';
 
 /** Clamp to non-negative — guards against clock drift where NOW() < sent_at. */
-function clampNonNeg(n: number): number {
+export function clampNonNeg(n: number): number {
   return n > 0 ? n : 0;
 }
 
 /** Safe numeric conversion: undefined/null/NaN → fallback (default 0). */
-function safeNum(v: unknown, fallback = 0): number {
+export function safeNum(v: unknown, fallback = 0): number {
   if (v == null) return fallback;
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;

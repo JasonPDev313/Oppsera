@@ -316,6 +316,7 @@ export default function AllOrdersContent() {
                   density={density}
                   allDayCounts={allDayCounts}
                   kdsLocationId={locationId}
+                  locationName={resolvedLocationName}
                 />
               ))}
             </div>
@@ -332,6 +333,7 @@ export default function AllOrdersContent() {
                   density={density}
                   allDayCounts={allDayCounts}
                   kdsLocationId={locationId}
+                  locationName={resolvedLocationName}
                 />
               ))}
             </div>

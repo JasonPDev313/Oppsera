@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { onChannelRefresh } from '@/hooks/use-fnb-realtime';
-import type { KdsView, ExpoView, ExpoHistory, FnbStation } from '@/types/fnb';
+import type { KdsView, KdsHistoryView, ExpoView, ExpoHistory, FnbStation } from '@/types/fnb';
 
 // ── KDS View Hook ───────────────────────────────────────────────
 
@@ -312,6 +312,93 @@ export function useKdsView({
   }, [stationId, locQs, locationId, kdsView?.rushMode, fetchKds, isActing]);
 
   return { kdsView, isLoading, error, bumpItem, bumpTicket, recallItem, callBack, refireItem, toggleRushMode, isActing, refresh, lastRefreshedAt };
+}
+
+// ── KDS History Hook ────────────────────────────────────────────
+
+interface UseKdsHistoryOptions {
+  stationId: string | null;
+  locationId?: string;
+  businessDate?: string;
+  /** Only fetch when history mode is active */
+  enabled?: boolean;
+}
+
+interface UseKdsHistoryReturn {
+  historyView: KdsHistoryView | null;
+  isLoading: boolean;
+  error: string | null;
+  refresh: () => void;
+}
+
+export function useKdsHistory({
+  stationId,
+  locationId,
+  businessDate,
+  enabled = true,
+}: UseKdsHistoryOptions): UseKdsHistoryReturn {
+  const [historyView, setHistoryView] = useState<KdsHistoryView | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  // Generation counter: prevents stale responses from overwriting current state
+  // when user rapidly toggles history on/off.
+  const generationRef = useRef(0);
+
+  const today = businessDate ?? new Date().toLocaleDateString('en-CA');
+
+  const fetchHistory = useCallback(async () => {
+    if (!stationId || !enabled) return;
+    abortRef.current?.abort();
+    const gen = generationRef.current;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setIsLoading(true);
+
+    try {
+      const params = new URLSearchParams({ businessDate: today, view: 'history' });
+      if (locationId) params.set('locationId', locationId);
+      const json = await apiFetch<{ data: KdsHistoryView }>(
+        `/api/v1/fnb/stations/${stationId}/kds?${params}`,
+        {
+          signal: controller.signal,
+          headers: locationId ? { 'X-Location-Id': locationId } : undefined,
+        },
+      );
+      // Guard: only apply if still the current generation
+      if (gen !== generationRef.current) return;
+      setHistoryView(json.data);
+      setError(null);
+    } catch (err: unknown) {
+      if (gen !== generationRef.current) return;
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setError(err instanceof Error ? err.message : 'Failed to load history');
+      }
+    } finally {
+      if (gen === generationRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [stationId, locationId, today, enabled]);
+
+  // Fetch when enabled changes or inputs change. Bump generation on each
+  // cycle so stale in-flight requests are ignored.
+  useEffect(() => {
+    generationRef.current += 1;
+    if (!enabled || !stationId) {
+      setHistoryView(null);
+      setError(null);
+      return;
+    }
+    fetchHistory();
+    return () => { abortRef.current?.abort(); };
+  }, [enabled, stationId, fetchHistory]);
+
+  const refresh = useCallback(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  return { historyView, isLoading, error, refresh };
 }
 
 // ── Expo View Hook ──────────────────────────────────────────────

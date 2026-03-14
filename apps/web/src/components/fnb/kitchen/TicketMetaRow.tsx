@@ -6,15 +6,15 @@
  */
 
 interface TicketMetaRowProps {
-  serverName: string | null;
-  customerName?: string | null;
   orderSource: string | null;
   orderType?: string | null;
-  terminalId: string | null;
-  /** Human-friendly terminal name (e.g., "Bar POS 1") — preferred over terminalId */
-  terminalName?: string | null;
-  orderTimestamp: string | null;
   density?: 'compact' | 'standard' | 'comfortable';
+  // Legacy props — kept for backwards compat but unused (info moved to TicketHeader)
+  serverName?: string | null;
+  customerName?: string | null;
+  terminalId?: string | null;
+  terminalName?: string | null;
+  orderTimestamp?: string | null;
 }
 
 const SOURCE_BADGES: Record<string, { label: string; color: string; bg: string }> = {
@@ -31,27 +31,9 @@ const ORDER_TYPE_BADGES: Record<string, { label: string; color: string; bg: stri
   drive_through: { label: 'DRIVE-THRU', color: '#ec4899', bg: 'rgba(236,72,153,0.15)' },
 };
 
-function formatTime(isoStr: string): string {
-  try {
-    const d = new Date(isoStr);
-    const h = d.getHours();
-    const m = d.getMinutes().toString().padStart(2, '0');
-    const ampm = h >= 12 ? 'p' : 'a';
-    const h12 = h % 12 || 12;
-    return `${h12}:${m}${ampm}`;
-  } catch {
-    return '';
-  }
-}
-
 export function TicketMetaRow({
-  serverName,
-  customerName,
   orderSource,
   orderType,
-  terminalId,
-  terminalName,
-  orderTimestamp,
   density = 'standard',
 }: TicketMetaRowProps) {
   const textSize = density === 'compact' ? 'text-[9px]' : 'text-[10px]';
@@ -59,15 +41,8 @@ export function TicketMetaRow({
   const source = orderSource ? SOURCE_BADGES[orderSource] : null;
   const orderTypeBadge = orderType ? ORDER_TYPE_BADGES[orderType] : null;
 
-  // Prefer human-friendly terminal name over raw ULID
-  const terminalLabel = terminalName || terminalId;
-
-  const parts: string[] = [];
-  if (serverName) parts.push(serverName);
-  if (terminalLabel) parts.push(terminalLabel);
-  if (orderTimestamp) parts.push(formatTime(orderTimestamp));
-
-  if (parts.length === 0 && !source && !orderTypeBadge && !customerName) return null;
+  // Only show if there are badges to display
+  if (!source && !orderTypeBadge) return null;
 
   return (
     <div
@@ -88,11 +63,6 @@ export function TicketMetaRow({
           style={{ color: orderTypeBadge.color, backgroundColor: orderTypeBadge.bg }}
         >
           {orderTypeBadge.label}
-        </span>
-      )}
-      {parts.length > 0 && (
-        <span className={`${textSize} truncate`} style={{ color: 'var(--fnb-text-muted)' }}>
-          {parts.join(' · ')}
         </span>
       )}
     </div>

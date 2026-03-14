@@ -5,6 +5,8 @@ import { scoreAllTenants } from '@oppsera/core/usage/attrition-engine';
 // ── POST /api/v1/analytics/attrition/score — Trigger scoring run ──
 // Requires analytics.manage (write permission, not just view)
 
+export const maxDuration = 120; // scoring iterates all tenants — needs headroom
+
 export const POST = withAdminPermission(
   async () => {
     try {

@@ -378,15 +378,15 @@ export default function AttritionPage() {
   const handleScore = async () => {
     setScoreMsg(null);
     const result = await runScoring();
-    if (result) {
+    if ('error' in result) {
+      setScoreMsg({ type: 'error', text: `Scoring failed: ${result.error}` });
+    } else {
       const errSuffix = result.errors > 0 ? ` (${result.errors} failed)` : '';
       setScoreMsg({
         type: result.errors > 0 ? 'error' : 'success',
         text: `Scored ${result.scored} tenant${result.scored !== 1 ? 's' : ''}. ${result.highRisk} at high risk or above.${errSuffix}`,
       });
       refresh();
-    } else {
-      setScoreMsg({ type: 'error', text: 'Scoring failed. Check browser console.' });
     }
   };
 

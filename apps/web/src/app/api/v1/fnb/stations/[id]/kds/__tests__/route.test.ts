@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 
 // ── Hoisted mocks ───────────────────────────────────────────────
-const { mockGetKdsView, mockWithMiddleware } = vi.hoisted(() => {
+const { mockGetKdsView, mockGetKdsHistory, mockWithMiddleware } = vi.hoisted(() => {
   const mockGetKdsView = vi.fn();
+  const mockGetKdsHistory = vi.fn();
 
   const mockWithMiddleware = vi.fn(
     (handler: (...args: unknown[]) => unknown, _options: unknown) => {
@@ -19,7 +20,7 @@ const { mockGetKdsView, mockWithMiddleware } = vi.hoisted(() => {
     },
   );
 
-  return { mockGetKdsView, mockWithMiddleware };
+  return { mockGetKdsView, mockGetKdsHistory, mockWithMiddleware };
 });
 
 vi.mock('@oppsera/core/auth/with-middleware', () => ({
@@ -28,6 +29,7 @@ vi.mock('@oppsera/core/auth/with-middleware', () => ({
 
 vi.mock('@oppsera/module-fnb', () => ({
   getKdsView: mockGetKdsView,
+  getKdsHistory: mockGetKdsHistory,
 }));
 
 // ── NextResponse mock ───────────────────────────────────────────
@@ -68,6 +70,11 @@ beforeAll(async () => {
 // ── Tests ───────────────────────────────────────────────────────
 
 describe('GET /api/v1/fnb/stations/[id]/kds', () => {
+  beforeEach(() => {
+    mockGetKdsView.mockReset();
+    mockGetKdsHistory.mockReset();
+  });
+
   it('extracts stationId from the URL path (second-to-last segment)', async () => {
     mockGetKdsView.mockResolvedValue({ tickets: [], rushMode: false });
 
@@ -143,5 +150,46 @@ describe('GET /api/v1/fnb/stations/[id]/kds', () => {
         requireLocation: true,
       }),
     );
+  });
+
+  it('calls getKdsHistory when view=history query param is set', async () => {
+    const historyResult = {
+      stationId: 'station_abc',
+      stationName: 'Grill',
+      stationType: 'grill',
+      tickets: [{ ticketId: 'tkt_001', items: [] }],
+      totalCount: 1,
+    };
+    mockGetKdsHistory.mockResolvedValue(historyResult);
+
+    const req = makeRequest('/api/v1/fnb/stations/station_abc/kds', {
+      view: 'history',
+      businessDate: '2026-03-13',
+    });
+    const response = await GET(req as never) as { _body: unknown };
+
+    expect(mockGetKdsHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stationId: 'station_abc',
+        tenantId: 'tenant_001',
+        locationId: 'loc_001',
+        businessDate: '2026-03-13',
+      }),
+    );
+    expect(response._body).toEqual({ data: historyResult });
+    // getKdsView should NOT have been called
+    expect(mockGetKdsView).not.toHaveBeenCalled();
+  });
+
+  it('calls getKdsView (not getKdsHistory) when view param is absent', async () => {
+    mockGetKdsView.mockResolvedValue({ tickets: [], rushMode: false });
+
+    const req = makeRequest('/api/v1/fnb/stations/station_abc/kds', {
+      businessDate: '2026-03-13',
+    });
+    await GET(req as never);
+
+    expect(mockGetKdsView).toHaveBeenCalled();
+    expect(mockGetKdsHistory).not.toHaveBeenCalled();
   });
 });

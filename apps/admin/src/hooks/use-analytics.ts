@@ -498,7 +498,7 @@ export function useAttritionMutations() {
     }
   }, []);
 
-  const runScoring = useCallback(async () => {
+  const runScoring = useCallback(async (): Promise<{ scored: number; highRisk: number; errors: number } | { error: string }> => {
     setIsActing(true);
     try {
       const json = await adminFetch<{ data: { scored: number; highRisk: number; errors: number } }>(
@@ -507,8 +507,9 @@ export function useAttritionMutations() {
       );
       return json.data;
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
       console.error('[Attrition] Scoring failed:', err);
-      return null;
+      return { error: msg };
     } finally {
       setIsActing(false);
     }
