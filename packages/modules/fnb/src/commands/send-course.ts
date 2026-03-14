@@ -105,6 +105,32 @@ export async function sendCourse(
     throw new KdsDispatchError(dispatch);
   }
 
+  // No dispatchable items (all voided/served or empty course) — mark sent, no tickets
+  if (prep.itemCount === 0) {
+    dispatch.status = 'succeeded';
+    dispatch.diagnosis.push('No dispatchable items — marking course as sent (no tickets)');
+    await publishWithOutbox(ctx, async (tx) => {
+      const [course] = await tx
+        .select()
+        .from(fnbTabCourses)
+        .where(and(eq(fnbTabCourses.tenantId, ctx.tenantId), eq(fnbTabCourses.tabId, input.tabId), eq(fnbTabCourses.courseNumber, input.courseNumber)))
+        .limit(1);
+      if (!course) throw new CourseNotFoundError(input.tabId, input.courseNumber);
+      if (course.courseStatus !== 'unsent') throw new CourseStatusConflictError(input.courseNumber, course.courseStatus, 'send');
+      const [updated] = await tx
+        .update(fnbTabCourses)
+        .set({ courseStatus: 'sent', sentAt: new Date(), updatedAt: new Date() })
+        .where(eq(fnbTabCourses.id, course.id))
+        .returning();
+      return { result: updated, events: [] };
+    });
+    await recordDispatchAttempt(ctx.tenantId, { tabId: input.tabId, courseNumber: input.courseNumber, source: 'fnb_course_send' }, dispatch, startMs);
+    logger.info('[kds] sendCourse: empty course marked as sent (no tickets)', {
+      domain: 'kds', tenantId: ctx.tenantId, tabId: input.tabId, courseNumber: input.courseNumber,
+    });
+    return { course: null, dispatch };
+  }
+
   dispatch.stationIds = Array.from(prep.stationGroups.keys());
 
   // ── Phase 2: Atomic transaction ────────────────────────────────

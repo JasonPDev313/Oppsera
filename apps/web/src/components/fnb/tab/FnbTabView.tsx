@@ -411,10 +411,17 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       return d;
     });
 
-    // Compute courses to send: existing unsent + any new courses from drafts
+    // Compute courses to send: existing unsent (with dispatchable items) + any new courses from drafts
+    const dispatchableStatuses = new Set(['draft', 'sent', 'fired']);
     const courseNumbersToSend = new Set<number>();
     for (const [num, status] of existingCourses) {
-      if (status === 'unsent') courseNumbersToSend.add(num);
+      if (status !== 'unsent') continue;
+      // Only send if the course has at least one dispatchable item or incoming drafts
+      const hasServerItems = (tab.lines ?? []).some(
+        (l) => l.courseNumber === num && dispatchableStatuses.has(l.status),
+      );
+      const hasIncomingDrafts = redirectedDrafts.some((d) => d.courseNumber === num);
+      if (hasServerItems || hasIncomingDrafts) courseNumbersToSend.add(num);
     }
     for (const d of redirectedDrafts) {
       if (!existingCourses.has(d.courseNumber)) {

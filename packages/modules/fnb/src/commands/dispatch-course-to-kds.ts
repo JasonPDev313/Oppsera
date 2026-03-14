@@ -161,6 +161,37 @@ export async function prepareCourseDispatch(
         ),
       );
 
+    // Diagnostic: if no items found, log what items actually exist for this tab
+    if (itemResult.length === 0) {
+      const allItems = await tx
+        .select({
+          id: fnbTabItems.id,
+          courseNumber: fnbTabItems.courseNumber,
+          status: fnbTabItems.status,
+          catalogItemName: fnbTabItems.catalogItemName,
+        })
+        .from(fnbTabItems)
+        .where(
+          and(
+            eq(fnbTabItems.tenantId, ctx.tenantId),
+            eq(fnbTabItems.tabId, input.tabId),
+          ),
+        );
+      logger.warn('[kds] prepareCourseDispatch: no items found — diagnostic dump', {
+        domain: 'kds',
+        tenantId: ctx.tenantId,
+        tabId: input.tabId,
+        requestedCourseNumber: input.courseNumber,
+        totalItemsOnTab: allItems.length,
+        itemsByCoursAndStatus: allItems.map((i) => ({
+          id: i.id,
+          course: i.courseNumber,
+          status: i.status,
+          name: i.catalogItemName,
+        })),
+      });
+    }
+
     return {
       tabRaw: tabResult[0] ?? null,
       courseName: courseResult[0]?.courseName ?? `Course ${input.courseNumber}`,
@@ -202,7 +233,27 @@ export async function prepareCourseDispatch(
   const effectiveLocationId = await resolveKdsLocationId(ctx.tenantId, rawLocationId);
   diagnosis.push(`Tab: rawLocationId=${rawLocationId}, resolvedLocationId=${effectiveLocationId}, tabType=${tab.tabType ?? 'null'}`);
 
-  if (items.length === 0) return failPrep(`No items found for Course ${input.courseNumber} (status: draft/sent/fired)`);
+  if (items.length === 0) {
+    // No dispatchable items — return a valid prep with 0 items instead of failing.
+    // This can happen when a course exists but all its items are voided/served.
+    // Callers should treat 0-item prep as a no-op (mark course as sent, no tickets needed).
+    diagnosis.push(`No dispatchable items for Course ${input.courseNumber} (all voided/served or none exist)`);
+    return {
+      tab,
+      courseName,
+      effectiveLocationId,
+      tableNumber: null,
+      stationGroups: new Map(),
+      stationNameMap: new Map(),
+      prepTimeMap: new Map(),
+      routingResults: [],
+      diagnosis,
+      errors: [],
+      itemCount: 0,
+      itemsRouted: 0,
+      itemsUnrouted: 0,
+    };
+  }
   diagnosis.push(`Found ${items.length} item(s) in Course ${input.courseNumber}`);
 
   // 3. Resolve table number (for KDS ticket display)
