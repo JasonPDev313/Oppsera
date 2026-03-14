@@ -1345,6 +1345,7 @@ export type { KdsLocationSettings } from './queries/get-kds-location-settings';
 export {
   resolveStationRouting,
   enrichRoutableItems,
+  resolveKdsLocationId,
   getStationPrepTimeForItem,
   getStationPrepTimesForItems,
 } from './services/kds-routing-engine';
