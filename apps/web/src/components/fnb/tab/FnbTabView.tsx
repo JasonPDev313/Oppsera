@@ -293,9 +293,33 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     return locations?.find((l) => l.id === locId)?.name;
   }, [locations]);
 
+  // ── Persist client-side draft items for a specific course ──────
+  // Drafts live in zustand until this is called. Without it, server-side
+  // dispatch queries fnb_tab_items and finds nothing → "No items found".
+  const persistDraftsForCourse = useCallback(async (courseNumber: number) => {
+    if (!tabId) return;
+    const courseDrafts = draftLines.filter((d) => d.courseNumber === courseNumber);
+    if (courseDrafts.length === 0) return;
+    await addItems(courseDrafts.map((d) => ({
+      catalogItemId: d.catalogItemId,
+      catalogItemName: d.catalogItemName,
+      unitPriceCents: d.unitPriceCents,
+      qty: d.qty,
+      seatNumber: d.seatNumber,
+      courseNumber: d.courseNumber,
+      modifiers: d.modifiers,
+      specialInstructions: d.specialInstructions,
+    })));
+    // Remove only the persisted drafts — other courses' drafts stay
+    for (const d of courseDrafts) {
+      store.removeDraftLine(tabId, d.localId);
+    }
+  }, [tabId, draftLines, addItems, store]);
+
   // Wrap sendCourse to surface KDS warnings + cross-location alerts as persistent banner
   const sendCourseWithWarning = useCallback(async (courseNumber: number) => {
     try {
+      await persistDraftsForCourse(courseNumber);
       const result = await sendCourse(courseNumber);
       // Surface cross-location routing — operator is at location A but tickets landed at B
       if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId) {
@@ -315,7 +339,13 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       const msg = err instanceof Error ? err.message : 'Failed to send course';
       setKdsSendError(msg);
     }
-  }, [sendCourse, kdsLocationId, resolveLocationName]);
+  }, [sendCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName]);
+
+  // Wrap fireCourse to persist drafts first (same root cause as send)
+  const fireCourseWithDraftPersist = useCallback(async (courseNumber: number) => {
+    await persistDraftsForCourse(courseNumber);
+    await fireCourse(courseNumber);
+  }, [persistDraftsForCourse, fireCourse]);
 
   // Clear toast timer on unmount to prevent setState on unmounted component
   useEffect(() => {
@@ -479,7 +509,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     const courses = tab.courses ?? [];
     const nextSent = courses.find((c) => c.courseStatus === 'sent');
     if (nextSent) {
-      await fireCourse(nextSent.courseNumber);
+      await fireCourseWithDraftPersist(nextSent.courseNumber);
     }
   };
 
@@ -749,7 +779,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
                 courseNames={courseNames}
                 draftLines={draftLines}
                 onSendCourse={sendCourseWithWarning}
-                onFireCourse={fireCourse}
+                onFireCourse={fireCourseWithDraftPersist}
                 kdsSendEnabled={kdsSendEnabled}
                 disabled={isActing}
               />
@@ -1029,7 +1059,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
             courseNames={courseNames}
             draftLines={draftLines}
             onSendCourse={sendCourseWithWarning}
-            onFireCourse={fireCourse}
+            onFireCourse={fireCourseWithDraftPersist}
             kdsSendEnabled={kdsSendEnabled}
           />
 
