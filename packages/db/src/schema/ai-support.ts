@@ -205,6 +205,7 @@ export const aiSupportDocuments = pgTable(
     index('idx_ai_docs_module_route').on(table.moduleKey, table.route),
     index('idx_ai_docs_source_type').on(table.sourceType),
     index('idx_ai_docs_tenant').on(table.tenantId),
+    uniqueIndex('uq_ai_docs_source_ref').on(table.sourceRef),
   ],
 );
 

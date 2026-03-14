@@ -333,7 +333,7 @@ let _opIdCounter = 0;
  * - Logs slow queries (>5s) and queue depth warnings
  * - Tracks active ops for diagnostics
  */
-export async function guardedQuery<T>(opName: string, fn: () => Promise<T>): Promise<T> {
+export async function guardedQuery<T>(opName: string, fn: () => Promise<T>, options?: { timeoutMs?: number }): Promise<T> {
   // Circuit breaker — fail fast during pool exhaustion recovery
   const state = getBreakerState();
   let isProbe = false;
@@ -385,16 +385,19 @@ export async function guardedQuery<T>(opName: string, fn: () => Promise<T>): Pro
   // Per-query timeout — shared across all attempts. Prevents a stuck query from
   // holding a pool connection forever. The timeout spans both the initial attempt
   // and the stale-connection retry (if any), so total wall time never exceeds limit.
+  // Callers can override the timeout for background/maintenance ops (e.g., outbox
+  // uses 5s instead of 15s so maintenance queries don't starve user requests).
+  const effectiveTimeout = options?.timeoutMs ?? QUERY_TIMEOUT_MS;
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
       const err = new Error(
-        `[pool-guard] Query timeout: ${opName} exceeded ${QUERY_TIMEOUT_MS}ms`,
+        `[pool-guard] Query timeout: ${opName} exceeded ${effectiveTimeout}ms`,
       );
       (err as { code?: string }).code = 'QUERY_TIMEOUT';
       console.error(err.message);
       reject(err);
-    }, QUERY_TIMEOUT_MS);
+    }, effectiveTimeout);
   });
 
   try {

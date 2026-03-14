@@ -1665,6 +1665,1365 @@ All reports support date range filtering and CSV export.
 
 **Permissions:** \`pms.reports.view\`, \`spa.reports.view\`, \`reports.export\` (for CSV)`,
   },
+
+  // ── INVENTORY (Section 7: 61–100) ─────────────────────────────────────────
+
+  {
+    slug: 'inv-howto-add-new-item',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I add a new inventory item|add new item to inventory|create inventory item|new stock item|add product to inventory|how to set up a new inventory item|add item to stock',
+    approvedAnswerMarkdown: `## How to Add a New Inventory Item
+
+Inventory items are created automatically when you add a catalog item. The system links catalog items to inventory tracking per location.
+
+### Steps
+1. Go to **Catalog** from the main navigation
+2. Click **New Item**
+3. Fill in required fields: name, SKU, department, price
+4. Under the **Inventory** section, ensure **Track Inventory** is enabled
+5. Set the **Item Type** (retail, food, beverage, etc.)
+6. Set the **Costing Method**: Weighted Average, FIFO, or Standard Cost
+7. Optionally set **Reorder Point**, **Reorder Quantity**, and **Par Level**
+8. Click **Save**
+
+Once saved, the system automatically creates an inventory record for **every active location** in your tenant. Initial on-hand quantity is zero — use **Receiving** or an **Adjustment** to set starting quantities.
+
+### Setting Up Vendor Information
+1. Go to **Inventory** → **Vendors** → find or create the vendor
+2. Link the item to the vendor with vendor SKU, cost, lead time, and pack size
+3. Mark one vendor as **Preferred** for reorder suggestions
+
+**Permission required:** \`catalog.manage\` to create the catalog item, \`inventory.manage\` to adjust quantities or manage vendors.`,
+  },
+  {
+    slug: 'inv-howto-edit-existing-item',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I edit an existing item|edit inventory item|change item details|update item information|modify inventory item|how to update stock item|change item name or SKU',
+    approvedAnswerMarkdown: `## How to Edit an Existing Inventory Item
+
+### Editing Catalog Details (Name, SKU, Price)
+1. Go to **Catalog** and find the item
+2. Click the item to open its detail page
+3. Click **Edit** and update the fields you need to change
+4. Click **Save**
+
+Changes to the catalog item (name, SKU) are reflected in the inventory views.
+
+### Editing Inventory-Specific Settings
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Find the item and click the action menu (three dots)
+3. Click **Edit Item**
+4. Update inventory settings:
+   - **Costing Method** (Weighted Average, FIFO, Standard)
+   - **Standard Cost** (for standard costing items)
+   - **Reorder Point** and **Reorder Quantity**
+   - **Par Level**
+   - **Base Unit** and **Purchase Unit** with conversion ratio
+   - **Allow Negative Stock** toggle
+5. Click **Save**
+
+**Permission required:** \`catalog.manage\` for catalog details, \`inventory.manage\` for inventory settings.`,
+  },
+  {
+    slug: 'inv-howto-deactivate-archive-item',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I deactivate an item|archive inventory item|remove item from inventory|discontinue an item|how to archive an item|deactivate stock item|stop tracking an item|hide an item from inventory',
+    approvedAnswerMarkdown: `## How to Deactivate or Archive an Inventory Item
+
+Items are not deleted — they are archived (soft-deleted) to preserve movement history and audit trails.
+
+### Steps
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Find the item and click the action menu (three dots)
+3. Click **Deactivate** (or **Archive**)
+4. Confirm the action
+
+The item's status changes to **Archived** and it no longer appears in default inventory views, POS item lists, or reorder suggestions.
+
+### Reactivating an Archived Item
+1. In the inventory list, enable the **Show Archived** filter
+2. Find the archived item
+3. Click the action menu → **Reactivate**
+
+### Important Notes
+- Archiving an item does **not** delete its movement history — all past receipts, sales, adjustments, and transfers are preserved
+- If the item has on-hand stock, consider adjusting it to zero or transferring it before archiving
+- The underlying catalog item is also archived, removing it from POS and ordering
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-adjust-quantities',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I adjust inventory quantities manually|manual stock adjustment|change on hand quantity|correct inventory count|adjust stock level|how to manually change inventory|fix inventory quantity|inventory adjustment',
+    approvedAnswerMarkdown: `## How to Adjust Inventory Quantities Manually
+
+Use an inventory adjustment to correct on-hand quantities. Every adjustment creates an auditable movement record.
+
+### Steps
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Find the item and click the action menu → **Adjust Quantity**
+3. Enter the **quantity change** (positive to add, negative to subtract)
+4. Enter a **reason** (required — this is recorded in the audit trail)
+5. Optionally enter a unit cost for the adjustment
+6. Click **Submit**
+
+### How It Works
+- The system creates an \`adjustment\` movement with the quantity delta you entered
+- On-hand is recalculated as the sum of all movements — there is no manual override of the balance
+- If the item has **Allow Negative** disabled and the adjustment would take on-hand below zero, the system will block it
+- The adjustment is locked with \`SELECT FOR UPDATE\` to prevent race conditions if two people adjust at the same time
+
+### When to Use Adjustments vs Other Options
+- **Adjustment** — correcting a count discrepancy or setting initial stock
+- **Shrink** — recording known loss (damage, theft, spoilage, expiry)
+- **Transfer** — moving stock between locations
+- **Receiving** — adding stock from a vendor delivery
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-troubleshoot-onhand-incorrect',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'why is my on-hand quantity incorrect|on hand wrong|stock count does not match|inventory quantity is wrong|system shows wrong quantity|physical count does not match system|why is inventory off|stock discrepancy',
+    approvedAnswerMarkdown: `## Why Is My On-Hand Quantity Incorrect?
+
+On-hand quantity is calculated as the **sum of all inventory movements** for that item at that location. If it doesn't match your physical count, one or more movements are missing or incorrect.
+
+### Common Causes
+1. **Unreceived deliveries** — Stock arrived physically but wasn't received in the system via a receiving receipt
+2. **Unrecorded shrink** — Breakage, theft, spoilage, or expiration not entered as shrink records
+3. **Transfers not posted** — Inventory moved between locations but not recorded as a transfer
+4. **Track Inventory disabled** — The item's "Track Inventory" flag may be off, so POS sales don't decrement stock
+5. **Voided receipt not reversed** — A receipt was voided but the reversal movements weren't created (check receipt status)
+6. **Duplicate receipt** — A delivery was accidentally received twice
+7. **POS event not processed** — The order event that triggers inventory deduction may have failed or been delayed
+
+### How to Investigate
+1. Go to the item in **Retail Inventory** or **F&B Inventory**
+2. Open **Movement History** — this shows every transaction (receipts, sales, adjustments, transfers, shrink) with dates, quantities, and who performed them
+3. Compare movements against your expected activity (deliveries, sales reports, transfers)
+4. Look for gaps — a delivery with no matching receive, sales with no deduction, etc.
+
+### How to Fix
+- Record an **Adjustment** with the difference and a reason explaining the discrepancy
+- For known causes (theft, damage), record as **Shrink** with the appropriate type
+
+**Permission required:** \`inventory.view\` to investigate, \`inventory.manage\` to adjust.`,
+  },
+  {
+    slug: 'inv-howto-transfer-between-locations',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I transfer inventory between locations|transfer stock|move inventory to another location|inventory transfer|send stock to another store|transfer between warehouses|move items between locations',
+    approvedAnswerMarkdown: `## How to Transfer Inventory Between Locations
+
+### Steps
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Find the item you want to transfer
+3. Click the action menu → **Transfer**
+4. Select the **Source Location** (defaults to your current location)
+5. Select the **Destination Location**
+6. Enter the **Quantity** to transfer
+7. Optionally add a reason/note
+8. Click **Submit**
+
+### How It Works
+- The system creates two linked movements: a \`transfer_out\` at the source and a \`transfer_in\` at the destination, grouped by a batch ID
+- Source location stock is decremented and destination location stock is incremented simultaneously
+- The transfer **always enforces** sufficient stock at the source — you cannot transfer more than what's on hand, even if the item has "Allow Negative" enabled
+- Both the source and destination must already have an inventory record for the catalog item (this is created automatically when the item was first added to the catalog)
+
+### Important Notes
+- Transfers do not change item cost — the unit cost carries over from source to destination
+- Both movements appear in the movement history for the respective locations
+- If either location doesn't have an inventory record for the item, the transfer will fail
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-receive-from-po',
+    moduleKey: 'inventory',
+    route: '/inventory/receiving',
+    questionPattern:
+      'how do I receive inventory from a purchase order|receive PO|receive delivery|how to receive stock|receive shipment|receiving inventory|how to process a delivery|receive goods from vendor',
+    approvedAnswerMarkdown: `## How to Receive Inventory from a Purchase Order
+
+### Steps
+1. Go to **Inventory** → **Receiving**
+2. Click **New Receipt**
+3. Select the **Vendor**
+4. If receiving against a PO, link the **Purchase Order** — this pre-fills line items with ordered quantities and costs
+5. For each line item:
+   - Verify or enter the **Quantity Received**
+   - Verify or enter the **Unit Cost**
+   - Select the **Unit of Measure** (if different from base unit, the system converts automatically)
+   - Optionally enter **Lot Number**, **Serial Numbers**, or **Expiration Date**
+6. Add any **Freight/Shipping Charges** if applicable
+7. Choose the **Freight Mode**:
+   - **Allocate** — shipping cost is distributed into each item's landed cost
+   - **Expense** — shipping cost goes to a GL expense account, not into item cost
+8. If allocating shipping, choose the **Allocation Method**: by cost, by quantity, by weight, by volume, or manual
+9. Review the receipt and click **Post**
+
+### What Happens on Post
+- The system creates \`receive\` movements for each line item
+- Item costs are updated based on the costing method:
+  - **Weighted Average**: blends the new cost with existing on-hand cost
+  - **FIFO**: updates current cost to the new received landed unit cost
+  - **Standard**: current cost remains unchanged
+- Vendor records are updated with the latest cost and received date
+- If linked to a PO, the PO's received quantities are updated and status may change to \`partially_received\` or \`closed\`
+- The receipt number is auto-generated (format: RCV-YYYYMMDD-XXXXXX)
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-partial-receive-po',
+    moduleKey: 'inventory',
+    route: '/inventory/receiving',
+    questionPattern:
+      'how do I partially receive a purchase order|partial delivery|receive part of a PO|vendor short shipped|partial receipt|did not receive full order|some items missing from delivery|partial shipment',
+    approvedAnswerMarkdown: `## How to Partially Receive a Purchase Order
+
+If a vendor delivers only part of your order, you can receive what arrived and leave the rest open.
+
+### Steps
+1. Go to **Inventory** → **Receiving** → **New Receipt**
+2. Select the vendor and link the **Purchase Order**
+3. The system pre-fills all PO lines with ordered quantities
+4. For each line, change the **Quantity Received** to match what actually arrived
+5. Remove any lines that were not included in this delivery
+6. Click **Post**
+
+### What Happens
+- Only the quantities you entered are received into inventory
+- The PO status changes to **Partially Received** — it stays open for future receipts
+- Each PO line tracks \`qty_received\` as a running total across all receipts
+- You can create additional receipts against the same PO for subsequent deliveries
+- When all lines are fully received, the PO status changes to **Closed**
+
+### Tips
+- Always verify quantities against the packing slip before posting
+- Note any discrepancies in the receipt notes for vendor follow-up
+- You can create multiple receipts against the same PO over time
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-return-to-vendor',
+    moduleKey: 'inventory',
+    route: '/inventory/receiving',
+    questionPattern:
+      'how do I return inventory to a vendor|vendor return|return stock to supplier|send back inventory|return damaged goods to vendor|vendor credit|return to vendor',
+    approvedAnswerMarkdown: `## How to Return Inventory to a Vendor
+
+To return inventory to a vendor, you void the original receipt (if the entire delivery is being returned) or record a negative adjustment.
+
+### Option 1: Void the Entire Receipt
+Use this if you're returning the entire delivery.
+1. Go to **Inventory** → **Receiving**
+2. Find the posted receipt for the delivery
+3. Click **Void Receipt**
+4. The system creates \`void_reversal\` movements that reverse all quantities and costs from the original receipt
+5. Item costs are recalculated (weighted average items have the receipt's cost effect removed)
+
+### Option 2: Partial Return via Adjustment
+Use this if you're returning only some items from a delivery.
+1. Go to the item in **Retail Inventory** or **F&B Inventory**
+2. Click **Adjust Quantity**
+3. Enter a **negative** quantity for the amount being returned
+4. In the reason field, note the vendor return details (vendor name, reason)
+5. Submit the adjustment
+
+### Important Notes
+- Only **posted** receipts can be voided — draft receipts can simply be deleted
+- Voiding a receipt reverses all inventory and cost effects
+- For accounting purposes, coordinate vendor returns with your AP team to ensure the vendor credit is applied
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-record-damage-loss-theft',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I record damaged inventory|record lost inventory|record stolen inventory|shrink|waste|record breakage|inventory loss|how to write off inventory|damaged goods|theft|spoilage',
+    approvedAnswerMarkdown: `## How to Record Damaged, Lost, or Stolen Inventory
+
+Use the **Shrink** function to record inventory losses. Shrink creates a permanent, auditable record with the specific loss type.
+
+### Steps
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Find the item and click the action menu → **Record Shrink**
+3. Enter the **Quantity** lost
+4. Select the **Shrink Type**:
+   - **Waste** — food spoilage, expired product
+   - **Damage** — broken, defective, or unsellable items
+   - **Theft** — known or suspected theft
+   - **Expiry** — product past its expiration date
+   - **Other** — any other loss not covered above
+5. Enter a **Reason** (required — recorded in audit trail)
+6. Click **Submit**
+
+### How It Works
+- A \`shrink\` movement is created with a negative quantity delta
+- The movement includes the shrink type for reporting and analysis
+- On-hand quantity is reduced immediately
+- The movement is recorded with your employee ID and timestamp for accountability
+- If the item has **Allow Negative** disabled and this would take on-hand below zero, the system will block it
+
+### Reporting
+- View all shrink records in the item's **Movement History** (filter by movement type: shrink)
+- Shrink data feeds into inventory valuation and COGS calculations
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-physical-count',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I perform a physical inventory count|physical count|full inventory count|annual inventory|stocktake|how to count all inventory|wall to wall count|physical inventory',
+    approvedAnswerMarkdown: `## How to Perform a Physical Inventory Count
+
+A physical inventory count compares your actual on-hand stock against system quantities and records adjustments for any discrepancies.
+
+### Steps
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Export the current inventory list (use the **Export** function to get a spreadsheet with items, SKUs, and system quantities)
+3. Print or load the list on a mobile device for counting
+4. Physically count each item in your location
+5. For each discrepancy found:
+   - Open the item in the inventory list
+   - Click **Adjust Quantity**
+   - Enter the difference (positive if you have more than the system shows, negative if less)
+   - Enter a reason such as "Physical count adjustment — [date]"
+6. For known losses, use **Record Shrink** instead of a generic adjustment
+
+### Best Practices
+- Count during non-business hours to avoid sales affecting quantities during the count
+- Have two people count independently and compare results for high-value items
+- Investigate significant discrepancies before recording adjustments
+- Review the **Movement History** for large variances to identify the root cause
+- Consider counting by department or category over multiple days (cycle counting) rather than all at once
+
+**Permission required:** \`inventory.view\` to export the list, \`inventory.manage\` to record adjustments.`,
+  },
+  {
+    slug: 'inv-howto-cycle-counts',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I enter cycle counts|cycle count|count part of inventory|partial count|how to do cycle counting|ABC counting|rolling inventory count|count by category',
+    approvedAnswerMarkdown: `## How to Enter Cycle Counts
+
+Cycle counting means counting a subset of your inventory on a rotating basis rather than counting everything at once.
+
+### Steps
+1. Decide on your cycle count schedule (e.g., count one department per week, or high-value items more frequently)
+2. Go to **Retail Inventory** or **F&B Inventory**
+3. Filter the list by the **department**, **category**, or other criteria you're counting today
+4. For each item counted:
+   - Compare your physical count to the system's on-hand quantity
+   - If they match, move on
+   - If they don't match, click **Adjust Quantity** on that item
+   - Enter the difference and reason (e.g., "Cycle count — Beverage dept — 2026-03-14")
+5. Record shrink for any known losses (damage, expiry, etc.)
+
+### Cycle Count Strategy Tips
+- **ABC Analysis**: Count A items (high value/high volume) weekly, B items monthly, C items quarterly
+- **Low Stock Focus**: Use the **Low Stock** filter to prioritize counting items near their reorder point
+- **Use the Export** function to create count sheets filtered by department or category
+- Track count dates in your notes so you know which areas were counted recently
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-troubleshoot-count-mismatch',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'why do my counted quantities not match system quantities|count does not match|physical count discrepancy|system quantity wrong after count|counted more than system shows|counted less than system shows',
+    approvedAnswerMarkdown: `## Why Do My Counted Quantities Not Match System Quantities?
+
+Discrepancies between physical counts and system quantities indicate that one or more inventory events were not recorded — or were recorded incorrectly.
+
+### Most Common Causes
+1. **Receiving not posted** — A delivery was physically stocked but the receiving receipt was never posted (check for draft receipts)
+2. **Shrink/waste not recorded** — Damaged, spoiled, or stolen items were discarded but never recorded in the system
+3. **Transfers not recorded** — Items moved between locations without a system transfer
+4. **Track Inventory is off** — The item's inventory tracking flag is disabled, so sales don't deduct stock
+5. **Timing** — Sales occurred between when you printed the count sheet and when you finished counting
+6. **Wrong item scanned** — A barcode scan matched the wrong item (check the item's barcode/UPC identifiers)
+7. **Unit of measure confusion** — Counted in cases but system tracks in eaches (check base unit vs purchase unit)
+
+### How to Investigate
+1. Open the item's **Movement History** to see every in/out transaction
+2. Cross-reference against receiving records, sales reports, and transfer logs
+3. Check if any receipts are still in **Draft** status (not yet posted)
+4. Verify the item's **Track Inventory** flag is enabled
+
+### How to Resolve
+- Once you've identified the cause, record an **Adjustment** or **Shrink** to bring the system in line with the physical count
+- Always note the reason — this creates an audit trail for variance analysis
+
+**Permission required:** \`inventory.view\` to investigate, \`inventory.manage\` to adjust.`,
+  },
+  {
+    slug: 'inv-howto-set-reorder-points',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I set reorder points|set par levels|reorder point|minimum stock level|par level|set low stock threshold|when to reorder|how to set reorder quantity',
+    approvedAnswerMarkdown: `## How to Set Reorder Points and Par Levels
+
+Reorder points and par levels tell the system when to alert you that an item needs to be reordered.
+
+### Definitions
+- **Reorder Point** — When on-hand falls to or below this number, the item appears in low-stock alerts and reorder suggestions
+- **Reorder Quantity** — The suggested quantity to order when reordering
+- **Par Level** — The ideal stock level you want to maintain (used to calculate suggested order quantity)
+
+### Steps
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Find the item and click the action menu → **Edit Item**
+3. Set the **Reorder Point** (e.g., 10 units)
+4. Set the **Reorder Quantity** (e.g., 50 units) — this is the default quantity suggested when creating a purchase order
+5. Optionally set the **Par Level** (e.g., 60 units) — if set, the suggested order quantity is calculated as \`par level - current on-hand\`
+6. Click **Save**
+
+### How Suggestions Are Calculated
+When on-hand falls at or below the reorder point:
+- If **Reorder Quantity** is set → suggest that quantity
+- If **Par Level** is set (and reorder qty is not) → suggest \`par level - on-hand\`
+- If neither is set → suggest \`reorder point - on-hand + 1\`
+
+### Alerts
+- Items at or below reorder point trigger a \`inventory.low_stock.v1\` event
+- Items with negative on-hand trigger a \`inventory.negative.v1\` event
+- View all alerts in **Inventory** → **Stock Alerts**
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-see-low-stock',
+    moduleKey: 'inventory',
+    route: '/inventory/stock-alerts',
+    questionPattern:
+      'how do I see which items are low in stock|low stock items|what is running low|out of stock|low inventory|items below reorder point|stock alert|which items need to be reordered',
+    approvedAnswerMarkdown: `## How to See Which Items Are Low in Stock
+
+There are two ways to view low-stock items:
+
+### Option 1: Stock Alerts Dashboard
+1. Go to **Inventory** → **Stock Alerts**
+2. The **Live** tab shows:
+   - **Critical** items — negative on-hand (red)
+   - **Warning** items — at or below reorder point (amber)
+3. Each alert shows the item name, current on-hand, reorder point, suggested order quantity, and preferred vendor
+4. The **History** tab shows recent alert notifications (up to 90 days)
+
+### Option 2: Inventory List Filter
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Enable the **Low Stock Only** filter
+3. The list shows only items where on-hand is at or below the reorder point
+4. Items are color-coded:
+   - **Red** — negative on-hand
+   - **Amber** — at or below reorder point
+   - **Green** — adequate stock
+
+### Reorder Suggestions
+The **Reorder Suggestions** panel (available on the Receiving page) shows all low-stock items with:
+- Current on-hand
+- Reorder point
+- Suggested order quantity
+- Preferred vendor name
+
+**Permission required:** \`inventory.view\``,
+  },
+  {
+    slug: 'inv-howto-create-po-from-low-stock',
+    moduleKey: 'inventory',
+    route: '/inventory/receiving',
+    questionPattern:
+      'how do I create a purchase order from low stock items|create PO from reorder suggestions|auto create purchase order|reorder from low stock|generate PO from stock alerts|order low stock items',
+    approvedAnswerMarkdown: `## How to Create a Purchase Order from Low-Stock Items
+
+### Steps
+1. Go to **Inventory** → **Receiving**
+2. Review the **Reorder Suggestions** panel — this shows all items at or below their reorder point, grouped by preferred vendor
+3. Each suggestion includes:
+   - Item name and SKU
+   - Current on-hand quantity
+   - Reorder point
+   - Suggested order quantity (based on par level or reorder quantity settings)
+   - Preferred vendor
+4. Create a new **Purchase Order** for the vendor
+5. Add the suggested items to the PO with the recommended quantities
+6. Adjust quantities as needed based on budget, storage capacity, or vendor minimums
+7. Submit the PO
+
+### Purchase Order Workflow
+- **Draft** → edit freely
+- **Submitted** → reviewed and approved internally
+- **Sent** → transmitted to the vendor
+- **Partially Received** → some items delivered
+- **Closed** → all items received
+- **Canceled** → PO voided
+
+### Tips
+- Group orders by vendor to minimize shipping costs
+- Check vendor lead times (set on the vendor-item link) to ensure timely delivery
+- Review the suggested quantity — it uses your par level and reorder quantity settings
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-track-lot-batch',
+    moduleKey: 'inventory',
+    route: '/inventory/receiving',
+    questionPattern:
+      'how do I track inventory by lot number|lot tracking|batch number tracking|batch tracking|track lot numbers|lot traceability|batch traceability',
+    approvedAnswerMarkdown: `## How to Track Inventory by Lot or Batch Number
+
+Lot and batch numbers can be recorded during the receiving process and are stored on receipt lines and inventory movements.
+
+### Recording Lot Numbers
+1. Go to **Inventory** → **Receiving** → create or open a draft receipt
+2. Add or edit a receipt line
+3. Enter the **Lot Number** field with the vendor's lot or batch number
+4. Optionally enter the **Expiration Date** associated with that lot
+5. Post the receipt
+
+### Where Lot Data Is Stored
+- On the **receiving receipt line** — viewable when you open the receipt detail
+- In the **inventory movement metadata** — the lot number is copied into the movement record when the receipt is posted
+- You can view lot information by looking at the movement history for an item and checking the details of each receive movement
+
+### Current Limitations
+- Lot tracking is **capture-only** at this stage — lot numbers are recorded on receipts and movements but there is no dedicated lot-level on-hand tracking
+- You cannot query "how many units of lot X are still on hand" directly — you would need to review movement history
+- POS sales do not specify which lot is being sold (no lot depletion tracking)
+- For full lot traceability (FIFO depletion, lot-specific recalls), this feature is on the product roadmap
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-track-serial-numbers',
+    moduleKey: 'inventory',
+    route: '/inventory/receiving',
+    questionPattern:
+      'how do I track inventory by serial number|serial number tracking|track serial numbers|serialized inventory|serial number management',
+    approvedAnswerMarkdown: `## How to Track Inventory by Serial Number
+
+Serial numbers can be recorded during the receiving process for serialized items.
+
+### Recording Serial Numbers
+1. Go to **Inventory** → **Receiving** → create or open a draft receipt
+2. Add or edit a receipt line for the serialized item
+3. Enter the **Serial Numbers** field — you can enter multiple serial numbers for the quantity received
+4. Post the receipt
+
+### Where Serial Data Is Stored
+- On the **receiving receipt line** as a list of serial numbers
+- In the **inventory movement metadata** when the receipt is posted
+
+### Current Limitations
+- Serial number tracking is **capture-only** — serial numbers are recorded during receiving but there is no per-serial-number status tracking (assigned, sold, returned, etc.)
+- POS sales do not capture which specific serial number was sold
+- You cannot look up a serial number to see its current status or location
+- For full serialized inventory management (serial-level tracking through sale and return), this feature is on the product roadmap
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-track-expiration-dates',
+    moduleKey: 'inventory',
+    route: '/inventory/receiving',
+    questionPattern:
+      'how do I track expiration dates|expiration date tracking|track product expiry|expired inventory|manage expiration dates|shelf life tracking|best before dates',
+    approvedAnswerMarkdown: `## How to Track Expiration Dates
+
+Expiration dates can be recorded during the receiving process and are stored alongside lot numbers.
+
+### Recording Expiration Dates
+1. Go to **Inventory** → **Receiving** → create or open a draft receipt
+2. Add or edit a receipt line
+3. Enter the **Expiration Date** for the received items
+4. Optionally enter the associated **Lot Number**
+5. Post the receipt
+
+### Where Expiration Data Is Stored
+- On the **receiving receipt line** — viewable when you open the receipt detail
+- In the **inventory movement metadata** — copied when the receipt is posted
+
+### Managing Expired Inventory
+When items expire:
+1. Go to the item in **Retail Inventory** or **F&B Inventory**
+2. Click the action menu → **Record Shrink**
+3. Select shrink type: **Expiry**
+4. Enter the quantity being discarded
+5. Note the lot number and expiration date in the reason field
+
+### Current Limitations
+- Expiration tracking is **capture-only** — dates are recorded on receipts and movements
+- There is no automated alert for approaching or past expiration dates
+- FEFO (First Expired, First Out) picking is not automated — manage this operationally
+- Automated expiration alerts are on the product roadmap
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-manage-multi-location',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I manage inventory across multiple locations|multi-location inventory|inventory at different stores|multiple warehouse inventory|see stock at other locations|manage stock across locations|multi-site inventory',
+    approvedAnswerMarkdown: `## How to Manage Inventory Across Multiple Locations
+
+The system tracks inventory **per location** — each catalog item has a separate inventory record at every active location.
+
+### How It Works
+- When you create a new catalog item, the system automatically creates an inventory record at **every active location** in your tenant
+- Each location maintains its own on-hand quantity, cost, reorder point, and par level
+- Use the **Location** selector in the header to switch between locations and view their inventory
+
+### Viewing Stock Across Locations
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Use the **Location** filter to view stock at a specific location
+3. Each location shows its own on-hand, reorder points, and stock status
+
+### Transferring Between Locations
+1. Find the item and click **Transfer**
+2. Select source and destination locations
+3. Enter the quantity to transfer
+4. The system enforces that the source has sufficient stock
+
+### Location-Specific Settings
+Each location's inventory record can have different:
+- Reorder points and par levels
+- Costing method and standard cost
+- Allow negative stock setting
+
+### Reports
+- Inventory reports can be filtered by location
+- Reorder suggestions are location-specific
+- Stock alerts show which location has the low-stock or negative-stock item
+
+**Permission required:** \`inventory.view\` to view, \`inventory.manage\` to transfer or adjust.`,
+  },
+  {
+    slug: 'inv-howto-item-variants',
+    moduleKey: 'inventory',
+    route: '/catalog',
+    questionPattern:
+      'how do I set up item variants|size color style variants|item variations|product variants|SKU variants|different sizes of same item|variant tracking',
+    approvedAnswerMarkdown: `## How to Set Up Item Variants (Size, Color, Style)
+
+Item variants are managed at the **catalog level**. Each variant becomes its own catalog item with its own SKU and inventory tracking.
+
+### Steps
+1. Go to **Catalog**
+2. Create the parent item (e.g., "Polo Shirt")
+3. In the item editor, use the **Variants** section to define variant attributes (e.g., Size: S, M, L, XL; Color: Black, White, Navy)
+4. The system generates individual SKU combinations (e.g., POLO-BLK-S, POLO-BLK-M, etc.)
+5. Each variant gets its own:
+   - SKU
+   - Price (can override the parent price)
+   - Inventory tracking (separate on-hand per variant per location)
+   - Barcode/UPC
+6. Save the item
+
+### Inventory Implications
+- Each variant is tracked independently — "Polo Shirt Black Small" and "Polo Shirt White Large" have separate on-hand quantities
+- Receiving, adjustments, and transfers are done per variant
+- Reorder points and par levels can be set per variant
+- POS shows variants as separate selectable options when ringing up the parent item
+
+**Permission required:** \`catalog.manage\` to create variants, \`inventory.manage\` for stock management.`,
+  },
+  {
+    slug: 'inv-howto-bundles-kits-combos',
+    moduleKey: 'inventory',
+    route: '/catalog',
+    questionPattern:
+      'how do I create bundles|create kits|combo items|package items|bundle inventory|kit assembly|how to bundle products|create a combo|package deal',
+    approvedAnswerMarkdown: `## How to Create Bundles, Kits, or Combo Items
+
+Bundles (also called packages or combos) are catalog items that contain multiple component items. When sold, inventory is deducted from each **component**, not the bundle itself.
+
+### Steps
+1. Go to **Catalog**
+2. Click **New Item** and set the item type to **Package** (or edit an existing item)
+3. In the **Package Components** section, add the individual items that make up the bundle:
+   - Select each component item
+   - Set the quantity of each component per bundle
+4. Set the bundle's selling price
+5. Save the item
+
+### How Inventory Works for Bundles
+- The bundle item itself is **not** tracked in inventory
+- When a bundle is sold at POS, the system deducts inventory from each **component item** based on the component quantities defined
+- Example: A "Gift Set" bundle with 1x Candle + 2x Soap → selling one gift set deducts 1 candle and 2 soaps from inventory
+- Receiving is done on the individual component items, not on the bundle
+
+### Combo Items (F&B)
+The \`catalog_combos\` and \`catalog_combo_items\` tables support F&B combo meals:
+- Define a combo with a set of items and an optional combo price
+- Component items have their inventory tracked individually
+
+**Permission required:** \`catalog.manage\``,
+  },
+  {
+    slug: 'inv-troubleshoot-no-deduction-after-sale',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'why did inventory not deduct after a sale|inventory not decreasing after sale|sold item but stock did not change|POS sale not reducing inventory|stock not updating after order|inventory not syncing with sales',
+    approvedAnswerMarkdown: `## Why Didn't Inventory Deduct After a Sale?
+
+Inventory deduction happens **asynchronously** via an event-driven process, not inline with the sale. Here's how it works and what can go wrong.
+
+### How Sales Deduct Inventory
+1. POS places an order → emits an \`order.placed.v1\` event
+2. The inventory module's consumer receives the event
+3. For each line item, a \`sale\` movement is created (negative quantity)
+4. Package/bundle items deduct from each component, not the package itself
+5. Only items with **Track Inventory = true** are deducted
+
+### Common Causes for No Deduction
+1. **Track Inventory is disabled** — Check the item's inventory settings. If "Track Inventory" is off, sales won't create movements
+2. **Event processing delay** — The event may not have been processed yet. The outbox processes events asynchronously; check back in a moment
+3. **No inventory record at this location** — The item may not have an inventory record at the location where the sale occurred (this is auto-created but could be missing if the item was created before the location)
+4. **Idempotency prevented duplicate** — If the same order event was processed before (retry), the \`ON CONFLICT DO NOTHING\` prevents a second deduction. This is correct behavior
+5. **Item is a package** — If the sold item is a package/bundle, inventory deducts from the **components**, not the package item itself. Check the component items' movements
+
+### How to Verify
+1. Open the item in inventory and check **Movement History**
+2. Look for a \`sale\` movement matching the order time
+3. If missing, check the item's **Track Inventory** setting
+4. For packages, check the component items' movement history
+
+**Permission required:** \`inventory.view\``,
+  },
+  {
+    slug: 'inv-troubleshoot-double-deduction',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'why did inventory deduct twice|double deduction|inventory counted twice|stock went down too much|duplicate inventory deduction|item deducted more than sold',
+    approvedAnswerMarkdown: `## Why Did Inventory Deduct Twice?
+
+The system has built-in idempotency protection to prevent duplicate deductions, but here's what to check.
+
+### Built-In Protection
+Inventory movements have a unique index on \`(tenant_id, reference_type, reference_id, inventory_item_id, movement_type)\`. If the same order event is processed twice, the second insert is silently ignored (\`ON CONFLICT DO NOTHING\`). This means **true event-driven duplicates should not occur**.
+
+### Possible Causes of Apparent Double Deduction
+1. **Two separate orders** — Verify that two different orders weren't placed for the same item (check the order IDs in the movement history)
+2. **Manual adjustment + automatic deduction** — Someone may have manually adjusted the quantity AND the automatic sale deduction also occurred
+3. **Package component overlap** — If an item appears as a component in a package AND was also ordered individually, both deductions are correct
+4. **Transfer confused with sale** — A transfer-out at this location may look like an extra deduction
+
+### How to Investigate
+1. Open the item's **Movement History**
+2. Look at all movements around the time of the discrepancy
+3. Check the **reference_id** on each \`sale\` movement — each should correspond to a different order
+4. Check for \`adjustment\` or \`transfer_out\` movements that might explain the extra reduction
+
+### How to Fix
+If you confirm a genuine over-deduction:
+1. Record a positive **Adjustment** for the over-deducted quantity
+2. Note the reason (e.g., "Correcting duplicate deduction — see order #XYZ")
+
+**Permission required:** \`inventory.view\` to investigate, \`inventory.manage\` to adjust.`,
+  },
+  {
+    slug: 'inv-howto-movement-history',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I see inventory movement history|inventory history|stock movement log|what happened to my inventory|inventory transaction history|trace inventory changes|inventory audit trail',
+    approvedAnswerMarkdown: `## How to See Inventory Movement History
+
+Every inventory change is recorded as an **append-only movement** that can never be edited or deleted.
+
+### Steps
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Find the item
+3. Click the action menu → **Movement History**
+4. View the chronological list of all movements
+
+### Movement Types You'll See
+| Type | Description |
+|------|-------------|
+| **receive** | Stock added from a vendor delivery |
+| **sale** | Stock deducted by a POS/online order |
+| **adjustment** | Manual quantity correction |
+| **shrink** | Recorded loss (waste, theft, damage, expiry) |
+| **transfer_in** | Stock received from another location |
+| **transfer_out** | Stock sent to another location |
+| **void_reversal** | Reversal of a voided receipt or voided order |
+| **return** | Stock returned from a customer return |
+| **initial** | Starting quantity when first set up |
+| **conversion** | Unit of measure conversion |
+
+### Each Movement Shows
+- Date and time
+- Movement type
+- Quantity (positive = in, negative = out)
+- Unit cost and extended cost
+- Reference (order ID, receipt ID, transfer batch ID, or "manual")
+- Source (POS, online, manual, system, integration)
+- Employee who performed it
+- Business date
+
+### Filtering
+- Filter by **movement type** (e.g., show only sales, or only adjustments)
+- Filter by **source** (POS, manual, system)
+- Results use cursor-based pagination for performance
+
+**Permission required:** \`inventory.view\``,
+  },
+  {
+    slug: 'inv-howto-find-who-changed-quantity',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I find out who changed an inventory quantity|who adjusted inventory|inventory audit|who made this change|track inventory changes by user|inventory change log|who received this item',
+    approvedAnswerMarkdown: `## How to Find Out Who Changed an Inventory Quantity
+
+Every inventory movement records the employee who performed it.
+
+### Steps
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Find the item and open **Movement History**
+3. Each movement shows:
+   - **Employee ID** — who performed the action
+   - **Terminal ID** — which terminal was used (for POS sales)
+   - **Timestamp** — exact date and time
+   - **Source** — whether it was POS, manual, system, or integration
+   - **Reference** — links to the order, receipt, or transfer that caused the movement
+
+### For More Detail
+- **Receiving**: Open the linked receipt to see who created, edited, and posted it (includes \`posted_by\` field)
+- **Adjustments and Shrink**: The movement records the employee directly
+- **POS Sales**: The movement references the order ID — open the order to see the cashier/server
+- **Transfers**: The movement records the employee who initiated the transfer
+- **Audit Log**: The system maintains a separate audit log that records all changes with user identity, accessible via the audit history
+
+**Permission required:** \`inventory.view\``,
+  },
+  {
+    slug: 'inv-howto-set-default-vendors',
+    moduleKey: 'inventory',
+    route: '/inventory/receiving',
+    questionPattern:
+      'how do I set default vendors for items|preferred vendor|assign vendor to item|link item to vendor|set up vendor for ordering|default supplier|vendor-item relationship',
+    approvedAnswerMarkdown: `## How to Set Default Vendors for Items
+
+You can link inventory items to one or more vendors and mark one as the preferred (default) vendor.
+
+### Steps
+1. Go to **Inventory** → **Vendors**
+2. Find or create the vendor
+3. Open the vendor detail and go to the **Catalog** tab
+4. Click **Add Item** to link a catalog item to this vendor
+5. Fill in the vendor-specific details:
+   - **Vendor SKU** — the vendor's part number
+   - **Vendor Cost** — the vendor's price
+   - **Lead Time** (days) — how long delivery takes
+   - **Minimum Order Quantity** — vendor's minimum
+   - **Pack Size** — units per case/pack
+   - **Is Preferred** — toggle on to make this the default vendor for this item
+6. Save
+
+### How Preferred Vendor Is Used
+- **Reorder Suggestions** show the preferred vendor name next to each low-stock item
+- When creating a purchase order, the preferred vendor is suggested first
+- If an item has multiple vendors, only one can be marked as preferred
+
+### Viewing an Item's Vendors
+1. Open the inventory item
+2. View the **Vendors** section to see all linked vendors, their costs, and which is preferred
+
+### Vendor Cost Tracking
+- When a receipt is posted, the system automatically updates the vendor's **Last Cost** and **Last Received Date**
+- This keeps vendor pricing current without manual updates
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-update-item-costs',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I update item costs|change item cost|update cost|cost changed|vendor raised prices|how to update pricing|change purchase cost|update unit cost',
+    approvedAnswerMarkdown: `## How to Update Item Costs
+
+Item costs are updated in different ways depending on your costing method.
+
+### Automatic Cost Updates (via Receiving)
+The most common way costs update is through receiving:
+1. When you post a **Receiving Receipt**, the system calculates the **landed unit cost** (including any allocated shipping)
+2. The item's \`current_cost\` is updated based on the costing method:
+   - **Weighted Average**: New cost = weighted blend of existing on-hand cost and new received cost
+   - **FIFO**: Current cost updates to the latest received landed unit cost
+   - **Standard**: Current cost does **not** change on receive (stays at the manually set standard cost)
+
+### Manual Cost Updates
+
+#### Standard Cost Items
+1. Go to the item in **Retail Inventory** or **F&B Inventory**
+2. Click **Edit Item**
+3. Update the **Standard Cost** field
+4. Save
+
+#### Vendor Cost
+1. Go to **Inventory** → **Vendors** → select the vendor
+2. Find the item in the vendor's catalog
+3. Update the **Vendor Cost**
+4. Save
+
+This updates the vendor's quoted price but does not change the item's current cost — current cost only changes when you actually receive at the new price.
+
+### Important Notes
+- **Current Cost** drives inventory valuation and COGS calculations
+- Vendor cost and current cost are separate fields — vendor cost is what the vendor charges, current cost is what you carry the item at
+- Cost changes are reflected in future movements, not retroactively applied to past movements
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-costing-methods',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how is average cost calculated|FIFO costing|costing methods|weighted average cost|standard cost|how does inventory costing work|cost of goods calculation|COGS method',
+    approvedAnswerMarkdown: `## How Inventory Costing Methods Work
+
+Each inventory item has a costing method that determines how \`current_cost\` is calculated. This cost is used for inventory valuation and COGS.
+
+### Weighted Average
+The most common method. On each receipt:
+
+\`New Cost = (Current On-Hand x Current Cost + Received Qty x Landed Unit Cost) / (Current On-Hand + Received Qty)\`
+
+- If current on-hand is zero or negative, the new cost is simply the incoming landed unit cost
+- When a receipt is voided, the weighted average is reversed to remove the receipt's effect
+- Best for: items with frequent purchases at varying prices (most retail and F&B items)
+
+### FIFO (First In, First Out)
+On each receipt, the current cost is updated to the **latest received landed unit cost**.
+
+- Note: This is a simplified FIFO — the system does not maintain cost layers. It uses the last-received cost as the current cost
+- Best for: items where the most recent cost is the most relevant (perishables, commodities)
+
+### Standard Cost
+The current cost is set **manually** and does **not change** when inventory is received.
+
+- You set the standard cost when creating or editing the item
+- Receiving at a different price does not affect the item's cost
+- Variances between standard cost and actual received cost can be analyzed via movement history
+- Best for: manufactured items or items with contractually fixed prices
+
+### Landed Cost
+Regardless of costing method, the system calculates **landed cost** on each receipt line:
+- \`Landed Cost = Extended Cost + Allocated Shipping\`
+- \`Landed Unit Cost = Landed Cost / Base Quantity\`
+- Shipping allocation uses one of six methods: by cost, by quantity, by weight, by volume, manual, or none
+
+### Inventory Valuation
+The accounting module can pull beginning/ending inventory valuations for any period using the \`getInventoryMovementsSummary\` query, which calculates valuation from the movement ledger.
+
+**Permission required:** \`inventory.view\``,
+  },
+  {
+    slug: 'inv-troubleshoot-valuation-wrong',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'why is my inventory valuation wrong|inventory value incorrect|COGS wrong|cost of goods does not match|inventory dollar value is off|valuation discrepancy|inventory cost mismatch',
+    approvedAnswerMarkdown: `## Why Is My Inventory Valuation Wrong?
+
+Inventory valuation is calculated from the movement ledger. If it's wrong, one of these is usually the cause.
+
+### Common Causes
+1. **Receipts posted with wrong cost** — Verify the unit cost on receiving receipts matches vendor invoices. Costs entered during receiving flow directly into valuation
+2. **Shipping not allocated** — If freight mode was set to "Expense" instead of "Allocate", shipping costs went to GL as an expense rather than into item landed cost
+3. **Standard cost not updated** — If using standard costing and the standard cost is outdated, valuation won't reflect actual purchase prices
+4. **Voided receipt not accounted for** — A voided receipt creates reversal movements but may leave cost in an unexpected state if the weighted average reversal couldn't fully unwind (e.g., if items were sold between receive and void)
+5. **Missing receipts** — Inventory was received physically but not posted in the system — quantities are in stock but cost basis is missing
+6. **Unit of measure errors** — If the purchase-to-base conversion ratio is wrong, landed unit cost will be miscalculated
+7. **Adjustments without cost** — Adjustments can optionally include a unit cost; if cost is omitted, the movement has zero cost impact, affecting valuation
+
+### How to Investigate
+1. Compare the item's **Movement History** costs against vendor invoices
+2. Check receiving receipts for correct unit costs and freight allocation
+3. Verify the costing method is appropriate for the item type
+4. Review the **Inventory Movements Summary** in accounting for the period in question
+5. Check if any receipts are still in Draft (not yet posted into valuation)
+
+**Permission required:** \`inventory.view\` to investigate, \`inventory.manage\` to correct.`,
+  },
+  {
+    slug: 'inv-howto-import-from-csv',
+    moduleKey: 'inventory',
+    route: '/catalog',
+    questionPattern:
+      'how do I import inventory items from Excel|import from CSV|bulk import items|upload inventory spreadsheet|import inventory list|mass add inventory items|bulk upload items',
+    approvedAnswerMarkdown: `## How to Import Inventory Items from Excel or CSV
+
+Item import is handled through the **Catalog Import** feature, since inventory items are created automatically from catalog items.
+
+### Steps
+1. Go to **Catalog**
+2. Click **Import** (or look for the import option in the action menu)
+3. Download the **import template** to see the required format
+4. Prepare your Excel or CSV file with the required columns:
+   - Item name, SKU, department, price
+   - Item type (retail, food, beverage, etc.)
+   - Optional: reorder point, par level, vendor, cost
+5. Upload the file
+6. Review the validation results — the system checks for:
+   - Required fields
+   - Duplicate SKUs
+   - Valid departments and categories
+7. Confirm the import
+
+### After Import
+- Catalog items are created and inventory records are automatically generated for every active location
+- Initial on-hand quantities are zero — use adjustments or receiving to set starting quantities
+- Import results are logged in the \`catalog_import_logs\` table for audit purposes
+
+### Tips
+- Start with a small test batch to verify your formatting
+- Ensure SKUs are unique across your catalog
+- Use the template provided — it has the exact column headers the system expects
+
+**Permission required:** \`catalog.manage\``,
+  },
+  {
+    slug: 'inv-howto-export-inventory-list',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I export my inventory list|export inventory|download inventory report|export stock list to CSV|inventory spreadsheet export|download inventory data',
+    approvedAnswerMarkdown: `## How to Export Your Inventory List
+
+### Steps
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Apply any filters you want (department, category, location, low stock only, etc.)
+3. Click the **Export** or **Download** button (typically a download icon in the toolbar)
+4. The system generates a CSV file with the filtered inventory data
+
+### What's Included in the Export
+- Item name, SKU
+- Item type, department, category
+- Current on-hand quantity
+- Reorder point, reorder quantity, par level
+- Current cost, standard cost
+- Costing method
+- Status (active, archived)
+- Location
+
+### Other Export Options
+- **Reports** — Go to the **Reporting** section for more detailed inventory reports that can be exported to CSV
+- **Movement History** — Individual item movement history can also be used for detailed audit exports
+
+**Permission required:** \`inventory.view\` (view/export), \`reports.export\` (CSV download from reports).`,
+  },
+  {
+    slug: 'inv-howto-assign-bin-shelf',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I assign inventory to a bin|shelf location|bin location|storage location|where is item stored|assign warehouse location|bin management|aisle and shelf tracking',
+    approvedAnswerMarkdown: `## How to Assign Inventory to a Specific Location, Bin, or Shelf
+
+Inventory is tracked at the **location level** (store, warehouse, etc.). Sub-location tracking (bins, shelves, aisles) is not currently a built-in feature.
+
+### What's Available Now
+- Each inventory item is tracked per **location** (tenant location / store / warehouse)
+- You can transfer inventory between locations
+- Location-level on-hand, reorder points, and par levels
+
+### Workarounds for Bin/Shelf Tracking
+1. **Item notes** — Use the item's notes field to record bin or shelf locations
+2. **SKU encoding** — Include bin/shelf codes in the SKU naming convention (e.g., A1-WIDGET-001)
+3. **Custom identifiers** — Use the item identifiers table to store bin location as a custom identifier type
+
+### On the Roadmap
+Granular sub-location tracking (warehouse zones, aisles, racks, bins) is planned for a future release. This would include:
+- Bin assignment per item per location
+- Pick/put-away suggestions
+- Bin-level stock queries
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-reserved-committed-inventory',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I manage reserved inventory|committed inventory|allocated stock|reserved stock|inventory on hold|hold inventory for order|committed vs available',
+    approvedAnswerMarkdown: `## How to Manage Reserved or Committed Inventory
+
+The current system tracks **on-hand quantity** as a single pool per item per location. There is no built-in distinction between "available" and "reserved/committed" quantities.
+
+### How It Works Today
+- On-hand = sum of all inventory movements (an item is either in stock or not)
+- POS sales and orders deduct from on-hand when the order is placed (via the \`order.placed\` event)
+- There is no intermediate "reserved" state between order creation and inventory deduction
+
+### Workarounds
+1. **Manual adjustments** — If you need to hold stock for a specific purpose, you could transfer it to a designated "hold" location
+2. **Par level management** — Set par levels high enough to account for expected commitments
+3. **Allow Negative = false** — Ensure this is set so the system blocks sales/adjustments that would take on-hand below zero, effectively protecting your last units
+
+### On the Roadmap
+Inventory reservation (soft allocation before fulfillment) is planned for future ecommerce and warehouse management features, including:
+- Order-level allocation (reserved on order, released on cancel)
+- Available-to-promise calculation (on-hand minus reserved)
+- Backorder management
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-handle-backorders',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I handle backorders|out of stock handling|item not in stock|backorder management|out of stock item ordered|negative inventory from orders',
+    approvedAnswerMarkdown: `## How to Handle Backorders or Out-of-Stock Items
+
+### Current Behavior
+- If an item's **Allow Negative** is set to \`false\` (default), manual adjustments and transfers that would take on-hand below zero are blocked
+- However, **POS sales can still sell items with zero or low stock** — the \`order.placed\` event will create a negative movement if needed (POS is not blocked by the Allow Negative flag on manual adjustments)
+- The system will emit an \`inventory.negative.v1\` event when on-hand goes below zero, which appears in **Stock Alerts** as a critical alert
+
+### Managing Out-of-Stock Situations
+1. **Monitor Stock Alerts** — Check **Inventory** → **Stock Alerts** regularly. Negative and low-stock items are flagged automatically
+2. **Set Reorder Points** — Ensure reorder points are set so you get warned before running out
+3. **Review Reorder Suggestions** — The system calculates suggested order quantities based on par levels
+4. **Disable items at POS** — If an item is truly out of stock and shouldn't be sold, you can temporarily deactivate it in the catalog or use the 86'd (unavailable) feature in F&B
+
+### Backorder Tracking
+Formal backorder management (tracking customer orders against future stock) is not currently built. Workarounds:
+- Use **Purchase Order** status tracking to monitor when replenishment is expected
+- Check PO expected delivery dates against customer demand
+- Use notes on PO lines to track which customer orders are waiting for stock
+
+**Permission required:** \`inventory.view\` to monitor, \`inventory.manage\` to reorder.`,
+  },
+  {
+    slug: 'inv-howto-track-manufacturing-assembly',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I track inventory used in manufacturing|assembly tracking|raw materials tracking|work in progress inventory|bill of materials|recipe costing|manufacturing inventory|ingredient tracking',
+    approvedAnswerMarkdown: `## How to Track Inventory Used in Manufacturing or Assembly
+
+### Current Capabilities
+The system supports **package/bundle items** which function similarly to a bill of materials:
+
+1. **Package Items** — Create a catalog item of type "Package" with component items and quantities
+   - When the package is sold, inventory deducts from each component
+   - This is useful for kits, bundles, or assembled products
+
+2. **F&B Recipes** — For food and beverage operations:
+   - Catalog items can have ingredient components defined
+   - When an F&B item is sold, inventory for the ingredients can be deducted
+   - Recipe costing is calculated from component costs
+
+3. **Conversion Movements** — The \`conversion\` movement type exists for tracking unit-of-measure conversions (e.g., breaking a case into individual units)
+
+### What's Not Built
+- Work-in-progress (WIP) inventory tracking
+- Multi-stage manufacturing routing
+- Production orders with yield tracking
+- Automated assembly/disassembly commands
+- Scrap and by-product tracking
+
+### Workarounds
+1. Use **adjustments** to manually deduct raw materials when entering production
+2. Use **adjustments** to add finished goods when production is complete
+3. Include detailed reasons on each adjustment for traceability
+4. Use the \`conversion\` movement type for transformations
+
+**Permission required:** \`inventory.manage\``,
+  },
+  {
+    slug: 'inv-howto-connect-pos-ecommerce',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I connect inventory with POS|inventory POS integration|sync inventory with sales|how does POS update inventory|connect inventory to ecommerce|inventory and order sync|real time inventory sync',
+    approvedAnswerMarkdown: `## How Inventory Connects with POS and Sales Channels
+
+Inventory is automatically connected to POS and order channels through the **event-driven architecture**. No manual setup is required.
+
+### How It Works
+
+#### POS Sales
+1. A sale is completed at POS → an \`order.placed.v1\` event is emitted
+2. The inventory module's event consumer processes the event
+3. For each line item with **Track Inventory = true**:
+   - A \`sale\` movement is created with the sold quantity (negative)
+   - Package/bundle items deduct from each component item
+4. This happens **asynchronously** (event-driven), not inline with the POS transaction
+
+#### Voids
+- When an order is voided → \`order.voided.v1\` event → \`void_reversal\` movements are created to add the stock back
+
+#### Returns
+- When items are returned → \`order.returned.v1\` event → \`return\` movements are created to add stock back (including package component items)
+
+### Idempotency
+All sale/void/return movements use \`ON CONFLICT DO NOTHING\` to prevent duplicate processing. If an event is delivered twice, the second attempt is safely ignored.
+
+### Ensuring Items Are Tracked
+- Verify **Track Inventory** is enabled on each item that should sync
+- Items with Track Inventory = false will not have any movements created from sales
+
+### Multi-Location
+- Inventory is deducted at the **location where the order was placed** (from the order's \`locationId\`)
+- Each location maintains independent stock levels
+
+**Permission required:** \`inventory.view\``,
+  },
+  {
+    slug: 'inv-troubleshoot-online-vs-instore-mismatch',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'why are online stock levels different from in-store|inventory does not match between channels|online and POS inventory different|stock mismatch between channels|inventory sync issue between online and store',
+    approvedAnswerMarkdown: `## Why Are Online Stock Levels Different from In-Store Stock Levels?
+
+### How Multi-Channel Inventory Works
+All sales channels (POS, online) deduct from the **same inventory pool** at the order's location. The system maintains a single source of truth — the inventory movement ledger.
+
+### Common Causes of Apparent Mismatches
+1. **Event processing delay** — Inventory deductions happen asynchronously via events. A POS sale may take a moment to be reflected, during which an online system might show stale data
+2. **Different locations** — POS and online orders may be fulfilled from different locations. Check which location each channel is deducting from
+3. **Cache/display lag** — If an external system (ecommerce platform) caches stock levels, it may show outdated quantities between sync intervals
+4. **Track Inventory disabled** — The item's Track Inventory flag may be off, meaning no channel deducts stock
+5. **Integration sync frequency** — If using an external ecommerce platform, stock levels sync periodically, not in real-time
+
+### How to Investigate
+1. Check the item's **Movement History** — see all deductions across all sources (POS, online, manual)
+2. Verify the **Location** — ensure both channels are looking at the same location's inventory
+3. Check the movement **source** field — it shows whether each deduction came from \`pos\`, \`online\`, \`manual\`, or \`integration\`
+
+### Resolution
+- For genuine discrepancies, use an **Adjustment** to correct the system quantity
+- For integration-related lag, check the sync configuration of your external platform
+
+**Permission required:** \`inventory.view\``,
+  },
+  {
+    slug: 'inv-howto-reports-by-category-vendor-location',
+    moduleKey: 'inventory',
+    route: '/retail-inventory',
+    questionPattern:
+      'how do I run inventory reports|inventory report by category|inventory report by vendor|inventory report by location|stock report|inventory valuation report|inventory analysis|inventory reporting',
+    approvedAnswerMarkdown: `## How to Run Inventory Reports by Category, Vendor, or Location
+
+### Inventory List Reports
+1. Go to **Retail Inventory** or **F&B Inventory**
+2. Apply filters to narrow your view:
+   - **Location** — select a specific location or view all
+   - **Department / Sub-Department / Category** — drill down by product hierarchy
+   - **Item Type** — filter by retail, food, beverage, etc.
+   - **Low Stock Only** — show only items at or below reorder point
+   - **Show Archived** — include discontinued items
+3. **Export** the filtered list to CSV for further analysis
+
+### Stock Alerts Report
+1. Go to **Inventory** → **Stock Alerts**
+2. View critical (negative stock) and warning (low stock) items
+3. Filter by severity level
+
+### Inventory Valuation
+- The accounting module provides **Inventory Movements Summary** for any date range
+- Shows beginning inventory, purchases (receipts), COGS (sales), adjustments, and ending inventory
+- Used for period-end financial reporting and COGS calculation
+
+### Movement History Reports
+1. Open any item's **Movement History**
+2. Filter by movement type (receives, sales, adjustments, shrink, transfers)
+3. Filter by source (POS, manual, system)
+4. Review individual transactions with full audit details
+
+### Reorder Suggestions
+- View on the **Receiving** page — shows all items below reorder point with suggested order quantities and preferred vendors
+
+### Tips
+- All list views and reports support CSV export
+- For vendor-specific reports, go to **Inventory** → **Vendors** → select a vendor → view their **Catalog** to see all items from that vendor
+
+**Permission required:** \`inventory.view\` for reports, \`reports.export\` for CSV downloads.`,
+  },
+  {
+    slug: 'inv-howto-set-permissions',
+    moduleKey: 'inventory',
+    route: '/settings',
+    questionPattern:
+      'how do I set user permissions for inventory|inventory permissions|who can adjust inventory|restrict inventory access|inventory security|inventory role permissions|limit who can receive inventory',
+    approvedAnswerMarkdown: `## How to Set User Permissions for Inventory Functions
+
+Inventory access is controlled by the RBAC (Role-Based Access Control) system with two main permission levels.
+
+### Inventory Permissions
+
+| Permission | What It Allows | Default Roles |
+|------------|---------------|---------------|
+| \`inventory.view\` | View stock levels, movement history, receiving history, reports | Owner, Manager, Supervisor, Cashier, Staff |
+| \`inventory.manage\` | Receive inventory, adjust quantities, transfer stock, record shrink, manage vendors and POs | Owner, Manager, Supervisor |
+
+### F&B-Specific Inventory Permissions
+
+| Permission | What It Allows | Default Roles |
+|------------|---------------|---------------|
+| \`pos_fnb.inventory.view\` | View F&B inventory items and stock levels | Owner, Manager, Supervisor, Cashier, Server, Staff |
+| \`pos_fnb.inventory.manage\` | Add, edit, and manage F&B inventory items | Owner, Manager, Supervisor |
+
+### How to Configure
+1. Go to **Settings** → **Roles & Permissions**
+2. Select the role you want to modify
+3. Find the **Inventory** section
+4. Toggle permissions on or off for that role
+5. Save
+
+### Role Hierarchy
+The six built-in roles from most to least privileged:
+1. **Owner** — all permissions (\`*\`)
+2. **Manager** — full operational access including inventory management
+3. **Supervisor** — inventory management included
+4. **Cashier** — view only (no adjustments, receiving, or transfers)
+5. **Server** — F&B inventory view only
+6. **Staff** — view only
+
+### Important Notes
+- All inventory mutations (adjustments, receiving, shrink, transfers) require \`inventory.manage\` and are audited
+- Catalog item creation requires \`catalog.manage\` (separate from inventory permissions)
+- Viewing inventory does not allow making changes — the view and manage permissions are separate
+- The \`inventory.manage\` permission is flagged for audit tracking
+
+**Permission required:** \`settings.manage\` to change role permissions.`,
+  },
 ];
 
 // ─── Seed Function ───────────────────────────────────────────────────────────

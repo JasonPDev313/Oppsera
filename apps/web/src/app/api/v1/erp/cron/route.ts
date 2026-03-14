@@ -6,6 +6,11 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { withDistributedLock } from '@oppsera/core';
 import { LOCK_KEYS } from '@oppsera/shared';
 
+/** Max tenants per cron run — sequential processing on Vercel (pool max: 2). */
+const TENANT_CAP = 50;
+/** Bail out if wall-clock exceeds this (Vercel Pro function timeout = 60s). */
+const TIME_BUDGET_MS = 55_000;
+
 /**
  * POST /api/v1/erp/cron — Vercel Cron trigger for auto-close and day-end close.
  *
@@ -17,6 +22,8 @@ import { LOCK_KEYS } from '@oppsera/shared';
  * Auth: CRON_SECRET header (not user auth — this is a system job).
  */
 export async function POST(request: NextRequest) {
+  const startMs = Date.now();
+
   // Verify cron secret — MUST be configured in env
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -63,11 +70,19 @@ export async function POST(request: NextRequest) {
         FROM accounting_settings s
         JOIN tenants t ON t.id = s.tenant_id AND t.status = 'active'
         WHERE s.auto_close_enabled = true OR s.day_end_close_enabled = true
+        LIMIT ${TENANT_CAP + 1}
       `);
 
-      const tenants = Array.from(rows as Iterable<Record<string, unknown>>);
+      const allTenants = Array.from(rows as Iterable<Record<string, unknown>>);
+      const capped = allTenants.length > TENANT_CAP;
+      const tenants = allTenants.slice(0, TENANT_CAP);
 
       for (const tenant of tenants) {
+        // Time budget guard — bail before Vercel kills the function
+        if (Date.now() - startMs > TIME_BUDGET_MS) {
+          console.warn(`[erp/cron] Time budget exhausted after ${results.length} tenant(s) — remaining will be retried next run`);
+          break;
+        }
         const tenantId = String(tenant.tenant_id);
         const timezone = String(tenant.timezone);
 
@@ -159,7 +174,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return results;
+      return { results, capped };
     },
     { trigger: 'vercel-cron' },
   );
@@ -169,6 +184,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       data: {
         checkedAt: now.toISOString(),
+        durationMs: Date.now() - startMs,
         triggered: 0,
         results: [],
         skipped: 'Lock held by another instance',
@@ -179,8 +195,10 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     data: {
       checkedAt: now.toISOString(),
-      triggered: lockResult.length,
-      results: lockResult,
+      durationMs: Date.now() - startMs,
+      triggered: lockResult.results.length,
+      capped: lockResult.capped,
+      results: lockResult.results,
     },
   });
 }

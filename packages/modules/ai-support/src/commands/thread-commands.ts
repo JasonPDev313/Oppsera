@@ -195,7 +195,8 @@ export async function sendMessage(
     tenantSettingsJson: contextSnapshot.tenantSettings ?? null,
   });
 
-  // Load thread history for context
+  // Load thread history for context — collect all DB data BEFORE the LLM call
+  // so we don't hold a DB connection during the potentially 60s orchestrator call.
   const historyRows = await db
     .select({
       role: aiAssistantMessages.role,
@@ -216,7 +217,7 @@ export async function sendMessage(
     .slice(0, -1) // Remove the last user message we just inserted
     .map((r) => ({ role: r.role, content: r.messageText }));
 
-  // Call orchestrator
+  // ── LLM call — no DB connections held during this potentially long call ──
   const orchestratorResult = await runOrchestratorCollected({
     messageText,
     context: contextSnapshot,
@@ -224,6 +225,7 @@ export async function sendMessage(
     mode: 'staff', // Default to staff mode; customer mode can be added later
   });
 
+  // ── Post-LLM DB writes — acquire connection only after LLM completes ──
   // Insert a placeholder assistant message — the actual text arrives via the stream.
   // The API route will update this record after the stream completes.
   const [assistantMessage] = await db

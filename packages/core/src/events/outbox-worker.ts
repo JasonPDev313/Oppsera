@@ -1,5 +1,5 @@
 import { EventEnvelopeSchema, generateUlid } from '@oppsera/shared';
-import { db, sql, guardedQuery, eventDeadLetters } from '@oppsera/db';
+import { db, sql, guardedQuery, eventDeadLetters, isBreakerOpen } from '@oppsera/db';
 import type { EventBus } from './bus';
 
 export class OutboxWorker {
@@ -22,6 +22,12 @@ export class OutboxWorker {
   private static readonly MAX_RETRY_COUNT = 3;
   // Delay before first poll on cold start — let API requests use the pool first
   private static readonly STARTUP_DELAY_MS = 2_000;
+  // Outbox maintenance queries get a shorter timeout than user-facing queries (15s).
+  // Prevents long-running outbox ops from hogging pool connections and triggering
+  // cascading circuit breaker failures on user-facing routes.
+  private static readonly MAINTENANCE_TIMEOUT_MS = 5_000;
+  // Query timeout for event publishing — slightly longer since consumers do real work.
+  private static readonly PUBLISH_TIMEOUT_MS = 8_000;
 
   constructor(options: {
     eventBus: EventBus;
@@ -73,6 +79,14 @@ export class OutboxWorker {
 
     try {
       this.processing = true;
+
+      // Back off when circuit breaker is open — let user-facing requests
+      // use the recovery probe slot instead of competing with background work.
+      if (isBreakerOpen()) {
+        this.pollTimer = setTimeout(() => this.poll(), this.pollIntervalMs * 2);
+        return;
+      }
+
       // Periodically recover stale claims — events that were claimed
       // (published_at set) but never actually processed. This happens
       // when a Vercel instance claims a batch then gets frozen/killed.
@@ -127,13 +141,20 @@ export class OutboxWorker {
       // First: delete events older than 1 hour that were already processed (published_at IS NOT NULL).
       // Only purge claimed events — unprocessed events (published_at IS NULL) that are old
       // indicate cron downtime and must NOT be deleted, or events will be silently lost.
+      // LIMIT 100: bound the DELETE to prevent long-running queries that exhaust the pool.
+      // If >100 stale events exist, they'll be caught on the next 5-minute cycle.
       const deleted = await guardedQuery('outbox:purgeStale', () =>
         db.execute(sql`
           DELETE FROM event_outbox
-          WHERE created_at < NOW() - INTERVAL '1 hour'
-            AND published_at IS NOT NULL
+          WHERE id IN (
+            SELECT id FROM event_outbox
+            WHERE created_at < NOW() - INTERVAL '1 hour'
+              AND published_at IS NOT NULL
+            LIMIT 100
+          )
           RETURNING id
         `),
+        { timeoutMs: OutboxWorker.MAINTENANCE_TIMEOUT_MS },
       ) as unknown as Array<{ id: string }>;
 
       if (deleted.length > 0) {
@@ -145,14 +166,21 @@ export class OutboxWorker {
       // Events that repeatedly fail will be caught by the 1-hour purge above.
       // NOTE: The recovery threshold MUST be >= the claim timeout used when batching.
       // Using the named constant here ensures both values stay in sync.
+      // LIMIT 50: bound the UPDATE to prevent long-running queries.
+      // Recovered events re-enter the normal processing pipeline.
       const result = await guardedQuery('outbox:recoverStale', () =>
         db.execute(sql`
           UPDATE event_outbox
           SET published_at = NULL
-          WHERE published_at IS NOT NULL
-            AND published_at < NOW() - (${OutboxWorker.STALE_CLAIM_THRESHOLD_MINUTES} * INTERVAL '1 minute')
+          WHERE id IN (
+            SELECT id FROM event_outbox
+            WHERE published_at IS NOT NULL
+              AND published_at < NOW() - (${OutboxWorker.STALE_CLAIM_THRESHOLD_MINUTES} * INTERVAL '1 minute')
+            LIMIT 50
+          )
           RETURNING id
         `),
+        { timeoutMs: OutboxWorker.MAINTENANCE_TIMEOUT_MS },
       ) as unknown as Array<{ id: string }>;
 
       if (result.length > 0) {
@@ -195,6 +223,7 @@ export class OutboxWorker {
         WHERE event_outbox.id = batch.id
         RETURNING event_outbox.id, event_outbox.payload, event_outbox.event_type, event_outbox.event_id
       `),
+      { timeoutMs: OutboxWorker.MAINTENANCE_TIMEOUT_MS },
     ) as unknown as Array<{ id: string; payload: unknown; event_type: string; event_id: string }>;
 
     if (claimed.length === 0) return 0;
@@ -236,6 +265,7 @@ export class OutboxWorker {
               lastFailedAt: new Date(),
               status: 'failed',
             }),
+            { timeoutMs: OutboxWorker.PUBLISH_TIMEOUT_MS },
           );
         } catch (dlqErr) {
           console.error('[outbox] Failed to dead-letter malformed event:', dlqErr);
@@ -274,6 +304,7 @@ export class OutboxWorker {
         const idList = sql.join(deleteIds.map(id => sql`${id}`), sql`, `);
         await guardedQuery('outbox:deleteProcessed', () =>
           db.execute(sql`DELETE FROM event_outbox WHERE id IN (${idList})`),
+          { timeoutMs: OutboxWorker.MAINTENANCE_TIMEOUT_MS },
         );
       } catch (err) {
         // Best-effort — if delete fails, events stay claimed (harmless)

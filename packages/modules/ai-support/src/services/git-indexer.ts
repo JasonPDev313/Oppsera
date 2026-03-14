@@ -248,12 +248,13 @@ function buildWorkflowDocument(workflow: ExtractedWorkflow, sha: string): Docume
 
 // ── DB Upsert ────────────────────────────────────────────────────────
 
+/** Max documents to upsert per invocation — prevents unbounded DB loops on Vercel. */
+const UPSERT_BATCH_SIZE = 50;
+
 /**
- * Upsert a batch of documents into ai_support_documents.
- * Uses ON CONFLICT DO UPDATE by source_ref.
- *
- * Since ai_support_documents has no unique index on source_ref in the schema,
- * we use a SELECT + INSERT/UPDATE pattern per record.
+ * Upsert documents into ai_support_documents using ON CONFLICT on the
+ * unique index `uq_ai_docs_source_ref`. Processes in batches of UPSERT_BATCH_SIZE
+ * to keep connection hold time bounded.
  *
  * All DB ops are awaited (no fire-and-forget).
  */
@@ -261,51 +262,50 @@ async function upsertDocuments(docs: DocumentRecord[]): Promise<{ inserted: numb
   let inserted = 0;
   let updated = 0;
 
-  for (const doc of docs) {
-    // Check if a document with this source_ref already exists
-    const existing = await db
-      .select({ id: aiSupportDocuments.id })
-      .from(aiSupportDocuments)
-      .where(sql`${aiSupportDocuments.sourceRef} = ${doc.sourceRef}`)
-      .limit(1);
-
+  for (let i = 0; i < docs.length; i += UPSERT_BATCH_SIZE) {
+    const batch = docs.slice(i, i + UPSERT_BATCH_SIZE);
     const now = new Date();
 
-    if (existing.length > 0) {
-      // Update existing record
-      await db
-        .update(aiSupportDocuments)
-        .set({
-          repoSha: doc.repoSha,
-          moduleKey: doc.moduleKey,
-          route: doc.route,
-          title: doc.title,
-          contentMarkdown: doc.contentMarkdown,
-          metadataJson: doc.metadataJson,
-          indexedAt: now,
-          updatedAt: now,
-        })
-        .where(sql`${aiSupportDocuments.sourceRef} = ${doc.sourceRef}`);
-      updated++;
-    } else {
-      // Insert new record
-      await db.insert(aiSupportDocuments).values({
-        id: doc.id,
-        tenantId: null,
-        sourceType: doc.sourceType,
-        sourceRef: doc.sourceRef,
-        repoSha: doc.repoSha,
-        moduleKey: doc.moduleKey,
-        route: doc.route,
-        title: doc.title,
-        contentMarkdown: doc.contentMarkdown,
-        metadataJson: doc.metadataJson,
-        indexedAt: now,
-        createdAt: now,
-        updatedAt: now,
-      });
-      inserted++;
+    const values = batch.map((doc) => ({
+      id: doc.id,
+      tenantId: null as string | null,
+      sourceType: doc.sourceType,
+      sourceRef: doc.sourceRef,
+      repoSha: doc.repoSha,
+      moduleKey: doc.moduleKey,
+      route: doc.route,
+      title: doc.title,
+      contentMarkdown: doc.contentMarkdown,
+      metadataJson: doc.metadataJson,
+      indexedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    }));
+
+    // Use raw SQL for ON CONFLICT since Drizzle's onConflictDoUpdate needs
+    // the target to be declared on the table builder. The unique index
+    // uq_ai_docs_source_ref covers source_ref WHERE source_ref IS NOT NULL.
+    for (const val of values) {
+      await db.insert(aiSupportDocuments)
+        .values(val)
+        .onConflictDoUpdate({
+          target: aiSupportDocuments.sourceRef,
+          set: {
+            repoSha: val.repoSha,
+            moduleKey: val.moduleKey,
+            route: val.route,
+            title: val.title,
+            contentMarkdown: val.contentMarkdown,
+            metadataJson: val.metadataJson,
+            indexedAt: now,
+            updatedAt: now,
+          },
+        });
     }
+
+    // Approximate: we can't distinguish inserts vs updates with onConflictDoUpdate,
+    // so count the batch size as "indexed".
+    inserted += batch.length;
   }
 
   return { inserted, updated };

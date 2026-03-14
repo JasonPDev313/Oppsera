@@ -6,6 +6,12 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { withDistributedLock } from '@oppsera/core';
 import { LOCK_KEYS } from '@oppsera/shared';
 
+/** Max tenants per cron run — sequential processing on Vercel (pool max: 2). */
+const TENANT_CAP = 50;
+/** Bail out if wall-clock exceeds this (Vercel Pro function timeout = 60s). */
+const TIME_BUDGET_MS = 55_000;
+const LOG_PREFIX = '[membership/cron/recognize-revenue]';
+
 /**
  * POST /api/v1/membership/cron/recognize-revenue
  *
@@ -17,11 +23,12 @@ import { LOCK_KEYS } from '@oppsera/shared';
  * Schedule: daily at 01:00 UTC (configured in vercel.json).
  */
 export async function POST(request: NextRequest) {
+  const startMs = Date.now();
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret) {
-    console.error('[membership/cron/recognize-revenue] CRON_SECRET is not configured');
+    console.error(`${LOG_PREFIX} CRON_SECRET is not configured`);
     return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
   }
 
@@ -41,9 +48,12 @@ export async function POST(request: NextRequest) {
         SELECT DISTINCT mas.tenant_id
         FROM membership_accounting_settings mas
         JOIN tenants t ON t.id = mas.tenant_id AND t.status = 'active'
+        LIMIT ${TENANT_CAP + 1}
       `);
 
-      const tenants = Array.from(rows as Iterable<Record<string, unknown>>);
+      const allTenants = Array.from(rows as Iterable<Record<string, unknown>>);
+      const capped = allTenants.length > TENANT_CAP;
+      const tenants = allTenants.slice(0, TENANT_CAP);
 
       const results: Array<{
         tenantId: string;
@@ -57,6 +67,14 @@ export async function POST(request: NextRequest) {
       }> = [];
 
       for (const tenant of tenants) {
+        // Time budget guard — bail before Vercel kills the function
+        if (Date.now() - startMs > TIME_BUDGET_MS) {
+          console.warn(
+            `${LOG_PREFIX} Time budget exhausted after ${results.length} tenant(s) — remaining will be retried next run`,
+          );
+          break;
+        }
+
         const tenantId = String(tenant.tenant_id);
         try {
           const ctx = buildSystemContext(tenantId);
@@ -82,7 +100,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return results;
+      return { results, capped };
     },
     { trigger: 'vercel-cron' },
   );
@@ -91,6 +109,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       data: {
         ranAt: now.toISOString(),
+        durationMs: Date.now() - startMs,
         throughDate,
         tenantCount: 0,
         results: [],
@@ -102,9 +121,11 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     data: {
       ranAt: now.toISOString(),
+      durationMs: Date.now() - startMs,
       throughDate,
-      tenantCount: lockResult.length,
-      results: lockResult,
+      tenantCount: lockResult.results.length,
+      capped: lockResult.capped,
+      results: lockResult.results,
     },
   });
 }
