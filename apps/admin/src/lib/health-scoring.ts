@@ -296,14 +296,15 @@ export async function captureAllTenantHealthSnapshots(): Promise<number> {
           )
         `);
 
-        // Update tenant's cached health_grade
+        // Update tenant's cached health_grade + last_activity_at (orders OR logins)
         await tx.execute(sql`
           UPDATE tenants
           SET health_grade = ${snapshot.healthGrade},
-              last_activity_at = CASE
-                WHEN ${snapshot.orders24h} > 0 THEN NOW()
-                ELSE last_activity_at
-              END,
+              last_activity_at = GREATEST(
+                last_activity_at,
+                CASE WHEN ${snapshot.orders24h} > 0 THEN NOW() ELSE NULL END,
+                (SELECT MAX(created_at) FROM login_records WHERE tenant_id = ${tenantId} AND outcome = 'success')
+              ),
               updated_at = NOW()
           WHERE id = ${tenantId}
         `);

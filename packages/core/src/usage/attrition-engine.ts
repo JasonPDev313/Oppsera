@@ -289,10 +289,13 @@ async function getActiveTenants(): Promise<TenantSnapshot[]> {
       COALESCE(t.status, 'active') AS tenant_status,
       t.industry,
       t.health_grade,
-      COALESCE(t.total_locations, 0)::int AS total_locations,
-      COALESCE(t.total_users, 0)::int AS total_users,
+      (SELECT COUNT(*)::int FROM locations WHERE tenant_id = t.id AND is_active = true) AS total_locations,
+      (SELECT COUNT(*)::int FROM users WHERE tenant_id = t.id AND status = 'active') AS total_users,
       COALESCE(t.onboarding_status, 'pending') AS onboarding_status,
-      t.last_activity_at::text AS last_activity_at,
+      GREATEST(
+        t.last_activity_at,
+        (SELECT MAX(created_at) FROM login_records WHERE tenant_id = t.id AND outcome = 'success')
+      )::text AS last_activity_at,
       t.created_at::text AS created_at
     FROM tenants t
     WHERE t.status IN ('active', 'trial')
