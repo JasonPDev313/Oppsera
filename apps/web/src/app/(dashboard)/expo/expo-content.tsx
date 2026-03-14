@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuthContext } from '@/components/auth-provider';
-import { useTerminalSession } from '@/components/terminal-session-provider';
+import { useRouter } from 'next/navigation';
+import { useKdsLocation } from '@/hooks/use-kds-location';
 import { useExpoView, useExpoHistory, useKdsLocationCounts } from '@/hooks/use-fnb-kitchen';
+import { useAuthContext } from '@/components/auth-provider';
 import { ExpoHeader } from '@/components/fnb/kitchen/ExpoHeader';
 import { ExpoTicketCard } from '@/components/fnb/kitchen/ExpoTicketCard';
 import { ExpoHistoryPanel } from '@/components/fnb/kitchen/ExpoHistoryPanel';
 import { ItemSummaryPanel, ItemSummaryToggle } from '@/components/fnb/kitchen/ItemSummaryPanel';
 import { KitchenMetrics } from '@/components/fnb/kitchen/KitchenMetrics';
 import { KitchenBehindBanner } from '@/components/fnb/kitchen/KitchenBehindBanner';
+import { LocationBanner } from '@/components/fnb/kitchen/LocationBanner';
 import { StaleDataBanner } from '@/components/fnb/kitchen/StaleDataBanner';
 import { formatTimer } from '@/components/fnb/kitchen/TimerBar';
 import { apiFetch } from '@/lib/api-client';
@@ -29,25 +30,11 @@ const PAUSED_INTERVAL = 999_999_999;
 
 export default function ExpoContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { locations } = useAuthContext();
-  const { session: terminalSession } = useTerminalSession();
-  const [locationId, setLocationId] = useState(() => {
-    const fromUrl = searchParams.get('locationId');
-    if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
-    return terminalSession?.locationId ?? locations?.[0]?.id ?? '';
-  });
-  // Detect if the URL had a locationId that didn't match any known location
-  const locationFellBack = (() => {
-    const fromUrl = searchParams.get('locationId');
-    return fromUrl !== null && !locations?.some((l) => l.id === fromUrl);
-  })();
-  const resolvedLocationName = locations?.find((l) => l.id === locationId)?.name;
-  const changeLocation = useCallback((newId: string) => {
-    setLocationId(newId);
-    router.replace(`/expo?locationId=${newId}`, { scroll: false });
-  }, [router]);
-  const hasMultipleLocations = (locations?.length ?? 0) > 1;
+  const {
+    locationId, resolvedLocationName, locationFellBack, locationDefaulted,
+    hasMultipleLocations, changeLocation,
+  } = useKdsLocation({ basePath: '/expo' });
   const locationCounts = useKdsLocationCounts(locations?.map((l) => l.id) ?? []);
 
   // Count tickets at OTHER locations (for persistent badge + pulse)
@@ -80,6 +67,7 @@ export default function ExpoContent() {
   const {
     history: expoHistory,
     isLoading: historyLoading,
+    error: historyError,
     refresh: refreshHistory,
   } = useExpoHistory({ locationId, enabled: activeTab === 'history' });
 
@@ -322,16 +310,7 @@ export default function ExpoContent() {
         </div>
       </div>
 
-      {/* Location mismatch warning */}
-      {locationFellBack && (
-        <div className="flex items-center gap-2 px-4 py-2 text-xs font-medium shrink-0"
-          style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', borderBottom: '1px solid rgba(239, 68, 68, 0.2)' }}>
-          <MapPin className="h-3.5 w-3.5 shrink-0" />
-          <span>
-            Location mismatch — URL location not found. Showing data for <strong>{resolvedLocationName}</strong>.
-          </span>
-        </div>
-      )}
+      <LocationBanner locationFellBack={locationFellBack} locationDefaulted={locationDefaulted} locationName={resolvedLocationName} />
 
       {/* Kitchen Behind banner */}
       <KitchenBehindBanner
@@ -397,6 +376,7 @@ export default function ExpoContent() {
           <ExpoHistoryPanel
             history={expoHistory}
             isLoading={historyLoading}
+            error={historyError}
             onRefresh={refreshHistory}
           />
         ) : (

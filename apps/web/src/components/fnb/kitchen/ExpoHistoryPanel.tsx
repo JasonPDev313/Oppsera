@@ -8,6 +8,7 @@ import { RefreshCw, Search } from 'lucide-react';
 interface ExpoHistoryPanelProps {
   history: ExpoHistory | null;
   isLoading: boolean;
+  error?: string | null;
   onRefresh: () => void;
 }
 
@@ -78,7 +79,7 @@ function HistoryRow({ ticket }: { ticket: ExpoHistoryTicket }) {
   );
 }
 
-export function ExpoHistoryPanel({ history, isLoading, onRefresh }: ExpoHistoryPanelProps) {
+export function ExpoHistoryPanel({ history, isLoading, error, onRefresh }: ExpoHistoryPanelProps) {
   const [search, setSearch] = useState('');
 
   const filteredTickets = useMemo(() => {
@@ -156,6 +157,16 @@ export function ExpoHistoryPanel({ history, isLoading, onRefresh }: ExpoHistoryP
           <div className="flex items-center justify-center h-32">
             <div className="h-6 w-6 border-2 rounded-full animate-spin"
               style={{ borderColor: 'var(--fnb-text-muted)', borderTopColor: 'var(--fnb-status-seated)' }} />
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center h-32 px-4">
+            <div className="text-center">
+              <p className="text-sm" style={{ color: 'var(--fnb-status-dirty)' }}>{error}</p>
+              <button type="button" onClick={onRefresh}
+                className="mt-2 text-xs underline" style={{ color: 'var(--fnb-text-muted)' }}>
+                Retry
+              </button>
+            </div>
           </div>
         ) : !history?.tickets.length ? (
           <div className="flex items-center justify-center h-32">

@@ -23,7 +23,11 @@ vi.mock('@oppsera/db', () => {
 
 vi.mock('drizzle-orm', () => ({
   sql: Object.assign(
-    (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
+    (strings: TemplateStringsArray, ...values: unknown[]) => ({
+      strings,
+      values,
+      as: () => ({ strings, values, _alias: true }),
+    }),
     { join: vi.fn((values: unknown[]) => values) },
   ),
   eq: vi.fn(),
@@ -121,28 +125,82 @@ function setupCoreDataMocks() {
     ]);
 }
 
-// Cross-station mock execute (for the separate withTenant call)
-function createCrossStationExecute() {
+/**
+ * Build a Tier 2 mock tx. Tier 2 queries now run sequentially in ONE
+ * withTenant call with a single tx. The execute mock must handle:
+ *   1. cross-station "other stations" rows
+ *   2. cross-station "progress" rows
+ *   3. recently completed rows
+ *   4. served today count rows
+ * Upcoming courses uses Drizzle query builder (.select().from()...).
+ */
+function createTier2MockTx(opts?: {
+  crossStationOther?: Record<string, unknown>[];
+  crossStationProgress?: Record<string, unknown>[];
+  recentlyCompleted?: Record<string, unknown>[];
+  servedToday?: Record<string, unknown>[];
+  upcomingCourses?: Record<string, unknown>[];
+  failAt?: 'crossStation' | 'completed' | 'served' | 'upcoming';
+}) {
+  const o = opts ?? {};
   const exec = vi.fn();
-  exec
-    .mockResolvedValueOnce([]) // other stations
-    .mockResolvedValueOnce([
+
+  // 1 & 2: cross-station (two execute calls)
+  if (o.failAt === 'crossStation') {
+    exec.mockRejectedValueOnce(new Error('cross-station failure'));
+  } else {
+    exec.mockResolvedValueOnce(o.crossStationOther ?? []);
+    exec.mockResolvedValueOnce(o.crossStationProgress ?? [
       { ticket_id: 'ticket-1', total_order_items: 1, ready_order_items: 0 },
     ]);
-  return exec;
+  }
+
+  // 3: recently completed
+  if (o.failAt === 'completed') {
+    exec.mockRejectedValueOnce(new Error('completed failure'));
+  } else {
+    exec.mockResolvedValueOnce(o.recentlyCompleted ?? []);
+  }
+
+  // 4: served today
+  if (o.failAt === 'served') {
+    exec.mockRejectedValueOnce(new Error('served failure'));
+  } else {
+    exec.mockResolvedValueOnce(o.servedToday ?? [{ served_count: 0 }]);
+  }
+
+  // Upcoming courses uses Drizzle query builder — create rejection lazily
+  // to avoid unhandled promise rejection warnings
+  const drizzleChain = {
+    from: vi.fn().mockReturnThis(),
+    leftJoin: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockImplementation(() => {
+      if (o.failAt === 'upcoming') return Promise.reject(new Error('upcoming failure'));
+      return Promise.resolve(o.upcomingCourses ?? []);
+    }),
+  };
+
+  return {
+    execute: exec,
+    select: vi.fn().mockReturnValue(drizzleChain),
+  };
 }
 
-// Recently completed mock execute
-function createCompletedExecute() {
-  const exec = vi.fn().mockResolvedValueOnce([]);
-  return exec;
+/** Standard Tier 2 setup: one withTenant call for all enrichment queries */
+function setupTier2Mock(opts?: Parameters<typeof createTier2MockTx>[0]) {
+  mockWithTenant.mockImplementationOnce(
+    async (_tenantId: string, fn: (tx: unknown) => unknown) =>
+      fn(createTier2MockTx(opts)),
+  );
 }
 
-// Served today mock execute
-function createServedExecute() {
-  const exec = vi.fn().mockResolvedValueOnce([{ served_count: 0 }]);
-  return exec;
-}
+const DEFAULT_INPUT = {
+  tenantId: 'tenant-1',
+  stationId: 'station-1',
+  locationId: 'loc-1',
+  businessDate: '2026-03-13',
+};
 
 describe('getKdsView', () => {
   beforeEach(() => {
@@ -153,38 +211,15 @@ describe('getKdsView', () => {
   it('keeps active tickets visible when upcoming courses lookup fails', async () => {
     setupCoreDataMocks();
 
-    // Tier 1: core data (Drizzle query builder for station + raw SQL for tickets/items)
+    // Tier 1: core data
     mockWithTenant.mockImplementationOnce(
       async (_tenantId: string, fn: (tx: unknown) => unknown) =>
         fn(createMockTx(STATION_FIXTURE, mockExecute)),
     );
-    // Tier 2 calls (cross-station, completed, served, upcoming) — run in parallel
-    // Cross-station
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCrossStationExecute() }),
-    );
-    // Recently completed
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCompletedExecute() }),
-    );
-    // Served today
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createServedExecute() }),
-    );
-    // Upcoming courses — simulate DB error
-    mockWithTenant.mockRejectedValueOnce(
-      new Error('relation "fnb_tab_lines" does not exist'),
-    );
+    // Tier 2: upcoming courses fails
+    setupTier2Mock({ failAt: 'upcoming' });
 
-    const result = await getKdsView({
-      tenantId: 'tenant-1',
-      stationId: 'station-1',
-      locationId: 'loc-1',
-      businessDate: '2026-03-13',
-    });
+    const result = await getKdsView(DEFAULT_INPUT);
 
     // Core data must survive the upcomingCourses failure
     expect(result.stationId).toBe('station-1');
@@ -199,7 +234,6 @@ describe('getKdsView', () => {
       expect.objectContaining({
         tenantId: 'tenant-1',
         stationId: 'station-1',
-        locationId: 'loc-1',
         activeTabCount: 1,
       }),
     );
@@ -208,44 +242,26 @@ describe('getKdsView', () => {
   it('returns upcomingCourses when the secondary query succeeds', async () => {
     setupCoreDataMocks();
 
-    // Tier 1: core data (Drizzle query builder for station + raw SQL for tickets/items)
+    // Tier 1
     mockWithTenant.mockImplementationOnce(
       async (_tenantId: string, fn: (tx: unknown) => unknown) =>
         fn(createMockTx(STATION_FIXTURE, mockExecute)),
     );
-    // Cross-station
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCrossStationExecute() }),
-    );
-    // Recently completed
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCompletedExecute() }),
-    );
-    // Served today
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createServedExecute() }),
-    );
-    // Upcoming courses — success (Drizzle query builder bypasses callback)
-    mockWithTenant.mockResolvedValueOnce([
-      {
-        tabId: 'tab-1',
-        courseNumber: 2,
-        courseName: 'Desserts',
-        courseStatus: 'unsent',
-        tableNumber: 23,
-        itemCount: 2,
-      },
-    ]);
-
-    const result = await getKdsView({
-      tenantId: 'tenant-1',
-      stationId: 'station-1',
-      locationId: 'loc-1',
-      businessDate: '2026-03-13',
+    // Tier 2 with upcoming courses data
+    setupTier2Mock({
+      upcomingCourses: [
+        {
+          tabId: 'tab-1',
+          courseNumber: 2,
+          courseName: 'Desserts',
+          courseStatus: 'unsent',
+          tableNumber: 23,
+          itemCount: 2,
+        },
+      ],
     });
+
+    const result = await getKdsView(DEFAULT_INPUT);
 
     expect(result.upcomingCourses).toHaveLength(1);
     expect(result.upcomingCourses[0]).toEqual({
@@ -262,34 +278,15 @@ describe('getKdsView', () => {
   it('keeps tickets visible when cross-station query fails', async () => {
     setupCoreDataMocks();
 
-    // Tier 1: core data (Drizzle query builder for station + raw SQL for tickets/items)
+    // Tier 1
     mockWithTenant.mockImplementationOnce(
       async (_tenantId: string, fn: (tx: unknown) => unknown) =>
         fn(createMockTx(STATION_FIXTURE, mockExecute)),
     );
-    // Cross-station — fails
-    mockWithTenant.mockRejectedValueOnce(
-      new Error('connection terminated unexpectedly'),
-    );
-    // Recently completed — succeeds
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCompletedExecute() }),
-    );
-    // Served today — succeeds
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createServedExecute() }),
-    );
-    // Upcoming courses — succeeds (no active tabs that need it, but mock anyway)
-    mockWithTenant.mockResolvedValueOnce([]);
+    // Tier 2: cross-station fails
+    setupTier2Mock({ failAt: 'crossStation' });
 
-    const result = await getKdsView({
-      tenantId: 'tenant-1',
-      stationId: 'station-1',
-      locationId: 'loc-1',
-      businessDate: '2026-03-13',
-    });
+    const result = await getKdsView(DEFAULT_INPUT);
 
     // Tickets survive cross-station failure
     expect(result.tickets).toHaveLength(1);
@@ -316,27 +313,10 @@ describe('getKdsView', () => {
       async (_tenantId: string, fn: (tx: unknown) => unknown) =>
         fn(createMockTx(STATION_FIXTURE, mockExecute)),
     );
-    // Cross-station — succeeds
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCrossStationExecute() }),
-    );
-    // Recently completed — fails
-    mockWithTenant.mockRejectedValueOnce(new Error('statement timeout'));
-    // Served today — succeeds
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createServedExecute() }),
-    );
-    // Upcoming courses
-    mockWithTenant.mockResolvedValueOnce([]);
+    // Tier 2: completed fails
+    setupTier2Mock({ failAt: 'completed' });
 
-    const result = await getKdsView({
-      tenantId: 'tenant-1',
-      stationId: 'station-1',
-      locationId: 'loc-1',
-      businessDate: '2026-03-13',
-    });
+    const result = await getKdsView(DEFAULT_INPUT);
 
     expect(result.tickets).toHaveLength(1);
     expect(result.recentlyCompleted).toEqual([]);
@@ -355,24 +335,10 @@ describe('getKdsView', () => {
       async (_tenantId: string, fn: (tx: unknown) => unknown) =>
         fn(createMockTx(STATION_FIXTURE, mockExecute)),
     );
-    // Tier 2: no tickets → cross-station and upcoming skipped (Promise.resolve)
-    // Completed
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCompletedExecute() }),
-    );
-    // Served today
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createServedExecute() }),
-    );
+    // Tier 2: no tickets → cross-station and upcoming skipped, but withTenant still called
+    setupTier2Mock();
 
-    const result = await getKdsView({
-      tenantId: 'tenant-1',
-      stationId: 'station-1',
-      locationId: 'loc-1',
-      businessDate: '2026-03-13',
-    });
+    const result = await getKdsView(DEFAULT_INPUT);
 
     // Valid empty view
     expect(result.stationId).toBe('station-1');
@@ -423,25 +389,9 @@ describe('getKdsView', () => {
       async (_tenantId: string, fn: (tx: unknown) => unknown) =>
         fn(createMockTx(STATION_FIXTURE, mockExecute)),
     );
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCrossStationExecute() }),
-    );
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCompletedExecute() }),
-    );
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createServedExecute() }),
-    );
+    setupTier2Mock();
 
-    const result = await getKdsView({
-      tenantId: 'tenant-1',
-      stationId: 'station-1',
-      locationId: 'loc-1',
-      businessDate: '2026-03-13',
-    });
+    const result = await getKdsView(DEFAULT_INPUT);
 
     // Negative elapsed clamped to 0
     expect(result.tickets[0]?.elapsedSeconds).toBe(0);
@@ -452,7 +402,6 @@ describe('getKdsView', () => {
 
   it('handles null/undefined DB values with safe defaults', async () => {
     // Station with null displayName (falls back to name)
-    // Thresholds and rushMode are .notNull() in schema — Drizzle guarantees values
     const nullDisplayStation = {
       ...STATION_FIXTURE,
       displayName: null as string | null,
@@ -489,29 +438,13 @@ describe('getKdsView', () => {
       async (_tenantId: string, fn: (tx: unknown) => unknown) =>
         fn(createMockTx(nullDisplayStation, mockExecute)),
     );
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCrossStationExecute() }),
-    );
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCompletedExecute() }),
-    );
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createServedExecute() }),
-    );
+    setupTier2Mock();
 
-    const result = await getKdsView({
-      tenantId: 'tenant-1',
-      stationId: 'station-1',
-      locationId: 'loc-1',
-      businessDate: '2026-03-13',
-    });
+    const result = await getKdsView(DEFAULT_INPUT);
 
     // Station defaults
     expect(result.stationName).toBe('grill'); // falls back to name when displayName null
-    expect(result.warningThresholdSeconds).toBe(480); // .notNull() in schema
+    expect(result.warningThresholdSeconds).toBe(480);
     expect(result.criticalThresholdSeconds).toBe(720);
     expect(result.rushMode).toBe(false);
 
@@ -546,27 +479,10 @@ describe('getKdsView', () => {
       async (_tenantId: string, fn: (tx: unknown) => unknown) =>
         fn(createMockTx(STATION_FIXTURE, mockExecute)),
     );
-    // Cross-station — succeeds
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCrossStationExecute() }),
-    );
-    // Recently completed — succeeds
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCompletedExecute() }),
-    );
-    // Served today — fails
-    mockWithTenant.mockRejectedValueOnce(new Error('lock timeout'));
-    // Upcoming courses
-    mockWithTenant.mockResolvedValueOnce([]);
+    // Tier 2: served fails
+    setupTier2Mock({ failAt: 'served' });
 
-    const result = await getKdsView({
-      tenantId: 'tenant-1',
-      stationId: 'station-1',
-      locationId: 'loc-1',
-      businessDate: '2026-03-13',
-    });
+    const result = await getKdsView(DEFAULT_INPUT);
 
     // Core tickets survive
     expect(result.tickets).toHaveLength(1);
@@ -586,40 +502,17 @@ describe('getKdsView', () => {
       async (_tenantId: string, fn: (tx: unknown) => unknown) =>
         fn(createMockTx(STATION_FIXTURE, mockExecute)),
     );
-    // Cross-station — succeeds with real data
-    const crossExec = vi.fn();
-    crossExec
-      // "Also At" — ticket-1 also at station-2
-      .mockResolvedValueOnce([
+    // Tier 2 with cross-station data
+    setupTier2Mock({
+      crossStationOther: [
         { ticket_id: 'ticket-1', station_id: 'station-2', station_name: 'Fryer' },
-      ])
-      // Progress — 3 total items, 1 ready across all stations
-      .mockResolvedValueOnce([
+      ],
+      crossStationProgress: [
         { ticket_id: 'ticket-1', total_order_items: 3, ready_order_items: 1 },
-      ]);
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: crossExec }),
-    );
-    // Recently completed
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createCompletedExecute() }),
-    );
-    // Served today
-    mockWithTenant.mockImplementationOnce(
-      async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-        fn({ execute: createServedExecute() }),
-    );
-    // Upcoming courses
-    mockWithTenant.mockResolvedValueOnce([]);
-
-    const result = await getKdsView({
-      tenantId: 'tenant-1',
-      stationId: 'station-1',
-      locationId: 'loc-1',
-      businessDate: '2026-03-13',
+      ],
     });
+
+    const result = await getKdsView(DEFAULT_INPUT);
 
     const ticket = result.tickets[0]!;
     // Cross-station "Also At" populated

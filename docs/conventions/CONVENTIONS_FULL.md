@@ -12621,3 +12621,108 @@ GL adapters **never throw** — business operations (orders, tenders, voids) mus
 Journal entries track posting status: `pending → posted → failed`. Best-effort status updates — the GL entry is created first, status updated after. If the status update fails, the entry still exists and can be reconciled.
 
 
+## §255 Connection-Conserving Tiered Query Pattern
+
+**Problem:** High-frequency polled queries (e.g., KDS tablets every 5s) that use `Promise.allSettled` with multiple parallel `withTenant` calls exhaust the connection pool (`max: 2` on Vercel).
+
+**Pattern:** Split queries into two tiers:
+
+- **Tier 1 (core):** Required data in a single `withTenant`. Must succeed or the endpoint returns an error.
+- **Tier 2 (enrichment):** Optional data in a **single** sequential `withTenant`, each sub-query individually wrapped in `try/catch`. Failures degrade gracefully — core data is always returned.
+
+**Rules:**
+1. NEVER use `Promise.allSettled` with multiple `withTenant` calls for enrichment — each call claims a pool slot.
+2. All Tier 2 queries share ONE connection via a single `withTenant` with inner try/catch per query.
+3. Tier 2 failures populate `null` / empty defaults; the response shape stays consistent.
+4. Use rate-limited warning logs (`warnOnce(key, msg, meta)`) for Tier 2 failures to avoid log floods at poll frequency.
+
+**Reference:** `packages/modules/fnb/src/queries/get-kds-view.ts` — `getKdsView()` Tier 1 + Tier 2 structure.
+
+
+## §256 Pre-Transaction Routing with Atomic Commit (Fire/Send Path)
+
+**Problem:** Operations that both route items (catalog enrichment, station assignment) AND transition domain state (course status) risk "ghost sends" — the entity is marked `fired`/`sent` but no tickets exist if ticket creation fails.
+
+**Pattern:**
+1. **Pre-check:** Read-only status check outside the transaction (is course `unsent`?).
+2. **Pre-transaction routing:** Call enrichment/routing logic (catalog lookups, station routing, prep time resolution) entirely outside the write transaction.
+3. **Atomic commit:** Single `publishWithOutbox` transaction creates ALL station tickets + updates course status in one shot. Either everything commits or nothing does.
+4. **Post-transaction audit:** Record the dispatch attempt (success or failure) after the transaction completes.
+
+**Rules:**
+- Catalog enrichment and station routing are read-only and can safely run outside the transaction.
+- The write transaction MUST include both ticket creation AND course status update — never separate them.
+- If pre-transaction routing fails, the course status is unchanged and no tickets are created.
+
+**Reference:** `packages/modules/fnb/src/commands/fire-course.ts` — fire path with pre-transaction dispatch.
+
+
+## §257 Dispatch Attempt Tracking (Observability Table)
+
+**Problem:** Success-path tracking tables (e.g., `fnb_kds_send_tracking`) require a `ticket_id` and cannot log pre-ticket failures like routing errors or catalog enrichment failures.
+
+**Pattern:** Create a dedicated `_dispatch_attempts` table that records every dispatch attempt regardless of outcome:
+
+| Column | Purpose |
+|---|---|
+| `status` | `started`, `completed`, `routing_failed`, `ticket_create_failed`, `partial_commit_failed` |
+| `failure_stage` | Which phase failed: `preparation`, `routing`, `transaction` |
+| `diagnosis` | JSONB array of diagnostic messages collected during the attempt |
+| `errors` | JSONB array of serialized error details |
+| `duration_ms` | Wall-clock time of the entire attempt |
+| `prior_attempt_id` | Links retries into a chain (linked list of attempts) |
+| `source` | Dispatch trigger: `fnb_course_send`, `fnb_course_fire`, `fnb_course_resend` |
+
+**Index strategy:** Partial index on failure statuses only — efficient for failure dashboards, zero overhead on happy path.
+
+**Reference:** `packages/db/migrations/0315_kds_dispatch_attempts.sql`, `packages/modules/fnb/src/commands/dispatch-course-to-kds.ts`.
+
+
+## §258 Client-Side KDS Location Resolution and Structured Dispatch Errors
+
+### Location Resolution Priority Chain
+
+KDS/expo frontend screens must resolve `locationId` via a standardized priority chain using the `useKdsLocation` hook:
+
+1. **URL param** (`?locationId=...`) — validated against known locations
+2. **Terminal session** — `terminalSession.locationId`
+3. **First location** — `locations[0]` (silent fallback)
+4. **Fallback** — empty string (no location)
+
+The hook exposes two diagnostic flags:
+- **`locationFellBack`**: URL had a `locationId` that didn't match any known location (stale bookmark, wrong tenant). Surfaces an amber/red banner via `LocationBanner`.
+- **`locationDefaulted`**: No URL param, no terminal session, and tenant has multiple locations — the hook silently picked `locations[0]`. Surfaces an informational banner.
+
+**Rules:**
+1. All KDS/expo page components MUST use `useKdsLocation` — never inline `locations[0]` or `searchParams.get('locationId')` directly.
+2. KDS station nav links MUST include `?locationId=...` in the href to preserve location context across navigation.
+3. Pure helper functions (`resolveLocationId`, `computeLocationFellBack`, `computeLocationDefaulted`) are exported separately for unit testing without React.
+
+**Reference:** `apps/web/src/hooks/use-kds-location.ts`, `apps/web/src/components/fnb/kitchen/LocationBanner.tsx`.
+
+### Structured 422 Dispatch Errors
+
+When a fire/send operation fails at the KDS dispatch stage, the API returns HTTP 422 with a structured body:
+
+```json
+{
+  "error": { "code": "KDS_DISPATCH_FAILED", "message": "..." },
+  "kdsStatus": {
+    "state": "routing_failed",
+    "attemptId": "...",
+    "failureStage": "routing",
+    "diagnosis": [],
+    "errors": []
+  }
+}
+```
+
+**Client-side handling:** The frontend hook (`useFnbTab.fireCourse`) catches 422 responses and returns the dispatch result as a non-throwing warning rather than propagating an exception. The tab state is refreshed (course remains `unsent`), and the caller can surface the diagnosis to the user.
+
+**Rules:**
+1. Domain commands that wrap KDS dispatch MUST throw a typed error with `statusCode: 422` and a `dispatch` property containing the attempt result.
+2. API routes detect this error by duck-typing: `err.statusCode === 422 && 'dispatch' in err`.
+3. Frontend hooks MUST NOT throw on 422 dispatch failures — return the dispatch info so the UI can display it contextually.
+
+**Reference:** `apps/web/src/app/api/v1/fnb/tabs/[id]/course/fire/route.ts`, `apps/web/src/hooks/use-fnb-tab.ts`.
+

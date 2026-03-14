@@ -41,7 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_fnb_kds_dispatch_attempts_tab_course
 
 CREATE INDEX IF NOT EXISTS idx_fnb_kds_dispatch_attempts_status
   ON fnb_kds_dispatch_attempts (tenant_id, status)
-  WHERE status IN ('failed', 'partial');
+  WHERE status IN ('routing_failed', 'ticket_create_failed', 'partial_commit_failed');
 
 CREATE INDEX IF NOT EXISTS idx_fnb_kds_dispatch_attempts_location_date
   ON fnb_kds_dispatch_attempts (tenant_id, location_id, business_date);
@@ -57,6 +57,6 @@ DO $$ BEGIN
   ) THEN
     CREATE POLICY fnb_kds_dispatch_attempts_tenant_isolation
       ON fnb_kds_dispatch_attempts
-      USING (tenant_id = current_setting('app.tenant_id', true));
+      USING (tenant_id = current_setting('app.current_tenant_id', true));
   END IF;
 END $$;

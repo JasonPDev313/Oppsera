@@ -11,6 +11,8 @@ import type { SubNavItem } from '@/lib/navigation';
  * Fetches KDS stations for the given location and returns them as
  * SubNavItem[] for sidebar injection. Each active station becomes a
  * clickable nav link under Kitchen Display with a live ticket count badge.
+ * Includes locationId in links so the KDS page doesn't fall back to the
+ * wrong default location.
  */
 export function useKdsStationsForNav(locationId?: string): SubNavItem[] {
   const [stations, setStations] = useState<FnbStation[]>([]);
@@ -39,7 +41,9 @@ export function useKdsStationsForNav(locationId?: string): SubNavItem[] {
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((s) => ({
         name: s.displayName || s.name,
-        href: s.stationType === 'expo' ? '/expo' : `/kds/${s.id}`,
+        href: s.stationType === 'expo'
+          ? (locationId ? `/expo?locationId=${locationId}` : '/expo')
+          : `/kds/${s.id}${locationId ? `?locationId=${locationId}` : ''}`,
         icon: Monitor,
         requiredPermission: 'kds.view',
         badge: stationCounts.get(s.id) ?? 0,

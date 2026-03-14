@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
-import { useTerminalSession } from '@/components/terminal-session-provider';
 import { apiFetch } from '@/lib/api-client';
+import { useKdsLocation } from '@/hooks/use-kds-location';
+import { LocationBanner } from '@/components/fnb/kitchen/LocationBanner';
 import { SearchInput } from '@/components/ui/search-input';
 import { ReportFilterBar } from '@/components/reports/report-filter-bar';
 import { useReportFilters } from '@/hooks/use-report-filters';
@@ -107,40 +107,14 @@ function KpiCard({ label, value, icon: Icon, accent }: {
 // ── Main Component ───────────────────────────────────────────────
 
 export default function KdsOrderStatusContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { locations } = useAuthContext();
-  const { session: terminalSession } = useTerminalSession();
-
   // Date range filters (for history/all tabs)
   const dateFilters = useReportFilters({ defaultPreset: 'last_7_days' });
 
-  // Resolve location: URL param > terminal session > first available
-  const [locationId, setLocationId] = useState(() => {
-    const fromUrl = searchParams.get('locationId');
-    if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
-    return terminalSession?.locationId ?? locations?.[0]?.id;
-  });
-  // Detect if the URL had a locationId that didn't match any known location
-  const locationFellBack = (() => {
-    const fromUrl = searchParams.get('locationId');
-    return fromUrl !== null && !locations?.some((l) => l.id === fromUrl);
-  })();
-  const resolvedLocationName = locations?.find((l) => l.id === locationId)?.name;
-  const changeLocation = useCallback((newId: string) => {
-    setLocationId(newId);
-    router.replace(`/kds/order-status?locationId=${newId}`, { scroll: false });
-  }, [router]);
-
-  useEffect(() => {
-    if (!locationId) {
-      const fromUrl = searchParams.get('locationId');
-      const match = fromUrl && locations?.some((l) => l.id === fromUrl)
-        ? fromUrl
-        : terminalSession?.locationId ?? locations?.[0]?.id;
-      if (match) setLocationId(match);
-    }
-  }, [locationId, locations, searchParams, terminalSession?.locationId]);
+  const {
+    locationId, resolvedLocationName, locationFellBack, locationDefaulted,
+    changeLocation,
+  } = useKdsLocation({ basePath: '/kds/order-status' });
 
   const [tab, setTab] = useState<Tab>('active');
   const [sends, setSends] = useState<KdsSendListItem[]>([]);
@@ -464,7 +438,7 @@ export default function KdsOrderStatusContent() {
           preset={dateFilters.preset}
           onDateChange={dateFilters.setDateRange}
           locationId={locationId ?? ''}
-          onLocationChange={setLocationId}
+          onLocationChange={changeLocation}
           locations={locations ?? []}
           isLoading={isLoading}
           onRefresh={() => fetchSends(true)}
@@ -473,16 +447,7 @@ export default function KdsOrderStatusContent() {
         />
       )}
 
-      {/* Location mismatch warning */}
-      {locationFellBack && (
-        <div className="flex items-center gap-2 px-6 py-2 text-xs font-medium"
-          style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', borderBottom: '1px solid rgba(239, 68, 68, 0.2)' }}>
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          <span>
-            Location mismatch — URL location not found. Showing data for <strong>{resolvedLocationName}</strong>.
-          </span>
-        </div>
-      )}
+      <LocationBanner locationFellBack={locationFellBack} locationDefaulted={locationDefaulted} locationName={resolvedLocationName} className="px-6" />
 
       {/* Filters row */}
       <div className="border-b border-border px-6 py-3">

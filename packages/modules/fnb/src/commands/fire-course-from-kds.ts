@@ -114,9 +114,17 @@ export async function fireCourseFromKds(
     const now = new Date();
     const events: ReturnType<typeof buildEventFromContext>[] = [];
 
-    // If course was unsent, mark it as sent first (with optimistic lock)
+    // If course is unsent when fired from KDS, something is wrong — tickets
+    // should only exist for sent/fired courses with atomic dispatch. Log a
+    // critical warning but proceed with the fire to avoid blocking KDS ops.
     let currentStatus = course.courseStatus;
     if (currentStatus === 'unsent') {
+      logger.error('[kds] fireCourseFromKds: course is unsent but ticket exists — ' +
+        'this indicates a code path bypassed the atomic dispatcher', {
+        domain: 'kds', tenantId: ctx.tenantId, tabId, courseNumber,
+        ticketId: input.ticketId,
+      });
+
       const [sent] = await tx
         .update(fnbTabCourses)
         .set({ courseStatus: 'sent', sentAt: now, updatedAt: now })
@@ -129,11 +137,8 @@ export async function fireCourseFromKds(
       if (!sent) throw new CourseStatusConflictError(courseNumber, 'unsent', 'fire from KDS (concurrent)');
       currentStatus = 'sent';
 
-      events.push(buildEventFromContext(ctx, FNB_EVENTS.COURSE_SENT, {
-        tabId,
-        locationId: tab.locationId,
-        courseNumber,
-      }));
+      // No COURSE_SENT event — consumer is verification-only now.
+      // Tickets should already exist if we got here from a KDS ticket action.
     }
 
     // Fire the course (with optimistic lock)

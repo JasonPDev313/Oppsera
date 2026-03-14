@@ -74,7 +74,11 @@ vi.mock('@oppsera/db', () => {
 
 vi.mock('drizzle-orm', () => ({
   sql: Object.assign(
-    (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
+    (strings: TemplateStringsArray, ...values: unknown[]) => ({
+      strings,
+      values,
+      as: () => ({ strings, values, _alias: true }),
+    }),
     { join: vi.fn((values: unknown[]) => values), raw: vi.fn((s: string) => s) },
   ),
   eq: vi.fn((_col: unknown, val: unknown) => ({ _tag: 'eq', val })),
@@ -124,7 +128,7 @@ const mockRecordDispatchAttempt = vi.fn(async () => 'attempt-1');
 
 vi.mock('../commands/dispatch-course-to-kds', () => ({
   prepareCourseDispatch: (...args: unknown[]) => mockPrepareCourseDispatch(...args),
-  recordDispatchAttempt: (...args: unknown[]) => mockRecordDispatchAttempt(),
+  recordDispatchAttempt: (..._args: unknown[]) => mockRecordDispatchAttempt(),
   emptyDispatchResult: () => ({
     attemptId: null, status: 'started', failureStage: null,
     ticketsCreated: 0, ticketsFailed: 0, itemsRouted: 0, itemsUnrouted: 0,
@@ -187,31 +191,39 @@ function createKdsTx(execute: ReturnType<typeof vi.fn>) {
   };
 }
 
-/** Mock a full KDS view Tier-2 (cross-station, completed, served-today, upcoming) with happy-path data. */
+/**
+ * Mock a full KDS view Tier-2 (cross-station, completed, served-today, upcoming)
+ * with happy-path data. All Tier 2 queries run sequentially inside ONE withTenant
+ * call, so we set up a single mock tx with sequential execute + select returns.
+ */
 function setupKdsTier2(ticketId: string, status: string) {
-  // Cross-station: no other stations for simplicity
+  const tier2Execute = vi.fn()
+    // 1. cross-station: other stations (empty)
+    .mockResolvedValueOnce([])
+    // 2. cross-station: progress
+    .mockResolvedValueOnce([
+      { ticket_id: ticketId, total_order_items: 1, ready_order_items: status === 'ready' ? 1 : 0 },
+    ])
+    // 3. recently completed (empty)
+    .mockResolvedValueOnce([])
+    // 4. served today count
+    .mockResolvedValueOnce([{ served_count: 0 }]);
+
+  // Upcoming courses uses Drizzle query builder (.select().from()...orderBy())
+  const drizzleChain = {
+    from: vi.fn().mockReturnThis(),
+    leftJoin: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockResolvedValue([]),
+  };
+
   mockWithTenant.mockImplementationOnce(
     async (_tenantId: string, fn: (tx: unknown) => unknown) =>
       fn({
-        execute: vi.fn()
-          .mockResolvedValueOnce([]) // other stations
-          .mockResolvedValueOnce([
-            { ticket_id: ticketId, total_order_items: 1, ready_order_items: status === 'ready' ? 1 : 0 },
-          ]),
+        execute: tier2Execute,
+        select: vi.fn().mockReturnValue(drizzleChain),
       }),
   );
-  // Recently completed: empty (still active)
-  mockWithTenant.mockImplementationOnce(
-    async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-      fn({ execute: vi.fn().mockResolvedValueOnce([]) }),
-  );
-  // Served today count: 0
-  mockWithTenant.mockImplementationOnce(
-    async (_tenantId: string, fn: (tx: unknown) => unknown) =>
-      fn({ execute: vi.fn().mockResolvedValueOnce([{ served_count: 0 }]) }),
-  );
-  // Upcoming courses: resolved directly (no active tabs after bump, but still mock it)
-  mockWithTenant.mockResolvedValueOnce([]);
 }
 
 // ── Integration test ──────────────────────────────────────────────────────────

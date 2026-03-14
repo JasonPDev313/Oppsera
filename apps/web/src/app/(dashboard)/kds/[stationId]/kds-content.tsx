@@ -123,7 +123,7 @@ export default function KdsContent() {
     isActing,
     refresh,
     lastRefreshedAt,
-  } = useKdsView({ stationId, locationId, businessDate, pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
+  } = useKdsView({ stationId, locationId, businessDate, pollIntervalMs: isPaused ? PAUSED_INTERVAL : 8000 });
 
   const {
     historyView,

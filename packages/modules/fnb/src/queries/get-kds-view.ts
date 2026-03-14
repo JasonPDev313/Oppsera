@@ -1,5 +1,6 @@
 import { sql, eq, and, inArray } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
+import type { Database } from '@oppsera/db';
 import { fnbKitchenStations, fnbTabCourses, fnbTabItems, fnbTabs, fnbTables } from '@oppsera/db';
 import { logger } from '@oppsera/core/observability';
 import type { GetKdsViewInput } from '../validation';
@@ -170,197 +171,170 @@ export interface KdsView {
 }
 
 // ── Tier 2 helpers ─────────────────────────────────────────────────
-// Each runs in its own withTenant (separate Postgres transaction) so a
-// failure in any enrichment query cannot poison the core ticket data.
+// "InTx" variants accept an existing transaction to share a single
+// pooled connection. The old standalone versions are kept for the
+// function signatures but are no longer called from getKdsView.
 
 interface CrossStationData {
   stationsByTicket: Map<string, { stationId: string; stationName: string }[]>;
   progressByTicket: Map<string, { total: number; ready: number }>;
 }
 
-async function fetchCrossStationData(
+// ── InTx variants (shared connection) ─────────────────────────────
+
+async function fetchCrossStationDataInTx(
+  tx: Database,
   tenantId: string,
   stationId: string,
   ticketIds: string[],
 ): Promise<CrossStationData> {
-  return withTenant(tenantId, async (tx) => {
-    // "Also At" — which other stations have items for the same order
-    const otherStationRows = await tx.execute(
-      sql`SELECT DISTINCT kt_this.id AS ticket_id,
-                 kti_other.station_id, ks.display_name AS station_name
-          FROM fnb_kitchen_tickets kt_this
-          INNER JOIN fnb_kitchen_tickets kt_sibling
-            ON kt_sibling.tenant_id = kt_this.tenant_id
-            AND kt_sibling.location_id = kt_this.location_id
-            AND kt_sibling.business_date = kt_this.business_date
-            AND kt_sibling.id != kt_this.id
-            AND kt_sibling.status NOT IN ('voided', 'served')
-            AND (
-              (kt_sibling.order_id IS NOT NULL AND kt_sibling.order_id = kt_this.order_id)
-              OR (kt_sibling.tab_id IS NOT NULL AND kt_sibling.tab_id = kt_this.tab_id)
-            )
-          INNER JOIN fnb_kitchen_ticket_items kti_other
-            ON kti_other.ticket_id = kt_sibling.id
-            AND kti_other.station_id != ${stationId}
-            AND kti_other.item_status NOT IN ('served', 'voided')
-          INNER JOIN fnb_kitchen_stations ks
-            ON ks.id = kti_other.station_id AND ks.tenant_id = ${tenantId}
-          WHERE kt_this.id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})`,
-    );
-    const stationsByTicket = new Map<string, { stationId: string; stationName: string }[]>();
-    for (const row of Array.from(otherStationRows as Iterable<Record<string, unknown>>)) {
-      const tid = row.ticket_id as string;
-      if (!stationsByTicket.has(tid)) stationsByTicket.set(tid, []);
-      const existing = stationsByTicket.get(tid)!;
-      if (!existing.some((s) => s.stationId === (row.station_id as string))) {
-        existing.push({
-          stationId: row.station_id as string,
-          stationName: (row.station_name as string) ?? 'Unknown',
-        });
-      }
-    }
-
-    // Cross-station order progress: total/ready items across ALL stations
-    const progressRows = await tx.execute(
-      sql`SELECT kt_this.id AS ticket_id,
-                 COUNT(kti_all.id)::integer AS total_order_items,
-                 COUNT(kti_all.id) FILTER (WHERE kti_all.item_status IN ('ready', 'served'))::integer AS ready_order_items
-          FROM fnb_kitchen_tickets kt_this
-          INNER JOIN fnb_kitchen_tickets kt_related
-            ON kt_related.tenant_id = kt_this.tenant_id
-            AND kt_related.location_id = kt_this.location_id
-            AND kt_related.status NOT IN ('voided')
-            AND (
-              (kt_related.order_id IS NOT NULL AND kt_related.order_id = kt_this.order_id)
-              OR (kt_related.tab_id IS NOT NULL AND kt_related.tab_id = kt_this.tab_id)
-            )
-          INNER JOIN fnb_kitchen_ticket_items kti_all
-            ON kti_all.ticket_id = kt_related.id
-            AND kti_all.item_status != 'voided'
-          WHERE kt_this.id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})
-          GROUP BY kt_this.id`,
-    );
-    const progressByTicket = new Map<string, { total: number; ready: number }>();
-    for (const row of Array.from(progressRows as Iterable<Record<string, unknown>>)) {
-      progressByTicket.set(row.ticket_id as string, {
-        total: safeNum(row.total_order_items),
-        ready: safeNum(row.ready_order_items),
+  const otherStationRows = await tx.execute(
+    sql`SELECT DISTINCT kt_this.id AS ticket_id,
+               kti_other.station_id, ks.display_name AS station_name
+        FROM fnb_kitchen_tickets kt_this
+        INNER JOIN fnb_kitchen_tickets kt_sibling
+          ON kt_sibling.tenant_id = kt_this.tenant_id
+          AND kt_sibling.location_id = kt_this.location_id
+          AND kt_sibling.business_date = kt_this.business_date
+          AND kt_sibling.id != kt_this.id
+          AND kt_sibling.status NOT IN ('voided', 'served')
+          AND (
+            (kt_sibling.order_id IS NOT NULL AND kt_sibling.order_id = kt_this.order_id)
+            OR (kt_sibling.tab_id IS NOT NULL AND kt_sibling.tab_id = kt_this.tab_id)
+          )
+        INNER JOIN fnb_kitchen_ticket_items kti_other
+          ON kti_other.ticket_id = kt_sibling.id
+          AND kti_other.station_id != ${stationId}
+          AND kti_other.item_status NOT IN ('served', 'voided')
+        INNER JOIN fnb_kitchen_stations ks
+          ON ks.id = kti_other.station_id AND ks.tenant_id = ${tenantId}
+        WHERE kt_this.id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})`,
+  );
+  const stationsByTicket = new Map<string, { stationId: string; stationName: string }[]>();
+  for (const row of Array.from(otherStationRows as Iterable<Record<string, unknown>>)) {
+    const tid = row.ticket_id as string;
+    if (!stationsByTicket.has(tid)) stationsByTicket.set(tid, []);
+    const existing = stationsByTicket.get(tid)!;
+    if (!existing.some((s) => s.stationId === (row.station_id as string))) {
+      existing.push({
+        stationId: row.station_id as string,
+        stationName: (row.station_name as string) ?? 'Unknown',
       });
     }
+  }
 
-    return { stationsByTicket, progressByTicket };
-  });
+  const progressRows = await tx.execute(
+    sql`SELECT kt_this.id AS ticket_id,
+               COUNT(kti_all.id)::integer AS total_order_items,
+               COUNT(kti_all.id) FILTER (WHERE kti_all.item_status IN ('ready', 'served'))::integer AS ready_order_items
+        FROM fnb_kitchen_tickets kt_this
+        INNER JOIN fnb_kitchen_tickets kt_related
+          ON kt_related.tenant_id = kt_this.tenant_id
+          AND kt_related.location_id = kt_this.location_id
+          AND kt_related.status NOT IN ('voided')
+          AND (
+            (kt_related.order_id IS NOT NULL AND kt_related.order_id = kt_this.order_id)
+            OR (kt_related.tab_id IS NOT NULL AND kt_related.tab_id = kt_this.tab_id)
+          )
+        INNER JOIN fnb_kitchen_ticket_items kti_all
+          ON kti_all.ticket_id = kt_related.id
+          AND kti_all.item_status != 'voided'
+        WHERE kt_this.id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})
+        GROUP BY kt_this.id`,
+  );
+  const progressByTicket = new Map<string, { total: number; ready: number }>();
+  for (const row of Array.from(progressRows as Iterable<Record<string, unknown>>)) {
+    progressByTicket.set(row.ticket_id as string, {
+      total: safeNum(row.total_order_items),
+      ready: safeNum(row.ready_order_items),
+    });
+  }
+
+  return { stationsByTicket, progressByTicket };
 }
 
-async function fetchRecentlyCompleted(
+async function fetchRecentlyCompletedInTx(
+  tx: Database,
   tenantId: string,
   locationId: string,
   stationId: string,
   businessDate: string,
 ): Promise<KdsCompletedTicket[]> {
-  return withTenant(tenantId, async (tx) => {
-    const completedRows = await tx.execute(
-      sql`SELECT kt.id, kt.ticket_number, kt.table_number, kt.server_name,
-                 COUNT(kti.id)::integer AS item_count,
-                 COALESCE(MAX(kti.served_at), MAX(kti.ready_at)) AS completed_at,
-                 EXTRACT(EPOCH FROM (NOW() - COALESCE(MAX(kti.served_at), MAX(kti.ready_at))))::integer AS completed_seconds_ago
-          FROM fnb_kitchen_tickets kt
-          INNER JOIN fnb_kitchen_ticket_items kti
-            ON kti.ticket_id = kt.id AND kti.station_id = ${stationId}
-          WHERE kt.tenant_id = ${tenantId}
-            AND kt.location_id = ${locationId}
-            AND kt.business_date = ${businessDate}
-            AND kti.item_status IN ('ready', 'served')
-            AND NOT EXISTS (
-              SELECT 1 FROM fnb_kitchen_ticket_items kti2
-              WHERE kti2.ticket_id = kt.id
-                AND kti2.station_id = ${stationId}
-                AND kti2.item_status NOT IN ('ready', 'served', 'voided')
-            )
-          GROUP BY kt.id
-          ORDER BY COALESCE(MAX(kti.served_at), MAX(kti.ready_at)) DESC NULLS LAST
-          LIMIT 20`,
-    );
-    return Array.from(completedRows as Iterable<Record<string, unknown>>).map((r) => ({
-      ticketId: r.id as string,
-      ticketNumber: safeNum(r.ticket_number),
-      tableNumber: r.table_number != null ? safeNum(r.table_number) : null,
-      serverName: (r.server_name as string) ?? null,
-      itemCount: safeNum(r.item_count),
-      completedAt: (r.completed_at as string) ?? '',
-      completedSecondsAgo: clampNonNeg(safeNum(r.completed_seconds_ago)),
-    }));
-  });
+  const completedRows = await tx.execute(
+    sql`SELECT kt.id, kt.ticket_number, kt.table_number, kt.server_name,
+               COUNT(kti.id)::integer AS item_count,
+               COALESCE(MAX(kti.served_at), MAX(kti.ready_at)) AS completed_at,
+               EXTRACT(EPOCH FROM (NOW() - COALESCE(MAX(kti.served_at), MAX(kti.ready_at))))::integer AS completed_seconds_ago
+        FROM fnb_kitchen_tickets kt
+        INNER JOIN fnb_kitchen_ticket_items kti
+          ON kti.ticket_id = kt.id AND kti.station_id = ${stationId}
+        WHERE kt.tenant_id = ${tenantId}
+          AND kt.location_id = ${locationId}
+          AND kt.business_date = ${businessDate}
+          AND kti.item_status IN ('ready', 'served')
+          AND NOT EXISTS (
+            SELECT 1 FROM fnb_kitchen_ticket_items kti2
+            WHERE kti2.ticket_id = kt.id
+              AND kti2.station_id = ${stationId}
+              AND kti2.item_status NOT IN ('ready', 'served', 'voided')
+          )
+        GROUP BY kt.id
+        ORDER BY COALESCE(MAX(kti.served_at), MAX(kti.ready_at)) DESC NULLS LAST
+        LIMIT 20`,
+  );
+  return Array.from(completedRows as Iterable<Record<string, unknown>>).map((r) => ({
+    ticketId: r.id as string,
+    ticketNumber: safeNum(r.ticket_number),
+    tableNumber: r.table_number != null ? safeNum(r.table_number) : null,
+    serverName: (r.server_name as string) ?? null,
+    itemCount: safeNum(r.item_count),
+    completedAt: (r.completed_at as string) ?? '',
+    completedSecondsAgo: clampNonNeg(safeNum(r.completed_seconds_ago)),
+  }));
 }
 
-async function fetchServedTodayCount(
-  tenantId: string,
-  locationId: string,
-  stationId: string,
-  businessDate: string,
-): Promise<number> {
-  return withTenant(tenantId, async (tx) => {
-    const servedCountRows = await tx.execute(
-      sql`SELECT COUNT(DISTINCT kt.id)::integer AS served_count
-          FROM fnb_kitchen_tickets kt
-          WHERE kt.tenant_id = ${tenantId}
-            AND kt.location_id = ${locationId}
-            AND kt.business_date = ${businessDate}
-            AND kt.status IN ('served', 'ready')
-            AND EXISTS (
-              SELECT 1 FROM fnb_kitchen_ticket_items kti
-              WHERE kti.ticket_id = kt.id AND kti.station_id = ${stationId}
-            )`,
-    );
-    return safeNum(
-      (Array.from(servedCountRows as Iterable<Record<string, unknown>>)[0]?.served_count),
-    );
-  });
-}
-
-async function fetchUpcomingCourses(
+async function fetchUpcomingCoursesInTx(
+  tx: Database,
   tenantId: string,
   activeTabIds: string[],
 ): Promise<KdsUpcomingCourse[]> {
-  const courseRows = await withTenant(tenantId, (tx) =>
-    tx
-      .select({
-        tabId: fnbTabCourses.tabId,
-        courseNumber: fnbTabCourses.courseNumber,
-        courseName: fnbTabCourses.courseName,
-        courseStatus: fnbTabCourses.courseStatus,
-        tableNumber: fnbTables.tableNumber,
-        itemCount:
-          sql<number>`(SELECT COUNT(*)::integer FROM ${fnbTabItems}
-            WHERE ${fnbTabItems.tabId} = ${fnbTabCourses.tabId}
-              AND ${fnbTabItems.courseNumber} = ${fnbTabCourses.courseNumber}
-              AND ${fnbTabItems.tenantId} = ${fnbTabCourses.tenantId}
-              AND ${fnbTabItems.status} != 'voided')`.as('item_count'),
-      })
-      .from(fnbTabCourses)
-      .leftJoin(
-        fnbTabs,
-        and(
-          eq(fnbTabs.id, fnbTabCourses.tabId),
-          eq(fnbTabs.tenantId, fnbTabCourses.tenantId),
-        ),
-      )
-      .leftJoin(
-        fnbTables,
-        and(
-          eq(fnbTables.id, fnbTabs.tableId),
-          eq(fnbTables.tenantId, fnbTabs.tenantId),
-        ),
-      )
-      .where(
-        and(
-          eq(fnbTabCourses.tenantId, tenantId),
-          inArray(fnbTabCourses.courseStatus, ['unsent', 'sent', 'held']),
-          inArray(fnbTabCourses.tabId, activeTabIds),
-        ),
-      )
-      .orderBy(fnbTabCourses.tabId, fnbTabCourses.courseNumber),
-  );
+  const courseRows = await tx
+    .select({
+      tabId: fnbTabCourses.tabId,
+      courseNumber: fnbTabCourses.courseNumber,
+      courseName: fnbTabCourses.courseName,
+      courseStatus: fnbTabCourses.courseStatus,
+      tableNumber: fnbTables.tableNumber,
+      itemCount:
+        sql<number>`(SELECT COUNT(*)::integer FROM ${fnbTabItems}
+          WHERE ${fnbTabItems.tabId} = ${fnbTabCourses.tabId}
+            AND ${fnbTabItems.courseNumber} = ${fnbTabCourses.courseNumber}
+            AND ${fnbTabItems.tenantId} = ${fnbTabCourses.tenantId}
+            AND ${fnbTabItems.status} != 'voided')`.as('item_count'),
+    })
+    .from(fnbTabCourses)
+    .leftJoin(
+      fnbTabs,
+      and(
+        eq(fnbTabs.id, fnbTabCourses.tabId),
+        eq(fnbTabs.tenantId, fnbTabCourses.tenantId),
+      ),
+    )
+    .leftJoin(
+      fnbTables,
+      and(
+        eq(fnbTables.id, fnbTabs.tableId),
+        eq(fnbTables.tenantId, fnbTabs.tenantId),
+      ),
+    )
+    .where(
+      and(
+        eq(fnbTabCourses.tenantId, tenantId),
+        inArray(fnbTabCourses.courseStatus, ['unsent', 'sent', 'held']),
+        inArray(fnbTabCourses.tabId, activeTabIds),
+      ),
+    )
+    .orderBy(fnbTabCourses.tabId, fnbTabCourses.courseNumber);
   return courseRows.map((r) => ({
     tabId: r.tabId,
     courseNumber: r.courseNumber,
@@ -391,12 +365,11 @@ export async function getKdsView(
   input: GetKdsViewInput,
 ): Promise<KdsView> {
   // ── Tier 1: core ticket data (must succeed or KDS is dark) ──
-  if (!input.locationId) {
-    throw new StationNotFoundError(input.stationId);
-  }
-  const resolvedLocationId = input.locationId;
-
   const coreData = await withTenant(input.tenantId, async (tx) => {
+    // Look up station by id + tenantId only — the station knows its own
+    // location. Filtering by the caller's locationId caused "ghost empty"
+    // when the frontend fell back to the wrong location (e.g. first in
+    // the user's location list instead of the station's actual location).
     const stationArr = await tx
       .select({
         id: fnbKitchenStations.id,
@@ -414,13 +387,15 @@ export async function getKdsView(
         and(
           eq(fnbKitchenStations.id, input.stationId),
           eq(fnbKitchenStations.tenantId, input.tenantId),
-          eq(fnbKitchenStations.locationId, resolvedLocationId),
         ),
       )
       .limit(1);
     const station = stationArr[0];
     if (!station) throw new StationNotFoundError(input.stationId);
     if (station.stationType === 'expo') throw new ExpoStationError(input.stationId);
+
+    // Use the station's own locationId for ticket queries — authoritative.
+    const resolvedLocationId = station.locationId;
 
     // Active tickets with items at this station.
     // No business_date filter — tickets persist until bumped or voided.
@@ -550,92 +525,119 @@ export async function getKdsView(
       station,
       ticketCards,
       activeTabIds: [...new Set(ticketCards.map((c) => c.tabId).filter(Boolean))],
+      resolvedLocationId,
     };
   });
+
+  const resolvedLocationId = coreData.resolvedLocationId;
 
   // Log empty views for debugging — no DB hit, just params
   if (coreData.ticketCards.length === 0) {
     logEmptyView(input, resolvedLocationId);
   }
 
-  // ── Tier 2: enrichment queries (best-effort, parallel, isolated) ──
-  // Each helper runs in its own withTenant (separate Postgres transaction).
-  // Promise.allSettled ensures a failure in any one cannot affect the others
-  // or the core ticket data above.
+  // ── Tier 2: enrichment queries (best-effort, sequential, ONE connection) ──
+  // All Tier 2 queries run inside a single withTenant to share one pooled
+  // connection (pool max:2 on Vercel). Each sub-query has its own try/catch
+  // so a failure in one cannot affect the others or the core ticket data.
 
   const ticketIds = coreData.ticketCards.map((c) => c.ticketId);
   const hasTickets = ticketIds.length > 0;
   const hasActiveTabs = coreData.activeTabIds.length > 0;
 
-  const [crossStationResult, completedResult, servedResult, coursesResult] =
-    await Promise.allSettled([
-      hasTickets
-        ? fetchCrossStationData(input.tenantId, input.stationId, ticketIds)
-        : Promise.resolve({ stationsByTicket: new Map(), progressByTicket: new Map() } as CrossStationData),
-      fetchRecentlyCompleted(input.tenantId, resolvedLocationId, input.stationId, input.businessDate),
-      fetchServedTodayCount(input.tenantId, resolvedLocationId, input.stationId, input.businessDate),
-      hasActiveTabs
-        ? fetchUpcomingCourses(input.tenantId, coreData.activeTabIds)
-        : Promise.resolve([] as KdsUpcomingCourse[]),
-    ]);
-
-  // Apply cross-station enrichment (or safe defaults)
-  if (crossStationResult.status === 'fulfilled') {
-    const { stationsByTicket, progressByTicket } = crossStationResult.value;
-    for (const card of coreData.ticketCards) {
-      card.otherStations = stationsByTicket.get(card.ticketId) ?? [];
-      const progress = progressByTicket.get(card.ticketId);
-      if (progress) {
-        card.totalOrderItems = progress.total;
-        card.totalOrderReadyItems = progress.ready;
-      }
-    }
-  } else {
-    warnOnce(
-      `cross-station:${input.stationId}`,
-      '[kds] getKdsView: cross-station query failed — showing tickets without cross-station data',
-      { domain: 'kds', tenantId: input.tenantId, stationId: input.stationId,
-        error: { message: crossStationResult.reason instanceof Error ? crossStationResult.reason.message : String(crossStationResult.reason) } },
-    );
-  }
-
-  // Recently completed (fallback: empty list)
+  // ── Tier 2: enrichment queries (best-effort, ONE connection) ──────
+  // All Tier 2 queries now run sequentially inside a single withTenant
+  // so they share ONE pooled connection instead of 4 concurrent ones.
+  // This prevents pool exhaustion when multiple KDS tablets poll
+  // simultaneously (pool max:2 on Vercel).
   let recentlyCompleted: KdsCompletedTicket[] = [];
-  if (completedResult.status === 'fulfilled') {
-    recentlyCompleted = completedResult.value;
-  } else {
-    warnOnce(
-      `completed:${input.stationId}`,
-      '[kds] getKdsView: recently-completed query failed — continuing without history',
-      { domain: 'kds', tenantId: input.tenantId, stationId: input.stationId,
-        error: { message: completedResult.reason instanceof Error ? completedResult.reason.message : String(completedResult.reason) } },
-    );
-  }
-
-  // Served today count (fallback: 0)
   let servedTodayCount = 0;
-  if (servedResult.status === 'fulfilled') {
-    servedTodayCount = servedResult.value;
-  } else {
-    warnOnce(
-      `served:${input.stationId}`,
-      '[kds] getKdsView: served-today query failed — showing 0',
-      { domain: 'kds', tenantId: input.tenantId, stationId: input.stationId,
-        error: { message: servedResult.reason instanceof Error ? servedResult.reason.message : String(servedResult.reason) } },
-    );
-  }
-
-  // Upcoming courses (fallback: empty list)
   let upcomingCourses: KdsUpcomingCourse[] = [];
-  if (coursesResult.status === 'fulfilled') {
-    upcomingCourses = coursesResult.value;
-  } else {
+
+  try {
+    await withTenant(input.tenantId, async (tx) => {
+      // Cross-station data
+      if (hasTickets) {
+        try {
+          const crossStation = await fetchCrossStationDataInTx(tx, input.tenantId, input.stationId, ticketIds);
+          for (const card of coreData.ticketCards) {
+            card.otherStations = crossStation.stationsByTicket.get(card.ticketId) ?? [];
+            const progress = crossStation.progressByTicket.get(card.ticketId);
+            if (progress) {
+              card.totalOrderItems = progress.total;
+              card.totalOrderReadyItems = progress.ready;
+            }
+          }
+        } catch (err) {
+          warnOnce(
+            `cross-station:${input.stationId}`,
+            '[kds] getKdsView: cross-station query failed — showing tickets without cross-station data',
+            { domain: 'kds', tenantId: input.tenantId, stationId: input.stationId,
+              error: { message: err instanceof Error ? err.message : String(err) } },
+          );
+        }
+      }
+
+      // Recently completed
+      try {
+        recentlyCompleted = await fetchRecentlyCompletedInTx(tx, input.tenantId, resolvedLocationId, input.stationId, input.businessDate);
+      } catch (err) {
+        warnOnce(
+          `completed:${input.stationId}`,
+          '[kds] getKdsView: recently-completed query failed — continuing without history',
+          { domain: 'kds', tenantId: input.tenantId, stationId: input.stationId,
+            error: { message: err instanceof Error ? err.message : String(err) } },
+        );
+      }
+
+      // Served today count
+      try {
+        const servedCountRows = await tx.execute(
+          sql`SELECT COUNT(DISTINCT kt.id)::integer AS served_count
+              FROM fnb_kitchen_tickets kt
+              WHERE kt.tenant_id = ${input.tenantId}
+                AND kt.location_id = ${resolvedLocationId}
+                AND kt.business_date = ${input.businessDate}
+                AND kt.status IN ('served', 'ready')
+                AND EXISTS (
+                  SELECT 1 FROM fnb_kitchen_ticket_items kti
+                  WHERE kti.ticket_id = kt.id AND kti.station_id = ${input.stationId}
+                )`,
+        );
+        servedTodayCount = safeNum(
+          (Array.from(servedCountRows as Iterable<Record<string, unknown>>)[0]?.served_count),
+        );
+      } catch (err) {
+        warnOnce(
+          `served:${input.stationId}`,
+          '[kds] getKdsView: served-today query failed — showing 0',
+          { domain: 'kds', tenantId: input.tenantId, stationId: input.stationId,
+            error: { message: err instanceof Error ? err.message : String(err) } },
+        );
+      }
+
+      // Upcoming courses
+      if (hasActiveTabs) {
+        try {
+          upcomingCourses = await fetchUpcomingCoursesInTx(tx, input.tenantId, coreData.activeTabIds);
+        } catch (err) {
+          warnOnce(
+            `courses:${input.stationId}`,
+            '[kds] getKdsView: upcoming courses query failed — continuing without timeline',
+            { domain: 'kds', tenantId: input.tenantId, stationId: input.stationId,
+              locationId: input.locationId, activeTabCount: coreData.activeTabIds.length,
+              error: { message: err instanceof Error ? err.message : String(err) } },
+          );
+        }
+      }
+    });
+  } catch (err) {
+    // Outer withTenant itself failed (e.g., pool exhaustion) — all Tier 2 gets safe defaults
     warnOnce(
-      `courses:${input.stationId}`,
-      '[kds] getKdsView: upcoming courses query failed — continuing without timeline',
+      `tier2:${input.stationId}`,
+      '[kds] getKdsView: Tier 2 enrichment connection failed — returning core data only',
       { domain: 'kds', tenantId: input.tenantId, stationId: input.stationId,
-        locationId: input.locationId, activeTabCount: coreData.activeTabIds.length,
-        error: { message: coursesResult.reason instanceof Error ? coursesResult.reason.message : String(coursesResult.reason) } },
+        error: { message: err instanceof Error ? err.message : String(err) } },
     );
   }
 

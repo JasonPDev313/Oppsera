@@ -7,14 +7,15 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/auth-provider';
-import { useTerminalSession } from '@/components/terminal-session-provider';
 import { apiFetch } from '@/lib/api-client';
+import { useKdsLocation } from '@/hooks/use-kds-location';
 import { useKdsLocationCounts } from '@/hooks/use-fnb-kitchen';
 import type { KdsTicketCard } from '@/types/fnb';
 import { TicketCard } from '@/components/fnb/kitchen/TicketCard';
 import { KitchenBehindBanner } from '@/components/fnb/kitchen/KitchenBehindBanner';
+import { LocationBanner } from '@/components/fnb/kitchen/LocationBanner';
 import { ItemSummaryPanel, ItemSummaryToggle } from '@/components/fnb/kitchen/ItemSummaryPanel';
 import { formatTimer } from '@/components/fnb/kitchen/TimerBar';
 import {
@@ -36,25 +37,11 @@ const POLL_INTERVAL = 10_000; // 10s for all-stations view
 
 export default function AllOrdersContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { locations } = useAuthContext();
-  const { session: terminalSession } = useTerminalSession();
-  const [locationId, setLocationId] = useState(() => {
-    const fromUrl = searchParams.get('locationId');
-    if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
-    return terminalSession?.locationId ?? locations?.[0]?.id ?? '';
-  });
-  // Detect if the URL had a locationId that didn't match any known location
-  const locationFellBack = (() => {
-    const fromUrl = searchParams.get('locationId');
-    return fromUrl !== null && !locations?.some((l) => l.id === fromUrl);
-  })();
-  const resolvedLocationName = locations?.find((l) => l.id === locationId)?.name;
-  const changeLocation = useCallback((newId: string) => {
-    setLocationId(newId);
-    router.replace(`/kds/all?locationId=${newId}`, { scroll: false });
-  }, [router]);
-  const hasMultipleLocations = (locations?.length ?? 0) > 1;
+  const {
+    locationId, resolvedLocationName, locationFellBack, locationDefaulted,
+    hasMultipleLocations, changeLocation,
+  } = useKdsLocation({ basePath: '/kds/all' });
   const locationCounts = useKdsLocationCounts(locations?.map((l) => l.id) ?? []);
 
   // Count tickets at OTHER locations (for persistent badge + pulse)
@@ -276,15 +263,7 @@ export default function AllOrdersContent() {
       </div>
 
       {/* Location mismatch warning */}
-      {locationFellBack && (
-        <div className="flex items-center gap-2 px-4 py-2 text-xs font-medium shrink-0"
-          style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', borderBottom: '1px solid rgba(239, 68, 68, 0.2)' }}>
-          <MapPin className="h-3.5 w-3.5 shrink-0" />
-          <span>
-            Location mismatch — URL location not found. Showing data for <strong>{resolvedLocationName}</strong>.
-          </span>
-        </div>
-      )}
+      <LocationBanner locationFellBack={locationFellBack} locationDefaulted={locationDefaulted} locationName={resolvedLocationName} />
 
       {/* Kitchen Behind banner */}
       <KitchenBehindBanner

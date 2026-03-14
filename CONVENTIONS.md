@@ -344,7 +344,7 @@
 | §246 | Emergency Cleanup Payment Verification | 12339–12356 | Verify SUM(tenders) >= total, location-scoped locks |
 | §247 | Help Tip Pattern | 12357–12395 | Portal-mounted `?` popover, placement props, first-visit auto-open, 3-cycle pulse |
 
-### Domain Patterns (§248–§254) — Added 2026-03-13
+### Domain Patterns (§248–§258) — Updated 2026-03-14
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
@@ -354,7 +354,11 @@
 | §251 | Attrition Risk Score Pattern | 12482–12500 | INSERT-not-UPDATE history, 8 signal scores, compound cursor, platform-level (no RLS) |
 | §252 | Settlement Tender Uniqueness | 12501–12516 | Partial unique index WHERE tender_id IS NOT NULL, defense-in-depth |
 | §253 | KDS Operational Hardening | 12518–12590 | Terminal-session location, strict station identity, clear vs resolve, send/delete decoupling, multi-location KDS, customer board/recall/refire |
-| §254 | Long-Running Accounting Recovery Flows | 12592–12660 | Smart resolve, GL backfill/remap/retry, reversal repost, serverless constraints, adapter error categorization, posting status lifecycle |
+| §254 | Long-Running Accounting Recovery Flows | 12592–12622 | Smart resolve, GL backfill/remap/retry, reversal repost, serverless constraints, adapter error categorization, posting status lifecycle |
+| §255 | Connection-Conserving Tiered Query Pattern | 12624–12641 | Tier 1 (required) + Tier 2 (enrichment) split, single withTenant for all enrichment, individual try/catch, warnOnce rate-limited logger |
+| §256 | Pre-Transaction Routing with Atomic Commit | 12642–12659 | Pre-check → pre-transaction routing → atomic publishWithOutbox → post-transaction audit, no ghost sends/fires |
+| §257 | Dispatch Attempt Tracking (Observability Table) | 12660–12679 | Purpose-built attempt log, failure_stage enum, JSONB diagnosis/errors, prior_attempt_id retry chains, partial failure index |
+| §258 | Client-Side KDS Location Resolution and Structured Dispatch Errors | 12681–12728 | useKdsLocation priority chain, locationFellBack/locationDefaulted flags, LocationBanner, nav ?locationId, 422 kdsStatus body, non-throwing client dispatch errors |
 
 ---
 
@@ -367,7 +371,7 @@
 | **GL / Accounting** | §76–§80, §84, §114, §117–§118, §149, §177, §183, §185, §187–§188, §195–§197, §201–§203, §220, §238–§239, §249–§250, §254 |
 | **POS** | §31–§35, §57, §61–§64, §132a, §140–§141, §164, §169, §196, §228 |
 | **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227, §240, §243, §246, §248 |
-| **Vercel / Serverless** | §47, §81, §157, §161, §205–§206, §232 |
+| **Vercel / Serverless** | §47, §81, §157, §161, §205–§206, §232, §255 |
 | **Database / Schema** | §2, §18, §29–§30, §36, §47, §139, §179, §225, §241–§244 |
 | **Auth / Security** | §3, §13–§14, §38, §51, §67, §81, §119, §137, §207–§208, §223, §233, §242 |
 | **Events / Consumers** | §9, §26, §104, §159, §186, §202, §231, §232 |
@@ -382,9 +386,9 @@
 | **Onboarding** | §42, §112, §144 |
 | **Payments / Tenders** | §35, §64, §96, §101–§102, §128, §140, §198, §239, §252 |
 | **Infrastructure / Cron** | §47–§49, §83, §157, §161–§162, §167, §206, §226, §254 |
-| **Frontend Patterns** | §15, §57, §228, §234–§237, §245, §247 |
+| **Frontend Patterns** | §15, §57, §228, §234–§237, §245, §247, §258 |
 | **A11y / Accessibility** | §154, §174, §236 |
-| **KDS** | §176, §181, §222, §235, §240, §243, §253 |
+| **KDS** | §176, §181, §222, §235, §240, §243, §253, §255–§258 |
 
 ---
 
@@ -392,13 +396,13 @@
 
 - **Duplicate section numbers**: §98, §131–§135 each appear twice in the file (legacy numbering). Disambiguated as `a`/`b` suffixes above.
 - **Unnumbered sections**: "Local Server Fix (Windows)" at line 7246 (between §127 and §128), and "Answer"/"Metrics in This Query" subsections within §74 at lines 4571–4652.
-- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~12,660 lines, 254 numbered sections)
+- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~12,728 lines, 258 numbered sections)
 - **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (570 numbered gotchas)
 - **What's Built / What's Next**: `docs/conventions/whats-built.md`
 
 ## Line Range Accuracy
 
-Line ranges in this index are pinned to the last convention update (**2026-03-13**). They are only valid when CONVENTIONS_FULL.md has **not been edited** since that date.
+Line ranges in this index are pinned to the last convention update (**2026-03-14**). They are only valid when CONVENTIONS_FULL.md has **not been edited** since that date.
 
 **If line ranges are stale** (e.g., you read a section and the heading doesn't match):
 1. Search by heading instead: `grep -n "^## §248" docs/conventions/CONVENTIONS_FULL.md`

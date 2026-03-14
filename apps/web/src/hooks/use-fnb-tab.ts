@@ -125,7 +125,7 @@ interface UseFnbTabReturn {
   voidTab: (reason: string, expectedVersion: number) => Promise<void>;
   transferTab: (input: { toServerUserId?: string; toTableId?: string; reason?: string; expectedVersion: number }) => Promise<void>;
   reopenTab: (expectedVersion: number) => Promise<void>;
-  fireCourse: (courseNumber: number) => Promise<void>;
+  fireCourse: (courseNumber: number) => Promise<KdsSendResult | undefined>;
   /** Returns KDS send result with location/ticket info, or undefined if not available. */
   sendCourse: (courseNumber: number) => Promise<KdsSendResult | undefined>;
   addItems: (items: AddTabItemInput[]) => Promise<void>;
@@ -274,18 +274,30 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
     }));
   }, [tabId, act]);
 
-  const fireCourseFn = useCallback(async (courseNumber: number) => {
-    if (!tabId || isActing) return;
+  const fireCourseFn = useCallback(async (courseNumber: number): Promise<KdsSendResult | undefined> => {
+    if (!tabId || isActing) return undefined;
     try {
-      await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/course/fire`, {
+      const res = await act(() => apiFetch<{ data: unknown; kdsStatus?: KdsSendResult }>(`/api/v1/fnb/tabs/${tabId}/course/fire`, {
         method: 'POST',
         body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
       }));
+      return res?.kdsStatus;
     } catch (e) {
       // 409 = course already in target status — silently refresh to sync UI
       if ((e as { statusCode?: number })?.statusCode === 409) {
         await fetchTab();
-        return;
+        return undefined;
+      }
+      // 422 = KDS dispatch failed — course stays unsent.
+      if ((e as { statusCode?: number })?.statusCode === 422) {
+        const meta = (e as { meta?: { kdsStatus?: KdsSendResult } })?.meta;
+        if (meta?.kdsStatus) {
+          await fetchTab();
+          return {
+            ...meta.kdsStatus,
+            warning: meta.kdsStatus.errors?.join('; ') || 'KDS dispatch failed — course was not fired',
+          };
+        }
       }
       throw e;
     }

@@ -439,6 +439,7 @@ export function useExpoView({
   const today = businessDate ?? new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local timezone
 
   const fetchExpo = useCallback(async (force = false) => {
+    if (!locationId) return;
     if (fetchingExpoRef.current && !force) return;
     fetchingExpoRef.current = true;
 
@@ -448,13 +449,12 @@ export function useExpoView({
     abortExpoRef.current = controller;
 
     try {
-      const params = new URLSearchParams({ businessDate: today });
-      if (locationId) params.set('locationId', locationId);
+      const params = new URLSearchParams({ businessDate: today, locationId });
       const json = await apiFetch<{ data: ExpoView }>(
         `/api/v1/fnb/stations/expo?${params}`,
         {
           signal: controller.signal,
-          headers: locationId ? { 'X-Location-Id': locationId } : undefined,
+          headers: { 'X-Location-Id': locationId },
         },
       );
       if (gen !== expoGenerationRef.current) return;
@@ -578,14 +578,14 @@ export function useExpoHistory({
   const today = businessDate ?? new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local timezone
 
   const fetchHistory = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled || !locationId) return;
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ businessDate: today });
-      if (locationId) params.set('locationId', locationId);
+      params.set('locationId', locationId);
       const json = await apiFetch<{ data: ExpoHistory }>(
         `/api/v1/fnb/stations/expo/history?${params}`,
-        { headers: locationId ? { 'X-Location-Id': locationId } : undefined },
+        { headers: { 'X-Location-Id': locationId } },
       );
       setHistory(json.data);
       setError(null);
@@ -599,8 +599,8 @@ export function useExpoHistory({
   }, [locationId, today, enabled]);
 
   useEffect(() => {
-    if (enabled) fetchHistory();
-  }, [fetchHistory, enabled]);
+    if (enabled && locationId) fetchHistory();
+  }, [fetchHistory, enabled, locationId]);
 
   return { history, isLoading, error, refresh: fetchHistory };
 }

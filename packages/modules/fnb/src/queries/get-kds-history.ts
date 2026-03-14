@@ -24,32 +24,31 @@ export interface KdsHistoryView {
 export async function getKdsHistory(
   input: GetKdsViewInput,
 ): Promise<KdsHistoryView> {
-  if (!input.locationId) {
-    throw new StationNotFoundError(input.stationId);
-  }
-  const resolvedLocationId = input.locationId;
-
   return withTenant(input.tenantId, async (tx) => {
-    // Validate station exists and is not expo
+    // Look up station by id + tenantId only — the station knows its own
+    // location. Same fix as getKdsView: prevents "ghost empty" when the
+    // frontend falls back to the wrong default location.
     const stationArr = await tx
       .select({
         id: fnbKitchenStations.id,
         name: fnbKitchenStations.name,
         displayName: fnbKitchenStations.displayName,
         stationType: fnbKitchenStations.stationType,
+        locationId: fnbKitchenStations.locationId,
       })
       .from(fnbKitchenStations)
       .where(
         and(
           eq(fnbKitchenStations.id, input.stationId),
           eq(fnbKitchenStations.tenantId, input.tenantId),
-          eq(fnbKitchenStations.locationId, resolvedLocationId),
         ),
       )
       .limit(1);
     const station = stationArr[0];
     if (!station) throw new StationNotFoundError(input.stationId);
     if (station.stationType === 'expo') throw new ExpoStationError(input.stationId);
+
+    const resolvedLocationId = station.locationId;
 
     // CTE: first identify completed ticket IDs with their completion timestamp.
     // A ticket is "completed at this station" when ALL items at this station are

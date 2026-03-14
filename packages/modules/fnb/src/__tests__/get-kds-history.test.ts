@@ -259,10 +259,12 @@ describe('getKdsHistory', () => {
     await expect(getKdsHistory(DEFAULT_INPUT)).rejects.toThrow();
   });
 
-  it('throws when locationId is empty', async () => {
-    await expect(
-      getKdsHistory({ ...DEFAULT_INPUT, locationId: '' }),
-    ).rejects.toThrow();
+  it('ignores empty locationId — resolves location from station', async () => {
+    // getKdsHistory resolves locationId from the station record, so
+    // an empty input locationId is fine as long as the station exists.
+    setupStandardMocks();
+    const result = await getKdsHistory({ ...DEFAULT_INPUT, locationId: '' });
+    expect(result.stationId).toBe('station-1');
   });
 
   it('sets alertLevel to normal for all history tickets', async () => {

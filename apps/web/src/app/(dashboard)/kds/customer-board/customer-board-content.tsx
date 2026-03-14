@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useAuthContext } from '@/components/auth-provider';
-import { useTerminalSession } from '@/components/terminal-session-provider';
 import { apiFetch } from '@/lib/api-client';
+import { useKdsLocation } from '@/hooks/use-kds-location';
 import { Clock, CheckCircle2, ChefHat, Package } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -256,17 +254,9 @@ function ColumnHeader({
 // ---------------------------------------------------------------------------
 
 export default function CustomerBoardContent() {
-  const { locations } = useAuthContext();
-  const { session: terminalSession } = useTerminalSession();
-  const searchParams = useSearchParams();
-
-  const locationId = (() => {
-    const fromUrl = searchParams.get('locationId');
-    if (fromUrl && locations?.some((l) => l.id === fromUrl)) return fromUrl;
-    return terminalSession?.locationId ?? locations?.[0]?.id ?? '';
-  })();
-  const locationName =
-    locations?.find((l) => l.id === locationId)?.name ?? null;
+  const {
+    locationId, resolvedLocationName: locationName, locationDefaulted,
+  } = useKdsLocation();
 
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
@@ -497,6 +487,27 @@ export default function CustomerBoardContent() {
             </div>
           </div>
         </div>
+
+        {/* Location defaulted info banner — multi-location tenants only */}
+        {locationDefaulted && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 32px',
+              fontSize: '0.8rem',
+              fontWeight: 500,
+              color: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.08)',
+              borderBottom: '1px solid rgba(245, 158, 11, 0.15)',
+              flexShrink: 0,
+            }}
+          >
+            <Package style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+            <span>Showing orders for <strong>{locationName}</strong>.</span>
+          </div>
+        )}
 
         {/* ------------------------------------------------------------------ */}
         {/* Main two-column layout */}

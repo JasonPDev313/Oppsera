@@ -111,40 +111,36 @@ export async function prepareCourseDispatch(
   const diagnosis: string[] = [];
   const errors: string[] = [];
 
-  // 1. Fetch tab + course name in parallel (2 connections = pool max),
-  // then items sequentially to respect pool max:2.
-  const [tabResult, courseResult] = await Promise.all([
-    withTenant(ctx.tenantId, (tx) =>
-      tx
-        .select({
-          id: fnbTabs.id,
-          locationId: fnbTabs.locationId,
-          primaryOrderId: fnbTabs.primaryOrderId,
-          businessDate: fnbTabs.businessDate,
-          tableId: fnbTabs.tableId,
-          tabType: fnbTabs.tabType,
-        })
-        .from(fnbTabs)
-        .where(and(eq(fnbTabs.id, input.tabId), eq(fnbTabs.tenantId, ctx.tenantId)))
-        .limit(1),
-    ),
-    withTenant(ctx.tenantId, (tx) =>
-      tx
-        .select({ courseName: fnbTabCourses.courseName })
-        .from(fnbTabCourses)
-        .where(
-          and(
-            eq(fnbTabCourses.tenantId, ctx.tenantId),
-            eq(fnbTabCourses.tabId, input.tabId),
-            eq(fnbTabCourses.courseNumber, input.courseNumber),
-          ),
-        )
-        .limit(1),
-    ),
-  ]);
+  // 1. Fetch tab + course name + items in a single connection.
+  // Previously used Promise.all with 2 withTenant calls (= 2 pool
+  // slots). Merged to 1 to reduce connection pressure (pool max:2).
+  const { tabRaw, courseName, items } = await withTenant(ctx.tenantId, async (tx) => {
+    const tabResult = await tx
+      .select({
+        id: fnbTabs.id,
+        locationId: fnbTabs.locationId,
+        primaryOrderId: fnbTabs.primaryOrderId,
+        businessDate: fnbTabs.businessDate,
+        tableId: fnbTabs.tableId,
+        tabType: fnbTabs.tabType,
+      })
+      .from(fnbTabs)
+      .where(and(eq(fnbTabs.id, input.tabId), eq(fnbTabs.tenantId, ctx.tenantId)))
+      .limit(1);
 
-  const items = await withTenant(ctx.tenantId, (tx) =>
-    tx
+    const courseResult = await tx
+      .select({ courseName: fnbTabCourses.courseName })
+      .from(fnbTabCourses)
+      .where(
+        and(
+          eq(fnbTabCourses.tenantId, ctx.tenantId),
+          eq(fnbTabCourses.tabId, input.tabId),
+          eq(fnbTabCourses.courseNumber, input.courseNumber),
+        ),
+      )
+      .limit(1);
+
+    const itemResult = await tx
       .select({
         id: fnbTabItems.id,
         catalogItemId: fnbTabItems.catalogItemId,
@@ -163,11 +159,14 @@ export async function prepareCourseDispatch(
           eq(fnbTabItems.courseNumber, input.courseNumber),
           inArray(fnbTabItems.status, ['draft', 'sent', 'fired']),
         ),
-      ),
-  );
+      );
 
-  const tabRaw = tabResult[0];
-  const courseName = courseResult[0]?.courseName ?? `Course ${input.courseNumber}`;
+    return {
+      tabRaw: tabResult[0] ?? null,
+      courseName: courseResult[0]?.courseName ?? `Course ${input.courseNumber}`,
+      items: itemResult,
+    };
+  });
 
   // Early failures — return partial prep with errors
   const failPrep = (msg: string): PreparedDispatch => {
