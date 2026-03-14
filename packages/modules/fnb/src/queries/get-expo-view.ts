@@ -147,9 +147,9 @@ export async function getExpoView(
           estimatedPrepSeconds: r.estimated_prep_seconds != null ? Math.max(0, Number(r.estimated_prep_seconds)) : null,
           stationId: (r.station_id as string) ?? null,
           stationName: (r.station_name as string) ?? null,
-          isRush: (r.is_rush as boolean) ?? false,
-          isAllergy: (r.is_allergy as boolean) ?? false,
-          isVip: (r.is_vip as boolean) ?? false,
+          isRush: !!r.is_rush,
+          isAllergy: !!r.is_allergy,
+          isVip: !!r.is_vip,
           readyAt: r.ready_at instanceof Date ? r.ready_at.toISOString() : (r.ready_at as string) ?? null,
         };
         const arr = itemsByTicket.get(tId) ?? [];

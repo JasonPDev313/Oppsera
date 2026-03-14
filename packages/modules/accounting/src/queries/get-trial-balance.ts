@@ -31,6 +31,8 @@ interface GetTrialBalanceInput {
   startDate?: string;
   endDate?: string;
   asOfDate?: string;
+  locationId?: string;
+  showZeroBalances?: boolean;
 }
 
 export async function getTrialBalance(
@@ -45,6 +47,15 @@ export async function getTrialBalance(
         ${input.startDate ? sql`AND je.business_date >= ${input.startDate}` : sql``}
         ${input.endDate ? sql`AND je.business_date <= ${input.endDate}` : sql``}
       `;
+
+    const locationFilter = input.locationId
+      ? sql`AND jl.location_id = ${input.locationId}`
+      : sql``;
+
+    const havingClause = input.showZeroBalances
+      ? sql``
+      : sql`HAVING COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0
+          OR COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0`;
 
     // NOTE: The (jl.id IS NULL OR je.id IS NOT NULL) guard ensures lines from
     // non-posted entries (draft/error/voided) are excluded from balance calculations.
@@ -65,7 +76,8 @@ export async function getTrialBalance(
         END AS net_balance
       FROM gl_accounts a
       LEFT JOIN gl_classifications c ON c.id = a.classification_id
-      LEFT JOIN gl_journal_lines jl ON jl.account_id = a.id
+      LEFT JOIN gl_journal_lines jl ON jl.account_id = a.id AND jl.tenant_id = ${input.tenantId}
+        ${locationFilter}
       LEFT JOIN gl_journal_entries je ON je.id = jl.journal_entry_id
         AND je.status = 'posted'
         AND je.tenant_id = ${input.tenantId}
@@ -73,8 +85,7 @@ export async function getTrialBalance(
       WHERE a.tenant_id = ${input.tenantId}
         AND (jl.id IS NULL OR je.id IS NOT NULL)
       GROUP BY a.id, a.account_number, a.name, a.account_type, c.name, a.normal_balance, a.is_active
-      HAVING COALESCE(SUM(jl.debit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0
-          OR COALESCE(SUM(jl.credit_amount * COALESCE(je.exchange_rate, 1)), 0) != 0
+      ${havingClause}
       ORDER BY a.account_number
     `);
 

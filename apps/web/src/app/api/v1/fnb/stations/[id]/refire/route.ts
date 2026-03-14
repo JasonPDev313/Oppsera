@@ -13,7 +13,8 @@ export const POST = withMiddleware(
     const refireIdx = segments.indexOf('refire');
     const stationId = refireIdx > 0 ? segments[refireIdx - 1] : undefined;
 
-    const body = await request.json();
+    let body: Record<string, unknown> = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = refireItemSchema.safeParse({ ...body, stationId });
     if (!parsed.success) {
       throw new ValidationError(

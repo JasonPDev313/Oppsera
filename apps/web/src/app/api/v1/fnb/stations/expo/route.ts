@@ -30,7 +30,8 @@ export const GET = withMiddleware(
 // POST /api/v1/fnb/stations/expo — bump ticket from expo view
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const body = await request.json();
+    let body: Record<string, unknown> = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     // Explicitly omit stationId — expo bumps must always resolve as expo (→ served).
     // Without this, a caller could inject a prep stationId and get a 'ready' bump.
     const { stationId: _stripped, ...safeBody } = body;

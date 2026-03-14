@@ -47,6 +47,7 @@ export function useKdsView({
   const abortRef = useRef<AbortController | null>(null);
   const hasLoadedRef = useRef(false);
   const consecutiveFailuresRef = useRef(0);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Generation counter: incremented on each effect cycle so stale promises from
   // aborted fetches don't clobber state (e.g., setting isLoading=false after cleanup).
   const generationRef = useRef(0);
@@ -101,6 +102,25 @@ export function useKdsView({
     }
   }, [stationId, locationId, today]);
 
+  // Compute next poll delay: backs off on consecutive failures to avoid
+  // hammering a struggling server. Resets to base interval on success.
+  // 5s → 10s → 20s → 40s → 60s (cap)
+  const getNextPollDelay = useCallback(() => {
+    const failures = consecutiveFailuresRef.current;
+    if (failures === 0) return pollIntervalMs;
+    return Math.min(pollIntervalMs * Math.pow(2, failures), 60_000);
+  }, [pollIntervalMs]);
+
+  // Schedule the next poll using setTimeout (not setInterval) so we can
+  // vary the delay based on consecutive failures.
+  const schedulePoll = useCallback(() => {
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    pollTimerRef.current = setTimeout(async () => {
+      await fetchKds();
+      schedulePoll();
+    }, getNextPollDelay());
+  }, [fetchKds, getNextPollDelay]);
+
   // Main polling effect
   useEffect(() => {
     if (!stationId) {
@@ -114,16 +134,21 @@ export function useKdsView({
     consecutiveFailuresRef.current = 0;
     setIsLoading(true);
     fetchKds();
-    const interval = setInterval(fetchKds, pollIntervalMs);
+    schedulePoll();
 
     // Pause polling when tab is hidden (KDS tablets that sleep, background tabs)
     function onVisibility() {
-      if (document.visibilityState === 'visible') fetchKds();
+      if (document.visibilityState === 'visible') {
+        fetchKds();
+        // Reset backoff on visibility restore — user is actively looking
+        consecutiveFailuresRef.current = 0;
+        schedulePoll();
+      }
     }
     document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
-      clearInterval(interval);
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
       document.removeEventListener('visibilitychange', onVisibility);
       abortRef.current?.abort();
       fetchingRef.current = false;
@@ -133,17 +158,21 @@ export function useKdsView({
       }
       inFlightItemBumpsRef.current.clear();
     };
-  }, [stationId, fetchKds, pollIntervalMs]);
+  }, [stationId, fetchKds, pollIntervalMs, schedulePoll]);
 
   // Subscribe to realtime broadcast notifications
   useEffect(() => {
     if (!stationId) return;
-    return onChannelRefresh('kds', () => { fetchKds(); });
-  }, [stationId, fetchKds]);
+    return onChannelRefresh('kds', () => {
+      fetchKds();
+      schedulePoll(); // Reset backoff — server just pushed a notification
+    });
+  }, [stationId, fetchKds, schedulePoll]);
 
   const refresh = useCallback(() => {
     fetchKds(true);
-  }, [fetchKds]);
+    schedulePoll(); // Reset backoff on manual refresh
+  }, [fetchKds, schedulePoll]);
 
   const locQs = locationId ? `?locationId=${locationId}` : '';
   // Track in-flight item bumps so we can allow concurrent item bumps
@@ -318,6 +347,7 @@ export function useExpoView({
   const hasLoadedExpoRef = useRef(false);
   const consecutiveExpoFailuresRef = useRef(0);
   const expoGenerationRef = useRef(0);
+  const expoPollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const today = businessDate ?? new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local timezone
 
@@ -362,6 +392,22 @@ export function useExpoView({
     }
   }, [locationId, today]);
 
+  // Exponential backoff on consecutive failures: 5s → 10s → 20s → 40s → 60s (cap)
+  const getNextExpoDelay = useCallback(() => {
+    const failures = consecutiveExpoFailuresRef.current;
+    if (failures === 0) return pollIntervalMs;
+    return Math.min(pollIntervalMs * Math.pow(2, failures), 60_000);
+  }, [pollIntervalMs]);
+
+  // setTimeout chain (not setInterval) — allows variable delay for backoff
+  const scheduleExpoPoll = useCallback(() => {
+    if (expoPollTimerRef.current) clearTimeout(expoPollTimerRef.current);
+    expoPollTimerRef.current = setTimeout(async () => {
+      await fetchExpo();
+      scheduleExpoPoll();
+    }, getNextExpoDelay());
+  }, [fetchExpo, getNextExpoDelay]);
+
   useEffect(() => {
     expoGenerationRef.current += 1;
     fetchingExpoRef.current = false;
@@ -369,29 +415,37 @@ export function useExpoView({
     consecutiveExpoFailuresRef.current = 0;
     setIsLoading(true);
     fetchExpo();
-    const interval = setInterval(fetchExpo, pollIntervalMs);
+    scheduleExpoPoll();
 
     function onVisibility() {
-      if (document.visibilityState === 'visible') fetchExpo();
+      if (document.visibilityState === 'visible') {
+        fetchExpo();
+        consecutiveExpoFailuresRef.current = 0;
+        scheduleExpoPoll();
+      }
     }
     document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
-      clearInterval(interval);
+      if (expoPollTimerRef.current) clearTimeout(expoPollTimerRef.current);
       document.removeEventListener('visibilitychange', onVisibility);
       abortExpoRef.current?.abort();
       fetchingExpoRef.current = false;
     };
-  }, [fetchExpo, pollIntervalMs]);
+  }, [fetchExpo, pollIntervalMs, scheduleExpoPoll]);
 
   // Subscribe to realtime broadcast notifications
   useEffect(() => {
-    return onChannelRefresh('expo', () => { fetchExpo(); });
-  }, [fetchExpo]);
+    return onChannelRefresh('expo', () => {
+      fetchExpo();
+      scheduleExpoPoll(); // Reset backoff — server just pushed
+    });
+  }, [fetchExpo, scheduleExpoPoll]);
 
   const refresh = useCallback(() => {
     fetchExpo(true);
-  }, [fetchExpo]);
+    scheduleExpoPoll(); // Reset backoff on manual refresh
+  }, [fetchExpo, scheduleExpoPoll]);
 
   const bumpTicket = useCallback(async (ticketId: string) => {
     if (isActing) return;

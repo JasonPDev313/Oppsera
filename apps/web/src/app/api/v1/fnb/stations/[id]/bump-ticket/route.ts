@@ -16,7 +16,8 @@ export const POST = withMiddleware(
     const bumpIdx = segments.indexOf('bump-ticket');
     const stationId = bumpIdx > 0 ? segments[bumpIdx - 1] : undefined;
 
-    const body = await request.json();
+    let body: Record<string, unknown> = {};
+    try { body = await request.json(); } catch { /* empty body → validation will reject */ }
     const parsed = bumpTicketSchema.safeParse({ ...body, stationId });
     if (!parsed.success) {
       throw new ValidationError(

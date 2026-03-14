@@ -13,6 +13,8 @@ export const GET = withMiddleware(
       startDate: url.searchParams.get('startDate') ?? undefined,
       endDate: url.searchParams.get('endDate') ?? undefined,
       asOfDate: url.searchParams.get('asOfDate') ?? undefined,
+      locationId: url.searchParams.get('locationId') ?? undefined,
+      showZeroBalances: url.searchParams.get('showZeroBalances') === 'true',
     });
 
     return NextResponse.json({ data: report });

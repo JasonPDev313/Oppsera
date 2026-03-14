@@ -1,8 +1,36 @@
-import { sql } from 'drizzle-orm';
+import { sql, eq, and, inArray } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
+import { fnbKitchenStations, fnbTabCourses, fnbTabItems, fnbTabs, fnbTables } from '@oppsera/db';
 import { logger } from '@oppsera/core/observability';
 import type { GetKdsViewInput } from '../validation';
 import { StationNotFoundError, ExpoStationError } from '../errors';
+
+/** Clamp to non-negative — guards against clock drift where NOW() < sent_at. */
+function clampNonNeg(n: number): number {
+  return n > 0 ? n : 0;
+}
+
+/** Safe numeric conversion: undefined/null/NaN → fallback (default 0). */
+function safeNum(v: unknown, fallback = 0): number {
+  if (v == null) return fallback;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+// ── Rate-limited warning logger ────────────────────────────────────
+// Tier 2 enrichment failures are polled every 5s per tablet. Without
+// suppression, a broken query floods logs at (tablets × 12/min). We
+// suppress duplicate warnings per (station + enrichment key) for 60s.
+export const _warnedAt = new Map<string, number>();
+const WARN_SUPPRESS_MS = 60_000;
+
+function warnOnce(key: string, message: string, meta: Record<string, unknown>): void {
+  const now = Date.now();
+  const last = _warnedAt.get(key) ?? 0;
+  if (now - last < WARN_SUPPRESS_MS) return;
+  _warnedAt.set(key, now);
+  logger.warn(message, meta);
+}
 
 /** Group items by courseName and compute per-course readiness. */
 export function buildCourseGroups(items: KdsTicketItem[]): KdsCourseGroup[] {
@@ -141,36 +169,261 @@ export interface KdsView {
   upcomingCourses: KdsUpcomingCourse[];
 }
 
+// ── Tier 2 helpers ─────────────────────────────────────────────────
+// Each runs in its own withTenant (separate Postgres transaction) so a
+// failure in any enrichment query cannot poison the core ticket data.
+
+interface CrossStationData {
+  stationsByTicket: Map<string, { stationId: string; stationName: string }[]>;
+  progressByTicket: Map<string, { total: number; ready: number }>;
+}
+
+async function fetchCrossStationData(
+  tenantId: string,
+  stationId: string,
+  ticketIds: string[],
+): Promise<CrossStationData> {
+  return withTenant(tenantId, async (tx) => {
+    // "Also At" — which other stations have items for the same order
+    const otherStationRows = await tx.execute(
+      sql`SELECT DISTINCT kt_this.id AS ticket_id,
+                 kti_other.station_id, ks.display_name AS station_name
+          FROM fnb_kitchen_tickets kt_this
+          INNER JOIN fnb_kitchen_tickets kt_sibling
+            ON kt_sibling.tenant_id = kt_this.tenant_id
+            AND kt_sibling.location_id = kt_this.location_id
+            AND kt_sibling.business_date = kt_this.business_date
+            AND kt_sibling.id != kt_this.id
+            AND kt_sibling.status NOT IN ('voided', 'served')
+            AND (
+              (kt_sibling.order_id IS NOT NULL AND kt_sibling.order_id = kt_this.order_id)
+              OR (kt_sibling.tab_id IS NOT NULL AND kt_sibling.tab_id = kt_this.tab_id)
+            )
+          INNER JOIN fnb_kitchen_ticket_items kti_other
+            ON kti_other.ticket_id = kt_sibling.id
+            AND kti_other.station_id != ${stationId}
+            AND kti_other.item_status NOT IN ('served', 'voided')
+          INNER JOIN fnb_kitchen_stations ks
+            ON ks.id = kti_other.station_id AND ks.tenant_id = ${tenantId}
+          WHERE kt_this.id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})`,
+    );
+    const stationsByTicket = new Map<string, { stationId: string; stationName: string }[]>();
+    for (const row of Array.from(otherStationRows as Iterable<Record<string, unknown>>)) {
+      const tid = row.ticket_id as string;
+      if (!stationsByTicket.has(tid)) stationsByTicket.set(tid, []);
+      const existing = stationsByTicket.get(tid)!;
+      if (!existing.some((s) => s.stationId === (row.station_id as string))) {
+        existing.push({
+          stationId: row.station_id as string,
+          stationName: (row.station_name as string) ?? 'Unknown',
+        });
+      }
+    }
+
+    // Cross-station order progress: total/ready items across ALL stations
+    const progressRows = await tx.execute(
+      sql`SELECT kt_this.id AS ticket_id,
+                 COUNT(kti_all.id)::integer AS total_order_items,
+                 COUNT(kti_all.id) FILTER (WHERE kti_all.item_status IN ('ready', 'served'))::integer AS ready_order_items
+          FROM fnb_kitchen_tickets kt_this
+          INNER JOIN fnb_kitchen_tickets kt_related
+            ON kt_related.tenant_id = kt_this.tenant_id
+            AND kt_related.location_id = kt_this.location_id
+            AND kt_related.status NOT IN ('voided')
+            AND (
+              (kt_related.order_id IS NOT NULL AND kt_related.order_id = kt_this.order_id)
+              OR (kt_related.tab_id IS NOT NULL AND kt_related.tab_id = kt_this.tab_id)
+            )
+          INNER JOIN fnb_kitchen_ticket_items kti_all
+            ON kti_all.ticket_id = kt_related.id
+            AND kti_all.item_status != 'voided'
+          WHERE kt_this.id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})
+          GROUP BY kt_this.id`,
+    );
+    const progressByTicket = new Map<string, { total: number; ready: number }>();
+    for (const row of Array.from(progressRows as Iterable<Record<string, unknown>>)) {
+      progressByTicket.set(row.ticket_id as string, {
+        total: safeNum(row.total_order_items),
+        ready: safeNum(row.ready_order_items),
+      });
+    }
+
+    return { stationsByTicket, progressByTicket };
+  });
+}
+
+async function fetchRecentlyCompleted(
+  tenantId: string,
+  locationId: string,
+  stationId: string,
+  businessDate: string,
+): Promise<KdsCompletedTicket[]> {
+  return withTenant(tenantId, async (tx) => {
+    const completedRows = await tx.execute(
+      sql`SELECT kt.id, kt.ticket_number, kt.table_number, kt.server_name,
+                 COUNT(kti.id)::integer AS item_count,
+                 COALESCE(MAX(kti.served_at), MAX(kti.ready_at)) AS completed_at,
+                 EXTRACT(EPOCH FROM (NOW() - COALESCE(MAX(kti.served_at), MAX(kti.ready_at))))::integer AS completed_seconds_ago
+          FROM fnb_kitchen_tickets kt
+          INNER JOIN fnb_kitchen_ticket_items kti
+            ON kti.ticket_id = kt.id AND kti.station_id = ${stationId}
+          WHERE kt.tenant_id = ${tenantId}
+            AND kt.location_id = ${locationId}
+            AND kt.business_date = ${businessDate}
+            AND kti.item_status IN ('ready', 'served')
+            AND NOT EXISTS (
+              SELECT 1 FROM fnb_kitchen_ticket_items kti2
+              WHERE kti2.ticket_id = kt.id
+                AND kti2.station_id = ${stationId}
+                AND kti2.item_status NOT IN ('ready', 'served', 'voided')
+            )
+          GROUP BY kt.id
+          ORDER BY COALESCE(MAX(kti.served_at), MAX(kti.ready_at)) DESC NULLS LAST
+          LIMIT 20`,
+    );
+    return Array.from(completedRows as Iterable<Record<string, unknown>>).map((r) => ({
+      ticketId: r.id as string,
+      ticketNumber: safeNum(r.ticket_number),
+      tableNumber: r.table_number != null ? safeNum(r.table_number) : null,
+      serverName: (r.server_name as string) ?? null,
+      itemCount: safeNum(r.item_count),
+      completedAt: (r.completed_at as string) ?? '',
+      completedSecondsAgo: clampNonNeg(safeNum(r.completed_seconds_ago)),
+    }));
+  });
+}
+
+async function fetchServedTodayCount(
+  tenantId: string,
+  locationId: string,
+  stationId: string,
+  businessDate: string,
+): Promise<number> {
+  return withTenant(tenantId, async (tx) => {
+    const servedCountRows = await tx.execute(
+      sql`SELECT COUNT(DISTINCT kt.id)::integer AS served_count
+          FROM fnb_kitchen_tickets kt
+          WHERE kt.tenant_id = ${tenantId}
+            AND kt.location_id = ${locationId}
+            AND kt.business_date = ${businessDate}
+            AND kt.status IN ('served', 'ready')
+            AND EXISTS (
+              SELECT 1 FROM fnb_kitchen_ticket_items kti
+              WHERE kti.ticket_id = kt.id AND kti.station_id = ${stationId}
+            )`,
+    );
+    return safeNum(
+      (Array.from(servedCountRows as Iterable<Record<string, unknown>>)[0]?.served_count),
+    );
+  });
+}
+
+async function fetchUpcomingCourses(
+  tenantId: string,
+  activeTabIds: string[],
+): Promise<KdsUpcomingCourse[]> {
+  const courseRows = await withTenant(tenantId, (tx) =>
+    tx
+      .select({
+        tabId: fnbTabCourses.tabId,
+        courseNumber: fnbTabCourses.courseNumber,
+        courseName: fnbTabCourses.courseName,
+        courseStatus: fnbTabCourses.courseStatus,
+        tableNumber: fnbTables.tableNumber,
+        itemCount:
+          sql<number>`(SELECT COUNT(*)::integer FROM ${fnbTabItems}
+            WHERE ${fnbTabItems.tabId} = ${fnbTabCourses.tabId}
+              AND ${fnbTabItems.courseNumber} = ${fnbTabCourses.courseNumber}
+              AND ${fnbTabItems.tenantId} = ${fnbTabCourses.tenantId}
+              AND ${fnbTabItems.status} != 'voided')`.as('item_count'),
+      })
+      .from(fnbTabCourses)
+      .leftJoin(
+        fnbTabs,
+        and(
+          eq(fnbTabs.id, fnbTabCourses.tabId),
+          eq(fnbTabs.tenantId, fnbTabCourses.tenantId),
+        ),
+      )
+      .leftJoin(
+        fnbTables,
+        and(
+          eq(fnbTables.id, fnbTabs.tableId),
+          eq(fnbTables.tenantId, fnbTabs.tenantId),
+        ),
+      )
+      .where(
+        and(
+          eq(fnbTabCourses.tenantId, tenantId),
+          inArray(fnbTabCourses.courseStatus, ['unsent', 'sent', 'held']),
+          inArray(fnbTabCourses.tabId, activeTabIds),
+        ),
+      )
+      .orderBy(fnbTabCourses.tabId, fnbTabCourses.courseNumber),
+  );
+  return courseRows.map((r) => ({
+    tabId: r.tabId,
+    courseNumber: r.courseNumber,
+    courseName: r.courseName ?? null,
+    courseStatus: r.courseStatus,
+    itemCount: safeNum(r.itemCount),
+    tableNumber: r.tableNumber != null ? safeNum(r.tableNumber) : null,
+  }));
+}
+
+// ── Diagnostic log (no DB round-trip) ──────────────────────────────
+// When no active tickets are found, log the input params so operators
+// can correlate with the DB if needed. No transaction, no failure risk.
+
+function logEmptyView(input: GetKdsViewInput, resolvedLocationId: string): void {
+  logger.debug('[KDS] Empty view — no active tickets for station', {
+    domain: 'kds',
+    tenantId: input.tenantId,
+    stationId: input.stationId,
+    locationId: resolvedLocationId,
+    businessDate: input.businessDate,
+  });
+}
+
+// ── Main query ─────────────────────────────────────────────────────
+
 export async function getKdsView(
   input: GetKdsViewInput,
 ): Promise<KdsView> {
-  return withTenant(input.tenantId, async (tx) => {
-    // Get station info
-    // Location guard: always filter by location_id. If the caller didn't provide
-    // one (shouldn't happen — middleware requires it), fall back to a hard error
-    // rather than silently serving cross-location data.
-    if (!input.locationId) {
-      throw new StationNotFoundError(input.stationId);
-    }
-    const resolvedLocationId = input.locationId;
+  // ── Tier 1: core ticket data (must succeed or KDS is dark) ──
+  if (!input.locationId) {
+    throw new StationNotFoundError(input.stationId);
+  }
+  const resolvedLocationId = input.locationId;
 
-    const stationRows = await tx.execute(
-      sql`SELECT id, name, display_name, station_type, color,
-                 warning_threshold_seconds, critical_threshold_seconds,
-                 rush_mode, location_id
-          FROM fnb_kitchen_stations
-          WHERE id = ${input.stationId} AND tenant_id = ${input.tenantId}
-            AND location_id = ${resolvedLocationId}
-          LIMIT 1`,
-    );
-    const stationArr = Array.from(stationRows as Iterable<Record<string, unknown>>);
+  const coreData = await withTenant(input.tenantId, async (tx) => {
+    const stationArr = await tx
+      .select({
+        id: fnbKitchenStations.id,
+        name: fnbKitchenStations.name,
+        displayName: fnbKitchenStations.displayName,
+        stationType: fnbKitchenStations.stationType,
+        color: fnbKitchenStations.color,
+        warningThresholdSeconds: fnbKitchenStations.warningThresholdSeconds,
+        criticalThresholdSeconds: fnbKitchenStations.criticalThresholdSeconds,
+        rushMode: fnbKitchenStations.rushMode,
+        locationId: fnbKitchenStations.locationId,
+      })
+      .from(fnbKitchenStations)
+      .where(
+        and(
+          eq(fnbKitchenStations.id, input.stationId),
+          eq(fnbKitchenStations.tenantId, input.tenantId),
+          eq(fnbKitchenStations.locationId, resolvedLocationId),
+        ),
+      )
+      .limit(1);
     const station = stationArr[0];
     if (!station) throw new StationNotFoundError(input.stationId);
-    if ((station.station_type as string) === 'expo') throw new ExpoStationError(input.stationId);
+    if (station.stationType === 'expo') throw new ExpoStationError(input.stationId);
 
-    // Get active tickets that have items at this station.
-    // No business_date filter — tickets must remain visible until bumped or voided,
-    // even if they span across business days (e.g., internet outage, forgotten tickets).
+    // Active tickets with items at this station.
+    // No business_date filter — tickets persist until bumped or voided.
     const ticketRows = await tx.execute(
       sql`SELECT DISTINCT kt.id, kt.ticket_number, kt.tab_id, kt.course_number,
                  kt.status, kt.priority_level, kt.is_held, kt.order_type,
@@ -201,34 +454,7 @@ export async function getKdsView(
     );
     const tickets = Array.from(ticketRows as Iterable<Record<string, unknown>>);
 
-    // [KDS-DIAG] Debug-level diagnostic — only runs when no tickets found.
-    if (tickets.length === 0) {
-      const diagRows = await tx.execute(sql`
-        SELECT COUNT(*)::int AS total_active,
-               COUNT(*) FILTER (WHERE kt.business_date = ${input.businessDate})::int AS active_today,
-               COUNT(*) FILTER (WHERE kt.business_date < ${input.businessDate})::int AS active_stale
-        FROM fnb_kitchen_tickets kt
-        INNER JOIN fnb_kitchen_ticket_items kti
-          ON kti.ticket_id = kt.id AND kti.station_id = ${input.stationId}
-          AND kti.item_status NOT IN ('served', 'voided')
-        WHERE kt.tenant_id = ${input.tenantId}
-          AND kt.location_id = ${resolvedLocationId}
-          AND kt.status IN ('pending', 'in_progress')`);
-      const diag = Array.from(diagRows as Iterable<Record<string, unknown>>)[0];
-      logger.debug('[KDS-DIAG] No active tickets for station', {
-        domain: 'kds',
-        tenantId: input.tenantId,
-        stationId: input.stationId,
-        locationId: resolvedLocationId,
-        businessDate: input.businessDate,
-        totalActive: Number(diag?.total_active ?? 0),
-        activeToday: Number(diag?.active_today ?? 0),
-        activeStale: Number(diag?.active_stale ?? 0),
-      });
-    }
-
-    // Batch-fetch all items for all active tickets at this station in a single query
-    // (fixes N+1: previously one SELECT per ticket)
+    // Batch-fetch all items for active tickets at this station (single query, no N+1)
     const ticketIds = tickets.map((t) => t.id as string);
     const itemsByTicket = new Map<string, KdsTicketItem[]>();
 
@@ -252,58 +478,58 @@ export async function getKdsView(
         const item: KdsTicketItem = {
           itemId: r.id as string,
           orderLineId: r.order_line_id as string,
-          itemName: r.item_name as string,
+          itemName: (r.item_name as string) ?? 'Unknown Item',
           kitchenLabel: (r.kitchen_label as string) ?? null,
           itemColor: (r.item_color as string) ?? null,
           modifierSummary: (r.modifier_summary as string) ?? null,
           specialInstructions: (r.special_instructions as string) ?? null,
-          seatNumber: r.seat_number != null ? Number(r.seat_number) : null,
+          seatNumber: r.seat_number != null ? safeNum(r.seat_number) : null,
           courseName: (r.course_name as string) ?? null,
-          quantity: Number(r.quantity),
-          itemStatus: r.item_status as string,
-          priorityLevel: Number(r.priority_level ?? 0),
-          estimatedPrepSeconds: r.estimated_prep_seconds != null ? Number(r.estimated_prep_seconds) : null,
+          quantity: safeNum(r.quantity, 1),
+          itemStatus: (r.item_status as string) ?? 'pending',
+          priorityLevel: safeNum(r.priority_level),
+          estimatedPrepSeconds: r.estimated_prep_seconds != null ? safeNum(r.estimated_prep_seconds) : null,
           routingRuleId: (r.routing_rule_id as string) ?? null,
           stationId: (r.station_id as string) ?? null,
-          isRush: r.is_rush as boolean,
-          isAllergy: r.is_allergy as boolean,
-          isVip: r.is_vip as boolean,
+          isRush: !!r.is_rush,
+          isAllergy: !!r.is_allergy,
+          isVip: !!r.is_vip,
           startedAt: (r.started_at as string) ?? null,
           readyAt: (r.ready_at as string) ?? null,
           bumpedBy: (r.bumped_by as string) ?? null,
-          elapsedSeconds: Number(r.elapsed_seconds),
+          elapsedSeconds: clampNonNeg(safeNum(r.elapsed_seconds)),
         };
         if (!itemsByTicket.has(tid)) itemsByTicket.set(tid, []);
         itemsByTicket.get(tid)!.push(item);
       }
     }
 
-    const warnThreshold = Number(station.warning_threshold_seconds ?? 480);
-    const critThreshold = Number(station.critical_threshold_seconds ?? 720);
+    const warnThreshold = station.warningThresholdSeconds;
+    const critThreshold = station.criticalThresholdSeconds;
 
     const ticketCards: KdsTicketCard[] = tickets.map((t) => {
       const items = itemsByTicket.get(t.id as string) ?? [];
-      const elapsed = Number(t.elapsed_seconds);
+      const elapsed = clampNonNeg(safeNum(t.elapsed_seconds));
       const alertLevel: 'normal' | 'warning' | 'critical' =
         elapsed >= critThreshold ? 'critical' :
         elapsed >= warnThreshold ? 'warning' : 'normal';
       return {
         ticketId: t.id as string,
-        ticketNumber: Number(t.ticket_number),
-        tabId: t.tab_id as string,
-        courseNumber: t.course_number != null ? Number(t.course_number) : null,
+        ticketNumber: safeNum(t.ticket_number),
+        tabId: (t.tab_id as string) ?? '',
+        courseNumber: t.course_number != null ? safeNum(t.course_number) : null,
         courseName: (t.course_name as string) ?? null,
-        status: t.status as string,
-        priorityLevel: Number(t.priority_level ?? 0),
-        isHeld: (t.is_held as boolean) ?? false,
+        status: (t.status as string) ?? 'pending',
+        priorityLevel: safeNum(t.priority_level),
+        isHeld: !!t.is_held,
         orderType: (t.order_type as string) ?? null,
         channel: (t.channel as string) ?? null,
-        tableNumber: t.table_number != null ? Number(t.table_number) : null,
+        tableNumber: t.table_number != null ? safeNum(t.table_number) : null,
         serverName: (t.server_name as string) ?? null,
         customerName: (t.customer_name as string) ?? null,
-        sentAt: t.sent_at as string,
+        sentAt: (t.sent_at as string) ?? new Date().toISOString(),
         estimatedPickupAt: (t.estimated_pickup_at as string) ?? null,
-        elapsedSeconds: Number(t.elapsed_seconds),
+        elapsedSeconds: elapsed,
         items,
         otherStations: [],
         orderSource: (t.order_source as string) ?? null,
@@ -315,179 +541,117 @@ export async function getKdsView(
         stationReadyCount: items.filter((i) => i.itemStatus === 'ready').length,
         alertLevel,
         courseGroups: buildCourseGroups(items),
-        totalOrderItems: items.length,     // will be updated by cross-station query
+        totalOrderItems: items.length,
         totalOrderReadyItems: items.filter((i) => i.itemStatus === 'ready').length,
       };
     });
 
-    // Fetch cross-station "Also At" data for all active tickets.
-    // Since each ticket is single-station (consumers group items by station and
-    // create separate tickets), we look up sibling tickets for the same ORDER
-    // at other stations to show cross-station visibility.
-    if (ticketCards.length > 0) {
-      const ticketIds = ticketCards.map((tc) => tc.ticketId);
-      const otherStationRows = await tx.execute(
-        sql`SELECT DISTINCT kt_this.id AS ticket_id,
-                   kti_other.station_id, ks.display_name AS station_name
-            FROM fnb_kitchen_tickets kt_this
-            INNER JOIN fnb_kitchen_tickets kt_sibling
-              ON kt_sibling.tenant_id = kt_this.tenant_id
-              AND kt_sibling.location_id = kt_this.location_id
-              AND kt_sibling.business_date = kt_this.business_date
-              AND kt_sibling.id != kt_this.id
-              AND kt_sibling.status NOT IN ('voided', 'served')
-              AND (
-                (kt_sibling.order_id IS NOT NULL AND kt_sibling.order_id = kt_this.order_id)
-                OR (kt_sibling.tab_id IS NOT NULL AND kt_sibling.tab_id = kt_this.tab_id)
-              )
-            INNER JOIN fnb_kitchen_ticket_items kti_other
-              ON kti_other.ticket_id = kt_sibling.id
-              AND kti_other.station_id != ${input.stationId}
-              AND kti_other.item_status NOT IN ('served', 'voided')
-            INNER JOIN fnb_kitchen_stations ks
-              ON ks.id = kti_other.station_id AND ks.tenant_id = ${input.tenantId}
-            WHERE kt_this.id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})`,
-      );
-      const otherStations = Array.from(otherStationRows as Iterable<Record<string, unknown>>);
-      const stationsByTicket = new Map<string, { stationId: string; stationName: string }[]>();
-      for (const row of otherStations) {
-        const tid = row.ticket_id as string;
-        if (!stationsByTicket.has(tid)) stationsByTicket.set(tid, []);
-        const existing = stationsByTicket.get(tid)!;
-        // Deduplicate by stationId
-        if (!existing.some((s) => s.stationId === (row.station_id as string))) {
-          existing.push({
-            stationId: row.station_id as string,
-            stationName: (row.station_name as string) ?? 'Unknown',
-          });
-        }
-      }
-      for (const card of ticketCards) {
-        card.otherStations = stationsByTicket.get(card.ticketId) ?? [];
-      }
-
-      // Cross-station order progress: total/ready items across ALL stations for each order
-      const progressRows = await tx.execute(
-        sql`SELECT kt_this.id AS ticket_id,
-                   COUNT(kti_all.id)::integer AS total_order_items,
-                   COUNT(kti_all.id) FILTER (WHERE kti_all.item_status IN ('ready', 'served'))::integer AS ready_order_items
-            FROM fnb_kitchen_tickets kt_this
-            INNER JOIN fnb_kitchen_tickets kt_related
-              ON kt_related.tenant_id = kt_this.tenant_id
-              AND kt_related.location_id = kt_this.location_id
-              AND kt_related.status NOT IN ('voided')
-              AND (
-                (kt_related.order_id IS NOT NULL AND kt_related.order_id = kt_this.order_id)
-                OR (kt_related.tab_id IS NOT NULL AND kt_related.tab_id = kt_this.tab_id)
-              )
-            INNER JOIN fnb_kitchen_ticket_items kti_all
-              ON kti_all.ticket_id = kt_related.id
-              AND kti_all.item_status != 'voided'
-            WHERE kt_this.id IN (${sql.join(ticketIds.map((id) => sql`${id}`), sql`, `)})
-            GROUP BY kt_this.id`,
-      );
-      for (const row of Array.from(progressRows as Iterable<Record<string, unknown>>)) {
-        const card = ticketCards.find((c) => c.ticketId === (row.ticket_id as string));
-        if (card) {
-          card.totalOrderItems = Number(row.total_order_items);
-          card.totalOrderReadyItems = Number(row.ready_order_items);
-        }
-      }
-    }
-
-    // Fetch recently completed tickets at this station (all items ready/served/voided)
-    // Use COALESCE(served_at, ready_at) so the timestamp reflects the final bump, not the first
-    const completedRows = await tx.execute(
-      sql`SELECT kt.id, kt.ticket_number, kt.table_number, kt.server_name,
-                 COUNT(kti.id)::integer AS item_count,
-                 COALESCE(MAX(kti.served_at), MAX(kti.ready_at)) AS completed_at,
-                 EXTRACT(EPOCH FROM (NOW() - COALESCE(MAX(kti.served_at), MAX(kti.ready_at))))::integer AS completed_seconds_ago
-          FROM fnb_kitchen_tickets kt
-          INNER JOIN fnb_kitchen_ticket_items kti
-            ON kti.ticket_id = kt.id AND kti.station_id = ${input.stationId}
-          WHERE kt.tenant_id = ${input.tenantId}
-            AND kt.location_id = ${resolvedLocationId}
-            AND kt.business_date = ${input.businessDate}
-            AND kti.item_status IN ('ready', 'served')
-            AND NOT EXISTS (
-              SELECT 1 FROM fnb_kitchen_ticket_items kti2
-              WHERE kti2.ticket_id = kt.id
-                AND kti2.station_id = ${input.stationId}
-                AND kti2.item_status NOT IN ('ready', 'served', 'voided')
-            )
-          GROUP BY kt.id
-          ORDER BY COALESCE(MAX(kti.served_at), MAX(kti.ready_at)) DESC NULLS LAST
-          LIMIT 20`,
-    );
-    const recentlyCompleted: KdsCompletedTicket[] = Array.from(
-      completedRows as Iterable<Record<string, unknown>>,
-    ).map((r) => ({
-      ticketId: r.id as string,
-      ticketNumber: Number(r.ticket_number),
-      tableNumber: r.table_number != null ? Number(r.table_number) : null,
-      serverName: (r.server_name as string) ?? null,
-      itemCount: Number(r.item_count),
-      completedAt: (r.completed_at as string) ?? '',
-      completedSecondsAgo: Number(r.completed_seconds_ago ?? 0),
-    }));
-
-    // Served today count — tickets this station has completed today
-    const servedCountRows = await tx.execute(
-      sql`SELECT COUNT(DISTINCT kt.id)::integer AS served_count
-          FROM fnb_kitchen_tickets kt
-          WHERE kt.tenant_id = ${input.tenantId}
-            AND kt.location_id = ${resolvedLocationId}
-            AND kt.business_date = ${input.businessDate}
-            AND kt.status IN ('served', 'ready')
-            AND EXISTS (
-              SELECT 1 FROM fnb_kitchen_ticket_items kti
-              WHERE kti.ticket_id = kt.id AND kti.station_id = ${input.stationId}
-            )`,
-    );
-    const servedTodayCount = Number(
-      (Array.from(servedCountRows as Iterable<Record<string, unknown>>)[0]?.served_count) ?? 0,
-    );
-
-    // Upcoming courses — held/unsent courses for tabs with active tickets
-    const activeTabIds = [...new Set(ticketCards.map((c) => c.tabId).filter(Boolean))];
-    let upcomingCourses: KdsUpcomingCourse[] = [];
-    if (activeTabIds.length > 0) {
-      const courseRows = await tx.execute(
-        sql`SELECT tc.tab_id, tc.course_number, tc.course_name, tc.course_status,
-                   t.table_number,
-                   (SELECT COUNT(*)::integer FROM fnb_tab_items tl
-                    WHERE tl.tab_id = tc.tab_id AND tl.course_number = tc.course_number
-                      AND tl.tenant_id = tc.tenant_id AND tl.status != 'voided') AS item_count
-            FROM fnb_tab_courses tc
-            LEFT JOIN fnb_tabs t ON t.id = tc.tab_id AND t.tenant_id = tc.tenant_id
-            WHERE tc.tenant_id = ${input.tenantId}
-              AND tc.course_status IN ('unsent', 'sent', 'held')
-              AND tc.tab_id IN (${sql.join(activeTabIds.map((id) => sql`${id}`), sql`, `)})
-            ORDER BY tc.tab_id, tc.course_number`,
-      );
-      upcomingCourses = Array.from(courseRows as Iterable<Record<string, unknown>>).map((r) => ({
-        tabId: r.tab_id as string,
-        courseNumber: Number(r.course_number),
-        courseName: (r.course_name as string) ?? null,
-        courseStatus: r.course_status as string,
-        itemCount: Number(r.item_count ?? 0),
-        tableNumber: r.table_number != null ? Number(r.table_number) : null,
-      }));
-    }
-
     return {
-      stationId: input.stationId,
-      stationName: (station.display_name as string) ?? (station.name as string),
-      stationType: station.station_type as string,
-      stationColor: (station.color as string) ?? null,
-      warningThresholdSeconds: Number(station.warning_threshold_seconds ?? 480),
-      criticalThresholdSeconds: Number(station.critical_threshold_seconds ?? 720),
-      rushMode: (station.rush_mode as boolean) ?? false,
-      tickets: ticketCards,
-      activeTicketCount: ticketCards.length,
-      recentlyCompleted,
-      servedTodayCount,
-      upcomingCourses,
+      station,
+      ticketCards,
+      activeTabIds: [...new Set(ticketCards.map((c) => c.tabId).filter(Boolean))],
     };
   });
+
+  // Log empty views for debugging — no DB hit, just params
+  if (coreData.ticketCards.length === 0) {
+    logEmptyView(input, resolvedLocationId);
+  }
+
+  // ── Tier 2: enrichment queries (best-effort, parallel, isolated) ──
+  // Each helper runs in its own withTenant (separate Postgres transaction).
+  // Promise.allSettled ensures a failure in any one cannot affect the others
+  // or the core ticket data above.
+
+  const ticketIds = coreData.ticketCards.map((c) => c.ticketId);
+  const hasTickets = ticketIds.length > 0;
+  const hasActiveTabs = coreData.activeTabIds.length > 0;
+
+  const [crossStationResult, completedResult, servedResult, coursesResult] =
+    await Promise.allSettled([
+      hasTickets
+        ? fetchCrossStationData(input.tenantId, input.stationId, ticketIds)
+        : Promise.resolve({ stationsByTicket: new Map(), progressByTicket: new Map() } as CrossStationData),
+      fetchRecentlyCompleted(input.tenantId, resolvedLocationId, input.stationId, input.businessDate),
+      fetchServedTodayCount(input.tenantId, resolvedLocationId, input.stationId, input.businessDate),
+      hasActiveTabs
+        ? fetchUpcomingCourses(input.tenantId, coreData.activeTabIds)
+        : Promise.resolve([] as KdsUpcomingCourse[]),
+    ]);
+
+  // Apply cross-station enrichment (or safe defaults)
+  if (crossStationResult.status === 'fulfilled') {
+    const { stationsByTicket, progressByTicket } = crossStationResult.value;
+    for (const card of coreData.ticketCards) {
+      card.otherStations = stationsByTicket.get(card.ticketId) ?? [];
+      const progress = progressByTicket.get(card.ticketId);
+      if (progress) {
+        card.totalOrderItems = progress.total;
+        card.totalOrderReadyItems = progress.ready;
+      }
+    }
+  } else {
+    warnOnce(
+      `cross-station:${input.stationId}`,
+      '[kds] getKdsView: cross-station query failed — showing tickets without cross-station data',
+      { domain: 'kds', tenantId: input.tenantId, stationId: input.stationId,
+        error: { message: crossStationResult.reason instanceof Error ? crossStationResult.reason.message : String(crossStationResult.reason) } },
+    );
+  }
+
+  // Recently completed (fallback: empty list)
+  let recentlyCompleted: KdsCompletedTicket[] = [];
+  if (completedResult.status === 'fulfilled') {
+    recentlyCompleted = completedResult.value;
+  } else {
+    warnOnce(
+      `completed:${input.stationId}`,
+      '[kds] getKdsView: recently-completed query failed — continuing without history',
+      { domain: 'kds', tenantId: input.tenantId, stationId: input.stationId,
+        error: { message: completedResult.reason instanceof Error ? completedResult.reason.message : String(completedResult.reason) } },
+    );
+  }
+
+  // Served today count (fallback: 0)
+  let servedTodayCount = 0;
+  if (servedResult.status === 'fulfilled') {
+    servedTodayCount = servedResult.value;
+  } else {
+    warnOnce(
+      `served:${input.stationId}`,
+      '[kds] getKdsView: served-today query failed — showing 0',
+      { domain: 'kds', tenantId: input.tenantId, stationId: input.stationId,
+        error: { message: servedResult.reason instanceof Error ? servedResult.reason.message : String(servedResult.reason) } },
+    );
+  }
+
+  // Upcoming courses (fallback: empty list)
+  let upcomingCourses: KdsUpcomingCourse[] = [];
+  if (coursesResult.status === 'fulfilled') {
+    upcomingCourses = coursesResult.value;
+  } else {
+    warnOnce(
+      `courses:${input.stationId}`,
+      '[kds] getKdsView: upcoming courses query failed — continuing without timeline',
+      { domain: 'kds', tenantId: input.tenantId, stationId: input.stationId,
+        locationId: input.locationId, activeTabCount: coreData.activeTabIds.length,
+        error: { message: coursesResult.reason instanceof Error ? coursesResult.reason.message : String(coursesResult.reason) } },
+    );
+  }
+
+  const { station } = coreData;
+  return {
+    stationId: input.stationId,
+    stationName: station.displayName ?? station.name ?? 'Station',
+    stationType: station.stationType,
+    stationColor: station.color,
+    warningThresholdSeconds: station.warningThresholdSeconds,
+    criticalThresholdSeconds: station.criticalThresholdSeconds,
+    rushMode: station.rushMode,
+    tickets: coreData.ticketCards,
+    activeTicketCount: coreData.ticketCards.length,
+    recentlyCompleted,
+    servedTodayCount,
+    upcomingCourses,
+  };
 }

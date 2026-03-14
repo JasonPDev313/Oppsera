@@ -508,12 +508,11 @@ async function insertGlEntry(tx, tenantId, tender, ctx) {
       });
     }
   } else if (Math.abs(diff) >= 0.01 && !defaultRoundingAcct) {
-    // No rounding account — adjust the last credit line
-    const lastCredit = [...lines].reverse().find(l => parseFloat(l.credit_amount) > 0);
-    if (lastCredit) {
-      const adjusted = parseFloat(lastCredit.credit_amount) + diff;
-      if (adjusted > 0) lastCredit.credit_amount = adjusted.toFixed(2);
-    }
+    // No rounding account — refuse to create an unbalanced entry
+    throw new Error(
+      `Backfill refused: entry for tender ${tenderId} is unbalanced by $${diff.toFixed(2)} ` +
+      `and no rounding account is configured. Fix source data or configure a rounding account.`
+    );
   }
 
   // ── Get next journal number ──
@@ -557,7 +556,7 @@ async function insertGlEntry(tx, tenantId, tender, ctx) {
   for (const line of lines) {
     const lineId = ulid();
     await tx`
-      INSERT INTO gl_journal_entry_lines (
+      INSERT INTO gl_journal_lines (
         id, tenant_id, journal_entry_id, account_id,
         debit_amount, credit_amount, location_id, terminal_id,
         sub_department_id, customer_id, channel, memo, sort_order
@@ -569,6 +568,22 @@ async function insertGlEntry(tx, tenantId, tender, ctx) {
         ${line.channel}, ${line.memo || null}, ${line.sort_order}
       )
     `;
+  }
+
+  // ── Post-insert balance check ──
+  const [balanceCheck] = await tx`
+    SELECT
+      COALESCE(SUM(debit_amount), 0) AS d,
+      COALESCE(SUM(credit_amount), 0) AS c
+    FROM gl_journal_lines
+    WHERE journal_entry_id = ${entryId} AND tenant_id = ${tenantId}
+  `;
+  const bDiff = Math.abs(Number(balanceCheck.d) - Number(balanceCheck.c));
+  if (bDiff >= 0.01) {
+    throw new Error(
+      `Backfill produced unbalanced entry ${entryId}: ` +
+      `debits=$${Number(balanceCheck.d).toFixed(2)} credits=$${Number(balanceCheck.c).toFixed(2)} diff=$${bDiff.toFixed(2)}`
+    );
   }
 
   return { inserted: true, lineCount: lines.length };
