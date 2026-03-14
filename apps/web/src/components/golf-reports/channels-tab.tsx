@@ -91,7 +91,7 @@ export function ChannelsTab({ dateFrom, dateTo, courseId, locationId }: Channels
                 tickLine={false}
               />
               <Tooltip
-                formatter={(value: number | undefined) => formatRoundCount(value ?? null)}
+                formatter={(value) => formatRoundCount(typeof value === 'number' ? value : null)}
                 labelStyle={{ fontWeight: 600 }}
               />
               <Bar dataKey="value" name="Slots">
@@ -121,7 +121,7 @@ export function ChannelsTab({ dateFrom, dateTo, courseId, locationId }: Channels
                     <Cell key={idx} fill={PLAYER_COLORS[idx % PLAYER_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number | undefined) => formatRoundCount(value ?? null)} />
+                <Tooltip formatter={(value) => formatRoundCount(typeof value === 'number' ? value : null)} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
               </PieChart>
             </ResponsiveContainer>
