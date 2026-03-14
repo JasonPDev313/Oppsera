@@ -2,19 +2,25 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
-import { listStations, createStation, createStationSchema } from '@oppsera/module-fnb';
+import { listStations, createStation, createStationSchema, resolveKdsLocationId } from '@oppsera/module-fnb';
 
 // GET /api/v1/fnb/stations — list stations
+// Uses resolveKdsLocationId to handle site→venue and venue→site fallback
+// so the POS finds stations regardless of location hierarchy level.
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
+    const rawLocationId = ctx.locationId ?? url.searchParams.get('locationId') ?? '';
+    const effectiveLocationId = rawLocationId
+      ? await resolveKdsLocationId(ctx.tenantId, rawLocationId)
+      : rawLocationId;
     const stations = await listStations({
       tenantId: ctx.tenantId,
-      locationId: ctx.locationId ?? url.searchParams.get('locationId') ?? '',
+      locationId: effectiveLocationId,
       stationType: (url.searchParams.get('stationType') as any) ?? undefined,
       isActive: url.searchParams.get('isActive') === 'false' ? false : undefined,
     });
-    return NextResponse.json({ data: stations });
+    return NextResponse.json({ data: stations, meta: { resolvedLocationId: effectiveLocationId } });
   },
   { entitlement: 'kds', permission: 'kds.view' },
 );

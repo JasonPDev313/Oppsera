@@ -570,8 +570,43 @@ export async function resolveKdsLocationId(
     );
     const loc = Array.from(locRows as Iterable<Record<string, unknown>>)[0];
 
-    // If location not found or is a site → use as-is
-    if (!loc || loc.location_type !== 'venue' || !loc.parent_location_id) {
+    if (!loc) return locationId;
+
+    // ── Site-level location: check for child venues with stations ──
+    if (loc.location_type !== 'venue' || !loc.parent_location_id) {
+      // Check if site itself has active stations
+      const siteStationRows = await tx.execute(
+        sql`SELECT COUNT(*)::int AS cnt
+            FROM fnb_kitchen_stations
+            WHERE tenant_id = ${tenantId}
+              AND location_id = ${locationId}
+              AND is_active = true`,
+      );
+      const siteStationCount = Number(
+        (Array.from(siteStationRows as Iterable<Record<string, unknown>>)[0]?.cnt) ?? 0,
+      );
+      if (siteStationCount > 0) return locationId;
+
+      // No stations at site — check child venues (site→venue fallback)
+      const childVenueRows = await tx.execute(
+        sql`SELECT s.location_id
+            FROM fnb_kitchen_stations s
+            JOIN locations l ON l.id = s.location_id AND l.tenant_id = s.tenant_id
+            WHERE s.tenant_id = ${tenantId}
+              AND l.parent_location_id = ${locationId}
+              AND s.is_active = true
+            LIMIT 1`,
+      );
+      const childVenue = Array.from(childVenueRows as Iterable<Record<string, unknown>>)[0];
+      if (childVenue) {
+        const resolvedVenueId = childVenue.location_id as string;
+        logger.info('[kds] resolveKdsLocationId: site has no stations, falling back to child venue', {
+          domain: 'kds', tenantId, siteLocationId: locationId, resolvedVenueId,
+        });
+        return resolvedVenueId;
+      }
+
+      // No stations anywhere — stay at site
       return locationId;
     }
 

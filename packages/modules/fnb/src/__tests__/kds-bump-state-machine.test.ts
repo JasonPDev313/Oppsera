@@ -832,15 +832,18 @@ describe('KDS Bump State Machine — recallItem', () => {
 
   const baseInput = { ticketItemId: 'ti-1', stationId: 'station-1', clientRequestId: 'req-recall-1' };
 
+  const activeStation = { id: 'station-1', isActive: true, displayName: 'Grill' };
+
   it('recallItem: ready item → cooking, clears timestamps', async () => {
     const item = makeTicketItem({ itemStatus: 'ready', readyAt: new Date(), startedAt: new Date(), bumpedBy: 'user-2' });
     const recalled = { ...item, itemStatus: 'cooking', readyAt: null, servedAt: null, startedAt: null, bumpedBy: null };
     const ticket = makeTicket({ status: 'in_progress' });
 
     mockTx.limit
-      .mockResolvedValueOnce([item])     // fetch item
-      .mockResolvedValueOnce([ticket])   // location check (parentTicket)
-      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
+      .mockResolvedValueOnce([item])          // fetch item
+      .mockResolvedValueOnce([ticket])        // location check (parentTicket)
+      .mockResolvedValueOnce([ticket])        // fetch ticket for revert check
+      .mockResolvedValueOnce([activeStation]); // station active check
     mockTx.returning.mockResolvedValueOnce([recalled]); // recall update
 
     const result = await recallItem(makeCtx(), baseInput);
@@ -863,8 +866,9 @@ describe('KDS Bump State Machine — recallItem', () => {
 
     mockTx.limit
       .mockResolvedValueOnce([item])
-      .mockResolvedValueOnce([ticket])   // location check
-      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
+      .mockResolvedValueOnce([ticket])          // location check
+      .mockResolvedValueOnce([ticket])          // fetch ticket for revert
+      .mockResolvedValueOnce([activeStation]);  // station active check
     mockTx.returning
       .mockResolvedValueOnce([recalled])        // recall item
       .mockResolvedValueOnce([revertedTicket]); // revert ticket
@@ -881,8 +885,9 @@ describe('KDS Bump State Machine — recallItem', () => {
 
     mockTx.limit
       .mockResolvedValueOnce([item])
-      .mockResolvedValueOnce([ticket])   // location check
-      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
+      .mockResolvedValueOnce([ticket])          // location check
+      .mockResolvedValueOnce([ticket])          // fetch ticket for revert
+      .mockResolvedValueOnce([activeStation]);  // station active check
     mockTx.returning
       .mockResolvedValueOnce([recalled])
       .mockResolvedValueOnce([revertedTicket]);
@@ -899,8 +904,9 @@ describe('KDS Bump State Machine — recallItem', () => {
 
     mockTx.limit
       .mockResolvedValueOnce([item])
-      .mockResolvedValueOnce([ticket])   // location check
-      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
+      .mockResolvedValueOnce([ticket])          // location check
+      .mockResolvedValueOnce([ticket])          // fetch ticket for revert check
+      .mockResolvedValueOnce([activeStation]);  // station active check
     mockTx.returning.mockResolvedValueOnce([recalled]);
 
     await recallItem(makeCtx(), baseInput);
@@ -941,7 +947,9 @@ describe('KDS Bump State Machine — recallItem', () => {
 
     mockTx.limit
       .mockResolvedValueOnce([item])
-      .mockResolvedValueOnce([ticket]);  // location check
+      .mockResolvedValueOnce([ticket])          // location check
+      .mockResolvedValueOnce([ticket])          // fetch ticket for revert check
+      .mockResolvedValueOnce([activeStation]);  // station active check
     mockTx.returning.mockResolvedValueOnce([]); // optimistic lock fails
 
     await expect(recallItem(makeCtx(), baseInput)).rejects.toThrow(/Cannot recall \(concurrent\)/);
@@ -954,8 +962,9 @@ describe('KDS Bump State Machine — recallItem', () => {
 
     mockTx.limit
       .mockResolvedValueOnce([item])
-      .mockResolvedValueOnce([ticket])   // location check
-      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
+      .mockResolvedValueOnce([ticket])          // location check
+      .mockResolvedValueOnce([ticket])          // fetch ticket for revert
+      .mockResolvedValueOnce([activeStation]);  // station active check
     mockTx.returning
       .mockResolvedValueOnce([recalled]) // item recall OK
       .mockResolvedValueOnce([]);        // ticket revert fails

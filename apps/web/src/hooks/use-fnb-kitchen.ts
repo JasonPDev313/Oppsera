@@ -632,10 +632,14 @@ interface UseStationsOptions {
 export function useStations({ locationId }: UseStationsOptions) {
   const [stations, setStations] = useState<FnbStation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // The server resolves site↔venue hierarchy — track the resolved ID
+  // so callers can use it for send/fire headers.
+  const [resolvedLocationId, setResolvedLocationId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!locationId) {
       setStations([]);
+      setResolvedLocationId(null);
       setIsLoading(false);
       return;
     }
@@ -643,7 +647,7 @@ export function useStations({ locationId }: UseStationsOptions) {
     const controller = new AbortController();
     (async () => {
       try {
-        const json = await apiFetch<{ data: FnbStation[] }>(
+        const json = await apiFetch<{ data: FnbStation[]; meta?: { resolvedLocationId?: string } }>(
           `/api/v1/fnb/stations?locationId=${locationId}`,
           {
             signal: controller.signal,
@@ -651,6 +655,7 @@ export function useStations({ locationId }: UseStationsOptions) {
           },
         );
         setStations(json.data ?? []);
+        setResolvedLocationId(json.meta?.resolvedLocationId ?? locationId);
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         // ignore other errors
@@ -661,7 +666,7 @@ export function useStations({ locationId }: UseStationsOptions) {
     return () => controller.abort();
   }, [locationId]);
 
-  return { stations, isLoading };
+  return { stations, isLoading, resolvedLocationId };
 }
 
 // ── Station Management Hook ─────────────────────────────────────

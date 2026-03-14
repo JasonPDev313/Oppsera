@@ -283,11 +283,16 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   // Once the tab loads, tab.locationId is the single source of truth.
   // This ensures station display, send/fire headers, and cross-location
   // warnings all use the exact location the tab was created at.
-  // Each location/venue owns its own KDS stations — no venue→site promotion.
   // Use tab.locationId (authoritative after load) or terminal-session venue (pre-load).
+  // The server resolves site↔venue hierarchy via resolveKdsLocationId, so even if
+  // the POS sends a site ID, the API returns stations from child venues.
   const kdsLocationId = tab?.locationId ?? preTabLocationId;
-  const kdsLocationName = locations?.find((l) => l.id === kdsLocationId)?.name ?? posLocationName;
-  const { stations } = useStations({ locationId: kdsLocationId || undefined });
+  const { stations, resolvedLocationId } = useStations({ locationId: kdsLocationId || undefined });
+  // Use server-resolved location for display and dispatch headers
+  const effectiveKdsLocationId = resolvedLocationId ?? kdsLocationId;
+  const kdsLocationName = locations?.find((l) => l.id === effectiveKdsLocationId)?.name
+    ?? locations?.find((l) => l.id === kdsLocationId)?.name
+    ?? posLocationName;
   // Only count ACTIVE stations — the routing engine ignores inactive ones,
   // so sending to kitchen with only inactive stations silently creates zero tickets.
   const hasKdsStations = stations.some((s) => s.isActive);
@@ -1215,7 +1220,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       <KdsNotConfiguredDialog
         open={showKdsNotConfigured}
         onClose={() => setShowKdsNotConfigured(false)}
-        locationId={kdsLocationId}
+        locationId={effectiveKdsLocationId}
         locationName={kdsLocationName}
         canSetup={can('fnb.manage')}
       />
