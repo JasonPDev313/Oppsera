@@ -9,6 +9,7 @@ import type { RoutableItem } from '../services/kds-routing-engine';
 import { extractModifierIds, formatModifierSummary } from '../helpers/kds-modifier-helpers';
 import { createKitchenTicket } from './create-kitchen-ticket';
 import { recordKdsSend, markKdsSendSent, markKdsSendFailed } from './record-kds-send';
+import type { KdsOrderType } from '../validation';
 
 const KDS_ITEM_TYPES = ['food', 'beverage'];
 
@@ -37,7 +38,7 @@ export async function sendOrderLinesToKds(
   ctx: RequestContext,
   orderId: string,
   businessDate: string,
-  orderType?: string,
+  orderType?: KdsOrderType,
 ): Promise<{ sentCount: number; failedCount: number; totalStations: number }> {
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);

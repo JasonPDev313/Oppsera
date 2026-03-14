@@ -8,6 +8,7 @@ import { createKitchenTicket } from '../commands/create-kitchen-ticket';
 import { recordKdsSend, markKdsSendSent } from '../commands/record-kds-send';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { normalizeBusinessDate } from '../helpers/normalize-business-date';
+import type { KdsOrderType } from '../validation';
 
 export interface CourseSentConsumerData {
   tabId: string;
@@ -259,7 +260,7 @@ export async function handleCourseSent(
           tabId: data.tabId,
           orderId: tab.primaryOrderId ?? undefined,
           courseNumber: data.courseNumber,
-          orderType: tab.tabType ?? undefined,
+          orderType: (tab.tabType ?? undefined) as KdsOrderType | undefined,
           channel: 'pos',
           items: ticketItems,
         });

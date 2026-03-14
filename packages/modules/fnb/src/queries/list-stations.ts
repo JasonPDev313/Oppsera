@@ -15,6 +15,8 @@ export interface StationListItem {
   criticalThresholdSeconds: number;
   isActive: boolean;
   autoBumpOnAllReady: boolean;
+  allowedOrderTypes: string[];
+  allowedChannels: string[];
 }
 
 export async function listStations(
@@ -39,7 +41,9 @@ export async function listStations(
       sql`SELECT id, name, display_name, station_type, color, sort_order,
                  fallback_station_id, backup_printer_id,
                  warning_threshold_seconds, critical_threshold_seconds, is_active,
-                 auto_bump_on_all_ready
+                 auto_bump_on_all_ready,
+                 COALESCE(allowed_order_types, '{}') AS allowed_order_types,
+                 COALESCE(allowed_channels, '{}') AS allowed_channels
           FROM fnb_kitchen_stations
           WHERE ${whereClause}
           ORDER BY sort_order ASC, name ASC`,
@@ -58,6 +62,19 @@ export async function listStations(
       criticalThresholdSeconds: Number(r.critical_threshold_seconds),
       isActive: r.is_active as boolean,
       autoBumpOnAllReady: r.auto_bump_on_all_ready as boolean,
+      allowedOrderTypes: parseTextArray(r.allowed_order_types),
+      allowedChannels: parseTextArray(r.allowed_channels),
     }));
   });
+}
+
+/** Parse a Postgres text[] value (comes as string or string[]). */
+function parseTextArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((v) => typeof v === 'string' && v.length > 0);
+  if (typeof value === 'string') {
+    const trimmed = value.replace(/^\{|\}$/g, '');
+    if (trimmed.length === 0) return [];
+    return trimmed.split(',').map((s) => s.trim().replace(/^"|"$/g, ''));
+  }
+  return [];
 }

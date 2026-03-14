@@ -458,6 +458,12 @@ export type FnbTicketItemStatus = (typeof TICKET_ITEM_STATUSES)[number];
 export type FnbDeltaType = (typeof DELTA_TYPES)[number];
 export type FnbRoutingRuleType = (typeof ROUTING_RULE_TYPES)[number];
 
+export const KDS_ORDER_TYPES = ['dine_in', 'bar', 'takeout', 'quick_service', 'delivery'] as const;
+export type KdsOrderType = (typeof KDS_ORDER_TYPES)[number];
+
+export const KDS_CHANNELS = ['pos', 'online', 'kiosk', 'third_party'] as const;
+export type KdsChannel = (typeof KDS_CHANNELS)[number];
+
 export const createKitchenTicketSchema = z.object({
   ...idempotencyMixin,
   tabId: z.string().min(1).optional(), // optional for retail orders (no tab)
@@ -465,8 +471,8 @@ export const createKitchenTicketSchema = z.object({
   businessDate: z.string().optional(), // required when tabId is absent (retail)
   courseNumber: z.number().int().min(1).optional(),
   // Routing context — optional, used by auto-routing engine when stationId is not set per item
-  orderType: z.string().optional(),   // dine_in | takeout | delivery | bar
-  channel: z.string().optional(),     // pos | online | kiosk | third_party
+  orderType: z.enum(KDS_ORDER_TYPES).optional(),
+  channel: z.enum(KDS_CHANNELS).optional(),
   customerName: z.string().optional(),
   priorityLevel: z.number().int().min(0).max(8).optional(),
   items: z.array(z.object({
@@ -613,6 +619,8 @@ export const createStationSchema = z.object({
   warningThresholdSeconds: z.number().int().min(0).optional().default(480),
   criticalThresholdSeconds: z.number().int().min(0).optional().default(720),
   autoBumpOnAllReady: z.boolean().optional().default(false),
+  allowedOrderTypes: z.array(z.enum(KDS_ORDER_TYPES)).optional().default([]),
+  allowedChannels: z.array(z.enum(KDS_CHANNELS)).optional().default([]),
 });
 
 export type CreateStationInput = z.input<typeof createStationSchema>;
@@ -631,6 +639,8 @@ export const updateStationSchema = z.object({
   isActive: z.boolean().optional(),
   rushMode: z.boolean().optional(),
   autoBumpOnAllReady: z.boolean().optional(),
+  allowedOrderTypes: z.array(z.enum(KDS_ORDER_TYPES)).optional(),
+  allowedChannels: z.array(z.enum(KDS_CHANNELS)).optional(),
 });
 
 export type UpdateStationInput = z.input<typeof updateStationSchema>;
@@ -877,7 +887,7 @@ export const listKdsSendsSchema = z.object({
   businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  orderType: z.string().optional(),
+  orderType: z.enum(KDS_ORDER_TYPES).optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(200).optional().default(50),
 });
@@ -2131,7 +2141,7 @@ export type UpdateAlertProfileInput = z.input<typeof updateAlertProfileSchema>;
 // Performance targets
 export const upsertPerformanceTargetSchema = z.object({
   stationId: z.string().optional(),
-  orderType: z.enum(['dine_in', 'takeout', 'delivery', 'bar']).optional(),
+  orderType: z.enum(KDS_ORDER_TYPES).optional(),
   targetPrepSeconds: z.number().int().min(30).max(7200),
   warningPrepSeconds: z.number().int().min(30).max(7200),
   criticalPrepSeconds: z.number().int().min(30).max(7200),
@@ -2189,8 +2199,8 @@ export const createKdsRoutingRuleSchema = z.object({
   categoryId: z.string().optional(),
   stationId: z.string().min(1),
   priority: z.number().int().min(0).max(100).default(0),
-  orderTypeCondition: z.enum(['dine_in', 'takeout', 'delivery', 'bar']).optional(),
-  channelCondition: z.enum(['pos', 'online', 'kiosk', 'third_party']).optional(),
+  orderTypeCondition: z.enum(KDS_ORDER_TYPES).optional(),
+  channelCondition: z.enum(KDS_CHANNELS).optional(),
   timeConditionStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   timeConditionEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   clientRequestId: z.string().min(1),
@@ -2224,8 +2234,8 @@ export const updateKdsRoutingRuleSchema = z.object({
   categoryId: z.string().nullable().optional(),
   stationId: z.string().min(1).optional(),
   priority: z.number().int().min(0).max(100).optional(),
-  orderTypeCondition: z.enum(['dine_in', 'takeout', 'delivery', 'bar']).nullable().optional(),
-  channelCondition: z.enum(['pos', 'online', 'kiosk', 'third_party']).nullable().optional(),
+  orderTypeCondition: z.enum(KDS_ORDER_TYPES).nullable().optional(),
+  channelCondition: z.enum(KDS_CHANNELS).nullable().optional(),
   timeConditionStart: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
   timeConditionEnd: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
   isActive: z.boolean().optional(),

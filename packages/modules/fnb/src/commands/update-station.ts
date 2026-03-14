@@ -58,6 +58,8 @@ export async function updateStation(
     if (input.criticalThresholdSeconds !== undefined) { setFields.criticalThresholdSeconds = input.criticalThresholdSeconds; changes.criticalThresholdSeconds = input.criticalThresholdSeconds; }
     if (input.isActive !== undefined) { setFields.isActive = input.isActive; changes.isActive = input.isActive; }
     if (input.autoBumpOnAllReady !== undefined) { setFields.autoBumpOnAllReady = input.autoBumpOnAllReady; changes.autoBumpOnAllReady = input.autoBumpOnAllReady; }
+    if (input.allowedOrderTypes !== undefined) { setFields.allowedOrderTypes = input.allowedOrderTypes; changes.allowedOrderTypes = input.allowedOrderTypes; }
+    if (input.allowedChannels !== undefined) { setFields.allowedChannels = input.allowedChannels; changes.allowedChannels = input.allowedChannels; }
 
     const [updated] = await tx
       .update(fnbKitchenStations)

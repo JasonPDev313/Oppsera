@@ -1125,6 +1125,8 @@ function CreateStationDialog({
     color?: string;
     warningThresholdSeconds?: number;
     criticalThresholdSeconds?: number;
+    allowedOrderTypes?: string[];
+    allowedChannels?: string[];
   }) => Promise<void>;
   onClose: () => void;
   isActing: boolean;
@@ -1135,6 +1137,8 @@ function CreateStationDialog({
   const [color, setColor] = useState('#6366f1');
   const [warningSeconds, setWarningSeconds] = useState(480);
   const [criticalSeconds, setCriticalSeconds] = useState(720);
+  const [selectedOrderTypes, setSelectedOrderTypes] = useState<string[]>([]);
+  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -1162,6 +1166,8 @@ function CreateStationDialog({
         color,
         warningThresholdSeconds: warningSeconds,
         criticalThresholdSeconds: criticalSeconds,
+        allowedOrderTypes: selectedOrderTypes.length > 0 ? selectedOrderTypes : undefined,
+        allowedChannels: selectedChannels.length > 0 ? selectedChannels : undefined,
       });
     } catch (err: unknown) {
       console.error('[CreateStationDialog] Error creating station:', err);
@@ -1173,7 +1179,7 @@ function CreateStationDialog({
       }
       setError(msg);
     }
-  }, [name, displayName, stationType, color, warningSeconds, criticalSeconds, onSubmit]);
+  }, [name, displayName, stationType, color, warningSeconds, criticalSeconds, selectedOrderTypes, selectedChannels, onSubmit]);
 
   return createPortal(
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
@@ -1280,6 +1286,48 @@ function CreateStationDialog({
               <span className="text-[10px] text-muted-foreground">{formatSeconds(criticalSeconds)}</span>
             </label>
           </div>
+
+          <div className="space-y-1">
+            <span className="text-xs font-medium text-foreground">Allowed Order Types</span>
+            <p className="text-[10px] text-muted-foreground">Empty = accepts all types</p>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {Object.entries(ORDER_TYPE_LABELS).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setSelectedOrderTypes((prev) => prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val])}
+                  className={`px-2 py-1 text-[10px] rounded-md border transition-colors ${
+                    selectedOrderTypes.includes(val)
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-surface text-muted-foreground border-border hover:border-foreground'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-xs font-medium text-foreground">Allowed Channels</span>
+            <p className="text-[10px] text-muted-foreground">Empty = accepts all channels</p>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {Object.entries(CHANNEL_LABELS).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setSelectedChannels((prev) => prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val])}
+                  className={`px-2 py-1 text-[10px] rounded-md border transition-colors ${
+                    selectedChannels.includes(val)
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-surface text-muted-foreground border-border hover:border-foreground'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
@@ -1313,7 +1361,7 @@ function EditStationDialog({
   onClose,
   isActing,
 }: {
-  station: { id: string; name: string; displayName: string; stationType: string; color: string | null; warningThresholdSeconds: number; criticalThresholdSeconds: number; isActive?: boolean; autoBumpOnAllReady?: boolean };
+  station: { id: string; name: string; displayName: string; stationType: string; color: string | null; warningThresholdSeconds: number; criticalThresholdSeconds: number; isActive?: boolean; autoBumpOnAllReady?: boolean; allowedOrderTypes?: string[]; allowedChannels?: string[] };
   onSubmit: (input: {
     displayName?: string;
     stationType?: string;
@@ -1322,6 +1370,8 @@ function EditStationDialog({
     criticalThresholdSeconds?: number;
     isActive?: boolean;
     autoBumpOnAllReady?: boolean;
+    allowedOrderTypes?: string[];
+    allowedChannels?: string[];
   }) => Promise<void>;
   onClose: () => void;
   isActing: boolean;
@@ -1332,6 +1382,8 @@ function EditStationDialog({
   const [warningSeconds, setWarningSeconds] = useState(station.warningThresholdSeconds);
   const [criticalSeconds, setCriticalSeconds] = useState(station.criticalThresholdSeconds);
   const [autoBump, setAutoBump] = useState(station.autoBumpOnAllReady ?? false);
+  const [selectedOrderTypes, setSelectedOrderTypes] = useState<string[]>(station.allowedOrderTypes ?? []);
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(station.allowedChannels ?? []);
   const [error, setError] = useState<string | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
 
@@ -1354,8 +1406,10 @@ function EditStationDialog({
       warningThresholdSeconds: warningSeconds,
       criticalThresholdSeconds: criticalSeconds,
       autoBumpOnAllReady: autoBump,
+      allowedOrderTypes: selectedOrderTypes,
+      allowedChannels: selectedChannels,
     });
-  }, [displayName, stationType, color, warningSeconds, criticalSeconds, autoBump, onSubmit]);
+  }, [displayName, stationType, color, warningSeconds, criticalSeconds, autoBump, selectedOrderTypes, selectedChannels, onSubmit]);
 
   return createPortal(
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
@@ -1467,6 +1521,48 @@ function EditStationDialog({
               />
             </button>
           </label>
+
+          <div className="space-y-1">
+            <span className="text-xs font-medium text-foreground">Allowed Order Types</span>
+            <p className="text-[10px] text-muted-foreground">Empty = accepts all types</p>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {Object.entries(ORDER_TYPE_LABELS).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setSelectedOrderTypes((prev) => prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val])}
+                  className={`px-2 py-1 text-[10px] rounded-md border transition-colors ${
+                    selectedOrderTypes.includes(val)
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-surface text-muted-foreground border-border hover:border-foreground'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-xs font-medium text-foreground">Allowed Channels</span>
+            <p className="text-[10px] text-muted-foreground">Empty = accepts all channels</p>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {Object.entries(CHANNEL_LABELS).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setSelectedChannels((prev) => prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val])}
+                  className={`px-2 py-1 text-[10px] rounded-md border transition-colors ${
+                    selectedChannels.includes(val)
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-surface text-muted-foreground border-border hover:border-foreground'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {error && (
@@ -1501,16 +1597,17 @@ function EditStationDialog({
 
 const ORDER_TYPE_LABELS: Record<string, string> = {
   dine_in: 'Dine-In',
-  takeout: 'Takeout',
-  delivery: 'Delivery',
   bar: 'Bar',
+  takeout: 'Takeout',
+  quick_service: 'Quick Service',
+  delivery: 'Delivery',
 };
 
 const CHANNEL_LABELS: Record<string, string> = {
   pos: 'POS',
   online: 'Online',
   kiosk: 'Kiosk',
-  third_party: '3rd Party',
+  third_party: 'Third Party',
 };
 
 function RoutingTab({ locationId }: { locationId?: string }) {

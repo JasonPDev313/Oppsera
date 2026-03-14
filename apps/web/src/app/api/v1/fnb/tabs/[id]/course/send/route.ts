@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { broadcastFnb } from '@oppsera/core/realtime';
+import { logger } from '@oppsera/core/observability';
 import { ValidationError } from '@oppsera/shared';
 import { sendCourse, sendCourseSchema, resendCourseToKds } from '@oppsera/module-fnb';
 import { withTenant } from '@oppsera/db';
@@ -83,8 +84,14 @@ export const POST = withMiddleware(
             'Course sent but no kitchen tickets created. Use the resend endpoint for diagnostics.';
         }
       }
-    } catch {
-      // Non-critical — don't block the send response
+    } catch (verifyErr) {
+      logger.error('[kds] course-send: ticket verification failed', {
+        domain: 'kds',
+        tabId,
+        courseNumber: parsed.data.courseNumber,
+        error: { message: verifyErr instanceof Error ? verifyErr.message : String(verifyErr) },
+      });
+      kdsStatus.warning = 'Course sent but KDS ticket verification failed. Check server logs and use the resend endpoint.';
     }
 
     return NextResponse.json({ data: result, kdsStatus });

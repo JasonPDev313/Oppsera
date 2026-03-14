@@ -64,6 +64,8 @@ export async function createStation(
         warningThresholdSeconds: input.warningThresholdSeconds ?? 480,
         criticalThresholdSeconds: input.criticalThresholdSeconds ?? 720,
         autoBumpOnAllReady: input.autoBumpOnAllReady ?? false,
+        allowedOrderTypes: input.allowedOrderTypes ?? [],
+        allowedChannels: input.allowedChannels ?? [],
       })
       .returning();
 

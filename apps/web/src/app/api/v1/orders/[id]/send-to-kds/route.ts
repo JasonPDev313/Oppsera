@@ -5,7 +5,7 @@ import { withTenant } from '@oppsera/db';
 import { orders, fnbTabs } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
-import { sendOrderLinesToKds } from '@oppsera/module-fnb';
+import { sendOrderLinesToKds, type KdsOrderType } from '@oppsera/module-fnb';
 import { broadcastFnb } from '@oppsera/core/realtime';
 
 function extractOrderId(request: NextRequest): string {
@@ -48,7 +48,7 @@ export const POST = withMiddleware(
       throw new AppError('CONFLICT', `Order is ${order.status}, expected open`, 409);
     }
 
-    const result = await sendOrderLinesToKds(ctx, orderId, order.businessDate, order.orderType ?? undefined);
+    const result = await sendOrderLinesToKds(ctx, orderId, order.businessDate, (order.orderType ?? undefined) as KdsOrderType | undefined);
     broadcastFnb(ctx, 'kds').catch(() => {});
     return NextResponse.json({ data: result });
   },

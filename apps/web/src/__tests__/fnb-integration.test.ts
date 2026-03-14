@@ -73,6 +73,10 @@ vi.mock('@oppsera/core/auth/with-middleware', () => ({
   withMiddleware: mockWithMiddleware,
 }));
 
+vi.mock('@oppsera/core/observability', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
 const passThroughSchema = {
   safeParse: (data: any) => ({ success: true, data }),
 };

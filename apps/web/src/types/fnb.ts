@@ -32,7 +32,7 @@ export type FnbTableShape =
   | 'oval'
   | 'custom';
 
-export type FnbTabType = 'dine_in' | 'bar' | 'takeout' | 'delivery';
+export type FnbTabType = 'dine_in' | 'bar' | 'takeout' | 'quick_service';
 
 export type FnbTabStatus =
   | 'open'
@@ -516,6 +516,8 @@ export interface FnbStation {
   fallbackStationId: string | null;
   backupPrinterId: string | null;
   autoBumpOnAllReady: boolean;
+  allowedOrderTypes: string[];
+  allowedChannels: string[];
 }
 
 export interface FnbStationMetrics {

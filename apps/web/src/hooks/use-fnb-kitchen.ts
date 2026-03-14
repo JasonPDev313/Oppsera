@@ -603,6 +603,8 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
     sortOrder?: number;
     warningThresholdSeconds?: number;
     criticalThresholdSeconds?: number;
+    allowedOrderTypes?: string[];
+    allowedChannels?: string[];
   }) => {
     if (!locationId) throw new Error('No location selected — cannot create station');
     setIsActing(true);
@@ -618,6 +620,8 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
       if (input.sortOrder != null) payload.sortOrder = Number(input.sortOrder);
       if (input.warningThresholdSeconds != null) payload.warningThresholdSeconds = Math.round(Number(input.warningThresholdSeconds));
       if (input.criticalThresholdSeconds != null) payload.criticalThresholdSeconds = Math.round(Number(input.criticalThresholdSeconds));
+      if (input.allowedOrderTypes) payload.allowedOrderTypes = input.allowedOrderTypes;
+      if (input.allowedChannels) payload.allowedChannels = input.allowedChannels;
       await apiFetch(`/api/v1/fnb/stations?locationId=${locationId}`, {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -638,6 +642,8 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
     criticalThresholdSeconds?: number;
     isActive?: boolean;
     autoBumpOnAllReady?: boolean;
+    allowedOrderTypes?: string[];
+    allowedChannels?: string[];
   }) => {
     setIsActing(true);
     try {

@@ -773,6 +773,7 @@ export {
   checkInReservationSchema, updateHostSettingsSchema,
   getWaitlistFilterSchema, getReservationsFilterSchema, getHostDashboardSchema,
   getWaitTimeEstimateSchema, getTableAvailabilitySchema,
+  KDS_ORDER_TYPES, KDS_CHANNELS,
 } from './validation';
 
 export type {
@@ -780,7 +781,7 @@ export type {
   AssignmentStatus, ShiftStatus,
   FnbTabType, FnbTabStatus, FnbServiceType, FnbCourseStatus, FnbSplitStrategy,
   FnbTicketStatus, FnbTicketItemStatus, FnbDeltaType, FnbRoutingRuleType,
-  FnbStationType, FnbDisplayMode, FnbSortBy,
+  FnbStationType, FnbDisplayMode, FnbSortBy, KdsOrderType, KdsChannel,
   Entity86Type, AllergenSeverity, AvailabilityEntityType,
   SyncTablesFromFloorPlanInput, CreateTableInput, UpdateTableInput,
   UpdateTableStatusInput, SeatTableInput,

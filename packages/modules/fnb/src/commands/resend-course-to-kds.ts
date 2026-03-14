@@ -18,6 +18,7 @@ import type { RoutableItem } from '../services/kds-routing-engine';
 import { createKitchenTicket } from './create-kitchen-ticket';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { normalizeBusinessDate } from '../helpers/normalize-business-date';
+import type { KdsOrderType } from '../validation';
 
 export interface ResendCourseInput {
   tabId: string;
@@ -247,7 +248,7 @@ export async function resendCourseToKds(
           tabId: input.tabId,
           orderId: tab.primaryOrderId ?? undefined,
           courseNumber: input.courseNumber,
-          orderType: tab.tabType ?? undefined,
+          orderType: (tab.tabType ?? undefined) as KdsOrderType | undefined,
           channel: 'pos',
           items: ticketItems,
         });

@@ -32,6 +32,7 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
     customerName?: string | null;
     employeeId?: string;
     employeeName?: string | null;
+    orderType?: string;
   };
 
   if (!data.orderId || !data.locationId) return;
@@ -116,7 +117,7 @@ export async function handleOrderPlacedForKds(event: EventEnvelope): Promise<voi
 
     // 4. Bulk-resolve stations with full context
     const routingResults = await resolveStationRouting(
-      { tenantId: event.tenantId, locationId: data.locationId, channel: 'pos' },
+      { tenantId: event.tenantId, locationId: data.locationId, orderType: data.orderType, channel: 'pos' },
       routableItems,
     );
 

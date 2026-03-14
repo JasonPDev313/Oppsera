@@ -31,6 +31,8 @@ export interface StationDetail {
   criticalThresholdSeconds: number;
   isActive: boolean;
   autoBumpOnAllReady: boolean;
+  allowedOrderTypes: string[];
+  allowedChannels: string[];
   displayConfigs: DisplayConfig[];
 }
 
@@ -44,6 +46,8 @@ export async function getStationDetail(
                  s.terminal_location_id, s.warning_threshold_seconds,
                  s.critical_threshold_seconds, s.is_active,
                  s.auto_bump_on_all_ready,
+                 COALESCE(s.allowed_order_types, '{}') AS allowed_order_types,
+                 COALESCE(s.allowed_channels, '{}') AS allowed_channels,
                  fb.name AS fallback_station_name
           FROM fnb_kitchen_stations s
           LEFT JOIN fnb_kitchen_stations fb ON fb.id = s.fallback_station_id
@@ -91,7 +95,20 @@ export async function getStationDetail(
       criticalThresholdSeconds: Number(s.critical_threshold_seconds),
       isActive: s.is_active as boolean,
       autoBumpOnAllReady: s.auto_bump_on_all_ready as boolean,
+      allowedOrderTypes: parseTextArray(s.allowed_order_types),
+      allowedChannels: parseTextArray(s.allowed_channels),
       displayConfigs,
     };
   });
+}
+
+/** Parse a Postgres text[] value (comes as string or string[]). */
+function parseTextArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((v) => typeof v === 'string' && v.length > 0);
+  if (typeof value === 'string') {
+    const trimmed = value.replace(/^\{|\}$/g, '');
+    if (trimmed.length === 0) return [];
+    return trimmed.split(',').map((s) => s.trim().replace(/^"|"$/g, ''));
+  }
+  return [];
 }
