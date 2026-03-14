@@ -329,6 +329,10 @@ export async function apiFetch<T = unknown>(
     if (data.error?.userMessage) err.userMessage = data.error.userMessage;
     if (data.error?.suggestedAction) err.suggestedAction = data.error.suggestedAction;
     if (typeof data.error?.retryable === 'boolean') err.retryable = data.error.retryable;
+    // Carry through extra structured data (e.g. kdsStatus on 422 dispatch failures)
+    if (data.kdsStatus) {
+      err.meta = { kdsStatus: data.kdsStatus };
+    }
     throw err;
   }
 
@@ -356,6 +360,8 @@ export class ApiError extends Error {
   suggestedAction?: string;
   /** Whether the transaction can be retried */
   retryable?: boolean;
+  /** Extra structured data from the error response (e.g. kdsStatus on 422) */
+  meta?: Record<string, unknown>;
 
   constructor(
     public code: string,

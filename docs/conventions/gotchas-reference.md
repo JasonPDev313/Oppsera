@@ -594,4 +594,4 @@
 
 570. **KDS send tracking persists through ticket void** — voiding a ticket does NOT delete its `fnb_kds_send_tracking` rows. KDS views must filter by ticket status (`WHERE status != 'voided'`) rather than assuming all tracking rows represent active work. Without this filter, voided items appear on the customer board and KDS dashboard counts.
 
-
+571. **Read model staleness is silent** — `rm_daily_sales` and `rm_item_sales` are populated by event consumers (`order.placed.v1`). If the outbox drain stalls, events fail silently, or cold start races skip consumers, read models fall behind with no alert. The semantic layer queries these tables and returns "no data" — indistinguishable from genuinely empty results. Solution: `/api/v1/internal/reconcile-read-models` cron (every 15 min) detects gaps by comparing orders vs read model rows for the last 14 days and auto-backfills. The semantic feed includes a `dataFreshness` object with `isStale`, `lagMinutes`, and timestamps so the UI can warn users.

@@ -33,6 +33,10 @@
     {
       "path": "/api/v1/fnb/cron/kds-auto-clear",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/v1/internal/reconcile-read-models",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

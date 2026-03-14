@@ -173,8 +173,8 @@ export const OrderTicket = memo(function OrderTicket({
               servedAt={courseInfo?.servedAt}
               itemCount={totalItems}
               previousCourseServed={previousCourseServed}
-              onSend={kdsSendEnabled ? () => onSendCourse(courseNum) : undefined}
-              onFire={kdsSendEnabled ? () => onFireCourse(courseNum) : undefined}
+              onSend={kdsSendEnabled && courseInfo ? () => onSendCourse(courseNum) : undefined}
+              onFire={kdsSendEnabled && courseInfo ? () => onFireCourse(courseNum) : undefined}
               disabled={disabled}
             >
               {/* Server-committed lines */}

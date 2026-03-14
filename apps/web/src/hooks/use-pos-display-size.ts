@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export type POSDisplaySize = 'default' | 'large' | 'xlarge';
 
@@ -13,13 +13,15 @@ const SCALE_MAP: Record<POSDisplaySize, number> = {
 const STORAGE_KEY = 'pos_display_size';
 
 export function usePOSDisplaySize() {
-  const [displaySize, setDisplaySizeState] = useState<POSDisplaySize>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === 'large' || stored === 'xlarge') return stored;
+  const [displaySize, setDisplaySizeState] = useState<POSDisplaySize>('default');
+
+  // Hydrate from localStorage after mount to avoid SSR mismatch
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === 'large' || stored === 'xlarge') {
+      setDisplaySizeState(stored);
     }
-    return 'default';
-  });
+  }, []);
 
   const setDisplaySize = useCallback((size: POSDisplaySize) => {
     setDisplaySizeState(size);

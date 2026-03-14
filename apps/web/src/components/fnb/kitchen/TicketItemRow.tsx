@@ -84,11 +84,15 @@ function PrepCountdown({ estimatedPrepSeconds, elapsedSeconds }: { estimatedPrep
 export function TicketItemRow({ item, showSeat = true, onBump, density = 'standard', allDayCount }: TicketItemRowProps) {
   const [isBumping, setIsBumping] = useState(false);
   const bumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ref-based lock: persists across re-renders until server data confirms 'ready'.
+  // Prevents double-bump when the 600ms animation resets before poll refresh.
+  const bumpedRef = useRef(false);
   const isReady = item.itemStatus === 'ready';
   const isServed = item.itemStatus === 'served';
   const isVoided = item.itemStatus === 'voided';
   const isTerminal = isReady || isServed || isVoided;
-  const isTappable = !!onBump && !isTerminal && Boolean(item.stationId);
+  if (isTerminal) bumpedRef.current = false; // clear lock once server confirms
+  const isTappable = !!onBump && !isTerminal && !bumpedRef.current && Boolean(item.stationId);
   const isRemake = item.specialInstructions?.startsWith('REMAKE:') ?? false;
   const { cookTemp, noMods, regularMods } = parseModifiers(item.modifierSummary ?? null);
 
@@ -160,7 +164,8 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
         WebkitTapHighlightColor: isTappable ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
       }}
       onClick={isTappable ? () => {
-        if (isBumping) return;
+        if (isBumping || bumpedRef.current) return;
+        bumpedRef.current = true;
         setIsBumping(true);
         navigator.vibrate?.(50);
         playBumpSound();
@@ -172,7 +177,8 @@ export function TicketItemRow({ item, showSeat = true, onBump, density = 'standa
       onKeyDown={isTappable ? (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          if (isBumping) return;
+          if (isBumping || bumpedRef.current) return;
+          bumpedRef.current = true;
           setIsBumping(true);
           navigator.vibrate?.(50);
           playBumpSound();

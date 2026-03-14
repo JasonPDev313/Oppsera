@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { broadcastFnb } from '@oppsera/core/realtime';
-import { logger } from '@oppsera/core/observability';
 import { ValidationError } from '@oppsera/shared';
-import { sendCourse, sendCourseSchema, resendCourseToKds } from '@oppsera/module-fnb';
-import { withTenant } from '@oppsera/db';
-import { sql } from 'drizzle-orm';
+import { sendCourse, sendCourseSchema } from '@oppsera/module-fnb';
 
-// POST /api/v1/fnb/tabs/:id/course/send — send a course to kitchen
+// POST /api/v1/fnb/tabs/:id/course/send — atomic course send + KDS dispatch
+//
+// New semantics: "sent to kitchen" means tickets were committed.
+// If dispatch fails, the course stays unsent and a 422 is returned.
+// The POS should show the dispatch errors and let the user retry.
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const parts = new URL(request.url).pathname.split('/');
@@ -22,79 +23,52 @@ export const POST = withMiddleware(
       );
     }
 
-    const result = await sendCourse(ctx, parsed.data);
-    broadcastFnb(ctx, 'kds', 'tabs').catch(() => {});
-
-    // Post-send verification: check if the inline event consumer created tickets.
-    // By the time sendCourse returns, publishWithOutbox has already awaited inline dispatch.
-    // If no tickets exist, the consumer silently failed — surface this to the POS.
-    let kdsStatus: {
-      ticketCount: number;
-      warning?: string;
-      effectiveKdsLocationId?: string;
-      ticketIds?: string[];
-      stationIds?: string[];
-    } = { ticketCount: 0 };
     try {
-      const ticketRows = await withTenant(ctx.tenantId, (tx) =>
-        tx.execute(sql`
-          SELECT kt.id, kt.location_id,
-                 array_agg(DISTINCT kti.station_id) AS station_ids
-          FROM fnb_kitchen_tickets kt
-          INNER JOIN fnb_kitchen_ticket_items kti ON kti.ticket_id = kt.id
-          WHERE kt.tenant_id = ${ctx.tenantId}
-            AND kt.tab_id = ${tabId}
-            AND kt.course_number = ${parsed.data.courseNumber}
-          GROUP BY kt.id, kt.location_id
-        `),
-      );
-      const rows = Array.from(ticketRows as Iterable<Record<string, unknown>>);
-      const cnt = rows.length;
-      const ticketIds = rows.map((r) => r.id as string);
-      const stationIdSet = new Set<string>();
-      for (const r of rows) {
-        const sids = r.station_ids as string[] | null;
-        if (sids) for (const sid of sids) stationIdSet.add(sid);
-      }
-      const effectiveLocationId = (rows[0]?.location_id as string) ?? ctx.locationId;
-      kdsStatus = {
-        ticketCount: cnt,
-        effectiveKdsLocationId: effectiveLocationId,
-        ticketIds,
-        stationIds: [...stationIdSet],
-      };
-      if (cnt === 0) {
-        // No tickets created — run resend with diagnostics to find out WHY.
-        // This both creates the tickets (if routing succeeds) and returns the failure trace.
-        try {
-          const resendResult = await resendCourseToKds(ctx, {
-            tabId,
-            courseNumber: parsed.data.courseNumber,
-          });
-          kdsStatus.ticketCount = resendResult.ticketsCreated;
-          (kdsStatus as Record<string, unknown>).diagnosis = resendResult.diagnosis;
-          (kdsStatus as Record<string, unknown>).errors = resendResult.errors;
-          if (resendResult.ticketsCreated === 0) {
-            kdsStatus.warning =
-              'Course sent but no kitchen tickets created. ' +
-              `Diagnosis: ${resendResult.errors.join('; ') || resendResult.diagnosis.slice(-3).join('; ')}`;
-          }
-        } catch {
-          kdsStatus.warning =
-            'Course sent but no kitchen tickets created. Use the resend endpoint for diagnostics.';
-        }
-      }
-    } catch (verifyErr) {
-      logger.error('[kds] course-send: ticket verification failed', {
-        domain: 'kds',
-        tabId,
-        courseNumber: parsed.data.courseNumber,
-        error: { message: verifyErr instanceof Error ? verifyErr.message : String(verifyErr) },
-      });
-      kdsStatus.warning = 'Course sent but KDS ticket verification failed. Check server logs and use the resend endpoint.';
-    }
+      const { course, dispatch } = await sendCourse(ctx, parsed.data);
 
-    return NextResponse.json({ data: result, kdsStatus });
+      broadcastFnb(ctx, 'kds', 'tabs').catch(() => {});
+
+      return NextResponse.json({
+        data: course,
+        kdsStatus: {
+          state: dispatch.status,
+          attemptId: dispatch.attemptId,
+          ticketCount: dispatch.ticketsCreated,
+          ticketIds: dispatch.ticketIds,
+          stationIds: dispatch.stationIds,
+          effectiveKdsLocationId: dispatch.effectiveKdsLocationId,
+          diagnosis: dispatch.diagnosis,
+          errors: dispatch.errors,
+        },
+      });
+    } catch (err) {
+      // KdsDispatchError → 422 with structured dispatch info
+      if ((err as Record<string, unknown>).statusCode === 422 && 'dispatch' in (err as Record<string, unknown>)) {
+        const dispatch = (err as Record<string, unknown>).dispatch as Record<string, unknown>;
+        return NextResponse.json(
+          {
+            error: {
+              code: 'KDS_DISPATCH_FAILED',
+              message: (err as Error).message,
+            },
+            kdsStatus: {
+              state: dispatch.status,
+              attemptId: dispatch.attemptId,
+              ticketCount: dispatch.ticketsCreated ?? 0,
+              ticketIds: dispatch.ticketIds ?? [],
+              stationIds: dispatch.stationIds ?? [],
+              effectiveKdsLocationId: dispatch.effectiveKdsLocationId,
+              diagnosis: dispatch.diagnosis ?? [],
+              errors: dispatch.errors ?? [],
+              failureStage: dispatch.failureStage,
+            },
+          },
+          { status: 422 },
+        );
+      }
+      // Other errors (TabNotFound, CourseStatusConflict, etc.) — let middleware handle
+      throw err;
+    }
   },
   { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage', writeAccess: true },
 );

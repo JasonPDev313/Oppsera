@@ -260,8 +260,18 @@ describe('Flow 1: Dine-In Lifecycle', () => {
   });
 
   it('POST /tabs/:id/course/send sends course to kitchen', async () => {
-    const result = { ticketId: 'tkt_01', courseNumber: 1, itemCount: 3 };
-    mockSendCourse.mockResolvedValue(result);
+    const course = { id: 'course_01', courseNumber: 1, courseStatus: 'sent' };
+    const dispatch = {
+      status: 'succeeded',
+      attemptId: 'attempt_01',
+      ticketsCreated: 1,
+      ticketIds: ['tkt_01'],
+      stationIds: ['station_01'],
+      effectiveKdsLocationId: 'loc_01',
+      diagnosis: [],
+      errors: [],
+    };
+    mockSendCourse.mockResolvedValue({ course, dispatch });
 
     const { POST } = await import('../app/api/v1/fnb/tabs/[id]/course/send/route');
     const res = await POST(
@@ -270,7 +280,9 @@ describe('Flow 1: Dine-In Lifecycle', () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.data.ticketId).toBe('tkt_01');
+    expect(json.data.courseNumber).toBe(1);
+    expect(json.kdsStatus.state).toBe('succeeded');
+    expect(json.kdsStatus.ticketCount).toBe(1);
     expect(mockSendCourse).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: 'tenant_001' }),
       expect.objectContaining({ tabId: 'tab_01', courseNumber: 1 }),

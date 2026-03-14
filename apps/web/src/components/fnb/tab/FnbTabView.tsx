@@ -235,7 +235,9 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   const kdsLocationId = resolveKdsLocationId(currentLocation);
   const kdsLocationName = resolveKdsLocationName(currentLocation);
   const { stations } = useStations({ locationId: kdsLocationId });
-  const hasKdsStations = stations.length > 0;
+  // Only count ACTIVE stations — the routing engine ignores inactive ones,
+  // so sending to kitchen with only inactive stations silently creates zero tickets.
+  const hasKdsStations = stations.some((s) => s.isActive);
   const [showKdsNotConfigured, setShowKdsNotConfigured] = useState(false);
   const store = useFnbPosStore();
   const tabId = store.activeTabId;
@@ -282,6 +284,8 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   const menu = useFnbMenu({ isActive });
 
   const [toastMsg, setToastMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Persistent KDS failure banner — doesn't auto-dismiss so the user can't miss it
+  const [kdsSendError, setKdsSendError] = useState<string | null>(null);
 
   // Resolve the location name for a KDS send result (cross-location observability)
   const resolveLocationName = useCallback((locId: string | undefined) => {
@@ -289,7 +293,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     return locations?.find((l) => l.id === locId)?.name;
   }, [locations]);
 
-  // Wrap sendCourse to surface KDS warnings + cross-location alerts as toast
+  // Wrap sendCourse to surface KDS warnings + cross-location alerts as persistent banner
   const sendCourseWithWarning = useCallback(async (courseNumber: number) => {
     try {
       const result = await sendCourse(courseNumber);
@@ -299,21 +303,17 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
         const msg = result.warning
           ? `${result.warning} (routed to ${destName})`
           : `Course sent to KDS at ${destName} (different from current location)`;
-        setToastMsg({ type: 'error', text: msg });
-        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = setTimeout(() => setToastMsg(null), 8000);
+        setKdsSendError(msg);
         return;
       }
       if (result?.warning) {
-        setToastMsg({ type: 'error', text: result.warning });
-        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = setTimeout(() => setToastMsg(null), 8000);
+        setKdsSendError(result.warning);
+      } else {
+        setKdsSendError(null);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to send course';
-      setToastMsg({ type: 'error', text: msg });
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => setToastMsg(null), 8000);
+      setKdsSendError(msg);
     }
   }, [sendCourse, kdsLocationId, resolveLocationName]);
 
@@ -371,6 +371,14 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
 
   const handleSendAll = async () => {
     if (!tab || !tabId) return;
+
+    // Block send if tab is no longer writable (e.g. paying, closed)
+    if (!['open', 'ordering', 'sent_to_kitchen'].includes(tab.status)) {
+      setToastMsg({ type: 'error', text: `Tab is ${tab.status} — cannot send` });
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToastMsg(null), 4000);
+      return;
+    }
 
     // Block send if no KDS stations at this location
     if (!hasKdsStations) {
@@ -440,9 +448,11 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       if (result?.warning) kdsWarnings.push(result.warning);
     }
     if (kdsWarnings.length > 0) {
-      setToastMsg({ type: 'error', text: kdsWarnings[0]! });
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => setToastMsg(null), 8000);
+      // Persistent banner — KDS failures are critical, not something to auto-dismiss
+      setKdsSendError(kdsWarnings.join(' | '));
+    } else {
+      // Clear any previous KDS error on successful send
+      setKdsSendError(null);
     }
 
     // 3. Auto-advance active course so new items go to a fresh unsent course.
@@ -544,6 +554,8 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   // Item tap handler — checks for modifier groups before adding to cart
   const handleItemTap = useCallback((itemId: string, itemName: string, priceCents: number, itemType: string) => {
     if (!tabId) return;
+    // Block adding items if tab is no longer writable
+    if (tab && !['open', 'ordering', 'sent_to_kitchen'].includes(tab.status)) return;
     // Record to recents for Favorites tab
     recordRecentItem({ id: itemId, name: itemName, priceCents, itemType });
 
@@ -570,7 +582,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       courseNumber: getEffectiveCourseForItem(itemId),
       addedAt: Date.now(),
     });
-  }, [tabId, addDraftLine, getEffectiveCourseForItem, activeSeat, activeCourse, menu]);
+  }, [tabId, tab, addDraftLine, getEffectiveCourseForItem, activeSeat, activeCourse, menu]);
 
   // Modifier drawer confirm handler — adds item with selected modifiers to cart
   const handleModifierConfirm = useCallback((
@@ -856,6 +868,19 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
               Cancel
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Persistent KDS failure banner — stays visible until dismissed */}
+      {kdsSendError && (
+        <div className="shrink-0 flex items-center justify-between px-4 py-2 text-xs font-semibold"
+          style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', borderBottom: '1px solid rgba(239, 68, 68, 0.3)' }}>
+          <span>KDS Error: {kdsSendError}</span>
+          <button type="button" onClick={() => setKdsSendError(null)}
+            className="ml-3 shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+            style={{ backgroundColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}>
+            Dismiss
+          </button>
         </div>
       )}
 

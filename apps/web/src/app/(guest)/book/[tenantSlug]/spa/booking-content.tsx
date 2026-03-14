@@ -105,7 +105,7 @@ interface ServiceItem {
   durationMinutes: number;
   priceCents: number;
   imageUrl?: string;
-  addons: AddonItem[];
+  addons?: AddonItem[];
 }
 
 interface AddonItem {
@@ -475,7 +475,7 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
     if (!selectedService) return 0;
     let total = selectedService.priceCents;
     for (const addonId of selectedAddons) {
-      const addon = selectedService.addons.find((a) => a.id === addonId);
+      const addon = (selectedService.addons ?? []).find((a) => a.id === addonId);
       if (addon) total += addon.priceCents;
     }
     return total;
@@ -485,7 +485,7 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
     if (!selectedService) return 0;
     let dur = selectedService.durationMinutes;
     for (const addonId of selectedAddons) {
-      const addon = selectedService.addons.find((a) => a.id === addonId);
+      const addon = (selectedService.addons ?? []).find((a) => a.id === addonId);
       if (addon) dur += addon.durationMinutes;
     }
     return dur;
@@ -799,13 +799,13 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
                     </div>
 
                     {/* Addons Preview */}
-                    {service.addons.length > 0 && (
+                    {(service.addons ?? []).length > 0 && (
                       <div className="mt-2 pt-2 border-t border-border">
                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
                           Add-ons available
                         </p>
                         <div className="flex flex-wrap gap-1">
-                          {service.addons.slice(0, 3).map((addon) => (
+                          {(service.addons ?? []).slice(0, 3).map((addon) => (
                             <span
                               key={addon.id}
                               className="text-[10px] bg-surface text-muted-foreground rounded px-1.5 py-0.5"
@@ -813,9 +813,9 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
                               {addon.name}
                             </span>
                           ))}
-                          {service.addons.length > 3 && (
+                          {(service.addons ?? []).length > 3 && (
                             <span className="text-[10px] text-muted-foreground">
-                              +{service.addons.length - 3} more
+                              +{(service.addons ?? []).length - 3} more
                             </span>
                           )}
                         </div>
@@ -833,13 +833,13 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
             )}
 
             {/* Addon Selection (if service selected and has addons, show below) */}
-            {selectedService && selectedService.addons.length > 0 && step === 1 && (
+            {selectedService && (selectedService.addons ?? []).length > 0 && step === 1 && (
               <div className="px-4 mt-4">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                   Enhance Your Experience
                 </h3>
                 <div className="space-y-2">
-                  {selectedService.addons.map((addon) => {
+                  {(selectedService.addons ?? []).map((addon) => {
                     const isSelected = selectedAddons.includes(addon.id);
                     return (
                       <label
@@ -1225,7 +1225,7 @@ export default function BookingContent({ isEmbed = false }: { isEmbed?: boolean 
                 {selectedAddons.length > 0 && (
                   <div className="mt-1 space-y-0.5">
                     {selectedAddons.map((addonId) => {
-                      const addon = selectedService.addons.find((a) => a.id === addonId);
+                      const addon = (selectedService.addons ?? []).find((a) => a.id === addonId);
                       return addon ? (
                         <p key={addonId} className="text-xs text-muted-foreground">
                           + {addon.name} ({formatMoney(addon.priceCents)})

@@ -117,7 +117,11 @@ export function GiftCardTenderDialog({
     }
 
     setIsSubmitting(true);
-    onRedeem(balance.id, balance.cardNumber, parsedCents);
+    try {
+      onRedeem(balance.id, balance.cardNumber, parsedCents);
+    } catch {
+      setIsSubmitting(false);
+    }
   }, [balance, redeemAmount, remainingBalanceCents, isSubmitting, onRedeem, toast]);
 
   const handleKeyDown = useCallback(

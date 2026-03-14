@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
 
 interface VerifyPinResult {
@@ -38,8 +38,8 @@ export function useManagerOverride(): UseManagerOverrideReturn {
   });
 
   // Store resolve/reject for the promise-based API
-  const resolverRef = { current: null as ((result: { verified: boolean; userName?: string }) => void) | null };
-  const permRef = { current: undefined as string | undefined };
+  const resolverRef = useRef<((result: { verified: boolean; userName?: string }) => void) | null>(null);
+  const permRef = useRef<string | undefined>(undefined);
 
   const requestOverride = useCallback((action: string, requiredPermission?: string) => {
     return new Promise<{ verified: boolean; userName?: string }>((resolve) => {

@@ -148,8 +148,11 @@ export { transferTab } from './commands/transfer-tab';
 export { reopenTab } from './commands/reopen-tab';
 export { fireCourse } from './commands/fire-course';
 export { sendCourse } from './commands/send-course';
+export type { SendCourseReturn, KdsDispatchError } from './commands/send-course';
 export { resendCourseToKds } from './commands/resend-course-to-kds';
 export type { ResendCourseInput, ResendCourseResult } from './commands/resend-course-to-kds';
+export { prepareCourseDispatch, recordDispatchAttempt, emptyDispatchResult } from './commands/dispatch-course-to-kds';
+export type { DispatchCourseResult, DispatchSource, DispatchStatus, PreparedDispatch } from './commands/dispatch-course-to-kds';
 export { addTabItems } from './commands/add-tab-items';
 export { splitTab } from './commands/split-tab';
 

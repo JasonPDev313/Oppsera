@@ -116,6 +116,23 @@ vi.mock('@oppsera/shared', async (importOriginal: () => Promise<Record<string, u
   return { ...actual };
 });
 
+// Mock the dispatch preparation layer — sendCourse now calls prepareCourseDispatch
+// before the transaction. We mock it to return pre-computed routing results so the
+// integration test focuses on the atomic transaction behavior.
+const mockPrepareCourseDispatch = vi.fn();
+const mockRecordDispatchAttempt = vi.fn(async () => 'attempt-1');
+
+vi.mock('../commands/dispatch-course-to-kds', () => ({
+  prepareCourseDispatch: (...args: unknown[]) => mockPrepareCourseDispatch(...args),
+  recordDispatchAttempt: (...args: unknown[]) => mockRecordDispatchAttempt(),
+  emptyDispatchResult: () => ({
+    attemptId: null, status: 'started', failureStage: null,
+    ticketsCreated: 0, ticketsFailed: 0, itemsRouted: 0, itemsUnrouted: 0,
+    itemCount: 0, effectiveKdsLocationId: null, ticketIds: [], stationIds: [],
+    orderId: null, tabType: null, businessDate: null, errors: [], diagnosis: [],
+  }),
+}));
+
 // ── Imports (must come after vi.mock calls) ───────────────────────────────────
 
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -215,18 +232,55 @@ describe('KDS happy path integration', () => {
     const course = { id: 'course-1', tabId: TAB_ID, courseNumber: 1, courseStatus: 'unsent' };
     const sentCourse = { ...course, courseStatus: 'sent', sentAt: new Date() };
 
-    // sendCourse uses publishWithOutbox which passes mockTx via the mock above.
-    // Calls inside the callback (in order):
-    //   1. tx.select().from(fnbTabs)...limit(1)     → tab
-    //   2. tx.select().from(fnbTabCourses)...limit(1) → course
-    //   3. tx.update(fnbTabCourses).set(...).returning() → sentCourse
-    //   4. tx.update(fnbTabs).set(...).where(...)    → void (no .returning() check needed)
-    //   5. saveIdempotencyKey (checkIdempotency returns isDuplicate:false via mock)
+    // Mock the preparation phase — returns pre-computed routing with 1 station, 1 item
+    mockPrepareCourseDispatch.mockResolvedValueOnce({
+      tab: { id: TAB_ID, locationId: LOCATION, primaryOrderId: null, businessDate: BUSINESS_DATE, tableId: null, tabType: 'dine_in' },
+      courseName: 'Course 1',
+      effectiveLocationId: LOCATION,
+      tableNumber: null,
+      stationGroups: new Map([
+        [STATION_ID, [{
+          orderLineId: ITEM_ID, catalogItemId: 'cat-1', itemName: 'Test Item',
+          modifierSummary: null, specialInstructions: null, seatNumber: 1,
+          courseName: 'Course 1', quantity: 1, stationId: STATION_ID, routingRuleId: 'rule-1',
+        }]],
+      ]),
+      stationNameMap: new Map([[STATION_ID, 'Grill']]),
+      prepTimeMap: new Map(),
+      routingResults: [{ orderLineId: ITEM_ID, stationId: STATION_ID, routingRuleId: 'rule-1', matchType: 'item' }],
+      diagnosis: ['Tab: rawLocationId=loc-1, resolvedLocationId=loc-1'],
+      errors: [],
+      itemCount: 1,
+      itemsRouted: 1,
+      itemsUnrouted: 0,
+    });
+
+    // sendCourse atomic transaction via publishWithOutbox (in order):
+    //   1. checkIdempotency (mocked globally → not duplicate)
+    //   2. tx.select().from(fnbTabs)...limit(1) → tab
+    //   3. tx.select().from(fnbTabCourses)...limit(1) → course
+    //   4. tx.execute (counter increment) → { last_number: 1 }
+    //   5. checkIdempotency per ticket (mocked globally → not duplicate)
+    //   6. tx.insert(fnbKitchenTickets)...returning() → ticket
+    //   7. tx.insert(fnbKitchenTicketItems)...values() → void (no returning)
+    //   8. saveIdempotencyKey per ticket
+    //   9. tx.execute (send tracking) → void
+    //  10. tx.execute (send event) → void
+    //  11. tx.update(fnbTabCourses)...returning() → sentCourse
+    //  12. tx.update(fnbTabs)...where() → void
+    //  13. saveIdempotencyKey for sendCourse
+    const insertedTicket = { id: TICKET_ID, ticketNumber: 1 };
     mockTx.limit
       .mockResolvedValueOnce([tab])    // tab lookup
       .mockResolvedValueOnce([course]); // course lookup
+    mockTx.execute
+      .mockResolvedValueOnce([{ last_number: 1 }])  // counter increment
+      .mockResolvedValueOnce([])  // send tracking INSERT
+      .mockResolvedValueOnce([]);  // send event INSERT
     mockTx.returning
-      .mockResolvedValueOnce([sentCourse]); // course update → returning
+      .mockResolvedValueOnce([insertedTicket])      // ticket insert
+      .mockResolvedValueOnce([sentCourse]); // course update
+    // ticket items insert uses .values() which is already mocked to return chain
 
     const sendResult = await sendCourse(makeCtx(), {
       tabId: TAB_ID,
@@ -234,7 +288,9 @@ describe('KDS happy path integration', () => {
       clientRequestId: 'cr-send-1',
     });
 
-    expect(sendResult.courseStatus).toBe('sent');
+    expect(sendResult.course?.courseStatus).toBe('sent');
+    expect(sendResult.dispatch.status).toBe('succeeded');
+    expect(sendResult.dispatch.ticketsCreated).toBe(1);
 
     // ──────────────────────────────────────────────────────────────────────────
     // STEP 2: getKdsView — ticket appears on the prep station

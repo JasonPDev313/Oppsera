@@ -114,24 +114,30 @@ export function useMySection({ roomId, userId, timezone }: UseMySectionOptions):
     gcTime: 30 * 60_000,
   });
 
-  // Sync server data → local state on first load and when server data changes
-  useEffect(() => {
-    if (myData && !initializedRef.current) {
-      setLocalIds(new Set(myData.tableIds));
-      initializedRef.current = true;
-    }
-  }, [myData]);
-
   // Reset when room changes
   useEffect(() => {
     initializedRef.current = false;
     setLocalIds(new Set());
   }, [roomId]);
 
-  // When we get fresh data from server, sync to local if not currently saving
+  // Sync server data → local state on first load and on server refresh (unless saving)
   useEffect(() => {
-    if (myData && initializedRef.current && !isSaving) {
+    if (!myData) return;
+    if (!initializedRef.current) {
+      initializedRef.current = true;
       setLocalIds(new Set(myData.tableIds));
+      return;
+    }
+    if (!isSaving) {
+      // Only update if content actually changed — avoids infinite re-renders
+      // from creating a new Set reference when the array content is identical.
+      setLocalIds((prev) => {
+        const incoming = myData.tableIds;
+        if (prev.size === incoming.length && incoming.every((id) => prev.has(id))) {
+          return prev; // same content — keep stable reference
+        }
+        return new Set(incoming);
+      });
     }
   }, [myData, isSaving]);
 

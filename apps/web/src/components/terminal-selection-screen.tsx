@@ -86,15 +86,19 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
       return;
     }
     setIsSubmitting(true);
-    saveLastTerminal({
-      terminalId: session.terminalId,
-      terminalName: session.terminalName,
-      locationName: session.locationName,
-    });
-    setSession(session);
-    const registerLabel = session.terminalName || 'your register';
-    const locationLabel = session.locationName ? ` at ${session.locationName}` : '';
-    toast.success(`You're now on ${registerLabel}${locationLabel}`);
+    try {
+      saveLastTerminal({
+        terminalId: session.terminalId,
+        terminalName: session.terminalName,
+        locationName: session.locationName,
+      });
+      setSession(session);
+      const registerLabel = session.terminalName || 'your register';
+      const locationLabel = session.locationName ? ` at ${session.locationName}` : '';
+      toast.success(`You're now on ${registerLabel}${locationLabel}`);
+    } catch {
+      setIsSubmitting(false);
+    }
   }, [buildSession, setSession, toast]);
 
   // Quick-resume: wait for cascade to settle, then continue

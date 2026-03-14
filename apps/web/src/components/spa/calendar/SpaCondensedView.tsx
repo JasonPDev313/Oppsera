@@ -29,36 +29,39 @@ export default function SpaCondensedView({
 }: SpaCondensedViewProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
-  const activeCategoryId = selectedCategoryId ?? categories[0]?.id ?? null;
+  const safeDays = Array.isArray(days) ? days : [];
+  const safeCategories = Array.isArray(categories) ? categories : [];
+
+  const activeCategoryId = selectedCategoryId ?? safeCategories[0]?.id ?? null;
   const activeCategoryName = activeCategoryId === '__all__'
     ? 'All Services'
-    : categories.find((c) => c.id === activeCategoryId)?.name ?? '';
+    : safeCategories.find((c) => c.id === activeCategoryId)?.name ?? '';
 
-  const totalServices = categories.reduce((s, c) => s + c.serviceCount, 0);
+  const totalServices = safeCategories.reduce((s, c) => s + c.serviceCount, 0);
 
   // ── KPI computations ─────────────────────────────────────────
   const kpis = useMemo(() => {
-    if (days.length === 0) {
+    if (safeDays.length === 0) {
       return { avgSlots: 0, bestDate: '', bestSlots: 0, fullyBooked: 0, totalProviders: 0 };
     }
-    const sumSlots = days.reduce((s, d) => s + d.availableSlots, 0);
-    const avgSlots = sumSlots / days.length;
-    const fullyBooked = days.filter((d) => d.availableSlots === 0 && d.totalSlots > 0).length;
-    const maxProviders = Math.max(...days.map((d) => d.providerCount));
-    let bestDate = days[0]!.date;
-    let bestSlots = days[0]!.availableSlots;
-    for (const d of days) {
+    const sumSlots = safeDays.reduce((s, d) => s + d.availableSlots, 0);
+    const avgSlots = sumSlots / safeDays.length;
+    const fullyBooked = safeDays.filter((d) => d.availableSlots === 0 && d.totalSlots > 0).length;
+    const maxProviders = Math.max(...safeDays.map((d) => d.providerCount));
+    let bestDate = safeDays[0]!.date;
+    let bestSlots = safeDays[0]!.availableSlots;
+    for (const d of safeDays) {
       if (d.availableSlots > bestSlots) {
         bestDate = d.date;
         bestSlots = d.availableSlots;
       }
     }
     return { avgSlots, bestDate, bestSlots, fullyBooked, totalProviders: maxProviders };
-  }, [days]);
+  }, [safeDays]);
 
   // ── Date range label ─────────────────────────────────────────
-  const rangeLabel = days.length > 0
-    ? `${formatDateShort(days[0]!.date)} \u2013 ${formatDateShort(days[days.length - 1]!.date)}`
+  const rangeLabel = safeDays.length > 0
+    ? `${formatDateShort(safeDays[0]!.date)} \u2013 ${formatDateShort(safeDays[safeDays.length - 1]!.date)}`
     : '';
 
   const [todayStr, setTodayStr] = useState('');
@@ -73,7 +76,7 @@ export default function SpaCondensedView({
       const rowTop = row.offsetTop - container.offsetTop;
       container.scrollTop = rowTop;
     }
-  }, [days.length, todayStr]);
+  }, [safeDays.length, todayStr]);
 
   return (
     <div className="flex min-h-0 flex-1 gap-0 rounded-lg border border-border bg-surface">
@@ -83,7 +86,7 @@ export default function SpaCondensedView({
           Service Categories
         </div>
         <div className="space-y-0.5 px-2">
-          {categories.map((c) => (
+          {safeCategories.map((c) => (
             <button
               key={c.id}
               onClick={() => setSelectedCategoryId(c.id)}
@@ -141,7 +144,7 @@ export default function SpaCondensedView({
           <KpiCard
             value={kpis.avgSlots.toFixed(1)}
             label="Avg. slots available / day"
-            sub={`of ${days.length > 0 ? days[0]!.totalSlots : 0} max`}
+            sub={`of ${safeDays.length > 0 ? safeDays[0]!.totalSlots : 0} max`}
           />
           <KpiCard
             value={kpis.bestDate ? formatDateShort(kpis.bestDate) : '\u2014'}
@@ -154,7 +157,7 @@ export default function SpaCondensedView({
             sub={
               kpis.fullyBooked === 0
                 ? 'Good availability \u2714'
-                : `${kpis.fullyBooked} of ${days.length} days`
+                : `${kpis.fullyBooked} of ${safeDays.length} days`
             }
             subColor={kpis.fullyBooked === 0 ? 'text-green-500' : 'text-amber-500'}
           />
@@ -182,9 +185,9 @@ export default function SpaCondensedView({
         </div>
 
         {/* Day rows — pre-compute formatted labels to avoid Date/toLocaleDateString per render */}
-        <DayRows days={days} todayStr={todayStr} todayRowRef={todayRowRef} activeCategoryId={activeCategoryId} onSelectDate={onSelectDate} />
+        <DayRows days={safeDays} todayStr={todayStr} todayRowRef={todayRowRef} activeCategoryId={activeCategoryId} onSelectDate={onSelectDate} />
 
-        {days.length === 0 && (
+        {safeDays.length === 0 && (
           <p className="py-12 text-center text-sm text-muted-foreground">No dates in range.</p>
         )}
       </div>

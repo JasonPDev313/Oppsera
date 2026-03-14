@@ -7,11 +7,16 @@ import type { FnbTabDetail, CheckSummary } from '@/types/fnb';
 
 /** Result from sendCourse — enriched KDS status */
 export interface KdsSendResult {
+  state?: 'succeeded' | 'routing_failed' | 'ticket_create_failed' | 'started' | 'partial_commit_failed';
+  attemptId?: string;
   ticketCount: number;
   warning?: string;
   effectiveKdsLocationId?: string;
   ticketIds?: string[];
   stationIds?: string[];
+  diagnosis?: string[];
+  errors?: string[];
+  failureStage?: string;
 }
 
 // ── Module-level tab snapshot cache ─────────────────────────────
@@ -271,20 +276,51 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
 
   const fireCourseFn = useCallback(async (courseNumber: number) => {
     if (!tabId || isActing) return;
-    await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/course/fire`, {
-      method: 'POST',
-      body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
-    }));
-  }, [tabId, act, isActing]);
+    try {
+      await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/course/fire`, {
+        method: 'POST',
+        body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
+      }));
+    } catch (e) {
+      // 409 = course already in target status — silently refresh to sync UI
+      if ((e as { statusCode?: number })?.statusCode === 409) {
+        await fetchTab();
+        return;
+      }
+      throw e;
+    }
+  }, [tabId, act, isActing, fetchTab]);
 
   const sendCourseFn = useCallback(async (courseNumber: number): Promise<KdsSendResult | undefined> => {
     if (!tabId || isActing) return undefined;
-    const res = await act(() => apiFetch<{ data: unknown; kdsStatus?: KdsSendResult }>(`/api/v1/fnb/tabs/${tabId}/course/send`, {
-      method: 'POST',
-      body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
-    }));
-    return res?.kdsStatus;
-  }, [tabId, act, isActing]);
+    try {
+      const res = await act(() => apiFetch<{ data: unknown; kdsStatus?: KdsSendResult }>(`/api/v1/fnb/tabs/${tabId}/course/send`, {
+        method: 'POST',
+        body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
+      }));
+      return res?.kdsStatus;
+    } catch (e) {
+      // 409 = course already sent or tab status conflict — refresh to sync UI
+      if ((e as { statusCode?: number })?.statusCode === 409) {
+        await fetchTab();
+        return undefined;
+      }
+      // 422 = KDS dispatch failed — course stays unsent.
+      // Extract the kdsStatus from the error's meta so the POS can show details.
+      if ((e as { statusCode?: number })?.statusCode === 422) {
+        const meta = (e as { meta?: { kdsStatus?: KdsSendResult } })?.meta;
+        if (meta?.kdsStatus) {
+          // Refresh tab to sync UI (course stays unsent)
+          await fetchTab();
+          return {
+            ...meta.kdsStatus,
+            warning: meta.kdsStatus.errors?.join('; ') || 'KDS dispatch failed — course was not sent',
+          };
+        }
+      }
+      throw e;
+    }
+  }, [tabId, act, isActing, fetchTab]);
 
   const addItemsFn = useCallback(async (items: AddTabItemInput[]) => {
     if (!tabId || items.length === 0 || isActing) return;

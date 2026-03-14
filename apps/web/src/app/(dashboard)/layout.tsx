@@ -150,16 +150,17 @@ function getModuleColor(name: string): string {
 }
 
 function useLiveClock(): { time: string; date: string } {
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    setNow(new Date());
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
 
   return {
-    time: now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }),
-    date: now.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }),
+    time: now ? now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : '',
+    date: now ? now.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }) : '',
   };
 }
 
@@ -330,16 +331,17 @@ function SidebarContent({
   // Single-open: only one group expanded per parent at a time.
   // To switch to multi-open, change value type to string[] and toggle individually.
   const GROUPS_KEY = 'sidebar_expanded_groups';
-  // Read from localStorage in the initializer so the first client render
-  // already has the correct expanded state — avoids a visible
-  // collapse-then-expand flash. On the server, returns {}.
-  const [expandedGroup, setExpandedGroup] = useState<Record<string, string | null>>(() => {
-    if (typeof window === 'undefined') return {};
+  // Hydration-safe: initialize empty, load from localStorage after mount.
+  const [expandedGroup, setExpandedGroup] = useState<Record<string, string | null>>({});
+  const expandedGroupHydrated = useRef(false);
+  useEffect(() => {
+    if (expandedGroupHydrated.current) return;
+    expandedGroupHydrated.current = true;
     try {
       const stored = localStorage.getItem(GROUPS_KEY);
-      return stored ? JSON.parse(stored) : {};
-    } catch { return {}; }
-  });
+      if (stored) setExpandedGroup(JSON.parse(stored));
+    } catch { /* ignore */ }
+  }, []);
 
   // Auto-expand the group containing the active route on navigation
   const prevGroupPathRef = useRef<string | null>(null);
@@ -1172,12 +1174,13 @@ function TerminalPickerOverlay({ onDone, onCancel }: { onDone: () => void; onCan
 function TerminalSessionGate({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useTerminalSession();
   const { needsOnboarding, isLoading: authLoading, isAuthenticated } = useAuthContext();
-  const [skipped, setSkipped] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    // Skip flag is now sessionStorage — only valid for the current browser session.
-    // Prevents the "skip once, bypass forever" bug from persisting across logins.
-    try { return sessionStorage.getItem(TERMINAL_SKIP_KEY) === 'true'; } catch { return false; }
-  });
+  const [skipped, setSkipped] = useState(false);
+  useEffect(() => {
+    // Hydration-safe: read sessionStorage after mount only.
+    try {
+      if (sessionStorage.getItem(TERMINAL_SKIP_KEY) === 'true') setSkipped(true);
+    } catch { /* ignore */ }
+  }, []);
 
   const handleSkip = useCallback(() => {
     setSkipped(true);

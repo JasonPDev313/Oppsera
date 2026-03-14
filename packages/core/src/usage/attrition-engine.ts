@@ -13,7 +13,7 @@
  *  7. Staleness              (5%)  — days since any activity
  *  8. Onboarding stall       (5%)  — never completed onboarding
  */
-import { db } from '@oppsera/db';
+import { db, sqlArray } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 
@@ -202,7 +202,7 @@ async function doScoring(): Promise<{ scored: number; highRisk: number; errors: 
       await tx.execute(sql`
         UPDATE attrition_risk_scores
         SET status = 'superseded', updated_at = NOW()
-        WHERE tenant_id = ANY(${chunk}::text[])
+        WHERE tenant_id = ANY(${sqlArray(chunk)})
           AND status = 'open'
       `);
     }
@@ -325,7 +325,7 @@ async function batchLoginData(tenantIds: string[]): Promise<LoginBatch> {
         COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS current_logins,
         COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days')::int AS prior_logins
       FROM login_records
-      WHERE tenant_id = ANY(${chunk}::text[])
+      WHERE tenant_id = ANY(${sqlArray(chunk)})
         AND created_at >= NOW() - INTERVAL '60 days'
       GROUP BY tenant_id
     `);
@@ -361,7 +361,7 @@ async function batchUsageData(tenantIds: string[]): Promise<UsageBatch> {
         COALESCE(SUM(unique_users) FILTER (WHERE usage_date >= CURRENT_DATE - 30), 0)::int AS current_users,
         COALESCE(SUM(unique_users) FILTER (WHERE usage_date >= CURRENT_DATE - 60 AND usage_date < CURRENT_DATE - 30), 0)::int AS prior_users
       FROM rm_usage_daily
-      WHERE tenant_id = ANY(${chunk}::text[])
+      WHERE tenant_id = ANY(${sqlArray(chunk)})
         AND usage_date >= CURRENT_DATE - 60
       GROUP BY tenant_id
     `);
@@ -399,7 +399,7 @@ async function batchAdoptionData(tenantIds: string[]): Promise<AdoptionBatch> {
         last_used_at,
         EXTRACT(EPOCH FROM (NOW() - last_used_at)) / 86400 AS days_since_use
       FROM rm_usage_module_adoption
-      WHERE tenant_id = ANY(${chunk}::text[])
+      WHERE tenant_id = ANY(${sqlArray(chunk)})
     `);
     for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
       const tid = String(r.tenant_id);
@@ -437,7 +437,7 @@ async function batchWorkflowBreadth(tenantIds: string[]): Promise<BreadthBatch> 
         (COUNT(DISTINCT module_key) FILTER (WHERE usage_date >= CURRENT_DATE - 30))::int AS current_modules,
         (COUNT(DISTINCT module_key) FILTER (WHERE usage_date >= CURRENT_DATE - 60 AND usage_date < CURRENT_DATE - 30))::int AS prior_modules
       FROM rm_usage_daily
-      WHERE tenant_id = ANY(${chunk}::text[])
+      WHERE tenant_id = ANY(${sqlArray(chunk)})
         AND usage_date >= CURRENT_DATE - 60
       GROUP BY tenant_id
     `);
@@ -470,7 +470,7 @@ async function batchErrorData(tenantIds: string[]): Promise<ErrorBatch> {
           ELSE 0
         END AS error_rate
       FROM rm_usage_daily
-      WHERE tenant_id = ANY(${chunk}::text[])
+      WHERE tenant_id = ANY(${sqlArray(chunk)})
         AND usage_date >= CURRENT_DATE - 30
       GROUP BY tenant_id
     `);

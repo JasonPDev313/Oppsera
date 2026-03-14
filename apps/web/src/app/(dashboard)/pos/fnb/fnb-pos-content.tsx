@@ -73,12 +73,13 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
   // F&B POS shows Send buttons unless mode is 'retail_only'
   const kdsSendEnabled = kdsRoutingMode !== 'retail_only';
 
+  // Use the specific key to avoid re-running when other settings change
+  const defaultCourses = orderingSettings.default_courses;
   useEffect(() => {
-    const courses = orderingSettings.default_courses;
-    if (Array.isArray(courses) && courses.length > 0) {
-      setCourseNames(courses as string[]);
+    if (Array.isArray(defaultCourses) && defaultCourses.length > 0) {
+      setCourseNames(defaultCourses as string[]);
     }
-  }, [orderingSettings, setCourseNames]);
+  }, [defaultCourses, setCourseNames]);
 
   // Fetch course rules for POS auto-select
   const { data: courseRulesData } = useFetch<{ data: Record<string, unknown> }>(

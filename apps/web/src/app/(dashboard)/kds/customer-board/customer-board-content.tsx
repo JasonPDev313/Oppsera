@@ -269,7 +269,7 @@ export default function CustomerBoardContent() {
     locations?.find((l) => l.id === locationId)?.name ?? null;
 
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
-  const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchingRef = useRef(false);
@@ -279,8 +279,9 @@ export default function CustomerBoardContent() {
 
   const [flashReady, setFlashReady] = useState(false);
 
-  // Clock tick
+  // Clock tick — hydration-safe: initialize after mount
   useEffect(() => {
+    setCurrentTime(new Date());
     const id = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
@@ -411,16 +412,16 @@ export default function CustomerBoardContent() {
     }
   }, [readyOrders.length, isLoading]);
 
-  const timeStr = currentTime.toLocaleTimeString([], {
+  const timeStr = currentTime?.toLocaleTimeString([], {
     hour: 'numeric',
     minute: '2-digit',
     second: '2-digit',
-  });
-  const dateStr = currentTime.toLocaleDateString([], {
+  }) ?? '';
+  const dateStr = currentTime?.toLocaleDateString([], {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
-  });
+  }) ?? '';
 
   return (
     <>
