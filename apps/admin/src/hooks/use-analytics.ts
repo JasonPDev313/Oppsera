@@ -5,6 +5,21 @@ import { adminFetch } from '@/lib/api-fetch';
 
 // ── Types ────────────────────────────────────────────────────────
 
+interface ScoringResult {
+  scored: number;
+  highRisk: number;
+  errors: number;
+  dataAvailability: {
+    loginTenants: number;
+    usageTenants: number;
+    adoptionTenants: number;
+    breadthTenants: number;
+    errorTenants: number;
+    totalTenants: number;
+  };
+  elapsedMs: number;
+}
+
 interface PlatformKpis {
   totalRequests: number;
   activeTenants: number;
@@ -498,10 +513,10 @@ export function useAttritionMutations() {
     }
   }, []);
 
-  const runScoring = useCallback(async (): Promise<{ scored: number; highRisk: number; errors: number } | { error: string }> => {
+  const runScoring = useCallback(async (): Promise<ScoringResult | { error: string }> => {
     setIsActing(true);
     try {
-      const json = await adminFetch<{ data: { scored: number; highRisk: number; errors: number } }>(
+      const json = await adminFetch<{ data: ScoringResult }>(
         '/api/v1/analytics/attrition/score',
         { method: 'POST' },
       );

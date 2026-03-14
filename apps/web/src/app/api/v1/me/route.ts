@@ -58,6 +58,7 @@ export const GET = withMiddleware(async (_request, ctx) => {
     }),
     db.query.locations.findMany({
       where: and(eq(locations.tenantId, resolvedTenantId), eq(locations.isActive, true)),
+      orderBy: (loc, { asc }) => [asc(loc.name)],
     }),
   ]);
 

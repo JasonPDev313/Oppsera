@@ -8,9 +8,10 @@ import { listRoutingRules, createRoutingRule, createKdsRoutingRuleSchema } from 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
+    const locationId = ctx.locationId ?? url.searchParams.get('locationId') ?? '';
     const rules = await listRoutingRules({
       tenantId: ctx.tenantId,
-      locationId: ctx.locationId ?? url.searchParams.get('locationId') ?? '',
+      locationId,
       stationId: url.searchParams.get('stationId') ?? undefined,
       ruleType: (url.searchParams.get('ruleType') as any) ?? undefined,
       isActive: url.searchParams.get('isActive') === 'false' ? false : undefined,

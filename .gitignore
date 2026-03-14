@@ -25,3 +25,7 @@ backups/
 # Temp test files
 tmp_test_api.js
 tmp_login.json
+
+# Supabase DB dumps
+supabase/schema.sql
+supabase/dump.sql

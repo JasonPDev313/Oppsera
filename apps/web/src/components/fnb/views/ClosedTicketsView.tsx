@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, Receipt } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
-import { useAuthContext } from '@/components/auth-provider';
+import { usePosLocation } from '@/hooks/use-pos-location';
 import type { FnbTabListItem } from '@/types/fnb';
 
 function formatTime(isoString: string): string {
@@ -15,8 +15,7 @@ function formatMoney(cents: number): string {
 }
 
 export function ClosedTicketsView({ userId: _userId }: { userId: string }) {
-  const { locations } = useAuthContext();
-  const locationId = locations[0]?.id ?? '';
+  const { locationId } = usePosLocation();
   const [tabs, setTabs] = useState<FnbTabListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

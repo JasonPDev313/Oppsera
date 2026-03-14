@@ -677,6 +677,13 @@ export const recallItemSchema = z.object({
 
 export type RecallItemInput = z.input<typeof recallItemSchema>;
 
+export const recallTicketSchema = z.object({
+  ...idempotencyMixin,
+  ticketId: z.string().min(1),
+});
+
+export type RecallTicketInput = z.input<typeof recallTicketSchema>;
+
 export const bumpTicketSchema = z.object({
   ...idempotencyMixin,
   ticketId: z.string().min(1),
@@ -3025,3 +3032,30 @@ export const listManagerOverridesSchema = z.object({
   limit: z.number().int().min(1).max(100).default(50),
 });
 export type ListManagerOverridesInput = z.input<typeof listManagerOverridesSchema>;
+
+// ── Tab Item Operations ────────────────────────────────────────
+
+export const voidTabItemSchema = z.object({
+  ...idempotencyMixin,
+  reason: z.string().min(1).max(500),
+});
+export type VoidTabItemInput = z.input<typeof voidTabItemSchema>;
+
+export const compTabItemSchema = z.object({
+  ...idempotencyMixin,
+  reason: z.string().min(1).max(500),
+  compCategory: z.enum(['manager', 'promo', 'quality', 'other']).optional().default('manager'),
+});
+export type CompTabItemInput = z.input<typeof compTabItemSchema>;
+
+export const updateTabItemPriceSchema = z.object({
+  ...idempotencyMixin,
+  newPriceCents: z.number().int().min(0),
+  reason: z.string().min(1).max(500),
+});
+export type UpdateTabItemPriceInput = z.input<typeof updateTabItemPriceSchema>;
+
+export const updateTabItemNoteSchema = z.object({
+  specialInstructions: z.string().max(500).nullable(),
+});
+export type UpdateTabItemNoteInput = z.input<typeof updateTabItemNoteSchema>;

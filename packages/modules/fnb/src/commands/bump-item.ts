@@ -15,6 +15,7 @@ import {
   TicketItemNotFoundError,
   TicketItemStatusConflictError,
 } from '../errors';
+import { isLocationAllowedForTicket } from '../helpers/kds-location-guard';
 
 export async function bumpItem(
   ctx: RequestContext,
@@ -69,8 +70,9 @@ export async function bumpItem(
       .limit(1);
     if (!ticket) throw new TicketNotFoundError(item.ticketId);
 
-    // ── Location scoping ─────────────────────────────────────────
-    if (ctx.locationId && ticket.locationId !== ctx.locationId) {
+    // ── Location scoping (allows venue→site fallback) ────────────
+    const locationAllowed = await isLocationAllowedForTicket(tx, ctx.tenantId, ctx.locationId, ticket.locationId);
+    if (!locationAllowed) {
       throw new TicketItemNotFoundError(input.ticketItemId);
     }
 

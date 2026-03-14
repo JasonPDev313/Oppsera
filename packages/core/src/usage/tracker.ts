@@ -148,12 +148,24 @@ export function recordUsage(event: UsageEvent): void {
 
 // ── Flush Logic ──────────────────────────────────────────────
 
-/** Once set to true, flush stops retrying — tables don't exist yet. */
-let _tablesChecked = false;
+/**
+ * Table existence cache with TTL. If tables don't exist on first check,
+ * re-check every 5 minutes in case migrations ran on another instance.
+ * Once tables ARE found, cache permanently (tables won't disappear).
+ */
+let _tablesCheckedAt = 0;
 let _tablesExist = false;
+const TABLE_CHECK_TTL_MS = 5 * 60 * 1000; // 5 min retry for missing tables
 
 async function checkTablesExist(): Promise<boolean> {
-  if (_tablesChecked) return _tablesExist;
+  // If tables exist, cache permanently — they won't disappear
+  if (_tablesExist) return true;
+
+  // If tables were missing, retry after TTL expires
+  if (_tablesCheckedAt > 0 && Date.now() - _tablesCheckedAt < TABLE_CHECK_TTL_MS) {
+    return false;
+  }
+
   try {
     // 5s timeout: if DB pool is exhausted, fail fast instead of hanging
     // guardedQuery provides its own timeout (15s), but we also keep the 5s race
@@ -173,9 +185,9 @@ async function checkTablesExist(): Promise<boolean> {
   } catch {
     _tablesExist = false;
   }
-  _tablesChecked = true;
+  _tablesCheckedAt = Date.now();
   if (!_tablesExist) {
-    // Tables don't exist — tracking disabled for this instance
+    console.warn('[UsageTracker] rm_usage_hourly table not found — tracking disabled. Will retry in 5 min.');
   }
   return _tablesExist;
 }
@@ -473,13 +485,42 @@ let _flushing = false;
  * Flush the in-memory usage buffer to the database.
  * Called from drain-outbox cron (every minute) in a request-scoped context.
  * Safe on Vercel because the DB transaction completes before the HTTP response.
+ *
+ * Returns flush stats for observability — the drain-outbox route can log these
+ * to help diagnose "attrition signals all zero" issues (empty buffer = no data).
  */
-export async function forceFlush(): Promise<void> {
-  if (_flushing) return; // Prevent concurrent flush
+export async function forceFlush(): Promise<{ flushed: boolean; bufferSize: number; eventsInBuffer: number }> {
+  const bufferSize = buffer.size;
+  let eventsInBuffer = 0;
+  for (const bucket of buffer.values()) {
+    eventsInBuffer += bucket.requestCount;
+  }
+
+  if (_flushing) {
+    return { flushed: false, bufferSize, eventsInBuffer };
+  }
+  if (bufferSize === 0) {
+    return { flushed: true, bufferSize: 0, eventsInBuffer: 0 };
+  }
+
   _flushing = true;
   try {
     await flushBuffer();
+    console.log(`[UsageTracker] Flushed ${bufferSize} buckets (${eventsInBuffer} events) to DB`);
+    return { flushed: true, bufferSize, eventsInBuffer };
+  } catch (err) {
+    console.error(`[UsageTracker] Flush failed (${bufferSize} buckets, ${eventsInBuffer} events):`, err);
+    return { flushed: false, bufferSize, eventsInBuffer };
   } finally {
     _flushing = false;
   }
+}
+
+/** Returns current buffer stats without flushing — useful for health checks. */
+export function getBufferStats(): { buckets: number; events: number; tablesExist: boolean } {
+  let events = 0;
+  for (const bucket of buffer.values()) {
+    events += bucket.requestCount;
+  }
+  return { buckets: buffer.size, events, tablesExist: _tablesExist };
 }

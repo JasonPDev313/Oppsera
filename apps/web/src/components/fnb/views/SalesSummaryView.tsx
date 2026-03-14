@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, Users, ShoppingBag, TrendingUp } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
-import { useAuthContext } from '@/components/auth-provider';
+import { usePosLocation } from '@/hooks/use-pos-location';
 
 interface SalesKpi {
   totalSalesCents: number;
@@ -54,8 +54,7 @@ function KpiCard({
 }
 
 export function SalesSummaryView({ userId: _userId }: { userId: string }) {
-  const { locations } = useAuthContext();
-  const locationId = locations[0]?.id ?? '';
+  const { locationId } = usePosLocation();
   const [kpi, setKpi] = useState<SalesKpi | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

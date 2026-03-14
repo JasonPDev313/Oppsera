@@ -18,6 +18,34 @@ export async function addTabItems(
   ctx: RequestContext,
   input: AddTabItemsInput,
 ) {
+  // ── Resolve authoritative location from the tab itself ──────────
+  // The tab's location_id (NOT NULL, set at creation) is the single source of truth.
+  // ctx.locationId from the client header may be wrong for multi-location tenants.
+  let tabLocationId: string | undefined;
+  try {
+    const tabLocRows = await withTenant(ctx.tenantId, async (tx) => {
+      return tx.execute(
+        sql`SELECT location_id FROM fnb_tabs
+            WHERE id = ${input.tabId} AND tenant_id = ${ctx.tenantId}
+            LIMIT 1`,
+      );
+    });
+    const tabLocArr = Array.from(tabLocRows as Iterable<Record<string, unknown>>);
+    tabLocationId = tabLocArr[0]?.location_id as string | undefined;
+  } catch (err) {
+    logger.error('[add-tab-items] Failed to read tab location', {
+      domain: 'fnb', tenantId: ctx.tenantId, tabId: input.tabId,
+      error: { message: err instanceof Error ? err.message : String(err) },
+    });
+  }
+  const effectiveLocationId = tabLocationId ?? ctx.locationId ?? '';
+  if (ctx.locationId && tabLocationId && ctx.locationId !== tabLocationId) {
+    logger.warn('[add-tab-items] LOCATION MISMATCH: client sent different location than tab', {
+      domain: 'fnb', tenantId: ctx.tenantId, tabId: input.tabId,
+      clientLocationId: ctx.locationId, tabLocationId,
+    });
+  }
+
   // Resolve sub-department IDs from catalog BEFORE the transaction (gotcha #123)
   const subDeptMap = new Map<string, string | null>();
   try {
@@ -25,7 +53,7 @@ export async function addTabItems(
     const uniqueItemIds = [...new Set(input.items.map((i) => i.catalogItemId))];
     const results = await Promise.all(
       uniqueItemIds.map((id) =>
-        catalogApi.getItemForPOS(ctx.tenantId, ctx.locationId ?? '', id).catch(() => null),
+        catalogApi.getItemForPOS(ctx.tenantId, effectiveLocationId, id).catch(() => null),
       ),
     );
     for (let i = 0; i < uniqueItemIds.length; i++) {
@@ -42,15 +70,15 @@ export async function addTabItems(
   // Uses batch resolver (2 DB queries total) instead of N individual queries
   let courseRuleMap: Record<string, ResolvedCourseRule> = {};
   const courseDefNames = new Map<number, string>();
-  if (ctx.locationId) {
+  if (effectiveLocationId) {
     try {
-      courseRuleMap = await batchResolveCourseRules(ctx.tenantId, ctx.locationId);
+      courseRuleMap = await batchResolveCourseRules(ctx.tenantId, effectiveLocationId);
 
       // Fetch course definition names for this location
       const defRows = await withTenant(ctx.tenantId, async (tx) => {
         return tx.execute(
           sql`SELECT course_number, course_name FROM fnb_course_definitions
-              WHERE tenant_id = ${ctx.tenantId} AND location_id = ${ctx.locationId}
+              WHERE tenant_id = ${ctx.tenantId} AND location_id = ${effectiveLocationId}
                 AND is_active = true
               ORDER BY course_number`,
         );
@@ -64,7 +92,7 @@ export async function addTabItems(
       });
     }
   } else {
-    logger.warn('[add-tab-items] No locationId in context — course rule enforcement skipped', {
+    logger.warn('[add-tab-items] No locationId from tab or context — course rule enforcement skipped', {
       domain: 'fnb', tenantId: ctx.tenantId, tabId: input.tabId,
     });
   }
@@ -204,7 +232,7 @@ export async function addTabItems(
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.TAB_ITEMS_ADDED, {
       tabId: input.tabId,
-      locationId: ctx.locationId,
+      locationId: effectiveLocationId || ctx.locationId,
       itemCount: insertedItems.length,
       courseNumbers: [...neededCourses],
     });

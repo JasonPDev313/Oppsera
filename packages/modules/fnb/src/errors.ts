@@ -194,6 +194,26 @@ export class ExpoStationError extends AppError {
   }
 }
 
+export class StationInactiveError extends AppError {
+  constructor(stationId: string) {
+    super(
+      'STATION_INACTIVE',
+      `Station ${stationId} has been deactivated or deleted — cannot recall items to it`,
+      409,
+    );
+  }
+}
+
+export class StationMismatchError extends AppError {
+  constructor(itemId: string, expectedStationId: string, actualStationId: string | null) {
+    super(
+      'STATION_MISMATCH',
+      `Item ${itemId} belongs to station ${actualStationId ?? 'none'}, not ${expectedStationId}`,
+      409,
+    );
+  }
+}
+
 export class DuplicateStationNameError extends AppError {
   constructor(name: string) {
     super(
@@ -602,6 +622,24 @@ export class CourseRuleViolationError extends AppError {
       'COURSE_RULE_VIOLATION',
       `Course rule violation for item ${itemId}: ${reason}`,
       400,
+    );
+  }
+}
+
+// ── Tab Item Errors ────────────────────────────────────────────
+
+export class TabItemNotFoundError extends AppError {
+  constructor(itemId: string) {
+    super('TAB_ITEM_NOT_FOUND', `Tab item ${itemId} not found`, 404);
+  }
+}
+
+export class TabItemStatusConflictError extends AppError {
+  constructor(itemId: string, currentStatus: string, attemptedAction: string) {
+    super(
+      'TAB_ITEM_STATUS_CONFLICT',
+      `Cannot ${attemptedAction} tab item ${itemId} in status '${currentStatus}'`,
+      409,
     );
   }
 }

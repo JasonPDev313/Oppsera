@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbTab } from '@/hooks/use-fnb-tab';
 import { usePaymentSession, usePreAuth, useTipActions } from '@/hooks/use-fnb-payments';
-import { useAuthContext } from '@/components/auth-provider';
+import { usePosLocation } from '@/hooks/use-pos-location';
 import { apiFetch } from '@/lib/api-client';
 import { printReceiptDocument } from '@/lib/receipt-printer';
 import { buildReceiptDocument, fnbTabToInput } from '@oppsera/shared';
@@ -75,8 +75,7 @@ function computeOptimisticCheck(tab: FnbTabDetail): CheckSummary {
 
 export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   const store = useFnbPosStore();
-  const { locations } = useAuthContext();
-  const locationId = locations?.[0]?.id;
+  const { locationId, locationName: posLocationName } = usePosLocation();
   const tabId = store.activeTabId;
 
   // ── Stable action selectors ──────────────────────────────────
@@ -361,7 +360,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   const handleReceipt = useCallback(
     (action: ReceiptAction, email?: string) => {
       if (action === 'print' && tab && displayCheck) {
-        const locationName = locations[0]?.name ?? 'Restaurant';
+        const locationName = posLocationName;
         const mapped = mapTabForReceipt(tab, displayCheck);
         const input = fnbTabToInput(mapped, locationName);
         const doc = buildReceiptDocument(input);
@@ -377,7 +376,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
         }).catch(() => {});
       }
     },
-    [tab, displayCheck, locations],
+    [tab, displayCheck, posLocationName],
   );
 
   const handleClose = useCallback(() => {

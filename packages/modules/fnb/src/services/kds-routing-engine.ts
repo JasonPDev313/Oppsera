@@ -541,26 +541,91 @@ function parseTextArray(value: unknown): string[] {
 /**
  * Resolves the effective KDS location for routing and ticket creation.
  *
- * Previously this function promoted across site↔venue hierarchy (e.g., if a
- * tab was at a site but routing rules existed at a child venue, it would
- * return the venue's locationId). This caused a read/write mismatch: the
- * frontend queries tickets at the tab's location, but tickets were written
- * to a promoted location the frontend couldn't see.
+ * Hierarchy rule (venue-first model):
+ *   1. If the location is a venue AND has active KDS stations → use venue
+ *   2. If the location is a venue with NO stations AND parent site HAS stations → fall back to parent site
+ *   3. If the location is a venue with NO stations AND parent site has NO stations → stay at venue
+ *   4. If the location is a site → use site as-is
  *
- * Production diagnostics (2026-03-12) confirmed no active mismatch at any
- * tenant — tickets are stored at the same location as their tabs. The
- * frontend KDS location utility (`kds-location.ts`) explicitly enforces
- * no-promotion. This function now matches that invariant.
+ * This supports two configurations:
+ *   - Per-venue KDS: each venue has its own stations (preferred)
+ *   - Site-level KDS: stations at site, venues inherit (legacy/transition)
  *
- * Stations and routing rules should be configured at the same location
- * where tabs are created. If a tenant needs KDS at multiple hierarchy
- * levels, they should configure stations at each level independently.
+ * When venues exist, POS login forces venue selection, so tabs always have
+ * a venue locationId. Stations should ideally be configured at the venue
+ * level, but the site fallback ensures existing site-level stations still
+ * work during transition.
  */
 export async function resolveKdsLocationId(
-  _tenantId: string,
+  tenantId: string,
   locationId: string,
 ): Promise<string> {
-  return locationId;
+  return withTenant(tenantId, async (tx) => {
+    // 1. Look up the location to check if it's a venue
+    const locRows = await tx.execute(
+      sql`SELECT location_type, parent_location_id
+          FROM locations
+          WHERE id = ${locationId} AND tenant_id = ${tenantId}
+          LIMIT 1`,
+    );
+    const loc = Array.from(locRows as Iterable<Record<string, unknown>>)[0];
+
+    // If location not found or is a site → use as-is
+    if (!loc || loc.location_type !== 'venue' || !loc.parent_location_id) {
+      return locationId;
+    }
+
+    // 2. It's a venue — check if it has its own active KDS stations
+    const stationCountRows = await tx.execute(
+      sql`SELECT COUNT(*)::int AS cnt
+          FROM fnb_kitchen_stations
+          WHERE tenant_id = ${tenantId}
+            AND location_id = ${locationId}
+            AND is_active = true`,
+    );
+    const stationCount = Number(
+      (Array.from(stationCountRows as Iterable<Record<string, unknown>>)[0]?.cnt) ?? 0,
+    );
+
+    if (stationCount > 0) {
+      // Venue has its own stations — use venue (per-venue KDS)
+      logger.debug('[kds] resolveKdsLocationId: venue has own stations', {
+        domain: 'kds', tenantId, venueLocationId: locationId, stationCount,
+      });
+      return locationId;
+    }
+
+    // 3. No stations at venue — check if parent site has stations before falling back.
+    //    If the parent site also has no stations, stay at the venue level so the
+    //    "Set Up KDS" dialog names the venue (where setup should happen), not the
+    //    parent site (which can't have stations when it has child venues).
+    const parentSiteId = loc.parent_location_id as string;
+    const parentStationRows = await tx.execute(
+      sql`SELECT COUNT(*)::int AS cnt
+          FROM fnb_kitchen_stations
+          WHERE tenant_id = ${tenantId}
+            AND location_id = ${parentSiteId}
+            AND is_active = true`,
+    );
+    const parentStationCount = Number(
+      (Array.from(parentStationRows as Iterable<Record<string, unknown>>)[0]?.cnt) ?? 0,
+    );
+
+    if (parentStationCount > 0) {
+      // Parent site has stations (legacy/transition config) — fall back to site
+      logger.info('[kds] resolveKdsLocationId: venue has no stations, falling back to parent site', {
+        domain: 'kds', tenantId, venueLocationId: locationId, parentSiteId, parentStationCount,
+      });
+      return parentSiteId;
+    }
+
+    // Neither venue nor parent site has stations — stay at venue so setup
+    // dialog directs the user to set up KDS at the correct venue level.
+    logger.info('[kds] resolveKdsLocationId: neither venue nor parent site has stations, staying at venue', {
+      domain: 'kds', tenantId, venueLocationId: locationId, parentSiteId,
+    });
+    return locationId;
+  });
 }
 
 // ── Prep Time Helpers ───────────────────────────────────────────

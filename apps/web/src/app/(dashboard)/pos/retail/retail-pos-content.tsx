@@ -64,6 +64,8 @@ import { useItemEditDrawer } from '@/components/inventory/ItemEditDrawerContext'
 import { usePermissions } from '@/hooks/use-permissions';
 import { useManagerOverride } from '@/hooks/use-manager-override';
 import { ManagerPinModal } from '@/components/ui/manager-pin-modal';
+import { usePosLocation } from '@/hooks/use-pos-location';
+import { useStations } from '@/hooks/use-fnb-kitchen';
 
 // TenderDialog kept as fallback; PaymentPanel is the new inline flow
 import { TenderDialog } from '@/components/pos/TenderDialog';
@@ -585,15 +587,13 @@ const TransactionNotesPortal = memo(function TransactionNotesPortal({
 // ── Retail POS Page ───────────────────────────────────────────────
 
 function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
-  const { locations, user, tenant } = useAuthContext();
+  const { user, tenant } = useAuthContext();
   const { isModuleEnabled } = useEntitlementsContext();
   const { toast } = useToast();
   const canEditItem = isModuleEnabled('catalog');
   const { can } = usePermissions();
   const itemGridScrollRef = useRef<HTMLDivElement>(null);
-
-  // Location
-  const locationId = locations[0]?.id ?? '';
+  const { locationId, locationName } = usePosLocation();
 
   // KDS routing mode — Retail POS shows Send button unless mode is 'fb_only'
   const { settings: kitchenSettings } = useFnbSettings({ moduleKey: 'fnb_kitchen', locationId });
@@ -601,6 +601,10 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     ? kitchenSettings.kds_routing_mode
     : 'fb_and_retail';
   const kdsSendEnabled = kdsRoutingMode !== 'fb_only';
+
+  // KDS station guard — block send before API call if no active stations
+  const { stations: kdsStations } = useStations({ locationId });
+  const hasKdsStations = kdsStations.some((s) => s.isActive);
 
   // Hooks
   const { config, setConfig, isLoading: configLoading } = usePOSConfig(locationId, 'retail');
@@ -1198,17 +1202,20 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   const allSentToKds = fnbLineCount > 0 && fnbLineCount <= lastSentLineCount;
 
   const handleSendOrder = useCallback(async () => {
+    // Block send if no active KDS stations at this location — no API call needed
+    if (!hasKdsStations) {
+      setShowKdsNotConfigured(true);
+      setKdsSendFailed(true);
+      return;
+    }
+
     try {
       setKdsSendFailed(false);
       const result = await posRef.current.sendToKds();
       if (result.failedCount > 0) {
-        // Some stations failed after retries — show warning, allow re-press
+        // Atomic transaction failed — show warning, allow re-press
         setKdsSendFailed(true);
-        if (result.sentCount > 0) {
-          toast.error(`Partially sent — ${result.failedCount} station(s) failed. Press Send to retry.`);
-        } else {
-          toast.error('Kitchen send failed — press Send to retry');
-        }
+        toast.error('Kitchen send failed — press Send to retry');
       } else if (result.sentCount > 0) {
         toast.success('Order sent to kitchen');
       } else if (result.totalStations === 0) {
@@ -1225,7 +1232,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       setKdsSendFailed(true);
       toast.error('Kitchen send failed — press Send to retry');
     }
-  }, [toast]);
+  }, [toast, hasKdsStations]);
 
   const handlePayClick = useCallback(() => {
     // Switch to payment view IMMEDIATELY — don't await ensureOrderReady here.
@@ -2490,7 +2497,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         open={showReceiptPreview}
         onClose={() => setShowReceiptPreview(false)}
         locationId={locationId}
-        locationName={locations[0]?.name ?? 'Store'}
+        locationName={locationName}
       />
 
       {/* Return Dialog */}
@@ -2602,7 +2609,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         open={showKdsNotConfigured}
         onClose={() => setShowKdsNotConfigured(false)}
         locationId={locationId}
-        locationName={locations[0]?.name}
+        locationName={locationName}
         canSetup={can('fnb.manage')}
       />
     </div>

@@ -10,9 +10,9 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useAuthContext } from '@/components/auth-provider';
 import { usePOSConfig } from '@/hooks/use-pos-config';
 import { useShift } from '@/hooks/use-shift';
+import { usePosLocation } from '@/hooks/use-pos-location';
 import { useRetailClose } from '@/hooks/use-retail-close';
 import { useToast } from '@/components/ui/toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -291,9 +291,8 @@ function CashCountForm({
 // ── Main Close Content ───────────────────────────────────────
 export default function CloseContent() {
   const router = useRouter();
-  const { locations } = useAuthContext();
   const { toast } = useToast();
-  const locationId = locations[0]?.id ?? '';
+  const { locationId } = usePosLocation();
   const { config } = usePOSConfig(locationId, 'retail');
   const terminalId = config?.terminalId ?? '';
   const shift = useShift(locationId, terminalId);

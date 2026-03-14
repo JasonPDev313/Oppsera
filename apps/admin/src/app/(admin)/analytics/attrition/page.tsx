@@ -382,18 +382,23 @@ export default function AttritionPage() {
       setScoreMsg({ type: 'error', text: `Scoring failed: ${result.error}` });
     } else {
       const errSuffix = result.errors > 0 ? ` (${result.errors} failed)` : '';
+      const da = result.dataAvailability;
+      const sparse = da && da.totalTenants > 0 && (da.usageTenants === 0 || da.loginTenants === 0);
+      const dataSuffix = sparse
+        ? ` Warning: ${da.usageTenants}/${da.totalTenants} tenants have usage data, ${da.loginTenants}/${da.totalTenants} have login data.`
+        : '';
       setScoreMsg({
-        type: result.errors > 0 ? 'error' : 'success',
-        text: `Scored ${result.scored} tenant${result.scored !== 1 ? 's' : ''}. ${result.highRisk} at high risk or above.${errSuffix}`,
+        type: result.errors > 0 || sparse ? 'error' : 'success',
+        text: `Scored ${result.scored} tenant${result.scored !== 1 ? 's' : ''} in ${((result.elapsedMs ?? 0) / 1000).toFixed(1)}s. ${result.highRisk} at high risk or above.${errSuffix}${dataSuffix}`,
       });
       refresh();
     }
   };
 
-  // Auto-dismiss score feedback after 5 seconds
+  // Auto-dismiss score feedback after 8 seconds (longer to read data warnings)
   useEffect(() => {
     if (!scoreMsg) return;
-    const timer = setTimeout(() => setScoreMsg(null), 5000);
+    const timer = setTimeout(() => setScoreMsg(null), scoreMsg.type === 'error' ? 12000 : 5000);
     return () => clearTimeout(timer);
   }, [scoreMsg]);
 

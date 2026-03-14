@@ -43,6 +43,7 @@ export interface TabLineItem {
 
 export interface FnbTabDetail {
   id: string;
+  locationId: string;
   tabNumber: number;
   tabType: string;
   status: string;
@@ -78,7 +79,7 @@ export async function getTabDetail(
     // Get tab with table and server info
     const tabRows = await tx.execute(
       sql`SELECT
-            t.id, t.tab_number, t.tab_type, t.status,
+            t.id, t.location_id, t.tab_number, t.tab_type, t.status,
             t.table_id, t.server_user_id, t.party_size, t.guest_name,
             t.service_type, t.business_date, t.current_course_number,
             t.primary_order_id, t.customer_id, t.split_from_tab_id,
@@ -165,6 +166,7 @@ export async function getTabDetail(
 
     return {
       id: r.id as string,
+      locationId: r.location_id as string,
       tabNumber: Number(r.tab_number),
       tabType: r.tab_type as string,
       status: r.status as string,

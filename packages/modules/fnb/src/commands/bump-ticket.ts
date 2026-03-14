@@ -9,6 +9,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { BumpTicketInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { TicketNotFoundError, TicketNotReadyError, TicketAllVoidedError, TicketStatusConflictError, TicketVersionConflictError, StationNotFoundError } from '../errors';
+import { isLocationAllowedForTicket } from '../helpers/kds-location-guard';
 
 /**
  * Determine whether this bump is from a prep station or from expo.
@@ -52,8 +53,10 @@ export async function bumpTicket(
       .limit(1);
     if (!ticket) throw new TicketNotFoundError(input.ticketId);
 
-    // Defense-in-depth: reject if ticket belongs to a different location
-    if (ctx.locationId && ticket.locationId && ticket.locationId !== ctx.locationId) {
+    // Defense-in-depth: reject if ticket belongs to a completely unrelated location.
+    // Allows venue→site: cook at venue can bump tickets stored at the parent site.
+    const locationAllowed = await isLocationAllowedForTicket(tx, ctx.tenantId, ctx.locationId, ticket.locationId);
+    if (!locationAllowed) {
       throw new TicketNotFoundError(input.ticketId);
     }
 

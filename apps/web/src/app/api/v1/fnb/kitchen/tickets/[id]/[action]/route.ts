@@ -10,6 +10,8 @@ import {
   createDeltaChitSchema,
   updateTicketStatus,
   updateTicketStatusSchema,
+  recallTicket,
+  recallTicketSchema,
 } from '@oppsera/module-fnb';
 
 const ACTIONS: Record<string, true> = { void: true, delta: true, fire: true, recall: true };
@@ -62,13 +64,12 @@ export const POST = withMiddleware(
         broadcastFnb(ctx, 'kds').catch(() => {});
         return NextResponse.json({ data: chit }, { status: 201 });
       }
-      case 'fire':
-      case 'recall': {
+      case 'fire': {
         const ticketId = extractId(request);
         const parsed = updateTicketStatusSchema.safeParse({
           ...body,
           status: 'in_progress',
-          clientRequestId: body.clientRequestId ?? `${action}-${ticketId}-${Date.now()}`,
+          clientRequestId: body.clientRequestId ?? `fire-${ticketId}-${Date.now()}`,
         });
         if (!parsed.success) {
           throw new ValidationError(
@@ -79,6 +80,23 @@ export const POST = withMiddleware(
         const updated = await updateTicketStatus(ctx, ticketId, parsed.data);
         broadcastFnb(ctx, 'kds').catch(() => {});
         return NextResponse.json({ data: updated });
+      }
+      case 'recall': {
+        const ticketId = extractId(request);
+        const parsed = recallTicketSchema.safeParse({
+          ...body,
+          ticketId,
+          clientRequestId: body.clientRequestId ?? `recall-${ticketId}-${Date.now()}`,
+        });
+        if (!parsed.success) {
+          throw new ValidationError(
+            'Validation failed',
+            parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+          );
+        }
+        const recalled = await recallTicket(ctx, parsed.data);
+        broadcastFnb(ctx, 'kds').catch(() => {});
+        return NextResponse.json({ data: recalled });
       }
     }
 

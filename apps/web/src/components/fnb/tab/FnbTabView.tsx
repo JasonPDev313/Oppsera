@@ -94,10 +94,12 @@ import { FnbMenuNav, FnbMenuContent, FnbMenuError, recordRecentItem } from '@/co
 import { FnbModifierDrawer } from '@/components/fnb/menu/FnbModifierDrawer';
 import { useAuthContext } from '@/components/auth-provider';
 import { usePermissions } from '@/hooks/use-permissions';
+import { usePosLocation } from '@/hooks/use-pos-location';
 import { useStations } from '@/hooks/use-fnb-kitchen';
 import { KdsNotConfiguredDialog } from '@/components/pos/shared/KdsNotConfiguredDialog';
-import { resolveKdsLocationId, resolveKdsLocationName } from '@/lib/kds-location';
 import { ManageTabsButton } from '../manage-tabs/ManageTabsButton';
+import { useManagerOverride } from '@/hooks/use-manager-override';
+import { ManagerPinModal } from '../manager/ManagerPinModal';
 
 interface FnbTabViewProps {
   userId: string;
@@ -229,15 +231,14 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { locations } = useAuthContext();
   const { can } = usePermissions();
-  const currentLocation = locations?.[0];
-  const locationId = currentLocation?.id;
-  // Each location owns its own KDS stations — no venue→site promotion
-  const kdsLocationId = resolveKdsLocationId(currentLocation);
-  const kdsLocationName = resolveKdsLocationName(currentLocation);
-  const { stations } = useStations({ locationId: kdsLocationId });
-  // Only count ACTIVE stations — the routing engine ignores inactive ones,
-  // so sending to kitchen with only inactive stations silently creates zero tickets.
-  const hasKdsStations = stations.some((s) => s.isActive);
+  const { locationId: posLocationId, locationName: posLocationName } = usePosLocation();
+  // ── Location resolution priority chain (pre-tab) ───────────────
+  // Before tab loads, use best available location for initial station display:
+  // 1. Zustand activeLocationId (set by FnbFloorView when user picks a room)
+  // 2. Terminal session location (usePosLocation — set at POS login)
+  // 3. locations[0] is NEVER used directly — it's unordered for multi-location tenants
+  const activeLocationId = useFnbPosStore((s) => s.activeLocationId);
+  const preTabLocationId = activeLocationId ?? posLocationId;
   const [showKdsNotConfigured, setShowKdsNotConfigured] = useState(false);
   const store = useFnbPosStore();
   const tabId = store.activeTabId;
@@ -270,8 +271,30 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     sendCourse,
     addItems,
     updatePartySize,
+    voidLine,
+    compLine,
+    updateLinePrice,
+    updateLineNote,
+    deleteLine,
     isActing,
-  } = useFnbTab({ tabId, pollEnabled: isTabScreen, locationId: kdsLocationId });
+  } = useFnbTab({ tabId, pollEnabled: isTabScreen, locationId: preTabLocationId || undefined });
+
+  // ── Authoritative location (post-tab load) ─────────────────────
+  // Once the tab loads, tab.locationId is the single source of truth.
+  // This ensures station display, send/fire headers, and cross-location
+  // warnings all use the exact location the tab was created at.
+  // Each location/venue owns its own KDS stations — no venue→site promotion.
+  // Use tab.locationId (authoritative after load) or terminal-session venue (pre-load).
+  const kdsLocationId = tab?.locationId ?? preTabLocationId;
+  const kdsLocationName = locations?.find((l) => l.id === kdsLocationId)?.name ?? posLocationName;
+  const { stations } = useStations({ locationId: kdsLocationId || undefined });
+  // Only count ACTIVE stations — the routing engine ignores inactive ones,
+  // so sending to kitchen with only inactive stations silently creates zero tickets.
+  const hasKdsStations = stations.some((s) => s.isActive);
+
+  // ── Manager override for privileged item edits ──────────────────
+  const managerOverride = useManagerOverride();
+  const { requestOverride, closePinModal: closeManagerPin } = managerOverride;
 
   // Auto-navigate back to floor when tab was closed/voided elsewhere
   useEffect(() => {
@@ -365,11 +388,30 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     }
   }, [sendCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName]);
 
-  // Wrap fireCourse to persist drafts first (same root cause as send)
-  const fireCourseWithDraftPersist = useCallback(async (courseNumber: number) => {
-    await persistDraftsForCourse(courseNumber);
-    await fireCourse(courseNumber);
-  }, [persistDraftsForCourse, fireCourse]);
+  // Wrap fireCourse to persist drafts first + surface KDS warnings (same pattern as sendCourseWithWarning)
+  const fireCourseWithWarning = useCallback(async (courseNumber: number) => {
+    try {
+      await persistDraftsForCourse(courseNumber);
+      const result = await fireCourse(courseNumber);
+      // Surface cross-location routing — operator is at location A but tickets landed at B
+      if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId) {
+        const destName = resolveLocationName(result.effectiveKdsLocationId) ?? result.effectiveKdsLocationId;
+        const msg = result.warning
+          ? `${result.warning} (routed to ${destName})`
+          : `Course fired to KDS at ${destName} (different from current location)`;
+        setKdsSendError(msg);
+        return;
+      }
+      if (result?.warning) {
+        setKdsSendError(result.warning);
+      } else {
+        setKdsSendError(null);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to fire course';
+      setKdsSendError(msg);
+    }
+  }, [fireCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName]);
 
   // ── Modifier drawer state ──────────────────────────────────────
   const [modifierDrawerOpen, setModifierDrawerOpen] = useState(false);
@@ -515,7 +557,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     const courses = tab.courses ?? [];
     const nextSent = courses.find((c) => c.courseStatus === 'sent');
     if (nextSent) {
-      await fireCourseWithDraftPersist(nextSent.courseNumber);
+      await fireCourseWithWarning(nextSent.courseNumber);
     }
   };
 
@@ -548,6 +590,34 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   const handleVoid = () => {
     // Future: open void modal
   };
+
+  // ── Item-level edit handlers ──────────────────────────────────
+
+  const handleUpdateNote = useCallback((lineId: string, note: string | null) => {
+    updateLineNote(lineId, note);
+  }, [updateLineNote]);
+
+  const handleDeleteLine = useCallback((lineId: string) => {
+    deleteLine(lineId);
+  }, [deleteLine]);
+
+  const handleChangePrice = useCallback(async (lineId: string, newPriceCents: number, reason: string) => {
+    const { verified } = await requestOverride('Price Override', 'pos_fnb.tabs.manage');
+    if (!verified) return;
+    updateLinePrice(lineId, newPriceCents, reason);
+  }, [updateLinePrice, requestOverride]);
+
+  const handleVoidLine = useCallback(async (lineId: string, reason: string) => {
+    const { verified } = await requestOverride('Void Item', 'pos_fnb.tabs.manage');
+    if (!verified) return;
+    voidLine(lineId, reason);
+  }, [voidLine, requestOverride]);
+
+  const handleCompLine = useCallback(async (lineId: string, reason: string, compCategory: string) => {
+    const { verified } = await requestOverride('Comp Item', 'pos_fnb.tabs.manage');
+    if (!verified) return;
+    compLine(lineId, reason, compCategory);
+  }, [compLine, requestOverride]);
 
   const handlePrintCheck = useCallback(async () => {
     if (!tabId || !tab) return;
@@ -785,9 +855,14 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
                 courseNames={courseNames}
                 draftLines={draftLines}
                 onSendCourse={sendCourseWithWarning}
-                onFireCourse={fireCourseWithDraftPersist}
+                onFireCourse={fireCourseWithWarning}
                 kdsSendEnabled={kdsSendEnabled}
                 disabled={isActing}
+                onUpdateNote={handleUpdateNote}
+                onDeleteLine={handleDeleteLine}
+                onChangePrice={handleChangePrice}
+                onVoidLine={handleVoidLine}
+                onCompLine={handleCompLine}
               />
 
               {/* Totals */}
@@ -875,7 +950,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       {/* ── Full-width tab header ──────────────────────────────────── */}
       <div className="flex items-center">
         <div className="flex-1"><TabHeader tab={tab} onBack={handleBack} /></div>
-        <div className="pr-3"><ManageTabsButton locationId={locationId ?? ''} /></div>
+        <div className="pr-3"><ManageTabsButton locationId={kdsLocationId ?? ''} /></div>
       </div>
       <TableContextCard tab={tab} />
 
@@ -1065,8 +1140,13 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
             courseNames={courseNames}
             draftLines={draftLines}
             onSendCourse={sendCourseWithWarning}
-            onFireCourse={fireCourseWithDraftPersist}
+            onFireCourse={fireCourseWithWarning}
             kdsSendEnabled={kdsSendEnabled}
+            onUpdateNote={handleUpdateNote}
+            onDeleteLine={handleDeleteLine}
+            onChangePrice={handleChangePrice}
+            onVoidLine={handleVoidLine}
+            onCompLine={handleCompLine}
           />
 
           {/* Totals bar */}
@@ -1138,6 +1218,15 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
         locationId={kdsLocationId}
         locationName={kdsLocationName}
         canSetup={can('fnb.manage')}
+      />
+
+      {/* Manager PIN modal for price override / void / comp */}
+      <ManagerPinModal
+        open={managerOverride.showPinModal}
+        onClose={closeManagerPin}
+        onVerify={managerOverride.verifyPin}
+        error={managerOverride.pinError}
+        actionLabel={managerOverride.pendingAction ?? undefined}
       />
     </div>
   );

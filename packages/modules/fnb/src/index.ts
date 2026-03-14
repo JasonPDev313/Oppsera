@@ -156,6 +156,11 @@ export { prepareCourseDispatch, recordDispatchAttempt, emptyDispatchResult } fro
 export type { DispatchCourseResult, DispatchSource, DispatchStatus, PreparedDispatch } from './commands/dispatch-course-to-kds';
 export { addTabItems } from './commands/add-tab-items';
 export { splitTab } from './commands/split-tab';
+export { voidTabItem } from './commands/void-tab-item';
+export { compTabItem } from './commands/comp-tab-item';
+export { updateTabItemPrice } from './commands/update-tab-item-price';
+export { updateTabItemNote } from './commands/update-tab-item-note';
+export { deleteTabItem } from './commands/delete-tab-item';
 
 // Queries
 export { listTabs } from './queries/list-tabs';
@@ -197,6 +202,7 @@ export { deleteStation } from './commands/delete-station';
 export { upsertDisplayConfig } from './commands/upsert-display-config';
 export { bumpItem } from './commands/bump-item';
 export { recallItem } from './commands/recall-item';
+export { recallTicket } from './commands/recall-ticket';
 export { bumpTicket } from './commands/bump-ticket';
 export { callBackToStation } from './commands/call-back-to-station';
 export { refireItem } from './commands/refire-item';
@@ -582,6 +588,7 @@ export { handleCourseSent } from './consumers/handle-course-sent';
 export type { CourseSentConsumerData } from './consumers/handle-course-sent';
 export { handleOrderPlacedForKds } from './consumers/handle-order-placed-for-kds';
 export { sendOrderLinesToKds } from './commands/send-order-lines-to-kds';
+export type { RetailKdsSendResult } from './commands/send-order-lines-to-kds';
 
 // Helpers — Station Routing
 export { resolveStation } from './helpers/resolve-station';
@@ -688,7 +695,7 @@ export {
   listRoutingRulesFilterSchema,
   // Session 5
   createStationSchema, updateStationSchema, upsertDisplayConfigSchema,
-  bumpItemSchema, recallItemSchema, bumpTicketSchema, callBackToStationSchema, refireItemSchema, holdTicketSchema,
+  bumpItemSchema, recallItemSchema, recallTicketSchema, bumpTicketSchema, callBackToStationSchema, refireItemSchema, holdTicketSchema,
   reprioritizeTicketSchema, bulkHoldTicketsSchema, fireCourseFromKdsSchema, getKdsLocationMetricsSchema,
   heartbeatKdsTerminalSchema,
   // Course Rules
@@ -780,6 +787,8 @@ export {
   getWaitlistFilterSchema, getReservationsFilterSchema, getHostDashboardSchema,
   getWaitTimeEstimateSchema, getTableAvailabilitySchema,
   KDS_ORDER_TYPES, KDS_CHANNELS,
+  // Tab Item Operations
+  voidTabItemSchema, compTabItemSchema, updateTabItemPriceSchema, updateTabItemNoteSchema,
 } from './validation';
 
 export type {
@@ -899,6 +908,8 @@ export type {
   CourseRuleScopeType,
   UpsertCourseDefinitionInput, UpsertCourseRuleInput, DeleteCourseRuleInput,
   BulkApplyCourseRuleInput, ResolveCourseRuleQueryInput,
+  // Tab Item Operations
+  VoidTabItemInput, CompTabItemInput, UpdateTabItemPriceInput, UpdateTabItemNoteInput,
 } from './validation';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -926,7 +937,7 @@ export type {
   DeltaChitCreatedPayload,
   // Session 5
   StationCreatedPayload, StationUpdatedPayload, StationDeletedPayload,
-  ItemBumpedPayload, ItemRecalledPayload,
+  ItemBumpedPayload, ItemRecalledPayload, TicketRecalledPayload,
   TicketBumpedPayload, ItemCalledBackPayload,
   // Session 6
   ItemEightySixedPayload, ItemRestoredPayload,
@@ -994,6 +1005,8 @@ export {
   RoutingRuleNotFoundError,
   // Session 5
   StationNotFoundError,
+  StationInactiveError,
+  StationMismatchError,
   ExpoStationError,
   DuplicateStationNameError,
   TicketNotReadyError,
@@ -1051,6 +1064,9 @@ export {
   CourseLockedError,
   CourseNotAllowedError,
   CourseRuleViolationError,
+  // Tab Item Operations
+  TabItemNotFoundError,
+  TabItemStatusConflictError,
 } from './errors';
 
 // ═══════════════════════════════════════════════════════════════════

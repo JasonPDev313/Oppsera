@@ -12,9 +12,10 @@ import {
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
+    const locationId = ctx.locationId ?? url.searchParams.get('locationId') ?? undefined;
     const profiles = await listBumpBarProfiles({
       tenantId: ctx.tenantId,
-      locationId: ctx.locationId ?? url.searchParams.get('locationId') ?? undefined,
+      locationId,
     });
     return NextResponse.json({ data: profiles });
   },

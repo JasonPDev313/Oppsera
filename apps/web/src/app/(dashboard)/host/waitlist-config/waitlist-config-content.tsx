@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useMutation } from '@/hooks/use-mutation';
 import { useToast } from '@/components/ui/toast';
-import { useAuthContext } from '@/components/auth-provider';
+import { usePosLocation } from '@/hooks/use-pos-location';
 import {
   Settings, Palette, Bell, Users, FileText, Clock, Loader2,
   Save, ExternalLink, Copy, Check, ChevronDown, ChevronRight,
@@ -194,8 +194,7 @@ function TemplateEditor({ value, onChange, label }: { value: string; onChange: (
 
 export default function WaitlistConfigContent() {
   const { toast } = useToast();
-  const { locations } = useAuthContext();
-  const locationId = locations[0]?.id ?? '';
+  const { locationId } = usePosLocation();
   const [config, setConfig] = useState<WaitlistConfigData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);

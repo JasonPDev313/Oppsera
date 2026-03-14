@@ -13,9 +13,22 @@
  *  7. Staleness              (5%)  — days since any activity
  *  8. Onboarding stall       (5%)  — never completed onboarding
  */
-import { db, sqlArray } from '@oppsera/db';
+import { createAdminClient, sqlArray } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
+
+type AdminDb = ReturnType<typeof createAdminClient>;
+
+/**
+ * Get the admin DB client for cross-tenant operations.
+ * The scoring engine reads locations, memberships, login_records, and rm_usage_*
+ * tables across ALL tenants — these all have FORCE ROW LEVEL SECURITY enabled.
+ * Without an admin (RLS-bypass) connection, correlated subqueries return 0 rows
+ * because no app.current_tenant_id is set.
+ */
+function getAdminDb(): AdminDb {
+  return createAdminClient();
+}
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -96,16 +109,37 @@ function safePctChange(current: number, prior: number): number {
 
 // ── Public API ───────────────────────────────────────────────────
 
-export async function scoreAllTenants(): Promise<{ scored: number; highRisk: number; errors: number }> {
+export interface ScoringResult {
+  scored: number;
+  highRisk: number;
+  errors: number;
+  dataAvailability: {
+    loginTenants: number;
+    usageTenants: number;
+    adoptionTenants: number;
+    breadthTenants: number;
+    errorTenants: number;
+    totalTenants: number;
+  };
+  elapsedMs: number;
+}
+
+export async function scoreAllTenants(): Promise<ScoringResult> {
   return await doScoring();
 }
 
-async function doScoring(): Promise<{ scored: number; highRisk: number; errors: number }> {
+async function doScoring(): Promise<ScoringResult> {
   const t0 = Date.now();
+  const adminDb = getAdminDb();
 
   // 1. Get all active tenants (capped to prevent unbounded work on serverless)
-  const allTenants = await getActiveTenants();
-  if (allTenants.length === 0) return { scored: 0, highRisk: 0, errors: 0 };
+  const allTenants = await getActiveTenants(adminDb);
+  if (allTenants.length === 0) {
+    return {
+      scored: 0, highRisk: 0, errors: 0, elapsedMs: Date.now() - t0,
+      dataAvailability: { loginTenants: 0, usageTenants: 0, adoptionTenants: 0, breadthTenants: 0, errorTenants: 0, totalTenants: 0 },
+    };
+  }
 
   const tenants = allTenants.length > MAX_TENANTS ? allTenants.slice(0, MAX_TENANTS) : allTenants;
   if (allTenants.length > MAX_TENANTS) {
@@ -117,12 +151,23 @@ async function doScoring(): Promise<{ scored: number; highRisk: number; errors: 
   // 2. Batch-fetch all signal data in parallel — each fetcher is individually
   //    resilient so a single table failure doesn't kill the entire scoring run.
   const [loginData, usageData, adoptionData, workflowData, errorData] = await Promise.all([
-    safeFetch('loginData', () => batchLoginData(tenantIds)),
-    safeFetch('usageData', () => batchUsageData(tenantIds)),
-    safeFetch('adoptionData', () => batchAdoptionData(tenantIds)),
-    safeFetch('workflowData', () => batchWorkflowBreadth(tenantIds)),
-    safeFetch('errorData', () => batchErrorData(tenantIds)),
+    safeFetch('loginData', () => batchLoginData(adminDb, tenantIds)),
+    safeFetch('usageData', () => batchUsageData(adminDb, tenantIds)),
+    safeFetch('adoptionData', () => batchAdoptionData(adminDb, tenantIds)),
+    safeFetch('workflowData', () => batchWorkflowBreadth(adminDb, tenantIds)),
+    safeFetch('errorData', () => batchErrorData(adminDb, tenantIds)),
   ]);
+
+  // Log data availability for observability — helps diagnose empty-signal issues
+  const dataAvail = {
+    loginTenants: Object.keys(loginData).length,
+    usageTenants: Object.keys(usageData).length,
+    adoptionTenants: Object.keys(adoptionData).length,
+    breadthTenants: Object.keys(workflowData).length,
+    errorTenants: Object.keys(errorData).length,
+    totalTenants: tenants.length,
+  };
+  console.log(`[Attrition] Data availability:`, JSON.stringify(dataAvail));
 
   // 3. Score each tenant — isolate errors per tenant
   const scored: ScoredTenant[] = [];
@@ -142,16 +187,18 @@ async function doScoring(): Promise<{ scored: number; highRisk: number; errors: 
         onboardingStall: scoreOnboardingStall(tenant),
       };
 
-      // For new tenants (<30 days), don't penalize for missing data —
-      // "no data" scores are informational noise, not real risk signals.
+      // For new tenants (<30 days), cap "no data" penalty scores at 50% instead
+      // of blanking them entirely. This preserves signal visibility in the UI while
+      // reducing noise from genuinely new tenants. Full zeroing hid real issues
+      // (e.g., tenant with locations/users but no usage data still showed score=7).
       const tenantAgeMs = tenant.createdAt ? Date.now() - new Date(tenant.createdAt).getTime() : Infinity;
       const isNewTenant = Number.isFinite(tenantAgeMs) && tenantAgeMs < NEW_TENANT_DAYS * 86400000;
 
       if (isNewTenant) {
         for (const signal of Object.values(signals)) {
           if (signal.detail.reason && String(signal.detail.reason).startsWith('no_')) {
-            signal.score = 0;
-            signal.fragments = [];
+            signal.score = clamp(signal.score * 0.5);
+            signal.detail.newTenantCapped = true;
           }
         }
       }
@@ -164,7 +211,7 @@ async function doScoring(): Promise<{ scored: number; highRisk: number; errors: 
       );
 
       const activeModuleCount = adoptionData[tid]?.activeCount ?? 0;
-      const narrative = buildNarrative(tenant, signals, overallScore);
+      const narrative = buildNarrative(tenant, signals, overallScore, isNewTenant);
 
       scored.push({
         tenant,
@@ -184,9 +231,14 @@ async function doScoring(): Promise<{ scored: number; highRisk: number; errors: 
   //    pg_try_advisory_xact_lock is transaction-scoped (auto-released on commit/rollback),
   //    so it works correctly with Supavisor transaction-mode pooling.
   //    If ANY batch fails, the entire transaction rolls back — no scores orphaned.
+  //    Uses adminDb for the write transaction too — attrition_risk_scores may have RLS.
   const scoredTenantIds = scored.map((s) => s.tenant.tenantId);
 
-  await db.transaction(async (tx) => {
+  await adminDb.transaction(async (tx) => {
+    // Statement timeout: prevent this transaction from holding a connection
+    // indefinitely if Vercel freezes the event loop mid-write.
+    await tx.execute(sql`SET LOCAL statement_timeout = '30s'`);
+
     // Concurrency guard — prevents duplicate scoring runs
     const lockResult = await tx.execute(
       sql`SELECT pg_try_advisory_xact_lock(${SCORING_LOCK_ID}) AS acquired`,
@@ -217,7 +269,7 @@ async function doScoring(): Promise<{ scored: number; highRisk: number; errors: 
   const highRisk = scored.filter((s) => s.overallScore >= 50).length;
   const elapsed = Date.now() - t0;
   console.log(`[Attrition] Scored ${scored.length} tenants in ${elapsed}ms (${highRisk} high-risk, ${scoreErrors} errors)`);
-  return { scored: scored.length, highRisk, errors: scoreErrors };
+  return { scored: scored.length, highRisk, errors: scoreErrors, dataAvailability: dataAvail, elapsedMs: elapsed };
 }
 
 /** Wraps a data fetcher so a single table failure returns empty data instead of crashing the run. */
@@ -234,7 +286,7 @@ async function safeFetch<T extends Record<string, unknown>>(
 }
 
 /** Insert a batch of scored tenants using multi-row VALUES in one statement. */
-async function insertBatch(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], batch: ScoredTenant[]): Promise<void> {
+async function insertBatch(tx: Parameters<Parameters<AdminDb['transaction']>[0]>[0], batch: ScoredTenant[]): Promise<void> {
   if (batch.length === 0) return;
 
   const valuesClauses = batch.map((s) => {
@@ -280,9 +332,13 @@ async function insertBatch(tx: Parameters<Parameters<typeof db.transaction>[0]>[
 }
 
 // ── Data Fetchers (batch for all tenants) ────────────────────────
+// All fetchers accept an adminDb parameter to bypass RLS. Every table queried
+// here (tenants, locations, memberships, login_records, rm_usage_*) has
+// FORCE ROW LEVEL SECURITY enabled. Without the admin connection, correlated
+// subqueries silently return 0 because no app.current_tenant_id is set.
 
-async function getActiveTenants(): Promise<TenantSnapshot[]> {
-  const rows = await db.execute(sql`
+async function getActiveTenants(adminDb: AdminDb): Promise<TenantSnapshot[]> {
+  const rows = await adminDb.execute(sql`
     SELECT
       t.id AS tenant_id,
       t.name AS tenant_name,
@@ -292,38 +348,83 @@ async function getActiveTenants(): Promise<TenantSnapshot[]> {
       (SELECT COUNT(*)::int FROM locations WHERE tenant_id = t.id AND is_active = true) AS total_locations,
       (SELECT COUNT(*)::int FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.tenant_id = t.id AND m.status = 'active') AS total_users,
       COALESCE(t.onboarding_status, 'pending') AS onboarding_status,
+      -- Also fetch entitlement count as a proxy for module setup
+      (SELECT COUNT(*)::int FROM entitlements WHERE tenant_id = t.id AND is_active = true) AS total_entitlements,
       GREATEST(
         t.last_activity_at,
         (SELECT MAX(created_at) FROM login_records WHERE tenant_id = t.id AND outcome = 'success'),
-        (SELECT MAX(usage_date)::timestamptz FROM rm_usage_daily WHERE tenant_id = t.id)
+        (SELECT MAX(usage_date)::timestamptz FROM rm_usage_daily WHERE tenant_id = t.id),
+        (SELECT MAX(created_at) FROM orders WHERE tenant_id = t.id)
       )::text AS last_activity_at,
       t.created_at::text AS created_at
     FROM tenants t
     WHERE t.status IN ('active', 'trial')
     ORDER BY t.name
   `);
-  return Array.from(rows as Iterable<Record<string, unknown>>).map((r) => ({
-    tenantId: String(r.tenant_id),
-    tenantName: String(r.tenant_name),
-    tenantStatus: String(r.tenant_status),
-    industry: r.industry ? String(r.industry) : null,
-    healthGrade: r.health_grade ? String(r.health_grade) : null,
-    totalLocations: Number(r.total_locations) || 0,
-    totalUsers: Number(r.total_users) || 0,
-    onboardingStatus: String(r.onboarding_status),
-    lastActivityAt: r.last_activity_at ? String(r.last_activity_at) : null,
-    createdAt: r.created_at ? String(r.created_at) : null,
-  }));
+  return Array.from(rows as Iterable<Record<string, unknown>>).map((r) => {
+    const totalLocations = Number(r.total_locations) || 0;
+    const totalUsers = Number(r.total_users) || 0;
+    const totalEntitlements = Number(r.total_entitlements) || 0;
+    const rawOnboarding = String(r.onboarding_status ?? 'pending');
+
+    // Auto-detect onboarding completion: if a tenant has locations + users +
+    // entitlements but onboarding_status is still 'pending', infer 'completed'.
+    // This prevents false positives from tenants set up outside the formal
+    // onboarding wizard (admin-created, seeded, or API-provisioned).
+    const onboardingStatus = deriveOnboardingStatus(rawOnboarding, totalLocations, totalUsers, totalEntitlements);
+
+    return {
+      tenantId: String(r.tenant_id),
+      tenantName: String(r.tenant_name),
+      tenantStatus: String(r.tenant_status),
+      industry: r.industry ? String(r.industry) : null,
+      healthGrade: r.health_grade ? String(r.health_grade) : null,
+      totalLocations,
+      totalUsers,
+      onboardingStatus,
+      lastActivityAt: r.last_activity_at ? String(r.last_activity_at) : null,
+      createdAt: r.created_at ? String(r.created_at) : null,
+    };
+  });
+}
+
+/**
+ * Derive effective onboarding status from raw DB value + actual tenant state.
+ *
+ * Rules:
+ *  - 'completed' or 'stalled' in DB → trust it (explicit admin action)
+ *  - 'pending' but tenant has locations + users + entitlements → 'completed'
+ *  - 'pending' but tenant has some setup (locations OR users) → 'in_progress'
+ *  - 'in_progress' but tenant has locations + users + entitlements → 'completed'
+ *  - otherwise → use raw value
+ */
+function deriveOnboardingStatus(
+  raw: string,
+  locations: number,
+  users: number,
+  entitlements: number,
+): string {
+  // Explicit terminal states from the admin onboarding flow — trust them
+  if (raw === 'completed' || raw === 'stalled') return raw;
+
+  const hasLocations = locations > 0;
+  const hasUsers = users > 0;
+  const hasEntitlements = entitlements > 0;
+  const fullySetUp = hasLocations && hasUsers && hasEntitlements;
+
+  if (fullySetUp) return 'completed';
+  if (hasLocations || hasUsers || hasEntitlements) return 'in_progress';
+  return raw;
 }
 
 interface LoginBatch { [tenantId: string]: { current: number; prior: number } }
 
-async function batchLoginData(tenantIds: string[]): Promise<LoginBatch> {
+async function batchLoginData(adminDb: AdminDb, tenantIds: string[]): Promise<LoginBatch> {
   if (tenantIds.length === 0) return {};
   const result: LoginBatch = {};
   for (let i = 0; i < tenantIds.length; i += FETCH_CHUNK_SIZE) {
     const chunk = tenantIds.slice(i, i + FETCH_CHUNK_SIZE);
-    const rows = await db.execute(sql`
+    const rows = await adminDb.execute(sql`
       SELECT
         tenant_id,
         COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS current_logins,
@@ -352,12 +453,12 @@ interface UsageBatch {
   };
 }
 
-async function batchUsageData(tenantIds: string[]): Promise<UsageBatch> {
+async function batchUsageData(adminDb: AdminDb, tenantIds: string[]): Promise<UsageBatch> {
   if (tenantIds.length === 0) return {};
   const result: UsageBatch = {};
   for (let i = 0; i < tenantIds.length; i += FETCH_CHUNK_SIZE) {
     const chunk = tenantIds.slice(i, i + FETCH_CHUNK_SIZE);
-    const rows = await db.execute(sql`
+    const rows = await adminDb.execute(sql`
       SELECT
         tenant_id,
         COALESCE(SUM(request_count) FILTER (WHERE usage_date >= CURRENT_DATE - 30), 0)::int AS current_requests,
@@ -390,12 +491,12 @@ interface AdoptionBatch {
   };
 }
 
-async function batchAdoptionData(tenantIds: string[]): Promise<AdoptionBatch> {
+async function batchAdoptionData(adminDb: AdminDb, tenantIds: string[]): Promise<AdoptionBatch> {
   if (tenantIds.length === 0) return {};
   const result: AdoptionBatch = {};
   for (let i = 0; i < tenantIds.length; i += FETCH_CHUNK_SIZE) {
     const chunk = tenantIds.slice(i, i + FETCH_CHUNK_SIZE);
-    const rows = await db.execute(sql`
+    const rows = await adminDb.execute(sql`
       SELECT
         tenant_id,
         module_key,
@@ -430,12 +531,12 @@ interface BreadthBatch {
   [tenantId: string]: { currentModules: number; priorModules: number };
 }
 
-async function batchWorkflowBreadth(tenantIds: string[]): Promise<BreadthBatch> {
+async function batchWorkflowBreadth(adminDb: AdminDb, tenantIds: string[]): Promise<BreadthBatch> {
   if (tenantIds.length === 0) return {};
   const result: BreadthBatch = {};
   for (let i = 0; i < tenantIds.length; i += FETCH_CHUNK_SIZE) {
     const chunk = tenantIds.slice(i, i + FETCH_CHUNK_SIZE);
-    const rows = await db.execute(sql`
+    const rows = await adminDb.execute(sql`
       SELECT
         tenant_id,
         (COUNT(DISTINCT module_key) FILTER (WHERE usage_date >= CURRENT_DATE - 30))::int AS current_modules,
@@ -459,12 +560,12 @@ interface ErrorBatch {
   [tenantId: string]: { errorRate: number; totalErrors: number; totalRequests: number };
 }
 
-async function batchErrorData(tenantIds: string[]): Promise<ErrorBatch> {
+async function batchErrorData(adminDb: AdminDb, tenantIds: string[]): Promise<ErrorBatch> {
   if (tenantIds.length === 0) return {};
   const result: ErrorBatch = {};
   for (let i = 0; i < tenantIds.length; i += FETCH_CHUNK_SIZE) {
     const chunk = tenantIds.slice(i, i + FETCH_CHUNK_SIZE);
-    const rows = await db.execute(sql`
+    const rows = await adminDb.execute(sql`
       SELECT
         tenant_id,
         COALESCE(SUM(request_count), 0)::int AS total_requests,
@@ -634,6 +735,7 @@ function buildNarrative(
   tenant: TenantSnapshot,
   signals: ScoredTenant['signals'],
   overallScore: number,
+  isNewTenant = false,
 ): string {
   const level = riskLevel(overallScore);
   const parts: string[] = [];
@@ -649,6 +751,10 @@ function buildNarrative(
     parts.push(`${tenant.tenantName} appears healthy (score: ${overallScore}/100).`);
   }
 
+  if (isNewTenant) {
+    parts.push('Note: This is a new tenant (< 30 days). Some signal scores are capped at 50% to reduce no-data noise.');
+  }
+
   // Collect all signal fragments, sorted by signal score descending
   const allSignals = Object.entries(signals)
     .sort(([, a], [, b]) => b.score - a.score)
@@ -659,6 +765,14 @@ function buildNarrative(
     for (const f of allSignals.slice(0, 5)) {
       parts.push(`  - ${f}`);
     }
+  }
+
+  // Data gap warning — if most signals returned "no data", flag it
+  const noDataCount = Object.values(signals).filter(
+    (s) => s.detail.reason && String(s.detail.reason).startsWith('no_'),
+  ).length;
+  if (noDataCount >= 4) {
+    parts.push(`Warning: ${noDataCount} of 8 signals have no data. Usage tracking may not be flowing — verify the drain-outbox cron is flushing.`);
   }
 
   // Recommendation

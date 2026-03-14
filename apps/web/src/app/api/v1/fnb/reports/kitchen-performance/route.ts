@@ -7,9 +7,10 @@ import { getKitchenPerformance, getKitchenPerformanceSchema } from '@oppsera/mod
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = request.nextUrl;
+    const locationId = url.searchParams.get('locationId') ?? '';
     const parsed = getKitchenPerformanceSchema.safeParse({
       tenantId: ctx.tenantId,
-      locationId: url.searchParams.get('locationId') ?? '',
+      locationId,
       startDate: url.searchParams.get('startDate') ?? '',
       endDate: url.searchParams.get('endDate') ?? '',
       stationId: url.searchParams.get('stationId') || undefined,

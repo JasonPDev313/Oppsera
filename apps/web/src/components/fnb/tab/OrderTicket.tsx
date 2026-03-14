@@ -1,10 +1,12 @@
 'use client';
 
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo, useState, useCallback } from 'react';
 import { List, Layers } from 'lucide-react';
 import type { FnbTabDetail, FnbDraftLine } from '@/types/fnb';
 import { CourseSection } from './CourseSection';
 import { FnbOrderLine } from './FnbOrderLine';
+import { FnbLineItemEditPanel } from './FnbLineItemEditPanel';
+import type { FnbLineEditPermissions } from './FnbLineItemEditPanel';
 
 interface OrderTicketProps {
   tab: FnbTabDetail;
@@ -20,6 +22,13 @@ interface OrderTicketProps {
   kdsSendEnabled?: boolean;
   /** Disables action buttons while a mutation is in-flight */
   disabled?: boolean;
+  // Item-level edit actions
+  onUpdateNote?: (lineId: string, note: string | null) => void;
+  onDeleteLine?: (lineId: string) => void;
+  onChangePrice?: (lineId: string, newPriceCents: number, reason: string) => void;
+  onVoidLine?: (lineId: string, reason: string) => void;
+  onCompLine?: (lineId: string, reason: string, compCategory: string) => void;
+  linePermissions?: FnbLineEditPermissions;
 }
 
 export const OrderTicket = memo(function OrderTicket({
@@ -34,9 +43,40 @@ export const OrderTicket = memo(function OrderTicket({
   onMoveLineToCourse,
   kdsSendEnabled = true,
   disabled,
+  onUpdateNote,
+  onDeleteLine,
+  onChangePrice,
+  onVoidLine,
+  onCompLine,
+  linePermissions,
 }: OrderTicketProps) {
   const [viewMode, setViewMode] = useState<'active' | 'all'>('all');
   const [coursePickerLineId, setCoursePickerLineId] = useState<string | null>(null);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+
+  const hasItemEditActions = !!(onUpdateNote || onDeleteLine || onChangePrice || onVoidLine || onCompLine);
+
+  const handleLineTap = useCallback((lineId: string) => {
+    if (coursePickerLineId === lineId) {
+      setCoursePickerLineId(null);
+      return;
+    }
+    if (hasItemEditActions) {
+      setEditingLineId((prev) => (prev === lineId ? null : lineId));
+    }
+    onLineTap?.(lineId);
+  }, [coursePickerLineId, hasItemEditActions, onLineTap]);
+
+  const handleEditDone = useCallback(() => {
+    setEditingLineId(null);
+  }, []);
+
+  const defaultPermissions: FnbLineEditPermissions = linePermissions ?? {
+    priceOverride: true,
+    discount: true,
+    voidLine: true,
+    comp: true,
+  };
 
   const courses = tab.courses ?? [];
   const serverLines = tab.lines ?? [];
@@ -201,18 +241,26 @@ export const OrderTicket = memo(function OrderTicket({
                     qty={line.qty ?? 1}
                     status={(line.status as 'draft' | 'sent' | 'fired' | 'served' | 'voided') ?? 'draft'}
                     isUnsent={line.status === 'draft' || line.status === 'unsent'}
-                    onTap={() => {
-                      if (coursePickerLineId === line.id) {
-                        setCoursePickerLineId(null);
-                      } else {
-                        onLineTap?.(line.id);
-                      }
-                    }}
+                    onTap={() => handleLineTap(line.id)}
                     onLongPress={onMoveLineToCourse && (line.status === 'draft' || line.status === 'unsent')
                       ? () => setCoursePickerLineId(line.id)
                       : undefined
                     }
                   />
+                  {/* Inline item edit panel */}
+                  {editingLineId === line.id && hasItemEditActions && line.status !== 'voided' && (
+                    <FnbLineItemEditPanel
+                      line={line}
+                      onUpdateNote={onUpdateNote ?? (() => {})}
+                      onDelete={onDeleteLine ?? (() => {})}
+                      onChangePrice={onChangePrice ?? (() => {})}
+                      onVoidLine={onVoidLine ?? (() => {})}
+                      onCompLine={onCompLine ?? (() => {})}
+                      onDone={handleEditDone}
+                      permissions={defaultPermissions}
+                      disabled={disabled}
+                    />
+                  )}
                   {/* Course reassignment dropdown */}
                   {coursePickerLineId === line.id && onMoveLineToCourse && (
                     <div

@@ -20,6 +20,8 @@ export const GET = withMiddleware(
 );
 
 // POST /api/v1/fnb/stations — create station
+// No venue→site resolution — stations are always created at the requested location.
+// The server-side guard in createStation rejects sites that have venues.
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     let body = {};

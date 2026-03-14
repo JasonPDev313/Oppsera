@@ -132,6 +132,12 @@ interface UseFnbTabReturn {
   sendCourse: (courseNumber: number) => Promise<KdsSendResult | undefined>;
   addItems: (items: AddTabItemInput[]) => Promise<void>;
   updatePartySize: (newSize: number) => Promise<void>;
+  // Item-level actions
+  voidLine: (itemId: string, reason: string) => Promise<void>;
+  compLine: (itemId: string, reason: string, compCategory?: string) => Promise<void>;
+  updateLinePrice: (itemId: string, newPriceCents: number, reason: string) => Promise<void>;
+  updateLineNote: (itemId: string, specialInstructions: string | null) => Promise<void>;
+  deleteLine: (itemId: string) => Promise<void>;
   isActing: boolean;
 }
 
@@ -347,11 +353,14 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true, 
     // Check stale tab status — refuse to add if tab is no longer writable
     const current = tabRef.current;
     if (current && !['open', 'ordering', 'sent_to_kitchen'].includes(current.status)) return;
+    const headers: Record<string, string> = {};
+    if (locationId) headers['X-Location-Id'] = locationId;
     await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/items`, {
       method: 'POST',
       body: JSON.stringify({ tabId, items, clientRequestId: crypto.randomUUID() }),
+      headers,
     }));
-  }, [tabId, act, isActing]);
+  }, [tabId, act, isActing, locationId]);
 
   const updatePartySizeFn = useCallback(async (newSize: number) => {
     const currentTab = tabRef.current;
@@ -359,6 +368,47 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true, 
     await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}`, {
       method: 'PATCH',
       body: JSON.stringify({ partySize: newSize, expectedVersion: currentTab.version }),
+    }));
+  }, [tabId, act]);
+
+  // ── Item-level actions ──────────────────────────────────────
+
+  const voidLineFn = useCallback(async (itemId: string, reason: string) => {
+    if (!tabId) return;
+    await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/items/${itemId}/void`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, clientRequestId: crypto.randomUUID() }),
+    }));
+  }, [tabId, act]);
+
+  const compLineFn = useCallback(async (itemId: string, reason: string, compCategory?: string) => {
+    if (!tabId) return;
+    await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/items/${itemId}/comp`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, compCategory, clientRequestId: crypto.randomUUID() }),
+    }));
+  }, [tabId, act]);
+
+  const updateLinePriceFn = useCallback(async (itemId: string, newPriceCents: number, reason: string) => {
+    if (!tabId) return;
+    await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/items/${itemId}/price`, {
+      method: 'PATCH',
+      body: JSON.stringify({ newPriceCents, reason, clientRequestId: crypto.randomUUID() }),
+    }));
+  }, [tabId, act]);
+
+  const updateLineNoteFn = useCallback(async (itemId: string, specialInstructions: string | null) => {
+    if (!tabId) return;
+    await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/items/${itemId}/note`, {
+      method: 'PATCH',
+      body: JSON.stringify({ specialInstructions }),
+    }));
+  }, [tabId, act]);
+
+  const deleteLineFn = useCallback(async (itemId: string) => {
+    if (!tabId) return;
+    await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/items/${itemId}`, {
+      method: 'DELETE',
     }));
   }, [tabId, act]);
 
@@ -376,6 +426,11 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true, 
     sendCourse: sendCourseFn,
     addItems: addItemsFn,
     updatePartySize: updatePartySizeFn,
+    voidLine: voidLineFn,
+    compLine: compLineFn,
+    updateLinePrice: updateLinePriceFn,
+    updateLineNote: updateLineNoteFn,
+    deleteLine: deleteLineFn,
     isActing,
   };
 }

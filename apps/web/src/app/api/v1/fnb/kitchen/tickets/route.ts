@@ -10,9 +10,10 @@ import { parseLimit } from '@/lib/api-params';
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
+    const effectiveLocationId = ctx.locationId ?? url.searchParams.get('locationId') ?? '';
     const result = await listKitchenTickets({
       tenantId: ctx.tenantId,
-      locationId: ctx.locationId ?? url.searchParams.get('locationId') ?? '',
+      locationId: effectiveLocationId,
       businessDate: url.searchParams.get('businessDate') ?? '',
       status: (url.searchParams.get('status') as any) ?? undefined,
       tabId: url.searchParams.get('tabId') ?? undefined,

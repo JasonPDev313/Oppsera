@@ -43,6 +43,8 @@ export default function KdsSettingsContent() {
   const hasMultipleLocations = kdsLocations.length > 1;
   const locationName = kdsLocations.find((l) => l.id === locationId)?.name ?? '';
   const { stations, isLoading: stationsLoading } = useStations({ locationId });
+  // Each location/venue owns its own KDS stations — no venue→site promotion
+  const kdsLocationId = locationId;
   const hasStations = stations.length > 0;
 
   return (
@@ -116,7 +118,7 @@ export default function KdsSettingsContent() {
           </Link>
         </div>
       )}
-      <KdsSettingsPanel locationId={locationId} locationName={locationName} />
+      <KdsSettingsPanel locationId={kdsLocationId} locationName={locationName} />
     </div>
   );
 }

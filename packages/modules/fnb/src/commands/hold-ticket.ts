@@ -9,6 +9,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { HoldTicketInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { TicketNotFoundError, TicketStatusConflictError, TicketVersionConflictError } from '../errors';
+import { isLocationAllowedForTicket } from '../helpers/kds-location-guard';
 
 /**
  * Hold or unhold (fire) a kitchen ticket.
@@ -38,8 +39,9 @@ export async function holdTicket(
       .limit(1);
     if (!ticket) throw new TicketNotFoundError(input.ticketId);
 
-    // Defense-in-depth: reject if ticket belongs to a different location
-    if (ctx.locationId && ticket.locationId && ticket.locationId !== ctx.locationId) {
+    // Defense-in-depth: allows venue→site (tickets at parent site)
+    const locationAllowed = await isLocationAllowedForTicket(tx, ctx.tenantId, ctx.locationId, ticket.locationId);
+    if (!locationAllowed) {
       throw new TicketNotFoundError(input.ticketId);
     }
 

@@ -243,10 +243,14 @@ export interface FnbTabLine {
   status: string;
   sentAt: string | null;
   firedAt: string | null;
+  voidedAt: string | null;
+  voidedBy: string | null;
+  voidReason: string | null;
 }
 
 export interface FnbTabDetail {
   id: string;
+  locationId: string;
   tabNumber: number;
   tabType: FnbTabType;
   status: FnbTabStatus;

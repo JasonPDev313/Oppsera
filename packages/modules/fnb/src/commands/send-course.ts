@@ -125,7 +125,11 @@ export async function sendCourse(
 
   // ── Phase 2: Atomic transaction ────────────────────────────────
   try {
-    const txResult = await publishWithOutbox(ctx, async (tx): Promise<{ result: { course: unknown; ticketIds: string[]; isDuplicate: boolean }; events: ReturnType<typeof buildEventFromContext>[] }> => {
+    // Use effectiveCtx so the outbox envelope location matches where tickets are stored.
+    const effectiveCtx = prep.effectiveLocationId !== ctx.locationId
+      ? { ...ctx, locationId: prep.effectiveLocationId } as RequestContext
+      : ctx;
+    const txResult = await publishWithOutbox(effectiveCtx, async (tx): Promise<{ result: { course: unknown; ticketIds: string[]; isDuplicate: boolean }; events: ReturnType<typeof buildEventFromContext>[] }> => {
       // 1. sendCourse-level idempotency
       const idemCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'sendCourse');
       if (idemCheck.isDuplicate) {

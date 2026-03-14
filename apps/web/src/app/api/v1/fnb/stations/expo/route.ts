@@ -10,7 +10,7 @@ export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const input = {
       tenantId: ctx.tenantId,
-      locationId: ctx.locationId!, // guaranteed by requireLocation: true
+      locationId: ctx.locationId!,
       businessDate: request.nextUrl.searchParams.get('businessDate') || new Date().toISOString().slice(0, 10),
     };
     const view = await getExpoView(input);

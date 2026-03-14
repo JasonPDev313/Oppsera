@@ -4,6 +4,7 @@ import { memo, useEffect } from 'react';
 import { WifiOff } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
+import { usePosLocation } from '@/hooks/use-pos-location';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbSettings } from '@/hooks/use-fnb-settings';
 import { useFetch } from '@/hooks/use-fetch';
@@ -44,8 +45,9 @@ interface FnbPOSContentProps {
 }
 
 function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
-  const { user, locations } = useAuthContext();
+  const { user } = useAuthContext();
   const { isModuleEnabled } = useEntitlementsContext();
+  const { locationId: posLocationId } = usePosLocation();
   const currentScreen = useFnbPosStore((s) => s.currentScreen);
   const isOnline = useFnbPosStore((s) => s.isOnline);
   const setOnline = useFnbPosStore((s) => s.setOnline);
@@ -53,10 +55,10 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
   const setCourseRulesMap = useFnbPosStore((s) => s.setCourseRulesMap);
 
   // Use the active room's locationId from the store (set by FnbFloorView)
-  // so settings are fetched for the correct venue. Falls back to locations[0]
-  // on first render before the floor view has resolved the active room.
+  // so settings are fetched for the correct venue. Falls back to terminal
+  // session location on first render before the floor view has resolved.
   const activeLocationId = useFnbPosStore((s) => s.activeLocationId);
-  const locationId = activeLocationId ?? locations[0]?.id;
+  const locationId = activeLocationId ?? posLocationId;
   const { settings: orderingSettings } = useFnbSettings({
     moduleKey: 'fnb_ordering',
     locationId,

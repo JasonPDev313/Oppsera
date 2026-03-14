@@ -195,6 +195,8 @@ vi.mock('@oppsera/module-fnb', () => ({
   listSections: mockListSections,
   createSection: mockCreateSection,
   createSectionSchema: makeSafeParse(['name']),
+  // KDS location — passthrough so route tests aren't affected by vi.resetAllMocks()
+  resolveKdsLocationId: (_tenantId: string, locationId: string) => Promise.resolve(locationId),
 }));
 
 vi.mock('@oppsera/shared', () => ({

@@ -16,14 +16,14 @@ import { eq, and, inArray, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { fnbTabs, fnbTabItems, fnbTabCourses, fnbTables } from '@oppsera/db';
 import { logger } from '@oppsera/core/observability';
-import { resolveStationRouting, enrichRoutableItems, resolveKdsLocationId, getStationPrepTimesForItems } from '../services/kds-routing-engine';
+import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems } from '../services/kds-routing-engine';
 import type { RoutableItem, RoutingResult } from '../services/kds-routing-engine';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { normalizeBusinessDate } from '../helpers/normalize-business-date';
 
 // ── Types ──────────────────────────────────────────────────────────
 
-export type DispatchSource = 'fnb_course_send' | 'fnb_course_fire' | 'fnb_course_resend';
+export type DispatchSource = 'fnb_course_send' | 'fnb_course_fire' | 'fnb_course_resend' | 'retail_kds_send';
 export type DispatchStatus = 'started' | 'routing_failed' | 'ticket_create_failed' | 'succeeded' | 'partial_commit_failed';
 
 export interface DispatchCourseResult {
@@ -226,12 +226,23 @@ export async function prepareCourseDispatch(
     businessDate: normalizeBusinessDate(tabRaw.businessDate),
   };
 
-  const rawLocationId = input.locationId || ctx.locationId || tab.locationId;
-  if (!rawLocationId) return failPrep('No locationId on context, event, or tab');
+  // Tab's own locationId is authoritative (NOT NULL in schema, set at tab creation).
+  // NEVER let a client header or middleware location override tab.locationId —
+  // a stale/wrong client location previously caused zero-station dispatch.
+  if (!tab.locationId) {
+    return failPrep(`Tab ${input.tabId} has no locationId — data corruption (column is NOT NULL)`);
+  }
+  const rawLocationId = tab.locationId;
 
-  // 2. Resolve effective KDS location (site↔venue hierarchy fallback)
-  const effectiveLocationId = await resolveKdsLocationId(ctx.tenantId, rawLocationId);
-  diagnosis.push(`Tab: rawLocationId=${rawLocationId}, resolvedLocationId=${effectiveLocationId}, tabType=${tab.tabType ?? 'null'}`);
+  // Diagnostic: warn if client sent a different location than the tab's own
+  const clientLocationId = input.locationId || ctx.locationId;
+  if (clientLocationId && clientLocationId !== tab.locationId) {
+    diagnosis.push(`LOCATION MISMATCH: client sent ${clientLocationId} but tab owns ${tab.locationId} — using tab location`);
+  }
+
+  // 2. Each location/venue owns its own KDS stations — no venue→site promotion
+  const effectiveLocationId = rawLocationId;
+  diagnosis.push(`Tab: locationId=${effectiveLocationId}, tabType=${tab.tabType ?? 'null'}`);
 
   if (items.length === 0) {
     // No dispatchable items — return a valid prep with 0 items instead of failing.
@@ -375,7 +386,7 @@ export async function prepareCourseDispatch(
 
 export async function recordDispatchAttempt(
   tenantId: string,
-  input: { tabId: string; courseNumber: number; source: DispatchSource; locationId?: string; priorAttemptId?: string },
+  input: { tabId?: string; courseNumber?: number; orderId?: string; source: DispatchSource; locationId?: string; priorAttemptId?: string },
   result: DispatchCourseResult,
   startMs: number,
 ): Promise<string | null> {
@@ -393,8 +404,8 @@ export async function recordDispatchAttempt(
         ) VALUES (
           gen_ulid(), ${tenantId},
           ${result.effectiveKdsLocationId ?? input.locationId ?? ''},
-          ${input.tabId}, ${result.orderId},
-          ${input.courseNumber},
+          ${input.tabId ?? null}, ${result.orderId ?? input.orderId ?? null},
+          ${input.courseNumber ?? null},
           ${result.effectiveKdsLocationId},
           ${result.tabType}, ${'pos'},
           ${input.source}, ${result.status},

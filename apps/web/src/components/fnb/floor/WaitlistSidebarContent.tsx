@@ -12,7 +12,7 @@ import {
   ChevronUp,
   CheckCircle,
 } from 'lucide-react';
-import { useAuthContext } from '@/components/auth-provider';
+import { usePosLocation } from '@/hooks/use-pos-location';
 import {
   useHostDashboard,
   useWaitlistMutations,
@@ -29,8 +29,7 @@ function getWaitColor(elapsed: number): string {
 }
 
 export function WaitlistSidebarContent() {
-  const { locations } = useAuthContext();
-  const locationId = locations[0]?.id ?? '';
+  const { locationId } = usePosLocation();
   const today = new Date().toISOString().slice(0, 10);
 
   const {

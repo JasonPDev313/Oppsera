@@ -8,6 +8,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { VoidTicketInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { TicketNotFoundError, TicketStatusConflictError, TicketVersionConflictError } from '../errors';
+import { isLocationAllowedForTicket } from '../helpers/kds-location-guard';
 
 const VOIDABLE_STATUSES = ['pending', 'in_progress'];
 
@@ -33,6 +34,10 @@ export async function voidTicket(
       ))
       .limit(1);
     if (!ticket) throw new TicketNotFoundError(ticketId);
+
+    // Defense-in-depth: verify ticket belongs to caller's location (venue→site aware)
+    const locationAllowed = await isLocationAllowedForTicket(tx, ctx.tenantId, ctx.locationId, ticket.locationId);
+    if (!locationAllowed) throw new TicketNotFoundError(ticketId);
 
     if (!VOIDABLE_STATUSES.includes(ticket.status)) {
       throw new TicketStatusConflictError(ticketId, ticket.status, 'void');

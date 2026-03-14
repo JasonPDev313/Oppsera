@@ -6,6 +6,10 @@
     {
       "path": "/api/v1/admin/backups/cron",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/v1/analytics/attrition/cron",
+      "schedule": "0 2 * * *"
     }
   ]
 }

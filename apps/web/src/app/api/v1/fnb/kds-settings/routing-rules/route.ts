@@ -12,9 +12,10 @@ import {
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
+    const locationId = ctx.locationId ?? url.searchParams.get('locationId') ?? '';
     const rules = await listRoutingRules({
       tenantId: ctx.tenantId,
-      locationId: ctx.locationId ?? url.searchParams.get('locationId') ?? '',
+      locationId,
       stationId: url.searchParams.get('stationId') ?? undefined,
       ruleType: (url.searchParams.get('ruleType') as 'item' | 'category' | 'department' | 'modifier' | 'sub_department') ?? undefined,
     });

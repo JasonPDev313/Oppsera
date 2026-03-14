@@ -9,6 +9,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { ReprioritizeTicketInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { TicketNotFoundError, TicketStatusConflictError, TicketVersionConflictError } from '../errors';
+import { isLocationAllowedForTicket } from '../helpers/kds-location-guard';
 
 /**
  * Change a kitchen ticket's priority level.
@@ -36,7 +37,9 @@ export async function reprioritizeTicket(
       .limit(1);
     if (!ticket) throw new TicketNotFoundError(input.ticketId);
 
-    if (ctx.locationId && ticket.locationId && ticket.locationId !== ctx.locationId) {
+    // Allows venue→site (tickets at parent site)
+    const locationAllowed = await isLocationAllowedForTicket(tx, ctx.tenantId, ctx.locationId, ticket.locationId);
+    if (!locationAllowed) {
       throw new TicketNotFoundError(input.ticketId);
     }
 

@@ -3,7 +3,6 @@ import type { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant } from '@oppsera/db';
-
 /**
  * GET /api/v1/fnb/kds-setup/verify
  *

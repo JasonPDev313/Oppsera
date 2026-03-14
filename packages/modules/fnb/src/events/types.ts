@@ -39,6 +39,7 @@ export const FNB_EVENTS = {
   STATION_DELETED: 'fnb.station.deleted.v1',
   ITEM_BUMPED: 'fnb.kds.item_bumped.v1',
   ITEM_RECALLED: 'fnb.kds.item_recalled.v1',
+  TICKET_RECALLED: 'fnb.kds.ticket_recalled.v1',
   TICKET_BUMPED: 'fnb.kds.ticket_bumped.v1',
   ITEM_CALLED_BACK: 'fnb.kds.item_called_back.v1',
   ITEM_REFIRED: 'fnb.kds.item_refired.v1',
@@ -111,6 +112,12 @@ export const FNB_EVENTS = {
   COURSE_RULE_UPSERTED: 'fnb.course_rule.upserted.v1',
   COURSE_RULE_DELETED: 'fnb.course_rule.deleted.v1',
   COURSE_RULE_BULK_APPLIED: 'fnb.course_rule.bulk_applied.v1',
+
+  // Tab Item Operations
+  TAB_ITEM_VOIDED: 'fnb.tab_item.voided.v1',
+  TAB_ITEM_COMPED: 'fnb.tab_item.comped.v1',
+  TAB_ITEM_PRICE_CHANGED: 'fnb.tab_item.price_changed.v1',
+  TAB_ITEM_DELETED: 'fnb.tab_item.deleted.v1',
 } as const;
 
 // ── Session 1 Payloads ─────────────────────────────────────────
@@ -378,6 +385,14 @@ export interface ItemRecalledPayload {
   ticketId: string;
   stationId: string;
   locationId: string;
+}
+
+export interface TicketRecalledPayload {
+  ticketId: string;
+  locationId: string;
+  recalledCount: number;
+  /** Distinct station IDs that items were recalled to */
+  stationIds: string[];
 }
 
 export interface TicketBumpedPayload {

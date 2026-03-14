@@ -14,7 +14,7 @@ import { warmMenuCache } from '@/hooks/use-fnb-menu';
 import { warmOpenTabs } from '@/hooks/use-fnb-tab';
 import { warmFnbSettings } from '@/hooks/use-fnb-settings';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { useTerminalSession } from '@/components/terminal-session-provider';
+import { usePosLocation } from '@/hooks/use-pos-location';
 import { POSErrorBoundary } from '@/components/pos/pos-error-boundary';
 import { ConnectionIndicator } from '@/components/pos/shared/ConnectionIndicator';
 import { usePOSDisplaySize } from '@/hooks/use-pos-display-size';
@@ -36,13 +36,6 @@ const FnBPOSContent = dynamic(() => import('./fnb/fnb-pos-content'), {
   loading: () => <FnBPOSLoading />,
   ssr: false,
 });
-
-// ── Terminal ID ───────────────────────────────────────────────────
-
-function useTerminalId(): string {
-  const { session } = useTerminalSession();
-  return session?.terminalId ?? 'POS-01';
-}
 
 // ── Barcode Scanner Listener ──────────────────────────────────────
 
@@ -144,15 +137,15 @@ const FNB_REALTIME_CHANNELS: ChannelName[] = ['floor', 'tab', 'dashboard', 'gues
 export default function POSLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, tenant, locations, isLoading, isAuthenticated } = useAuthContext();
-  const terminalId = useTerminalId();
+  const { user, tenant, isLoading, isAuthenticated } = useAuthContext();
+  const { locationId: resolvedLocationId, locationName: resolvedLocationName, terminalId } = usePosLocation();
 
   // ── F&B Realtime — singleton subscription for the POS ──────
   // Drives all onChannelRefresh listeners (floor, tab, kds, expo, dashboard, guest_pay).
   useFnbRealtime({
     channels: FNB_REALTIME_CHANNELS,
     tenantId: tenant?.id ?? '',
-    locationId: locations[0]?.id ?? '',
+    locationId: resolvedLocationId,
     enabled: isAuthenticated && !isLoading,
   });
 
@@ -249,7 +242,6 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  const locationName = locations[0]?.name ?? 'Unknown Location';
   const employeeName = user.name ?? 'Staff';
 
   // Get first name or abbreviated name for compact display
@@ -315,7 +307,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-1.5">
             <MapPin className="h-4 w-4" style={{ color: 'var(--pos-accent)' }} aria-hidden="true" />
             <span className="text-sm font-semibold" style={{ color: 'var(--pos-text-primary)' }}>
-              {locationName}
+              {resolvedLocationName}
             </span>
           </div>
 

@@ -12,9 +12,10 @@ import {
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
+    const locationId = ctx.locationId ?? url.searchParams.get('locationId') ?? undefined;
     const targets = await listPerformanceTargets({
       tenantId: ctx.tenantId,
-      locationId: ctx.locationId ?? url.searchParams.get('locationId') ?? undefined,
+      locationId,
       stationId: url.searchParams.get('stationId') ?? undefined,
     });
     return NextResponse.json({ data: targets });

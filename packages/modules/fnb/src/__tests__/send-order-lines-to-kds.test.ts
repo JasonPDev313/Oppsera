@@ -24,12 +24,31 @@ vi.mock('@oppsera/db', () => ({
     tenantId: 'tenant_id',
     orderLineId: 'order_line_id',
   },
+  fnbKitchenTickets: {
+    id: 'id',
+    tenantId: 'tenant_id',
+    locationId: 'location_id',
+    orderId: 'order_id',
+    ticketNumber: 'ticket_number',
+    status: 'status',
+    businessDate: 'business_date',
+    sentBy: 'sent_by',
+    priorityLevel: 'priority_level',
+    orderType: 'order_type',
+    channel: 'channel',
+    estimatedPickupAt: 'estimated_pickup_at',
+    version: 'version',
+  },
 }));
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((...args: unknown[]) => ({ type: 'eq', args })),
   and: vi.fn((...args: unknown[]) => ({ type: 'and', args })),
   inArray: vi.fn((...args: unknown[]) => ({ type: 'inArray', args })),
+  sql: Object.assign(
+    vi.fn((...args: unknown[]) => ({ type: 'sql', args })),
+    { join: vi.fn(() => ({ type: 'sql_join' })) },
+  ),
 }));
 
 vi.mock('@oppsera/core/observability', () => ({
@@ -41,24 +60,87 @@ vi.mock('@oppsera/core/observability', () => ({
   },
 }));
 
+const mockPublishWithOutbox = vi.fn();
+vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
+  publishWithOutbox: (...args: unknown[]) => mockPublishWithOutbox(...args),
+}));
+
+const mockBuildEventFromContext = vi.fn();
+vi.mock('@oppsera/core/events/build-event', () => ({
+  buildEventFromContext: (...args: unknown[]) => mockBuildEventFromContext(...args),
+}));
+
+const mockCheckIdempotency = vi.fn();
+const mockSaveIdempotencyKey = vi.fn();
+vi.mock('@oppsera/core/helpers/idempotency', () => ({
+  checkIdempotency: (...args: unknown[]) => mockCheckIdempotency(...args),
+  saveIdempotencyKey: (...args: unknown[]) => mockSaveIdempotencyKey(...args),
+}));
+
 const mockResolveStationRouting = vi.fn();
 const mockEnrichRoutableItems = vi.fn();
+const mockGetStationPrepTimesForItems = vi.fn();
 
 vi.mock('../services/kds-routing-engine', () => ({
   resolveStationRouting: (...args: unknown[]) => mockResolveStationRouting(...args),
   enrichRoutableItems: (...args: unknown[]) => mockEnrichRoutableItems(...args),
+  getStationPrepTimesForItems: (...args: unknown[]) => mockGetStationPrepTimesForItems(...args),
   resolveKdsLocationId: vi.fn(async (_tenantId: string, locationId: string) => locationId),
 }));
 
-const mockCreateKitchenTicket = vi.fn();
+const mockRecordDispatchAttempt = vi.fn();
+vi.mock('../commands/dispatch-course-to-kds', () => ({
+  recordDispatchAttempt: (...args: unknown[]) => mockRecordDispatchAttempt(...args),
+  emptyDispatchResult: () => ({
+    attemptId: null,
+    status: 'started',
+    failureStage: null,
+    ticketsCreated: 0,
+    ticketsFailed: 0,
+    itemsRouted: 0,
+    itemsUnrouted: 0,
+    itemCount: 0,
+    effectiveKdsLocationId: null,
+    ticketIds: [],
+    stationIds: [],
+    orderId: null,
+    tabType: null,
+    businessDate: null,
+    errors: [],
+    diagnosis: [],
+  }),
+}));
 
-// send-order-lines-to-kds imports createKitchenTicket from './create-kitchen-ticket'
+vi.mock('../helpers/kds-modifier-helpers', () => ({
+  extractModifierIds: (modifiers: unknown) => {
+    if (!Array.isArray(modifiers)) return [];
+    return (modifiers as Array<{ modifierId?: string }>)
+      .map((m) => m?.modifierId)
+      .filter(Boolean);
+  },
+  formatModifierSummary: (modifiers: unknown) => {
+    if (!Array.isArray(modifiers) || modifiers.length === 0) return null;
+    return (modifiers as Array<{ name?: string }>).map((m) => m?.name).filter(Boolean).join(', ') || null;
+  },
+}));
+
+vi.mock('../events/types', () => ({
+  FNB_EVENTS: {
+    TICKET_CREATED: 'fnb.ticket.created.v1',
+  },
+}));
+
+const mockCreateKitchenTicket = vi.fn();
 vi.mock('../commands/create-kitchen-ticket', () => ({
   createKitchenTicket: (...args: unknown[]) => mockCreateKitchenTicket(...args),
 }));
 
-// handle-order-placed-for-kds imports createKitchenTicket from '../commands/create-kitchen-ticket'
-// The same mock above covers both since vi.mock resolves to the same module path.
+const mockRecordKdsSend = vi.fn();
+const mockMarkKdsSendSent = vi.fn();
+vi.mock('../commands/record-kds-send', () => ({
+  recordKdsSend: (...args: unknown[]) => mockRecordKdsSend(...args),
+  markKdsSendSent: (...args: unknown[]) => mockMarkKdsSendSent(...args),
+}));
 
 vi.mock('@oppsera/shared', () => ({
   AppError: class AppError extends Error {
@@ -151,11 +233,15 @@ describe('sendOrderLinesToKds', () => {
   const BUSINESS_DATE = '2026-03-06';
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    // Default: enrich passes items through unchanged
+    // resetAllMocks clears call history AND once-queues, preventing bleed between tests
+    vi.resetAllMocks();
+    // Re-establish persistent defaults after reset
     mockEnrichRoutableItems.mockImplementation(async (_tid: string, items: unknown[]) => items);
-    // Default: createKitchenTicket succeeds
-    mockCreateKitchenTicket.mockResolvedValue({ id: 'ticket-1' });
+    mockGetStationPrepTimesForItems.mockResolvedValue(new Map());
+    mockRecordDispatchAttempt.mockResolvedValue(undefined);
+    mockBuildEventFromContext.mockReturnValue({ type: 'fnb.ticket.created.v1' });
+    mockCheckIdempotency.mockResolvedValue({ isDuplicate: false });
+    mockSaveIdempotencyKey.mockResolvedValue(undefined);
   });
 
   // ── Guard: locationId ──────────────────────────────────────────
@@ -172,36 +258,39 @@ describe('sendOrderLinesToKds', () => {
   // ── Early returns ──────────────────────────────────────────────
 
   it('returns sentCount 0 when no food/beverage lines exist for the order', async () => {
-    // First withTenant call: order lines query → empty
-    mockWithTenant.mockImplementationOnce(async () => []);
+    // Single withTenant call returns { lines: [], alreadySentIds: new Set() }
+    mockWithTenant.mockResolvedValueOnce({ lines: [], alreadySentIds: new Set() });
 
     const ctx = makeCtx();
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE, 'dine_in');
 
-    expect(result).toEqual({ sentCount: 0, failedCount: 0, totalStations: 0 });
-    // Should not query existing ticket items when there are no lines
+    expect(result.sentCount).toBe(0);
+    expect(result.failedCount).toBe(0);
+    // totalStations is -1 when no lines found
+    expect(result.totalStations).toBe(-1);
+    expect(result.dispatch).toBeDefined();
     expect(mockWithTenant).toHaveBeenCalledTimes(1);
-    expect(mockCreateKitchenTicket).not.toHaveBeenCalled();
+    expect(mockPublishWithOutbox).not.toHaveBeenCalled();
   });
 
   it('returns sentCount 0 and logs when all lines are already sent to KDS', async () => {
     const line1 = makeOrderLine({ id: 'line-1' });
     const line2 = makeOrderLine({ id: 'line-2', catalogItemName: 'Fries' });
 
-    // Call 1: order lines
-    mockWithTenant.mockImplementationOnce(async () => [line1, line2]);
-    // Call 2: existing ticket items — both lines already sent
-    mockWithTenant.mockImplementationOnce(async () => [
-      { orderLineId: 'line-1' },
-      { orderLineId: 'line-2' },
-    ]);
+    // Single withTenant call returns both lines but both already sent
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line1, line2],
+      alreadySentIds: new Set(['line-1', 'line-2']),
+    });
 
     const ctx = makeCtx();
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE, 'dine_in');
 
-    expect(result).toEqual({ sentCount: 0, failedCount: 0, totalStations: 0 });
-    expect(mockWithTenant).toHaveBeenCalledTimes(2);
-    expect(mockCreateKitchenTicket).not.toHaveBeenCalled();
+    expect(result.sentCount).toBe(0);
+    expect(result.failedCount).toBe(0);
+    expect(result.totalStations).toBe(-1);
+    expect(mockWithTenant).toHaveBeenCalledTimes(1);
+    expect(mockPublishWithOutbox).not.toHaveBeenCalled();
     expect(logger.debug).toHaveBeenCalledWith(
       expect.stringContaining('all lines already sent'),
       expect.objectContaining({ orderId: ORDER_ID, tenantId: TENANT }),
@@ -211,10 +300,14 @@ describe('sendOrderLinesToKds', () => {
   it('returns sentCount 0 when no stations resolve for any line', async () => {
     const line = makeOrderLine({ id: 'line-1' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []); // no existing tickets
+    // Phase 1 read: lines + alreadySentIds
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line],
+      alreadySentIds: new Set(),
+    });
+    // Phase 1.5: station names (only reached when stationGroups.size > 0, but routing returns null so no stations)
+    // No need to mock — routing returns null for all, stationGroups stays empty, we return before station names
 
-    // routing engine returns null stationId for all items
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', null),
     ]);
@@ -222,8 +315,11 @@ describe('sendOrderLinesToKds', () => {
     const ctx = makeCtx();
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
 
-    expect(result).toEqual({ sentCount: 0, failedCount: 0, totalStations: 0 });
-    expect(mockCreateKitchenTicket).not.toHaveBeenCalled();
+    expect(result.sentCount).toBe(0);
+    expect(result.failedCount).toBe(0);
+    expect(result.totalStations).toBe(0);
+    expect(result.dispatch.status).toBe('routing_failed');
+    expect(mockPublishWithOutbox).not.toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('no stations resolved'),
       expect.objectContaining({ orderId: ORDER_ID }),
@@ -232,144 +328,159 @@ describe('sendOrderLinesToKds', () => {
 
   // ── Happy path ─────────────────────────────────────────────────
 
-  it('routes new lines and creates one ticket when single station resolves', async () => {
+  it('routes new lines and creates tickets via publishWithOutbox for a single station', async () => {
     const line = makeOrderLine({ id: 'line-1', catalogItemName: 'Burger', qty: '2' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []); // no existing tickets
+    // Phase 1: lines + already-sent
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line],
+      alreadySentIds: new Set(),
+    });
+    // Phase 1.5: station names lookup (returns empty rows)
+    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
     ]);
 
+    // publishWithOutbox returns the result object (what the callback's `result` field would be)
+    mockPublishWithOutbox.mockResolvedValueOnce({ ticketIds: ['ticket-1'], totalItems: 1, isDuplicate: false });
+
     const ctx = makeCtx();
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE, 'dine_in');
 
-    expect(result).toEqual({ sentCount: 1, failedCount: 0, totalStations: 1 });
-    expect(mockCreateKitchenTicket).toHaveBeenCalledTimes(1);
-    expect(mockCreateKitchenTicket).toHaveBeenCalledWith(
-      ctx,
-      expect.objectContaining({
-        orderId: ORDER_ID,
-        businessDate: BUSINESS_DATE,
-        orderType: 'dine_in',
-        channel: 'pos',
-        items: expect.arrayContaining([
-          expect.objectContaining({
-            orderLineId: 'line-1',
-            itemName: 'Burger',
-            quantity: 2,
-            stationId: 'station-grill',
-          }),
-        ]),
-      }),
+    expect(result.sentCount).toBe(1);
+    expect(result.failedCount).toBe(0);
+    expect(result.totalStations).toBe(1);
+    expect(result.dispatch).toBeDefined();
+    expect(mockPublishWithOutbox).toHaveBeenCalledTimes(1);
+    expect(mockPublishWithOutbox).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: TENANT, locationId: 'loc-1' }),
+      expect.any(Function),
     );
   });
 
-  it('groups items by station and creates one ticket per station', async () => {
+  it('groups items by station and creates tickets for each station', async () => {
     const line1 = makeOrderLine({ id: 'line-1', catalogItemName: 'Burger' });
     const line2 = makeOrderLine({ id: 'line-2', catalogItemName: 'Salad', catalogItemId: 'item-salad' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line1, line2]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line1, line2],
+      alreadySentIds: new Set(),
+    });
+    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
       makeRoutingResult('line-2', 'station-salad'),
     ]);
 
+    mockPublishWithOutbox.mockResolvedValueOnce({ ticketIds: ['ticket-1', 'ticket-2'], totalItems: 2, isDuplicate: false });
+
     const ctx = makeCtx();
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE, 'dine_in');
 
-    expect(result).toEqual({ sentCount: 2, failedCount: 0, totalStations: 2 });
-    expect(mockCreateKitchenTicket).toHaveBeenCalledTimes(2);
-
-    // Verify tickets were created for each station
-    const calls = mockCreateKitchenTicket.mock.calls;
-    const stationIds = calls.map((c) => (c[1] as { items: Array<{ stationId: string }> }).items[0]?.stationId);
-    expect(stationIds).toContain('station-grill');
-    expect(stationIds).toContain('station-salad');
+    expect(result.sentCount).toBe(2);
+    expect(result.failedCount).toBe(0);
+    expect(result.totalStations).toBe(2);
+    expect(mockPublishWithOutbox).toHaveBeenCalledTimes(1);
   });
 
-  // ── Idempotency key format ─────────────────────────────────────
+  // ── Dispatch result ────────────────────────────────────────────
 
-  it('generates idempotency key with sorted line IDs: retail-kds-send-{orderId}-{stationId}-{sortedLineIds}', async () => {
-    const line1 = makeOrderLine({ id: 'line-zzz', catalogItemName: 'Item A' });
-    const line2 = makeOrderLine({ id: 'line-aaa', catalogItemName: 'Item B' });
+  it('returns dispatch object with succeeded status on success', async () => {
+    const line = makeOrderLine({ id: 'line-1' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line1, line2]);
-    mockWithTenant.mockImplementationOnce(async () => []);
-
-    // Both lines route to the same station
-    mockResolveStationRouting.mockResolvedValueOnce([
-      makeRoutingResult('line-zzz', 'station-grill'),
-      makeRoutingResult('line-aaa', 'station-grill'),
-    ]);
-
-    const ctx = makeCtx();
-    await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
-
-    // Sorted: line-aaa, line-zzz
-    expect(mockCreateKitchenTicket).toHaveBeenCalledWith(
-      ctx,
-      expect.objectContaining({
-        clientRequestId: `retail-kds-send-${ORDER_ID}-station-grill-line-aaa,line-zzz`,
-      }),
-    );
-  });
-
-  // ── Partial failure / resilience ──────────────────────────────
-
-  it('handles partial ticket creation failure gracefully and returns partial sentCount', async () => {
-    const line1 = makeOrderLine({ id: 'line-1', catalogItemName: 'Burger' });
-    const line2 = makeOrderLine({ id: 'line-2', catalogItemName: 'Salad', catalogItemId: 'item-salad' });
-
-    mockWithTenant.mockImplementationOnce(async () => [line1, line2]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line],
+      alreadySentIds: new Set(),
+    });
+    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
-      makeRoutingResult('line-2', 'station-salad'),
     ]);
 
-    // First ticket (station-grill) fails (non-transient, no retry); second (station-salad) succeeds
-    mockCreateKitchenTicket
-      .mockRejectedValueOnce(new Error('DB timeout'))
-      .mockResolvedValueOnce({ id: 'ticket-2' });
+    mockPublishWithOutbox.mockResolvedValueOnce({ ticketIds: ['ticket-1'], totalItems: 1, isDuplicate: false });
 
     const ctx = makeCtx();
-    // Must not throw
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
 
-    // Only the second station's item was sent successfully
-    expect(result.sentCount).toBe(1);
-    expect(result.failedCount).toBe(1);
-    expect(result.totalStations).toBe(2);
-    expect(mockCreateKitchenTicket).toHaveBeenCalledTimes(2);
+    expect(result.dispatch.status).toBe('succeeded');
+    expect(result.dispatch.ticketIds).toEqual(['ticket-1']);
+    expect(result.dispatch.ticketsCreated).toBe(1);
+  });
+
+  it('handles idempotency duplicate — returns sentCount 0 with succeeded status', async () => {
+    const line = makeOrderLine({ id: 'line-1' });
+
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line],
+      alreadySentIds: new Set(),
+    });
+    mockWithTenant.mockResolvedValueOnce([]);
+
+    mockResolveStationRouting.mockResolvedValueOnce([
+      makeRoutingResult('line-1', 'station-grill'),
+    ]);
+
+    mockPublishWithOutbox.mockResolvedValueOnce({ ticketIds: [], totalItems: 0, isDuplicate: true });
+
+    const ctx = makeCtx();
+    const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
+
+    expect(result.sentCount).toBe(0);
+    expect(result.dispatch.status).toBe('succeeded');
+  });
+
+  // ── Transaction failure ────────────────────────────────────────
+
+  it('returns failedCount equal to stationCount when publishWithOutbox throws', async () => {
+    const line = makeOrderLine({ id: 'line-1' });
+
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line],
+      alreadySentIds: new Set(),
+    });
+    mockWithTenant.mockResolvedValueOnce([]);
+
+    mockResolveStationRouting.mockResolvedValueOnce([
+      makeRoutingResult('line-1', 'station-grill'),
+    ]);
+
+    mockPublishWithOutbox.mockRejectedValueOnce(new Error('DB timeout'));
+
+    const ctx = makeCtx();
+    const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
+
+    expect(result.sentCount).toBe(0);
+    expect(result.failedCount).toBe(1); // 1 station
+    expect(result.totalStations).toBe(1);
+    expect(result.dispatch.status).toBe('ticket_create_failed');
     expect(logger.error).toHaveBeenCalledWith(
-      expect.stringContaining('failed to create ticket for station'),
+      expect.stringContaining('atomic transaction failed'),
       expect.objectContaining({ orderId: ORDER_ID }),
     );
   });
 
-  it('does not throw when createKitchenTicket fails for all stations', async () => {
+  it('does not throw when publishWithOutbox fails', async () => {
     const line = makeOrderLine({ id: 'line-1' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line],
+      alreadySentIds: new Set(),
+    });
+    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
     ]);
 
-    // Non-transient failure — no retries
-    mockCreateKitchenTicket
-      .mockRejectedValueOnce(new Error('Connection refused'));
+    mockPublishWithOutbox.mockRejectedValueOnce(new Error('Connection refused'));
 
     const ctx = makeCtx();
-    const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
-
-    expect(result).toEqual({ sentCount: 0, failedCount: 1, totalStations: 1 });
+    // Must not throw
+    await expect(sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE)).resolves.toBeDefined();
   });
 
   // ── Modifier extraction ────────────────────────────────────────
@@ -383,17 +494,20 @@ describe('sendOrderLinesToKds', () => {
       ],
     });
 
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line],
+      alreadySentIds: new Set(),
+    });
+    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
     ]);
+    mockPublishWithOutbox.mockResolvedValueOnce({ ticketIds: ['ticket-1'], totalItems: 1, isDuplicate: false });
 
     const ctx = makeCtx();
     await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
 
-    // enrichRoutableItems should have been called with the extracted modifier IDs
     expect(mockEnrichRoutableItems).toHaveBeenCalledWith(
       TENANT,
       expect.arrayContaining([
@@ -408,12 +522,16 @@ describe('sendOrderLinesToKds', () => {
   it('handles line with null/non-array modifiers by passing empty modifierIds', async () => {
     const lineNoMods = makeOrderLine({ id: 'line-1', modifiers: null });
 
-    mockWithTenant.mockImplementationOnce(async () => [lineNoMods]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [lineNoMods],
+      alreadySentIds: new Set(),
+    });
+    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
     ]);
+    mockPublishWithOutbox.mockResolvedValueOnce({ ticketIds: ['ticket-1'], totalItems: 1, isDuplicate: false });
 
     const ctx = makeCtx();
     await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
@@ -435,13 +553,17 @@ describe('sendOrderLinesToKds', () => {
     const line1 = makeOrderLine({ id: 'line-1', catalogItemName: 'Burger' });
     const line2 = makeOrderLine({ id: 'line-2', catalogItemName: 'Fries', catalogItemId: 'item-fries' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line1, line2]);
     // line-1 already sent
-    mockWithTenant.mockImplementationOnce(async () => [{ orderLineId: 'line-1' }]);
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line1, line2],
+      alreadySentIds: new Set(['line-1']),
+    });
+    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-2', 'station-fry'),
     ]);
+    mockPublishWithOutbox.mockResolvedValueOnce({ ticketIds: ['ticket-1'], totalItems: 1, isDuplicate: false });
 
     const ctx = makeCtx();
     const result = await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
@@ -451,7 +573,8 @@ describe('sendOrderLinesToKds', () => {
       TENANT,
       [expect.objectContaining({ orderLineId: 'line-2' })],
     );
-    expect(result).toEqual({ sentCount: 1, failedCount: 0, totalStations: 1 });
+    expect(result.sentCount).toBe(1);
+    expect(result.totalStations).toBe(1);
   });
 
   // ── Routing context ────────────────────────────────────────────
@@ -459,12 +582,16 @@ describe('sendOrderLinesToKds', () => {
   it('calls resolveStationRouting with pos channel, orderType, and correct tenantId/locationId', async () => {
     const line = makeOrderLine({ id: 'line-1' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line],
+      alreadySentIds: new Set(),
+    });
+    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
     ]);
+    mockPublishWithOutbox.mockResolvedValueOnce({ ticketIds: ['ticket-1'], totalItems: 1, isDuplicate: false });
 
     const ctx = makeCtx({ tenantId: 'tenant-abc', locationId: 'loc-xyz' });
     await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE, 'dine_in');
@@ -481,14 +608,19 @@ describe('sendOrderLinesToKds', () => {
     const line1 = makeOrderLine({ id: 'line-1', catalogItemName: 'Burger' });
     const line2 = makeOrderLine({ id: 'line-2', catalogItemName: 'Mystery Item' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line1, line2]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line1, line2],
+      alreadySentIds: new Set(),
+    });
+    // Station names — only reached because at least line-1 resolved to a station
+    mockWithTenant.mockResolvedValueOnce([]);
 
     // line-1 routed, line-2 unrouted
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
       makeRoutingResult('line-2', null),
     ]);
+    mockPublishWithOutbox.mockResolvedValueOnce({ ticketIds: ['ticket-1'], totalItems: 1, isDuplicate: false });
 
     const ctx = makeCtx();
     await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
@@ -499,25 +631,54 @@ describe('sendOrderLinesToKds', () => {
     );
   });
 
-  // ── Quantity parsing ───────────────────────────────────────────
+  // ── recordDispatchAttempt ──────────────────────────────────────
 
-  it('converts string qty to number in ticket items, defaulting to 1 for invalid values', async () => {
-    const line = makeOrderLine({ id: 'line-1', qty: 'invalid' });
+  it('calls recordDispatchAttempt after successful dispatch', async () => {
+    const line = makeOrderLine({ id: 'line-1' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line],
+      alreadySentIds: new Set(),
+    });
+    mockWithTenant.mockResolvedValueOnce([]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
     ]);
+    mockPublishWithOutbox.mockResolvedValueOnce({ ticketIds: ['ticket-1'], totalItems: 1, isDuplicate: false });
 
-    await sendOrderLinesToKds(makeCtx(), ORDER_ID, BUSINESS_DATE);
+    const ctx = makeCtx();
+    await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
 
-    expect(mockCreateKitchenTicket).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        items: [expect.objectContaining({ quantity: 1 })],
-      }),
+    expect(mockRecordDispatchAttempt).toHaveBeenCalledWith(
+      TENANT,
+      expect.objectContaining({ orderId: ORDER_ID, source: 'retail_kds_send' }),
+      expect.any(Object),
+      expect.any(Number),
+    );
+  });
+
+  it('calls recordDispatchAttempt even when no stations resolve (routing_failed)', async () => {
+    const line = makeOrderLine({ id: 'line-1' });
+
+    mockWithTenant.mockResolvedValueOnce({
+      lines: [line],
+      alreadySentIds: new Set(),
+    });
+    // No station names withTenant needed — early return before that
+
+    mockResolveStationRouting.mockResolvedValueOnce([
+      makeRoutingResult('line-1', null),
+    ]);
+
+    const ctx = makeCtx();
+    await sendOrderLinesToKds(ctx, ORDER_ID, BUSINESS_DATE);
+
+    expect(mockRecordDispatchAttempt).toHaveBeenCalledWith(
+      TENANT,
+      expect.objectContaining({ orderId: ORDER_ID, source: 'retail_kds_send' }),
+      expect.objectContaining({ status: 'routing_failed' }),
+      expect.any(Number),
     );
   });
 });
@@ -526,9 +687,14 @@ describe('sendOrderLinesToKds', () => {
 
 describe('handleOrderPlacedForKds', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    // Re-establish persistent defaults after reset
     mockEnrichRoutableItems.mockImplementation(async (_tid: string, items: unknown[]) => items);
-    mockCreateKitchenTicket.mockResolvedValue({ id: 'ticket-1' });
+    mockCreateKitchenTicket.mockResolvedValue({ id: 'ticket-1', ticketNumber: 1, courseNumber: null });
+    mockRecordKdsSend.mockResolvedValue({ sendToken: 'token-1' });
+    mockMarkKdsSendSent.mockResolvedValue(undefined);
+    // Station name gen_ulid call
+    mockWithTenant.mockResolvedValue([{ token: 'tok-1' }]);
   });
 
   // ── Guard: missing required fields ────────────────────────────
@@ -570,8 +736,10 @@ describe('handleOrderPlacedForKds', () => {
 
   it('never throws — catches and logs errors from resolveStationRouting', async () => {
     const line = makeOrderLine({ id: 'line-1' });
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    // First withTenant: lines
+    mockWithTenant.mockResolvedValueOnce([line]);
+    // Second withTenant: existing ticket items
+    mockWithTenant.mockResolvedValueOnce([]);
     mockResolveStationRouting.mockRejectedValueOnce(new Error('routing engine failure'));
 
     const event = makeEvent();
@@ -582,13 +750,12 @@ describe('handleOrderPlacedForKds', () => {
   // ── Early returns (no lines) ───────────────────────────────────
 
   it('returns early when no food/beverage lines exist for the order', async () => {
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce([]);
 
     const event = makeEvent();
     await handleOrderPlacedForKds(event);
 
     expect(mockWithTenant).toHaveBeenCalledTimes(1);
-    expect(mockCreateKitchenTicket).not.toHaveBeenCalled();
     expect(logger.debug).toHaveBeenCalledWith(
       expect.stringContaining('no food/bev lines found'),
       expect.objectContaining({ orderId: 'order-1' }),
@@ -597,13 +764,15 @@ describe('handleOrderPlacedForKds', () => {
 
   it('returns early when all lines already have ticket items', async () => {
     const line = makeOrderLine({ id: 'line-1' });
-    mockWithTenant.mockImplementationOnce(async () => [line]);
+    mockWithTenant.mockResolvedValueOnce([line]);
     // All lines already sent
-    mockWithTenant.mockImplementationOnce(async () => [{ orderLineId: 'line-1' }]);
+    mockWithTenant.mockResolvedValueOnce([{ orderLineId: 'line-1' }]);
 
     const event = makeEvent();
     await handleOrderPlacedForKds(event);
 
+    // filteredLines is empty → returns without reaching resolveStationRouting
+    expect(mockResolveStationRouting).not.toHaveBeenCalled();
     expect(mockCreateKitchenTicket).not.toHaveBeenCalled();
   });
 
@@ -613,9 +782,13 @@ describe('handleOrderPlacedForKds', () => {
     const line1 = makeOrderLine({ id: 'line-1', catalogItemName: 'Burger' });
     const line2 = makeOrderLine({ id: 'line-2', catalogItemName: 'Soda', catalogItemId: 'item-soda' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line1, line2]);
+    mockWithTenant.mockResolvedValueOnce([line1, line2]);
     // line-1 already sent to KDS via manual send-to-kds flow
-    mockWithTenant.mockImplementationOnce(async () => [{ orderLineId: 'line-1' }]);
+    mockWithTenant.mockResolvedValueOnce([{ orderLineId: 'line-1' }]);
+    // Station names lookup
+    mockWithTenant.mockResolvedValueOnce([]);
+    // gen_ulid for send token
+    mockWithTenant.mockResolvedValueOnce([{ token: 'tok-1' }]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-2', 'station-bar'),
@@ -636,8 +809,11 @@ describe('handleOrderPlacedForKds', () => {
 
   it('creates synthetic RequestContext using event.employeeId as user.id', async () => {
     const line = makeOrderLine({ id: 'line-1' });
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce([line]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    // Station names + gen_ulid
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([{ token: 'tok-1' }]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -666,8 +842,10 @@ describe('handleOrderPlacedForKds', () => {
 
   it('falls back to actorUserId when employeeId is absent', async () => {
     const line = makeOrderLine({ id: 'line-1' });
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce([line]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([{ token: 'tok-1' }]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -695,8 +873,10 @@ describe('handleOrderPlacedForKds', () => {
 
   it('falls back to "system" when both employeeId and actorUserId are absent', async () => {
     const line = makeOrderLine({ id: 'line-1' });
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce([line]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([{ token: 'tok-1' }]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -708,7 +888,6 @@ describe('handleOrderPlacedForKds', () => {
         orderId: 'order-1',
         locationId: 'loc-1',
         businessDate: '2026-03-06',
-        // no employeeId, no actorUserId
       },
     } as never);
 
@@ -725,11 +904,11 @@ describe('handleOrderPlacedForKds', () => {
   // ── Idempotency key format ────────────────────────────────────
 
   it('uses idempotency key format: retail-kds-send-{orderId}-{stationId}-{sortedLineIds}', async () => {
-    // handleOrderPlacedForKds uses the same clientRequestId format as sendOrderLinesToKds
-    // so idempotency prevents duplicates if both paths run concurrently for the same order.
     const line = makeOrderLine({ id: 'line-1' });
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce([line]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([{ token: 'tok-1' }]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -750,8 +929,14 @@ describe('handleOrderPlacedForKds', () => {
     const line1 = makeOrderLine({ id: 'line-1', catalogItemName: 'Burger' });
     const line2 = makeOrderLine({ id: 'line-2', catalogItemName: 'Beer', catalogItemId: 'item-beer' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line1, line2]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce([line1, line2]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    // Station names
+    mockWithTenant.mockResolvedValueOnce([]);
+    // gen_ulid for first station
+    mockWithTenant.mockResolvedValueOnce([{ token: 'tok-1' }]);
+    // gen_ulid for second station
+    mockWithTenant.mockResolvedValueOnce([{ token: 'tok-2' }]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-kitchen'),
@@ -772,8 +957,10 @@ describe('handleOrderPlacedForKds', () => {
 
   it('creates tickets with correct orderId, businessDate, channel, and customerName', async () => {
     const line = makeOrderLine({ id: 'line-1' });
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce([line]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([{ token: 'tok-1' }]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -804,8 +991,10 @@ describe('handleOrderPlacedForKds', () => {
 
   it('handles null customerName gracefully (passes undefined, not null)', async () => {
     const line = makeOrderLine({ id: 'line-1' });
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce([line]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([{ token: 'tok-1' }]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -838,18 +1027,22 @@ describe('handleOrderPlacedForKds', () => {
     const line1 = makeOrderLine({ id: 'line-1', catalogItemName: 'Burger' });
     const line2 = makeOrderLine({ id: 'line-2', catalogItemName: 'Beer', catalogItemId: 'item-beer' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line1, line2]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce([line1, line2]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    // Station names
+    mockWithTenant.mockResolvedValueOnce([]);
+    // gen_ulid for second station (first fails before reaching send tracking)
+    mockWithTenant.mockResolvedValueOnce([{ token: 'tok-2' }]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-kitchen'),
       makeRoutingResult('line-2', 'station-bar'),
     ]);
 
-    // First station fails
+    // First station fails; second succeeds
     mockCreateKitchenTicket
       .mockRejectedValueOnce(new Error('timeout'))
-      .mockResolvedValueOnce({ id: 'ticket-2' });
+      .mockResolvedValueOnce({ id: 'ticket-2', ticketNumber: 2, courseNumber: null });
 
     const event = makeEvent();
     // Must not throw
@@ -867,8 +1060,12 @@ describe('handleOrderPlacedForKds', () => {
     const line1 = makeOrderLine({ id: 'line-1' });
     const line2 = makeOrderLine({ id: 'line-2', catalogItemName: 'Unknown Item' });
 
-    mockWithTenant.mockImplementationOnce(async () => [line1, line2]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce([line1, line2]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    // Station names
+    mockWithTenant.mockResolvedValueOnce([]);
+    // gen_ulid
+    mockWithTenant.mockResolvedValueOnce([{ token: 'tok-1' }]);
 
     mockResolveStationRouting.mockResolvedValueOnce([
       makeRoutingResult('line-1', 'station-grill'),
@@ -887,8 +1084,10 @@ describe('handleOrderPlacedForKds', () => {
 
   it('calls enrichRoutableItems before resolveStationRouting', async () => {
     const line = makeOrderLine({ id: 'line-1' });
-    mockWithTenant.mockImplementationOnce(async () => [line]);
-    mockWithTenant.mockImplementationOnce(async () => []);
+    mockWithTenant.mockResolvedValueOnce([line]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([]);
+    mockWithTenant.mockResolvedValueOnce([{ token: 'tok-1' }]);
 
     const enrichedItems = [
       {

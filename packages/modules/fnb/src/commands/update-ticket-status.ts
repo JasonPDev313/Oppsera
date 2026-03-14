@@ -8,6 +8,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { UpdateTicketStatusInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { TicketNotFoundError, TicketStatusConflictError, TicketVersionConflictError } from '../errors';
+import { isLocationAllowedForTicket } from '../helpers/kds-location-guard';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ['in_progress', 'voided'],
@@ -39,6 +40,10 @@ export async function updateTicketStatus(
       ))
       .limit(1);
     if (!ticket) throw new TicketNotFoundError(ticketId);
+
+    // Defense-in-depth: verify ticket belongs to caller's location (venue→site aware)
+    const locationAllowed = await isLocationAllowedForTicket(tx, ctx.tenantId, ctx.locationId, ticket.locationId);
+    if (!locationAllowed) throw new TicketNotFoundError(ticketId);
 
     const allowed = VALID_TRANSITIONS[ticket.status] ?? [];
     if (!allowed.includes(input.status)) {

@@ -1,14 +1,29 @@
+/**
+ * Retail POS → KDS dispatch.
+ *
+ * Hardened to match F&B sendCourse:
+ * - Atomic publishWithOutbox transaction (all stations or nothing)
+ * - Dispatch attempt tracking via fnb_kds_dispatch_attempts
+ * - Ghost-send guard (0 new lines → early return, no partial state)
+ * - Prep-time pre-fetch + estimatedPickupAt
+ * - Inline send-tracking inside the atomic transaction
+ */
+
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { orderLines, fnbKitchenTicketItems } from '@oppsera/db';
+import { orderLines, fnbKitchenTicketItems, fnbKitchenTickets } from '@oppsera/db';
+import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { buildEventFromContext } from '@oppsera/core/events/build-event';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { logger } from '@oppsera/core/observability';
-import { resolveStationRouting, enrichRoutableItems, resolveKdsLocationId } from '../services/kds-routing-engine';
+import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems } from '../services/kds-routing-engine';
 import type { RoutableItem } from '../services/kds-routing-engine';
 import { extractModifierIds, formatModifierSummary } from '../helpers/kds-modifier-helpers';
-import { createKitchenTicket } from './create-kitchen-ticket';
-import { recordKdsSend, markKdsSendSent, markKdsSendFailed } from './record-kds-send';
+import { recordDispatchAttempt, emptyDispatchResult } from './dispatch-course-to-kds';
+import type { DispatchCourseResult } from './dispatch-course-to-kds';
+import { FNB_EVENTS } from '../events/types';
 import type { KdsOrderType } from '../validation';
 
 const KDS_ITEM_TYPES = ['food', 'beverage'];
@@ -24,29 +39,44 @@ interface OrderLineRow {
   seatNumber: number | null;
 }
 
+export interface RetailKdsSendResult {
+  sentCount: number;
+  failedCount: number;
+  totalStations: number;
+  dispatch: DispatchCourseResult;
+}
+
 /**
  * Sends unsent food/beverage order lines to KDS — does NOT change order status.
  *
  * 1. Fetches food/bev lines for the order
  * 2. Filters out lines that already have KDS ticket items
  * 3. Routes new lines to stations via the routing engine
- * 4. Creates one ticket per station for the new lines
+ * 4. Creates ALL station tickets atomically via publishWithOutbox
+ * 5. Records a durable dispatch attempt (even on failure)
  *
- * Returns the count of newly sent items.
+ * Returns the count of newly sent items + full dispatch diagnostics.
  */
 export async function sendOrderLinesToKds(
   ctx: RequestContext,
   orderId: string,
   businessDate: string,
   orderType?: KdsOrderType,
-): Promise<{ sentCount: number; failedCount: number; totalStations: number }> {
+): Promise<RetailKdsSendResult> {
+  const startMs = Date.now();
+  const dispatch = emptyDispatchResult();
+  dispatch.orderId = orderId;
+  dispatch.businessDate = businessDate;
+
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
   }
 
-  // 1. Fetch food/beverage order lines
-  const lines: OrderLineRow[] = await withTenant(ctx.tenantId, (tx) =>
-    tx
+  // ── Phase 1: Pre-transaction preparation (read-only) ──────────
+
+  // 1. Fetch food/beverage order lines + already-sent check in one connection
+  const { lines, alreadySentIds } = await withTenant(ctx.tenantId, async (tx) => {
+    const fetchedLines: OrderLineRow[] = await tx
       .select({
         id: orderLines.id,
         catalogItemId: orderLines.catalogItemId,
@@ -64,20 +94,14 @@ export async function sendOrderLinesToKds(
           eq(orderLines.orderId, orderId),
           inArray(orderLines.itemType, KDS_ITEM_TYPES),
         ),
-      ),
-  ) as OrderLineRow[];
+      ) as OrderLineRow[];
 
-  if (!lines.length) {
-    logger.debug('[kds] sendOrderLinesToKds: no food/bev lines for order', {
-      domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
-    });
-    return { sentCount: 0, failedCount: 0, totalStations: 0 };
-  }
+    if (!fetchedLines.length) {
+      return { lines: fetchedLines, alreadySentIds: new Set<string>() };
+    }
 
-  // 2. Check which lines already have KDS ticket items
-  const lineIds = lines.map((l) => l.id);
-  const existingTicketItems = await withTenant(ctx.tenantId, (tx) =>
-    tx
+    const lineIds = fetchedLines.map((l) => l.id);
+    const existingTicketItems = await tx
       .select({ orderLineId: fnbKitchenTicketItems.orderLineId })
       .from(fnbKitchenTicketItems)
       .where(
@@ -85,12 +109,22 @@ export async function sendOrderLinesToKds(
           eq(fnbKitchenTicketItems.tenantId, ctx.tenantId),
           inArray(fnbKitchenTicketItems.orderLineId, lineIds),
         ),
-      ),
-  );
+      );
 
-  const alreadySentIds = new Set(
-    (existingTicketItems as Array<{ orderLineId: string }>).map((r) => r.orderLineId),
-  );
+    return {
+      lines: fetchedLines,
+      alreadySentIds: new Set(
+        (existingTicketItems as Array<{ orderLineId: string }>).map((r) => r.orderLineId),
+      ),
+    };
+  });
+
+  if (!lines.length) {
+    logger.debug('[kds] sendOrderLinesToKds: no food/bev lines for order', {
+      domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
+    });
+    return { sentCount: 0, failedCount: 0, totalStations: -1, dispatch };
+  }
 
   const newLines = lines.filter((l) => !alreadySentIds.has(l.id));
   if (!newLines.length) {
@@ -98,18 +132,23 @@ export async function sendOrderLinesToKds(
       domain: 'kds', tenantId: ctx.tenantId, orderId, totalLines: lines.length,
       alreadySent: alreadySentIds.size,
     });
-    return { sentCount: 0, failedCount: 0, totalStations: 0 };
+    return { sentCount: 0, failedCount: 0, totalStations: -1, dispatch };
   }
+
+  dispatch.itemCount = newLines.length;
+  dispatch.diagnosis.push(`Found ${newLines.length} new line(s) to send (${alreadySentIds.size} already sent)`);
 
   logger.info('[kds] sendOrderLinesToKds: routing new lines', {
     domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
     newLineCount: newLines.length, alreadySent: alreadySentIds.size,
   });
 
-  // 3. Resolve effective KDS location (site↔venue hierarchy fallback)
-  const effectiveLocationId = await resolveKdsLocationId(ctx.tenantId, ctx.locationId!);
+  // 2. Each location/venue owns its own KDS stations — no venue→site promotion
+  const effectiveLocationId = ctx.locationId!;
+  dispatch.effectiveKdsLocationId = effectiveLocationId;
+  dispatch.diagnosis.push(`Location: ${effectiveLocationId}`);
 
-  // 4. Build routable items and enrich with catalog hierarchy
+  // 3. Build routable items and enrich with catalog hierarchy
   let routableItems: RoutableItem[] = newLines.map((line) => ({
     orderLineId: line.id,
     catalogItemId: line.catalogItemId,
@@ -119,18 +158,27 @@ export async function sendOrderLinesToKds(
 
   routableItems = await enrichRoutableItems(ctx.tenantId, routableItems);
 
-  // 5. Bulk-resolve stations using the effective location
+  // 4. Bulk-resolve stations using the effective location
   const routingResults = await resolveStationRouting(
     { tenantId: ctx.tenantId, locationId: effectiveLocationId, orderType, channel: 'pos' },
     routableItems,
   );
 
-  // Log unrouted items
-  const unrouted = routingResults.filter((r) => !r.stationId);
-  if (unrouted.length > 0) {
+  // Count routed/unrouted
+  for (const r of routingResults) {
+    if (r.stationId) {
+      dispatch.itemsRouted++;
+    } else {
+      dispatch.itemsUnrouted++;
+      const itemName = newLines.find((l) => l.id === r.orderLineId)?.catalogItemName ?? r.orderLineId;
+      dispatch.diagnosis.push(`UNROUTED: "${itemName}" — no station matched`);
+    }
+  }
+
+  if (dispatch.itemsUnrouted > 0) {
     logger.warn('[kds] sendOrderLinesToKds: unroutable items', {
       domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
-      unroutedCount: unrouted.length, totalLines: newLines.length,
+      unroutedCount: dispatch.itemsUnrouted, totalLines: newLines.length,
     });
   }
 
@@ -140,12 +188,12 @@ export async function sendOrderLinesToKds(
   const stationGroups = new Map<string, Array<{
     orderLineId: string;
     itemName: string;
-    modifierSummary?: string;
-    specialInstructions?: string;
-    seatNumber?: number;
+    modifierSummary: string | null;
+    specialInstructions: string | null;
+    seatNumber: number | null;
     quantity: number;
-    catalogItemId?: string;
-    subDepartmentId?: string;
+    catalogItemId: string;
+    subDepartmentId: string | null;
     stationId: string;
   }>>();
 
@@ -158,25 +206,32 @@ export async function sendOrderLinesToKds(
     group.push({
       orderLineId: r.orderLineId,
       itemName: line.catalogItemName,
-      modifierSummary: formatModifierSummary(line.modifiers) ?? undefined,
-      specialInstructions: line.specialInstructions ?? undefined,
-      seatNumber: line.seatNumber ?? undefined,
+      modifierSummary: formatModifierSummary(line.modifiers),
+      specialInstructions: line.specialInstructions ?? null,
+      seatNumber: line.seatNumber ?? null,
       quantity: Number(line.qty) || 1,
       catalogItemId: line.catalogItemId,
-      subDepartmentId: line.subDepartmentId ?? undefined,
+      subDepartmentId: line.subDepartmentId ?? null,
       stationId: r.stationId,
     });
     stationGroups.set(r.stationId, group);
   }
 
   if (stationGroups.size === 0) {
+    dispatch.status = 'routing_failed';
+    dispatch.failureStage = 'routing';
+    dispatch.errors.push('No stations resolved — no tickets will be created');
     logger.warn('[kds] sendOrderLinesToKds: no stations resolved — no tickets created', {
       domain: 'kds', tenantId: ctx.tenantId, orderId, locationId: ctx.locationId,
     });
-    return { sentCount: 0, failedCount: 0, totalStations: 0 };
+    await recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs);
+    return { sentCount: 0, failedCount: 0, totalStations: 0, dispatch };
   }
 
-  // 6a. Pre-fetch station names for send tracking (non-critical, batch query)
+  dispatch.stationIds = Array.from(stationGroups.keys());
+  dispatch.diagnosis.push(`Grouped into ${stationGroups.size} station(s)`);
+
+  // 6. Pre-fetch station names (cosmetic, non-critical)
   const stationNameMap = new Map<string, string>();
   try {
     const stationIds = Array.from(stationGroups.keys());
@@ -189,105 +244,239 @@ export async function sendOrderLinesToKds(
     for (const row of Array.from(stationNameRows as Iterable<Record<string, unknown>>)) {
       stationNameMap.set(row.id as string, (row.display_name as string) ?? 'Unknown');
     }
-  } catch (err) {
-    logger.warn('[kds] sendOrderLinesToKds: station name prefetch failed — using IDs as fallback', {
-      domain: 'kds', tenantId: ctx.tenantId, orderId,
-      stationIds: Array.from(stationGroups.keys()),
-      error: { message: err instanceof Error ? err.message : String(err) },
-    });
+  } catch {
+    // Non-critical
   }
 
-  // 6. Create one ticket per station (serial to avoid pool exhaustion — gotcha #466)
-  // No in-request retry — sleep() inside Vercel request handlers freezes the event loop
-  // and worsens pool exhaustion. The transactional outbox handles retries for transient failures.
-  // Use the effective location for ticket creation so tickets are visible at the correct KDS location
-  const effectiveCtx = effectiveLocationId !== ctx.locationId
-    ? { ...ctx, locationId: effectiveLocationId } as RequestContext
-    : ctx;
-  let actualSentCount = 0;
-  const failedStations: string[] = [];
-  for (const [stationId, ticketItems] of stationGroups) {
-    const sortedLineIds = ticketItems.map((i) => i.orderLineId).sort().join(',');
-    try {
-      const ticket = await createKitchenTicket(effectiveCtx, {
-        clientRequestId: `retail-kds-send-${orderId}-${stationId}-${sortedLineIds}`,
-        orderId,
-        businessDate,
-        orderType,
-        channel: 'pos',
-        items: ticketItems,
-      });
-      actualSentCount += ticketItems.length;
-
-      // Record send tracking (non-critical — failures don't block ticket creation)
-      try {
-        const sendToken = `retail-send-${ticket.id}-${stationId}`;
-        const tracked = await recordKdsSend({
-          tenantId: ctx.tenantId,
-          locationId: effectiveLocationId,
-          orderId,
-          ticketId: ticket.id,
-          ticketNumber: ticket.ticketNumber,
-          courseId: undefined,
-          courseNumber: ticket.courseNumber ?? undefined,
-          stationId,
-          stationName: stationNameMap.get(stationId) ?? stationId,
-          employeeId: ctx.user.id,
-          employeeName: ctx.user.name,
-          sendToken,
-          sendType: 'initial',
-          routingReason: 'routing_rule',
-          itemCount: ticketItems.length,
-          orderType: ticket.orderType ?? orderType,
-          businessDate,
-        });
-        await markKdsSendSent(ctx.tenantId, tracked.sendToken);
-      } catch (trackErr) {
-        logger.warn('[kds] send tracking failed (non-critical)', {
-          domain: 'kds', tenantId: ctx.tenantId, ticketId: ticket.id, stationId,
-          error: { message: trackErr instanceof Error ? trackErr.message : String(trackErr) },
-        });
-      }
-    } catch (err) {
-      logger.error('[kds] sendOrderLinesToKds: failed to create ticket for station', {
-        domain: 'kds', tenantId: ctx.tenantId, orderId, stationId, locationId: ctx.locationId,
-        itemCount: ticketItems.length,
-        error: { message: err instanceof Error ? err.message : String(err) },
-      });
-      failedStations.push(stationId);
-      // Track the failure (non-critical)
-      try {
-        const failToken = `retail-fail-${orderId}-${stationId}`;
-        const tracked = await recordKdsSend({
-          tenantId: ctx.tenantId,
-          locationId: effectiveLocationId,
-          orderId,
-          ticketId: `unresolved-${orderId}`,
-          ticketNumber: 0,
-          stationId,
-          stationName: stationNameMap.get(stationId) ?? stationId,
-          employeeId: ctx.user.id,
-          employeeName: ctx.user.name,
-          sendToken: failToken,
-          sendType: 'initial',
-          routingReason: 'routing_rule',
-          itemCount: ticketItems.length,
-          businessDate,
-        });
-        await markKdsSendFailed(ctx.tenantId, tracked.sendToken, 'TICKET_CREATION_FAILED', 'Ticket creation failed');
-      } catch (failTrackErr) {
-        logger.warn('[kds] failure tracking also failed (non-critical)', {
-          domain: 'kds', tenantId: ctx.tenantId, orderId, stationId,
-          error: { message: failTrackErr instanceof Error ? failTrackErr.message : String(failTrackErr) },
-        });
+  // 7. Pre-fetch prep times (same pattern as F&B sendCourse)
+  const prepTimeLookups: Array<{ orderLineId: string; catalogItemId: string; stationId: string }> = [];
+  for (const [stationId, items] of stationGroups) {
+    for (const item of items) {
+      if (item.catalogItemId) {
+        prepTimeLookups.push({ orderLineId: item.orderLineId, catalogItemId: item.catalogItemId, stationId });
       }
     }
   }
+  const prepTimeMap = await getStationPrepTimesForItems(ctx.tenantId, prepTimeLookups);
 
-  return {
-    sentCount: actualSentCount,
-    failedCount: failedStations.length,
-    totalStations: stationGroups.size,
-  };
+  // ── Phase 2: Atomic transaction ────────────────────────────────
+  const effectiveCtx = effectiveLocationId !== ctx.locationId
+    ? { ...ctx, locationId: effectiveLocationId } as RequestContext
+    : ctx;
+
+  try {
+    const clientRequestId = `retail-kds-send-${orderId}-${Date.now()}`;
+
+    const txResult = await publishWithOutbox(effectiveCtx, async (tx): Promise<{ result: { ticketIds: string[]; totalItems: number; isDuplicate: boolean }; events: ReturnType<typeof buildEventFromContext>[] }> => {
+      // 1. Top-level idempotency check
+      const idemCheck = await checkIdempotency(tx, ctx.tenantId, clientRequestId, 'retailKdsSend');
+      if (idemCheck.isDuplicate) {
+        return { result: { ticketIds: [], totalItems: 0, isDuplicate: true }, events: [] };
+      }
+
+      const events = [];
+      const ticketIds: string[] = [];
+      let totalItems = 0;
+      const stationCount = stationGroups.size;
+
+      // 2. Batch-increment ticket counter for N stations in one round-trip
+      const counterResult = await tx.execute(
+        sql`INSERT INTO fnb_kitchen_ticket_counters (tenant_id, location_id, business_date, last_number)
+            VALUES (${ctx.tenantId}, ${effectiveLocationId}, ${businessDate}, ${stationCount})
+            ON CONFLICT (tenant_id, location_id, business_date)
+            DO UPDATE SET last_number = fnb_kitchen_ticket_counters.last_number + ${stationCount}
+            RETURNING last_number`,
+      );
+      const counterRow = Array.from(counterResult as Iterable<Record<string, unknown>>)[0];
+      if (!counterRow) throw new Error('Ticket counter UPSERT returned no rows');
+      const lastNumber = Number(counterRow.last_number);
+      let ticketNumberOffset = lastNumber - stationCount;
+
+      // 3. Create tickets + items for each station (inside single transaction)
+      for (const [stationId, ticketItems] of stationGroups) {
+        const sortedLineIds = ticketItems.map((i) => i.orderLineId).sort().join(',');
+        const perTicketClientReqId = `retail-kds-send-${orderId}-${stationId}-${sortedLineIds}`;
+
+        // Per-ticket idempotency
+        const ticketIdem = await checkIdempotency(tx, ctx.tenantId, perTicketClientReqId, 'createKitchenTicket');
+        if (ticketIdem.isDuplicate) {
+          dispatch.diagnosis.push(`Ticket for station ${stationId}: already exists (idempotency)`);
+          ticketIds.push((ticketIdem.originalResult as Record<string, unknown>)?.id as string ?? 'unknown');
+          continue;
+        }
+
+        ticketNumberOffset++;
+        const ticketNumber = ticketNumberOffset;
+
+        // Compute estimatedPickupAt from max prep time
+        let estimatedPickupAt: Date | null = null;
+        let maxPrepSeconds = 0;
+        for (const ti of ticketItems) {
+          const ps = prepTimeMap.get(ti.orderLineId) ?? 0;
+          if (ps > maxPrepSeconds) maxPrepSeconds = ps;
+        }
+        if (maxPrepSeconds > 0) {
+          estimatedPickupAt = new Date(Date.now() + maxPrepSeconds * 1000);
+        }
+
+        // Insert ticket
+        const [ticket] = await tx
+          .insert(fnbKitchenTickets)
+          .values({
+            tenantId: ctx.tenantId,
+            locationId: effectiveLocationId,
+            orderId,
+            ticketNumber,
+            status: 'pending',
+            businessDate,
+            sentBy: ctx.user.id,
+            priorityLevel: 0,
+            orderType: orderType ?? null,
+            channel: 'pos',
+            estimatedPickupAt,
+            version: 1,
+          })
+          .returning();
+
+        // Insert ticket items
+        if (ticketItems.length > 0) {
+          await tx
+            .insert(fnbKitchenTicketItems)
+            .values(
+              ticketItems.map((item) => ({
+                tenantId: ctx.tenantId,
+                ticketId: ticket!.id,
+                orderLineId: item.orderLineId,
+                itemStatus: 'pending' as const,
+                stationId: item.stationId,
+                itemName: item.itemName,
+                modifierSummary: item.modifierSummary ?? null,
+                specialInstructions: item.specialInstructions ?? null,
+                seatNumber: item.seatNumber ?? null,
+                quantity: String(item.quantity ?? 1),
+                isRush: false,
+                isAllergy: false,
+                isVip: false,
+                estimatedPrepSeconds: prepTimeMap.get(item.orderLineId) ?? null,
+              })),
+            );
+        }
+
+        // Save per-ticket idempotency key
+        await saveIdempotencyKey(tx, ctx.tenantId, perTicketClientReqId, 'createKitchenTicket', ticket);
+
+        // Send tracking — inline SQL (can't call withTenant inside tx)
+        const sendToken = `retail-send-${ticket!.id}-${stationId}`;
+        const stationName = stationNameMap.get(stationId) ?? stationId;
+        await tx.execute(sql`
+          INSERT INTO fnb_kds_send_tracking (
+            id, tenant_id, location_id, order_id, ticket_id, ticket_number,
+            station_id, station_name,
+            employee_id, employee_name,
+            send_token, send_type, routing_reason,
+            status, item_count, order_type,
+            business_date, queued_at, sent_at, created_at, updated_at
+          ) VALUES (
+            gen_ulid(), ${ctx.tenantId}, ${effectiveLocationId},
+            ${orderId}, ${ticket!.id}, ${ticketNumber},
+            ${stationId}, ${stationName},
+            ${ctx.user.id}, ${ctx.user.email ?? 'System'},
+            ${sendToken}, ${'initial'}, ${'routing_rule'},
+            ${'sent'}, ${ticketItems.length}, ${orderType ?? null},
+            ${businessDate}, NOW(), NOW(), NOW(), NOW()
+          )
+        `);
+
+        // Send tracking event
+        await tx.execute(sql`
+          INSERT INTO fnb_kds_send_events (
+            id, tenant_id, location_id, send_tracking_id, send_token,
+            ticket_id, station_id, event_type, event_at, actor_type,
+            new_status, created_at
+          ) VALUES (
+            gen_ulid(), ${ctx.tenantId}, ${effectiveLocationId},
+            (SELECT id FROM fnb_kds_send_tracking WHERE tenant_id = ${ctx.tenantId} AND send_token = ${sendToken} LIMIT 1),
+            ${sendToken},
+            ${ticket!.id}, ${stationId},
+            ${'sent'}, NOW(), ${'system'}, ${'sent'}, NOW()
+          )
+        `);
+
+        ticketIds.push(ticket!.id);
+        totalItems += ticketItems.length;
+        dispatch.diagnosis.push(`Ticket #${ticketNumber} created for station ${stationName} (${ticketItems.length} items)`);
+
+        // Build ticket.created event
+        events.push(
+          buildEventFromContext(ctx, FNB_EVENTS.TICKET_CREATED, {
+            ticketId: ticket!.id,
+            locationId: effectiveLocationId,
+            orderId,
+            ticketNumber,
+            itemCount: ticketItems.length,
+            businessDate,
+            priorityLevel: 0,
+            orderType,
+            channel: 'pos',
+            routedItemCount: ticketItems.length,
+          }),
+        );
+      }
+
+      // Save top-level idempotency key
+      await saveIdempotencyKey(tx, ctx.tenantId, clientRequestId, 'retailKdsSend', { ticketIds, totalItems });
+
+      return { result: { ticketIds, totalItems, isDuplicate: false }, events };
+    });
+
+    const txData = txResult as unknown as { ticketIds: string[]; totalItems: number; isDuplicate: boolean };
+
+    if (txData.isDuplicate) {
+      dispatch.status = 'succeeded';
+      dispatch.diagnosis.push('Idempotency duplicate — returning original result');
+      await recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs);
+      return { sentCount: 0, failedCount: 0, totalStations: stationGroups.size, dispatch };
+    }
+
+    // Success
+    dispatch.status = 'succeeded';
+    dispatch.ticketsCreated = txData.ticketIds.length;
+    dispatch.ticketIds = txData.ticketIds;
+
+    await recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs);
+
+    logger.info('[kds] sendOrderLinesToKds: atomic dispatch succeeded', {
+      domain: 'kds', tenantId: ctx.tenantId, orderId,
+      ticketsCreated: txData.ticketIds.length,
+      totalItems: txData.totalItems,
+      stationCount: stationGroups.size,
+      durationMs: Date.now() - startMs,
+    });
+
+    return {
+      sentCount: txData.totalItems,
+      failedCount: 0,
+      totalStations: stationGroups.size,
+      dispatch,
+    };
+  } catch (err) {
+    // Transaction failed — no tickets created (atomic rollback)
+    dispatch.status = 'ticket_create_failed';
+    dispatch.failureStage = 'transaction';
+    dispatch.errors.push(err instanceof Error ? err.message : String(err));
+
+    await recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs);
+
+    logger.error('[kds] sendOrderLinesToKds: atomic transaction failed — no tickets created', {
+      domain: 'kds', tenantId: ctx.tenantId, orderId,
+      error: { message: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack : undefined },
+    });
+
+    return {
+      sentCount: 0,
+      failedCount: stationGroups.size,
+      totalStations: stationGroups.size,
+      dispatch,
+    };
+  }
 }
-

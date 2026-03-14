@@ -5,7 +5,7 @@ import { ValidationError } from '@oppsera/shared';
 import { getKdsLocationMetrics, getKdsLocationMetricsSchema } from '@oppsera/module-fnb';
 
 // GET /api/v1/fnb/kds/location-metrics?businessDate=YYYY-MM-DD
-// Aggregate KDS metrics across all stations for a location
+// Aggregate KDS metrics across all stations for a location.
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);

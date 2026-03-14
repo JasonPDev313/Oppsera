@@ -41,8 +41,10 @@ export default function KdsSelectorContent() {
     router.replace(`/kds?locationId=${newId}`, { scroll: false });
   }, [router]);
   const { stations, isLoading } = useStations({ locationId });
+  // Each location/venue owns its own KDS stations — no venue→site promotion
+  const kdsLocationId = locationId;
   const locationCounts = useKdsLocationCounts(kdsLocations.map((l) => l.id));
-  const stationCounts = useKdsStationCounts(locationId);
+  const stationCounts = useKdsStationCounts(kdsLocationId);
 
   // Count tickets at OTHER locations (for persistent badge + pulse)
   const otherLocationTickets = useMemo(() => {
@@ -191,7 +193,7 @@ export default function KdsSelectorContent() {
               return (
                 <button
                   type="button"
-                  onClick={() => router.push(`/expo?locationId=${locationId}`)}
+                  onClick={() => router.push(`/expo?locationId=${kdsLocationId}`)}
                   className="relative flex flex-col items-center justify-center rounded-xl p-6 transition-colors hover:opacity-80"
                   style={{
                     backgroundColor: 'var(--fnb-bg-surface)',
@@ -234,7 +236,7 @@ export default function KdsSelectorContent() {
                 <button
                   key={station.id}
                   type="button"
-                  onClick={() => router.push(`/kds/${station.id}?locationId=${locationId}`)}
+                  onClick={() => router.push(`/kds/${station.id}?locationId=${kdsLocationId}`)}
                   className="relative flex flex-col items-center justify-center rounded-xl p-6 transition-colors hover:opacity-80"
                   style={{
                     backgroundColor: 'var(--fnb-bg-surface)',
@@ -280,7 +282,7 @@ export default function KdsSelectorContent() {
           <div className="flex flex-wrap gap-3 max-w-3xl mx-auto mt-6 pt-6 border-t" style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}>
             <button
               type="button"
-              onClick={() => router.push(`/kds/all?locationId=${locationId}`)}
+              onClick={() => router.push(`/kds/all?locationId=${kdsLocationId}`)}
               className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors hover:opacity-80"
               style={{
                 backgroundColor: 'var(--fnb-bg-surface)',
@@ -293,7 +295,7 @@ export default function KdsSelectorContent() {
             </button>
             <button
               type="button"
-              onClick={() => router.push(`/kds/order-status?locationId=${locationId}`)}
+              onClick={() => router.push(`/kds/order-status?locationId=${kdsLocationId}`)}
               className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors hover:opacity-80"
               style={{
                 backgroundColor: 'var(--fnb-bg-surface)',
@@ -306,7 +308,7 @@ export default function KdsSelectorContent() {
             </button>
             <button
               type="button"
-              onClick={() => router.push(`/kds/customer-board?locationId=${locationId}`)}
+              onClick={() => router.push(`/kds/customer-board?locationId=${kdsLocationId}`)}
               className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors hover:opacity-80"
               style={{
                 backgroundColor: 'var(--fnb-bg-surface)',

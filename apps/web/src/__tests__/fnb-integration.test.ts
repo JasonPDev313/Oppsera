@@ -112,6 +112,7 @@ vi.mock('@oppsera/module-fnb', () => ({
   getZReport: mockGetZReport,
   getZReportSchema: passThroughSchema,
   postCloseBatch: mockPostCloseBatch,
+  resolveKdsLocationId: vi.fn().mockResolvedValue('test-location-id'),
 }));
 
 vi.mock('@oppsera/shared', async (importOriginal) => {

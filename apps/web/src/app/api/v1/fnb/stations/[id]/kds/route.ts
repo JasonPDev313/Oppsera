@@ -14,7 +14,7 @@ export const GET = withMiddleware(
     const input = {
       tenantId: ctx.tenantId,
       stationId,
-      locationId: ctx.locationId!, // guaranteed by requireLocation: true
+      locationId: ctx.locationId!,
       businessDate: request.nextUrl.searchParams.get('businessDate') || new Date().toISOString().slice(0, 10),
     };
 

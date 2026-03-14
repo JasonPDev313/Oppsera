@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  *
  * Tests for FnbTabView per-course draft persistence path:
- *   persistDraftsForCourse → sendCourseWithWarning / fireCourseWithDraftPersist
+ *   persistDraftsForCourse → sendCourseWithWarning / fireCourseWithWarning
  *
  * Strategy: render the component with mocked hooks, capture the callbacks
  * passed to OrderTicket and TabActionBar, invoke them, and assert that
@@ -47,6 +47,7 @@ vi.mock('@/hooks/use-fnb-tab', () => ({
   useFnbTab: () => ({
     tab: {
       id: 'tab-1',
+      locationId: 'loc-test',
       status: 'open',
       partySize: 2,
       courses: [
@@ -114,6 +115,10 @@ vi.mock('@/hooks/use-fnb-kitchen', () => ({
 vi.mock('@/lib/kds-location', () => ({
   resolveKdsLocationId: () => 'loc-1',
   resolveKdsLocationName: () => 'Main Kitchen',
+}));
+
+vi.mock('@/hooks/use-pos-location', () => ({
+  usePosLocation: () => ({ locationId: 'loc_test', locationName: 'Test Location' }),
 }));
 
 vi.mock('@/lib/api-client', () => ({
@@ -245,7 +250,7 @@ describe('FnbTabView — per-course draft persistence', () => {
 
     // addItems called with only course 1 drafts
     expect(mockAddItems).toHaveBeenCalledTimes(1);
-    const addedItems = mockAddItems.mock.calls[0][0] as Array<{ catalogItemName: string; courseNumber: number }>;
+    const addedItems = mockAddItems.mock.calls[0]![0] as Array<{ catalogItemName: string; courseNumber: number }>;
     expect(addedItems).toHaveLength(2);
     expect(addedItems.every((i) => i.courseNumber === 1)).toBe(true);
     expect(addedItems.map((i) => i.catalogItemName).sort()).toEqual(['Salad', 'Soup']);
@@ -257,7 +262,7 @@ describe('FnbTabView — per-course draft persistence', () => {
     // Course 1 drafts removed from store, course 2 draft remains
     const remaining = useFnbPosStore.getState().draftLines['tab-1'] ?? [];
     expect(remaining).toHaveLength(1);
-    expect(remaining[0].localId).toBe('c2a');
+    expect(remaining[0]!.localId).toBe('c2a');
   });
 
   it('fireCourseWithDraftPersist persists drafts then fires', async () => {
@@ -274,10 +279,10 @@ describe('FnbTabView — per-course draft persistence', () => {
 
     // addItems called with only course 2 draft
     expect(mockAddItems).toHaveBeenCalledTimes(1);
-    const addedItems = mockAddItems.mock.calls[0][0] as Array<{ catalogItemName: string; courseNumber: number }>;
+    const addedItems = mockAddItems.mock.calls[0]![0] as Array<{ catalogItemName: string; courseNumber: number }>;
     expect(addedItems).toHaveLength(1);
-    expect(addedItems[0].catalogItemName).toBe('Risotto');
-    expect(addedItems[0].courseNumber).toBe(2);
+    expect(addedItems[0]!.catalogItemName).toBe('Risotto');
+    expect(addedItems[0]!.courseNumber).toBe(2);
 
     // fireCourse called
     expect(mockFireCourse).toHaveBeenCalledTimes(1);
@@ -286,7 +291,7 @@ describe('FnbTabView — per-course draft persistence', () => {
     // Course 2 draft gone, course 3 draft stays
     const remaining = useFnbPosStore.getState().draftLines['tab-1'] ?? [];
     expect(remaining).toHaveLength(1);
-    expect(remaining[0].localId).toBe('c3a');
+    expect(remaining[0]!.localId).toBe('c3a');
   });
 
   it('skips addItems when no drafts exist for the targeted course', async () => {
@@ -308,7 +313,7 @@ describe('FnbTabView — per-course draft persistence', () => {
     // Course 3 draft untouched
     const remaining = useFnbPosStore.getState().draftLines['tab-1'] ?? [];
     expect(remaining).toHaveLength(1);
-    expect(remaining[0].localId).toBe('c3a');
+    expect(remaining[0]!.localId).toBe('c3a');
   });
 
   it('handleFireNext persists drafts for the first sent course then fires', async () => {
@@ -325,9 +330,9 @@ describe('FnbTabView — per-course draft persistence', () => {
 
     // Drafts for course 1 persisted
     expect(mockAddItems).toHaveBeenCalledTimes(1);
-    const addedItems = mockAddItems.mock.calls[0][0] as Array<{ courseNumber: number }>;
+    const addedItems = mockAddItems.mock.calls[0]![0] as Array<{ courseNumber: number }>;
     expect(addedItems).toHaveLength(1);
-    expect(addedItems[0].courseNumber).toBe(1);
+    expect(addedItems[0]!.courseNumber).toBe(1);
 
     // fireCourse called for course 1 (first "sent" course)
     expect(mockFireCourse).toHaveBeenCalledWith(1);

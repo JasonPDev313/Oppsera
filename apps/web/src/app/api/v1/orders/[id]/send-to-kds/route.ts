@@ -50,7 +50,14 @@ export const POST = withMiddleware(
 
     const result = await sendOrderLinesToKds(ctx, orderId, order.businessDate, (order.orderType ?? undefined) as KdsOrderType | undefined);
     broadcastFnb(ctx, 'kds').catch(() => {});
-    return NextResponse.json({ data: result });
+    return NextResponse.json({
+      data: {
+        sentCount: result.sentCount,
+        failedCount: result.failedCount,
+        totalStations: result.totalStations,
+        effectiveKdsLocationId: result.dispatch.effectiveKdsLocationId,
+      },
+    });
   },
   { entitlement: 'orders', permission: 'orders.manage', writeAccess: true },
 );

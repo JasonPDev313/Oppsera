@@ -10,6 +10,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { RefireItemInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { TicketItemNotFoundError, TicketItemStatusConflictError, TicketStatusConflictError, TicketVersionConflictError } from '../errors';
+import { isLocationAllowedForTicket } from '../helpers/kds-location-guard';
 
 /**
  * Re-fire (remake) an item: voids the original and creates a new ticket item
@@ -38,7 +39,7 @@ export async function refireItem(
       .limit(1);
     if (!item) throw new TicketItemNotFoundError(input.ticketItemId);
 
-    // Defense-in-depth: verify item's ticket belongs to caller's location
+    // Defense-in-depth: verify item's ticket belongs to caller's location (venue→site aware)
     if (ctx.locationId) {
       const [parentTicket] = await tx
         .select({ locationId: fnbKitchenTickets.locationId })
@@ -48,8 +49,9 @@ export async function refireItem(
           eq(fnbKitchenTickets.tenantId, ctx.tenantId),
         ))
         .limit(1);
-      if (parentTicket && parentTicket.locationId !== ctx.locationId) {
-        throw new TicketItemNotFoundError(input.ticketItemId);
+      if (parentTicket) {
+        const allowed = await isLocationAllowedForTicket(tx, ctx.tenantId, ctx.locationId, parentTicket.locationId);
+        if (!allowed) throw new TicketItemNotFoundError(input.ticketItemId);
       }
     }
 

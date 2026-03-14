@@ -274,8 +274,11 @@ export async function GET(request: Request) {
     // the DB transaction completes BEFORE the response is sent (no fire-and-forget).
     try {
       const { forceFlush } = await import('@oppsera/core/usage/tracker');
-      await forceFlush();
-      results.usageBufferFlushed = true;
+      const flushStats = await forceFlush();
+      results.usageBufferFlushed = flushStats.flushed;
+      if (flushStats.bufferSize > 0) {
+        console.log(`[drain-outbox] Usage flush: ${flushStats.bufferSize} buckets, ${flushStats.eventsInBuffer} events, flushed=${flushStats.flushed}`);
+      }
     } catch (flushErr) {
       // Non-fatal — usage data will accumulate and flush next cron cycle
       console.warn('[drain-outbox] Usage buffer flush failed:', flushErr);

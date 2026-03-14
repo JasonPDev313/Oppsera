@@ -8,6 +8,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { CreateDeltaChitInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { TicketNotFoundError, TicketStatusConflictError } from '../errors';
+import { isLocationAllowedForTicket } from '../helpers/kds-location-guard';
 
 export async function createDeltaChit(
   ctx: RequestContext,
@@ -37,8 +38,10 @@ export async function createDeltaChit(
       throw new TicketStatusConflictError(input.ticketId, 'voided', 'create delta chit');
     }
 
-    // Defense-in-depth: reject if ticket belongs to a different location
-    if (ctx.locationId && ticket.locationId && ticket.locationId !== ctx.locationId) {
+    // Defense-in-depth: reject if ticket belongs to a completely unrelated location.
+    // Allows venue→site: cook at venue can interact with tickets at parent site.
+    const locationAllowed = await isLocationAllowedForTicket(tx, ctx.tenantId, ctx.locationId, ticket.locationId);
+    if (!locationAllowed) {
       throw new TicketNotFoundError(input.ticketId);
     }
 

@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
@@ -8,6 +8,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import type { CreateStationInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { DuplicateStationNameError } from '../errors';
+import { ValidationError } from '@oppsera/shared';
 
 export async function createStation(
   ctx: RequestContext,
@@ -27,6 +28,20 @@ export async function createStation(
     );
     if (idempotencyCheck.isDuplicate) {
       return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
+    }
+
+    // Block station creation at a site that has venues — stations belong at the venue level
+    const venueRows = await tx.execute(
+      sql`SELECT 1 FROM locations
+          WHERE parent_location_id = ${ctx.locationId} AND tenant_id = ${ctx.tenantId}
+            AND location_type = 'venue'
+          LIMIT 1`,
+    );
+    if (Array.from(venueRows as Iterable<unknown>).length > 0) {
+      throw new ValidationError(
+        'This site has venues — create KDS stations at the venue level instead',
+        [{ field: 'locationId', message: 'Cannot create stations at a site that has venues' }],
+      );
     }
 
     // Check for duplicate name at this location

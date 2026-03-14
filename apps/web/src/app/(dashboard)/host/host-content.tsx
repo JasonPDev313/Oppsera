@@ -4,6 +4,7 @@ import '@/styles/fnb-design-tokens.css';
 
 import { useState, useCallback, useEffect } from 'react';
 import { useAuthContext } from '@/components/auth-provider';
+import { usePosLocation } from '@/hooks/use-pos-location';
 import { useFnbRealtime, type ChannelName } from '@/hooks/use-fnb-realtime';
 import {
   useHostDashboard,
@@ -101,9 +102,9 @@ function DashboardSkeleton() {
 const HOST_REALTIME_CHANNELS: ChannelName[] = ['floor', 'dashboard'];
 
 function HostContentInner() {
-  const { tenant, locations } = useAuthContext();
+  const { tenant } = useAuthContext();
+  const { locationId, locationName } = usePosLocation();
   const router = useRouter();
-  const locationId = locations[0]?.id ?? '';
   const today = new Date().toISOString().slice(0, 10);
 
   // ── Host Stand Realtime — drives onChannelRefresh listeners ──
@@ -930,7 +931,7 @@ function HostContentInner() {
       <QrCodeDisplay
         open={showQrCode}
         onClose={() => setShowQrCode(false)}
-        venueName={locations[0]?.name ?? 'Venue'}
+        venueName={locationName}
         slug={waitlistQr?.slug || tenant?.slug || 'waitlist'}
         branding={waitlistQr?.branding}
       />

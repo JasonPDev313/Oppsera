@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Clock, Users, ChevronRight } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
-import { useAuthContext } from '@/components/auth-provider';
+import { usePosLocation } from '@/hooks/use-pos-location';
 import type { FnbTabListItem } from '@/types/fnb';
 
 function formatElapsed(openedAt: string): string {
@@ -18,8 +18,7 @@ function formatMoney(cents: number): string {
 }
 
 export function OpenTicketsView({ userId: _userId }: { userId: string }) {
-  const { locations } = useAuthContext();
-  const locationId = locations[0]?.id ?? '';
+  const { locationId } = usePosLocation();
   const [tabs, setTabs] = useState<FnbTabListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigateTo = useFnbPosStore((s) => s.navigateTo);
