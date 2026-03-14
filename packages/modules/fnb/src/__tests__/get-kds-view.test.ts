@@ -52,7 +52,7 @@ const STATION_FIXTURE = {
 };
 
 /** Build a mock tx that supports both Drizzle query builder (station) and raw execute (tickets/items) */
-function createMockTx(stationData: typeof STATION_FIXTURE | null, execute: ReturnType<typeof vi.fn>) {
+function createMockTx(stationData: Record<string, unknown> | null, execute: ReturnType<typeof vi.fn>) {
   const chain = {
     from: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),

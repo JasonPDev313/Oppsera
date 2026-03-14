@@ -17,11 +17,7 @@ export const POST = withAdminPermission(
           { status: 409 },
         );
       }
-      console.error('[Attrition] Scoring failed:', err);
-      return NextResponse.json(
-        { error: { code: 'SCORING_FAILED', message: 'Scoring run failed. Check server logs.' } },
-        { status: 500 },
-      );
+      throw err; // re-throw for withAdminPermission's generic handler
     }
   },
   { permission: 'analytics.manage' },

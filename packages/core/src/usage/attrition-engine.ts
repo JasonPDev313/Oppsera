@@ -68,8 +68,10 @@ const WEIGHTS = {
 } as const;
 
 const MAX_NARRATIVE_LENGTH = 2000;
-const BATCH_SIZE = 50; // insert batch size to avoid oversized queries
-const SCORING_LOCK_ID = 839271; // arbitrary fixed ID for pg_try_advisory_lock
+const INSERT_BATCH_SIZE = 50; // insert batch size to avoid oversized queries
+const FETCH_CHUNK_SIZE = 500; // max tenant IDs per ANY() clause
+const MAX_TENANTS = 5000; // safety cap — prevents unbounded work on Vercel
+const SCORING_LOCK_ID = 839271; // advisory lock ID for concurrency guard
 const NEW_TENANT_DAYS = 30; // tenants younger than this don't get no-data penalties
 
 function riskLevel(score: number): 'low' | 'medium' | 'high' | 'critical' {
@@ -95,34 +97,31 @@ function safePctChange(current: number, prior: number): number {
 // ── Public API ───────────────────────────────────────────────────
 
 export async function scoreAllTenants(): Promise<{ scored: number; highRisk: number; errors: number }> {
-  // ── Advisory lock: prevent concurrent scoring runs ──
-  const lockResult = await db.execute(sql`SELECT pg_try_advisory_lock(${SCORING_LOCK_ID}) AS acquired`);
-  const lockArr = Array.from(lockResult as Iterable<Record<string, unknown>>);
-  if (!lockArr[0]?.acquired) {
-    throw new Error('SCORING_IN_PROGRESS');
-  }
-
-  try {
-    return await doScoring();
-  } finally {
-    await db.execute(sql`SELECT pg_advisory_unlock(${SCORING_LOCK_ID})`);
-  }
+  return await doScoring();
 }
 
 async function doScoring(): Promise<{ scored: number; highRisk: number; errors: number }> {
-  // 1. Get all active tenants
-  const tenants = await getActiveTenants();
-  if (tenants.length === 0) return { scored: 0, highRisk: 0, errors: 0 };
+  const t0 = Date.now();
+
+  // 1. Get all active tenants (capped to prevent unbounded work on serverless)
+  const allTenants = await getActiveTenants();
+  if (allTenants.length === 0) return { scored: 0, highRisk: 0, errors: 0 };
+
+  const tenants = allTenants.length > MAX_TENANTS ? allTenants.slice(0, MAX_TENANTS) : allTenants;
+  if (allTenants.length > MAX_TENANTS) {
+    console.warn(`[Attrition] Capped scoring to ${MAX_TENANTS} of ${allTenants.length} tenants`);
+  }
 
   const tenantIds = tenants.map((t) => t.tenantId);
 
-  // 2. Batch-fetch all signal data in parallel
+  // 2. Batch-fetch all signal data in parallel — each fetcher is individually
+  //    resilient so a single table failure doesn't kill the entire scoring run.
   const [loginData, usageData, adoptionData, workflowData, errorData] = await Promise.all([
-    batchLoginData(tenantIds),
-    batchUsageData(tenantIds),
-    batchAdoptionData(tenantIds),
-    batchWorkflowBreadth(tenantIds),
-    batchErrorData(tenantIds),
+    safeFetch('loginData', () => batchLoginData(tenantIds)),
+    safeFetch('usageData', () => batchUsageData(tenantIds)),
+    safeFetch('adoptionData', () => batchAdoptionData(tenantIds)),
+    safeFetch('workflowData', () => batchWorkflowBreadth(tenantIds)),
+    safeFetch('errorData', () => batchErrorData(tenantIds)),
   ]);
 
   // 3. Score each tenant — isolate errors per tenant
@@ -181,32 +180,57 @@ async function doScoring(): Promise<{ scored: number; highRisk: number; errors: 
     }
   }
 
-  // 4. Atomic: supersede previous open scores then INSERT new rows.
-  //    Wrapped in a transaction so a crash can't leave scores superseded
-  //    without new replacements. Analyst-reviewed scores are never touched.
+  // 4. Atomic write: acquire xact-scoped advisory lock, supersede old scores, insert new.
+  //    pg_try_advisory_xact_lock is transaction-scoped (auto-released on commit/rollback),
+  //    so it works correctly with Supavisor transaction-mode pooling.
+  //    If ANY batch fails, the entire transaction rolls back — no scores orphaned.
   const scoredTenantIds = scored.map((s) => s.tenant.tenantId);
 
-  // Atomic: if ANY batch fails, the entire transaction rolls back — this
-  // prevents the supersede UPDATE from committing without replacement inserts.
-  // We do NOT catch inside the transaction; a failed batch aborts the whole run.
   await db.transaction(async (tx) => {
-    if (scoredTenantIds.length > 0) {
+    // Concurrency guard — prevents duplicate scoring runs
+    const lockResult = await tx.execute(
+      sql`SELECT pg_try_advisory_xact_lock(${SCORING_LOCK_ID}) AS acquired`,
+    );
+    const lockArr = Array.from(lockResult as Iterable<Record<string, unknown>>);
+    if (!lockArr[0]?.acquired) {
+      throw new Error('SCORING_IN_PROGRESS');
+    }
+
+    // Supersede old open scores (chunked for large tenant sets)
+    for (let i = 0; i < scoredTenantIds.length; i += FETCH_CHUNK_SIZE) {
+      const chunk = scoredTenantIds.slice(i, i + FETCH_CHUNK_SIZE);
       await tx.execute(sql`
         UPDATE attrition_risk_scores
         SET status = 'superseded', updated_at = NOW()
-        WHERE tenant_id = ANY(${scoredTenantIds}::text[])
+        WHERE tenant_id = ANY(${chunk}::text[])
           AND status = 'open'
       `);
     }
 
-    for (let i = 0; i < scored.length; i += BATCH_SIZE) {
-      const batch = scored.slice(i, i + BATCH_SIZE);
+    // Insert new scores in batches
+    for (let i = 0; i < scored.length; i += INSERT_BATCH_SIZE) {
+      const batch = scored.slice(i, i + INSERT_BATCH_SIZE);
       await insertBatch(tx, batch);
     }
   });
 
   const highRisk = scored.filter((s) => s.overallScore >= 50).length;
+  const elapsed = Date.now() - t0;
+  console.log(`[Attrition] Scored ${scored.length} tenants in ${elapsed}ms (${highRisk} high-risk, ${scoreErrors} errors)`);
   return { scored: scored.length, highRisk, errors: scoreErrors };
+}
+
+/** Wraps a data fetcher so a single table failure returns empty data instead of crashing the run. */
+async function safeFetch<T extends Record<string, unknown>>(
+  label: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error(`[Attrition] ${label} fetch failed (scoring will continue with empty data):`, err);
+    return {} as T;
+  }
 }
 
 /** Insert a batch of scored tenants using multi-row VALUES in one statement. */
@@ -292,22 +316,25 @@ interface LoginBatch { [tenantId: string]: { current: number; prior: number } }
 
 async function batchLoginData(tenantIds: string[]): Promise<LoginBatch> {
   if (tenantIds.length === 0) return {};
-  const rows = await db.execute(sql`
-    SELECT
-      tenant_id,
-      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS current_logins,
-      COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days')::int AS prior_logins
-    FROM login_records
-    WHERE tenant_id = ANY(${tenantIds}::text[])
-      AND created_at >= NOW() - INTERVAL '60 days'
-    GROUP BY tenant_id
-  `);
   const result: LoginBatch = {};
-  for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
-    result[String(r.tenant_id)] = {
-      current: Number(r.current_logins) || 0,
-      prior: Number(r.prior_logins) || 0,
-    };
+  for (let i = 0; i < tenantIds.length; i += FETCH_CHUNK_SIZE) {
+    const chunk = tenantIds.slice(i, i + FETCH_CHUNK_SIZE);
+    const rows = await db.execute(sql`
+      SELECT
+        tenant_id,
+        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS current_logins,
+        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days')::int AS prior_logins
+      FROM login_records
+      WHERE tenant_id = ANY(${chunk}::text[])
+        AND created_at >= NOW() - INTERVAL '60 days'
+      GROUP BY tenant_id
+    `);
+    for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
+      result[String(r.tenant_id)] = {
+        current: Number(r.current_logins) || 0,
+        prior: Number(r.prior_logins) || 0,
+      };
+    }
   }
   return result;
 }
@@ -323,26 +350,29 @@ interface UsageBatch {
 
 async function batchUsageData(tenantIds: string[]): Promise<UsageBatch> {
   if (tenantIds.length === 0) return {};
-  const rows = await db.execute(sql`
-    SELECT
-      tenant_id,
-      COALESCE(SUM(request_count) FILTER (WHERE usage_date >= CURRENT_DATE - 30), 0)::int AS current_requests,
-      COALESCE(SUM(request_count) FILTER (WHERE usage_date >= CURRENT_DATE - 60 AND usage_date < CURRENT_DATE - 30), 0)::int AS prior_requests,
-      COALESCE(SUM(unique_users) FILTER (WHERE usage_date >= CURRENT_DATE - 30), 0)::int AS current_users,
-      COALESCE(SUM(unique_users) FILTER (WHERE usage_date >= CURRENT_DATE - 60 AND usage_date < CURRENT_DATE - 30), 0)::int AS prior_users
-    FROM rm_usage_daily
-    WHERE tenant_id = ANY(${tenantIds}::text[])
-      AND usage_date >= CURRENT_DATE - 60
-    GROUP BY tenant_id
-  `);
   const result: UsageBatch = {};
-  for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
-    result[String(r.tenant_id)] = {
-      currentRequests: Number(r.current_requests) || 0,
-      priorRequests: Number(r.prior_requests) || 0,
-      currentUsers: Number(r.current_users) || 0,
-      priorUsers: Number(r.prior_users) || 0,
-    };
+  for (let i = 0; i < tenantIds.length; i += FETCH_CHUNK_SIZE) {
+    const chunk = tenantIds.slice(i, i + FETCH_CHUNK_SIZE);
+    const rows = await db.execute(sql`
+      SELECT
+        tenant_id,
+        COALESCE(SUM(request_count) FILTER (WHERE usage_date >= CURRENT_DATE - 30), 0)::int AS current_requests,
+        COALESCE(SUM(request_count) FILTER (WHERE usage_date >= CURRENT_DATE - 60 AND usage_date < CURRENT_DATE - 30), 0)::int AS prior_requests,
+        COALESCE(SUM(unique_users) FILTER (WHERE usage_date >= CURRENT_DATE - 30), 0)::int AS current_users,
+        COALESCE(SUM(unique_users) FILTER (WHERE usage_date >= CURRENT_DATE - 60 AND usage_date < CURRENT_DATE - 30), 0)::int AS prior_users
+      FROM rm_usage_daily
+      WHERE tenant_id = ANY(${chunk}::text[])
+        AND usage_date >= CURRENT_DATE - 60
+      GROUP BY tenant_id
+    `);
+    for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
+      result[String(r.tenant_id)] = {
+        currentRequests: Number(r.current_requests) || 0,
+        priorRequests: Number(r.prior_requests) || 0,
+        currentUsers: Number(r.current_users) || 0,
+        priorUsers: Number(r.prior_users) || 0,
+      };
+    }
   }
   return result;
 }
@@ -358,32 +388,35 @@ interface AdoptionBatch {
 
 async function batchAdoptionData(tenantIds: string[]): Promise<AdoptionBatch> {
   if (tenantIds.length === 0) return {};
-  const rows = await db.execute(sql`
-    SELECT
-      tenant_id,
-      module_key,
-      is_active,
-      last_used_at,
-      EXTRACT(EPOCH FROM (NOW() - last_used_at)) / 86400 AS days_since_use
-    FROM rm_usage_module_adoption
-    WHERE tenant_id = ANY(${tenantIds}::text[])
-  `);
   const result: AdoptionBatch = {};
-  for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
-    const tid = String(r.tenant_id);
-    if (!result[tid]) {
-      result[tid] = { activeCount: 0, totalCount: 0, abandonedModules: [], lastUsedDaysAgo: {} };
-    }
-    result[tid].totalCount++;
-    const daysSince = Number(r.days_since_use) || 999;
-    result[tid].lastUsedDaysAgo[String(r.module_key)] = Math.round(daysSince);
-    // A module is "active" only if enabled AND used within the last 14 days.
-    // This prevents double-counting: a module that is enabled but unused > 14 days
-    // should NOT inflate activeCount while also appearing in abandonedModules.
-    if (daysSince <= 14) {
-      result[tid].activeCount++;
-    } else {
-      result[tid].abandonedModules.push(String(r.module_key));
+  for (let i = 0; i < tenantIds.length; i += FETCH_CHUNK_SIZE) {
+    const chunk = tenantIds.slice(i, i + FETCH_CHUNK_SIZE);
+    const rows = await db.execute(sql`
+      SELECT
+        tenant_id,
+        module_key,
+        is_active,
+        last_used_at,
+        EXTRACT(EPOCH FROM (NOW() - last_used_at)) / 86400 AS days_since_use
+      FROM rm_usage_module_adoption
+      WHERE tenant_id = ANY(${chunk}::text[])
+    `);
+    for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
+      const tid = String(r.tenant_id);
+      if (!result[tid]) {
+        result[tid] = { activeCount: 0, totalCount: 0, abandonedModules: [], lastUsedDaysAgo: {} };
+      }
+      result[tid].totalCount++;
+      const daysSince = Number(r.days_since_use) || 999;
+      result[tid].lastUsedDaysAgo[String(r.module_key)] = Math.round(daysSince);
+      // A module is "active" only if enabled AND used within the last 14 days.
+      // This prevents double-counting: a module that is enabled but unused > 14 days
+      // should NOT inflate activeCount while also appearing in abandonedModules.
+      if (daysSince <= 14) {
+        result[tid].activeCount++;
+      } else {
+        result[tid].abandonedModules.push(String(r.module_key));
+      }
     }
   }
   return result;
@@ -395,22 +428,25 @@ interface BreadthBatch {
 
 async function batchWorkflowBreadth(tenantIds: string[]): Promise<BreadthBatch> {
   if (tenantIds.length === 0) return {};
-  const rows = await db.execute(sql`
-    SELECT
-      tenant_id,
-      (COUNT(DISTINCT module_key) FILTER (WHERE usage_date >= CURRENT_DATE - 30))::int AS current_modules,
-      (COUNT(DISTINCT module_key) FILTER (WHERE usage_date >= CURRENT_DATE - 60 AND usage_date < CURRENT_DATE - 30))::int AS prior_modules
-    FROM rm_usage_daily
-    WHERE tenant_id = ANY(${tenantIds}::text[])
-      AND usage_date >= CURRENT_DATE - 60
-    GROUP BY tenant_id
-  `);
   const result: BreadthBatch = {};
-  for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
-    result[String(r.tenant_id)] = {
-      currentModules: Number(r.current_modules) || 0,
-      priorModules: Number(r.prior_modules) || 0,
-    };
+  for (let i = 0; i < tenantIds.length; i += FETCH_CHUNK_SIZE) {
+    const chunk = tenantIds.slice(i, i + FETCH_CHUNK_SIZE);
+    const rows = await db.execute(sql`
+      SELECT
+        tenant_id,
+        (COUNT(DISTINCT module_key) FILTER (WHERE usage_date >= CURRENT_DATE - 30))::int AS current_modules,
+        (COUNT(DISTINCT module_key) FILTER (WHERE usage_date >= CURRENT_DATE - 60 AND usage_date < CURRENT_DATE - 30))::int AS prior_modules
+      FROM rm_usage_daily
+      WHERE tenant_id = ANY(${chunk}::text[])
+        AND usage_date >= CURRENT_DATE - 60
+      GROUP BY tenant_id
+    `);
+    for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
+      result[String(r.tenant_id)] = {
+        currentModules: Number(r.current_modules) || 0,
+        priorModules: Number(r.prior_modules) || 0,
+      };
+    }
   }
   return result;
 }
@@ -421,28 +457,31 @@ interface ErrorBatch {
 
 async function batchErrorData(tenantIds: string[]): Promise<ErrorBatch> {
   if (tenantIds.length === 0) return {};
-  const rows = await db.execute(sql`
-    SELECT
-      tenant_id,
-      COALESCE(SUM(request_count), 0)::int AS total_requests,
-      COALESCE(SUM(error_count), 0)::int AS total_errors,
-      CASE WHEN SUM(request_count) > 0
-        THEN (SUM(error_count)::numeric / SUM(request_count) * 100)
-        ELSE 0
-      END AS error_rate
-    FROM rm_usage_daily
-    WHERE tenant_id = ANY(${tenantIds}::text[])
-      AND usage_date >= CURRENT_DATE - 30
-    GROUP BY tenant_id
-  `);
   const result: ErrorBatch = {};
-  for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
-    const rate = Number(r.error_rate);
-    result[String(r.tenant_id)] = {
-      errorRate: Number.isFinite(rate) ? Number(rate.toFixed(2)) : 0,
-      totalErrors: Number(r.total_errors) || 0,
-      totalRequests: Number(r.total_requests) || 0,
-    };
+  for (let i = 0; i < tenantIds.length; i += FETCH_CHUNK_SIZE) {
+    const chunk = tenantIds.slice(i, i + FETCH_CHUNK_SIZE);
+    const rows = await db.execute(sql`
+      SELECT
+        tenant_id,
+        COALESCE(SUM(request_count), 0)::int AS total_requests,
+        COALESCE(SUM(error_count), 0)::int AS total_errors,
+        CASE WHEN SUM(request_count) > 0
+          THEN (SUM(error_count)::numeric / SUM(request_count) * 100)
+          ELSE 0
+        END AS error_rate
+      FROM rm_usage_daily
+      WHERE tenant_id = ANY(${chunk}::text[])
+        AND usage_date >= CURRENT_DATE - 30
+      GROUP BY tenant_id
+    `);
+    for (const r of Array.from(rows as Iterable<Record<string, unknown>>)) {
+      const rate = Number(r.error_rate);
+      result[String(r.tenant_id)] = {
+        errorRate: Number.isFinite(rate) ? Number(rate.toFixed(2)) : 0,
+        totalErrors: Number(r.total_errors) || 0,
+        totalRequests: Number(r.total_requests) || 0,
+      };
+    }
   }
   return result;
 }

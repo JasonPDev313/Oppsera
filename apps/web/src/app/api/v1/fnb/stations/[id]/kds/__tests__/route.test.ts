@@ -57,7 +57,8 @@ function makeRequest(pathname: string, searchParams: Record<string, string> = {}
 // ── Route module — imported once so withMiddleware is invoked exactly once ──
 // Using beforeAll ensures the module is loaded before tests run, and the spy
 // call record is preserved for the assertion in the last test.
-let GET: (req: unknown) => Promise<unknown>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let GET: any;
 
 beforeAll(async () => {
   const mod = await import('../route.js');
