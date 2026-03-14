@@ -253,7 +253,7 @@ function SourceTierPie({ data }: { data: AiAnalyticsTierBucket[] }) {
           <Tooltip
             contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
             itemStyle={{ fontSize: 11 }}
-            formatter={(value: number | undefined, name?: string) => [`${value ?? 0} (${data.find((d) => d.tier === name)?.percentage ?? 0}%)`, name ?? '']}
+            formatter={(value, name) => [`${value ?? 0} (${data.find((d) => d.tier === name)?.percentage ?? 0}%)`, name ?? '']}
           />
           <Legend
             wrapperStyle={{ fontSize: 11, color: '#94a3b8' }}
