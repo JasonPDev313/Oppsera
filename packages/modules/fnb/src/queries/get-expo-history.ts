@@ -32,22 +32,25 @@ export interface ExpoHistory {
 }
 
 /**
- * Returns tickets bumped/served from expo for the current business date,
- * ordered by most recently served first. Reuses the same input schema
- * as getExpoView (tenantId + locationId + businessDate).
+ * Returns tickets served from expo today (by served_at timestamp),
+ * ordered by most recently served first. Uses served_at date range
+ * rather than business_date to handle overnight/cross-day tickets.
  */
 export async function getExpoHistory(
   input: GetExpoViewInput,
 ): Promise<ExpoHistory> {
   return withTenant(input.tenantId, async (tx) => {
-    // Get accurate total count for the day
+    // Get accurate total count for the day — filter by served_at date rather
+    // than business_date so tickets carried over from a previous business day
+    // (or created with the 4 AM rollover offset) still appear when served today.
     const [countRow] = Array.from(await tx.execute(
       sql`SELECT COUNT(*)::integer AS cnt
           FROM fnb_kitchen_tickets
           WHERE tenant_id = ${input.tenantId}
             AND location_id = ${input.locationId}
-            AND business_date = ${input.businessDate}
-            AND status = 'served'`,
+            AND status = 'served'
+            AND served_at >= ${input.businessDate}::date
+            AND served_at < (${input.businessDate}::date + INTERVAL '1 day')`,
     ) as Iterable<Record<string, unknown>>);
     const totalCount = Number(countRow?.cnt ?? 0);
 
@@ -62,8 +65,9 @@ export async function getExpoHistory(
           FROM fnb_kitchen_tickets
           WHERE tenant_id = ${input.tenantId}
             AND location_id = ${input.locationId}
-            AND business_date = ${input.businessDate}
             AND status = 'served'
+            AND served_at >= ${input.businessDate}::date
+            AND served_at < (${input.businessDate}::date + INTERVAL '1 day')
           ORDER BY served_at DESC NULLS LAST
           LIMIT 200`,
     );
