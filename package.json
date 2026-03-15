@@ -54,9 +54,9 @@
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "jsdom": "^28.1.0",
     "prettier": "^3.4.0",
-    "turbo": "^2.3.0",
+    "turbo": "^2.8.17",
     "typescript": "^5.7.0",
-    "typescript-eslint": "^8.18.0",
+    "typescript-eslint": "^8.57.0",
     "vitest-axe": "^0.1.0"
   }
 }

@@ -17,7 +17,7 @@
     "@oppsera/core": "workspace:*",
     "@oppsera/db": "workspace:*",
     "@oppsera/shared": "workspace:*",
-    "drizzle-orm": "^0.37.0",
+    "drizzle-orm": "^0.45.1",
     "qrcode": "^1.5.4",
     "zod": "^3.24.0"
   },

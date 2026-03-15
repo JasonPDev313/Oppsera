@@ -24,7 +24,7 @@
   "dependencies": {
     "@oppsera/shared": "workspace:*",
     "@oppsera/db": "workspace:*",
-    "@supabase/supabase-js": "^2.47.0",
+    "@supabase/supabase-js": "^2.99.1",
     "jsonwebtoken": "^9.0.0"
   },
   "devDependencies": {
