@@ -116,6 +116,14 @@ export const POST = withMiddleware(
       );
     }
 
+    const repoSegmentPattern = /^[a-zA-Z0-9_.-]+$/;
+    if (!repoSegmentPattern.test(owner) || !repoSegmentPattern.test(repo)) {
+      return NextResponse.json(
+        { error: { code: 'BAD_REQUEST', message: 'Fields "owner" and "repo" must match /^[a-zA-Z0-9_.-]+$/' } },
+        { status: 400 },
+      );
+    }
+
     // ── PR ingestion path ──
     if (prNumber !== undefined) {
       const prNum = typeof prNumber === 'string' ? parseInt(prNumber, 10) : prNumber;

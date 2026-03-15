@@ -11,7 +11,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
 
-import { seedTrainingData, seedTrainingDataBatch2, seedTrainingDataBatch3 } from '@oppsera/module-ai-support';
+import { seedTrainingData, seedTrainingDataBatch2, seedTrainingDataBatch3, seedTrainingDataBatch4, seedTrainingDataBatch5, seedTrainingDataBatch6, seedRouteManifests } from '@oppsera/module-ai-support';
 
 async function main() {
   console.log('Seeding AI support training data...\n');
@@ -31,7 +31,27 @@ async function main() {
   const r3 = await seedTrainingDataBatch3(null);
   console.log(`  ${r3.answerCardsInserted} answer cards processed. ${r3.message}`);
 
-  console.log(`\nTotal: ${r1.answerCardsInserted + r2.answerCardsInserted + r3.answerCardsInserted} cards processed.`);
+  // Batch 4: 50 cards (Spa)
+  console.log('\n── Batch 4 (Spa) ──');
+  const r4 = await seedTrainingDataBatch4(null);
+  console.log(`  ${r4.answerCardsInserted} answer cards processed. ${r4.message}`);
+
+  // Batch 5: 50 cards (Inventory / Catalog Deep-Dive)
+  console.log('\n── Batch 5 (Inventory / Catalog Deep-Dive) ──');
+  const r5 = await seedTrainingDataBatch5(null);
+  console.log(`  ${r5.answerCardsInserted} answer cards processed. ${r5.message}`);
+
+  // Batch 6: 50 cards (Assistant-Awareness & Meta)
+  console.log('\n── Batch 6 (Assistant-Awareness & Meta) ──');
+  const r6 = await seedTrainingDataBatch6(null);
+  console.log(`  ${r6.answerCardsInserted} answer cards processed. ${r6.message}`);
+
+  // Route Manifests — structured page descriptions for T4 retrieval
+  console.log('\n── Route Manifests ──');
+  const rm = await seedRouteManifests();
+  console.log(`  ${rm.inserted} route manifests upserted.`);
+
+  console.log(`\nTotal: ${r1.answerCardsInserted + r2.answerCardsInserted + r3.answerCardsInserted + r4.answerCardsInserted + r5.answerCardsInserted + r6.answerCardsInserted} cards + ${rm.inserted} manifests processed.`);
   console.log('Done!');
   process.exit(0);
 }

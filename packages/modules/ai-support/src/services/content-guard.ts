@@ -11,7 +11,7 @@ const API_PATH_RE = /\/api\/v\d+\/[a-zA-Z0-9/_[\]-]*/g;
 
 /** Database table names (snake_case with 2+ segments typical of DB tables) */
 const DB_TABLE_RE =
-  /\b(?:ai_support|ai_assistant|fnb_kds|fnb_orders|catalog_products|inventory_|accounting_|ap_|ar_|tenant_|location_)\w+\b/gi;
+  /\b(?:ai_support|ai_assistant|fnb_kds|fnb_orders|catalog_products|inventory_|accounting_|ap_|ar_|tenant_|location_|orders_|payments_|membership_|spa_|kds_|pms_|customers_|golf_|import_|marketing_|expenses_|project_|room_|semantic_|business_|voucher_|evaluation_|employee_|staff_|user_|role_)\w+\b/gi;
 
 /** Internal module package names */
 const INTERNAL_MODULE_RE = /@oppsera\/(module-\w+|core|db|shared)\b/g;
@@ -28,6 +28,23 @@ const STACK_TRACE_RE = /at\s+[\w.<>]+\s+\([^)]+\.(?:ts|js|tsx|jsx):\d+:\d+\)/g;
 
 /** Environment variable references */
 const ENV_VAR_RE = /process\.env\.\w+/g;
+
+// ── Non-global copies for .test() usage ──────────────────────────────────────
+// The module-level regexes above use the `g` flag for .replace() calls in
+// sanitizeResponse. Global regexes share lastIndex state across calls, so they
+// MUST NOT be used with .test() directly — .test() advances lastIndex and
+// subsequent calls start mid-string, producing alternating true/false results.
+// These non-global copies are used exclusively in validateCustomerSafe.
+
+const API_PATH_TEST_RE = /\/api\/v\d+\/[a-zA-Z0-9/_[\]-]*/;
+const DB_TABLE_TEST_RE =
+  /\b(?:ai_support|ai_assistant|fnb_kds|fnb_orders|catalog_products|inventory_|accounting_|ap_|ar_|tenant_|location_|orders_|payments_|membership_|spa_|kds_|pms_|customers_|golf_|import_|marketing_|expenses_|project_|room_|semantic_|business_|voucher_|evaluation_|employee_|staff_|user_|role_)\w+\b/i;
+const INTERNAL_MODULE_TEST_RE = /@oppsera\/(module-\w+|core|db|shared)\b/;
+const _INTERNAL_URL_TEST_RE = /https?:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+)(:\d+)?[^\s]*/;
+const CONNECTION_STRING_TEST_RE =
+  /(?:postgres(?:ql)?|mysql|mongodb|redis):\/\/[^\s"'<>]*/i;
+const STACK_TRACE_TEST_RE = /at\s+[\w.<>]+\s+\([^)]+\.(?:ts|js|tsx|jsx):\d+:\d+\)/;
+const ENV_VAR_TEST_RE = /process\.env\.\w+/;
 
 // ── Replacement messages ──────────────────────────────────────────────────────
 
@@ -68,6 +85,9 @@ export function sanitizeResponse(text: string, mode: 'customer' | 'staff'): stri
   // Strip environment variable references
   sanitized = sanitized.replace(ENV_VAR_RE, STRIPPED_PLACEHOLDER);
 
+  // Strip inline backtick code spans before line-level scan
+  sanitized = sanitized.replace(/`[^`]+`/g, '[code]');
+
   // Strip code-like patterns (lines that look like code)
   sanitized = sanitizeCodeLines(sanitized);
 
@@ -82,20 +102,44 @@ export function sanitizeResponse(text: string, mode: 'customer' | 'staff'): stri
  */
 function sanitizeCodeLines(text: string): string {
   const lines = text.split('\n');
+  // Track code fence state with a linear scan (not indexOf, which can
+  // match the wrong occurrence when duplicate lines exist).
+  let insideFence = false;
+
   const sanitizedLines = lines.map((line) => {
     const trimmed = line.trim();
+
+    // Toggle fence state on ``` delimiters
+    if (trimmed.startsWith('```')) {
+      insideFence = !insideFence;
+      return STRIPPED_PLACEHOLDER;
+    }
 
     // Skip empty lines
     if (!trimmed) return line;
 
-    // Skip markdown headers and list items (not code)
-    if (trimmed.startsWith('#') || trimmed.startsWith('-') || trimmed.startsWith('*')) {
+    // Strip all content inside code fences
+    if (insideFence) {
+      return STRIPPED_PLACEHOLDER;
+    }
+
+    // Skip markdown headers (not code)
+    if (trimmed.startsWith('#')) {
       return line;
     }
 
-    // If the line is inside a code fence (```), strip it
-    if (isInsideCodeFence(text, line)) {
-      return STRIPPED_PLACEHOLDER;
+    // For bullet-list lines, apply code-pattern checks to the item content
+    if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
+      const bulletContent = trimmed.replace(/^[-*]\s*/, '');
+      if (
+        /^(?:import|export)\s+/.test(bulletContent) ||
+        /^(?:async\s+)?function\s+\w+/.test(bulletContent) ||
+        /^(?:const|let|var)\s+\w+\s*=/.test(bulletContent) ||
+        /^class\s+\w+/.test(bulletContent)
+      ) {
+        return STRIPPED_PLACEHOLDER;
+      }
+      return line;
     }
 
     // If the line looks like an import/export statement
@@ -119,17 +163,6 @@ function sanitizeCodeLines(text: string): string {
   return sanitizedLines.join('\n');
 }
 
-/** Check if a line appears within a markdown code fence block in the text. */
-function isInsideCodeFence(fullText: string, line: string): boolean {
-  const lineIndex = fullText.indexOf(line);
-  if (lineIndex === -1) return false;
-
-  const before = fullText.slice(0, lineIndex);
-  const fenceCount = (before.match(/^```/gm) ?? []).length;
-  // If odd number of fences before this line, we're inside a code block
-  return fenceCount % 2 === 1;
-}
-
 /**
  * Check if text contains any internal content that should not be shown to customers.
  * Returns true if the text appears clean, false if it contains suspicious content.
@@ -140,20 +173,12 @@ export function validateCustomerSafe(text: string): {
 } {
   const violations: string[] = [];
 
-  if (API_PATH_RE.test(text)) violations.push('api_path');
-  if (INTERNAL_MODULE_RE.test(text)) violations.push('internal_module');
-  if (DB_TABLE_RE.test(text)) violations.push('db_table');
-  if (CONNECTION_STRING_RE.test(text)) violations.push('connection_string');
-  if (STACK_TRACE_RE.test(text)) violations.push('stack_trace');
-  if (ENV_VAR_RE.test(text)) violations.push('env_var');
-
-  // Reset lastIndex on global regexes after .test()
-  API_PATH_RE.lastIndex = 0;
-  INTERNAL_MODULE_RE.lastIndex = 0;
-  DB_TABLE_RE.lastIndex = 0;
-  CONNECTION_STRING_RE.lastIndex = 0;
-  STACK_TRACE_RE.lastIndex = 0;
-  ENV_VAR_RE.lastIndex = 0;
+  if (API_PATH_TEST_RE.test(text)) violations.push('api_path');
+  if (INTERNAL_MODULE_TEST_RE.test(text)) violations.push('internal_module');
+  if (DB_TABLE_TEST_RE.test(text)) violations.push('db_table');
+  if (CONNECTION_STRING_TEST_RE.test(text)) violations.push('connection_string');
+  if (STACK_TRACE_TEST_RE.test(text)) violations.push('stack_trace');
+  if (ENV_VAR_TEST_RE.test(text)) violations.push('env_var');
 
   return { safe: violations.length === 0, violations };
 }

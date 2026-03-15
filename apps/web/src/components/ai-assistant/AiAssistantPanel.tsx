@@ -174,7 +174,8 @@ function AiAssistantPanelInner({ onClose }: { onClose: () => void }) {
   const { messages, isStreaming, error, sendMessage, stopStreaming, resetThread, context } =
     useAiAssistantChat();
   const { can, isLoading: permsLoading } = usePermissions();
-  const canChat = permsLoading || can('ai_support.chat');
+  // Don't show chat input until permissions resolve — avoids flash-then-hide
+  const canChat = !permsLoading && can('ai_support.chat');
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -279,11 +280,18 @@ function AiAssistantPanelInner({ onClose }: { onClose: () => void }) {
           ))
         )}
 
-        {/* Error banner */}
+        {/* Error banner with recovery action */}
         {error && (
           <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            <span>{error}</span>
+            <span className="flex-1">{error}</span>
+            <button
+              type="button"
+              onClick={handleNewChat}
+              className="shrink-0 rounded-md bg-red-500/20 px-2 py-0.5 text-[10px] font-medium text-red-300 transition-colors hover:bg-red-500/30"
+            >
+              New chat
+            </button>
           </div>
         )}
 

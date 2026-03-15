@@ -76,7 +76,7 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
           LIMIT 1
         ) AS latest_rating,
         (
-          SELECT m.message_text
+          SELECT LEFT(m.message_text, 200)
           FROM ai_assistant_messages m
           WHERE m.thread_id = th.id AND m.role = 'user'
           ORDER BY m.created_at ASC

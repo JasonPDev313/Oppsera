@@ -10,7 +10,7 @@ import {
 export type {
   AnswerMode, ConfidenceLevel, ThreadChannel, ThreadStatus, QuestionType,
   Outcome, IssueTag, MessageRole, FeedbackRating, ReviewStatus, SourceTier,
-  AnswerCardStatus, DocumentSourceType, FeedbackReasonCode,
+  AnswerCardStatus, DocumentSourceType, FeedbackReasonCode, ModelTier,
 } from './constants';
 
 // ── Context Snapshot ──
@@ -165,6 +165,7 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
     sourceTier: z.enum(SOURCE_TIERS),
     sources: z.array(z.string()),
     suggestedFollowups: z.array(z.string()).optional(),
+    modelUsed: z.string().optional(),
   }),
   z.object({ type: z.literal('error'), message: z.string() }),
 ]);

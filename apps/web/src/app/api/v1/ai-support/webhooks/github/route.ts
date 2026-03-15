@@ -157,6 +157,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const repoHeader = request.headers.get('x-github-repository') ?? '';
     const [owner = '', repo = ''] = repoHeader.split('/');
 
+    if (!owner || !repo) {
+      return NextResponse.json(
+        { error: { code: 'BAD_REQUEST', message: 'Missing or malformed X-GitHub-Repository header (expected "owner/repo")' } },
+        { status: 400 },
+      );
+    }
+
     // Fetch changed files
     const changedFiles = await fetchPRFiles(owner, repo, prData.number);
 

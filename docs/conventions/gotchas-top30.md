@@ -1,7 +1,7 @@
 # Top 30 Gotchas — On-Demand
 
 > Read this file when you need the full top 30 gotchas. CLAUDE.md has the top 10 inline.
-> For all 562 gotchas, see [gotchas-reference.md](gotchas-reference.md).
+> For all 574 gotchas, see [gotchas-reference.md](gotchas-reference.md).
 
 ## Vercel DB Safety (PRODUCTION OUTAGE PREVENTION)
 1. **NEVER fire-and-forget DB operations on Vercel** — any unawaited Promise touching the DB becomes a zombie connection when Vercel freezes the event loop. With `max: 2` pool, 2 zombies = total pool exhaustion = login failure. Use `try { await sideEffect(); } catch { /* log */ }` instead of `.catch(() => {})`. Caused 3 production outages (2026-02-27, 02-28, 03-01). See gotcha #466.

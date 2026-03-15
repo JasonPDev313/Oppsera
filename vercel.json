@@ -37,6 +37,14 @@
     {
       "path": "/api/v1/internal/reconcile-read-models",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/v1/ai-support/cron/reindex",
+      "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/v1/ai-support/cron/cleanup-drafts",
+      "schedule": "30 4 * * *"
     }
   ]
 }

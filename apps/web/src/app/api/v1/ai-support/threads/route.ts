@@ -48,5 +48,5 @@ export const POST = withMiddleware(
     const thread = await createThread(ctx, parsed.data);
     return NextResponse.json({ data: thread }, { status: 201 });
   },
-  { permission: 'ai_support.chat', writeAccess: true },
+  { entitlement: 'ai_support', permission: 'ai_support.chat', writeAccess: true },
 );

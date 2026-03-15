@@ -15,6 +15,7 @@ export const MODULE_TABLES = [
   'ai_assistant_answer_memory',
   'ai_assistant_content_invalidation',
   'ai_support_embeddings_meta',
+  'ai_support_feature_gaps',
 ] as const;
 
 export * from './types';
@@ -61,13 +62,26 @@ export { invalidateOnCodeChange, checkStaleness, getInvalidationHistory } from '
 export type { InvalidationRecord, InvalidateOnCodeChangeResult } from './services/content-invalidation';
 export { generateEmbedding, embedDocuments, semanticSearch } from './services/embedding-pipeline';
 export type { SemanticSearchResult } from './services/embedding-pipeline';
+export {
+  embedAnswerCard, embedPendingAnswerCards,
+  vectorSearchAnswerCards, generateCardEmbedding, generateCardSummary,
+} from './services/card-embeddings';
+export type { EmbedCardResult, VectorSearchResult } from './services/card-embeddings';
+export { maybeCreateDraftAnswerCard } from './services/auto-draft';
+export type { AutoDraftInput } from './services/auto-draft';
 export { retrieveEvidence } from './services/retrieval';
 export type { RetrievalResult, RetrieveEvidenceParams } from './services/retrieval';
 export { sanitizeResponse, validateCustomerSafe } from './services/content-guard';
+export { maybeRecordFeatureGap } from './services/feature-gap-detector';
+export type { FeatureGapInput, FeatureGapResult } from './services/feature-gap-detector';
 export { seedDemoData } from './services/seed-demo-data';
 export { seedTrainingData } from './services/seed-training-data';
 export { seedTrainingDataBatch2 } from './services/seed-training-data-batch2';
 export { seedTrainingDataBatch3 } from './services/seed-training-data-batch3';
+export { seedTrainingDataBatch4 } from './services/seed-training-data-batch4';
+export { seedTrainingDataBatch5 } from './services/seed-training-data-batch5';
+export { seedTrainingDataBatch6 } from './services/seed-training-data-batch6';
+export { seedRouteManifests } from './services/seed-route-manifests';
 export { checkRateLimit, recordUsage, resetRateLimit, getUsageStats } from './services/rate-limiter';
 export type { RateLimitType, RateLimitResult } from './services/rate-limiter';
 

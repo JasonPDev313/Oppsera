@@ -1,4 +1,4 @@
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, and, asc, sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { AppError, NotFoundError } from '@oppsera/shared';
@@ -16,7 +16,25 @@ import type {
   ConfidenceLevel,
 } from '../types';
 import { runOrchestratorCollected } from '../services/orchestrator';
-import { MAX_MESSAGES_PER_THREAD, MAX_CONCURRENT_THREADS_PER_USER } from '../constants';
+import { MAX_MESSAGES_PER_THREAD, MAX_CONCURRENT_THREADS_PER_USER, MAX_MESSAGE_LENGTH } from '../constants';
+import { checkRateLimit } from '../services/rate-limiter';
+// ── Mode resolution ─────────────────────────────────────────────────
+
+/**
+ * Determine whether the AI assistant should operate in staff or customer mode.
+ *
+ * Staff mode: shows code references, API routes, internal details.
+ * Customer mode: strips code blocks, internal URLs, technical patterns.
+ *
+ * Currently all authenticated users are tenant staff, so this always returns
+ * 'staff'. When a customer-facing portal is added, extend this to check
+ * the user's auth source or role to return 'customer' for external users.
+ */
+function resolveAssistantMode(_ctx: RequestContext): 'staff' | 'customer' {
+  // All users going through withMiddleware are authenticated tenant staff.
+  // Future: check ctx auth source or external-customer flag here.
+  return 'staff';
+}
 
 // ── Create Thread ───────────────────────────────────────────────────
 
@@ -119,6 +137,8 @@ interface SendMessageResult {
   sourceTierUsed: SourceTier;
   sources: string[];
   stream: ReadableStream<Uint8Array>;
+  /** 0-based index of this user message in the thread (0 = first question) */
+  userMessageIndex: number;
 }
 
 export async function sendMessage(
@@ -127,6 +147,15 @@ export async function sendMessage(
   messageText: string,
   contextSnapshot: AiAssistantContext,
 ): Promise<SendMessageResult> {
+  // Guard: check message length before any DB operations
+  if (messageText.length > MAX_MESSAGE_LENGTH) {
+    throw new AppError(
+      'MESSAGE_TOO_LONG',
+      `Message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters.`,
+      400,
+    );
+  }
+
   // Verify thread exists and belongs to this tenant + user
   const [thread] = await db
     .select()
@@ -148,41 +177,79 @@ export async function sendMessage(
     throw new AppError('THREAD_CLOSED', 'Cannot send messages to a closed thread', 409);
   }
 
-  // Check message count limit
-  const existingMessages = await db
-    .select({ id: aiAssistantMessages.id })
-    .from(aiAssistantMessages)
-    .where(
-      and(
-        eq(aiAssistantMessages.threadId, threadId),
-        eq(aiAssistantMessages.tenantId, ctx.tenantId),
-      ),
-    );
-
-  if (existingMessages.length >= MAX_MESSAGES_PER_THREAD) {
+  // Finding 21: enforce hourly message rate limit
+  const hourlyLimit = await checkRateLimit(ctx.tenantId, ctx.user.id, 'messages_per_hour');
+  if (!hourlyLimit.allowed) {
     throw new AppError(
-      'MAX_MESSAGES_REACHED',
-      `Thread has reached the maximum of ${MAX_MESSAGES_PER_THREAD} messages. Please start a new thread.`,
-      409,
+      'RATE_LIMIT',
+      `Rate limit exceeded. You can send up to ${hourlyLimit.limit} messages per hour.`,
+      429,
     );
   }
 
-  // Insert user message
-  const [userMessage] = await db
-    .insert(aiAssistantMessages)
-    .values({
-      tenantId: ctx.tenantId,
-      threadId,
-      role: 'user',
-      messageText,
-    })
-    .returning();
+  // Finding 22: atomic message count check + insert inside a transaction with a row lock
+  // so concurrent requests cannot race past the MAX_MESSAGES_PER_THREAD guard.
+  const { userMessage, userMessageIndex } = await db.transaction(async (tx) => {
+    // Lock the thread row to serialise concurrent sendMessage calls for the same thread
+    const [lockedThread] = await tx
+      .select()
+      .from(aiAssistantThreads)
+      .where(
+        and(
+          eq(aiAssistantThreads.id, threadId),
+          eq(aiAssistantThreads.tenantId, ctx.tenantId),
+        ),
+      )
+      .for('update');
+
+    if (!lockedThread) throw new NotFoundError('Thread', threadId);
+    if (lockedThread.status !== 'open') {
+      throw new AppError('THREAD_CLOSED', 'Cannot send messages to a closed thread', 409);
+    }
+
+    // Count messages inside the lock
+    const [countResult] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(aiAssistantMessages)
+      .where(
+        and(
+          eq(aiAssistantMessages.threadId, threadId),
+          eq(aiAssistantMessages.tenantId, ctx.tenantId),
+        ),
+      );
+
+    const msgCount = countResult?.count ?? 0;
+
+    // 0 = first question, 1 = second question, etc. (each turn = 2 messages: user + assistant)
+    const msgIndex = Math.floor(msgCount / 2);
+
+    if (msgCount >= MAX_MESSAGES_PER_THREAD) {
+      throw new AppError(
+        'MAX_MESSAGES_REACHED',
+        `Thread has reached the maximum of ${MAX_MESSAGES_PER_THREAD} messages. Please start a new thread.`,
+        409,
+      );
+    }
+
+    // Insert user message inside the same transaction
+    const [msg] = await tx
+      .insert(aiAssistantMessages)
+      .values({
+        tenantId: ctx.tenantId,
+        threadId,
+        role: 'user',
+        messageText,
+      })
+      .returning();
+
+    return { userMessage: msg!, userMessageIndex: msgIndex };
+  });
 
   // Save context snapshot
   await db.insert(aiAssistantContextSnapshots).values({
     tenantId: ctx.tenantId,
     threadId,
-    messageId: userMessage!.id,
+    messageId: userMessage.id,
     route: contextSnapshot.route,
     screenTitle: contextSnapshot.screenTitle ?? null,
     moduleKey: contextSnapshot.moduleKey ?? null,
@@ -222,7 +289,7 @@ export async function sendMessage(
     messageText,
     context: contextSnapshot,
     threadHistory,
-    mode: 'staff', // Default to staff mode; customer mode can be added later
+    mode: resolveAssistantMode(ctx),
   });
 
   // ── Post-LLM DB writes — acquire connection only after LLM completes ──
@@ -235,7 +302,7 @@ export async function sendMessage(
       threadId,
       role: 'assistant',
       messageText: '[streaming]', // Placeholder; updated after stream completes
-      modelName: 'claude-sonnet-4-20250514',
+      modelName: orchestratorResult.modelUsed,
       promptVersion: 'v1',
       answerConfidence: orchestratorResult.confidence,
       sourceTierUsed: orchestratorResult.sourceTierUsed,
@@ -250,11 +317,12 @@ export async function sendMessage(
     .where(eq(aiAssistantThreads.id, threadId));
 
   return {
-    userMessage: userMessage!,
+    userMessage,
     assistantMessage: assistantMessage!,
     confidence: orchestratorResult.confidence,
     sourceTierUsed: orchestratorResult.sourceTierUsed,
     sources: orchestratorResult.sources,
     stream: orchestratorResult.stream,
+    userMessageIndex,
   };
 }

@@ -25,6 +25,7 @@ import {
   Clock,
   TrendingUp,
   BarChart3,
+  FileText,
 } from 'lucide-react';
 import {
   useAiSupportAnalytics,
@@ -34,6 +35,7 @@ import {
   type AiAnalyticsTopScreen,
   type AiAnalyticsTopQuestion,
   type AiAnalyticsFailureCluster,
+  type AiAutoDraftMetrics,
 } from '@/hooks/use-ai-support';
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -398,6 +400,54 @@ function FailureClustersTable({ data }: { data: AiAnalyticsFailureCluster[] }) {
   );
 }
 
+// ── Auto-Draft Section ────────────────────────────────────────────
+
+function AutoDraftSection({ data }: { data: AiAutoDraftMetrics }) {
+  const stats = [
+    {
+      label: 'Created This Period',
+      value: fmtNum(data.createdThisPeriod),
+      color: 'text-blue-400',
+      sub: `${fmtNum(data.totalCreated)} all time`,
+    },
+    {
+      label: 'Pending Review',
+      value: fmtNum(data.pendingReview),
+      color: data.pendingReview > 50 ? 'text-amber-400' : 'text-slate-300',
+    },
+    {
+      label: 'Activated',
+      value: fmtNum(data.activated),
+      color: data.activated > 0 ? 'text-emerald-400' : 'text-slate-400',
+    },
+    {
+      label: 'Acceptance Rate',
+      value: data.totalCreated > 0 ? fmtPct(data.acceptanceRate) : '—',
+      color: data.acceptanceRate >= 30 ? 'text-emerald-400' : data.acceptanceRate > 0 ? 'text-amber-400' : 'text-slate-400',
+      sub: `${fmtNum(data.archived)} archived`,
+    },
+  ];
+
+  return (
+    <div className="mt-6 bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
+        <FileText size={14} className="text-indigo-400" aria-hidden="true" />
+        <h3 className="text-sm font-medium text-slate-300">Auto-Draft Answer Cards</h3>
+        <span className="text-xs text-slate-500 ml-1">AI-generated drafts from high-confidence answers</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4">
+        {stats.map((stat) => (
+          <div key={stat.label} className="text-center">
+            <p className="text-xs text-slate-500 mb-1">{stat.label}</p>
+            <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
+            {stat.sub && <p className="text-xs text-slate-500 mt-0.5">{stat.sub}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────
 
 type Period = '7d' | '30d' | '90d';
@@ -505,6 +555,9 @@ export default function AiAssistantAnalyticsPage() {
 
           {/* Failure clusters — full width */}
           <FailureClustersTable data={analytics.failureClusters} />
+
+          {/* Auto-Draft metrics */}
+          {analytics.autoDraft && <AutoDraftSection data={analytics.autoDraft} />}
 
           {/* Review stats footer */}
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">

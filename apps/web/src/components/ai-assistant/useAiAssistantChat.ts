@@ -141,14 +141,60 @@ export function useAiAssistantChat() {
         controller.signal,
       );
 
+      // Track the active response — may change if we auto-recover from a closed thread
+      let activeRes = res;
+
       if (!res.ok) {
-        const errBody = await res.json().catch(() => ({ error: { message: 'Failed to send message' } }));
-        throw new Error((errBody as { error?: { message?: string } }).error?.message ?? 'Failed to send message');
+        const errBody = await res.json().catch(() => ({ error: { message: 'Failed to send message' } })) as {
+          error?: { code?: string; message?: string };
+        };
+        const errorCode = errBody.error?.code;
+
+        // Thread is closed or hit message cap — auto-reset and retry on a fresh thread
+        if (errorCode === 'THREAD_CLOSED' || errorCode === 'MAX_MESSAGES_REACHED') {
+          // Close the stale thread server-side
+          if (currentThread) {
+            void closeThreadOnServer(currentThread.id);
+          }
+
+          // Snapshot messages before createThread() clears state.
+          // Use a state-getter pattern to capture the latest state.
+          let previousMessages: Message[] = [];
+          setMessages(prev => { previousMessages = prev; return prev; });
+
+          // Create a fresh thread (this clears messages internally)
+          const freshThread = await createThread();
+          currentThread = freshThread;
+
+          // Restore the full conversation history so the user doesn't lose context
+          setMessages(previousMessages);
+
+          const retryRes = await authStreamFetch(
+            `/api/v1/ai-support/threads/${freshThread.id}/messages`,
+            {
+              threadId: freshThread.id,
+              messageText: text,
+              contextSnapshot: context,
+            },
+            controller.signal,
+          );
+
+          if (!retryRes.ok) {
+            const retryBody = await retryRes.json().catch(() => ({ error: { message: 'Failed to send message' } })) as {
+              error?: { message?: string };
+            };
+            throw new Error(retryBody.error?.message ?? 'Failed to send message');
+          }
+
+          activeRes = retryRes;
+        } else {
+          throw new Error(errBody.error?.message ?? 'Failed to send message');
+        }
       }
 
       // Read real message IDs from response headers and replace temp placeholders
-      const realUserMsgId = res.headers.get('X-User-Message-Id');
-      const realAssistantMsgId = res.headers.get('X-Assistant-Message-Id');
+      const realUserMsgId = activeRes.headers.get('X-User-Message-Id');
+      const realAssistantMsgId = activeRes.headers.get('X-Assistant-Message-Id');
       if (realUserMsgId || realAssistantMsgId) {
         setMessages(prev => prev.map(m => {
           if (realUserMsgId && m.id === userMsg.id) return { ...m, id: realUserMsgId };
@@ -157,7 +203,7 @@ export function useAiAssistantChat() {
         }));
       }
 
-      const reader = res.body?.getReader();
+      const reader = activeRes.body?.getReader();
       if (!reader) throw new Error('No response body');
 
       const decoder = new TextDecoder();
@@ -229,7 +275,7 @@ export function useAiAssistantChat() {
       setIsStreaming(false);
       abortRef.current = null;
     }
-  }, [thread, createThread, context]);
+  }, [thread, createThread, context, closeThreadOnServer]);
 
   const stopStreaming = useCallback(() => {
     if (abortRef.current) {

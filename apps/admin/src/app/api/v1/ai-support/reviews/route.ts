@@ -110,7 +110,7 @@ export const POST = withAdminPermission(async (req: NextRequest, session) => {
   // Fetch the message
   const msgRows = await withAdminDb(async (tx) =>
     tx.execute(sql`
-      SELECT id, tenant_id, role, message_text, source_tier_used
+      SELECT id, tenant_id, thread_id, role, message_text, source_tier_used
       FROM ai_assistant_messages
       WHERE id = ${messageId}
       LIMIT 1
@@ -124,6 +124,12 @@ export const POST = withAdminPermission(async (req: NextRequest, session) => {
     );
   }
   const msg = msgArr[0]!;
+  if (msg['thread_id'] !== threadId) {
+    return NextResponse.json(
+      { error: { code: 'VALIDATION_ERROR', message: `Message ${messageId} does not belong to thread ${threadId}` } },
+      { status: 400 },
+    );
+  }
   if (msg['role'] !== 'assistant') {
     return NextResponse.json(
       { error: { code: 'INVALID_ROLE', message: 'Only assistant messages can be reviewed' } },

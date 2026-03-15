@@ -9,6 +9,7 @@ import {
   aiSupportAnswerCards,
   aiAssistantAnswerMemory,
 } from '@oppsera/db';
+import { embedAnswerCard } from '../services/card-embeddings';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -169,6 +170,11 @@ export async function createAnswerCard(
     },
   );
 
+  // Generate embedding + summary (awaited — never fire-and-forget on Vercel)
+  await embedAnswerCard(card!.id).catch((e: unknown) => {
+    console.error('Embedding failed for new card:', e instanceof Error ? e.message : e);
+  });
+
   return card!;
 }
 
@@ -236,6 +242,13 @@ export async function updateAnswerCard(
       console.error('Audit log failed for ai_support.answer_card.updated:', e instanceof Error ? e.message : e);
     },
   );
+
+  // Re-generate embedding if content or question pattern changed
+  if (input.approvedAnswerMarkdown !== undefined || input.questionPattern !== undefined) {
+    await embedAnswerCard(id).catch((e: unknown) => {
+      console.error('Embedding failed for updated card:', e instanceof Error ? e.message : e);
+    });
+  }
 
   return updated!;
 }

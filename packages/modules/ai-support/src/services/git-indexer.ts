@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { db, aiSupportDocuments } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import { sql } from 'drizzle-orm';
@@ -85,7 +85,7 @@ function redactContent(content: string): string {
  */
 function getCurrentSha(basePath: string): string {
   try {
-    const result = execSync('git rev-parse HEAD', {
+    const result = execFileSync('git', ['rev-parse', 'HEAD'], {
       cwd: basePath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -101,7 +101,7 @@ function getCurrentSha(basePath: string): string {
  */
 function getChangedFiles(basePath: string, sinceSha: string): string[] | null {
   try {
-    const result = execSync(`git diff --name-only ${sinceSha} HEAD`, {
+    const result = execFileSync('git', ['diff', '--name-only', sinceSha, 'HEAD'], {
       cwd: basePath,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],

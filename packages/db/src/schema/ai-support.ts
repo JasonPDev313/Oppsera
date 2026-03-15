@@ -220,6 +220,10 @@ export const aiSupportAnswerCards = pgTable(
     route: text('route'),
     questionPattern: text('question_pattern').notNull(),
     approvedAnswerMarkdown: text('approved_answer_markdown').notNull(),
+    /** Compressed summary of the answer — sent to LLM for lower-ranked evidence (token savings). */
+    summary: text('summary'),
+    /** vector(1536) embedding of questionPattern + summary for semantic retrieval. */
+    embedding: vector('embedding'),
     version: integer('version').notNull().default(1),
     status: text('status').notNull().default('draft'),
     ownerUserId: text('owner_user_id'),
@@ -333,6 +337,42 @@ export const aiAssistantContentInvalidation = pgTable(
   (table) => [
     index('idx_ai_invalidation_memory').on(table.answerMemoryId),
     index('idx_ai_invalidation_card').on(table.answerCardId),
+  ],
+);
+
+// ── Feature Gaps ────────────────────────────────────────────────
+// Automatically captures questions the AI assistant cannot answer
+// (low confidence / no evidence) and clusters them for backlog prioritization.
+export const aiSupportFeatureGaps = pgTable(
+  'ai_support_feature_gaps',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .references(() => tenants.id),
+    questionNormalized: text('question_normalized').notNull(),
+    questionHash: text('question_hash').notNull(),
+    moduleKey: text('module_key'),
+    route: text('route'),
+    occurrenceCount: integer('occurrence_count').notNull().default(1),
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    sampleQuestion: text('sample_question').notNull(),
+    sampleThreadId: text('sample_thread_id'),
+    sampleConfidence: text('sample_confidence'),
+    status: text('status').notNull().default('open'),
+    priority: text('priority').notNull().default('medium'),
+    adminNotes: text('admin_notes'),
+    featureRequestId: text('feature_request_id'),
+    reviewedBy: text('reviewed_by'),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_ai_feature_gaps_status').on(table.status),
+    index('idx_ai_feature_gaps_frequency').on(table.occurrenceCount),
+    index('idx_ai_feature_gaps_module').on(table.moduleKey),
+    index('idx_ai_feature_gaps_tenant').on(table.tenantId),
   ],
 );
 

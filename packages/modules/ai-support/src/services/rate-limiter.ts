@@ -1,3 +1,5 @@
+import { eq, and, sql } from 'drizzle-orm';
+import { db, aiAssistantThreads, aiAssistantMessages } from '@oppsera/db';
 import {
   MAX_MESSAGES_PER_HOUR,
   MAX_CONCURRENT_THREADS_PER_USER,
@@ -11,156 +13,146 @@ export type RateLimitType =
   | 'threads_per_user'
   | 'messages_per_thread';
 
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
-
 export interface RateLimitResult {
   allowed: boolean;
   retryAfter?: number; // seconds until reset
+  current?: number;
+  limit?: number;
 }
-
-// ── In-memory store ──────────────────────────────────────────────────────────
-
-// Key format: `{userId}:{type}`
-const rateLimits = new Map<string, RateLimitEntry>();
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
-const LIMITS: Record<RateLimitType, { max: number; windowMs: number }> = {
-  messages_per_hour: {
-    max: MAX_MESSAGES_PER_HOUR,
-    windowMs: 60 * 60 * 1000, // 1 hour
-  },
-  threads_per_user: {
-    max: MAX_CONCURRENT_THREADS_PER_USER,
-    windowMs: 24 * 60 * 60 * 1000, // 24 hours
-  },
-  messages_per_thread: {
-    max: MAX_MESSAGES_PER_THREAD,
-    windowMs: 0, // Not time-based — thread lifetime
-  },
+const LIMITS: Record<RateLimitType, { max: number }> = {
+  messages_per_hour: { max: MAX_MESSAGES_PER_HOUR },
+  threads_per_user: { max: MAX_CONCURRENT_THREADS_PER_USER },
+  messages_per_thread: { max: MAX_MESSAGES_PER_THREAD },
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function makeKey(userId: string, type: RateLimitType): string {
-  return `${userId}:${type}`;
-}
-
-function pruneExpired(): void {
-  const now = Date.now();
-  for (const [key, entry] of rateLimits.entries()) {
-    if (entry.resetAt > 0 && now > entry.resetAt) {
-      rateLimits.delete(key);
-    }
-  }
-}
-
-// ── Public API ────────────────────────────────────────────────────────────────
+// ── DB-backed checks ─────────────────────────────────────────────────────────
 
 /**
  * Check whether a user is within the rate limit for the given action type.
- * Returns `{ allowed: true }` if the action is permitted, or
- * `{ allowed: false, retryAfter: N }` where N is seconds until the window resets.
+ *
+ * Unlike the previous in-memory implementation, this queries the actual
+ * database tables, so limits are enforced correctly across all Vercel
+ * instances.
+ *
+ * @param tenantId - Tenant scope
+ * @param userId   - User to check
+ * @param type     - Which limit to check
+ * @param threadId - Required for 'messages_per_thread' checks
  */
-export function checkRateLimit(
+export async function checkRateLimit(
+  tenantId: string,
   userId: string,
   type: RateLimitType,
-): RateLimitResult {
-  pruneExpired();
-
+  threadId?: string,
+): Promise<RateLimitResult> {
   const config = LIMITS[type];
-  const key = makeKey(userId, type);
-  const now = Date.now();
-  const entry = rateLimits.get(key);
 
-  if (!entry) {
-    // No entry yet — allowed
-    return { allowed: true };
-  }
+  switch (type) {
+    case 'messages_per_hour': {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const [result] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(aiAssistantMessages)
+        .where(
+          and(
+            eq(aiAssistantMessages.tenantId, tenantId),
+            sql`${aiAssistantMessages.threadId} IN (
+              SELECT id FROM ai_assistant_threads
+              WHERE user_id = ${userId} AND tenant_id = ${tenantId}
+            )`,
+            eq(aiAssistantMessages.role, 'user'),
+            sql`${aiAssistantMessages.createdAt} >= ${oneHourAgo.toISOString()}`,
+          ),
+        );
 
-  // For thread-based limits (no time window), just check count
-  if (config.windowMs === 0) {
-    if (entry.count >= config.max) {
-      return { allowed: false };
+      const count = result?.count ?? 0;
+      if (count >= config.max) {
+        return { allowed: false, retryAfter: 3600, current: count, limit: config.max };
+      }
+      return { allowed: true, current: count, limit: config.max };
     }
-    return { allowed: true };
-  }
 
-  // Window expired — allowed
-  if (now > entry.resetAt) {
-    rateLimits.delete(key);
-    return { allowed: true };
-  }
+    case 'threads_per_user': {
+      const [result] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(aiAssistantThreads)
+        .where(
+          and(
+            eq(aiAssistantThreads.tenantId, tenantId),
+            eq(aiAssistantThreads.userId, userId),
+            eq(aiAssistantThreads.status, 'open'),
+          ),
+        );
 
-  // Within window — check count
-  if (entry.count >= config.max) {
-    const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
-    return { allowed: false, retryAfter };
-  }
-
-  return { allowed: true };
-}
-
-/**
- * Record a usage event for the given user and action type.
- * Should be called after the action is permitted and executed.
- */
-export function recordUsage(userId: string, type: RateLimitType): void {
-  const config = LIMITS[type];
-  const key = makeKey(userId, type);
-  const now = Date.now();
-  const entry = rateLimits.get(key);
-
-  if (!entry) {
-    const resetAt = config.windowMs > 0 ? now + config.windowMs : 0;
-    rateLimits.set(key, { count: 1, resetAt });
-    return;
-  }
-
-  // For time-based limits, reset if window expired
-  if (config.windowMs > 0 && now > entry.resetAt) {
-    rateLimits.set(key, { count: 1, resetAt: now + config.windowMs });
-    return;
-  }
-
-  entry.count += 1;
-}
-
-/**
- * Reset rate limit counters for a user (used in tests or admin overrides).
- */
-export function resetRateLimit(userId: string, type?: RateLimitType): void {
-  if (type) {
-    rateLimits.delete(makeKey(userId, type));
-  } else {
-    // Reset all types for this user
-    for (const t of Object.keys(LIMITS) as RateLimitType[]) {
-      rateLimits.delete(makeKey(userId, t));
+      const count = result?.count ?? 0;
+      if (count >= config.max) {
+        return { allowed: false, current: count, limit: config.max };
+      }
+      return { allowed: true, current: count, limit: config.max };
     }
+
+    case 'messages_per_thread': {
+      if (!threadId) {
+        return { allowed: true, current: 0, limit: config.max };
+      }
+
+      const [result] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(aiAssistantMessages)
+        .where(
+          and(
+            eq(aiAssistantMessages.threadId, threadId),
+            eq(aiAssistantMessages.tenantId, tenantId),
+          ),
+        );
+
+      const count = result?.count ?? 0;
+      if (count >= config.max) {
+        return { allowed: false, current: count, limit: config.max };
+      }
+      return { allowed: true, current: count, limit: config.max };
+    }
+
+    default:
+      return { allowed: true };
   }
 }
 
 /**
- * Get current usage stats for a user (useful for debugging/observability).
+ * Record a usage event. With DB-backed limits this is a no-op — the
+ * actual insert into ai_assistant_messages/threads IS the usage record.
+ * Kept for API compatibility with existing callers.
  */
-export function getUsageStats(
+export function recordUsage(_userId: string, _type: RateLimitType): void {
+  // No-op — DB rows are the source of truth now
+}
+
+/**
+ * Reset rate limit counters for a user. With DB-backed limits, this
+ * is a no-op. Thread/message cleanup happens through normal close/delete flows.
+ */
+export function resetRateLimit(_userId: string, _type?: RateLimitType): void {
+  // No-op — DB rows are the source of truth now
+}
+
+/**
+ * Get current usage stats for a user.
+ */
+export async function getUsageStats(
+  tenantId: string,
   userId: string,
   type: RateLimitType,
-): { count: number; remaining: number; resetAt: number } {
-  const config = LIMITS[type];
-  const key = makeKey(userId, type);
-  const entry = rateLimits.get(key);
-
-  if (!entry) {
-    return { count: 0, remaining: config.max, resetAt: 0 };
-  }
-
+  threadId?: string,
+): Promise<{ count: number; remaining: number; limit: number }> {
+  const result = await checkRateLimit(tenantId, userId, type, threadId);
+  const limit = LIMITS[type].max;
+  const count = result.current ?? 0;
   return {
-    count: entry.count,
-    remaining: Math.max(0, config.max - entry.count),
-    resetAt: entry.resetAt,
+    count,
+    remaining: Math.max(0, limit - count),
+    limit,
   };
 }

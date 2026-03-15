@@ -8,6 +8,8 @@ import {
   getThreadMessages,
   sendMessage,
   SendMessageSchema,
+  maybeCreateDraftAnswerCard,
+  maybeRecordFeatureGap,
 } from '@oppsera/module-ai-support';
 
 // Vercel serverless timeout — allow up to 60s for streaming LLM responses
@@ -45,13 +47,29 @@ export const GET = withMiddleware(
 );
 
 /**
+ * Metadata needed by post-stream logic (auto-draft + feature gap detection).
+ */
+interface StreamPersistenceMeta {
+  tenantId: string;
+  question: string;
+  confidence: 'high' | 'medium' | 'low';
+  sourceTier: string;
+  moduleKey?: string | null;
+  route?: string | null;
+  /** 0 = first question in thread, >0 = follow-up (skipped by auto-draft) */
+  messageIndex: number;
+  threadId?: string;
+}
+
+/**
  * Wraps the orchestrator SSE stream to capture all chunk text.
  * After the stream ends, persists the full assistant answer to DB,
- * replacing the "[streaming]" placeholder.
+ * replacing the "[streaming]" placeholder, then evaluates for auto-draft.
  */
 function wrapStreamWithPersistence(
   stream: ReadableStream<Uint8Array>,
   assistantMessageId: string,
+  meta?: StreamPersistenceMeta,
 ): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
   let collectedText = '';
@@ -94,14 +112,56 @@ function wrapStreamWithPersistence(
         }
 
         // Stream is done — persist the collected answer to DB
-        if (collectedText) {
+        // Strip the safety notice suffix if present (appended by content guard)
+        const persistText = collectedText.replace(
+          /\n\n---\n\*\[Response modified for safety\]\*$/,
+          '',
+        );
+        if (persistText) {
           try {
             await db
               .update(aiAssistantMessages)
-              .set({ messageText: collectedText })
+              .set({ messageText: persistText })
               .where(eq(aiAssistantMessages.id, assistantMessageId));
           } catch (err) {
             console.error('[ai-support] Failed to persist assistant message:', err);
+          }
+
+          // Auto-draft: evaluate the answer for potential draft answer card
+          if (meta) {
+            try {
+              await maybeCreateDraftAnswerCard({
+                tenantId: meta.tenantId,
+                question: meta.question,
+                answerText: persistText,
+                confidence: meta.confidence,
+                sourceTier: meta.sourceTier as 't1' | 't2' | 't3' | 't4' | 't5' | 't6' | 't7',
+                moduleKey: meta.moduleKey,
+                route: meta.route,
+                messageIndex: meta.messageIndex,
+              });
+            } catch (err) {
+              console.error('[ai-support] Auto-draft evaluation failed:', err);
+            }
+
+            // Feature gap detection: record questions the AI couldn't answer well
+            try {
+              await maybeRecordFeatureGap(
+                {
+                  tenantId: meta.tenantId,
+                  question: meta.question,
+                  confidence: meta.confidence,
+                  sourceTier: meta.sourceTier,
+                  moduleKey: meta.moduleKey,
+                  route: meta.route,
+                  threadId: meta.threadId,
+                  messageIndex: meta.messageIndex,
+                },
+                persistText,
+              );
+            } catch (err) {
+              console.error('[ai-support] Feature gap detection failed:', err);
+            }
           }
         } else {
           // No text collected — update placeholder to indicate empty response
@@ -148,6 +208,16 @@ export const POST = withMiddleware(
     const persistentStream = wrapStreamWithPersistence(
       result.stream,
       result.assistantMessage.id,
+      {
+        tenantId: ctx.tenantId,
+        question: parsed.data.messageText,
+        confidence: result.confidence,
+        sourceTier: result.sourceTierUsed,
+        moduleKey: parsed.data.contextSnapshot.moduleKey,
+        route: parsed.data.contextSnapshot.route,
+        messageIndex: result.userMessageIndex,
+        threadId,
+      },
     );
 
     // Return the SSE stream

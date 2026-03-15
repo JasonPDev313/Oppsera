@@ -45,6 +45,7 @@ export async function generateEmbedding(text: string): Promise<KeywordIndex> {
       'anthropic-version': '2023-06-01',
       'Content-Type': 'application/json',
     },
+    signal: AbortSignal.timeout(15_000),
     body: JSON.stringify({
       model: INDEX_MODEL,
       max_tokens: 512,
@@ -87,11 +88,15 @@ ${text.slice(0, 4000)}`,
     return parsed;
   } catch {
     // If Claude returns malformed JSON, extract what we can
+    console.warn('[embedding-pipeline] Malformed Claude response, using fallback:', responseText.slice(0, 200));
+
+    const STOPWORDS = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'shall', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during', 'before', 'after', 'and', 'but', 'or', 'nor', 'not', 'so', 'yet', 'both', 'either', 'neither', 'each', 'every', 'all', 'any', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'only', 'own', 'same', 'than', 'too', 'very', 'just', 'because', 'if', 'when', 'where', 'how', 'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'it', 'its']);
+
     return {
       keywords: text
         .toLowerCase()
         .split(/\W+/)
-        .filter((w) => w.length > 3)
+        .filter((w) => w.length > 2 && !STOPWORDS.has(w))
         .slice(0, 15),
       summary: text.slice(0, 200),
     };

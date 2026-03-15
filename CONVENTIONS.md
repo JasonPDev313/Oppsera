@@ -344,7 +344,7 @@
 | §246 | Emergency Cleanup Payment Verification | 12339–12356 | Verify SUM(tenders) >= total, location-scoped locks |
 | §247 | Help Tip Pattern | 12357–12395 | Portal-mounted `?` popover, placement props, first-visit auto-open, 3-cycle pulse |
 
-### Domain Patterns (§248–§261) — Updated 2026-03-14
+### Domain Patterns (§248–§267) — Updated 2026-03-14
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
@@ -362,6 +362,12 @@
 | §259 | AI Support Module — Tiered RAG Architecture | 12729–12774 | Multi-tenant AI assistant, tiered evidence retrieval (T2–T7), streaming orchestrator, content guard sanitization, context snapshots |
 | §260 | Shared Money Formatting Utilities | 12775–12797 | formatCents, formatCentsRaw, formatDollarsLocale, formatCentsLocale, formatDollarString, formatCompact |
 | §261 | KDS Order Type Filtering Rules | 12798–12811 | allowed_order_types filter bypass for retail POS, F&B type requirements, migration 0318 backfill |
+| §262 | AI Model Waterfall Routing | 12812–12832 | MODEL_TIERS (fast/standard/deep), selectModelTier(), escalation bumps, feedback-aware bump, API auto-retry |
+| §263 | Hybrid Answer Card Retrieval (RRF) | 12833–12846 | Keyword + vector search, Reciprocal Rank Fusion (k=60), matchScore, pgvector HNSW index |
+| §264 | AI Auto-Draft Answer Cards | 12847–12866 | maybeCreateDraftAnswerCard(), 8 grading criteria, __auto_draft__ sentinel, stale cleanup cron, Jaccard dedup |
+| §265 | Feature Gap Detection | 12867–12879 | maybeRecordFeatureGap(), normalize→hash dedup, occurrence_count upsert, admin triage dashboard |
+| §266 | Global Regex `.test()` Bug (Gotcha) | 12880–12889 | Global regex lastIndex state, non-global copies for .test(), global for .replace() |
+| §267 | RLS With No Policy = Deny All (Gotcha) | 12890–12900 | ENABLE RLS without policy blocks all, NULL tenant_id handling, migration 0324 fix |
 
 ---
 
@@ -375,12 +381,12 @@
 | **POS** | §31–§35, §57, §61–§64, §132a, §140–§141, §164, §169, §196, §228 |
 | **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227, §240, §243, §246, §248 |
 | **Vercel / Serverless** | §47, §81, §157, §161, §205–§206, §232, §255 |
-| **Database / Schema** | §2, §18, §29–§30, §36, §47, §139, §179, §225, §241–§244 |
+| **Database / Schema** | §2, §18, §29–§30, §36, §47, §139, §179, §225, §241–§244, §266–§267 |
 | **Auth / Security** | §3, §13–§14, §38, §51, §67, §81, §119, §137, §207–§208, §223, §233, §242 |
 | **Events / Consumers** | §9, §26, §104, §159, §186, §202, §231, §232 |
 | **Testing** | §11, §204 |
 | **Reporting / Read Models** | §52, §56, §111, §153, §175, §231 |
-| **Semantic / AI** | §65–§72, §74, §121, §123, §127, §160, §178, §189–§194, §200, §217, §259 |
+| **Semantic / AI** | §65–§72, §74, §121, §123, §127, §160, §178, §189–§194, §200, §217, §259, §262–§265 |
 | **PMS** | §122, §126, §166, §214, §219 |
 | **Settings / Config** | §90, §95, §110, §112, §115–§116, §130, §134b, §135b, §136, §142, §149, §155–§156, §165 |
 | **Inventory / Receiving** | §41, §53–§55, §58–§60 |
@@ -399,8 +405,8 @@
 
 - **Duplicate section numbers**: §98, §131–§135 each appear twice in the file (legacy numbering). Disambiguated as `a`/`b` suffixes above.
 - **Unnumbered sections**: "Local Server Fix (Windows)" at line 7246 (between §127 and §128), and "Answer"/"Metrics in This Query" subsections within §74 at lines 4571–4652.
-- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~12,811 lines, 261 numbered sections)
-- **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (570 numbered gotchas)
+- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~12,900 lines, 267 numbered sections)
+- **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (574 numbered gotchas)
 - **What's Built / What's Next**: `docs/conventions/whats-built.md`
 
 ## Line Range Accuracy

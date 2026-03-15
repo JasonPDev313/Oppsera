@@ -2269,6 +2269,48 @@
       "when": 1773534040005,
       "tag": "0323_ai_support_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 324,
+      "version": "7",
+      "when": 1773538263394,
+      "tag": "0324_ai_answer_cards_rls_global",
+      "breakpoints": true
+    },
+    {
+      "idx": 325,
+      "version": "7",
+      "when": 1773540355303,
+      "tag": "0325_ai_auto_draft_flag",
+      "breakpoints": true
+    },
+    {
+      "idx": 326,
+      "version": "7",
+      "when": 1773711800001,
+      "tag": "0326_ai_docs_source_ref_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 327,
+      "version": "7",
+      "when": 1773711800002,
+      "tag": "0327_ai_docs_source_ref_unique_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 328,
+      "version": "7",
+      "when": 1773541330519,
+      "tag": "0328_ai_feature_gaps",
+      "breakpoints": true
+    },
+    {
+      "idx": 329,
+      "version": "7",
+      "when": 1773711800003,
+      "tag": "0329_ai_answer_card_embeddings",
+      "breakpoints": true
     }
   ]
 }

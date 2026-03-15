@@ -12809,3 +12809,92 @@ KDS stations can optionally constrain which order types they accept via `allowed
 
 **Reference:** `packages/modules/fnb/src/services/kds-routing-engine.ts`, migration `0318_kds_station_fnb_order_types.sql`.
 
+## §262 AI Model Waterfall Routing
+
+The AI assistant orchestrator selects the cheapest model per-question using a tiered waterfall:
+
+**MODEL_TIERS constant** (`packages/modules/ai-support/src/constants.ts`):
+- `fast` → Haiku (cheapest, simple questions with high-confidence curated answers)
+- `standard` → Sonnet (medium complexity, docs-backed answers)
+- `deep` → Opus (complex questions, low evidence, requires reasoning)
+
+**Selection rules** (in `selectModelTier()`):
+1. Base: confidence + source tier → if high confidence + curated (T1–T2) → fast; medium + docs → standard; low/no evidence → deep
+2. Escalation bumps (each can only raise, never lower):
+   - Large input (>8k chars combined context) → min standard
+   - Long thread (>6 messages) → min standard
+   - Customer-mode floor → min standard (internal/admin can use fast)
+   - Low-tier evidence (T6+) → min standard
+3. Feedback-aware bump: if ≥40% thumbs-down rate for route+module combo on current tier (min 5 samples, last 50 lookback) → bump one tier
+4. Auto-retry on API failure: 429/529/500+ → escalate to next tier and retry once
+
+**Key rule**: model selection happens AFTER retrieval but BEFORE the LLM call. The retrieval results inform the tier choice.
+
+## §263 Hybrid Answer Card Retrieval (RRF)
+
+Answer card retrieval uses Reciprocal Rank Fusion to merge keyword and vector search results:
+
+**Keyword path**: pipe-delimited `questionPattern` phrase matching with word-ratio scoring (0–1 `matchScore`). Minimum threshold: 0.25.
+
+**Vector path**: pgvector cosine similarity via HNSW index on `embedding vector(1536)` column (text-embedding-3-small). Returns top-K candidates by similarity.
+
+**RRF merge**: `score = sum(1/(k + rank))` with k=60, where each result gets a rank from each list it appears in.
+
+Schema: `ai_support_answer_cards.embedding` column + HNSW index `idx_ai_answer_cards_embedding` (cosine ops, m=16, ef_construction=64).
+
+The `RetrievalResult` interface includes `matchScore?: number` used by confidence scoring and prompt building.
+
+## §264 AI Auto-Draft Answer Cards
+
+After each streamed AI answer, `maybeCreateDraftAnswerCard()` evaluates whether the answer should become a draft card for human review.
+
+**Grading criteria** (ALL must pass):
+- Confidence = `'high'`
+- Source tier = T1–T4
+- Answer length > 100 chars
+- No escalation phrase ("reaching out to your system administrator")
+- No safety-modified marker
+- First message only (messageIndex === 0)
+- Per-tenant daily limit: 20 auto-drafts/day
+- Jaccard similarity < 50% against existing active/draft cards (keyword overlap dedup)
+
+Cards created by auto-draft use `ownerUserId = '__auto_draft__'` as a sentinel. Embeddings are pre-generated at creation time.
+
+**Stale cleanup cron** (POST `/api/v1/ai-support/cron/cleanup-drafts`, daily 4:30 UTC): archives cards where `status='draft' AND ownerUserId='__auto_draft__' AND version=1`. Admin-edited cards (version > 1) are preserved.
+
+Feature flag: `auto_draft_enabled` in `feature_flag_definitions`.
+
+## §265 Feature Gap Detection
+
+`maybeRecordFeatureGap()` runs post-stream for questions with low confidence or low-tier evidence (T5+), recording unanswered questions for product prioritization.
+
+**Normalization pipeline**: lowercase → strip punctuation → remove stop words → alphabetical sort → join with spaces → SHA-256 hash for fast dedup.
+
+**Storage**: upserts into `ai_support_feature_gaps` — increments `occurrence_count` on hash collision, updates `last_seen_at` and `sample_question`.
+
+**Rules**:
+- Only fires on first message (messageIndex === 0, skips follow-ups)
+- Unique constraint on `(COALESCE(tenant_id, '__global__'), question_hash)`
+- Admin dashboard at `/ai-assistant/feature-gaps/` for triage (status: open → under_review → planned/shipped/dismissed)
+
+## §266 Global Regex `.test()` Bug (Gotcha)
+
+JavaScript global regexes (`/pattern/g`) maintain `lastIndex` state across `.test()` calls. Calling `.test()` multiple times on the same global regex produces alternating true/false results.
+
+**Fix**: maintain separate non-global copies for `.test()` usage, use global copies only for `.replace()`/`.matchAll()`. Example from content-guard.ts:
+```typescript
+const DB_TABLE_RE = /pattern/gi;           // for .replace()
+const DB_TABLE_TEST_RE = /pattern/i;       // for .test() — no 'g' flag
+```
+
+## §267 RLS With No Policy = Deny All (Gotcha)
+
+Enabling RLS on a table (`ALTER TABLE ... ENABLE ROW LEVEL SECURITY`) without creating a policy silently blocks ALL access — even for admin roles (unless they have `BYPASSRLS`).
+
+Global/shared rows with `tenant_id IS NULL` require explicit NULL handling in the policy:
+```sql
+CREATE POLICY "..." ON table_name
+  USING (tenant_id IS NULL OR tenant_id = current_setting('app.tenant_id')::text);
+```
+
+Migration 0324 fixed this for all AI knowledge tables.

@@ -418,6 +418,15 @@ export interface AiAnalyticsFailureCluster {
   screenRoute: string;
 }
 
+export interface AiAutoDraftMetrics {
+  totalCreated: number;
+  createdThisPeriod: number;
+  pendingReview: number;
+  activated: number;
+  archived: number;
+  acceptanceRate: number;
+}
+
 export interface AiAnalyticsData {
   totalQuestions: number;
   answeredCount: number;
@@ -437,6 +446,7 @@ export interface AiAnalyticsData {
   reviewedCount: number;
   pendingReviewCount: number;
   deflectionEstimate: number;
+  autoDraft?: AiAutoDraftMetrics;
 }
 
 export function useAiSupportAnalytics(
@@ -469,6 +479,19 @@ export function useAiSupportAnalytics(
   return { analytics, isLoading, error, load };
 }
 
+// ── bulkUpdateAnswerCardStatus ───────────────────────────────────────
+
+export async function bulkUpdateAnswerCardStatus(
+  ids: string[],
+  status: 'draft' | 'active' | 'stale' | 'archived',
+): Promise<{ updatedCount: number; status: string }> {
+  const res = await adminFetch<{ data: { updatedCount: number; status: string } }>(
+    '/api/v1/ai-support/answers/bulk-status',
+    { method: 'POST', body: JSON.stringify({ ids, status }) },
+  );
+  return res.data;
+}
+
 // ── updateAnswerCard ─────────────────────────────────────────────────
 
 export async function updateAnswerCard(
@@ -477,6 +500,119 @@ export async function updateAnswerCard(
 ): Promise<{ id: string; version: number; updated: boolean }> {
   const res = await adminFetch<{ data: { id: string; version: number; updated: boolean } }>(
     `/api/v1/ai-support/answers/${id}`,
+    { method: 'PATCH', body: JSON.stringify(data) },
+  );
+  return res.data;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Feature Gaps — AI-detected product gaps from unanswered questions
+// ═══════════════════════════════════════════════════════════════════
+
+export type FeatureGapStatus = 'open' | 'under_review' | 'planned' | 'shipped' | 'dismissed';
+export type FeatureGapPriority = 'critical' | 'high' | 'medium' | 'low';
+
+export interface FeatureGap {
+  id: string;
+  tenantId: string | null;
+  questionNormalized: string;
+  moduleKey: string | null;
+  route: string | null;
+  occurrenceCount: number;
+  firstSeenAt: string | null;
+  lastSeenAt: string | null;
+  sampleQuestion: string;
+  sampleThreadId: string | null;
+  sampleConfidence: string | null;
+  status: FeatureGapStatus;
+  priority: FeatureGapPriority;
+  adminNotes: string | null;
+  featureRequestId: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface FeatureGapSummary {
+  total: number;
+  openCount: number;
+  underReviewCount: number;
+  plannedCount: number;
+  shippedCount: number;
+  dismissedCount: number;
+  criticalCount: number;
+  highCount: number;
+  totalOccurrences: number;
+  uniqueModules: number;
+  latestGapAt: string | null;
+}
+
+export interface FeatureGapFilters {
+  status?: FeatureGapStatus;
+  moduleKey?: string;
+  priority?: FeatureGapPriority;
+  sortBy?: 'frequency' | 'recent' | 'priority';
+  limit?: number;
+}
+
+// ── useFeatureGaps ─────────────────────────────────────────────────
+
+export function useFeatureGaps(filters: FeatureGapFilters = {}) {
+  const [gaps, setGaps] = useState<FeatureGap[]>([]);
+  const [summary, setSummary] = useState<FeatureGapSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setIsLoading(true);
+    setError(null);
+
+    const params = new URLSearchParams();
+    if (filters.status) params.set('status', filters.status);
+    if (filters.moduleKey) params.set('moduleKey', filters.moduleKey);
+    if (filters.priority) params.set('priority', filters.priority);
+    if (filters.sortBy) params.set('sortBy', filters.sortBy);
+    if (filters.limit) params.set('limit', String(filters.limit));
+    const qs = params.toString();
+
+    adminFetch<{ data: { items: FeatureGap[]; summary: FeatureGapSummary } }>(
+      `/api/v1/ai-support/feature-gaps${qs ? `?${qs}` : ''}`,
+    )
+      .then((res) => {
+        setGaps(res.data.items);
+        setSummary(res.data.summary);
+      })
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'Failed to load feature gaps'),
+      )
+      .finally(() => setIsLoading(false));
+  }, [filters.status, filters.moduleKey, filters.priority, filters.sortBy, filters.limit]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return { gaps, summary, isLoading, error, reload: load };
+}
+
+// ── updateFeatureGap ─────────────────────────────────────────────────
+
+export interface UpdateFeatureGapInput {
+  status?: FeatureGapStatus;
+  priority?: FeatureGapPriority;
+  adminNotes?: string;
+  featureRequestId?: string;
+}
+
+export async function updateFeatureGap(
+  id: string,
+  data: UpdateFeatureGapInput,
+): Promise<{ id: string; status: string; priority: string; occurrenceCount: number }> {
+  const res = await adminFetch<{
+    data: { id: string; status: string; priority: string; occurrenceCount: number };
+  }>(
+    `/api/v1/ai-support/feature-gaps/${id}`,
     { method: 'PATCH', body: JSON.stringify(data) },
   );
   return res.data;

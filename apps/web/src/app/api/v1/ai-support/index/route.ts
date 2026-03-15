@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { runGitIndexer } from '@oppsera/module-ai-support';
+import { runGitIndexer, embedDocuments } from '@oppsera/module-ai-support';
 
 // POST /api/v1/ai-support/index — trigger a full re-index of the repository
 //
-// Protected by admin permission. Can also be called with an internal CRON_SECRET
-// header for cron-triggered reindexing without user auth.
+// Protected by admin permission. For automated reindexing, use the cron at
+// /api/v1/ai-support/cron/reindex (CRON_SECRET auth, no user session needed).
 export const POST = withMiddleware(
   async (request: NextRequest) => {
-    // Allow cron-triggered calls via internal key (bypasses user auth check)
-    const cronSecret = request.headers.get('x-cron-secret');
-    const expectedSecret = process.env.CRON_SECRET;
-    const isInternalCall = expectedSecret && cronSecret === expectedSecret;
-
     // Parse optional body options
     let body: {
       force?: boolean;
@@ -33,6 +28,15 @@ export const POST = withMiddleware(
       extractors: body.extractors,
     });
 
+    // After indexing, run the keyword embedding pipeline so new documents
+    // become searchable immediately (processes up to 20 per call).
+    let embedded = 0;
+    try {
+      embedded = await embedDocuments();
+    } catch (embedErr) {
+      console.warn('[ai-support/index] Embedding pipeline failed:', embedErr);
+    }
+
     return NextResponse.json(
       {
         data: {
@@ -40,8 +44,9 @@ export const POST = withMiddleware(
           indexed: result.indexed,
           skipped: result.skipped,
           errors: result.errors,
+          embedded,
           summary: result.summary,
-          triggeredBy: isInternalCall ? 'cron' : 'admin',
+          triggeredBy: 'admin',
         },
       },
       { status: 200 },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Plus,
   Edit2,
@@ -11,11 +11,16 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  CheckSquare,
+  Square,
+  Minus,
+  Filter,
 } from 'lucide-react';
 import {
   useAnswerCards,
   createAnswerCard,
   updateAnswerCard,
+  bulkUpdateAnswerCardStatus,
   type AnswerCard,
   type CreateAnswerCardInput,
   type UpdateAnswerCardInput,
@@ -44,9 +49,13 @@ function StatusBadge({ status }: { status: string }) {
 function AnswerCardRow({
   card,
   onUpdated,
+  selected,
+  onToggleSelect,
 }: {
   card: AnswerCard;
   onUpdated: () => void;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -76,21 +85,30 @@ function AnswerCardRow({
   }
 
   return (
-    <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden">
+    <div className={`bg-slate-900 border rounded-lg overflow-hidden transition-colors ${selected ? 'border-indigo-500' : 'border-slate-700'}`}>
       {/* Row header */}
       <div className="px-5 py-4 flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1.5">
-            <StatusBadge status={card.status} />
-            {card.moduleKey && (
-              <span className="text-xs text-indigo-400 bg-indigo-950/50 border border-indigo-800 px-2 py-0.5 rounded-full">
-                {card.moduleKey}
-              </span>
-            )}
-            <span className="text-xs text-slate-500">v{card.version}</span>
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <button
+            onClick={onToggleSelect}
+            aria-label={selected ? 'Deselect' : 'Select'}
+            className="mt-0.5 shrink-0 text-slate-400 hover:text-white transition-colors"
+          >
+            {selected ? <CheckSquare size={18} className="text-indigo-400" /> : <Square size={18} />}
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1.5">
+              <StatusBadge status={card.status} />
+              {card.moduleKey && (
+                <span className="text-xs text-indigo-400 bg-indigo-950/50 border border-indigo-800 px-2 py-0.5 rounded-full">
+                  {card.moduleKey}
+                </span>
+              )}
+              <span className="text-xs text-slate-500">v{card.version}</span>
+            </div>
+            <p className="text-sm font-semibold text-white font-mono">{card.slug}</p>
+            <p className="text-sm text-slate-400 mt-0.5 line-clamp-1">{card.questionPattern}</p>
           </div>
-          <p className="text-sm font-semibold text-white font-mono">{card.slug}</p>
-          <p className="text-sm text-slate-400 mt-0.5 line-clamp-1">{card.questionPattern}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
@@ -117,20 +135,22 @@ function AnswerCardRow({
             <div className="mt-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor={`slug-${card.id}`} className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                     Slug
                   </label>
                   <input
+                    id={`slug-${card.id}`}
                     value={form.slug ?? ''}
                     onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
                     className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor={`status-${card.id}`} className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                     Status
                   </label>
                   <select
+                    id={`status-${card.id}`}
                     value={form.status ?? 'draft'}
                     onChange={(e) =>
                       setForm((f) => ({
@@ -147,10 +167,11 @@ function AnswerCardRow({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor={`module-${card.id}`} className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                     Module Key
                   </label>
                   <input
+                    id={`module-${card.id}`}
                     value={form.moduleKey ?? ''}
                     onChange={(e) => setForm((f) => ({ ...f, moduleKey: e.target.value || null }))}
                     placeholder="e.g. catalog"
@@ -158,10 +179,11 @@ function AnswerCardRow({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label htmlFor={`route-${card.id}`} className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                     Route
                   </label>
                   <input
+                    id={`route-${card.id}`}
                     value={form.route ?? ''}
                     onChange={(e) => setForm((f) => ({ ...f, route: e.target.value || null }))}
                     placeholder="e.g. /catalog/products"
@@ -170,20 +192,22 @@ function AnswerCardRow({
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor={`pattern-${card.id}`} className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                   Question Pattern
                 </label>
                 <input
+                  id={`pattern-${card.id}`}
                   value={form.questionPattern ?? ''}
                   onChange={(e) => setForm((f) => ({ ...f, questionPattern: e.target.value }))}
                   className="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label htmlFor={`answer-${card.id}`} className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                   Approved Answer (Markdown)
                 </label>
                 <textarea
+                  id={`answer-${card.id}`}
                   value={form.approvedAnswerMarkdown ?? ''}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, approvedAnswerMarkdown: e.target.value }))
@@ -205,7 +229,7 @@ function AnswerCardRow({
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 transition-colors"
                 >
                   <Check size={14} />
-                  {saving ? 'Saving…' : 'Save Changes'}
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </button>
                 <button
                   onClick={() => { setEditing(false); setSaveError(null); }}
@@ -314,10 +338,11 @@ function CreateCardModal({
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+              <label htmlFor="create-slug" className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                 Slug <span className="text-red-400">*</span>
               </label>
               <input
+                id="create-slug"
                 value={form.slug}
                 onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
                 placeholder="e.g. how-to-add-product"
@@ -325,10 +350,11 @@ function CreateCardModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+              <label htmlFor="create-status" className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                 Status
               </label>
               <select
+                id="create-status"
                 value={form.status ?? 'draft'}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, status: e.target.value as AnswerCard['status'] }))
@@ -342,10 +368,11 @@ function CreateCardModal({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+              <label htmlFor="create-module" className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                 Module Key
               </label>
               <input
+                id="create-module"
                 value={form.moduleKey ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, moduleKey: e.target.value || null }))}
                 placeholder="e.g. catalog"
@@ -353,10 +380,11 @@ function CreateCardModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+              <label htmlFor="create-route" className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                 Route
               </label>
               <input
+                id="create-route"
                 value={form.route ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, route: e.target.value || null }))}
                 placeholder="e.g. /catalog/products"
@@ -365,10 +393,11 @@ function CreateCardModal({
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+            <label htmlFor="create-pattern" className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
               Question Pattern <span className="text-red-400">*</span>
             </label>
             <input
+              id="create-pattern"
               value={form.questionPattern}
               onChange={(e) => setForm((f) => ({ ...f, questionPattern: e.target.value }))}
               placeholder="e.g. how do I add a product to the catalog?"
@@ -376,14 +405,15 @@ function CreateCardModal({
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+            <label htmlFor="create-answer" className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
               Approved Answer (Markdown) <span className="text-red-400">*</span>
             </label>
             <textarea
+              id="create-answer"
               value={form.approvedAnswerMarkdown}
               onChange={(e) => setForm((f) => ({ ...f, approvedAnswerMarkdown: e.target.value }))}
               rows={10}
-              placeholder="Enter the canonical answer in Markdown…"
+              placeholder="Enter the canonical answer in Markdown..."
               className="w-full bg-slate-950 border border-slate-700 rounded p-3 text-sm text-slate-200 font-mono resize-y focus:outline-none focus:border-indigo-500"
             />
           </div>
@@ -401,7 +431,7 @@ function CreateCardModal({
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 transition-colors"
           >
             <Check size={14} />
-            {saving ? 'Creating…' : 'Create Card'}
+            {saving ? 'Creating...' : 'Create Card'}
           </button>
           <button
             onClick={onClose}
@@ -428,12 +458,78 @@ const STATUS_FILTERS = [
 
 export default function AnswerCardsPage() {
   const [statusFilter, setStatusFilter] = useState<'' | 'draft' | 'active' | 'stale' | 'archived'>('');
+  const [moduleFilter, setModuleFilter] = useState<string>('');
   const [showCreate, setShowCreate] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
 
   const { cards, isLoading, error, reload } = useAnswerCards({
     status: statusFilter || undefined,
-    limit: 100,
+    moduleKey: moduleFilter || undefined,
+    limit: 200,
   });
+
+  // Separate unfiltered fetch to derive stable module key list for the dropdown.
+  // Without this, selecting a module filter would collapse the dropdown to one option.
+  const { cards: allCards } = useAnswerCards({ limit: 200 });
+
+  const moduleKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const c of allCards) {
+      if (c.moduleKey) keys.add(c.moduleKey);
+    }
+    return Array.from(keys).sort();
+  }, [allCards]);
+
+  // Selection helpers
+  const allSelected = cards.length > 0 && cards.every((c) => selectedIds.has(c.id));
+  const someSelected = cards.some((c) => selectedIds.has(c.id));
+  const selectedCount = cards.filter((c) => selectedIds.has(c.id)).length;
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(cards.map((c) => c.id)));
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkStatus(status: 'draft' | 'active' | 'stale' | 'archived') {
+    const ids = cards.filter((c) => selectedIds.has(c.id)).map((c) => c.id);
+    if (ids.length === 0) return;
+    setBulkUpdating(true);
+    setBulkError(null);
+    try {
+      await bulkUpdateAnswerCardStatus(ids, status);
+      setSelectedIds(new Set());
+      reload();
+    } catch (e) {
+      setBulkError(e instanceof Error ? e.message : 'Bulk update failed');
+    } finally {
+      setBulkUpdating(false);
+    }
+  }
+
+  // Clear selection when filters change
+  function handleStatusFilter(value: typeof statusFilter) {
+    setStatusFilter(value);
+    setSelectedIds(new Set());
+  }
+
+  function handleModuleFilter(value: string) {
+    setModuleFilter(value);
+    setSelectedIds(new Set());
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -463,10 +559,10 @@ export default function AnswerCardsPage() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats (always show totals from unfiltered list) */}
       <div className="grid grid-cols-4 gap-4">
         {(['active', 'draft', 'stale', 'archived'] as const).map((s) => {
-          const count = cards.filter((c) => c.status === s).length;
+          const count = allCards.filter((c) => c.status === s).length;
           const colors: Record<string, string> = {
             active: 'text-emerald-400',
             draft: 'text-slate-300',
@@ -482,22 +578,97 @@ export default function AnswerCardsPage() {
         })}
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2">
-        {STATUS_FILTERS.map(({ label, value }) => (
-          <button
-            key={value}
-            onClick={() => setStatusFilter(value as typeof statusFilter)}
-            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-              statusFilter === value
-                ? 'bg-indigo-600 text-white'
-                : 'text-slate-400 bg-slate-800 border border-slate-700 hover:text-white hover:border-slate-600'
-            }`}
+      {/* Filters row */}
+      <div className="flex items-center gap-4 flex-wrap">
+        {/* Status filter pills */}
+        <div className="flex gap-2">
+          {STATUS_FILTERS.map(({ label, value }) => (
+            <button
+              key={value}
+              onClick={() => handleStatusFilter(value as typeof statusFilter)}
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                statusFilter === value
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-slate-400 bg-slate-800 border border-slate-700 hover:text-white hover:border-slate-600'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Module filter dropdown */}
+        <div className="flex items-center gap-2">
+          <Filter size={14} className="text-slate-500" />
+          <select
+            value={moduleFilter}
+            onChange={(e) => handleModuleFilter(e.target.value)}
+            aria-label="Filter by module"
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-indigo-500 min-w-35"
           >
-            {label}
-          </button>
-        ))}
+            <option value="">All Modules</option>
+            {moduleKeys.map((key) => (
+              <option key={key} value={key}>
+                {key}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {/* Bulk action bar */}
+      {someSelected && (
+        <div className="flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3">
+          <span className="text-sm text-slate-300 font-medium">
+            {selectedCount} selected
+          </span>
+          <span className="text-slate-700">|</span>
+          <span className="text-xs text-slate-400 uppercase tracking-wider">Set status:</span>
+          <button
+            onClick={() => handleBulkStatus('active')}
+            disabled={bulkUpdating}
+            className="px-3 py-1 rounded text-xs font-medium bg-emerald-900/50 text-emerald-300 border border-emerald-700 hover:bg-emerald-800/50 disabled:opacity-50 transition-colors"
+          >
+            Active
+          </button>
+          <button
+            onClick={() => handleBulkStatus('draft')}
+            disabled={bulkUpdating}
+            className="px-3 py-1 rounded text-xs font-medium bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600 disabled:opacity-50 transition-colors"
+          >
+            Draft
+          </button>
+          <button
+            onClick={() => handleBulkStatus('stale')}
+            disabled={bulkUpdating}
+            className="px-3 py-1 rounded text-xs font-medium bg-amber-900/50 text-amber-300 border border-amber-700 hover:bg-amber-800/50 disabled:opacity-50 transition-colors"
+          >
+            Stale
+          </button>
+          <button
+            onClick={() => handleBulkStatus('archived')}
+            disabled={bulkUpdating}
+            className="px-3 py-1 rounded text-xs font-medium bg-slate-800 text-slate-500 border border-slate-700 hover:bg-slate-700 disabled:opacity-50 transition-colors"
+          >
+            Archived
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            disabled={bulkUpdating}
+            className="ml-auto text-xs text-slate-500 hover:text-slate-300 disabled:opacity-50 transition-colors"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+
+      {/* Bulk error */}
+      {bulkError && (
+        <div className="bg-red-950 border border-red-700 rounded-lg p-4 text-red-300 text-sm flex items-center gap-2">
+          <AlertCircle size={16} />
+          {bulkError}
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -522,25 +693,57 @@ export default function AnswerCardsPage() {
           <FileText size={40} className="mx-auto mb-3 text-slate-700" />
           <p className="text-lg font-medium">No answer cards</p>
           <p className="text-sm mt-1">
-            {statusFilter
-              ? `No ${statusFilter} cards found.`
+            {statusFilter || moduleFilter
+              ? 'No cards match the current filters.'
               : 'Create your first answer card to get started.'}
           </p>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors mx-auto"
-          >
-            <Plus size={14} />
-            Create Answer Card
-          </button>
+          {!statusFilter && !moduleFilter && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors mx-auto"
+            >
+              <Plus size={14} />
+              Create Answer Card
+            </button>
+          )}
         </div>
       )}
 
       {/* Cards list */}
       {!isLoading && cards.length > 0 && (
         <div className="space-y-3">
+          {/* Select all row */}
+          <div className="flex items-center gap-3 px-5 py-2">
+            <button
+              onClick={toggleSelectAll}
+              aria-label={allSelected ? 'Deselect all' : 'Select all'}
+              className="text-slate-400 hover:text-white transition-colors"
+            >
+              {allSelected ? (
+                <CheckSquare size={18} className="text-indigo-400" />
+              ) : someSelected ? (
+                <Minus size={18} className="text-indigo-400" />
+              ) : (
+                <Square size={18} />
+              )}
+            </button>
+            <span className="text-xs text-slate-500">
+              {allSelected
+                ? `All ${cards.length} selected`
+                : someSelected
+                  ? `${selectedCount} of ${cards.length} selected`
+                  : `${cards.length} cards`}
+            </span>
+          </div>
+
           {cards.map((card) => (
-            <AnswerCardRow key={card.id} card={card} onUpdated={reload} />
+            <AnswerCardRow
+              key={card.id}
+              card={card}
+              onUpdated={reload}
+              selected={selectedIds.has(card.id)}
+              onToggleSelect={() => toggleSelect(card.id)}
+            />
           ))}
         </div>
       )}

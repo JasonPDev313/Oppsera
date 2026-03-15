@@ -52,6 +52,48 @@ export const DOCUMENT_SOURCE_TYPES = [
 ] as const;
 export type DocumentSourceType = typeof DOCUMENT_SOURCE_TYPES[number];
 
+// ── Model Waterfall Configuration ──
+// Routes questions to the cheapest model that can answer them well.
+// Escalation: Haiku (FAQ/curated) → Sonnet (reasoning) → Opus (complex/no evidence)
+export const MODEL_TIERS = {
+  fast: {
+    id: 'claude-haiku-4-5-20251001',
+    maxTokens: 1024,
+    label: 'haiku',
+  },
+  standard: {
+    id: 'claude-sonnet-4-20250514',
+    maxTokens: 2048,
+    label: 'sonnet',
+  },
+  deep: {
+    id: 'claude-opus-4-20250901',
+    maxTokens: 4096,
+    label: 'opus',
+  },
+} as const;
+
+export type ModelTier = keyof typeof MODEL_TIERS;
+
+/** Ordered tier list for escalation: fast → standard → deep */
+export const TIER_ESCALATION_ORDER: readonly ModelTier[] = ['fast', 'standard', 'deep'] as const;
+
+// Thread history length that triggers a tier bump (conversations getting complex)
+export const LONG_THREAD_THRESHOLD = 6;
+
+// Input char threshold that bumps minimum tier to standard (Haiku struggles with large context)
+export const LARGE_CONTEXT_CHAR_THRESHOLD = 8_000;
+
+// Thumbs-down rate threshold for feedback-aware routing (route+module combo)
+// If >= this fraction of recent Haiku answers got thumbs-down, auto-bump to Sonnet
+export const FEEDBACK_DOWNVOTE_RATE_THRESHOLD = 0.4;
+
+// Minimum sample size before feedback-based routing kicks in
+export const FEEDBACK_MIN_SAMPLE_SIZE = 5;
+
+// How many recent feedback records to consider per route+module
+export const FEEDBACK_LOOKBACK_LIMIT = 20;
+
 export const FEEDBACK_REASON_CODES = [
   'not_accurate', 'didnt_answer', 'show_steps', 'contact_support',
 ] as const;

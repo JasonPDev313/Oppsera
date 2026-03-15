@@ -25,6 +25,7 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
     topQuestionRows,
     failureRows,
     reviewRows,
+    autoDraftRows,
   ] = await Promise.all([
     // ── KPI aggregate ────────────────────────────────────────────
     withAdminDb(async (tx) => {
@@ -171,6 +172,33 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
           AND (${moduleKey}::text IS NULL OR th.module_key = ${moduleKey}::text)
       `);
     }),
+
+    // ── Auto-draft metrics ───────────────────────────────────────
+    withAdminDb(async (tx) => {
+      return tx.execute(sql`
+        SELECT
+          COUNT(*) FILTER (
+            WHERE ac.owner_user_id = '__auto_draft__'
+          )::int                                                      AS auto_draft_total,
+          COUNT(*) FILTER (
+            WHERE ac.owner_user_id = '__auto_draft__'
+              AND ac.created_at >= NOW() - INTERVAL '1 day' * ${days}
+          )::int                                                      AS auto_draft_period,
+          COUNT(*) FILTER (
+            WHERE ac.owner_user_id = '__auto_draft__'
+              AND ac.status = 'draft'
+          )::int                                                      AS auto_draft_pending,
+          COUNT(*) FILTER (
+            WHERE ac.owner_user_id = '__auto_draft__'
+              AND ac.status = 'active'
+          )::int                                                      AS auto_draft_activated,
+          COUNT(*) FILTER (
+            WHERE ac.owner_user_id = '__auto_draft__'
+              AND ac.status = 'archived'
+          )::int                                                      AS auto_draft_archived
+        FROM ai_support_answer_cards ac
+      `);
+    }),
   ]);
 
   // ── Parse KPIs ───────────────────────────────────────────────────
@@ -243,6 +271,18 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
     ? Math.round(Number(rv.median_hours_to_review) * 10) / 10
     : 0;
 
+  // ── Auto-draft metrics ────────────────────────────────────────
+  const adList = Array.from(autoDraftRows as Iterable<Record<string, unknown>>);
+  const ad = adList[0] ?? {};
+  const autoDraftTotal = Number(ad.auto_draft_total ?? 0);
+  const autoDraftPeriod = Number(ad.auto_draft_period ?? 0);
+  const autoDraftPending = Number(ad.auto_draft_pending ?? 0);
+  const autoDraftActivated = Number(ad.auto_draft_activated ?? 0);
+  const autoDraftArchived = Number(ad.auto_draft_archived ?? 0);
+  const autoDraftAcceptanceRate = autoDraftTotal > 0
+    ? Math.round((autoDraftActivated / autoDraftTotal) * 1000) / 10
+    : 0;
+
   return NextResponse.json({
     data: {
       totalQuestions,
@@ -263,6 +303,14 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
       reviewedCount,
       pendingReviewCount,
       deflectionEstimate,
+      autoDraft: {
+        totalCreated: autoDraftTotal,
+        createdThisPeriod: autoDraftPeriod,
+        pendingReview: autoDraftPending,
+        activated: autoDraftActivated,
+        archived: autoDraftArchived,
+        acceptanceRate: autoDraftAcceptanceRate,
+      },
     },
   });
 }, { permission: 'ai_support.admin' });

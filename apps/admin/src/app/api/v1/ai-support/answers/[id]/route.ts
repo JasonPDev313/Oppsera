@@ -103,6 +103,21 @@ export const PATCH = withAdminPermission(async (req: NextRequest, _session, para
     );
   }
 
+  // Check slug uniqueness if slug is being updated
+  if (newSlug) {
+    const slugConflict = await withAdminDb(async (tx) =>
+      tx.execute(sql`
+        SELECT id FROM ai_support_answer_cards WHERE slug = ${newSlug} AND id != ${id} LIMIT 1
+      `),
+    );
+    if (Array.from(slugConflict as Iterable<unknown>).length > 0) {
+      return NextResponse.json(
+        { error: { code: 'CONFLICT', message: `Slug '${newSlug}' is already in use` } },
+        { status: 409 },
+      );
+    }
+  }
+
   // Bump version if answer content changed
   const answerChanged = newAnswer !== null && newAnswer !== currentAnswer;
   const newVersion = answerChanged ? currentVersion + 1 : currentVersion;
