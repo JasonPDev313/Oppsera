@@ -1,7 +1,16 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
+import { getStoredToken } from '@/lib/api-client';
 import { useAiAssistantContext } from './useAiAssistantContext';
+
+/** Build standard auth headers for AI assistant API calls. */
+function buildHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getStoredToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
 
 interface Thread {
   id: string;
@@ -33,7 +42,7 @@ export function useAiAssistantChat() {
     try {
       await fetch(`/api/v1/ai-support/threads/${threadId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildHeaders(),
         body: JSON.stringify({ status: 'closed' }),
       });
     } catch {
@@ -44,7 +53,7 @@ export function useAiAssistantChat() {
   const createThread = useCallback(async () => {
     const res = await fetch('/api/v1/ai-support/threads', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildHeaders(),
       body: JSON.stringify({
         channel: 'in_app',
         currentRoute: context.route,
@@ -101,7 +110,7 @@ export function useAiAssistantChat() {
 
       const res = await fetch(`/api/v1/ai-support/threads/${currentThread.id}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildHeaders(),
         body: JSON.stringify({
           threadId: currentThread.id,
           messageText: text,

@@ -284,9 +284,13 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   // The server resolves site↔venue hierarchy via resolveKdsLocationId, so even if
   // the POS sends a site ID, the API returns stations from child venues.
   const kdsLocationId = tab?.locationId ?? preTabLocationId;
-  const { stations, resolvedLocationId } = useStations({ locationId: kdsLocationId || undefined });
-  // Use server-resolved location for display and dispatch headers
+  const { stations, resolvedLocationId, isLoading: stationsLoading } = useStations({ locationId: kdsLocationId || undefined });
+  // Use server-resolved location for display and dispatch headers.
+  // While useStations is loading, resolvedLocationId is null — fall back to kdsLocationId
+  // so effectiveKdsLocationId is never undefined while kdsLocationId has a value.
   const effectiveKdsLocationId = resolvedLocationId ?? kdsLocationId;
+  // True once useStations has resolved — guards against comparing with an unresolved fallback
+  const stationsResolved = !stationsLoading && resolvedLocationId !== null;
   const kdsLocationName = locations?.find((l) => l.id === effectiveKdsLocationId)?.name
     ?? locations?.find((l) => l.id === kdsLocationId)?.name
     ?? posLocationName;
@@ -370,8 +374,14 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     try {
       await persistDraftsForCourse(courseNumber);
       const result = await sendCourse(courseNumber);
-      // Surface cross-location routing — operator is at location A but tickets landed at B
-      if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId) {
+      // Surface cross-location routing — operator is at location A but tickets landed at B.
+      // Only compare when useStations has resolved; before that effectiveKdsLocationId
+      // is just the raw venue fallback and will false-positive on venue→site routing.
+      if (
+        stationsResolved &&
+        result?.effectiveKdsLocationId &&
+        result.effectiveKdsLocationId !== effectiveKdsLocationId
+      ) {
         const destName = resolveLocationName(result.effectiveKdsLocationId) ?? result.effectiveKdsLocationId;
         const msg = result.warning
           ? `${result.warning} (routed to ${destName})`
@@ -388,15 +398,20 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       const msg = err instanceof Error ? err.message : 'Failed to send course';
       setKdsSendError(msg);
     }
-  }, [sendCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName]);
+  }, [sendCourse, persistDraftsForCourse, effectiveKdsLocationId, stationsResolved, resolveLocationName]);
 
   // Wrap fireCourse to persist drafts first + surface KDS warnings (same pattern as sendCourseWithWarning)
   const fireCourseWithWarning = useCallback(async (courseNumber: number) => {
     try {
       await persistDraftsForCourse(courseNumber);
       const result = await fireCourse(courseNumber);
-      // Surface cross-location routing — operator is at location A but tickets landed at B
-      if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId) {
+      // Surface cross-location routing — operator is at location A but tickets landed at B.
+      // Only compare when useStations has resolved (same guard as sendCourseWithWarning).
+      if (
+        stationsResolved &&
+        result?.effectiveKdsLocationId &&
+        result.effectiveKdsLocationId !== effectiveKdsLocationId
+      ) {
         const destName = resolveLocationName(result.effectiveKdsLocationId) ?? result.effectiveKdsLocationId;
         const msg = result.warning
           ? `${result.warning} (routed to ${destName})`
@@ -413,7 +428,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       const msg = err instanceof Error ? err.message : 'Failed to fire course';
       setKdsSendError(msg);
     }
-  }, [fireCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName]);
+  }, [fireCourse, persistDraftsForCourse, effectiveKdsLocationId, stationsResolved, resolveLocationName]);
 
   // ── Modifier drawer state ──────────────────────────────────────
   const [modifierDrawerOpen, setModifierDrawerOpen] = useState(false);
@@ -460,8 +475,10 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       return;
     }
 
-    // Block send if no KDS stations at this location
-    if (!hasKdsStations) {
+    // Block send if no KDS stations at this location.
+    // Only gate when station fetch has completed — if still loading, let the
+    // server handle it to avoid false-positive "KDS Not Set Up" dialogs.
+    if (!stationsLoading && !hasKdsStations) {
       setShowKdsNotConfigured(true);
       return;
     }
@@ -528,7 +545,11 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     const kdsWarnings: string[] = [];
     for (const courseNumber of courseNumbersToSend) {
       const result = await sendCourse(courseNumber);
-      if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId) {
+      if (
+        stationsResolved &&
+        result?.effectiveKdsLocationId &&
+        result.effectiveKdsLocationId !== effectiveKdsLocationId
+      ) {
         const destName = resolveLocationName(result.effectiveKdsLocationId) ?? result.effectiveKdsLocationId;
         kdsWarnings.push(`Course ${courseNumber} routed to ${destName} (different location)`);
       }

@@ -658,7 +658,9 @@ export function useStations({ locationId }: UseStationsOptions) {
         setResolvedLocationId(json.meta?.resolvedLocationId ?? locationId);
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
-        // ignore other errors
+        // On fetch failure, fall back to the input locationId so
+        // effectiveKdsLocationId never stays null while kdsLocationId has a value.
+        setResolvedLocationId(locationId);
       } finally {
         setIsLoading(false);
       }

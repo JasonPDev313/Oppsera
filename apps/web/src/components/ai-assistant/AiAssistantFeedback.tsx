@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ThumbsUp, ThumbsDown, CheckCircle } from 'lucide-react';
+import { getStoredToken } from '@/lib/api-client';
 
 interface AiAssistantFeedbackProps {
   messageId: string;
@@ -48,9 +49,13 @@ export function AiAssistantFeedback({ messageId }: AiAssistantFeedbackProps) {
     setError(null);
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const token = getStoredToken();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch('/api/v1/ai-support/feedback', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           messageId,
           rating,
