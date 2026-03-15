@@ -19,7 +19,7 @@
     "@oppsera/module-ai-support": "workspace:*",
     "@oppsera/module-semantic": "workspace:*",
     "@oppsera/shared": "workspace:*",
-    "dotenv": "^16.4.0",
+    "dotenv": "^17.3.1",
     "bcryptjs": "^2.4.3",
     "jose": "^5.9.6",
     "lucide-react": "^0.468.0",

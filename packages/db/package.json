@@ -30,7 +30,7 @@
     "@oppsera/shared": "workspace:*",
     "drizzle-orm": "^0.37.0",
     "postgres": "^3.4.0",
-    "dotenv": "^16.4.0"
+    "dotenv": "^17.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
