@@ -1370,7 +1370,7 @@ Every write operation that requires audit permission is automatically logged:
 // ─── Seed Function ───────────────────────────────────────────────────────────
 
 export async function seedTrainingDataBatch2(tenantId: string | null = null) {
-  const result = await db
+  await db
     .insert(aiSupportAnswerCards)
     .values(
       TRAINING_CARDS_BATCH2.map((c) => ({

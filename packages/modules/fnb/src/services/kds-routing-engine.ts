@@ -628,116 +628,17 @@ function parseTextArray(value: unknown): string[] {
  *   - Per-venue KDS: each venue has its own stations (preferred)
  *   - Site-level KDS: stations at site, venues inherit (legacy/transition)
  *
- * When venues exist, POS login forces venue selection, so tabs always have
- * a venue locationId. Stations should ideally be configured at the venue
- * level, but the site fallback ensures existing site-level stations still
- * work during transition.
+ * KDS stations are always tied to venues. No site↔venue fallback —
+ * the POS location IS the venue, and stations are queried at that venue.
+ * This eliminates location mismatches between dispatch and station queries.
  */
 export async function resolveKdsLocationId(
-  tenantId: string,
+  _tenantId: string,
   locationId: string,
 ): Promise<string> {
-  return withTenant(tenantId, async (tx) => {
-    // 1. Look up the location to check if it's a venue
-    const locRows = await tx.execute(
-      sql`SELECT location_type, parent_location_id
-          FROM locations
-          WHERE id = ${locationId} AND tenant_id = ${tenantId}
-          LIMIT 1`,
-    );
-    const loc = Array.from(locRows as Iterable<Record<string, unknown>>)[0];
-
-    if (!loc) return locationId;
-
-    // ── Site-level location: check for child venues with stations ──
-    if (loc.location_type !== 'venue' || !loc.parent_location_id) {
-      // Check if site itself has active stations
-      const siteStationRows = await tx.execute(
-        sql`SELECT COUNT(*)::int AS cnt
-            FROM fnb_kitchen_stations
-            WHERE tenant_id = ${tenantId}
-              AND location_id = ${locationId}
-              AND is_active = true`,
-      );
-      const siteStationCount = Number(
-        (Array.from(siteStationRows as Iterable<Record<string, unknown>>)[0]?.cnt) ?? 0,
-      );
-      if (siteStationCount > 0) return locationId;
-
-      // No stations at site — check child venues (site→venue fallback)
-      const childVenueRows = await tx.execute(
-        sql`SELECT s.location_id
-            FROM fnb_kitchen_stations s
-            JOIN locations l ON l.id = s.location_id AND l.tenant_id = s.tenant_id
-            WHERE s.tenant_id = ${tenantId}
-              AND l.parent_location_id = ${locationId}
-              AND s.is_active = true
-            LIMIT 1`,
-      );
-      const childVenue = Array.from(childVenueRows as Iterable<Record<string, unknown>>)[0];
-      if (childVenue) {
-        const resolvedVenueId = childVenue.location_id as string;
-        logger.info('[kds] resolveKdsLocationId: site has no stations, falling back to child venue', {
-          domain: 'kds', tenantId, siteLocationId: locationId, resolvedVenueId,
-        });
-        return resolvedVenueId;
-      }
-
-      // No stations anywhere — stay at site
-      return locationId;
-    }
-
-    // 2. It's a venue — check if it has its own active KDS stations
-    const stationCountRows = await tx.execute(
-      sql`SELECT COUNT(*)::int AS cnt
-          FROM fnb_kitchen_stations
-          WHERE tenant_id = ${tenantId}
-            AND location_id = ${locationId}
-            AND is_active = true`,
-    );
-    const stationCount = Number(
-      (Array.from(stationCountRows as Iterable<Record<string, unknown>>)[0]?.cnt) ?? 0,
-    );
-
-    if (stationCount > 0) {
-      // Venue has its own stations — use venue (per-venue KDS)
-      logger.debug('[kds] resolveKdsLocationId: venue has own stations', {
-        domain: 'kds', tenantId, venueLocationId: locationId, stationCount,
-      });
-      return locationId;
-    }
-
-    // 3. No stations at venue — check if parent site has stations before falling back.
-    //    If the parent site also has no stations, stay at the venue level so the
-    //    "Set Up KDS" dialog names the venue (where setup should happen), not the
-    //    parent site (which can't have stations when it has child venues).
-    const parentSiteId = loc.parent_location_id as string;
-    const parentStationRows = await tx.execute(
-      sql`SELECT COUNT(*)::int AS cnt
-          FROM fnb_kitchen_stations
-          WHERE tenant_id = ${tenantId}
-            AND location_id = ${parentSiteId}
-            AND is_active = true`,
-    );
-    const parentStationCount = Number(
-      (Array.from(parentStationRows as Iterable<Record<string, unknown>>)[0]?.cnt) ?? 0,
-    );
-
-    if (parentStationCount > 0) {
-      // Parent site has stations (legacy/transition config) — fall back to site
-      logger.info('[kds] resolveKdsLocationId: venue has no stations, falling back to parent site', {
-        domain: 'kds', tenantId, venueLocationId: locationId, parentSiteId, parentStationCount,
-      });
-      return parentSiteId;
-    }
-
-    // Neither venue nor parent site has stations — stay at venue so setup
-    // dialog directs the user to set up KDS at the correct venue level.
-    logger.info('[kds] resolveKdsLocationId: neither venue nor parent site has stations, staying at venue', {
-      domain: 'kds', tenantId, venueLocationId: locationId, parentSiteId,
-    });
-    return locationId;
-  });
+  // KDS stations live at venues — no hierarchy resolution needed.
+  // The input locationId (from tab or POS session) is always the venue.
+  return locationId;
 }
 
 // ── Prep Time Helpers ───────────────────────────────────────────

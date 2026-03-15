@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ThumbsUp, ThumbsDown, CheckCircle } from 'lucide-react';
-import { getStoredToken } from '@/lib/api-client';
+import { apiFetch } from '@/lib/api-client';
 
 interface AiAssistantFeedbackProps {
   messageId: string;
@@ -49,13 +49,8 @@ export function AiAssistantFeedback({ messageId }: AiAssistantFeedbackProps) {
     setError(null);
 
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      const token = getStoredToken();
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch('/api/v1/ai-support/feedback', {
+      await apiFetch('/api/v1/ai-support/feedback', {
         method: 'POST',
-        headers,
         body: JSON.stringify({
           messageId,
           rating,
@@ -63,11 +58,6 @@ export function AiAssistantFeedback({ messageId }: AiAssistantFeedbackProps) {
           ...(freeformComment.trim() ? { freeformComment: freeformComment.trim() } : {}),
         }),
       });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({})) as { error?: { message?: string } };
-        throw new Error(data?.error?.message ?? 'Failed to submit feedback');
-      }
 
       setStep('submitted');
     } catch (err) {

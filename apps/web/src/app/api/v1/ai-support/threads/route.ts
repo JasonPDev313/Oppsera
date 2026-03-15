@@ -28,7 +28,7 @@ export const GET = withMiddleware(
       meta: { cursor: result.cursor, hasMore: result.hasMore },
     });
   },
-  { permission: 'ai_support.chat' },
+  { entitlement: 'ai_support', permission: 'ai_support.chat' },
 );
 
 // POST /api/v1/ai-support/threads — create a new thread

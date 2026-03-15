@@ -22,5 +22,5 @@ export const POST = withMiddleware(
     const result = await submitFeedback(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { permission: 'ai_support.chat', writeAccess: true },
+  { entitlement: 'ai_support', permission: 'ai_support.chat', writeAccess: true },
 );

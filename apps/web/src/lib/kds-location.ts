@@ -1,16 +1,9 @@
 /**
  * KDS location resolution utilities (client-side).
  *
- * VENUE→SITE HIERARCHY:
- * When a venue has NO KDS stations, the server-side `resolveKdsLocationId`
- * falls back to the parent site. The stations API returns `effectiveLocationId`
- * when this happens. KDS pages should use effectiveLocationId for navigation
- * and ticket queries so they match where the server stores tickets.
- *
- * When a venue HAS its own stations, it uses them directly (per-venue KDS).
- *
- * These client-side helpers are used for the initial location resolution
- * before the stations API response is available.
+ * KDS stations are always tied to venues (e.g. "Resort", "Spa", "Saloon").
+ * Sites (e.g. "Sunset Golf Resort") never have KDS stations directly.
+ * No hierarchy fallback — the POS venue IS the KDS location.
  */
 
 interface LocationLike {

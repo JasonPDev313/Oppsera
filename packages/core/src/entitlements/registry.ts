@@ -248,6 +248,16 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     supportsViewMode: true,
     category: 'finance',
   },
+  {
+    key: 'ai_support',
+    name: 'AI Support Assistant',
+    phase: 'v1',
+    description: 'In-app AI assistant for contextual help, knowledge base, and guided workflows',
+    dependencies: ['platform_core'],
+    riskLevel: 'low',
+    supportsViewMode: true,
+    category: 'analytics',
+  },
 ] as const;
 
 export type ModuleKey = (typeof MODULE_REGISTRY)[number]['key'];

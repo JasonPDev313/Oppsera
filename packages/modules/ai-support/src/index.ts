@@ -67,6 +67,7 @@ export { sanitizeResponse, validateCustomerSafe } from './services/content-guard
 export { seedDemoData } from './services/seed-demo-data';
 export { seedTrainingData } from './services/seed-training-data';
 export { seedTrainingDataBatch2 } from './services/seed-training-data-batch2';
+export { seedTrainingDataBatch3 } from './services/seed-training-data-batch3';
 export { checkRateLimit, recordUsage, resetRateLimit, getUsageStats } from './services/rate-limiter';
 export type { RateLimitType, RateLimitResult } from './services/rate-limiter';
 

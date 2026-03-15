@@ -54,8 +54,8 @@ function deriveModuleKeyFromPath(filePath: string, basePath: string): string {
  */
 function extractActionsFromContent(
   content: string,
-  filePath: string,
-  basePath: string,
+  _filePath: string,
+  _basePath: string,
 ): Array<{ actionLabel: string; contextElement: string; snippet: string }> {
   const results: Array<{ actionLabel: string; contextElement: string; snippet: string }> = [];
 

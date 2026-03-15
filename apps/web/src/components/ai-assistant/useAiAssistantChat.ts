@@ -1,16 +1,8 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { getStoredToken } from '@/lib/api-client';
+import { apiFetch, getStoredToken, attemptTokenRefresh } from '@/lib/api-client';
 import { useAiAssistantContext } from './useAiAssistantContext';
-
-/** Build standard auth headers for AI assistant API calls. */
-function buildHeaders(): Record<string, string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const token = getStoredToken();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  return headers;
-}
 
 interface Thread {
   id: string;
@@ -29,6 +21,39 @@ interface Message {
 
 export type { Thread, Message };
 
+/**
+ * Auth-aware streaming fetch: attaches Bearer token, and on 401 refreshes
+ * the token then retries once — mirroring apiFetch's refresh logic.
+ */
+async function authStreamFetch(
+  url: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<Response> {
+  const doFetch = () => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = getStoredToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal,
+    });
+  };
+
+  let res = await doFetch();
+
+  if (res.status === 401) {
+    const refreshed = await attemptTokenRefresh();
+    if (refreshed) {
+      res = await doFetch();
+    }
+  }
+
+  return res;
+}
+
 export function useAiAssistantChat() {
   const [thread, setThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -40,35 +65,29 @@ export function useAiAssistantChat() {
   /** Close a thread on the server (fire-and-forget, best effort). */
   const closeThreadOnServer = useCallback(async (threadId: string) => {
     try {
-      await fetch(`/api/v1/ai-support/threads/${threadId}`, {
+      await apiFetch(`/api/v1/ai-support/threads/${threadId}`, {
         method: 'PATCH',
-        headers: buildHeaders(),
         body: JSON.stringify({ status: 'closed' }),
       });
-    } catch {
-      // Best effort — don't block the UI if this fails
+    } catch (err) {
+      // Best effort — don't block the UI, but log for observability
+      console.warn('[ai-assistant] Failed to close thread', threadId, err);
     }
   }, []);
 
   const createThread = useCallback(async () => {
-    const res = await fetch('/api/v1/ai-support/threads', {
+    const result = await apiFetch<{ data: Thread }>('/api/v1/ai-support/threads', {
       method: 'POST',
-      headers: buildHeaders(),
       body: JSON.stringify({
         channel: 'in_app',
         currentRoute: context.route,
         moduleKey: context.moduleKey,
       }),
     });
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      const msg = (errBody as { error?: { message?: string } }).error?.message ?? res.statusText;
-      throw new Error(`Failed to create thread: ${res.status} ${msg}`);
-    }
-    const { data } = await res.json();
-    setThread(data as Thread);
+    const t = result.data;
+    setThread(t);
     setMessages([]);
-    return data as Thread;
+    return t;
   }, [context.route, context.moduleKey]);
 
   const sendMessage = useCallback(async (text: string) => {
@@ -104,20 +123,23 @@ export function useAiAssistantChat() {
     setMessages(prev => [...prev, assistantMsg]);
     setIsStreaming(true);
 
-    try {
-      const controller = new AbortController();
-      abortRef.current = controller;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    // Client-side timeout (65s) — slightly above Vercel's 60s maxDuration
+    // so server-side timeout fires first under normal conditions
+    const streamTimeout = setTimeout(() => controller.abort(), 65_000);
 
-      const res = await fetch(`/api/v1/ai-support/threads/${currentThread.id}/messages`, {
-        method: 'POST',
-        headers: buildHeaders(),
-        body: JSON.stringify({
+    try {
+
+      const res = await authStreamFetch(
+        `/api/v1/ai-support/threads/${currentThread.id}/messages`,
+        {
           threadId: currentThread.id,
           messageText: text,
           contextSnapshot: context,
-        }),
-        signal: controller.signal,
-      });
+        },
+        controller.signal,
+      );
 
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({ error: { message: 'Failed to send message' } }));
@@ -203,6 +225,7 @@ export function useAiAssistantChat() {
         setError(e.message);
       }
     } finally {
+      clearTimeout(streamTimeout);
       setIsStreaming(false);
       abortRef.current = null;
     }

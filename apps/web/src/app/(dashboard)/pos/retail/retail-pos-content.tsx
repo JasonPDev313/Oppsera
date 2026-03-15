@@ -65,7 +65,6 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { useManagerOverride } from '@/hooks/use-manager-override';
 import { ManagerPinModal } from '@/components/ui/manager-pin-modal';
 import { usePosLocation } from '@/hooks/use-pos-location';
-import { useStations } from '@/hooks/use-fnb-kitchen';
 
 // TenderDialog kept as fallback; PaymentPanel is the new inline flow
 import { TenderDialog } from '@/components/pos/TenderDialog';
@@ -596,10 +595,6 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     ? kitchenSettings.kds_routing_mode
     : 'fb_and_retail';
   const kdsSendEnabled = kdsRoutingMode !== 'fb_only';
-
-  // KDS station guard — block send before API call if no active stations
-  const { stations: kdsStations } = useStations({ locationId });
-  const hasKdsStations = kdsStations.some((s) => s.isActive);
 
   // Hooks
   const { config, setConfig, isLoading: configLoading } = usePOSConfig(locationId, 'retail');
@@ -1197,13 +1192,9 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   const allSentToKds = fnbLineCount > 0 && fnbLineCount <= lastSentLineCount;
 
   const handleSendOrder = useCallback(async () => {
-    // Block send if no active KDS stations at this location — no API call needed
-    if (!hasKdsStations) {
-      setShowKdsNotConfigured(true);
-      setKdsSendFailed(true);
-      return;
-    }
-
+    // No client-side station pre-flight — the server returns totalStations=0
+    // when no stations exist, which triggers the same dialog. This avoids
+    // false-positive "KDS Not Set Up" from transient client fetch failures.
     try {
       setKdsSendFailed(false);
       const result = await posRef.current.sendToKds();
@@ -1227,7 +1218,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       setKdsSendFailed(true);
       toast.error('Kitchen send failed — press Send to retry');
     }
-  }, [toast, hasKdsStations]);
+  }, [toast]);
 
   const handlePayClick = useCallback(() => {
     // Switch to payment view IMMEDIATELY — don't await ensureOrderReady here.

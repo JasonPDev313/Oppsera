@@ -41,7 +41,7 @@ export const GET = withMiddleware(
       meta: { cursor: result.cursor, hasMore: result.hasMore },
     });
   },
-  { permission: 'ai_support.chat' },
+  { entitlement: 'ai_support', permission: 'ai_support.chat' },
 );
 
 /**
@@ -163,5 +163,5 @@ export const POST = withMiddleware(
       },
     }) as NextResponse<unknown>;
   },
-  { permission: 'ai_support.chat', writeAccess: true },
+  { entitlement: 'ai_support', permission: 'ai_support.chat', writeAccess: true },
 );

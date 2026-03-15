@@ -3,7 +3,6 @@ import { withTenant } from '@oppsera/db';
 import {
   aiAssistantThreads,
   aiAssistantMessages,
-  aiAssistantContextSnapshots,
 } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
 

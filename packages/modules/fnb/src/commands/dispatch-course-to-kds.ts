@@ -16,7 +16,7 @@ import { eq, and, inArray, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { fnbTabs, fnbTabItems, fnbTabCourses, fnbTables } from '@oppsera/db';
 import { logger } from '@oppsera/core/observability';
-import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems, resolveKdsLocationId } from '../services/kds-routing-engine';
+import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems } from '../services/kds-routing-engine';
 import type { RoutableItem, RoutingResult } from '../services/kds-routing-engine';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { normalizeBusinessDate } from '../helpers/normalize-business-date';
@@ -240,14 +240,9 @@ export async function prepareCourseDispatch(
     diagnosis.push(`LOCATION MISMATCH: client sent ${clientLocationId} but tab owns ${tab.locationId} — using tab location`);
   }
 
-  // 2. Resolve the effective KDS location via the site↔venue hierarchy.
-  //    The tab's locationId may be at a different level (venue) than where
-  //    KDS stations are configured (site, or vice versa). resolveKdsLocationId
-  //    handles the fallback so dispatch matches what the station listing shows.
-  const effectiveLocationId = await resolveKdsLocationId(ctx.tenantId, rawLocationId);
-  if (effectiveLocationId !== rawLocationId) {
-    diagnosis.push(`KDS location resolved: tab=${rawLocationId} → effective=${effectiveLocationId}`);
-  }
+  // 2. KDS stations live at the venue level — no hierarchy resolution needed.
+  //    The tab's locationId is always the venue where stations are configured.
+  const effectiveLocationId = rawLocationId;
   diagnosis.push(`Tab: locationId=${effectiveLocationId}, tabType=${tab.tabType ?? 'null'}`);
 
   if (items.length === 0) {

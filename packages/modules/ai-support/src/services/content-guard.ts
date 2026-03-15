@@ -9,10 +9,6 @@
 /** API endpoint paths like /api/v1/orders or /api/v1/something/[id] */
 const API_PATH_RE = /\/api\/v\d+\/[a-zA-Z0-9/_[\]-]*/g;
 
-/** Import/export/function/const/arrow-function code patterns */
-const CODE_KEYWORDS_RE =
-  /\b(import|export|function|const|let|var|async function|await|return|=>|class)\b[^.!?]*/g;
-
 /** Database table names (snake_case with 2+ segments typical of DB tables) */
 const DB_TABLE_RE =
   /\b(?:ai_support|ai_assistant|fnb_kds|fnb_orders|catalog_products|inventory_|accounting_|ap_|ar_|tenant_|location_)\w+\b/gi;
@@ -32,9 +28,6 @@ const STACK_TRACE_RE = /at\s+[\w.<>]+\s+\([^)]+\.(?:ts|js|tsx|jsx):\d+:\d+\)/g;
 
 /** Environment variable references */
 const ENV_VAR_RE = /process\.env\.\w+/g;
-
-/** Anything that looks like an API key or secret (long alphanumeric strings) */
-const API_KEY_RE = /\b[A-Za-z0-9_-]{32,}\b/g;
 
 // ── Replacement messages ──────────────────────────────────────────────────────
 

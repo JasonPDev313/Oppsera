@@ -59,7 +59,7 @@ export async function refreshTokenIfNeeded(): Promise<boolean> {
   return refreshPromise;
 }
 
-async function attemptTokenRefresh(): Promise<boolean> {
+export async function attemptTokenRefresh(): Promise<boolean> {
   const refreshToken = getStoredRefreshToken();
   if (!refreshToken) return false;
 

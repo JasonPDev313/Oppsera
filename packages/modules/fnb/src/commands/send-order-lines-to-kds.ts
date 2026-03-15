@@ -18,7 +18,7 @@ import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idem
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { logger } from '@oppsera/core/observability';
-import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems, resolveKdsLocationId } from '../services/kds-routing-engine';
+import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems } from '../services/kds-routing-engine';
 import type { RoutableItem, CatalogChainEntry } from '../services/kds-routing-engine';
 import { extractModifierIds, formatModifierSummary } from '../helpers/kds-modifier-helpers';
 import { recordDispatchAttempt, emptyDispatchResult } from './dispatch-course-to-kds';
@@ -148,14 +148,10 @@ export async function sendOrderLinesToKds(
     newLineCount: newLines.length, alreadySent: alreadySentIds.size,
   });
 
-  // 2. Resolve the effective KDS location via the site↔venue hierarchy.
-  //    The POS session location may be at a different level than where KDS
-  //    stations are configured. resolveKdsLocationId handles the fallback.
-  const effectiveLocationId = await resolveKdsLocationId(ctx.tenantId, ctx.locationId!);
+  // 2. KDS stations live at the venue level — no hierarchy resolution needed.
+  //    The POS session location is always the venue where stations are configured.
+  const effectiveLocationId = ctx.locationId!;
   dispatch.effectiveKdsLocationId = effectiveLocationId;
-  if (effectiveLocationId !== ctx.locationId) {
-    dispatch.diagnosis.push(`KDS location resolved: session=${ctx.locationId} → effective=${effectiveLocationId}`);
-  }
   dispatch.diagnosis.push(`Location: ${effectiveLocationId}`);
   timings.resolveLocationMs = Date.now() - startMs;
 

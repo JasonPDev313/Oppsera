@@ -2262,6 +2262,13 @@
       "when": 1773532414055,
       "tag": "0322_outbox_autovacuum_tuning",
       "breakpoints": true
+    },
+    {
+      "idx": 323,
+      "version": "7",
+      "when": 1773534040005,
+      "tag": "0323_ai_support_hardening",
+      "breakpoints": true
     }
   ]
 }

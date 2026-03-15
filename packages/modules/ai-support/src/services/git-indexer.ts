@@ -1,5 +1,3 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { execSync } from 'child_process';
 import { db, aiSupportDocuments } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
@@ -260,7 +258,7 @@ const UPSERT_BATCH_SIZE = 50;
  */
 async function upsertDocuments(docs: DocumentRecord[]): Promise<{ inserted: number; updated: number }> {
   let inserted = 0;
-  let updated = 0;
+  const updated = 0;
 
   for (let i = 0; i < docs.length; i += UPSERT_BATCH_SIZE) {
     const batch = docs.slice(i, i + UPSERT_BATCH_SIZE);

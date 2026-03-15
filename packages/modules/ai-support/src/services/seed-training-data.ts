@@ -3029,7 +3029,7 @@ The six built-in roles from most to least privileged:
 // ─── Seed Function ───────────────────────────────────────────────────────────
 
 export async function seedTrainingData(tenantId: string | null = null) {
-  const result = await db
+  await db
     .insert(aiSupportAnswerCards)
     .values(
       TRAINING_CARDS.map((c) => ({

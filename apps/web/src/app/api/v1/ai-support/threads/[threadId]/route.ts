@@ -21,7 +21,7 @@ export const GET = withMiddleware(
     const detail = await getThread(ctx.tenantId, threadId, ctx.user.id);
     return NextResponse.json({ data: detail });
   },
-  { permission: 'ai_support.chat' },
+  { entitlement: 'ai_support', permission: 'ai_support.chat' },
 );
 
 // PATCH /api/v1/ai-support/threads/:threadId — update/close thread
@@ -42,5 +42,5 @@ export const PATCH = withMiddleware(
     const thread = await closeThread(ctx, threadId, parsed.data);
     return NextResponse.json({ data: thread });
   },
-  { permission: 'ai_support.chat', writeAccess: true },
+  { entitlement: 'ai_support', permission: 'ai_support.chat', writeAccess: true },
 );

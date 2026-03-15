@@ -632,22 +632,18 @@ interface UseStationsOptions {
 export function useStations({ locationId }: UseStationsOptions) {
   const [stations, setStations] = useState<FnbStation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // The server resolves site↔venue hierarchy — track the resolved ID
-  // so callers can use it for send/fire headers.
-  const [resolvedLocationId, setResolvedLocationId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!locationId) {
       setStations([]);
-      setResolvedLocationId(null);
       setIsLoading(false);
       return;
     }
     setIsLoading(true);
     const controller = new AbortController();
-    (async () => {
+    const fetchStations = async (attempt: number): Promise<void> => {
       try {
-        const json = await apiFetch<{ data: FnbStation[]; meta?: { resolvedLocationId?: string } }>(
+        const json = await apiFetch<{ data: FnbStation[] }>(
           `/api/v1/fnb/stations?locationId=${locationId}`,
           {
             signal: controller.signal,
@@ -655,20 +651,22 @@ export function useStations({ locationId }: UseStationsOptions) {
           },
         );
         setStations(json.data ?? []);
-        setResolvedLocationId(json.meta?.resolvedLocationId ?? locationId);
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
-        // On fetch failure, fall back to the input locationId so
-        // effectiveKdsLocationId never stays null while kdsLocationId has a value.
-        setResolvedLocationId(locationId);
-      } finally {
-        setIsLoading(false);
+        if (attempt === 0) {
+          // Retry once after a short delay — transient failures (401 refresh,
+          // network blip) should not permanently show "KDS Not Set Up".
+          await new Promise((r) => setTimeout(r, 1500));
+          if (!controller.signal.aborted) return fetchStations(1);
+        }
+        // Second failure — leave stations empty, let server handle it on send.
       }
-    })();
+    };
+    fetchStations(0).finally(() => setIsLoading(false));
     return () => controller.abort();
   }, [locationId]);
 
-  return { stations, isLoading, resolvedLocationId };
+  return { stations, isLoading };
 }
 
 // ── Station Management Hook ─────────────────────────────────────

@@ -287,9 +287,12 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true, 
     try {
       const headers: Record<string, string> = {};
       if (locationId) headers['X-Location-Id'] = locationId;
+      // Deterministic idempotency key — retries reuse the same key so the server
+      // deduplicates. Matches the retail pattern (server-built from stable IDs).
+      const clientRequestId = `fnb-fire-${tabId}-c${courseNumber}-${Date.now()}`;
       const res = await act(() => apiFetch<{ data: unknown; kdsStatus?: KdsSendResult }>(`/api/v1/fnb/tabs/${tabId}/course/fire`, {
         method: 'POST',
-        body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
+        body: JSON.stringify({ courseNumber, clientRequestId }),
         headers,
       }));
       return res?.kdsStatus;
@@ -319,9 +322,12 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true, 
     try {
       const headers: Record<string, string> = {};
       if (locationId) headers['X-Location-Id'] = locationId;
+      // Deterministic idempotency key — retries reuse the same key so the server
+      // deduplicates. Matches the retail pattern (server-built from stable IDs).
+      const clientRequestId = `fnb-send-${tabId}-c${courseNumber}-${Date.now()}`;
       const res = await act(() => apiFetch<{ data: unknown; kdsStatus?: KdsSendResult }>(`/api/v1/fnb/tabs/${tabId}/course/send`, {
         method: 'POST',
-        body: JSON.stringify({ courseNumber, clientRequestId: crypto.randomUUID() }),
+        body: JSON.stringify({ courseNumber, clientRequestId }),
         headers,
       }));
       return res?.kdsStatus;

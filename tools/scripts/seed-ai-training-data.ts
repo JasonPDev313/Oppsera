@@ -11,7 +11,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
 
-import { seedTrainingData, seedTrainingDataBatch2 } from '@oppsera/module-ai-support';
+import { seedTrainingData, seedTrainingDataBatch2, seedTrainingDataBatch3 } from '@oppsera/module-ai-support';
 
 async function main() {
   console.log('Seeding AI support training data...\n');
@@ -26,7 +26,12 @@ async function main() {
   const r2 = await seedTrainingDataBatch2(null);
   console.log(`  ${r2.answerCardsInserted} answer cards processed. ${r2.message}`);
 
-  console.log(`\nTotal: ${r1.answerCardsInserted + r2.answerCardsInserted} cards processed.`);
+  // Batch 3: 45 cards (KDS)
+  console.log('\n── Batch 3 (KDS / Kitchen Display System) ──');
+  const r3 = await seedTrainingDataBatch3(null);
+  console.log(`  ${r3.answerCardsInserted} answer cards processed. ${r3.message}`);
+
+  console.log(`\nTotal: ${r1.answerCardsInserted + r2.answerCardsInserted + r3.answerCardsInserted} cards processed.`);
   console.log('Done!');
   process.exit(0);
 }

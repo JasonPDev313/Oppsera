@@ -1,5 +1,4 @@
 import { db, aiSupportDocuments, aiSupportEmbeddingsMeta, sql } from '@oppsera/db';
-import { eq, and, ilike } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 
 // ── Constants ──────────────────────────────────────────────────────

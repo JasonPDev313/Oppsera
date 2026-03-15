@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAiAssistantChat, type Message } from './useAiAssistantChat';
 import { AiAssistantFeedback } from './AiAssistantFeedback';
+import { usePermissions } from '@/hooks/use-permissions';
 
 // ─── Helper: derive a friendly screen name from context ──────────────────────
 
@@ -172,6 +173,8 @@ function EmptyState({ screenName }: { screenName: string }) {
 function AiAssistantPanelInner({ onClose }: { onClose: () => void }) {
   const { messages, isStreaming, error, sendMessage, stopStreaming, resetThread, context } =
     useAiAssistantChat();
+  const { can, isLoading: permsLoading } = usePermissions();
+  const canChat = permsLoading || can('ai_support.chat');
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -289,46 +292,54 @@ function AiAssistantPanelInner({ onClose }: { onClose: () => void }) {
 
       {/* Input bar */}
       <div className="shrink-0 border-t border-border bg-surface px-4 py-3">
-        <div className="flex items-end gap-2 rounded-xl border border-border bg-surface focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all">
-          <textarea
-            ref={inputRef}
-            value={inputValue}
-            onChange={e => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask anything…"
-            rows={1}
-            disabled={isStreaming}
-            className="flex-1 resize-none bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
-            style={{ maxHeight: '120px', overflowY: 'auto' }}
-          />
-          <div className="flex shrink-0 items-center p-1.5">
-            {isStreaming ? (
-              <button
-                type="button"
-                onClick={stopStreaming}
-                className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/20 text-red-400 transition-colors hover:bg-red-500/30"
-                title="Stop generating"
-                aria-label="Stop generating"
-              >
-                <StopCircle className="h-4 w-4" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={!inputValue.trim()}
-                className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white transition-colors hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed"
-                title="Send message"
-                aria-label="Send message"
-              >
-                <Send className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-        <p className="mt-1.5 text-[10px] text-muted-foreground text-center">
-          Shift+Enter for new line · Enter to send
-        </p>
+        {canChat ? (
+          <>
+            <div className="flex items-end gap-2 rounded-xl border border-border bg-surface focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all">
+              <textarea
+                ref={inputRef}
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask anything…"
+                rows={1}
+                disabled={isStreaming}
+                className="flex-1 resize-none bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
+                style={{ maxHeight: '120px', overflowY: 'auto' }}
+              />
+              <div className="flex shrink-0 items-center p-1.5">
+                {isStreaming ? (
+                  <button
+                    type="button"
+                    onClick={stopStreaming}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/20 text-red-400 transition-colors hover:bg-red-500/30"
+                    title="Stop generating"
+                    aria-label="Stop generating"
+                  >
+                    <StopCircle className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSend}
+                    disabled={!inputValue.trim()}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white transition-colors hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Send message"
+                    aria-label="Send message"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="mt-1.5 text-[10px] text-muted-foreground text-center">
+              Shift+Enter for new line · Enter to send
+            </p>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground text-center py-1">
+            Chat is view-only for your role. Contact a manager to enable messaging.
+          </p>
+        )}
       </div>
     </div>
   );
