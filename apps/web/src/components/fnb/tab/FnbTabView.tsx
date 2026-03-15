@@ -273,6 +273,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     updateLinePrice,
     updateLineNote,
     deleteLine,
+    moveLineSeatCourse,
     isActing,
   } = useFnbTab({ tabId, pollEnabled: isTabScreen, locationId: preTabLocationId || undefined });
 
@@ -508,28 +509,41 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
 
     // 1. Persist any draft lines first (also auto-creates missing courses)
     if (redirectedDrafts.length > 0) {
-      await addItems(redirectedDrafts.map((d) => ({
-        catalogItemId: d.catalogItemId,
-        catalogItemName: d.catalogItemName,
-        unitPriceCents: d.unitPriceCents,
-        qty: d.qty,
-        seatNumber: d.seatNumber,
-        courseNumber: d.courseNumber,
-        modifiers: d.modifiers,
-        specialInstructions: d.specialInstructions,
-      })));
-      store.clearDraft(tabId);
+      try {
+        await addItems(redirectedDrafts.map((d) => ({
+          catalogItemId: d.catalogItemId,
+          catalogItemName: d.catalogItemName,
+          unitPriceCents: d.unitPriceCents,
+          qty: d.qty,
+          seatNumber: d.seatNumber,
+          courseNumber: d.courseNumber,
+          modifiers: d.modifiers,
+          specialInstructions: d.specialInstructions,
+        })));
+        store.clearDraft(tabId);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to save items';
+        setKdsSendError(msg);
+        return;
+      }
     }
 
-    // 2. Send all unsent courses (including newly created ones)
+    // 2. Send all unsent courses (including newly created ones).
+    // Continue through failures so all courses get attempted — partial sends
+    // are better than silently aborting after the first failure.
     const kdsWarnings: string[] = [];
     for (const courseNumber of courseNumbersToSend) {
-      const result = await sendCourse(courseNumber);
-      if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId) {
-        const destName = resolveLocationName(result.effectiveKdsLocationId) ?? result.effectiveKdsLocationId;
-        kdsWarnings.push(`Course ${courseNumber} routed to ${destName} (different location)`);
+      try {
+        const result = await sendCourse(courseNumber);
+        if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId) {
+          const destName = resolveLocationName(result.effectiveKdsLocationId) ?? result.effectiveKdsLocationId;
+          kdsWarnings.push(`Course ${courseNumber} routed to ${destName} (different location)`);
+        }
+        if (result?.warning) kdsWarnings.push(result.warning);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Send failed';
+        kdsWarnings.push(`Course ${courseNumber}: ${msg}`);
       }
-      if (result?.warning) kdsWarnings.push(result.warning);
     }
     if (kdsWarnings.length > 0) {
       // Persistent banner — KDS failures are critical, not something to auto-dismiss
@@ -565,19 +579,25 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     // Persist any unsent draft lines before navigating to payment,
     // otherwise the payment screen won't find items on the tab.
     if (draftLines.length > 0) {
-      await addItems(draftLines.map((d) => ({
-        catalogItemId: d.catalogItemId,
-        catalogItemName: d.catalogItemName,
-        unitPriceCents: d.unitPriceCents,
-        qty: d.qty,
-        seatNumber: d.seatNumber,
-        courseNumber: d.courseNumber,
-        modifiers: d.modifiers,
-        specialInstructions: d.specialInstructions,
-      })));
-      store.clearDraft(tabId);
-      // Refresh tab so payment screen sees persisted items
-      await refreshTab();
+      try {
+        await addItems(draftLines.map((d) => ({
+          catalogItemId: d.catalogItemId,
+          catalogItemName: d.catalogItemName,
+          unitPriceCents: d.unitPriceCents,
+          qty: d.qty,
+          seatNumber: d.seatNumber,
+          courseNumber: d.courseNumber,
+          modifiers: d.modifiers,
+          specialInstructions: d.specialInstructions,
+        })));
+        store.clearDraft(tabId);
+        // Refresh tab so payment screen sees persisted items
+        await refreshTab();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to save items';
+        setKdsSendError(msg);
+        return;
+      }
     }
     store.navigateTo('payment');
   };
@@ -617,6 +637,83 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     if (!verified) return;
     compLine(lineId, reason, compCategory);
   }, [compLine, requestOverride]);
+
+  const showToast = useCallback((type: 'success' | 'error', text: string) => {
+    setToastMsg({ type, text });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMsg(null), type === 'error' ? 5000 : 3000);
+  }, []);
+
+  const handleChangeSeat = useCallback(async (lineId: string, newSeat: number) => {
+    // Draft line — update store locally, no API call
+    if (tabId && lineId.startsWith('draft-')) {
+      store.updateDraftLineSeatCourse(tabId, lineId, newSeat, undefined);
+      showToast('success', `Moved to Seat ${newSeat}`);
+      return;
+    }
+    // Sent items require manager override
+    const serverLine = tab?.lines?.find((l) => l.id === lineId);
+    if (serverLine?.status === 'sent') {
+      const { verified } = await requestOverride('Move Sent Item', 'pos_fnb.tabs.manage');
+      if (!verified) return;
+    }
+    // Optimistic update — move in local tab data before server roundtrip
+    let prevSeat: number | null | undefined;
+    if (tab?.lines) {
+      const line = tab.lines.find((l) => l.id === lineId);
+      if (line) {
+        prevSeat = line.seatNumber;
+        line.seatNumber = newSeat;
+      }
+    }
+    try {
+      await moveLineSeatCourse(lineId, newSeat, undefined);
+      showToast('success', `Moved to Seat ${newSeat}`);
+    } catch {
+      // Revert optimistic mutation on failure
+      if (tab?.lines) {
+        const line = tab.lines.find((l) => l.id === lineId);
+        if (line) line.seatNumber = prevSeat ?? null;
+      }
+      showToast('error', 'Failed to move item — it may have already been sent');
+    }
+  }, [tabId, tab, store, moveLineSeatCourse, requestOverride, showToast]);
+
+  const handleChangeCourse = useCallback(async (lineId: string, newCourse: number) => {
+    const courseName = courseNames[newCourse - 1] ?? `Course ${newCourse}`;
+    // Draft line — update store locally, no API call
+    if (tabId && lineId.startsWith('draft-')) {
+      store.updateDraftLineSeatCourse(tabId, lineId, undefined, newCourse);
+      showToast('success', `Moved to ${courseName}`);
+      return;
+    }
+    // Sent items require manager override
+    const serverLine = tab?.lines?.find((l) => l.id === lineId);
+    if (serverLine?.status === 'sent') {
+      const { verified } = await requestOverride('Move Sent Item', 'pos_fnb.tabs.manage');
+      if (!verified) return;
+    }
+    // Optimistic update — move in local tab data before server roundtrip
+    let prevCourse: number | null | undefined;
+    if (tab?.lines) {
+      const line = tab.lines.find((l) => l.id === lineId);
+      if (line) {
+        prevCourse = line.courseNumber;
+        line.courseNumber = newCourse;
+      }
+    }
+    try {
+      await moveLineSeatCourse(lineId, undefined, newCourse);
+      showToast('success', `Moved to ${courseName}`);
+    } catch {
+      // Revert optimistic mutation on failure
+      if (tab?.lines) {
+        const line = tab.lines.find((l) => l.id === lineId);
+        if (line) line.courseNumber = prevCourse ?? null;
+      }
+      showToast('error', 'Failed to move item — it may have already been sent');
+    }
+  }, [tabId, tab, store, courseNames, moveLineSeatCourse, requestOverride, showToast]);
 
   const handlePrintCheck = useCallback(async () => {
     if (!tabId || !tab) return;
@@ -862,6 +959,9 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
                 onChangePrice={handleChangePrice}
                 onVoidLine={handleVoidLine}
                 onCompLine={handleCompLine}
+                onChangeSeat={handleChangeSeat}
+                onChangeCourse={handleChangeCourse}
+                seatCount={tab.partySize ?? 1}
               />
 
               {/* Totals */}
@@ -1057,7 +1157,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
 
         {/* ── Cart / Ticket (400px, full height) ─────────── */}
         <div
-          className="flex flex-col min-w-0"
+          className="flex flex-col min-w-0 min-h-0 overflow-hidden"
           style={{
             gridColumn: leftHandMode ? '1' : '3',
             gridRow: '1',
@@ -1131,7 +1231,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
             courseNames={courseNames}
           />
 
-          {/* Order ticket (scrollable cart body) */}
+          {/* Order ticket (scrollable cart body — flex-1 + min-h-0 keeps totals/actions pinned) */}
           <OrderTicket
             tab={tab}
             activeSeat={activeSeat}

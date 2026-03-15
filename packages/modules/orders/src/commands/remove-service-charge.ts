@@ -4,11 +4,12 @@ import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, NotFoundError } from '@oppsera/shared';
 import { orders, orderLines, orderCharges, orderDiscounts } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import type { RemoveServiceChargeInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
-import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
+import { fetchOrderForMutation } from '../helpers/optimistic-lock';
 import { recalculateOrderTotals } from '../helpers/order-totals';
+import { recalculateOrderTaxesAfterDiscount } from '../helpers/recalculate-tax-after-discount';
 
 export async function removeServiceCharge(ctx: RequestContext, orderId: string, input: RemoveServiceChargeInput) {
   if (!ctx.locationId) {
@@ -30,31 +31,37 @@ export async function removeServiceCharge(ctx: RequestContext, orderId: string, 
 
     await tx.delete(orderCharges).where(and(eq(orderCharges.id, input.chargeId), eq(orderCharges.tenantId, ctx.tenantId)));
 
-    // Recalculate totals
-    const [allLines, allCharges, allDiscounts] = await Promise.all([
-      tx.select({
-        lineSubtotal: orderLines.lineSubtotal,
-        lineTax: orderLines.lineTax,
-        lineTotal: orderLines.lineTotal,
-      }).from(orderLines).where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId))),
-      tx.select({
-        amount: orderCharges.amount,
-        taxAmount: orderCharges.taxAmount,
-      }).from(orderCharges).where(and(eq(orderCharges.orderId, orderId), eq(orderCharges.tenantId, ctx.tenantId))),
-      tx.select({
-        amount: orderDiscounts.amount,
-      }).from(orderDiscounts).where(and(eq(orderDiscounts.orderId, orderId), eq(orderDiscounts.tenantId, ctx.tenantId))),
-    ]);
+    // Recalculate totals — use discount-aware helper when order has discounts
+    const existingDiscounts = await tx.select({ amount: orderDiscounts.amount })
+      .from(orderDiscounts)
+      .where(and(eq(orderDiscounts.orderId, orderId), eq(orderDiscounts.tenantId, ctx.tenantId)));
+    const hasDiscounts = existingDiscounts.some((d: { amount: number }) => d.amount > 0);
 
-    const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
+    let totals;
+    if (hasDiscounts) {
+      totals = await recalculateOrderTaxesAfterDiscount(tx, ctx.tenantId, orderId);
+    } else {
+      const [allLines, allCharges] = await Promise.all([
+        tx.select({
+          lineSubtotal: orderLines.lineSubtotal,
+          lineTax: orderLines.lineTax,
+          lineTotal: orderLines.lineTotal,
+        }).from(orderLines).where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId))),
+        tx.select({
+          amount: orderCharges.amount,
+          taxAmount: orderCharges.taxAmount,
+        }).from(orderCharges).where(and(eq(orderCharges.orderId, orderId), eq(orderCharges.tenantId, ctx.tenantId))),
+      ]);
+      totals = recalculateOrderTotals(allLines, allCharges, []);
+    }
 
+    // Combined UPDATE: set totals + increment version in a single DB round-trip
     await tx.update(orders).set({
       ...totals,
+      version: sql`version + 1`,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),
     }).where(and(eq(orders.id, orderId), eq(orders.tenantId, ctx.tenantId)));
-
-    await incrementVersion(tx, orderId, ctx.tenantId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'removeServiceCharge', { chargeId: input.chargeId });
 

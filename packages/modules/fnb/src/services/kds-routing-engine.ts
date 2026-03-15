@@ -623,6 +623,13 @@ export interface KdsLocationResult {
   warning: string | null;
 }
 
+// In-memory cache for resolved KDS locations. Location type (site vs venue)
+// and parent→child relationships change very rarely, so a 60s TTL avoids
+// a DB roundtrip on every POS poll (useStations polls every 5s).
+const KDS_LOC_CACHE_TTL_MS = 60_000;
+const KDS_LOC_CACHE_MAX = 500;
+const kdsLocCache = new Map<string, { result: KdsLocationResult; ts: number }>();
+
 /**
  * Resolves the effective KDS venue for routing and ticket creation.
  *
@@ -633,12 +640,20 @@ export interface KdsLocationResult {
  * If the site has no child venue at all, we return the original ID with
  * a warning — the caller should surface this to the user and direct
  * them to the KDS setup wizard to configure venue stations.
+ *
+ * Results are cached in-memory for 60s to avoid DB pressure from POS polling.
  */
 export async function resolveKdsLocationId(
   tenantId: string,
   locationId: string,
 ): Promise<KdsLocationResult> {
-  return withTenant(tenantId, async (tx) => {
+  const cacheKey = `${tenantId}:${locationId}`;
+  const cached = kdsLocCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < KDS_LOC_CACHE_TTL_MS) {
+    return cached.result;
+  }
+
+  const result = await withTenant(tenantId, async (tx) => {
     // 1. Look up this location's type
     const locRows = await tx.execute(
       sql`SELECT location_type FROM locations
@@ -684,6 +699,16 @@ export async function resolveKdsLocationId(
       warning: 'KDS stations must be configured on a venue. This location is a site with no venue. Please set up venue KDS stations at /kds/setup',
     };
   });
+
+  // Cache result — evict oldest if over capacity
+  kdsLocCache.delete(cacheKey); // Move to end (LRU)
+  if (kdsLocCache.size >= KDS_LOC_CACHE_MAX) {
+    const firstKey = kdsLocCache.keys().next().value;
+    if (firstKey !== undefined) kdsLocCache.delete(firstKey);
+  }
+  kdsLocCache.set(cacheKey, { result, ts: Date.now() });
+
+  return result;
 }
 
 // ── Prep Time Helpers ───────────────────────────────────────────

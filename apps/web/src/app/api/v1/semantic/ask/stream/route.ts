@@ -85,10 +85,12 @@ export const POST = withMiddleware(
       async start(controller) {
         controllerRef = controller;
         const sendEvent = (event: SSEEvent) => {
-          if (cancelled || !controllerRef) return;
+          // Capture ref locally to avoid race between null-check and usage
+          const ctrl = controllerRef;
+          if (cancelled || !ctrl) return;
           const line = `data: ${JSON.stringify(event)}\n\n`;
           try {
-            controllerRef.enqueue(encoder.encode(line));
+            ctrl.enqueue(encoder.encode(line));
           } catch {
             // Stream may already be closed if client disconnected
             cancelled = true;

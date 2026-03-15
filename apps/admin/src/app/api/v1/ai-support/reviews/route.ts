@@ -139,8 +139,8 @@ export const POST = withAdminPermission(async (req: NextRequest, session) => {
 
   const tenantId = msg['tenant_id'] as string;
   const reviewId = generateUlid();
-  const reviewNotes = (body.reviewNotes as string | null) ?? null;
-  const correctedAnswer = (body.correctedAnswer as string | null) ?? null;
+  const reviewNotes = ((body.reviewNotes as string | null) ?? null)?.slice(0, 10_000) ?? null;
+  const correctedAnswer = ((body.correctedAnswer as string | null) ?? null)?.slice(0, 50_000) ?? null;
 
   // Insert review
   await withAdminDb(async (tx) =>
@@ -158,13 +158,14 @@ export const POST = withAdminPermission(async (req: NextRequest, session) => {
     (reviewStatus === 'approved' || reviewStatus === 'edited') &&
     body.questionNormalized
   ) {
-    const questionNormalized = body.questionNormalized as string;
-    const screenKey = (body.screenKey as string | null) ?? null;
-    const moduleKey = (body.moduleKey as string | null) ?? null;
-    const answerText =
+    const questionNormalized = (body.questionNormalized as string).slice(0, 2000);
+    const screenKey = ((body.screenKey as string | null) ?? null)?.slice(0, 200) ?? null;
+    const moduleKey = ((body.moduleKey as string | null) ?? null)?.slice(0, 100) ?? null;
+    const answerText = (
       reviewStatus === 'edited'
         ? correctedAnswer ?? ''
-        : (msg['message_text'] as string);
+        : (msg['message_text'] as string)
+    ).slice(0, 50_000);
     const sourceTier =
       reviewStatus === 'edited'
         ? 'answer_card'

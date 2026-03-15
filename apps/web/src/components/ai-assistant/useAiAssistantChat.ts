@@ -93,12 +93,31 @@ export function useAiAssistantChat() {
     });
     const t = result.data;
     setThread(t);
-    setMessages([]);
+    // Don't clear messages here — sendMessage() manages optimistic messages
+    // and clearing would wipe the user + assistant placeholder already added.
     return t;
   }, [context.route, context.moduleKey]);
 
   const sendMessage = useCallback(async (text: string) => {
+    if (isStreaming) return; // Prevent concurrent sends while a response is in-flight
     setError(null);
+
+    // Add user message + assistant placeholder IMMEDIATELY (before thread creation)
+    // so the typing indicator appears with zero delay.
+    const userMsg: Message = {
+      id: `temp-${Date.now()}`,
+      role: 'user',
+      messageText: text,
+      createdAt: new Date().toISOString(),
+    };
+    const assistantMsg: Message = {
+      id: `temp-assistant-${Date.now()}`,
+      role: 'assistant',
+      messageText: '',
+      createdAt: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, userMsg, assistantMsg]);
+    setIsStreaming(true);
 
     let currentThread = thread;
     if (!currentThread) {
@@ -106,29 +125,13 @@ export function useAiAssistantChat() {
         currentThread = await createThread();
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Failed to start conversation';
+        // Remove the optimistic messages on thread creation failure
+        setMessages(prev => prev.filter(m => m.id !== userMsg.id && m.id !== assistantMsg.id));
+        setIsStreaming(false);
         setError(msg);
         return;
       }
     }
-
-    // Add user message optimistically
-    const userMsg: Message = {
-      id: `temp-${Date.now()}`,
-      role: 'user',
-      messageText: text,
-      createdAt: new Date().toISOString(),
-    };
-    setMessages(prev => [...prev, userMsg]);
-
-    // Add placeholder assistant message
-    const assistantMsg: Message = {
-      id: `temp-assistant-${Date.now()}`,
-      role: 'assistant',
-      messageText: '',
-      createdAt: new Date().toISOString(),
-    };
-    setMessages(prev => [...prev, assistantMsg]);
-    setIsStreaming(true);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -164,17 +167,9 @@ export function useAiAssistantChat() {
             void closeThreadOnServer(currentThread.id);
           }
 
-          // Snapshot messages before createThread() clears state.
-          // Use a state-getter pattern to capture the latest state.
-          let previousMessages: Message[] = [];
-          setMessages(prev => { previousMessages = prev; return prev; });
-
-          // Create a fresh thread (this clears messages internally)
+          // Create a fresh thread — messages are preserved (createThread no longer clears them)
           const freshThread = await createThread();
           currentThread = freshThread;
-
-          // Restore the full conversation history so the user doesn't lose context
-          setMessages(previousMessages);
 
           const retryRes = await authStreamFetch(
             `/api/v1/ai-support/threads/${freshThread.id}/messages`,
@@ -320,7 +315,7 @@ export function useAiAssistantChat() {
       setIsStreaming(false);
       abortRef.current = null;
     }
-  }, [thread, createThread, context, closeThreadOnServer]);
+  }, [thread, createThread, context, closeThreadOnServer, isStreaming]);
 
   const stopStreaming = useCallback(() => {
     if (abortRef.current) {

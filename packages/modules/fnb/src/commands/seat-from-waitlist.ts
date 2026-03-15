@@ -5,6 +5,7 @@ import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { sql } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
 import type { SeatFromWaitlistInput } from '../validation';
+import { assertSingleVenueLocation, withEffectiveLocationId } from '../helpers/venue-location';
 
 export async function seatFromWaitlist(
   ctx: RequestContext,
@@ -28,9 +29,9 @@ export async function seatFromWaitlist(
       throw new AppError('INVALID_STATUS', `Cannot seat entry with status '${entry.status}'`, 409);
     }
 
-    // Verify table is available
+    // Verify table is available and resolve its venue location
     const tableRows = await tx.execute(sql`
-      SELECT ls.status, t.capacity_max, t.display_label
+      SELECT ls.status, t.capacity_max, t.display_label, t.location_id
       FROM fnb_tables t
       LEFT JOIN fnb_table_live_status ls ON ls.table_id = t.id AND ls.tenant_id = t.tenant_id
       WHERE t.id = ${input.tableId} AND t.tenant_id = ${ctx.tenantId}
@@ -41,6 +42,10 @@ export async function seatFromWaitlist(
     if (table.status && !seatbleStatuses.has(String(table.status))) {
       throw new AppError('TABLE_OCCUPIED', 'Table is not available', 409);
     }
+    const venueLocationId = assertSingleVenueLocation(
+      [table.location_id as string | null],
+      'table',
+    );
 
     const now = new Date();
     const addedAt = new Date(String(entry.added_at));
@@ -52,7 +57,7 @@ export async function seatFromWaitlist(
       const rotationRows = await tx.execute(sql`
         SELECT next_server_user_id FROM fnb_rotation_tracker
         WHERE tenant_id = ${ctx.tenantId}
-          AND location_id = ${ctx.locationId}
+          AND location_id = ${venueLocationId}
           AND business_date = ${now.toISOString().slice(0, 10)}
         LIMIT 1
       `);
@@ -94,7 +99,7 @@ export async function seatFromWaitlist(
         party_size, quoted_wait_minutes, actual_wait_minutes,
         seating_preference, day_of_week, hour_of_day, was_reservation
       ) VALUES (
-        gen_random_uuid()::text, ${ctx.tenantId}, ${ctx.locationId},
+        gen_random_uuid()::text, ${ctx.tenantId}, ${venueLocationId},
         ${now.toISOString().slice(0, 10)},
         ${Number(entry.party_size)}, ${entry.quoted_wait_minutes ?? null}, ${actualWaitMinutes},
         ${entry.seating_preference ?? null}, ${now.getDay()}, ${now.getHours()}, false
@@ -107,7 +112,7 @@ export async function seatFromWaitlist(
         SELECT id, ROW_NUMBER() OVER (ORDER BY priority DESC, added_at ASC) AS new_pos
         FROM fnb_waitlist_entries
         WHERE tenant_id = ${ctx.tenantId}
-          AND location_id = ${ctx.locationId}
+          AND location_id = ${venueLocationId}
           AND business_date = ${now.toISOString().slice(0, 10)}
           AND status = 'waiting'
       )
@@ -117,7 +122,8 @@ export async function seatFromWaitlist(
       WHERE w.id = ranked.id
     `);
 
-    const event = buildEventFromContext(ctx, 'fnb.waitlist.seated.v1', {
+    const effectiveCtx = withEffectiveLocationId(ctx, venueLocationId);
+    const event = buildEventFromContext(effectiveCtx, 'fnb.waitlist.seated.v1', {
       waitlistEntryId: entryId,
       tableId: input.tableId,
       tableLabel: String(table.display_label),

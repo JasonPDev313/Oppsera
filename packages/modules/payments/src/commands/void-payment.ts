@@ -3,7 +3,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
-import { paymentIntents, paymentTransactions } from '@oppsera/db';
+import { withTenant, paymentIntents, paymentTransactions } from '@oppsera/db';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import type { VoidPaymentInput } from '../gateway-validation';
 import type { PaymentIntentResult } from '../types/gateway-results';
@@ -19,6 +19,24 @@ export async function voidPayment(
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
   }
+
+  // Pre-read intent locationId for provider resolution (outside transaction — read-only)
+  const [intentForProvider] = await withTenant(ctx.tenantId, async (rtx) =>
+    rtx
+      .select({ locationId: paymentIntents.locationId })
+      .from(paymentIntents)
+      .where(and(eq(paymentIntents.id, input.paymentIntentId), eq(paymentIntents.tenantId, ctx.tenantId)))
+      .limit(1),
+  );
+  if (!intentForProvider) {
+    throw new AppError('PAYMENT_INTENT_NOT_FOUND', 'Payment intent not found', 404);
+  }
+
+  // Resolve provider OUTSIDE the transaction to avoid holding two pool connections
+  const { provider, merchantId } = await resolveProvider(
+    ctx.tenantId,
+    intentForProvider.locationId,
+  );
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     // 1. Load payment intent with FOR UPDATE lock (prevents concurrent void race)
@@ -42,7 +60,7 @@ export async function voidPayment(
 
     // 2. Idempotency — if already voided, return existing result (double-click safe)
     if (intent.status === 'voided') {
-      return { result: mapIntentToResult(intent, null), events: [] };
+      return { result: mapIntentToResult(intent, null, null), events: [] };
     }
 
     // 3. Validate status — can void from authorized or captured (pre-settlement only)
@@ -65,19 +83,13 @@ export async function voidPayment(
       throw new AppError('NO_PROVIDER_REF', 'No provider reference found for this payment', 422);
     }
 
-    // 5. Resolve provider
-    const { provider, merchantId } = await resolveProvider(
-      ctx.tenantId,
-      intent.locationId,
-    );
-
-    // 6. Call provider void
+    // 5. Call provider void (provider resolved outside transaction)
     const voidResponse = await provider.void({
       merchantId,
       providerRef: latestTxn.providerRef,
     });
 
-    // 7. Interpret response
+    // 6. Interpret response
     const interpretation = interpretResponse({
       responseCode: voidResponse.responseCode || null,
       responseText: voidResponse.responseText || null,
@@ -87,7 +99,7 @@ export async function voidPayment(
       rawResponse: voidResponse.rawResponse as Record<string, unknown>,
     });
 
-    // 8. Insert payment transaction
+    // 7. Insert payment transaction
     await tx.insert(paymentTransactions).values({
       tenantId: ctx.tenantId,
       paymentIntentId: intent.id,
@@ -106,7 +118,7 @@ export async function voidPayment(
       processor: interpretation.processor,
     });
 
-    // 9. Update intent
+    // 8. Update intent
     let newStatus: string;
     let errorMessage: string | null = null;
 
@@ -127,7 +139,7 @@ export async function voidPayment(
       .where(and(eq(paymentIntents.id, intent.id), eq(paymentIntents.tenantId, ctx.tenantId)))
       .returning();
 
-    // 10. Build event
+    // 9. Build event
     if (voidResponse.status === 'approved') {
       const event = buildEventFromContext(ctx, PAYMENT_GATEWAY_EVENTS.VOIDED, {
         paymentIntentId: intent.id,
@@ -138,17 +150,21 @@ export async function voidPayment(
         customerId: intent.customerId,
         providerRef: voidResponse.providerRef,
       });
-      return { result: mapIntentToResult(updated!, interpretation), events: [event] };
+      return { result: mapIntentToResult(updated!, voidResponse.providerRef, interpretation), events: [event] };
     }
 
-    return { result: mapIntentToResult(updated!, interpretation), events: [] };
+    return { result: mapIntentToResult(updated!, voidResponse.providerRef, interpretation), events: [] };
   });
 
   auditLogDeferred(ctx, 'payment.voided', 'payment_intent', result.id);
   return result;
 }
 
-function mapIntentToResult(intent: typeof paymentIntents.$inferSelect, interpretation?: ResponseInterpretation | null): PaymentIntentResult {
+function mapIntentToResult(
+  intent: typeof paymentIntents.$inferSelect,
+  providerRef: string | null,
+  interpretation?: ResponseInterpretation | null,
+): PaymentIntentResult {
   return {
     id: intent.id,
     tenantId: intent.tenantId,
@@ -163,7 +179,7 @@ function mapIntentToResult(intent: typeof paymentIntents.$inferSelect, interpret
     customerId: intent.customerId ?? null,
     cardLast4: intent.cardLast4 ?? null,
     cardBrand: intent.cardBrand ?? null,
-    providerRef: null,
+    providerRef: providerRef ?? null,
     errorMessage: intent.errorMessage ?? null,
     userMessage: interpretation?.userMessage ?? null,
     suggestedAction: interpretation?.suggestedAction ?? null,

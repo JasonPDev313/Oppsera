@@ -5,7 +5,9 @@ import { db, aiSupportAnswerCards } from '@oppsera/db';
 
 const EMBEDDING_MODEL = 'text-embedding-3-small';
 const EMBEDDING_DIMENSIONS = 1536;
-const SUMMARY_MODEL = 'claude-haiku-4-5-20251001';
+import { FAST_MODEL_ID } from '../constants';
+
+const SUMMARY_MODEL = FAST_MODEL_ID;
 /** Max cards to embed per batch invocation (Vercel-safe). */
 const BATCH_SIZE = 10;
 

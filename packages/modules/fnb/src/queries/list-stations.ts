@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import type { ListStationsFilterInput } from '../validation';
+import { resolveKdsLocationId } from '../services/kds-routing-engine';
 
 export interface StationListItem {
   id: string;
@@ -22,10 +23,14 @@ export interface StationListItem {
 export async function listStations(
   input: ListStationsFilterInput,
 ): Promise<StationListItem[]> {
+  // Resolve site → venue so queries find venue-scoped stations
+  const kdsLocation = await resolveKdsLocationId(input.tenantId, input.locationId);
+  const effectiveLocationId = kdsLocation.warning ? input.locationId : kdsLocation.locationId;
+
   return withTenant(input.tenantId, async (tx) => {
     const conditions: ReturnType<typeof sql>[] = [
       sql`tenant_id = ${input.tenantId}`,
-      sql`location_id = ${input.locationId}`,
+      sql`location_id = ${effectiveLocationId}`,
     ];
 
     if (input.stationType) {

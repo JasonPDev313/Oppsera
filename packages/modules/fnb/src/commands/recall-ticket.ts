@@ -123,7 +123,8 @@ export async function recallTicket(
       ));
 
     const events = [];
-    const locationId = ticket.locationId ?? ctx.locationId;
+    // ticket.locationId is always set (venue-resolved at creation) — never fall back to ctx.locationId (could be site)
+    const locationId = ticket.locationId!
 
     // Revert ticket status to in_progress if it was ready/served
     if (ticket.status === 'served' || ticket.status === 'ready') {

@@ -1,5 +1,6 @@
 import { db, aiAssistantMessages, aiAssistantThreads } from '@oppsera/db';
 import { eq, and, asc } from 'drizzle-orm';
+import { FAST_MODEL_ID } from '../constants';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ async function callHaikuSummarize(transcript: string): Promise<string | null> {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: FAST_MODEL_ID,
       max_tokens: 256,
       messages: [userMessage],
     }),

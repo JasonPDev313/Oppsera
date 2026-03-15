@@ -2,14 +2,23 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
-import { listStations, createStation, createStationSchema } from '@oppsera/module-fnb';
+import { listStations, createStation, createStationSchema, resolveKdsLocationId } from '@oppsera/module-fnb';
 
 // GET /api/v1/fnb/stations — list stations
-// KDS stations are always at the venue level — no hierarchy resolution needed.
+// KDS stations live at venues. If the caller sends a site ID, resolve to
+// its child venue so the POS station check matches server-side dispatch.
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
-    const locationId = ctx.locationId ?? url.searchParams.get('locationId') ?? '';
+    const rawLocationId = ctx.locationId ?? url.searchParams.get('locationId') ?? '';
+
+    // Resolve site → venue so callers at a site still see venue stations
+    let locationId = rawLocationId;
+    if (rawLocationId) {
+      const kdsLoc = await resolveKdsLocationId(ctx.tenantId, rawLocationId);
+      locationId = kdsLoc.locationId;
+    }
+
     const stations = await listStations({
       tenantId: ctx.tenantId,
       locationId,

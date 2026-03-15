@@ -19,6 +19,9 @@ import {
   ShieldAlert,
   Clock,
   Compass,
+  ArrowUp,
+  ArrowDown,
+  Minus,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -73,19 +76,21 @@ function RiskBadge({ level }: { level: string }) {
 }
 
 function ScoreRing({ score }: { score: number }) {
+  // Display as health score (higher = better): 100 - riskScore
+  const health = 100 - score;
   const color =
-    score >= 75 ? 'text-red-400' :
-    score >= 50 ? 'text-orange-400' :
-    score >= 30 ? 'text-amber-400' :
-    'text-emerald-400';
+    health >= 70 ? 'text-emerald-400' :
+    health >= 50 ? 'text-amber-400' :
+    health >= 25 ? 'text-orange-400' :
+    'text-red-400';
   const bg =
-    score >= 75 ? 'bg-red-500/10 border-red-500/30' :
-    score >= 50 ? 'bg-orange-500/10 border-orange-500/30' :
-    score >= 30 ? 'bg-amber-500/10 border-amber-500/30' :
-    'bg-emerald-500/10 border-emerald-500/30';
+    health >= 70 ? 'bg-emerald-500/10 border-emerald-500/30' :
+    health >= 50 ? 'bg-amber-500/10 border-amber-500/30' :
+    health >= 25 ? 'bg-orange-500/10 border-orange-500/30' :
+    'bg-red-500/10 border-red-500/30';
   return (
     <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full border ${bg}`}>
-      <span className={`text-sm font-bold ${color}`}>{score}</span>
+      <span className={`text-sm font-bold ${color}`}>{health}</span>
     </div>
   );
 }
@@ -105,6 +110,38 @@ function SignalBar({ label, score, icon: Icon, color }: { label: string; score: 
       </div>
       <span className="w-7 text-right text-slate-500">{score}</span>
     </div>
+  );
+}
+
+function NeverActiveBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/30">
+      <Clock size={10} />
+      Never Active
+    </span>
+  );
+}
+
+function TrendArrow({ current, previous }: { current: number; previous: number | null }) {
+  if (previous == null) return null;
+  // Compare health scores (100 - risk), so improving health = good
+  const currentHealth = 100 - current;
+  const previousHealth = 100 - previous;
+  const delta = currentHealth - previousHealth;
+  if (Math.abs(delta) < 3) {
+    return <Minus size={12} className="text-slate-500" />;
+  }
+  if (delta > 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-400" title={`+${delta} from last run`}>
+        <ArrowUp size={12} />
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[10px] text-red-400" title={`${delta} from last run`}>
+      <ArrowDown size={12} />
+    </span>
   );
 }
 
@@ -180,17 +217,23 @@ function AttritionRow({
           {expanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
         </td>
         <td className="px-4 py-3">
-          <ScoreRing score={item.overallScore} />
+          <div className="flex items-center gap-1.5">
+            <ScoreRing score={item.overallScore} />
+            <TrendArrow current={item.overallScore} previous={item.previousScore} />
+          </div>
         </td>
         <td className="px-4 py-3"><RiskBadge level={item.riskLevel} /></td>
         <td className="px-4 py-3">
-          <Link
-            href={`/tenants/${item.tenantId}`}
-            className="text-sm text-slate-200 font-medium hover:text-indigo-400 transition-colors"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {item.tenantName}
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/tenants/${item.tenantId}`}
+              className="text-sm text-slate-200 font-medium hover:text-indigo-400 transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {item.tenantName}
+            </Link>
+            {!item.lastActivityAt && <NeverActiveBadge />}
+          </div>
           <p className="text-xs text-slate-500 mt-0.5">
             {item.industry ?? 'general'} &middot; {item.totalLocations} loc &middot; {item.totalUsers} users &middot; {item.activeModules} modules
           </p>
@@ -412,7 +455,7 @@ export default function AttritionPage() {
             Attrition Risk Monitor
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Smart scoring across 8 signals — identify tenants at risk of churning before it happens.
+            Health scoring across 8 signals — higher is better. Identify tenants at risk before they churn.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -510,7 +553,7 @@ export default function AttritionPage() {
             <thead>
               <tr className="border-b border-slate-700 bg-slate-800/50">
                 <th className="w-8 px-4 py-3" />
-                <th className="text-left px-4 py-3 font-medium text-slate-400">Score</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-400">Health</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-400">Risk</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-400">Tenant</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-400">Top Signals</th>

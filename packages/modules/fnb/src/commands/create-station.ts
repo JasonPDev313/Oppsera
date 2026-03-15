@@ -1,14 +1,16 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbKitchenStations } from '@oppsera/db';
+import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { CreateStationInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { DuplicateStationNameError } from '../errors';
-import { ValidationError } from '@oppsera/shared';
+import { resolveKdsLocationId } from '../services/kds-routing-engine';
+import { withEffectiveLocationId } from '../helpers/venue-location';
 
 export async function createStation(
   ctx: RequestContext,
@@ -22,7 +24,16 @@ export async function createStation(
   if (crit <= warn) {
     throw new Error('Critical threshold must be greater than warning threshold.');
   }
-  const result = await publishWithOutbox(ctx, async (tx) => {
+
+  // Pre-transaction: resolve site → venue (KDS stations are ONLY on venues)
+  const kdsLocation = await resolveKdsLocationId(ctx.tenantId, ctx.locationId);
+  if (kdsLocation.warning) {
+    throw new AppError('VENUE_REQUIRED', kdsLocation.warning, 400);
+  }
+  const effectiveLocationId = kdsLocation.locationId;
+
+  const effectiveCtx = withEffectiveLocationId(ctx, effectiveLocationId);
+  const result = await publishWithOutbox(effectiveCtx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'createStation',
     );
@@ -30,27 +41,13 @@ export async function createStation(
       return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    // Block station creation at a site that has venues — stations belong at the venue level
-    const venueRows = await tx.execute(
-      sql`SELECT 1 FROM locations
-          WHERE parent_location_id = ${ctx.locationId} AND tenant_id = ${ctx.tenantId}
-            AND location_type = 'venue'
-          LIMIT 1`,
-    );
-    if (Array.from(venueRows as Iterable<unknown>).length > 0) {
-      throw new ValidationError(
-        'This site has venues — create KDS stations at the venue level instead',
-        [{ field: 'locationId', message: 'Cannot create stations at a site that has venues' }],
-      );
-    }
-
-    // Check for duplicate name at this location
+    // Check for duplicate name at this venue
     const [existing] = await tx
       .select()
       .from(fnbKitchenStations)
       .where(and(
         eq(fnbKitchenStations.tenantId, ctx.tenantId),
-        eq(fnbKitchenStations.locationId, ctx.locationId!),
+        eq(fnbKitchenStations.locationId, effectiveLocationId),
         eq(fnbKitchenStations.name, input.name),
       ))
       .limit(1);
@@ -67,7 +64,7 @@ export async function createStation(
       .insert(fnbKitchenStations)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId!,
+        locationId: effectiveLocationId,
         name: input.name,
         displayName: input.displayName,
         stationType: input.stationType ?? 'prep',
@@ -84,9 +81,9 @@ export async function createStation(
       })
       .returning();
 
-    const event = buildEventFromContext(ctx, FNB_EVENTS.STATION_CREATED, {
+    const event = buildEventFromContext(effectiveCtx, FNB_EVENTS.STATION_CREATED, {
       stationId: created!.id,
-      locationId: ctx.locationId,
+      locationId: effectiveLocationId,
       name: input.name,
       stationType: input.stationType ?? 'prep',
     });

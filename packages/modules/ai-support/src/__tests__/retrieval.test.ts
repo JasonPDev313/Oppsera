@@ -24,10 +24,18 @@ vi.mock('drizzle-orm', () => ({
   eq: vi.fn((field, val) => ({ field, val, op: 'eq' })),
   and: vi.fn((...conditions) => ({ conditions, op: 'and' })),
   ilike: vi.fn((field, pattern) => ({ field, pattern, op: 'ilike' })),
+  sql: Object.assign(
+    vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values, op: 'sql' })),
+    { raw: vi.fn((val: string) => ({ val, op: 'sql_raw' })) },
+  ),
 }));
 
 vi.mock('../services/embedding-pipeline', () => ({
   semanticSearch: mockSemanticSearch,
+}));
+
+vi.mock('../services/card-embeddings', () => ({
+  vectorSearchAnswerCards: vi.fn().mockResolvedValue([]),
 }));
 
 // ── Import after mocks ─────────────────────────────────────────────────────

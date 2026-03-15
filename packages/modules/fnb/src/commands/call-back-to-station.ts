@@ -108,7 +108,7 @@ export async function callBackToStation(
       ticketItemId: input.ticketItemId,
       ticketId: item.ticketId,
       stationId: input.stationId,
-      locationId: ticket?.locationId ?? ctx.locationId,
+      locationId: ticket!.locationId,
       reason: input.reason ?? null,
     });
 

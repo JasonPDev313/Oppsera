@@ -44,7 +44,7 @@ export const addLineItemSchema = z.object({
 export type AddLineItemInput = z.input<typeof addLineItemSchema>;
 
 export const addLineItemsBatchSchema = z.object({
-  items: z.array(addLineItemSchema).min(1).max(50),
+  items: z.array(addLineItemSchema).min(1).max(200),
 });
 export type AddLineItemsBatchInput = z.input<typeof addLineItemsBatchSchema>;
 
@@ -73,7 +73,7 @@ export type RemoveServiceChargeInput = z.infer<typeof removeServiceChargeSchema>
 export const applyDiscountSchema = z.object({
   ...idempotencyMixin,
   type: z.enum(['percentage', 'fixed']),
-  value: z.number().positive(),
+  value: z.number().int().positive(),
   reason: z.string().max(500).optional(),
   discountClassification: z.enum([
     'manual_discount', 'promo_code', 'employee_discount', 'loyalty_discount',

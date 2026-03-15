@@ -118,6 +118,7 @@ export const FNB_EVENTS = {
   TAB_ITEM_COMPED: 'fnb.tab_item.comped.v1',
   TAB_ITEM_PRICE_CHANGED: 'fnb.tab_item.price_changed.v1',
   TAB_ITEM_DELETED: 'fnb.tab_item.deleted.v1',
+  TAB_ITEM_MOVED: 'fnb.tab_item.moved.v1',
 } as const;
 
 // ── Session 1 Payloads ─────────────────────────────────────────

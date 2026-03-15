@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { BookOpen, FileSpreadsheet, ArrowRightLeft, Repeat, FileBarChart } from 'lucide-react';
@@ -28,10 +28,19 @@ export default function GLContent() {
   );
 }
 
+const validTabIds = new Set(tabs.map((t) => t.id));
+
 function GLContentInner() {
   const searchParams = useSearchParams();
-  const initialTab = searchParams.get('tab') || 'chart-of-accounts';
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState('chart-of-accounts');
+
+  // Sync tab from URL after mount to avoid hydration mismatch
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && validTabIds.has(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   return (
     <AccountingSectionLayout

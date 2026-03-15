@@ -10,7 +10,6 @@ import type { PaymentIntentResult } from '../types/gateway-results';
 import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition, type PaymentIntentStatus } from '../events/gateway-types';
 import { resolveProvider } from '../helpers/resolve-provider';
 import { centsToDollars, dollarsToCents, generateProviderOrderId, extractCardLast4, detectCardBrand } from '../helpers/amount';
-import { CardPointeTimeoutError } from '../providers/cardpointe/client';
 import { interpretResponse } from '../services/response-interpreter';
 import type { ResponseInterpretation } from '../services/response-interpreter';
 
@@ -130,48 +129,10 @@ export async function salePayment(
         capturedAmountCents = dollarsToCents(saleResponse.amount);
       }
     } catch (err) {
-      if (err instanceof CardPointeTimeoutError) {
-        // Timeout recovery: inquire → void 3x → unknown_at_gateway
-        let recovered = false;
-        let voidSucceeded = false;
-
-        try {
-          const inquireResult = await provider.inquireByOrderId(providerOrderId, merchantId);
-          if (inquireResult) {
-            providerRef = inquireResult.providerRef;
-            txnStatus = inquireResult.status;
-            authCode = inquireResult.authCode;
-            responseCode = inquireResult.responseCode;
-            responseText = inquireResult.responseText;
-            rawResponse = inquireResult.rawResponse;
-            if (inquireResult.status === 'approved') {
-              capturedAmountCents = dollarsToCents(inquireResult.amount);
-            }
-            recovered = true;
-          }
-        } catch {
-          // Inquire failed
-        }
-
-        if (!recovered) {
-          for (let attempt = 0; attempt < 3; attempt++) {
-            try {
-              await provider.voidByOrderId({ merchantId, orderId: providerOrderId });
-              voidSucceeded = true;
-              break;
-            } catch { /* retry */ }
-          }
-
-          if (voidSucceeded) {
-            responseText = 'Sale timed out — safely voided at gateway';
-          } else {
-            responseText = 'Sale timed out and could not be recovered — status unknown at gateway';
-          }
-        }
-      } else {
-        txnStatus = 'error';
-        responseText = err instanceof Error ? err.message : 'Unknown provider error';
-      }
+      // Provider handles timeout recovery internally (inquire → void → retry status).
+      // If an error still reaches here, it's a non-recoverable failure.
+      txnStatus = 'error';
+      responseText = err instanceof Error ? err.message : 'Unknown provider error';
     }
 
     // 4. Interpret response
@@ -252,48 +213,49 @@ export async function salePayment(
       .where(and(eq(paymentIntents.id, intent!.id), eq(paymentIntents.tenantId, ctx.tenantId)))
       .returning();
 
-    // 7. Build event — ACH uses ACH_ORIGINATED instead of CAPTURED
-    let eventType: string;
-    if (txnStatus === 'approved') {
-      eventType = isAch
-        ? PAYMENT_GATEWAY_EVENTS.ACH_ORIGINATED
-        : PAYMENT_GATEWAY_EVENTS.CAPTURED;
-    } else {
-      eventType = PAYMENT_GATEWAY_EVENTS.DECLINED;
+    // 7. Build event — only emit for approved or declined, not error/retry/unknown
+    const events = [];
+    if (txnStatus === 'approved' || txnStatus === 'declined') {
+      let eventType: string;
+      if (txnStatus === 'approved') {
+        eventType = isAch
+          ? PAYMENT_GATEWAY_EVENTS.ACH_ORIGINATED
+          : PAYMENT_GATEWAY_EVENTS.CAPTURED;
+      } else {
+        eventType = PAYMENT_GATEWAY_EVENTS.DECLINED;
+      }
+
+      const eventPayload: Record<string, unknown> = {
+        paymentIntentId: intent!.id,
+        tenantId: ctx.tenantId,
+        locationId: ctx.locationId,
+        merchantAccountId,
+        amountCents: totalCents,
+        currency: input.currency ?? 'USD',
+        orderId: input.orderId ?? null,
+        customerId: input.customerId ?? null,
+        providerRef,
+        paymentMethodType: input.paymentMethodType ?? 'card',
+        surchargeAmountCents: input.surchargeAmountCents ?? 0,
+        responseCode,
+        responseText,
+      };
+
+      if (isAch) {
+        eventPayload.achSecCode = input.achSecCode ?? null;
+        eventPayload.achAccountType = input.achAccountType ?? null;
+        eventPayload.bankLast4 = input.token ? input.token.slice(-4) : null;
+      } else {
+        eventPayload.capturedAmountCents = capturedAmountCents ?? 0;
+        eventPayload.authorizedAmountCents = capturedAmountCents ?? 0;
+        eventPayload.cardLast4 = cardLast4;
+        eventPayload.cardBrand = cardBrand;
+      }
+
+      events.push(buildEventFromContext(ctx, eventType, eventPayload));
     }
 
-    const eventPayload: Record<string, unknown> = {
-      paymentIntentId: intent!.id,
-      tenantId: ctx.tenantId,
-      locationId: ctx.locationId,
-      merchantAccountId,
-      amountCents: totalCents,
-      currency: input.currency ?? 'USD',
-      orderId: input.orderId ?? null,
-      customerId: input.customerId ?? null,
-      providerRef,
-      paymentMethodType: input.paymentMethodType ?? 'card',
-      surchargeAmountCents: input.surchargeAmountCents ?? 0,
-      responseCode,
-      responseText,
-    };
-
-    if (isAch) {
-      // ACH-specific event payload
-      eventPayload.achSecCode = input.achSecCode ?? null;
-      eventPayload.achAccountType = input.achAccountType ?? null;
-      eventPayload.bankLast4 = input.token ? input.token.slice(-4) : null;
-    } else {
-      // Card-specific event payload
-      eventPayload.capturedAmountCents = capturedAmountCents ?? 0;
-      eventPayload.authorizedAmountCents = capturedAmountCents ?? 0;
-      eventPayload.cardLast4 = cardLast4;
-      eventPayload.cardBrand = cardBrand;
-    }
-
-    const event = buildEventFromContext(ctx, eventType, eventPayload);
-
-    return { result: mapIntentToResult(updated!, providerRef, interpretation), events: [event] };
+    return { result: mapIntentToResult(updated!, providerRef, interpretation), events };
   });
 
   auditLogDeferred(ctx, 'payment.sale', 'payment_intent', result.id);

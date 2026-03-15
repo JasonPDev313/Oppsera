@@ -138,6 +138,7 @@ interface UseFnbTabReturn {
   updateLinePrice: (itemId: string, newPriceCents: number, reason: string) => Promise<void>;
   updateLineNote: (itemId: string, specialInstructions: string | null) => Promise<void>;
   deleteLine: (itemId: string) => Promise<void>;
+  moveLineSeatCourse: (itemId: string, seatNumber?: number, courseNumber?: number) => Promise<void>;
   isActing: boolean;
 }
 
@@ -418,6 +419,17 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true, 
     }));
   }, [tabId, act]);
 
+  const moveLineSeatCourseFn = useCallback(async (itemId: string, seatNumber?: number, courseNumber?: number) => {
+    if (!tabId) return;
+    const body: Record<string, unknown> = { clientRequestId: crypto.randomUUID() };
+    if (seatNumber !== undefined) body.seatNumber = seatNumber;
+    if (courseNumber !== undefined) body.courseNumber = courseNumber;
+    await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/items/${itemId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }));
+  }, [tabId, act]);
+
   return {
     tab,
     isLoading,
@@ -437,6 +449,7 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true, 
     updateLinePrice: updateLinePriceFn,
     updateLineNote: updateLineNoteFn,
     deleteLine: deleteLineFn,
+    moveLineSeatCourse: moveLineSeatCourseFn,
     isActing,
   };
 }

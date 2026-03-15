@@ -60,7 +60,7 @@ export const GET = withAdminPermission(async (_req: NextRequest) => {
   }));
 
   return NextResponse.json({ data: { items } });
-}, { permission: 'ai_support.answers.read' });
+}, { permission: 'ai_support.admin' });
 
 // ── POST /api/v1/ai-support/proactive-rules ───────────────────────────
 // Create a new proactive rule
@@ -150,4 +150,4 @@ export const POST = withAdminPermission(async (req: NextRequest) => {
     },
     { status: 201 },
   );
-}, { permission: 'ai_support.answers.write' });
+}, { permission: 'ai_support.admin' });

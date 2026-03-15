@@ -78,6 +78,9 @@ export const locations = pgTable(
     isLegalEntity: boolean('is_legal_entity').notNull().default(false),
     consolidationGroup: text('consolidation_group'),
 
+    // ── Default tax group (migration 0333) ──
+    defaultTaxGroupId: text('default_tax_group_id'),
+
     // ── Location gap fields (migration 0042) ──
     phone: text('phone'),
     email: text('email'),

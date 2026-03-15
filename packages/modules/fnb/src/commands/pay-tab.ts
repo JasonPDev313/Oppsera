@@ -239,6 +239,49 @@ export async function payTab(
       );
     }
 
+    // ── 2b. Track seat payments in split_details ──────────────────
+    let cumulativePaidSeats: number[] | undefined;
+    if (input.seatNumbers && input.seatNumbers.length > 0) {
+      // Read existing split_details (may have prior seat payments)
+      const detailRows = await tx.execute(
+        sql`SELECT split_details FROM fnb_payment_sessions
+            WHERE id = ${sessionId} AND tenant_id = ${ctx.tenantId}`,
+      );
+      const detailArr = Array.from(detailRows as Iterable<Record<string, unknown>>);
+      const existing = (detailArr[0]?.split_details as Record<string, unknown>) ?? {};
+      const priorPaidSeats = (existing.paidSeats as number[]) ?? [];
+      const priorSeatPayments = (existing.seatPayments as Array<Record<string, unknown>>) ?? [];
+
+      // Guard: reject seats that have already been paid (prevents double-pay from concurrent terminals)
+      const alreadyPaid = input.seatNumbers.filter((s) => priorPaidSeats.includes(s));
+      if (alreadyPaid.length > 0) {
+        throw new AppError(
+          'SEATS_ALREADY_PAID',
+          `Seat${alreadyPaid.length > 1 ? 's' : ''} ${alreadyPaid.join(', ')} already paid`,
+          409,
+        );
+      }
+
+      const updatedPaidSeats = [...new Set([...priorPaidSeats, ...input.seatNumbers])];
+      cumulativePaidSeats = updatedPaidSeats;
+      const updatedSeatPayments = [
+        ...priorSeatPayments,
+        { seatNumbers: input.seatNumbers, tenderId, amountCents: input.amountCents },
+      ];
+
+      await tx.execute(
+        sql`UPDATE fnb_payment_sessions
+            SET split_strategy = 'by_seat',
+                split_details = ${JSON.stringify({
+                  ...existing,
+                  paidSeats: updatedPaidSeats,
+                  seatPayments: updatedSeatPayments,
+                })}::jsonb,
+                updated_at = NOW()
+            WHERE id = ${sessionId} AND tenant_id = ${ctx.tenantId}`,
+      );
+    }
+
     // Emit TENDER_APPLIED event
     events.push(buildEventFromContext(ctx, FNB_EVENTS.TENDER_APPLIED, {
       paymentSessionId: sessionId,
@@ -313,6 +356,7 @@ export async function payTab(
       sessionStatus,
       changeCents: input.changeCents ?? 0,
       isFullyPaid,
+      ...(cumulativePaidSeats ? { paidSeats: cumulativePaidSeats } : {}),
     };
 
     if (input.clientRequestId) {

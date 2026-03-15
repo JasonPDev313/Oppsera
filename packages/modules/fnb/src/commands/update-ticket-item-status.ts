@@ -67,17 +67,20 @@ export async function updateTicketItemStatus(
       ))
       .returning();
 
-    // Look up the ticket for locationId
+    // Look up the ticket for locationId + location guard
     const [ticket] = await tx
       .select()
       .from(fnbKitchenTickets)
-      .where(eq(fnbKitchenTickets.id, item.ticketId))
+      .where(and(
+        eq(fnbKitchenTickets.id, item.ticketId),
+        eq(fnbKitchenTickets.tenantId, ctx.tenantId),
+      ))
       .limit(1);
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.TICKET_ITEM_STATUS_CHANGED, {
       ticketItemId: itemId,
       ticketId: item.ticketId,
-      locationId: ticket?.locationId ?? ctx.locationId,
+      locationId: ticket!.locationId,
       oldStatus: item.itemStatus,
       newStatus: input.itemStatus,
     });

@@ -49,16 +49,23 @@ function extractLast4(token: string): string | null {
 }
 
 /**
- * Detect card brand from the first digit of the token.
- * CardPointe tokens preserve the leading digit.
+ * Detect card brand from the BIN digits of a CardSecure token.
+ * CardSecure tokens start with '9' followed by the first 2 BIN digits,
+ * so we skip the leading '9' before inspecting.
  */
 function detectBrandFromToken(token: string): string | null {
-  if (!token || token.length < 1) return null;
-  const first = token[0];
+  if (!token || token.length < 2) return null;
+  const bin = token.slice(1); // skip leading '9'
+  const first = bin.charAt(0);
+  const first2 = bin.slice(0, 2);
+  const first2Num = parseInt(first2, 10);
+  const first4 = bin.slice(0, 4);
+  const first4Num = parseInt(first4.padEnd(4, '0'), 10);
   if (first === '4') return 'visa';
-  if (first === '5') return 'mastercard';
-  if (first === '3') return 'amex';
-  if (first === '6') return 'discover';
+  if (first2 === '34' || first2 === '37') return 'amex';
+  if (first2Num >= 51 && first2Num <= 55) return 'mastercard';
+  if (bin.length >= 4 && first4Num >= 2221 && first4Num <= 2720) return 'mastercard';
+  if (first4 === '6011' || first2 === '65' || first2 === '64') return 'discover';
   return null;
 }
 

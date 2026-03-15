@@ -47,12 +47,30 @@ vi.mock('@oppsera/db', () => ({
     id: 'id',
     idempotencyKey: 'idempotency_key',
     status: 'status',
+    locationId: 'location_id',
   },
   paymentTransactions: {
     tenantId: 'tenant_id',
     paymentIntentId: 'payment_intent_id',
     createdAt: 'created_at',
   },
+  // withTenant(tenantId, fn) — delegates to fn with a lightweight mock tx
+  // The actual rows returned depend on state set up per test.
+  withTenant: vi.fn(async (_tenantId: string, fn: (tx: unknown) => Promise<unknown[]>) => {
+    // Build a minimal select-chain mock that returns mocks.state.existingIntent's locationId
+    const chainResult = {
+      select: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockImplementation(() => {
+        if (mocks.state.existingIntent) {
+          return Promise.resolve([{ locationId: mocks.state.existingIntent.locationId }]);
+        }
+        return Promise.resolve([]);
+      }),
+    };
+    return fn(chainResult);
+  }),
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -492,16 +510,8 @@ describe('authorizePayment', () => {
     const result = await authorizePayment(ctx, baseAuthorizeInput);
 
     expect(result.status).toBe('error');
-    // DECLINED event should NOT be emitted for errors — the event is always emitted
-    // but we verify its type based on txnStatus logic
-    expect(mocks.buildEventFromContext).toHaveBeenCalledWith(
-      ctx,
-      // txnStatus='error' → falls through to DECLINED branch in event selection
-      // Actually looking at the source: eventType is AUTHORIZED or DECLINED based on txnStatus.
-      // For 'error', it uses DECLINED
-      'payment.gateway.declined.v1',
-      expect.objectContaining({ paymentIntentId: 'intent-1' }),
-    );
+    // For txnStatus='error', no event is emitted — source only builds events for 'approved' or 'declined'
+    expect(mocks.buildEventFromContext).not.toHaveBeenCalled();
   });
 });
 

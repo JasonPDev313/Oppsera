@@ -2325,6 +2325,20 @@
       "when": 1773545227451,
       "tag": "0331_ai_support_rls_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 332,
+      "version": "7",
+      "when": 1773897600000,
+      "tag": "0332_order_line_discount_allocation",
+      "breakpoints": true
+    },
+    {
+      "idx": 333,
+      "version": "7",
+      "when": 1773897600001,
+      "tag": "0333_location_default_tax_group",
+      "breakpoints": true
     }
   ]
 }

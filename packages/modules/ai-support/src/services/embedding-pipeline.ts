@@ -3,7 +3,9 @@ import { generateUlid } from '@oppsera/shared';
 
 // ── Constants ──────────────────────────────────────────────────────
 
-const INDEX_MODEL = 'claude-haiku-4-5-20251001';
+import { FAST_MODEL_ID } from '../constants';
+
+const INDEX_MODEL = FAST_MODEL_ID;
 const BATCH_SIZE = 20;
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -72,7 +74,7 @@ ${text.slice(0, 4000)}`,
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`Anthropic API error ${response.status}: ${body}`);
+    throw new Error(`Anthropic API error ${response.status}: ${body.slice(0, 500)}`);
   }
 
   const data = (await response.json()) as {

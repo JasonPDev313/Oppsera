@@ -22,19 +22,21 @@ async function fetchPRData(owner: string, repo: string, prNumber: number) {
   const [prResponse, filesResponse] = await Promise.all([
     fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`, {
       headers: githubHeaders(),
+      signal: AbortSignal.timeout(15_000),
     }),
     fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/files?per_page=100`, {
       headers: githubHeaders(),
+      signal: AbortSignal.timeout(15_000),
     }),
   ]);
 
   if (!prResponse.ok) {
     const body = await prResponse.text();
-    throw new Error(`GitHub API error fetching PR: ${prResponse.status} ${body}`);
+    throw new Error(`GitHub API error fetching PR: ${prResponse.status} ${body.slice(0, 500)}`);
   }
   if (!filesResponse.ok) {
     const body = await filesResponse.text();
-    throw new Error(`GitHub API error fetching PR files: ${filesResponse.status} ${body}`);
+    throw new Error(`GitHub API error fetching PR files: ${filesResponse.status} ${body.slice(0, 500)}`);
   }
 
   const prData = await prResponse.json() as {
@@ -56,12 +58,12 @@ async function fetchPRData(owner: string, repo: string, prNumber: number) {
 async function fetchReleaseData(owner: string, repo: string, tag: string) {
   const response = await fetch(
     `https://api.github.com/repos/${owner}/${repo}/releases/tags/${encodeURIComponent(tag)}`,
-    { headers: githubHeaders() },
+    { headers: githubHeaders(), signal: AbortSignal.timeout(15_000) },
   );
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`GitHub API error fetching release: ${response.status} ${body}`);
+    throw new Error(`GitHub API error fetching release: ${response.status} ${body.slice(0, 500)}`);
   }
 
   return response.json() as Promise<{

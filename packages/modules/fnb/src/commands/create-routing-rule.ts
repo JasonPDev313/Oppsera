@@ -2,8 +2,11 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fnbKitchenRoutingRules } from '@oppsera/db';
+import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { CreateKdsRoutingRuleInput } from '../validation';
+import { resolveKdsLocationId } from '../services/kds-routing-engine';
+import { withEffectiveLocationId } from '../helpers/venue-location';
 
 export async function createRoutingRule(
   ctx: RequestContext,
@@ -12,7 +15,16 @@ export async function createRoutingRule(
   if (!ctx.locationId) {
     throw new Error('Location ID is required to create a routing rule');
   }
-  const result = await publishWithOutbox(ctx, async (tx) => {
+
+  // Pre-transaction: resolve site → venue (KDS stations/rules are ONLY on venues)
+  const kdsLocation = await resolveKdsLocationId(ctx.tenantId, ctx.locationId);
+  if (kdsLocation.warning) {
+    throw new AppError('VENUE_REQUIRED', kdsLocation.warning, 400);
+  }
+  const effectiveLocationId = kdsLocation.locationId;
+
+  const effectiveCtx = withEffectiveLocationId(ctx, effectiveLocationId);
+  const result = await publishWithOutbox(effectiveCtx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'createRoutingRule',
     );
@@ -24,7 +36,7 @@ export async function createRoutingRule(
       .insert(fnbKitchenRoutingRules)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId!,
+        locationId: effectiveLocationId,
         ruleType: input.ruleType,
         catalogItemId: input.catalogItemId ?? null,
         modifierId: input.modifierId ?? null,

@@ -6,11 +6,13 @@ import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idem
 import { logger } from '@oppsera/core/observability';
 import { fnbKitchenTickets, fnbKitchenTicketItems, fnbTabs, fnbTables } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
+import { AppError } from '@oppsera/shared';
 import type { CreateKitchenTicketInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
 import { TabNotFoundError } from '../errors';
-import { resolveStationRouting, getStationPrepTimesForItems } from '../services/kds-routing-engine';
+import { resolveStationRouting, getStationPrepTimesForItems, resolveKdsLocationId } from '../services/kds-routing-engine';
 import type { RoutableItem, RoutingResult } from '../services/kds-routing-engine';
+import { withEffectiveLocationId } from '../helpers/venue-location';
 
 export async function createKitchenTicket(
   ctx: RequestContext,
@@ -20,6 +22,13 @@ export async function createKitchenTicket(
     throw new Error('Location ID is required to create a kitchen ticket');
   }
 
+  // ── Pre-transaction: resolve site → venue (KDS stations are ONLY on venues) ──
+  const kdsLocation = await resolveKdsLocationId(ctx.tenantId, ctx.locationId);
+  if (kdsLocation.warning) {
+    throw new AppError('VENUE_REQUIRED', kdsLocation.warning, 400);
+  }
+  const effectiveLocationId = kdsLocation.locationId;
+
   // ── Pre-transaction: resolve routing for items without explicit stationId ──
   // Per gotcha #123: read-only data fetching happens OUTSIDE the transaction
   // to avoid lock contention and N serial DB round-trips.
@@ -28,7 +37,7 @@ export async function createKitchenTicket(
     (item) => !item.stationId && item.catalogItemId,
   );
 
-  if (itemsNeedingRouting.length > 0 && ctx.locationId) {
+  if (itemsNeedingRouting.length > 0) {
     const routableItems: RoutableItem[] = itemsNeedingRouting.map((item) => ({
       orderLineId: item.orderLineId,
       catalogItemId: item.catalogItemId!,
@@ -41,7 +50,7 @@ export async function createKitchenTicket(
     const routingResultSet = await resolveStationRouting(
       {
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: effectiveLocationId,
         orderType: input.orderType,
         channel: input.channel,
       },
@@ -77,12 +86,13 @@ export async function createKitchenTicket(
   }
   if (resolvedStationIds.size > 1) {
     logger.warn('[kds] createKitchenTicket: ticket has items for multiple stations — callers should group by station', {
-      domain: 'kds', tenantId: ctx.tenantId, locationId: ctx.locationId,
+      domain: 'kds', tenantId: ctx.tenantId, locationId: effectiveLocationId,
       stationIds: Array.from(resolvedStationIds), itemCount: input.items.length,
     });
   }
 
-  const result = await publishWithOutbox(ctx, async (tx) => {
+  const effectiveCtx = withEffectiveLocationId(ctx, effectiveLocationId);
+  const result = await publishWithOutbox(effectiveCtx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'createKitchenTicket',
     );
@@ -90,7 +100,7 @@ export async function createKitchenTicket(
       logger.info('[kds] createKitchenTicket idempotency dedup — skipped duplicate', {
         domain: 'kds',
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId,
+        locationId: effectiveLocationId,
         clientRequestId: input.clientRequestId,
         tabId: input.tabId,
         orderId: input.orderId,
@@ -132,7 +142,7 @@ export async function createKitchenTicket(
     // Get next ticket number
     const counterResult = await tx.execute(
       sql`INSERT INTO fnb_kitchen_ticket_counters (tenant_id, location_id, business_date, last_number)
-          VALUES (${ctx.tenantId}, ${ctx.locationId}, ${resolvedBusinessDate}, 1)
+          VALUES (${ctx.tenantId}, ${effectiveLocationId}, ${resolvedBusinessDate}, 1)
           ON CONFLICT (tenant_id, location_id, business_date)
           DO UPDATE SET last_number = fnb_kitchen_ticket_counters.last_number + 1
           RETURNING last_number`,
@@ -160,7 +170,7 @@ export async function createKitchenTicket(
       .insert(fnbKitchenTickets)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId!,
+        locationId: effectiveLocationId,
         tabId: input.tabId ?? null,
         orderId: input.orderId ?? null,
         ticketNumber,
@@ -215,9 +225,9 @@ export async function createKitchenTicket(
         );
     }
 
-    const event = buildEventFromContext(ctx, FNB_EVENTS.TICKET_CREATED, {
+    const event = buildEventFromContext(effectiveCtx, FNB_EVENTS.TICKET_CREATED, {
       ticketId: ticket!.id,
-      locationId: ctx.locationId,
+      locationId: effectiveLocationId,
       tabId: input.tabId ?? null,
       orderId: input.orderId ?? null,
       ticketNumber,
@@ -237,7 +247,7 @@ export async function createKitchenTicket(
   logger.info('[kds] kitchen ticket created', {
     domain: 'kds',
     tenantId: ctx.tenantId,
-    locationId: ctx.locationId,
+    locationId: effectiveLocationId,
     ticketId: result.id,
     tabId: input.tabId,
     orderId: input.orderId,

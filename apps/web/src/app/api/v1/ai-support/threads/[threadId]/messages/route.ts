@@ -193,8 +193,11 @@ function wrapStreamWithPersistence(
               }
             }
 
-            // Conversation summarization: summarize threads with 4+ messages
-            if (meta.threadId) {
+            // Conversation summarization: only at 4-message multiples (messageIndex 1, 3, 5, …)
+            // Each messageIndex represents a user turn (0-based). After the assistant responds,
+            // total messages = (messageIndex + 1) * 2. We summarize at 4, 8, 12… messages,
+            // i.e., when messageIndex is 1, 3, 5, 7, 9 (odd indices).
+            if (meta.threadId && meta.messageIndex > 0 && meta.messageIndex % 2 === 1) {
               try {
                 const { summarizeThread } = await import(
                   '@oppsera/module-ai-support'

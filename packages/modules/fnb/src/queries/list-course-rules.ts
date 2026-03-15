@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
+import { resolveKdsLocationId } from '../services/kds-routing-engine';
 
 export interface CourseRuleListItem {
   id: string;
@@ -27,7 +28,11 @@ export interface ListCourseRulesInput {
  * Also flags rules whose defaultCourseNumber references a deactivated or missing course definition.
  */
 export async function listCourseRules(input: ListCourseRulesInput): Promise<CourseRuleListItem[]> {
-  const { tenantId, locationId, scopeType } = input;
+  const { tenantId, scopeType } = input;
+
+  // Resolve site → venue so queries find venue-scoped course rules
+  const kdsLocation = await resolveKdsLocationId(tenantId, input.locationId);
+  const locationId = kdsLocation.warning ? input.locationId : kdsLocation.locationId;
 
   const rows = await withTenant(tenantId, async (tx) => {
     const scopeFilter = scopeType

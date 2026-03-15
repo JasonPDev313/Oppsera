@@ -6,6 +6,7 @@ import {
 } from '@oppsera/db';
 import { eq, desc, inArray } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
+import { FAST_MODEL_ID } from '../constants';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -64,7 +65,7 @@ async function callClaudeHaiku(question: string): Promise<string> {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: FAST_MODEL_ID,
       max_tokens: 1024,
       system:
         'You are OppsEra Assistant. Answer the following question about the OppsEra ERP platform. Be concise and accurate.',

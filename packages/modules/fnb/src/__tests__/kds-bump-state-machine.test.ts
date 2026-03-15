@@ -633,7 +633,8 @@ describe('KDS Bump State Machine — refireItem', () => {
     mockTx.limit
       .mockResolvedValueOnce([item])     // fetch item
       .mockResolvedValueOnce([ticket])   // location check (parentTicket)
-      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert check
+      .mockResolvedValueOnce([ticket])   // ticketForGuard (voided check)
+      .mockResolvedValueOnce([ticket]);  // fetch ticket for revert
     mockTx.returning
       .mockResolvedValueOnce([voidedItem])  // void update
       .mockResolvedValueOnce([newItem]);    // insert new item

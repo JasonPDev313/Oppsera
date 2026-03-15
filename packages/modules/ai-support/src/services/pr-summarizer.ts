@@ -1,6 +1,7 @@
 import { db, aiSupportDocuments } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import { sql } from 'drizzle-orm';
+import { FAST_MODEL_ID } from '../constants';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -48,17 +49,18 @@ async function callClaude(systemPrompt: string, userMessage: string): Promise<st
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
+    signal: AbortSignal.timeout(30_000),
     body: JSON.stringify({
-      model: 'claude-haiku-4-20250514',
+      model: FAST_MODEL_ID,
       max_tokens: 512,
       system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
+      messages: [{ role: 'user', content: userMessage.slice(0, 8000) }],
     }),
   });
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`Anthropic API error ${response.status}: ${errorBody}`);
+    throw new Error(`Anthropic API error ${response.status}: ${errorBody.slice(0, 500)}`);
   }
 
   const data = await response.json() as {
@@ -90,7 +92,7 @@ export async function summarizePR(prData: PRData): Promise<string | null> {
   const userMessage = [
     `PR #${prData.number}: ${prData.title}`,
     '',
-    prData.body ? `Description:\n${prData.body}` : 'No description provided.',
+    prData.body ? `Description:\n${prData.body.slice(0, 4000)}` : 'No description provided.',
     '',
     `Changed files (${prData.changedFiles.length}):`,
     prData.changedFiles.slice(0, 50).join('\n'),

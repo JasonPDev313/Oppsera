@@ -59,3 +59,5 @@ export { getDepreciationSchedule } from './get-depreciation-schedule';
 export type { DepreciationSchedule, DepreciationScheduleItem } from './get-depreciation-schedule';
 export { getAssetSummary } from './get-asset-summary';
 export type { AssetSummaryReport, AssetCategorySummary } from './get-asset-summary';
+export { getTaxReconciliationAudit } from './get-tax-reconciliation-audit';
+export type { TaxReconciliationAudit, TaxReconciliationRow } from './get-tax-reconciliation-audit';

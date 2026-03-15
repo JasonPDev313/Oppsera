@@ -12,6 +12,7 @@ interface VoidLastTenderResult {
   paidAmountCents: number;
   remainingAmountCents: number;
   sessionStatus: string;
+  paidSeats: number[];
 }
 
 /**
@@ -35,7 +36,7 @@ export async function voidLastTender(
   const result = await publishWithOutbox(ctx, async (tx) => {
     // Lock the session row to prevent concurrent voids
     const sessions = await tx.execute(
-      sql`SELECT id, tab_id, order_id, status, total_amount_cents, paid_amount_cents, remaining_amount_cents
+      sql`SELECT id, tab_id, order_id, status, total_amount_cents, paid_amount_cents, remaining_amount_cents, split_details
           FROM fnb_payment_sessions
           WHERE id = ${sessionId} AND tenant_id = ${ctx.tenantId}
           FOR UPDATE`,
@@ -63,7 +64,8 @@ export async function voidLastTender(
     // Find the most recent tender amount from the outbox events for this session.
     // The TENDER_APPLIED events store the individual tender amounts.
     const tenderEvents = await tx.execute(
-      sql`SELECT payload->>'amountCents' AS amount_cents
+      sql`SELECT payload->>'amountCents' AS amount_cents,
+                 payload->>'tenderId' AS tender_id
           FROM event_outbox
           WHERE tenant_id = ${ctx.tenantId}
             AND event_type = ${FNB_EVENTS.TENDER_APPLIED}
@@ -75,16 +77,45 @@ export async function voidLastTender(
     const lastTenderAmount = tenderRows.length > 0
       ? Number(tenderRows[0]!.amount_cents)
       : currentPaid; // fallback: reverse entire paid amount
+    const voidedTenderId = tenderRows.length > 0
+      ? (tenderRows[0]!.tender_id as string | null)
+      : null;
 
     const newPaid = Math.max(0, currentPaid - lastTenderAmount);
     const newRemaining = totalCents - newPaid;
     const newStatus = newPaid <= 0 ? 'pending' : 'in_progress';
+
+    // ── Clean up seat tracking in split_details ───────────────────
+    const splitDetails = (session.split_details as Record<string, unknown>) ?? {};
+    const seatPayments = (splitDetails.seatPayments as Array<Record<string, unknown>>) ?? [];
+
+    let cleanedSplitDetails = splitDetails;
+    if (seatPayments.length > 0) {
+      // Remove the voided tender's seat payment entry
+      const remainingSeatPayments = voidedTenderId
+        ? seatPayments.filter((sp) => sp.tenderId !== voidedTenderId)
+        : seatPayments.slice(0, -1); // fallback: drop last entry
+
+      // Recompute paidSeats from remaining entries
+      const remainingPaidSeats = [
+        ...new Set(
+          remainingSeatPayments.flatMap((sp) => (sp.seatNumbers as number[]) ?? []),
+        ),
+      ];
+
+      cleanedSplitDetails = {
+        ...splitDetails,
+        paidSeats: remainingPaidSeats,
+        seatPayments: remainingSeatPayments,
+      };
+    }
 
     await tx.execute(
       sql`UPDATE fnb_payment_sessions
           SET paid_amount_cents = ${newPaid},
               remaining_amount_cents = ${Math.max(0, newRemaining)},
               status = ${newStatus},
+              split_details = ${JSON.stringify(cleanedSplitDetails)}::jsonb,
               completed_at = NULL,
               updated_at = NOW()
           WHERE id = ${sessionId} AND tenant_id = ${ctx.tenantId}`,
@@ -105,6 +136,7 @@ export async function voidLastTender(
       paidAmountCents: newPaid,
       remainingAmountCents: Math.max(0, newRemaining),
       sessionStatus: newStatus,
+      paidSeats: (cleanedSplitDetails.paidSeats as number[]) ?? [],
     };
 
     return { result: voidResult, events: [event] };

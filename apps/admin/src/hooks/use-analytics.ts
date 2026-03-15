@@ -377,6 +377,7 @@ export interface AttritionScore {
   reviewedBy: string | null;
   reviewNotes: string | null;
   status: string;
+  previousScore: number | null;
 }
 
 interface AttritionStats {

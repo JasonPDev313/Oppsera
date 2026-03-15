@@ -1,4 +1,4 @@
-import { eq, and, asc, sql } from 'drizzle-orm';
+import { eq, and, asc, sql, lt } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { AppError, NotFoundError } from '@oppsera/shared';
@@ -262,12 +262,31 @@ export async function sendMessage(
     tenantSettingsJson: contextSnapshot.tenantSettings ?? null,
   });
 
+  // Clean up stale [streaming] zombie messages (older than 2 minutes) in this thread.
+  // These occur when the Vercel function is killed before flush() runs.
+  const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000);
+  await db
+    .update(aiAssistantMessages)
+    .set({ messageText: '[No response generated]' })
+    .where(
+      and(
+        eq(aiAssistantMessages.threadId, threadId),
+        eq(aiAssistantMessages.tenantId, ctx.tenantId),
+        eq(aiAssistantMessages.messageText, '[streaming]'),
+        lt(aiAssistantMessages.createdAt, twoMinAgo),
+      ),
+    )
+    .catch((err: unknown) => {
+      console.warn('[ai-support/thread-commands] Zombie cleanup failed:', err);
+    });
+
   // Load thread history for context — collect all DB data BEFORE the LLM call
   // so we don't hold a DB connection during the potentially 60s orchestrator call.
   const historyRows = await db
     .select({
       role: aiAssistantMessages.role,
       messageText: aiAssistantMessages.messageText,
+      answerConfidence: aiAssistantMessages.answerConfidence,
     })
     .from(aiAssistantMessages)
     .where(
@@ -278,11 +297,27 @@ export async function sendMessage(
     )
     .orderBy(asc(aiAssistantMessages.createdAt));
 
-  // Exclude the just-inserted user message from history (it will be added by the orchestrator)
-  const threadHistory = historyRows
+  // Exclude the just-inserted user message from history (it will be added by the orchestrator).
+  // Filter out turns where the assistant response is still a placeholder (flush() DB update
+  // may have failed silently). Remove BOTH the user question and assistant placeholder to
+  // preserve strict user/assistant alternation required by the Anthropic API.
+  const PLACEHOLDER_TEXTS = new Set(['[streaming]', '[No response generated]']);
+  const rawHistory = historyRows
     .filter((r) => r.role === 'user' || r.role === 'assistant')
-    .slice(0, -1) // Remove the last user message we just inserted
-    .map((r) => ({ role: r.role, content: r.messageText }));
+    .slice(0, -1); // Remove the last user message we just inserted
+
+  const threadHistory: Array<{ role: string; content: string }> = [];
+  for (let i = 0; i < rawHistory.length; i++) {
+    const row = rawHistory[i]!;
+    if (row.role === 'assistant' && PLACEHOLDER_TEXTS.has(row.messageText)) {
+      // Drop this assistant placeholder AND the preceding user message (if any)
+      if (threadHistory.length > 0 && threadHistory[threadHistory.length - 1]!.role === 'user') {
+        threadHistory.pop();
+      }
+      continue;
+    }
+    threadHistory.push({ role: row.role, content: row.messageText });
+  }
 
   // ── Sentiment analysis — run before orchestrator so we can adapt tone ──
   let userSentiment: 'positive' | 'neutral' | 'frustrated' | 'angry' | null = null;
@@ -301,6 +336,10 @@ export async function sendMessage(
     console.warn('[ai-support/thread-commands] Sentiment analysis failed:', err);
   }
 
+  // Extract the most recent assistant confidence for follow-up model routing
+  const lastAssistant = [...historyRows].reverse().find((r) => r.role === 'assistant');
+  const priorConfidence = lastAssistant?.answerConfidence as 'high' | 'medium' | 'low' | null ?? null;
+
   // ── LLM call — no DB connections held during this potentially long call ──
   const orchestratorResult = await runOrchestratorCollected({
     messageText,
@@ -308,6 +347,7 @@ export async function sendMessage(
     threadHistory,
     mode: resolveAssistantMode(ctx),
     userSentiment,
+    priorConfidence,
   });
 
   // ── Post-LLM DB writes — acquire connection only after LLM completes ──

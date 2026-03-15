@@ -21,6 +21,9 @@ export interface OrchestratorInput {
   mode: 'customer' | 'staff';
   /** User sentiment from the latest message — used to adapt tone. */
   userSentiment?: 'positive' | 'neutral' | 'frustrated' | 'angry' | null;
+  /** Confidence from the most recent assistant response in this thread — used
+   *  to avoid over-escalating simple follow-up questions when retrieval misses. */
+  priorConfidence?: ConfidenceLevel | null;
 }
 
 // ── Prompt Builder ──────────────────────────────────────────────────
@@ -223,15 +226,33 @@ function selectModel(
   threadHistoryLength: number,
   inputCharCount: number,
   mode: 'customer' | 'staff',
+  priorConfidence?: ConfidenceLevel | null,
 ): ModelSelectionResult {
   const reasons: string[] = [];
 
+  // Follow-up confidence floor: if this is a follow-up (history > 0) and current
+  // retrieval found nothing (low), but the prior turn had good evidence, carry
+  // that forward — the conversation context is still relevant.
+  let effectiveConfidence = confidence;
+  if (threadHistoryLength > 0 && confidence === 'low') {
+    if (priorConfidence === 'high' || priorConfidence === 'medium') {
+      // Prior turn had evidence — floor at medium (Sonnet), not deep (Opus)
+      effectiveConfidence = 'medium';
+      reasons.push(`followup-floor→medium (prior=${priorConfidence})`);
+    } else {
+      // No prior confidence info — still floor at medium for follow-ups
+      // since the user is continuing a conversation, not asking from scratch
+      effectiveConfidence = 'medium';
+      reasons.push('followup-floor→medium (continuation)');
+    }
+  }
+
   // Base tier from confidence
   let tier: ModelTier =
-    confidence === 'high' ? 'fast' :
-    confidence === 'medium' ? 'standard' :
+    effectiveConfidence === 'high' ? 'fast' :
+    effectiveConfidence === 'medium' ? 'standard' :
     'deep';
-  reasons.push(`base=${tier} (confidence=${confidence})`);
+  reasons.push(`base=${tier} (confidence=${confidence}, effective=${effectiveConfidence})`);
 
   // Bump: if best evidence is only from low tiers (T6+), minimum Sonnet
   if (tier === 'fast' && (bestTier === 't6' || bestTier === 't7')) {
@@ -379,21 +400,41 @@ function extractFollowups(text: string): string[] {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
+/** Rough token estimate: ~4 chars per token for English text. */
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
 /**
- * Prepare conversation messages: cap to last 10 messages and 20k chars.
+ * Prepare conversation messages: cap to last 10 messages with a token-aware budget.
+ *
+ * Uses a 12k token budget for history (leaves room for system prompt + response).
+ * Falls back to the 20k char hard cap as a safety net.
  * Returns the formatted messages array and total input char count (for context-size guard).
  */
+const HISTORY_TOKEN_BUDGET = 12_000;
+const HISTORY_CHAR_LIMIT = 20_000;
+
 function prepareMessages(
   threadHistory: Array<{ role: string; content: string }>,
   messageText: string,
 ): { messages: Array<{ role: string; content: string }>; inputCharCount: number } {
   let trimmedHistory = threadHistory.slice(-10);
-  const HISTORY_CHAR_LIMIT = 20_000;
+
+  // Token-aware trimming: drop oldest messages until within budget
+  let totalTokens = trimmedHistory.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+  while (totalTokens > HISTORY_TOKEN_BUDGET && trimmedHistory.length > 0) {
+    totalTokens -= estimateTokens(trimmedHistory[0]!.content);
+    trimmedHistory = trimmedHistory.slice(1);
+  }
+
+  // Char-based safety net (in case token estimate is off)
   let totalChars = trimmedHistory.reduce((sum, m) => sum + m.content.length, 0);
   while (totalChars > HISTORY_CHAR_LIMIT && trimmedHistory.length > 0) {
     totalChars -= trimmedHistory[0]!.content.length;
     trimmedHistory = trimmedHistory.slice(1);
   }
+
   const messages = [
     ...trimmedHistory.map((m) => ({
       role: m.role === 'user' ? 'user' : 'assistant',
@@ -433,6 +474,7 @@ function logModelSelection(
     mode: input.mode,
     historyLen: input.threadHistory.length,
     questionLen: input.messageText.length,
+    priorConfidence: input.priorConfidence ?? null,
   }));
 }
 
@@ -591,6 +633,13 @@ export function runOrchestrator(input: OrchestratorInput): ReadableStream<Uint8A
       };
 
       try {
+        // Start feedback-bump check early — runs in parallel with retrieval
+        const feedbackBumpPromise = checkFeedbackBump(
+          input.context.route,
+          input.context.moduleKey,
+          'fast',
+        );
+
         // ── Step 1: Two-stage retrieval (structured + semantic) ──
         // Catch retrieval failures and degrade to no evidence rather than
         // aborting the entire stream — the AI can still answer without evidence.
@@ -640,19 +689,18 @@ export function runOrchestrator(input: OrchestratorInput): ReadableStream<Uint8A
           input.threadHistory.length,
           inputCharCount + systemPrompt.length,
           input.mode,
+          input.priorConfidence,
         );
 
-        // Feedback-aware bump (non-blocking — runs in parallel with first attempt if fast)
-        const feedbackBump = await checkFeedbackBump(
-          input.context.route,
-          input.context.moduleKey,
-          selection.tier,
-        );
-        if (feedbackBump?.shouldBump) {
-          selection.tier = bumpTier(selection.tier);
-          selection.reasons.push(
-            `bump→${selection.tier} (feedback downvoteRate=${feedbackBump.downvoteRate.toFixed(2)})`,
-          );
+        // Await the feedback-bump result (started in parallel with retrieval)
+        if (selection.tier === 'fast') {
+          const feedbackBump = await feedbackBumpPromise;
+          if (feedbackBump?.shouldBump) {
+            selection.tier = bumpTier(selection.tier);
+            selection.reasons.push(
+              `bump→${selection.tier} (feedback downvoteRate=${feedbackBump.downvoteRate.toFixed(2)})`,
+            );
+          }
         }
 
         const modelConfig = MODEL_TIERS[selection.tier];
@@ -728,9 +776,10 @@ export function runOrchestrator(input: OrchestratorInput): ReadableStream<Uint8A
           moduleKey: input.context.moduleKey ?? null,
           mode: input.mode,
         }));
+        const hint = err instanceof Error ? err.message.slice(0, 120) : '';
         sendEvent({
           type: 'error',
-          message: 'Something went wrong. Please try again.',
+          message: `Something went wrong. Please try again.${hint ? ` (${hint})` : ''}`,
         });
       } finally {
         try {
@@ -768,14 +817,37 @@ export async function runOrchestratorCollected(
   modelUsed: string;
   stream: ReadableStream<Uint8Array>;
 }> {
+  // Start feedback-bump check early — runs in parallel with evidence retrieval
+  // so it doesn't add latency to the fast path (Haiku, high-confidence).
+  const feedbackBumpPromise = checkFeedbackBump(
+    input.context.route,
+    input.context.moduleKey,
+    'fast', // optimistically check for the cheapest tier
+  );
+
   // Retrieve evidence (two-stage) — catch failures so the user still gets
   // an AI response even if retrieval is degraded (e.g. DB timeout, pgvector down).
   let allEvidence: RetrievalResult[];
   try {
+    // For follow-up questions, enrich the retrieval query with prior context.
+    // Short follow-ups like "How do I do that myself?" lack keywords for retrieval.
+    // Prepending the last user+assistant exchange gives retrieval enough signal.
+    let retrievalQuery = input.messageText;
+    if (input.threadHistory.length >= 2) {
+      const lastUserMsg = [...input.threadHistory].reverse().find((m) => m.role === 'user');
+      const lastAssistantMsg = [...input.threadHistory].reverse().find((m) => m.role === 'assistant');
+      if (lastUserMsg && lastAssistantMsg) {
+        // Only enrich if current question is short (likely a follow-up, not a topic change)
+        if (input.messageText.length < 120) {
+          retrievalQuery = `${lastUserMsg.content.slice(0, 200)}\n${lastAssistantMsg.content.slice(0, 300)}\n${input.messageText}`;
+        }
+      }
+    }
+
     allEvidence = await retrieveEvidence({
       route: input.context.route,
       moduleKey: input.context.moduleKey,
-      question: input.messageText,
+      question: retrievalQuery,
       mode: input.mode,
       context: input.context,
     });
@@ -808,19 +880,19 @@ export async function runOrchestratorCollected(
     input.threadHistory.length,
     inputCharCount + systemPrompt.length,
     input.mode,
+    input.priorConfidence,
   );
 
-  // Feedback-aware bump (non-blocking)
-  const feedbackBump = await checkFeedbackBump(
-    input.context.route,
-    input.context.moduleKey,
-    selection.tier,
-  );
-  if (feedbackBump?.shouldBump) {
-    selection.tier = bumpTier(selection.tier);
-    selection.reasons.push(
-      `bump→${selection.tier} (feedback downvoteRate=${feedbackBump.downvoteRate.toFixed(2)})`,
-    );
+  // Await the feedback-bump result (started in parallel with retrieval)
+  // Only applies when selection landed on 'fast' tier
+  if (selection.tier === 'fast') {
+    const feedbackBump = await feedbackBumpPromise;
+    if (feedbackBump?.shouldBump) {
+      selection.tier = bumpTier(selection.tier);
+      selection.reasons.push(
+        `bump→${selection.tier} (feedback downvoteRate=${feedbackBump.downvoteRate.toFixed(2)})`,
+      );
+    }
   }
 
   const modelConfig = MODEL_TIERS[selection.tier];
@@ -917,9 +989,10 @@ export async function runOrchestratorCollected(
           moduleKey: input.context.moduleKey ?? null,
           mode: input.mode,
         }));
+        const hint = err instanceof Error ? err.message.slice(0, 120) : '';
         sendEvent({
           type: 'error',
-          message: 'Something went wrong. Please try again.',
+          message: `Something went wrong. Please try again.${hint ? ` (${hint})` : ''}`,
         });
       } finally {
         try {

@@ -307,10 +307,11 @@ export function runAgenticOrchestrator(
       controllerRef = controller;
 
       const sendEvent = (chunk: StreamChunk) => {
-        if (cancelled || !controllerRef) return;
+        const ctrl = controllerRef;
+        if (cancelled || !ctrl) return;
         const line = `data: ${JSON.stringify(chunk)}\n\n`;
         try {
-          controllerRef.enqueue(encoder.encode(line));
+          ctrl.enqueue(encoder.encode(line));
         } catch {
           cancelled = true;
           controllerRef = null;
@@ -514,9 +515,10 @@ export function runAgenticOrchestrator(
       } catch (err) {
         if (cancelled) return;
         console.error('[ai-support/agentic-orchestrator] Error:', err);
+        const hint = err instanceof Error ? err.message.slice(0, 120) : '';
         sendEvent({
           type: 'error',
-          message: 'Something went wrong. Please try again.',
+          message: `Something went wrong. Please try again.${hint ? ` (${hint})` : ''}`,
         });
       } finally {
         clearTimeout(totalTimeout);

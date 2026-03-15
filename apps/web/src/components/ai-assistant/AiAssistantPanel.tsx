@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   MessageCircle,
   X,
@@ -109,10 +111,59 @@ function MessageBubble({
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
 
-  // Simple newline → paragraph rendering (no external markdown lib needed)
+  /** Render message content — markdown for assistant, plain text for user. */
   function renderText(text: string) {
     // Strip inline followup bullets so they never flash during streaming
     const cleaned = isAssistant ? stripFollowupSection(text) : text;
+
+    if (isAssistant) {
+      return (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            // Keep rendered elements compact for chat bubble sizing
+            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+            ul: ({ children }) => <ul className="mb-2 ml-4 list-disc last:mb-0">{children}</ul>,
+            ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal last:mb-0">{children}</ol>,
+            li: ({ children }) => <li className="mb-0.5">{children}</li>,
+            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+            code: ({ children, className }) => {
+              const isBlock = className?.includes('language-');
+              if (isBlock) {
+                return (
+                  <code className="block my-2 rounded-lg bg-black/20 px-3 py-2 text-xs font-mono overflow-x-auto">
+                    {children}
+                  </code>
+                );
+              }
+              return (
+                <code className="rounded bg-black/20 px-1 py-0.5 text-xs font-mono">
+                  {children}
+                </code>
+              );
+            },
+            pre: ({ children }) => <pre className="my-0">{children}</pre>,
+            h1: ({ children }) => <p className="mb-2 font-bold last:mb-0">{children}</p>,
+            h2: ({ children }) => <p className="mb-2 font-bold last:mb-0">{children}</p>,
+            h3: ({ children }) => <p className="mb-1.5 font-semibold last:mb-0">{children}</p>,
+            a: ({ href, children }) => (
+              <a href={href} target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline hover:text-indigo-300">
+                {children}
+              </a>
+            ),
+            blockquote: ({ children }) => (
+              <blockquote className="my-2 border-l-2 border-indigo-500/40 pl-3 text-muted-foreground">
+                {children}
+              </blockquote>
+            ),
+          }}
+        >
+          {cleaned}
+        </ReactMarkdown>
+      );
+    }
+
+    // User messages: plain text with newline handling
     return cleaned.split('\n').map((line, i) => (
       <span key={i}>
         {line}

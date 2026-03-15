@@ -9,6 +9,7 @@ const {
   mockGetTabDetail,
   mockSendCourse,
   mockListKitchenTickets,
+  mockResolveKdsLocationId,
   mockApplySplitStrategy,
   mockStartPaymentSession,
   mockCompletePaymentSession,
@@ -25,6 +26,7 @@ const {
   const mockGetTabDetail = vi.fn();
   const mockSendCourse = vi.fn();
   const mockListKitchenTickets = vi.fn();
+  const mockResolveKdsLocationId = vi.fn().mockResolvedValue({ locationId: 'loc_001', resolved: false, warning: null });
   const mockApplySplitStrategy = vi.fn();
   const mockStartPaymentSession = vi.fn();
   const mockCompletePaymentSession = vi.fn();
@@ -56,6 +58,7 @@ const {
     mockGetTabDetail,
     mockSendCourse,
     mockListKitchenTickets,
+    mockResolveKdsLocationId,
     mockApplySplitStrategy,
     mockStartPaymentSession,
     mockCompletePaymentSession,
@@ -112,7 +115,7 @@ vi.mock('@oppsera/module-fnb', () => ({
   getZReport: mockGetZReport,
   getZReportSchema: passThroughSchema,
   postCloseBatch: mockPostCloseBatch,
-  resolveKdsLocationId: vi.fn().mockResolvedValue({ locationId: 'test-location-id', resolved: false, warning: null }),
+  resolveKdsLocationId: mockResolveKdsLocationId,
 }));
 
 vi.mock('@oppsera/shared', async (importOriginal) => {
@@ -158,6 +161,8 @@ function makePost(path: string, body: Record<string, unknown>): NextRequest {
 // ── Reset ─────────────────────────────────────────────────────
 beforeEach(() => {
   vi.resetAllMocks();
+  // Re-apply the resolveKdsLocationId mock after resetAllMocks
+  mockResolveKdsLocationId.mockResolvedValue({ locationId: 'loc_001', resolved: false, warning: null });
   // Re-apply the middleware mock after resetAllMocks (gotcha #58)
   mockWithMiddleware.mockImplementation(
     (handler: (...args: any[]) => any, _options: unknown) => {

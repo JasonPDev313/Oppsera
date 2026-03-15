@@ -1,7 +1,9 @@
 import { withTenant, fnbKdsLocationSettings } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared/utils/ulid';
+import { AppError } from '@oppsera/shared';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
+import { resolveKdsLocationId } from '../services/kds-routing-engine';
 
 export interface UpsertKdsLocationSettingsInput {
   staleTicketMode: 'persist' | 'auto_clear';
@@ -12,8 +14,14 @@ export async function upsertKdsLocationSettings(
   ctx: RequestContext,
   input: UpsertKdsLocationSettingsInput,
 ) {
-  const locationId = ctx.locationId;
-  if (!locationId) throw new Error('locationId is required');
+  if (!ctx.locationId) throw new Error('locationId is required');
+
+  // Resolve site → venue (KDS settings are venue-scoped)
+  const kdsLocation = await resolveKdsLocationId(ctx.tenantId, ctx.locationId);
+  if (kdsLocation.warning) {
+    throw new AppError('VENUE_REQUIRED', kdsLocation.warning, 400);
+  }
+  const locationId = kdsLocation.locationId;
 
   const result = await withTenant(ctx.tenantId, async (tx) => {
     const [row] = await tx

@@ -1,7 +1,8 @@
 /**
- * Attrition Engine — scores every active tenant's churn risk (0–100)
- * across 8 signals, then generates a narrative summary explaining
- * why each tenant may be at risk.
+ * Attrition Engine — scores every active tenant's health (0–100, higher = better)
+ * across 8 risk signals, then generates a narrative summary explaining
+ * why each tenant may be at risk. Internal risk score (0–100) is inverted
+ * to a health score for display: health = 100 – riskScore.
  *
  * Signals (weighted):
  *  1. Login decline          (20%) — login frequency drop 30d vs prior 30d
@@ -203,12 +204,31 @@ async function doScoring(): Promise<ScoringResult> {
         }
       }
 
-      const overallScore = clamp(
-        Object.entries(WEIGHTS).reduce(
-          (sum, [key, weight]) => sum + signals[key as keyof typeof signals].score * weight,
-          0,
-        ),
+      // Weighted score from all signals
+      const weightedScore = Object.entries(WEIGHTS).reduce(
+        (sum, [key, weight]) => sum + signals[key as keyof typeof signals].score * weight,
+        0,
       );
+
+      // Floor for "never used" tenants: when usage-based signals are all 0 because
+      // there's no prior data (not because usage is healthy), the weighted score
+      // is misleadingly low. A tenant with high staleness and/or onboarding stall
+      // but zero usage signals is clearly at risk — apply a minimum floor.
+      const usageBasedSignals = [
+        signals.loginDecline, signals.usageDecline,
+        signals.userShrinkage, signals.breadthNarrowing,
+      ];
+      const allUsageSignalsZero = usageBasedSignals.every((s) => s.score === 0);
+      const hasHighInactivitySignal = signals.staleness.score >= 60 || signals.onboardingStall.score >= 40;
+
+      let overallScore: number;
+      if (allUsageSignalsZero && hasHighInactivitySignal) {
+        // Use the average of the two inactivity signals as a floor
+        const inactivityAvg = (signals.staleness.score + signals.onboardingStall.score) / 2;
+        overallScore = clamp(Math.max(weightedScore, inactivityAvg));
+      } else {
+        overallScore = clamp(weightedScore);
+      }
 
       const activeModuleCount = adoptionData[tid]?.activeCount ?? 0;
       const narrative = buildNarrative(tenant, signals, overallScore, isNewTenant);
@@ -500,7 +520,6 @@ async function batchAdoptionData(adminDb: AdminDb, tenantIds: string[]): Promise
       SELECT
         tenant_id,
         module_key,
-        is_active,
         last_used_at,
         EXTRACT(EPOCH FROM (NOW() - last_used_at)) / 86400 AS days_since_use
       FROM rm_usage_module_adoption
@@ -738,17 +757,18 @@ function buildNarrative(
   isNewTenant = false,
 ): string {
   const level = riskLevel(overallScore);
+  const healthScore = 100 - overallScore;
   const parts: string[] = [];
 
-  // Opening
+  // Opening — health score (higher = better)
   if (level === 'critical') {
-    parts.push(`${tenant.tenantName} is at critical risk of churning (score: ${overallScore}/100).`);
+    parts.push(`${tenant.tenantName} is at critical risk of churning (health: ${healthScore}/100).`);
   } else if (level === 'high') {
-    parts.push(`${tenant.tenantName} shows significant signs of declining engagement (score: ${overallScore}/100).`);
+    parts.push(`${tenant.tenantName} shows significant signs of declining engagement (health: ${healthScore}/100).`);
   } else if (level === 'medium') {
-    parts.push(`${tenant.tenantName} has moderate attrition risk (score: ${overallScore}/100) — worth monitoring.`);
+    parts.push(`${tenant.tenantName} has moderate attrition risk (health: ${healthScore}/100) — worth monitoring.`);
   } else {
-    parts.push(`${tenant.tenantName} appears healthy (score: ${overallScore}/100).`);
+    parts.push(`${tenant.tenantName} is in good standing (health: ${healthScore}/100).`);
   }
 
   if (isNewTenant) {

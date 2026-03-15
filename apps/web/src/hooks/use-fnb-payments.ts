@@ -11,6 +11,7 @@ interface PaymentSession {
   orderId: string;
   status: string;
   splitStrategy: string | null;
+  splitDetails: Record<string, unknown> | null;
   totalAmountCents: number;
   paidAmountCents: number;
   remainingAmountCents: number;
@@ -110,10 +111,30 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
 
   const voidLastTender = useCallback(
     async (sessionId: string) => {
-      const res = await apiFetch<{ data: unknown }>(
+      const res = await apiFetch<{ data: Record<string, unknown> }>(
         `/api/v1/fnb/payments/sessions/${sessionId}/void-last-tender`,
         { method: 'POST', headers: locHeaders },
       );
+      // Optimistic: update local session with cleaned seat state from server
+      if (res.data) {
+        const d = res.data;
+        setSessions((prev) =>
+          prev.map((s) => {
+            if (s.id !== sessionId) return s;
+            const paidSeats = (d.paidSeats as number[]) ?? [];
+            return {
+              ...s,
+              paidAmountCents: (d.paidAmountCents as number) ?? s.paidAmountCents,
+              remainingAmountCents: (d.remainingAmountCents as number) ?? s.remainingAmountCents,
+              status: (d.sessionStatus as string) ?? s.status,
+              splitDetails: s.splitDetails
+                ? { ...s.splitDetails, paidSeats }
+                : paidSeats.length > 0 ? { paidSeats } : null,
+              completedAt: null,
+            };
+          }),
+        );
+      }
       return res.data;
     },
     [locHeaders],
@@ -141,6 +162,7 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
           orderId: input.orderId,
           status: 'completed',
           splitStrategy: null,
+          splitDetails: null,
           totalAmountCents: input.totalAmountCents,
           paidAmountCents: input.amountCents,
           remainingAmountCents: 0,
@@ -172,6 +194,8 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
       // House account metadata
       billingAccountId?: string;
       signatureData?: string;
+      // Pay-by-seat tracking
+      seatNumbers?: number[];
     }) => {
       const res = await apiFetch<{ data: Record<string, unknown> }>('/api/v1/fnb/payments/pay', {
         method: 'POST',
@@ -182,21 +206,40 @@ export function usePaymentSession({ tabId, locationId }: UsePaymentSessionOption
       if (res.data) {
         const resData = res.data;
         const isFullyPaid = resData.isFullyPaid as boolean;
-        const sessionData: PaymentSession = {
-          id: resData.sessionId as string,
-          tabId: input.tabId,
-          orderId: input.orderId,
-          status: isFullyPaid ? 'completed' : 'in_progress',
-          splitStrategy: null,
-          totalAmountCents: input.totalAmountCents,
-          paidAmountCents: resData.paidAmountCents as number,
-          remainingAmountCents: resData.remainingAmountCents as number,
-          completedAt: isFullyPaid ? new Date().toISOString() : null,
-          createdAt: new Date().toISOString(),
-        };
+        // Use server-provided cumulative paidSeats (authoritative)
+        const serverPaidSeats = resData.paidSeats as number[] | undefined;
+
         setSessions((prev) => {
-          const existing = prev.find((s) => s.id === sessionData.id);
-          if (existing) return prev.map((s) => (s.id === sessionData.id ? sessionData : s));
+          const existingSession = prev.find((s) => s.id === (resData.sessionId as string));
+          // Merge: prefer server paidSeats, fall back to merging client-side
+          let mergedSplitDetails: Record<string, unknown> | null = existingSession?.splitDetails ?? null;
+          if (input.seatNumbers) {
+            if (serverPaidSeats) {
+              mergedSplitDetails = { ...mergedSplitDetails, paidSeats: serverPaidSeats };
+            } else {
+              const priorPaid = (existingSession?.splitDetails?.paidSeats as number[]) ?? [];
+              mergedSplitDetails = {
+                ...mergedSplitDetails,
+                paidSeats: [...new Set([...priorPaid, ...input.seatNumbers])],
+              };
+            }
+          }
+
+          const sessionData: PaymentSession = {
+            id: resData.sessionId as string,
+            tabId: input.tabId,
+            orderId: input.orderId,
+            status: isFullyPaid ? 'completed' : 'in_progress',
+            splitStrategy: input.seatNumbers ? 'by_seat' : (existingSession?.splitStrategy ?? null),
+            splitDetails: mergedSplitDetails,
+            totalAmountCents: input.totalAmountCents,
+            paidAmountCents: resData.paidAmountCents as number,
+            remainingAmountCents: resData.remainingAmountCents as number,
+            completedAt: isFullyPaid ? new Date().toISOString() : null,
+            createdAt: existingSession?.createdAt ?? new Date().toISOString(),
+          };
+
+          if (existingSession) return prev.map((s) => (s.id === sessionData.id ? sessionData : s));
           return [sessionData, ...prev];
         });
       }

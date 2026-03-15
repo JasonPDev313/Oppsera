@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbTab } from '@/hooks/use-fnb-tab';
 import { usePaymentSession, usePreAuth, useTipActions } from '@/hooks/use-fnb-payments';
@@ -101,6 +101,8 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
 
   const [check, setCheck] = useState<CheckSummary | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
+  // Pay-by-seat: track which seats the current tender covers
+  const seatNumbersRef = useRef<number[]>([]);
 
   // Optimistic check: show tab-derived totals instantly, replace with server data when ready
   const displayCheck: CheckSummary | null = check ?? (
@@ -279,6 +281,8 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
           tipCents: tipCents > 0 ? tipCents : 0,
           changeCents: type === 'cash' && amountCents > totalCents ? amountCents - totalCents : 0,
           clientRequestId: crypto.randomUUID(),
+          // Pay-by-seat: pass selected seat numbers for split_details tracking
+          ...(seatNumbersRef.current.length > 0 ? { seatNumbers: seatNumbersRef.current } : {}),
           // Card-specific (gateway processes pre-transaction in the API route)
           ...(type === 'card' && cardToken ? { token: cardToken } : {}),
           // House account CMAA metadata (validated pre-transaction in the API route)
@@ -296,6 +300,8 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
 
         // Track session for potential split payment follow-ups
         sessionIdRef.current = isFullyPaid ? null : sessionId;
+        // Clear seat numbers after successful tender
+        seatNumbersRef.current = [];
 
         // Adjust tip for non-card tenders (card tips are in the gateway charge)
         // Fire-and-forget: payment is already committed — don't block the UI
@@ -381,9 +387,24 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
 
   const handleClose = useCallback(() => {
     sessionIdRef.current = null;
+    seatNumbersRef.current = [];
     navigateTo('floor');
     setActiveTab(null);
   }, [navigateTo, setActiveTab]);
+
+  // ── Pay-by-seat: derive paid seats from session split_details ──
+  const paidSeats = useMemo(() => {
+    const activeSession = sessions.find(
+      (s) => s.status === 'pending' || s.status === 'in_progress',
+    );
+    if (!activeSession?.splitDetails) return [];
+    return (activeSession.splitDetails.paidSeats as number[]) ?? [];
+  }, [sessions]);
+
+  // ── Pay-by-seat: track selected seats for current tender ──
+  const handleSeatPayment = useCallback((seatNumbers: number[], _totalCents: number) => {
+    seatNumbersRef.current = seatNumbers;
+  }, []);
 
   const handleFailSession = useCallback(async () => {
     const sessionId = sessionIdRef.current;
@@ -600,6 +621,8 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
           onClose={handleClose}
           onCancelPayment={handleFailSession}
           onCheckRefresh={refreshCheck}
+          paidSeats={paidSeats}
+          onSeatPayment={handleSeatPayment}
           disabled={isOffline}
           skipConfirm
           tokenizerConfig={tokenizerConfig}

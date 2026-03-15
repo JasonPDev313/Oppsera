@@ -472,12 +472,12 @@ export default function AnswerCardsPage() {
   const { cards, isLoading, error, reload } = useAnswerCards({
     status: statusFilter || undefined,
     moduleKey: moduleFilter || undefined,
-    limit: 200,
+    limit: 2500,
   });
 
   // Separate unfiltered fetch to derive stable module key list for the dropdown.
   // Without this, selecting a module filter would collapse the dropdown to one option.
-  const { cards: allCards } = useAnswerCards({ limit: 200 });
+  const { cards: allCards } = useAnswerCards({ limit: 2500 });
 
   const moduleKeys = useMemo(() => {
     const keys = new Set<string>();

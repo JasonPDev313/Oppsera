@@ -113,7 +113,7 @@ export async function recallItem(
     }
 
     const events = [];
-    const locationId = ticket?.locationId ?? ctx.locationId;
+    const locationId = ticket!.locationId;
 
     // Revert ticket status if it was served/ready (an item was pulled back)
     if (ticket && (ticket.status === 'served' || ticket.status === 'ready')) {

@@ -150,6 +150,12 @@ export const orderLines = pgTable(
     // ── Price override discount tracking (migration 0212) ──
     priceOverrideDiscountCents: integer('price_override_discount_cents').notNull().default(0),
 
+    // ── Cart-level discount proration + finalized amounts (migration 0332) ──
+    discountAllocationCents: integer('discount_allocation_cents').notNull().default(0),
+    finalLineSubtotal: integer('final_line_subtotal').notNull().default(0),
+    finalLineTax: integer('final_line_tax').notNull().default(0),
+    finalLineTotal: integer('final_line_total').notNull().default(0),
+
     // ── Return tracking (migration 0103) ──
     originalLineId: text('original_line_id'), // links return line → original order line
 

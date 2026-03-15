@@ -62,18 +62,23 @@ export const MODEL_TIERS = {
     label: 'haiku',
   },
   standard: {
-    id: 'claude-sonnet-4-20250514',
+    id: 'claude-sonnet-4-6',
     maxTokens: 2048,
     label: 'sonnet',
   },
   deep: {
-    id: 'claude-opus-4-20250901',
+    id: 'claude-opus-4-6',
     maxTokens: 4096,
     label: 'opus',
   },
 } as const;
 
 export type ModelTier = keyof typeof MODEL_TIERS;
+
+/** Convenience re-exports — use these instead of hardcoding model ID strings. */
+export const FAST_MODEL_ID = MODEL_TIERS.fast.id;
+export const STANDARD_MODEL_ID = MODEL_TIERS.standard.id;
+export const DEEP_MODEL_ID = MODEL_TIERS.deep.id;
 
 /** Ordered tier list for escalation: fast → standard → deep */
 export const TIER_ESCALATION_ORDER: readonly ModelTier[] = ['fast', 'standard', 'deep'] as const;

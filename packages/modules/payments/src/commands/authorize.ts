@@ -8,10 +8,8 @@ import { eq, and } from 'drizzle-orm';
 import type { AuthorizePaymentInput } from '../gateway-validation';
 import type { PaymentIntentResult } from '../types/gateway-results';
 import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition, type PaymentIntentStatus } from '../events/gateway-types';
-import type { InquireResponse, VoidByOrderIdRequest, VoidResponse } from '../providers/interface';
 import { resolveProvider } from '../helpers/resolve-provider';
 import { centsToDollars, dollarsToCents, generateProviderOrderId, extractCardLast4, detectCardBrand } from '../helpers/amount';
-import { CardPointeTimeoutError } from '../providers/cardpointe/client';
 import { interpretResponse } from '../services/response-interpreter';
 import type { ResponseInterpretation } from '../services/response-interpreter';
 
@@ -116,31 +114,10 @@ export async function authorizePayment(
         authorizedAmountCents = dollarsToCents(authResponse.amount);
       }
     } catch (err) {
-      // Timeout recovery
-      if (err instanceof CardPointeTimeoutError) {
-        const recovery = await handleAuthTimeout(provider, merchantId, providerOrderId);
-        if (recovery.outcome === 'recovered') {
-          providerRef = recovery.providerRef;
-          txnStatus = recovery.status;
-          authCode = recovery.authCode;
-          responseCode = recovery.responseCode;
-          responseText = recovery.responseText;
-          rawResponse = recovery.rawResponse;
-          if (recovery.status === 'approved') {
-            authorizedAmountCents = dollarsToCents(recovery.amount);
-          }
-        } else if (recovery.outcome === 'voided') {
-          txnStatus = 'error';
-          responseText = 'Authorization timed out — safely voided at gateway';
-        } else {
-          // unknown — gateway may have charged but we cannot confirm
-          txnStatus = 'error'; // will be overridden to unknown_at_gateway below
-          responseText = 'Authorization timed out and could not be recovered — status unknown at gateway';
-        }
-      } else {
-        txnStatus = 'error';
-        responseText = err instanceof Error ? err.message : 'Unknown provider error';
-      }
+      // Provider handles timeout recovery internally (inquire → void → retry status).
+      // If an error still reaches here, it's a non-recoverable failure.
+      txnStatus = 'error';
+      responseText = err instanceof Error ? err.message : 'Unknown provider error';
     }
 
     // 4. Interpret response
@@ -212,90 +189,39 @@ export async function authorizePayment(
       .where(and(eq(paymentIntents.id, intent!.id), eq(paymentIntents.tenantId, ctx.tenantId)))
       .returning();
 
-    // 7. Build event
-    const eventType =
-      txnStatus === 'approved'
-        ? PAYMENT_GATEWAY_EVENTS.AUTHORIZED
-        : PAYMENT_GATEWAY_EVENTS.DECLINED;
+    // 7. Build event — only emit for approved or declined, not error/retry/unknown
+    const events = [];
+    if (txnStatus === 'approved' || txnStatus === 'declined') {
+      const eventType =
+        txnStatus === 'approved'
+          ? PAYMENT_GATEWAY_EVENTS.AUTHORIZED
+          : PAYMENT_GATEWAY_EVENTS.DECLINED;
 
-    const event = buildEventFromContext(ctx, eventType, {
-      paymentIntentId: intent!.id,
-      tenantId: ctx.tenantId,
-      locationId: ctx.locationId,
-      merchantAccountId,
-      amountCents: input.amountCents,
-      authorizedAmountCents: authorizedAmountCents ?? 0,
-      currency: input.currency ?? 'USD',
-      cardLast4,
-      cardBrand,
-      orderId: input.orderId ?? null,
-      customerId: input.customerId ?? null,
-      providerRef,
-      paymentMethodType: input.paymentMethodType ?? 'card',
-      surchargeAmountCents: input.surchargeAmountCents ?? 0,
-      responseCode,
-      responseText,
-    });
+      events.push(buildEventFromContext(ctx, eventType, {
+        paymentIntentId: intent!.id,
+        tenantId: ctx.tenantId,
+        locationId: ctx.locationId,
+        merchantAccountId,
+        amountCents: input.amountCents,
+        authorizedAmountCents: authorizedAmountCents ?? 0,
+        currency: input.currency ?? 'USD',
+        cardLast4,
+        cardBrand,
+        orderId: input.orderId ?? null,
+        customerId: input.customerId ?? null,
+        providerRef,
+        paymentMethodType: input.paymentMethodType ?? 'card',
+        surchargeAmountCents: input.surchargeAmountCents ?? 0,
+        responseCode,
+        responseText,
+      }));
+    }
 
-    return { result: mapIntentToResult(updated!, providerRef, interpretation), events: [event] };
+    return { result: mapIntentToResult(updated!, providerRef, interpretation), events };
   });
 
   auditLogDeferred(ctx, 'payment.authorized', 'payment_intent', result.id);
   return result;
-}
-
-type TimeoutRecoveryResult =
-  | {
-      outcome: 'recovered';
-      providerRef: string;
-      status: 'approved' | 'declined' | 'retry';
-      authCode: string | null;
-      amount: string;
-      responseCode: string;
-      responseText: string;
-      rawResponse: Record<string, unknown>;
-    }
-  | { outcome: 'voided' }
-  | { outcome: 'unknown' };
-
-/**
- * Timeout recovery: inquireByOrderId → if not found, voidByOrderId 3x → unknown
- */
-async function handleAuthTimeout(
-  provider: { inquireByOrderId: (orderId: string, merchantId: string) => Promise<InquireResponse | null>; voidByOrderId: (request: VoidByOrderIdRequest) => Promise<VoidResponse> },
-  merchantId: string,
-  providerOrderId: string,
-): Promise<TimeoutRecoveryResult> {
-  try {
-    // First, inquire to see if the authorization actually went through
-    const inquireResult = await provider.inquireByOrderId(providerOrderId, merchantId);
-    if (inquireResult) {
-      return {
-        outcome: 'recovered',
-        providerRef: inquireResult.providerRef,
-        status: inquireResult.status,
-        authCode: inquireResult.authCode,
-        amount: inquireResult.amount,
-        responseCode: inquireResult.responseCode,
-        responseText: inquireResult.responseText,
-        rawResponse: inquireResult.rawResponse,
-      };
-    }
-  } catch {
-    // Inquire failed — proceed to void attempts
-  }
-
-  // If not found or inquire failed, try to void 3x
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      await provider.voidByOrderId({ merchantId, orderId: providerOrderId });
-      return { outcome: 'voided' }; // Voided successfully — safe, no charge
-    } catch {
-      // Retry
-    }
-  }
-
-  return { outcome: 'unknown' }; // All void attempts failed — gateway state unknown
 }
 
 function mapIntentToResult(

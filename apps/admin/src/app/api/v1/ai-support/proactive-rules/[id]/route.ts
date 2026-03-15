@@ -108,7 +108,7 @@ export const PATCH = withAdminPermission(async (req: NextRequest, _session, para
   );
 
   return NextResponse.json({ data: { id, updated: true } });
-}, { permission: 'ai_support.answers.write' });
+}, { permission: 'ai_support.admin' });
 
 // ── DELETE /api/v1/ai-support/proactive-rules/[id] ───────────────────
 // Delete a proactive rule
@@ -142,4 +142,4 @@ export const DELETE = withAdminPermission(async (_req: NextRequest, _session, pa
   );
 
   return NextResponse.json({ data: { id, deleted: true } });
-}, { permission: 'ai_support.answers.write' });
+}, { permission: 'ai_support.admin' });

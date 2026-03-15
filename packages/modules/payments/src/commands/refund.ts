@@ -3,7 +3,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
-import { paymentIntents, paymentTransactions, tenders, tenderReversals } from '@oppsera/db';
+import { withTenant, paymentIntents, paymentTransactions, tenders, tenderReversals } from '@oppsera/db';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import type { RefundPaymentInput } from '../gateway-validation';
 import type { PaymentIntentResult } from '../types/gateway-results';
@@ -20,6 +20,24 @@ export async function refundPayment(
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
   }
+
+  // Pre-read intent locationId for provider resolution (outside transaction — read-only)
+  const [intentForProvider] = await withTenant(ctx.tenantId, async (rtx) =>
+    rtx
+      .select({ locationId: paymentIntents.locationId })
+      .from(paymentIntents)
+      .where(and(eq(paymentIntents.id, input.paymentIntentId), eq(paymentIntents.tenantId, ctx.tenantId)))
+      .limit(1),
+  );
+  if (!intentForProvider) {
+    throw new AppError('PAYMENT_INTENT_NOT_FOUND', 'Payment intent not found', 404);
+  }
+
+  // Resolve provider OUTSIDE the transaction to avoid holding two pool connections
+  const { provider, merchantId } = await resolveProvider(
+    ctx.tenantId,
+    intentForProvider.locationId,
+  );
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     // 1. Load payment intent with FOR UPDATE lock (prevents concurrent refund race / double-refund)
@@ -57,7 +75,7 @@ export async function refundPayment(
 
     if (existingRefundTxn && existingRefundTxn.responseStatus === 'approved') {
       // Already processed this exact refund — return current intent (idempotent replay)
-      return { result: mapIntentToResult(intent, null), events: [] };
+      return { result: mapIntentToResult(intent, existingRefundTxn.providerRef), events: [] };
     }
 
     // 3. Validate status — must be captured (or ach_settled/ach_originated for ACH)
@@ -172,13 +190,8 @@ export async function refundPayment(
       throw new AppError('NO_PROVIDER_REF', 'No provider reference found for this payment', 422);
     }
 
-    // 6. Resolve provider
-    const { provider, merchantId } = await resolveProvider(
-      ctx.tenantId,
-      intent.locationId,
-    );
-
-    // 7. Call provider refund (ACH uses auth endpoint with achDescription='Reversal')
+    // 6. Call provider refund (provider resolved outside transaction)
+    // ACH uses auth endpoint with achDescription='Reversal'
     let refundResponse;
     if (isAch) {
       // NACHA reversal: must use same SEC code, achDescription='Reversal', exact amount
@@ -273,17 +286,21 @@ export async function refundPayment(
         customerId: intent.customerId,
         providerRef: refundResponse.providerRef,
       });
-      return { result: mapIntentToResult(updated!, interpretation), events: [event] };
+      return { result: mapIntentToResult(updated!, refundResponse.providerRef, interpretation), events: [event] };
     }
 
-    return { result: mapIntentToResult(updated!, interpretation), events: [] };
+    return { result: mapIntentToResult(updated!, refundResponse.providerRef, interpretation), events: [] };
   });
 
   auditLogDeferred(ctx, 'payment.refunded', 'payment_intent', result.id);
   return result;
 }
 
-function mapIntentToResult(intent: typeof paymentIntents.$inferSelect, interpretation?: ResponseInterpretation | null): PaymentIntentResult {
+function mapIntentToResult(
+  intent: typeof paymentIntents.$inferSelect,
+  providerRef: string | null,
+  interpretation?: ResponseInterpretation | null,
+): PaymentIntentResult {
   return {
     id: intent.id,
     tenantId: intent.tenantId,
@@ -298,7 +315,7 @@ function mapIntentToResult(intent: typeof paymentIntents.$inferSelect, interpret
     customerId: intent.customerId ?? null,
     cardLast4: intent.cardLast4 ?? null,
     cardBrand: intent.cardBrand ?? null,
-    providerRef: null,
+    providerRef: providerRef ?? null,
     errorMessage: intent.errorMessage ?? null,
     userMessage: interpretation?.userMessage ?? null,
     suggestedAction: interpretation?.suggestedAction ?? null,

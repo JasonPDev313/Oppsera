@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import type { ListRoutingRulesFilterInput } from '../validation';
+import { resolveKdsLocationId } from '../services/kds-routing-engine';
 
 export interface RoutingRuleListItem {
   id: string;
@@ -28,10 +29,14 @@ export interface RoutingRuleListItem {
 export async function listRoutingRules(
   input: ListRoutingRulesFilterInput,
 ): Promise<RoutingRuleListItem[]> {
+  // Resolve site → venue so queries find venue-scoped routing rules
+  const kdsLocation = await resolveKdsLocationId(input.tenantId, input.locationId);
+  const effectiveLocationId = kdsLocation.warning ? input.locationId : kdsLocation.locationId;
+
   return withTenant(input.tenantId, async (tx) => {
     const conditions: ReturnType<typeof sql>[] = [
       sql`rr.tenant_id = ${input.tenantId}`,
-      sql`rr.location_id = ${input.locationId}`,
+      sql`rr.location_id = ${effectiveLocationId}`,
     ];
 
     if (input.stationId) {

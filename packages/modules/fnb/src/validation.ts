@@ -1212,6 +1212,8 @@ export const payTabSchema = z.object({
   customerId: z.string().min(1).optional(),
   signatureData: z.string().max(100_000).optional(),
   changeCents: z.number().int().min(0).optional().default(0),
+  // Pay-by-seat: which seats this tender covers (tracks paid seats in split_details)
+  seatNumbers: z.array(z.number().int().min(1)).min(1).optional(),
 });
 
 export type PayTabInput = z.input<typeof payTabSchema>;
@@ -3054,6 +3056,15 @@ export const updateTabItemPriceSchema = z.object({
   reason: z.string().min(1).max(500),
 });
 export type UpdateTabItemPriceInput = z.input<typeof updateTabItemPriceSchema>;
+
+export const updateTabItemSeatCourseSchema = z.object({
+  ...idempotencyMixin,
+  seatNumber: z.number().int().min(1).optional(),
+  courseNumber: z.number().int().min(1).optional(),
+}).refine((d) => d.seatNumber !== undefined || d.courseNumber !== undefined, {
+  message: 'At least one of seatNumber or courseNumber is required',
+});
+export type UpdateTabItemSeatCourseInput = z.input<typeof updateTabItemSeatCourseSchema>;
 
 export const updateTabItemNoteSchema = z.object({
   specialInstructions: z.string().max(500).nullable(),

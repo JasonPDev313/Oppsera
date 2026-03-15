@@ -342,4 +342,124 @@ describe('orchestrator', () => {
       expect(systemPrompt).toContain('no-evidence');
     });
   });
+
+  describe('follow-up model routing', () => {
+    it('first message with no evidence uses deep tier (Opus)', async () => {
+      vi.mocked(retrieveEvidence).mockResolvedValue([]);
+
+      let capturedBody: unknown;
+      mockFetch.mockImplementation((_url: string, opts: RequestInit) => {
+        capturedBody = JSON.parse(opts.body as string);
+        return Promise.resolve(makeSSEResponse('Test response'));
+      });
+
+      const stream = runOrchestrator({
+        ...baseInput,
+        mode: 'staff',
+        threadHistory: [], // First message — no history
+      });
+      await collectStreamChunks(stream);
+
+      const body = capturedBody as Record<string, unknown>;
+      // No evidence + no history → low confidence → deep tier
+      expect(body['model']).toBe('claude-opus-4-6');
+    });
+
+    it('follow-up with no evidence floors to standard tier (Sonnet), not deep', async () => {
+      vi.mocked(retrieveEvidence).mockResolvedValue([]);
+
+      let capturedBody: unknown;
+      mockFetch.mockImplementation((_url: string, opts: RequestInit) => {
+        capturedBody = JSON.parse(opts.body as string);
+        return Promise.resolve(makeSSEResponse('Test response'));
+      });
+
+      const stream = runOrchestrator({
+        ...baseInput,
+        mode: 'staff',
+        threadHistory: [
+          { role: 'user', content: 'What is inventory?' },
+          { role: 'assistant', content: 'Inventory tracks stock levels.' },
+        ],
+        // No priorConfidence → continuation floor
+      });
+      await collectStreamChunks(stream);
+
+      const body = capturedBody as Record<string, unknown>;
+      // Follow-up + no evidence → floored to medium → standard tier (Sonnet)
+      expect(body['model']).toBe('claude-sonnet-4-6');
+    });
+
+    it('follow-up with prior high confidence floors to standard tier', async () => {
+      vi.mocked(retrieveEvidence).mockResolvedValue([]);
+
+      let capturedBody: unknown;
+      mockFetch.mockImplementation((_url: string, opts: RequestInit) => {
+        capturedBody = JSON.parse(opts.body as string);
+        return Promise.resolve(makeSSEResponse('Test response'));
+      });
+
+      const stream = runOrchestrator({
+        ...baseInput,
+        mode: 'staff',
+        threadHistory: [
+          { role: 'user', content: 'How do I create an order?' },
+          { role: 'assistant', content: 'Go to Orders > New Order.' },
+        ],
+        priorConfidence: 'high',
+      });
+      await collectStreamChunks(stream);
+
+      const body = capturedBody as Record<string, unknown>;
+      // Follow-up + prior high confidence → floored to medium → Sonnet
+      expect(body['model']).toBe('claude-sonnet-4-6');
+    });
+
+    it('follow-up with high evidence still uses fast tier (Haiku)', async () => {
+      const mockEvidence = [makeEvidence('t2', 'answer_card:inventory')];
+      vi.mocked(retrieveEvidence).mockResolvedValue(mockEvidence);
+
+      let capturedBody: unknown;
+      mockFetch.mockImplementation((_url: string, opts: RequestInit) => {
+        capturedBody = JSON.parse(opts.body as string);
+        return Promise.resolve(makeSSEResponse('Test response'));
+      });
+
+      const stream = runOrchestrator({
+        ...baseInput,
+        mode: 'staff',
+        threadHistory: [
+          { role: 'user', content: 'What is inventory?' },
+          { role: 'assistant', content: 'Inventory tracks stock levels.' },
+        ],
+        priorConfidence: 'high',
+      });
+      await collectStreamChunks(stream);
+
+      const body = capturedBody as Record<string, unknown>;
+      // Follow-up with T2 evidence → high confidence → fast tier (Haiku)
+      expect(body['model']).toBe('claude-haiku-4-5-20251001');
+    });
+
+    it('first message with no evidence in customer mode uses deep tier', async () => {
+      vi.mocked(retrieveEvidence).mockResolvedValue([]);
+
+      let capturedBody: unknown;
+      mockFetch.mockImplementation((_url: string, opts: RequestInit) => {
+        capturedBody = JSON.parse(opts.body as string);
+        return Promise.resolve(makeSSEResponse('Test response'));
+      });
+
+      const stream = runOrchestrator({
+        ...baseInput,
+        mode: 'customer',
+        threadHistory: [],
+      });
+      await collectStreamChunks(stream);
+
+      const body = capturedBody as Record<string, unknown>;
+      // No evidence + no history + customer mode → deep
+      expect(body['model']).toBe('claude-opus-4-6');
+    });
+  });
 });

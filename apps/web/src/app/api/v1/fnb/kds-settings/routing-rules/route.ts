@@ -6,13 +6,19 @@ import {
   listRoutingRules,
   createRoutingRule,
   createKdsRoutingRuleSchema,
+  resolveKdsLocationId,
 } from '@oppsera/module-fnb';
 
 // GET /api/v1/fnb/kds-settings/routing-rules — list enhanced routing rules
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
-    const locationId = ctx.locationId ?? url.searchParams.get('locationId') ?? '';
+    const rawLocationId = ctx.locationId ?? url.searchParams.get('locationId') ?? '';
+    let locationId = rawLocationId;
+    if (rawLocationId) {
+      const kdsLoc = await resolveKdsLocationId(ctx.tenantId, rawLocationId);
+      locationId = kdsLoc.locationId;
+    }
     const rules = await listRoutingRules({
       tenantId: ctx.tenantId,
       locationId,

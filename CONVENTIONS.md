@@ -1,6 +1,6 @@
 # OppsEra — Conventions Index
 
-> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (~13,029 lines, 274 numbered sections).
+> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (~13,053 lines, 280 numbered sections).
 > Read only the sections you need by line range. Do NOT load the entire file into context.
 
 ---
@@ -344,7 +344,7 @@
 | §246 | Emergency Cleanup Payment Verification | 12339–12356 | Verify SUM(tenders) >= total, location-scoped locks |
 | §247 | Help Tip Pattern | 12357–12395 | Portal-mounted `?` popover, placement props, first-visit auto-open, 3-cycle pulse |
 
-### Domain Patterns (§248–§274) — Updated 2026-03-15
+### Domain Patterns (§248–§280) — Updated 2026-03-15
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
@@ -368,13 +368,19 @@
 | §265 | Feature Gap Detection | 12867–12879 | maybeRecordFeatureGap(), normalize→hash dedup, occurrence_count upsert, admin triage dashboard |
 | §266 | Global Regex `.test()` Bug (Gotcha) | 12880–12889 | Global regex lastIndex state, non-global copies for .test(), global for .replace() |
 | §267 | RLS With No Policy = Deny All (Gotcha) | 12890–12900 | ENABLE RLS without policy blocks all, NULL tenant_id handling, migration 0324 fix |
-| §268 | Agentic Orchestrator — Split-Phase Tool Execution | 12902–12932 | Two-call Claude strategy, SSE events, 55s total timeout, single tool per turn, action security |
-| §269 | Action Registry & Permission-Gated Tools | 12934–12958 | Map singleton, permission gating, executor separation, actionsToClaudeTools, 4 built-in templates |
-| §270 | Non-Critical Analytics Services Pattern | 12960–12990 | Never-throw pattern, AbortSignal.timeout, idempotency guards, intent/sentiment/CSAT/summarizer |
-| §271 | AI Test Runner Framework | 12992–13005 | Serialized execution, ReDoS guard, regression detection, binary scoring, Haiku-only |
-| §272 | Escalation Lifecycle | 13007–13027 | Inline Haiku summary, auto-priority, auditLog().catch(), raw SQL list query, admin-portal detail |
-| §273 | Proactive Messaging Rules | 13029–13045 | Global + tenant rules, startsWith route matching, cooldown logic, batch dismissal loading |
-| §274 | F&B Venue Location Guard | 13047–13062 | assertSingleVenueLocation, withEffectiveLocationId, 409 cross-venue, identity optimization |
+| §268 | Agentic Orchestrator — Split-Phase Tool Execution | 12902–12923 | Two-call Claude strategy, SSE events, 55s total timeout, single tool per turn, action security |
+| §269 | Action Registry & Permission-Gated Tools | 12924–12945 | Map singleton, permission gating, executor separation, actionsToClaudeTools, 4 built-in templates |
+| §270 | Non-Critical Analytics Services Pattern | 12946–12965 | Never-throw pattern, AbortSignal.timeout, idempotency guards, intent/sentiment/CSAT/summarizer |
+| §271 | AI Test Runner Framework | 12966–12981 | Serialized execution, ReDoS guard, regression detection, binary scoring, Haiku-only |
+| §272 | Escalation Lifecycle | 12982–12999 | Inline Haiku summary, auto-priority, auditLog().catch(), raw SQL list query, admin-portal detail |
+| §273 | Proactive Messaging Rules | 13000–13014 | Global + tenant rules, startsWith route matching, cooldown logic, batch dismissal loading |
+| §274 | F&B Venue Location Guard | 13015–13030 | assertSingleVenueLocation, withEffectiveLocationId, 409 cross-venue, identity optimization |
+| §275 | Discount-Aware Order Total Recalculation | 13031–13034 | Recalculate totals after discount application, item-level and order-level discount math |
+| §276 | Payment Timeout Recovery Belongs in Provider | 13035–13038 | Timeout recovery logic lives in payment provider, not in orchestrator or command layer |
+| §277 | Payment Events Gated on Terminal Outcomes | 13039–13042 | Payment events only emitted after confirmed terminal outcome, no optimistic event emission |
+| §278 | Pre-Transaction Provider Resolution | 13043–13046 | Resolve payment provider before opening DB transaction, fail fast outside transaction |
+| §279 | withEffectiveLocationId for KDS Commands | 13047–13050 | KDS commands use withEffectiveLocationId helper, never raw locationId from request |
+| §280 | NaN Guard Before Order DB Writes | 13051–13053 | Validate all numeric fields for NaN before writing order rows, structured error response |
 
 ---
 
@@ -386,7 +392,7 @@
 | **Dark mode** | §15, §145, §172 |
 | **GL / Accounting** | §76–§80, §84, §114, §117–§118, §149, §177, §183, §185, §187–§188, §195–§197, §201–§203, §220, §238–§239, §249–§250, §254 |
 | **POS** | §31–§35, §57, §61–§64, §132a, §140–§141, §164, §169, §196, §228 |
-| **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227, §240, §243, §246, §248, §274 |
+| **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227, §240, §243, §246, §248, §274, §275 |
 | **Vercel / Serverless** | §47, §81, §157, §161, §205–§206, §232, §255 |
 | **Database / Schema** | §2, §18, §29–§30, §36, §47, §139, §179, §225, §241–§244, §266–§267 |
 | **Auth / Security** | §3, §13–§14, §38, §51, §67, §81, §119, §137, §207–§208, §223, §233, §242 |
@@ -400,11 +406,11 @@
 | **Customer / Tags** | §39, §44, §125, §199, §237 |
 | **Admin Portal** | §73, §88, §91–§92, §119, §131a, §147, §180, §218, §229–§230, §251 |
 | **Onboarding** | §42, §112, §144 |
-| **Payments / Tenders** | §35, §64, §96, §101–§102, §128, §140, §198, §239, §252 |
+| **Payments / Tenders** | §35, §64, §96, §101–§102, §128, §140, §198, §239, §252, §276–§278 |
 | **Infrastructure / Cron** | §47–§49, §83, §157, §161–§162, §167, §206, §226, §254 |
 | **Frontend Patterns** | §15, §57, §228, §234–§237, §245, §247, §258 |
 | **A11y / Accessibility** | §154, §174, §236 |
-| **KDS** | §176, §181, §222, §235, §240, §243, §253, §255–§258, §261 |
+| **KDS** | §176, §181, §222, §235, §240, §243, §253, §255–§258, §261, §279 |
 
 ---
 
@@ -412,7 +418,7 @@
 
 - **Duplicate section numbers**: §98, §131–§135 each appear twice in the file (legacy numbering). Disambiguated as `a`/`b` suffixes above.
 - **Unnumbered sections**: "Local Server Fix (Windows)" at line 7246 (between §127 and §128), and "Answer"/"Metrics in This Query" subsections within §74 at lines 4571–4652.
-- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~13,029 lines, 274 numbered sections)
+- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~13,053 lines, 280 numbered sections)
 - **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (581 numbered gotchas)
 - **What's Built / What's Next**: `docs/conventions/whats-built.md`
 

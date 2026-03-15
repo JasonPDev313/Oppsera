@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { usePermissions } from '@/hooks/use-permissions';
 import type { AiAssistantContext } from '@oppsera/module-ai-support';
 
 function deriveModuleKey(pathname: string): string | undefined {
@@ -50,9 +51,35 @@ function getSelectedRecord(): Record<string, unknown> | undefined {
   }
 }
 
+/** Read locationId from the terminal session stored in localStorage (if active). */
+function getTerminalLocationId(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const stored = localStorage.getItem('oppsera:terminal-session');
+    if (!stored) return undefined;
+    const session = JSON.parse(stored) as { locationId?: string };
+    return session.locationId || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function useAiAssistantContext(): AiAssistantContext {
   const pathname = usePathname();
   const { user, tenant } = useAuth();
+  const { roles, permissions } = usePermissions();
+
+  // Derive role keys from the permissions hook (e.g. ['manager', 'cashier'])
+  const roleKeys = useMemo(
+    () => roles.map((r) => r.name.toLowerCase()),
+    [roles],
+  );
+
+  // Derive permission keys for the AI context
+  const permissionKeys = useMemo(
+    () => Array.from(permissions),
+    [permissions],
+  );
 
   return useMemo(
     () => ({
@@ -60,14 +87,9 @@ export function useAiAssistantContext(): AiAssistantContext {
       screenTitle: typeof document !== 'undefined' ? document.title : undefined,
       moduleKey: deriveModuleKey(pathname),
       tenantId: tenant?.id ?? '',
-      // LocationProfile lives in locations[], not directly on user — omit until
-      // a location-selection context (e.g. terminal session) exposes it here.
-      locationId: undefined,
-      // AuthUserProfile does not carry roles/permissions — those are enforced
-      // server-side via RBAC. Provide an empty array to satisfy the required
-      // roleKeys field; enrich when the /me endpoint is extended.
-      roleKeys: [],
-      permissionKeys: undefined,
+      locationId: getTerminalLocationId(),
+      roleKeys,
+      permissionKeys,
       // TenantProfile does not expose featureFlags or enabledModules today.
       // These will be populated once the /me response is extended.
       featureFlags: undefined,
@@ -75,7 +97,7 @@ export function useAiAssistantContext(): AiAssistantContext {
       visibleActions: collectVisibleActions(),
       selectedRecord: getSelectedRecord(),
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pathname, tenant?.id, user?.id],
+    // eslint-disable-next-line
+    [pathname, tenant?.id, user?.id, roleKeys, permissionKeys],
   );
 }

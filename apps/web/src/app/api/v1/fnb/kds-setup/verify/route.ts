@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant } from '@oppsera/db';
+import { resolveKdsLocationId } from '@oppsera/module-fnb';
 /**
  * GET /api/v1/fnb/kds-setup/verify
  *
@@ -11,8 +12,8 @@ import { withTenant } from '@oppsera/db';
  */
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const locationId = ctx.locationId;
-    if (!locationId) {
+    const rawLocationId = ctx.locationId;
+    if (!rawLocationId) {
       return NextResponse.json({
         data: {
           checks: [{ key: 'location', pass: false, message: 'No location selected' }],
@@ -20,6 +21,10 @@ export const GET = withMiddleware(
         },
       });
     }
+
+    // Resolve site → venue (stations live at venues, not sites)
+    const kdsLoc = await resolveKdsLocationId(ctx.tenantId, rawLocationId);
+    const locationId = kdsLoc.locationId;
 
     const results = await withTenant(ctx.tenantId, async (tx) => {
       // All three counts in one query to minimize round-trips

@@ -9,6 +9,8 @@ import { AppError, generateUlid } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { BulkApplyCourseRuleInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
+import { resolveKdsLocationId } from '../services/kds-routing-engine';
+import { withEffectiveLocationId } from '../helpers/venue-location';
 
 export interface BulkApplyCourseRuleResult {
   ruleId: string;
@@ -28,9 +30,16 @@ export async function bulkApplyCourseRule(
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'Location header is required for course rule operations', 400);
   }
-  const locationId = ctx.locationId;
 
-  const result = await publishWithOutbox(ctx, async (tx) => {
+  // Pre-transaction: resolve site → venue (course rules are venue-scoped for KDS)
+  const kdsLocation = await resolveKdsLocationId(ctx.tenantId, ctx.locationId);
+  if (kdsLocation.warning) {
+    throw new AppError('VENUE_REQUIRED', kdsLocation.warning, 400);
+  }
+  const locationId = kdsLocation.locationId;
+
+  const effectiveCtx = withEffectiveLocationId(ctx, locationId);
+  const result = await publishWithOutbox(effectiveCtx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'bulkApplyCourseRule',
     );
@@ -147,7 +156,7 @@ export async function bulkApplyCourseRule(
       itemOverridesCleared,
     };
 
-    const event = buildEventFromContext(ctx, FNB_EVENTS.COURSE_RULE_BULK_APPLIED, {
+    const event = buildEventFromContext(effectiveCtx, FNB_EVENTS.COURSE_RULE_BULK_APPLIED, {
       ruleId: rule.id,
       scopeType: input.scopeType,
       scopeId: input.scopeId,

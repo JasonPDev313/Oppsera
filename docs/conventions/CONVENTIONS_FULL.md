@@ -13027,3 +13027,27 @@ Two utility functions in `packages/modules/fnb/src/helpers/venue-location.ts`:
 - Otherwise returns shallow spread `{ ...ctx, locationId }` — never mutates
 
 Used in `accept-table-offer`, `dispatch-course-to-kds`, and similar cross-entity F&B commands. HTTP 409 for cross-venue is intentional — signals state conflict, not bad request.
+
+## §275 Discount-Aware Order Total Recalculation
+
+All order mutation commands (add/remove line items, service charges, discounts) must check `hasDiscounts` before recalculating totals. When discounts exist, call `recalculateOrderTaxesAfterDiscount` which re-prorates discounts across all lines using `finalLineSubtotal`/`finalLineTax`/`finalLineTotal` columns. Never recalculate from stale header totals (`order.subtotal`). Percentage-based service charges must read live `SUM(finalLineSubtotal)` from DB within the transaction. The schema has four new columns on `order_lines`: `discount_allocation_cents`, `final_line_subtotal`, `final_line_tax`, `final_line_total`.
+
+## §276 Payment Timeout Recovery Belongs in Provider
+
+Payment timeout recovery logic (inquire → void → retry) belongs inside provider implementations, not in command handlers. Commands (`authorize`, `sale`, `capture`, `void`, `refund`) should treat any error from the provider as non-recoverable. When adding a new payment provider, implement timeout recovery inside the provider's methods.
+
+## §277 Payment Events Gated on Terminal Outcomes
+
+Payment gateway events (`payment.authorized.v1`, `payment.declined.v1`, etc.) must only be published for terminal outcomes: `approved` or `declined`. Do not emit events for `error`, `retry`, or `unknown_at_gateway` — consumers cannot safely act on ambiguous states. Commands return `events: []` for non-terminal outcomes.
+
+## §278 Pre-Transaction Provider Resolution
+
+When a command needs to resolve an external provider (e.g., `resolveProvider()`) before a write transaction, do it outside `publishWithOutbox` using a separate `withTenant` read. Never call `resolveProvider()` inside an open write transaction — it opens a second connection while the first is held, risking pool exhaustion on Vercel (max: 2). Pattern: `withTenant(tenantId, tx => readLocationId(tx))` → `resolveProvider(locationId)` → `publishWithOutbox(ctx, tx => { ... })`.
+
+## §279 withEffectiveLocationId for KDS Commands
+
+Any KDS command that creates records (tickets, counters, station events) must use `withEffectiveLocationId(ctx, effectiveLocationId)` to derive a context with the venue-level location after calling `resolveKdsLocationId`. Pass the derived `effectiveCtx` to `publishWithOutbox` and `buildEventFromContext`. Using the raw `ctx.locationId` (which may be site-level) is a bug. This extends the venue location guard documented in §258.
+
+## §280 NaN Guard Before Order DB Writes
+
+Any order math that derives integers from catalog data (NUMERIC strings) must guard against NaN before DB writes. A missing or malformed price returns `NaN` from `Number()`, which Drizzle may silently insert as 0 or cause cryptic DB errors. Pattern: `if (Number.isNaN(unitPrice) || Number.isNaN(lineSubtotal)) throw new AppError('CALCULATION_ERROR', ...)`. Also applies to tax calculations.

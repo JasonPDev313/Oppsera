@@ -99,7 +99,8 @@ async function retrieveT2(
   const cards = await db
     .select()
     .from(aiSupportAnswerCards)
-    .where(and(...conditions));
+    .where(and(...conditions))
+    .limit(200);
 
   const questionLower = question.toLowerCase();
   return cards
@@ -121,10 +122,11 @@ async function retrieveT3(
   question: string,
 ): Promise<EvalEvidence[]> {
   const normalized = question.toLowerCase().trim().replace(/\s+/g, ' ');
+  const escaped = normalized.slice(0, 100).replace(/[%_\\]/g, '\\$&');
 
   const conditions = [
     eq(aiAssistantAnswerMemory.reviewStatus, 'approved'),
-    ilike(aiAssistantAnswerMemory.questionNormalized, `%${normalized.slice(0, 100)}%`),
+    ilike(aiAssistantAnswerMemory.questionNormalized, `%${escaped}%`),
   ];
   if (context.moduleKey) {
     conditions.push(eq(aiAssistantAnswerMemory.moduleKey, context.moduleKey));
@@ -184,7 +186,8 @@ async function retrieveT4(context: AiAssistantContext): Promise<EvalEvidence[]> 
   const actions = await db
     .select()
     .from(aiSupportActionManifests)
-    .where(eq(aiSupportActionManifests.route, context.route));
+    .where(eq(aiSupportActionManifests.route, context.route))
+    .limit(50);
 
   for (const action of actions) {
     results.push({

@@ -161,6 +161,7 @@ export { compTabItem } from './commands/comp-tab-item';
 export { updateTabItemPrice } from './commands/update-tab-item-price';
 export { updateTabItemNote } from './commands/update-tab-item-note';
 export { deleteTabItem } from './commands/delete-tab-item';
+export { updateTabItemSeatCourse } from './commands/update-tab-item-seat-course';
 
 // Queries
 export { listTabs } from './queries/list-tabs';
@@ -788,7 +789,7 @@ export {
   getWaitTimeEstimateSchema, getTableAvailabilitySchema,
   KDS_ORDER_TYPES, KDS_CHANNELS,
   // Tab Item Operations
-  voidTabItemSchema, compTabItemSchema, updateTabItemPriceSchema, updateTabItemNoteSchema,
+  voidTabItemSchema, compTabItemSchema, updateTabItemPriceSchema, updateTabItemNoteSchema, updateTabItemSeatCourseSchema,
 } from './validation';
 
 export type {

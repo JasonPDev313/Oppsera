@@ -1,5 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { db, aiSupportConversationTags } from '@oppsera/db';
+import { FAST_MODEL_ID } from '../constants';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ export async function classifyConversation(
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: FAST_MODEL_ID,
         max_tokens: 128,
         system:
           'Classify this support conversation. Respond with ONLY a JSON object with these fields:\n' +

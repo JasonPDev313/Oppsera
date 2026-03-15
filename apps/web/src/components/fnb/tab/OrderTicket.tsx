@@ -2,7 +2,7 @@
 
 import { memo, useMemo, useState, useCallback } from 'react';
 import { List, Layers } from 'lucide-react';
-import type { FnbTabDetail, FnbDraftLine } from '@/types/fnb';
+import type { FnbTabDetail, FnbDraftLine, FnbTabLine } from '@/types/fnb';
 import { CourseSection } from './CourseSection';
 import { FnbOrderLine } from './FnbOrderLine';
 import { FnbLineItemEditPanel } from './FnbLineItemEditPanel';
@@ -17,7 +17,6 @@ interface OrderTicketProps {
   onSendCourse: (courseNumber: number) => void;
   onFireCourse: (courseNumber: number) => void;
   onLineTap?: (lineId: string) => void;
-  onMoveLineToCourse?: (lineId: string, newCourseNumber: number) => void;
   /** When false, hides per-course Send/Fire buttons (KDS routing mode) */
   kdsSendEnabled?: boolean;
   /** Disables action buttons while a mutation is in-flight */
@@ -28,6 +27,9 @@ interface OrderTicketProps {
   onChangePrice?: (lineId: string, newPriceCents: number, reason: string) => void;
   onVoidLine?: (lineId: string, reason: string) => void;
   onCompLine?: (lineId: string, reason: string, compCategory: string) => void;
+  onChangeSeat?: (lineId: string, newSeat: number) => void;
+  onChangeCourse?: (lineId: string, newCourse: number) => void;
+  seatCount?: number;
   linePermissions?: FnbLineEditPermissions;
 }
 
@@ -40,7 +42,6 @@ export const OrderTicket = memo(function OrderTicket({
   onSendCourse,
   onFireCourse,
   onLineTap,
-  onMoveLineToCourse,
   kdsSendEnabled = true,
   disabled,
   onUpdateNote,
@@ -48,24 +49,22 @@ export const OrderTicket = memo(function OrderTicket({
   onChangePrice,
   onVoidLine,
   onCompLine,
+  onChangeSeat,
+  onChangeCourse,
+  seatCount,
   linePermissions,
 }: OrderTicketProps) {
   const [viewMode, setViewMode] = useState<'active' | 'all'>('all');
-  const [coursePickerLineId, setCoursePickerLineId] = useState<string | null>(null);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
 
-  const hasItemEditActions = !!(onUpdateNote || onDeleteLine || onChangePrice || onVoidLine || onCompLine);
+  const hasItemEditActions = !!(onUpdateNote || onDeleteLine || onChangePrice || onVoidLine || onCompLine || onChangeSeat || onChangeCourse);
 
   const handleLineTap = useCallback((lineId: string) => {
-    if (coursePickerLineId === lineId) {
-      setCoursePickerLineId(null);
-      return;
-    }
     if (hasItemEditActions) {
       setEditingLineId((prev) => (prev === lineId ? null : lineId));
     }
     onLineTap?.(lineId);
-  }, [coursePickerLineId, hasItemEditActions, onLineTap]);
+  }, [hasItemEditActions, onLineTap]);
 
   const handleEditDone = useCallback(() => {
     setEditingLineId(null);
@@ -222,7 +221,7 @@ export const OrderTicket = memo(function OrderTicket({
                 const mods = (line.modifiers ?? []) as Array<Record<string, unknown>>;
                 const modAdj = mods.reduce((sum, m) => sum + (Number(m?.priceAdjustment) || 0), 0);
                 return (
-                <div key={line.id} className="relative">
+                <div key={line.id}>
                   <FnbOrderLine
                     seatNumber={line.seatNumber ?? 1}
                     itemName={line.catalogItemName ?? 'Unknown'}
@@ -242,10 +241,6 @@ export const OrderTicket = memo(function OrderTicket({
                     status={(line.status as 'draft' | 'sent' | 'fired' | 'served' | 'voided') ?? 'draft'}
                     isUnsent={line.status === 'draft' || line.status === 'unsent'}
                     onTap={() => handleLineTap(line.id)}
-                    onLongPress={onMoveLineToCourse && (line.status === 'draft' || line.status === 'unsent')
-                      ? () => setCoursePickerLineId(line.id)
-                      : undefined
-                    }
                   />
                   {/* Inline item edit panel */}
                   {editingLineId === line.id && hasItemEditActions && line.status !== 'voided' && (
@@ -256,49 +251,40 @@ export const OrderTicket = memo(function OrderTicket({
                       onChangePrice={onChangePrice ?? (() => {})}
                       onVoidLine={onVoidLine ?? (() => {})}
                       onCompLine={onCompLine ?? (() => {})}
+                      onChangeSeat={onChangeSeat}
+                      onChangeCourse={onChangeCourse}
+                      seatCount={seatCount}
+                      courseNames={courseNames}
                       onDone={handleEditDone}
                       permissions={defaultPermissions}
                       disabled={disabled}
                     />
-                  )}
-                  {/* Course reassignment dropdown */}
-                  {coursePickerLineId === line.id && onMoveLineToCourse && (
-                    <div
-                      className="absolute right-2 top-full z-10 rounded-lg shadow-lg border p-1 min-w-30"
-                      style={{
-                        backgroundColor: 'var(--fnb-bg-surface)',
-                        borderColor: 'rgba(148, 163, 184, 0.2)',
-                      }}
-                    >
-                      <p className="px-2 py-1 text-[9px] font-bold uppercase" style={{ color: 'var(--fnb-text-muted)' }}>
-                        Move to course
-                      </p>
-                      {courseNames.map((name, i) => {
-                        const targetCourse = i + 1;
-                        if (targetCourse === courseNum) return null;
-                        return (
-                          <button
-                            key={targetCourse}
-                            type="button"
-                            onClick={() => {
-                              onMoveLineToCourse(line.id, targetCourse);
-                              setCoursePickerLineId(null);
-                            }}
-                            className="flex items-center gap-2 w-full rounded px-2 py-1.5 text-xs transition-opacity hover:opacity-80"
-                            style={{ color: 'var(--fnb-text-primary)' }}
-                          >
-                            <span className="font-bold" style={{ color: 'var(--fnb-text-muted)' }}>C{targetCourse}</span>
-                            {name}
-                          </button>
-                        );
-                      })}
-                    </div>
                   )}
                 </div>
               )})}
               {/* Local draft lines (not yet persisted) */}
               {courseDrafts.map((draft) => {
                 const draftModAdj = draft.modifiers.reduce((sum, m) => sum + (m.priceAdjustment || 0), 0);
+                // Build a FnbTabLine-compatible object so edit panel can render
+                const draftAsLine: FnbTabLine = {
+                  id: draft.localId,
+                  orderLineId: null,
+                  catalogItemId: draft.catalogItemId,
+                  catalogItemName: draft.catalogItemName,
+                  seatNumber: draft.seatNumber,
+                  courseNumber: draft.courseNumber,
+                  qty: draft.qty,
+                  unitPriceCents: draft.unitPriceCents,
+                  extendedPriceCents: draft.unitPriceCents * draft.qty,
+                  modifiers: draft.modifiers as unknown[],
+                  specialInstructions: draft.specialInstructions,
+                  status: 'draft',
+                  sentAt: null,
+                  firedAt: null,
+                  voidedAt: null,
+                  voidedBy: null,
+                  voidReason: null,
+                };
                 return (
                 <div
                   key={`draft-${draft.localId}`}
@@ -320,7 +306,26 @@ export const OrderTicket = memo(function OrderTicket({
                     qty={draft.qty}
                     status="draft"
                     isUnsent
+                    onTap={() => handleLineTap(draft.localId)}
                   />
+                  {/* Inline edit panel for drafts — only seat/course change */}
+                  {editingLineId === draft.localId && (onChangeSeat || onChangeCourse) && (
+                    <FnbLineItemEditPanel
+                      line={draftAsLine}
+                      onUpdateNote={() => {}}
+                      onDelete={() => {}}
+                      onChangePrice={() => {}}
+                      onVoidLine={() => {}}
+                      onCompLine={() => {}}
+                      onChangeSeat={onChangeSeat}
+                      onChangeCourse={onChangeCourse}
+                      seatCount={seatCount}
+                      courseNames={courseNames}
+                      onDone={handleEditDone}
+                      permissions={{ priceOverride: false, discount: false, voidLine: false, comp: false }}
+                      disabled={disabled}
+                    />
+                  )}
                 </div>
               )})}
             </CourseSection>

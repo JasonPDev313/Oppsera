@@ -4,10 +4,9 @@ import crypto from 'node:crypto';
 import {
   db,
   aiSupportCsatPredictions,
-  aiAssistantMessages,
   aiAssistantThreads,
 } from '@oppsera/db';
-import { eq, and, isNull, lt, or, sql } from 'drizzle-orm';
+import { eq, and, isNull, lt, or } from 'drizzle-orm';
 import { predictCSAT } from '@oppsera/module-ai-support';
 
 export const dynamic = 'force-dynamic';

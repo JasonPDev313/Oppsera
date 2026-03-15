@@ -1,7 +1,9 @@
 import { eq, and } from 'drizzle-orm';
 import { db, aiSupportCsatPredictions, aiAssistantMessages } from '@oppsera/db';
 
-const MODEL_ID = 'claude-haiku-4-5-20251001';
+import { FAST_MODEL_ID } from '../constants';
+
+const MODEL_ID = FAST_MODEL_ID;
 /** Max time to wait for the Anthropic API before aborting */
 const FETCH_TIMEOUT_MS = 15_000;
 /** Max characters of conversation transcript to send to the LLM */

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { formatCents } from '@oppsera/shared';
 import type { TokenizeResult, TokenizerClientConfig } from '@oppsera/shared';
 import type { FnbTabDetail, CheckSummary } from '@/types/fnb';
@@ -13,7 +13,8 @@ import { PreAuthCapture } from './PreAuthCapture';
 import { PaymentAdjustments } from './PaymentAdjustments';
 import { GiftCardPanel } from './GiftCardPanel';
 import { HouseAccountPanel } from './HouseAccountPanel';
-import { CheckCircle, AlertTriangle, RotateCcw, ArrowRight, Undo2, XCircle, RefreshCw, Keyboard, Loader2 } from 'lucide-react';
+import { SeatPaymentSelector } from './SeatPaymentSelector';
+import { CheckCircle, AlertTriangle, RotateCcw, ArrowRight, Undo2, XCircle, RefreshCw, Keyboard, Loader2, Users } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ export interface HouseAccountMeta {
 
 type PaymentStep =
   | 'tender_select'
+  | 'seat_select'
   | 'card_entry'
   | 'cash_keypad'
   | 'tip_prompt'
@@ -46,6 +48,7 @@ interface RecordedTender {
   type: TenderType;
   amountCents: number;
   tipCents: number;
+  seatNumbers?: number[];
 }
 
 interface PreAuth {
@@ -74,10 +77,14 @@ interface PaymentScreenProps {
   disabled?: boolean;
   /** Skip the confirm step and execute payment immediately */
   skipConfirm?: boolean;
-  /** Called to initiate a split by seat */
+  /** Called to initiate a split by seat (legacy split view) */
   onSplitBySeat?: () => void;
   /** Called to initiate an even split */
   onSplitEven?: () => void;
+  /** Seats already paid (from payment session split_details) */
+  paidSeats?: number[];
+  /** Called when seats are selected for payment — passes seat numbers and total */
+  onSeatPayment?: (seatNumbers: number[], totalCents: number) => void;
   /** Tokenizer configuration for manual card entry */
   tokenizerConfig?: TokenizerClientConfig | null;
   /** Whether tokenizer config is loading */
@@ -104,6 +111,8 @@ export function PaymentScreen({
   skipConfirm,
   onSplitBySeat,
   onSplitEven,
+  paidSeats = [],
+  onSeatPayment,
   tokenizerConfig,
   tokenizerLoading,
   tokenizerError,
@@ -123,9 +132,26 @@ export function PaymentScreen({
   const [houseAccountMeta, setHouseAccountMeta] = useState<HouseAccountMeta | null>(null);
   // Track locally-applied tender amounts so displayed remaining updates immediately
   const [localPaidCents, setLocalPaidCents] = useState(0);
+  // Pay-by-seat: track selected seats for current tender
+  const [pendingSeatNumbers, setPendingSeatNumbers] = useState<number[]>([]);
+  // Pay-by-seat: seats paid locally this session (merged with server-side paidSeats)
+  const [localPaidSeats, setLocalPaidSeats] = useState<number[]>([]);
 
   const effectiveRemainingCents = Math.max(0, check.remainingCents - localPaidCents);
   const effectivePaidCents = check.paidCents + localPaidCents;
+
+  const allPaidSeats = useMemo(
+    () => [...new Set([...paidSeats, ...localPaidSeats])],
+    [paidSeats, localPaidSeats],
+  );
+
+  // ── Pay-by-seat: confirm selected seats → lock amount → tender_select ──
+  const handleSeatConfirm = useCallback((seats: number[], totalCents: number) => {
+    setPendingSeatNumbers(seats);
+    setPendingAmount(totalCents);
+    onSeatPayment?.(seats, totalCents);
+    setStep('tender_select');
+  }, [onSeatPayment]);
 
   // ── Card tokenize handlers ──────────────────────────────────────
   const handleCardTokenize = useCallback((result: TokenizeResult) => {
@@ -175,6 +201,10 @@ export function PaymentScreen({
         setLastTenderAmount(amountCents);
         // Cap local paid at remaining so overpay (cash change) doesn't go negative
         setLocalPaidCents((prev) => prev + Math.min(amountCents, effectiveRemainingCents));
+        if (pendingSeatNumbers.length > 0) {
+          setLocalPaidSeats((prev) => [...new Set([...prev, ...pendingSeatNumbers])]);
+          setPendingSeatNumbers([]);
+        }
         setStep(result.isFullyPaid ? 'receipt' : 'partial_summary');
       } catch (err: unknown) {
         const e = err as Record<string, unknown> | Error;
@@ -189,7 +219,7 @@ export function PaymentScreen({
     } else {
       setStep('confirm');
     }
-  }, [skipConfirm, onTender, effectiveRemainingCents]);
+  }, [skipConfirm, onTender, effectiveRemainingCents, pendingSeatNumbers]);
 
   // ── Step: cash_keypad → confirm ───────────────────────────────
   const handleCashSubmit = useCallback((amountCents: number) => {
@@ -206,14 +236,20 @@ export function PaymentScreen({
     setStep('confirm');
   }, []);
 
+  // Amount for the current tender — seat total when in seat-pay mode, otherwise full remaining
+  const currentTenderAmountCents = pendingSeatNumbers.length > 0 ? pendingAmount : effectiveRemainingCents;
+
   // ── Step: tip_prompt → confirm ────────────────────────────────
   const handleTipSelect = useCallback(
     (tip: number) => {
       setPendingTip(tip);
-      setPendingAmount(effectiveRemainingCents);
+      // If paying by seat, amount was already set by seat selector
+      if (pendingSeatNumbers.length === 0) {
+        setPendingAmount(effectiveRemainingCents);
+      }
       setStep('confirm');
     },
-    [effectiveRemainingCents],
+    [effectiveRemainingCents, pendingSeatNumbers.length],
   );
 
   // ── Step: confirm → execute tender → receipt or partial_summary
@@ -229,12 +265,18 @@ export function PaymentScreen({
         type: selectedTender,
         amountCents: pendingAmount,
         tipCents: pendingTip,
+        seatNumbers: pendingSeatNumbers.length > 0 ? [...pendingSeatNumbers] : undefined,
       };
       setTenders((prev) => [...prev, tender]);
       setLastTenderAmount(pendingAmount);
       setLocalPaidCents((prev) => prev + Math.min(pendingAmount, effectiveRemainingCents));
       // Clear card token after successful use
       if (tokenForCard) setCardToken(null);
+      // Track paid seats locally
+      if (pendingSeatNumbers.length > 0) {
+        setLocalPaidSeats((prev) => [...new Set([...prev, ...pendingSeatNumbers])]);
+        setPendingSeatNumbers([]);
+      }
 
       if (result.isFullyPaid) {
         setStep('receipt');
@@ -255,18 +297,26 @@ export function PaymentScreen({
 
   // ── Step: confirm → cancel back to tender_select ──────────────
   const handleCancelConfirm = useCallback(() => {
-    setPendingAmount(0);
+    // When in seat-pay mode, keep the seat amount locked — only reset tip
+    if (pendingSeatNumbers.length === 0) {
+      setPendingAmount(0);
+    }
     setPendingTip(0);
     setStep('tender_select');
-  }, []);
+  }, [pendingSeatNumbers.length]);
 
   // ── Step: partial_summary → add another or void last ──────────
   const handleAddAnother = useCallback(() => {
     setSelectedTender(null);
     setPendingAmount(0);
     setPendingTip(0);
-    setStep('tender_select');
-  }, []);
+    // If we were paying by seat, go back to seat selector so server picks remaining seats
+    if (onSeatPayment && (tab.partySize ?? 1) > 1 && allPaidSeats.length < (tab.partySize ?? 1)) {
+      setStep('seat_select');
+    } else {
+      setStep('tender_select');
+    }
+  }, [onSeatPayment, tab.partySize, allPaidSeats.length]);
 
   const handleVoidLast = useCallback(async () => {
     if (tenders.length === 0) return;
@@ -275,6 +325,11 @@ export function PaymentScreen({
       await onVoidLastTender();
       const voided = tenders[tenders.length - 1]!;
       setLocalPaidCents((prev) => Math.max(0, prev - voided.amountCents));
+      // Roll back locally-tracked paid seats for the voided tender
+      if (voided.seatNumbers && voided.seatNumbers.length > 0) {
+        const removedSeats = new Set(voided.seatNumbers);
+        setLocalPaidSeats((prev) => prev.filter((s) => !removedSeats.has(s)));
+      }
       setTenders((prev) => prev.slice(0, -1));
       setStep('tender_select');
     } catch (err: unknown) {
@@ -390,6 +445,23 @@ export function PaymentScreen({
                   className="text-xs font-medium"
                   style={{ color: 'var(--fnb-text-primary)' }}
                 >
+                  {(tab.partySize ?? 1) > 1 && line.seatNumber != null && (
+                    <span
+                      className="inline-block text-[9px] font-bold rounded px-1 mr-1"
+                      style={{
+                        backgroundColor: allPaidSeats.includes(line.seatNumber)
+                          ? 'var(--fnb-payment-success-bg)'
+                          : pendingSeatNumbers.includes(line.seatNumber)
+                            ? 'rgba(59, 130, 246, 0.15)'
+                            : 'var(--fnb-bg-elevated)',
+                        color: allPaidSeats.includes(line.seatNumber)
+                          ? 'var(--fnb-status-available)'
+                          : 'var(--fnb-text-muted)',
+                      }}
+                    >
+                      S{line.seatNumber}
+                    </span>
+                  )}
                   {line.qty > 1 && (
                     <span style={{ color: 'var(--fnb-text-muted)' }}>{line.qty}× </span>
                   )}
@@ -542,7 +614,11 @@ export function PaymentScreen({
                 className="text-[10px] font-bold uppercase mb-1"
                 style={{ color: 'var(--fnb-text-muted)' }}
               >
-                {effectivePaidCents > 0 ? 'Remaining Balance' : 'Total Due'}
+                {pendingSeatNumbers.length > 0
+                  ? `Seat${pendingSeatNumbers.length > 1 ? 's' : ''} ${[...pendingSeatNumbers].sort((a, b) => a - b).join(', ')}`
+                  : effectivePaidCents > 0
+                    ? 'Remaining Balance'
+                    : 'Total Due'}
               </div>
               <div
                 className="font-mono font-black"
@@ -553,14 +629,57 @@ export function PaymentScreen({
                   fontFamily: 'var(--fnb-font-mono)',
                 }}
               >
-                {formatCents(effectiveRemainingCents)}
+                {formatCents(pendingSeatNumbers.length > 0 ? pendingAmount : effectiveRemainingCents)}
               </div>
             </div>
+
+            {/* Pay by Seat button — shown when tab has multiple seats */}
+            {onSeatPayment && (tab.partySize ?? 1) > 1 && pendingSeatNumbers.length === 0 && (
+              <button
+                type="button"
+                onClick={() => setStep('seat_select')}
+                disabled={disabled || isProcessing}
+                className="flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all hover:opacity-90 disabled:opacity-40"
+                style={{
+                  backgroundColor: 'var(--fnb-bg-elevated)',
+                  color: 'var(--fnb-info)',
+                  border: '1px solid var(--fnb-info)',
+                }}
+              >
+                <Users className="h-4 w-4" />
+                Pay by Seat
+              </button>
+            )}
+
+            {/* Seat payment badge — shown when seats are selected */}
+            {pendingSeatNumbers.length > 0 && (
+              <div
+                className="flex items-center justify-between rounded-xl px-4 py-2"
+                style={{ backgroundColor: 'var(--fnb-bg-elevated)' }}
+              >
+                <span className="text-xs font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+                  Paying for Seat{pendingSeatNumbers.length > 1 ? 's' : ''}{' '}
+                  {[...pendingSeatNumbers].sort((a, b) => a - b).join(', ')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingSeatNumbers([]);
+                    setPendingAmount(0);
+                    setStep('seat_select');
+                  }}
+                  className="text-[10px] font-bold"
+                  style={{ color: 'var(--fnb-info)' }}
+                >
+                  Change
+                </button>
+              </div>
+            )}
 
             <TenderGrid
               onSelect={handleTenderSelect}
               onFastCash={handleFastCash}
-              totalCents={effectiveRemainingCents}
+              totalCents={pendingSeatNumbers.length > 0 ? pendingAmount : effectiveRemainingCents}
               disabled={disabled || isProcessing}
             />
 
@@ -637,6 +756,24 @@ export function PaymentScreen({
                 />
               </>
             )}
+          </div>
+        )}
+
+        {/* ── STEP: seat_select ──────────────────────────────── */}
+        {step === 'seat_select' && (
+          <div className="w-full max-w-md">
+            <SeatPaymentSelector
+              lines={tab.lines}
+              check={check}
+              partySize={tab.partySize ?? 1}
+              paidSeats={allPaidSeats}
+              onConfirm={handleSeatConfirm}
+              onBack={() => {
+                setPendingSeatNumbers([]);
+                setStep('tender_select');
+              }}
+              disabled={disabled || isProcessing}
+            />
           </div>
         )}
 
@@ -761,7 +898,7 @@ export function PaymentScreen({
         {step === 'cash_keypad' && (
           <div className="w-full max-w-md">
             <CashKeypad
-              totalCents={effectiveRemainingCents}
+              totalCents={currentTenderAmountCents}
               onSubmit={handleCashSubmit}
               onBack={() => setStep('tender_select')}
               disabled={disabled || isProcessing}
@@ -784,7 +921,7 @@ export function PaymentScreen({
         {step === 'gift_card_panel' && (
           <div className="w-full max-w-md">
             <GiftCardPanel
-              remainingCents={effectiveRemainingCents}
+              remainingCents={currentTenderAmountCents}
               onTender={handleSpecialtyTender}
               disabled={disabled || isProcessing}
             />
@@ -795,7 +932,7 @@ export function PaymentScreen({
         {step === 'house_account_panel' && (
           <div className="w-full max-w-md">
             <HouseAccountPanel
-              remainingCents={effectiveRemainingCents}
+              remainingCents={currentTenderAmountCents}
               onTender={handleSpecialtyTender}
               disabled={disabled || isProcessing}
             />
@@ -850,7 +987,7 @@ export function PaymentScreen({
                   </span>
                 </div>
               )}
-              {selectedTender === 'cash' && pendingAmount > effectiveRemainingCents && (
+              {selectedTender === 'cash' && pendingAmount > currentTenderAmountCents && (
                 <div className="flex justify-between text-xs">
                   <span style={{ color: 'var(--fnb-status-available)' }}>Change Due</span>
                   <span
@@ -860,7 +997,7 @@ export function PaymentScreen({
                       fontFamily: 'var(--fnb-font-mono)',
                     }}
                   >
-                    {formatCents(pendingAmount - effectiveRemainingCents)}
+                    {formatCents(pendingAmount - currentTenderAmountCents)}
                   </span>
                 </div>
               )}

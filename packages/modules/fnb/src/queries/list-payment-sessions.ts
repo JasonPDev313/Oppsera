@@ -8,6 +8,7 @@ export interface PaymentSessionListItem {
   orderId: string;
   status: string;
   splitStrategy: string | null;
+  splitDetails: Record<string, unknown> | null;
   totalAmountCents: number;
   paidAmountCents: number;
   remainingAmountCents: number;
@@ -31,7 +32,7 @@ export async function listPaymentSessions(
     const whereClause = sql.join(conditions, sql` AND `);
 
     const rows = await tx.execute(
-      sql`SELECT id, tab_id, order_id, status, split_strategy,
+      sql`SELECT id, tab_id, order_id, status, split_strategy, split_details,
                  total_amount_cents, paid_amount_cents, remaining_amount_cents,
                  completed_at, created_at
           FROM fnb_payment_sessions
@@ -45,6 +46,7 @@ export async function listPaymentSessions(
       orderId: r.order_id as string,
       status: r.status as string,
       splitStrategy: (r.split_strategy as string) ?? null,
+      splitDetails: (r.split_details as Record<string, unknown>) ?? null,
       totalAmountCents: Number(r.total_amount_cents),
       paidAmountCents: Number(r.paid_amount_cents),
       remainingAmountCents: Number(r.remaining_amount_cents),

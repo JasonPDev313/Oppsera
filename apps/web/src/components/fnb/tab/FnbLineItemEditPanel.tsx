@@ -9,6 +9,8 @@ import {
   Trash2,
   ChevronRight,
   ChevronDown,
+  Armchair,
+  UtensilsCrossed,
 } from 'lucide-react';
 import type { FnbTabLine } from '@/types/fnb';
 import { formatCents } from '@oppsera/shared';
@@ -28,6 +30,9 @@ function canChangePrice(status: LineStatus): boolean {
 }
 function canDelete(status: LineStatus): boolean {
   return ['draft', 'unsent'].includes(status);
+}
+function canMove(status: LineStatus): boolean {
+  return ['draft', 'unsent', 'sent'].includes(status);
 }
 function canEditNote(status: LineStatus): boolean {
   return ['draft', 'unsent', 'sent', 'fired'].includes(status);
@@ -51,6 +56,10 @@ export interface FnbLineItemEditPanelProps {
   onChangePrice: (lineId: string, newPriceCents: number, reason: string) => void;
   onVoidLine: (lineId: string, reason: string) => void;
   onCompLine: (lineId: string, reason: string, compCategory: string) => void;
+  onChangeSeat?: (lineId: string, newSeat: number) => void;
+  onChangeCourse?: (lineId: string, newCourse: number) => void;
+  seatCount?: number;
+  courseNames?: string[];
   onDone: () => void;
   permissions: FnbLineEditPermissions;
   disabled?: boolean;
@@ -402,6 +411,81 @@ function PriceChangeSubPanel({
   );
 }
 
+// ── Seat Picker Sub-Panel ──────────────────────────────────────
+
+function SeatPickerSubPanel({
+  currentSeat,
+  seatCount,
+  onSelect,
+  disabled,
+}: {
+  currentSeat: number;
+  seatCount: number;
+  onSelect: (seat: number) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5 px-3 py-2 bg-surface/50">
+      {Array.from({ length: seatCount }, (_, i) => i + 1).map((seat) => {
+        const isCurrent = seat === currentSeat;
+        return (
+          <button
+            key={seat}
+            type="button"
+            disabled={isCurrent || disabled}
+            onClick={() => onSelect(seat)}
+            className={`min-w-9 rounded-md border px-2.5 py-2 text-xs font-semibold transition-colors ${
+              isCurrent
+                ? 'border-sky-500/50 bg-sky-500/20 text-sky-400 cursor-default'
+                : 'border-border text-foreground hover:bg-sky-500/10 hover:border-sky-500/30 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed'
+            }`}
+          >
+            S{seat}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Course Picker Sub-Panel ───────────────────────────────────
+
+function CoursePickerSubPanel({
+  currentCourse,
+  courseNames,
+  onSelect,
+  disabled,
+}: {
+  currentCourse: number;
+  courseNames: string[];
+  onSelect: (course: number) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5 px-3 py-2 bg-surface/50">
+      {courseNames.map((name, i) => {
+        const courseNum = i + 1;
+        const isCurrent = courseNum === currentCourse;
+        return (
+          <button
+            key={courseNum}
+            type="button"
+            disabled={isCurrent || disabled}
+            onClick={() => onSelect(courseNum)}
+            className={`rounded-md border px-3 py-2 text-xs font-medium transition-colors ${
+              isCurrent
+                ? 'border-amber-500/50 bg-amber-500/20 text-amber-400 cursor-default'
+                : 'border-border text-foreground hover:bg-amber-500/10 hover:border-amber-500/30 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed'
+            }`}
+          >
+            <span className="font-bold mr-1">C{courseNum}</span>{name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────
 
 export const FnbLineItemEditPanel = memo(function FnbLineItemEditPanel({
@@ -411,6 +495,10 @@ export const FnbLineItemEditPanel = memo(function FnbLineItemEditPanel({
   onChangePrice,
   onVoidLine,
   onCompLine,
+  onChangeSeat,
+  onChangeCourse,
+  seatCount,
+  courseNames,
   onDone,
   permissions,
   disabled,
@@ -455,6 +543,22 @@ export const FnbLineItemEditPanel = memo(function FnbLineItemEditPanel({
     [line.id, onCompLine, onDone],
   );
 
+  const handleChangeSeat = useCallback(
+    (newSeat: number) => {
+      onChangeSeat?.(line.id, newSeat);
+      onDone();
+    },
+    [line.id, onChangeSeat, onDone],
+  );
+
+  const handleChangeCourse = useCallback(
+    (newCourse: number) => {
+      onChangeCourse?.(line.id, newCourse);
+      onDone();
+    },
+    [line.id, onChangeCourse, onDone],
+  );
+
   const modifiers = line.modifiers as Array<Record<string, unknown>> | undefined;
   const hasModifiers = (modifiers?.length ?? 0) > 0;
 
@@ -466,7 +570,7 @@ export const FnbLineItemEditPanel = memo(function FnbLineItemEditPanel({
           <p className="font-semibold text-foreground text-sm truncate">
             {line.catalogItemName}
           </p>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className="text-xs text-muted-foreground">
               {formatCents(line.unitPriceCents)} each
             </span>
@@ -478,6 +582,16 @@ export const FnbLineItemEditPanel = memo(function FnbLineItemEditPanel({
             <span className="text-[10px] text-muted-foreground capitalize px-1.5 py-0.5 rounded bg-muted">
               {status}
             </span>
+            {(seatCount ?? 0) > 1 && (
+              <span className="text-[10px] font-semibold text-sky-400 px-1.5 py-0.5 rounded bg-sky-500/10">
+                S{line.seatNumber ?? 1}
+              </span>
+            )}
+            {(courseNames?.length ?? 0) > 1 && (
+              <span className="text-[10px] font-semibold text-amber-400 px-1.5 py-0.5 rounded bg-amber-500/10">
+                C{line.courseNumber ?? 1}
+              </span>
+            )}
           </div>
         </div>
         <div className="text-right shrink-0">
@@ -553,6 +667,44 @@ export const FnbLineItemEditPanel = memo(function FnbLineItemEditPanel({
 
       {/* ── Action Rows ─────────────────────────────────────────── */}
       <div className="divide-y divide-border">
+        {/* Change Seat */}
+        {onChangeSeat && canMove(status) && (seatCount ?? 0) > 1 && (
+          <ActionRow
+            icon={Armchair}
+            iconColor="text-sky-400"
+            label="Change Seat"
+            detail={`S${line.seatNumber ?? 1}`}
+            onClick={() => toggleAction('seat')}
+            expanded={expandedAction === 'seat'}
+          >
+            <SeatPickerSubPanel
+              currentSeat={line.seatNumber ?? 1}
+              seatCount={seatCount!}
+              onSelect={handleChangeSeat}
+              disabled={disabled}
+            />
+          </ActionRow>
+        )}
+
+        {/* Change Course */}
+        {onChangeCourse && canMove(status) && (courseNames?.length ?? 0) > 1 && (
+          <ActionRow
+            icon={UtensilsCrossed}
+            iconColor="text-amber-400"
+            label="Change Course"
+            detail={courseNames?.[(line.courseNumber ?? 1) - 1] ?? `C${line.courseNumber ?? 1}`}
+            onClick={() => toggleAction('course')}
+            expanded={expandedAction === 'course'}
+          >
+            <CoursePickerSubPanel
+              currentCourse={line.courseNumber ?? 1}
+              courseNames={courseNames!}
+              onSelect={handleChangeCourse}
+              disabled={disabled}
+            />
+          </ActionRow>
+        )}
+
         {/* Change Price */}
         {permissions.priceOverride && canChangePrice(status) && (
           <ActionRow

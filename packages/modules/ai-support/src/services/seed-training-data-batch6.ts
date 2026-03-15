@@ -1797,6 +1797,37 @@ Tell staff: "Ask the assistant 'Walk me through closing' at the end of your shif
 ### Pro Tip
 If the first answer isn't detailed enough, ask "Can you give me the detailed version?" or "What else should I know about this?"`,
   },
+  {
+    slug: 'pos-fnb-move-items-between-seats',
+    moduleKey: 'fnb',
+    route: '/pos/fnb',
+    questionPattern:
+      'move item to another seat|change seat on item|reassign item to different seat|move items between seats|switch seat number|move food to another seat|change seat assignment|drag item to seat|move drink to different seat',
+    approvedAnswerMarkdown: `## Moving Items Between Seats
+
+Currently there is **no direct way** to reassign an item from one seat to another after it has been added to the tab.
+
+### Workaround for Unsent Items
+If the item has **not been sent to the kitchen yet** (still in draft):
+1. **Delete the item** from the current seat
+2. **Select the correct seat** using the Seat Rail on the left side of the tab
+3. **Re-add the item** from the menu — it will be assigned to the newly selected seat
+
+### Workaround for Sent Items
+If the item has **already been sent**:
+1. **Void the item** on the original seat (requires \`pos_fnb.tabs.void\` permission)
+2. **Select the correct seat** in the Seat Rail
+3. **Re-add the item** — it will fire to the kitchen again under the new seat
+
+### For Payment Splitting Purposes
+If you just need items on **separate checks** (not actually changing the seat number):
+1. Open the tab and tap **Split**
+2. Choose **By Item** or **Custom** mode
+3. **Drag items** between checks as needed
+4. Each check can be paid independently
+
+> **Tip:** To avoid needing to move items later, always confirm the correct seat is selected in the Seat Rail **before** adding items. The active seat is highlighted in the rail on the left.`,
+  },
 ];
 
 export async function seedTrainingDataBatch6(tenantId: string | null) {

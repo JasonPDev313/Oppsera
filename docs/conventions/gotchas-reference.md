@@ -1,6 +1,6 @@
 # Critical Gotchas — Full Reference
 
-> This file contains all 570 gotchas from OppsEra's CLAUDE.md.
+> This file contains all 588 gotchas from OppsEra's CLAUDE.md.
 > The slim CLAUDE.md keeps only the top 30 most critical ones.
 > Search this file when working on specific modules or encountering issues.
 
@@ -615,3 +615,17 @@
 580. **Sentiment analyzer no markdown fence stripping** — Unlike intent-classifier which uses regex to extract JSON from markdown fences, sentiment-analyzer does `JSON.parse(text.trim())` directly. If Haiku wraps output in ```json fences, the parse fails silently (returns null). The sentiment for that message is simply unrecorded. See §270.
 
 581. **`summarizeThread` re-runs at 4-message multiples** — Unlike CSAT and intent-classifier which have SELECT-based idempotency guards, `summarizeThread` will re-call Haiku at every message count divisible by 4. Callers should not invoke it on every message — only at appropriate checkpoints. See §270.
+
+582. **Stale `order.subtotal` in service charge calculation** — When computing percentage-based service charges, read live `SUM(finalLineSubtotal)` from DB, not `order.subtotal - order.discountTotal`. The order header hasn't been updated yet in the current transaction when discounts are prorated.
+
+583. **Payment events on non-terminal status** — Never emit payment gateway events (`authorized`, `declined`) for `error` or `unknown_at_gateway` statuses. Consumers assume events represent final outcomes. Return `events: []` for ambiguous states.
+
+584. **`resolveProvider()` inside write transaction** — Calling provider resolution inside `publishWithOutbox` opens a second DB connection while the transaction holds the first. On Vercel with `max: 2` pool, this deadlocks. Move provider resolution outside the transaction using `withTenant`.
+
+585. **Raw `ctx.locationId` in KDS commands** — Site-level locations don't have KDS stations. Always use `withEffectiveLocationId(ctx, resolvedLocationId)` after `resolveKdsLocationId` to rewrite context to venue level. Passing raw `ctx.locationId` to `publishWithOutbox`/`buildEventFromContext` creates records with wrong location.
+
+586. **NaN from catalog NUMERIC strings in order math** — `Number(undefined)` and `Number('')` both return `NaN`. Guard order calculations with `Number.isNaN()` before DB writes. Drizzle silently inserts NaN as 0 for integer columns.
+
+587. **Seat double-pay in split FnB payments** — When `seatNumbers` are provided in `payTab`, check `split_details.paidSeats` from `fnb_payment_sessions` before processing. Read and update within the same transaction to prevent TOCTOU races.
+
+588. **`incrementVersion()` separate call** — Deprecated pattern. Merge `version: sql\`version + 1\`` into the same `.set({})` call as totals UPDATE to save a DB round-trip. The separate `incrementVersion()` helper is no longer used.

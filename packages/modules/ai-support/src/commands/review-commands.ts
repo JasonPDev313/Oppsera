@@ -62,7 +62,7 @@ export async function submitReview(
     .where(
       and(
         eq(aiAssistantMessages.id, input.messageId),
-        eq(aiAssistantMessages.tenantId, input.tenantId ?? ctx.tenantId),
+        eq(aiAssistantMessages.tenantId, ctx.tenantId),
       ),
     )
     .limit(1);
@@ -82,7 +82,7 @@ export async function submitReview(
   const [review] = await db
     .insert(aiAssistantReviews)
     .values({
-      tenantId: input.tenantId ?? message.tenantId,
+      tenantId: ctx.tenantId,
       threadId: derivedThreadId,
       messageId: input.messageId,
       reviewerUserId: ctx.user.id,
@@ -98,7 +98,7 @@ export async function submitReview(
     const answerText = message.messageText;
     if (input.questionNormalized && answerText) {
       await _upsertAnswerMemory({
-        tenantId: input.tenantId ?? message.tenantId,
+        tenantId: ctx.tenantId,
         questionNormalized: input.questionNormalized,
         screenKey: input.screenKey ?? null,
         moduleKey: input.moduleKey ?? null,
@@ -116,7 +116,7 @@ export async function submitReview(
     // Promote corrected answer to memory
     if (input.questionNormalized) {
       await _upsertAnswerMemory({
-        tenantId: input.tenantId ?? message.tenantId,
+        tenantId: ctx.tenantId,
         questionNormalized: input.questionNormalized,
         screenKey: input.screenKey ?? null,
         moduleKey: input.moduleKey ?? null,

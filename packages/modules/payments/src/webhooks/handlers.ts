@@ -12,6 +12,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { extractCardLast4, detectCardBrand } from '../helpers/amount';
+import { PAYMENT_GATEWAY_EVENTS } from '../events/gateway-types';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -238,23 +239,22 @@ async function processCardUpdateEvent(
     return { processed: false, action: 'card_update_missing_identifier' };
   }
 
-  return withTenant(ctx.tenantId, async (tx) => {
-    // Find the payment method by provider profile ID or old token
-    let matchCondition;
-    if (profileId) {
-      matchCondition = eq(customerPaymentMethods.providerProfileId, profileId);
-    } else if (oldToken) {
-      // Match by last4 from old token (we don't store full tokens)
-      const oldLast4 = extractCardLast4(oldToken);
-      if (!oldLast4) {
-        return { processed: false, action: 'card_update_cannot_match' };
-      }
-      matchCondition = eq(customerPaymentMethods.last4, oldLast4);
-    } else {
-      return { processed: false, action: 'card_update_no_match_criteria' };
+  // Phase 1: read-only lookups
+  let matchCondition;
+  if (profileId) {
+    matchCondition = eq(customerPaymentMethods.providerProfileId, profileId);
+  } else if (oldToken) {
+    const oldLast4 = extractCardLast4(oldToken);
+    if (!oldLast4) {
+      return { processed: false, action: 'card_update_cannot_match' };
     }
+    matchCondition = eq(customerPaymentMethods.last4, oldLast4);
+  } else {
+    return { processed: false, action: 'card_update_no_match_criteria' };
+  }
 
-    const methods = await tx
+  const methods = await withTenant(ctx.tenantId, async (tx) =>
+    tx
       .select({
         id: customerPaymentMethods.id,
         customerId: customerPaymentMethods.customerId,
@@ -268,13 +268,15 @@ async function processCardUpdateEvent(
           eq(customerPaymentMethods.status, 'active'),
           matchCondition,
         ),
-      );
+      ),
+  );
 
-    if (methods.length === 0) {
-      return { processed: false, action: 'card_update_no_matching_method' };
-    }
+  if (methods.length === 0) {
+    return { processed: false, action: 'card_update_no_matching_method' };
+  }
 
-    // Update each matching method
+  // Phase 2: mutations via publishWithOutbox (emits CARD_UPDATED event)
+  await publishWithOutbox(ctx, async (tx) => {
     let updatedCount = 0;
     for (const method of methods) {
       const updates: Record<string, unknown> = {
@@ -289,7 +291,6 @@ async function processCardUpdateEvent(
       }
 
       if (newExpiry && newExpiry.length >= 4) {
-        // CardPointe expiry format: MMYY
         const mm = parseInt(newExpiry.slice(0, 2), 10);
         const yy = parseInt(newExpiry.slice(2, 4), 10);
         const yyyy = yy < 50 ? 2000 + yy : 1900 + yy;
@@ -310,14 +311,23 @@ async function processCardUpdateEvent(
       updatedCount++;
     }
 
-    auditLogDeferred(ctx, 'payment.card_updated', 'customer_payment_method', methods[0]!.id);
+    const event = buildEventFromContext(ctx, PAYMENT_GATEWAY_EVENTS.CARD_UPDATED, {
+      tenantId: ctx.tenantId,
+      customerId: methods[0]!.customerId,
+      updatedCount,
+      paymentMethodIds: methods.map((m) => m.id),
+    });
 
-    return {
-      processed: true,
-      action: 'card_updated',
-      details: { updatedCount, customerId: methods[0]!.customerId },
-    };
+    return { result: { updatedCount }, events: [event] };
   });
+
+  auditLogDeferred(ctx, 'payment.card_updated', 'customer_payment_method', methods[0]!.id);
+
+  return {
+    processed: true,
+    action: 'card_updated',
+    details: { updatedCount: methods.length, customerId: methods[0]!.customerId },
+  };
 }
 
 // ── Settlement Handler ─────────────────────────────────────────────
@@ -392,7 +402,7 @@ async function processStatusUpdateEvent(
       transactionType: 'status_update',
       providerRef: retref,
       amountCents: 0,
-      responseStatus: 'approved',
+      responseStatus: newStatus === 'Accepted' || newStatus === 'Y' ? 'approved' : 'declined',
       responseCode: newStatus,
       responseText: `Webhook status update: ${newStatus}`,
       providerResponse: data,

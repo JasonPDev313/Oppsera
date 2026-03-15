@@ -1,6 +1,7 @@
 import type { SentimentValue } from '../types';
 import { db, aiAssistantMessages } from '@oppsera/db';
 import { eq, and, desc, isNotNull } from 'drizzle-orm';
+import { FAST_MODEL_ID } from '../constants';
 
 const VALID_SENTIMENTS: readonly SentimentValue[] = ['positive', 'neutral', 'frustrated', 'angry'];
 const FETCH_TIMEOUT_MS = 10_000;
@@ -27,7 +28,7 @@ export async function analyzeSentiment(
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: FAST_MODEL_ID,
         max_tokens: 64,
         system:
           'Classify the sentiment of this user message as one of: positive, neutral, frustrated, angry. Respond with ONLY a JSON object: {"sentiment": "...", "confidence": 0.XX}',
@@ -51,9 +52,14 @@ export async function analyzeSentiment(
       return null;
     }
 
+    // Strip markdown code fences that Haiku sometimes wraps around JSON
+    let rawText = textBlock.text.trim();
+    const fenceMatch = rawText.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+    if (fenceMatch) rawText = fenceMatch[1]!;
+
     let parsed: unknown;
     try {
-      parsed = JSON.parse(textBlock.text.trim());
+      parsed = JSON.parse(rawText);
     } catch {
       console.error('[ai-support/sentiment] Failed to parse JSON from response:', textBlock.text);
       return null;

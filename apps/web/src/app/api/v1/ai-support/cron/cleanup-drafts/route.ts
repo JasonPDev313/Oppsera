@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { db, aiSupportAnswerCards } from '@oppsera/db';
-import { eq, and, sql, lt } from 'drizzle-orm';
+import { eq, and, lt } from 'drizzle-orm';
 
 /**
  * POST /api/v1/ai-support/cron/cleanup-drafts

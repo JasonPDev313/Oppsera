@@ -15,7 +15,7 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
   const status = sp.get('status') ?? null;
   const moduleKey = sp.get('moduleKey') ?? null;
   const rawLimit = Number(sp.get('limit') ?? 50);
-  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 2500) : 50;
 
   // Validate status filter if provided
   if (status && !VALID_STATUSES.includes(status)) {

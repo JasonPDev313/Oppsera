@@ -81,6 +81,7 @@ export interface FnbPosActions {
   addDraftLine: (tabId: string, line: FnbDraftLine) => void;
   removeDraftLine: (tabId: string, localId: string) => void;
   updateDraftLineQty: (tabId: string, localId: string, qty: number) => void;
+  updateDraftLineSeatCourse: (tabId: string, localId: string, seatNumber?: number, courseNumber?: number) => void;
   clearDraft: (tabId: string) => void;
   getDraftLines: (tabId: string) => FnbDraftLine[];
   getDraftCount: (tabId: string) => number;
@@ -299,6 +300,19 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
           const line = lines.find((l) => l.localId === localId);
           if (line) {
             line.qty = qty;
+          }
+        }
+      });
+    },
+
+    updateDraftLineSeatCourse: (tabId, localId, seatNumber, courseNumber) => {
+      set((state) => {
+        const lines = state.draftLines[tabId];
+        if (lines) {
+          const line = lines.find((l) => l.localId === localId);
+          if (line) {
+            if (seatNumber !== undefined) line.seatNumber = seatNumber;
+            if (courseNumber !== undefined) line.courseNumber = courseNumber;
           }
         }
       });

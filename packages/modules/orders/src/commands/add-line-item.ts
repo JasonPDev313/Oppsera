@@ -12,6 +12,7 @@ import type { AddLineItemInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { fetchOrderForMutation } from '../helpers/optimistic-lock';
 import { recalculateOrderTotals } from '../helpers/order-totals';
+import { recalculateOrderTaxesAfterDiscount } from '../helpers/recalculate-tax-after-discount';
 
 export async function addLineItem(ctx: RequestContext, orderId: string, input: AddLineItemInput) {
   if (!ctx.locationId) {
@@ -86,6 +87,11 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
     const unitPrice = input.priceOverride ? input.priceOverride.unitPrice : posItem.unitPriceCents;
     const lineSubtotal = Math.round(Number(input.qty) * unitPrice);
 
+    // NaN guard — catch bad catalog data before it reaches the DB
+    if (Number.isNaN(unitPrice) || Number.isNaN(lineSubtotal)) {
+      throw new AppError('CALCULATION_ERROR', `Invalid price calculation for item "${posItem.name}". unitPrice=${unitPrice}, lineSubtotal=${lineSubtotal}`, 500);
+    }
+
     const taxResult = calculateTaxes({
       lineSubtotal,
       calculationMode: posItem.taxInfo.calculationMode,
@@ -125,6 +131,9 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
       lineSubtotal: taxResult.subtotal,
       lineTax: taxResult.taxTotal,
       lineTotal: taxResult.total,
+      finalLineSubtotal: taxResult.subtotal,
+      finalLineTax: taxResult.taxTotal,
+      finalLineTotal: taxResult.total,
       taxCalculationMode: posItem.taxInfo.calculationMode,
       modifiers: input.modifiers ?? null,
       specialInstructions: input.specialInstructions ?? null,
@@ -147,23 +156,31 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
       );
     }
 
-    // Recalculate order totals
-    const [allLines, allCharges, allDiscounts] = await Promise.all([
-      tx.select({
-        lineSubtotal: orderLines.lineSubtotal,
-        lineTax: orderLines.lineTax,
-        lineTotal: orderLines.lineTotal,
-      }).from(orderLines).where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId))),
-      tx.select({
-        amount: orderCharges.amount,
-        taxAmount: orderCharges.taxAmount,
-      }).from(orderCharges).where(and(eq(orderCharges.orderId, orderId), eq(orderCharges.tenantId, ctx.tenantId))),
-      tx.select({
-        amount: orderDiscounts.amount,
-      }).from(orderDiscounts).where(and(eq(orderDiscounts.orderId, orderId), eq(orderDiscounts.tenantId, ctx.tenantId))),
-    ]);
+    // Recalculate order totals. If the order already has discounts, use the
+    // discount-aware helper to re-prorate across all lines (including the new one).
+    const existingDiscounts = await tx.select({ amount: orderDiscounts.amount })
+      .from(orderDiscounts)
+      .where(and(eq(orderDiscounts.orderId, orderId), eq(orderDiscounts.tenantId, ctx.tenantId)));
 
-    const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
+    const hasDiscounts = existingDiscounts.some((d: { amount: number }) => d.amount > 0);
+
+    let totals;
+    if (hasDiscounts) {
+      totals = await recalculateOrderTaxesAfterDiscount(tx, ctx.tenantId, orderId);
+    } else {
+      const [allLines, allCharges] = await Promise.all([
+        tx.select({
+          lineSubtotal: orderLines.lineSubtotal,
+          lineTax: orderLines.lineTax,
+          lineTotal: orderLines.lineTotal,
+        }).from(orderLines).where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId))),
+        tx.select({
+          amount: orderCharges.amount,
+          taxAmount: orderCharges.taxAmount,
+        }).from(orderCharges).where(and(eq(orderCharges.orderId, orderId), eq(orderCharges.tenantId, ctx.tenantId))),
+      ]);
+      totals = recalculateOrderTotals(allLines, allCharges, []);
+    }
 
     // Combined UPDATE: set totals + increment version in a single DB round-trip
     await tx.update(orders).set({

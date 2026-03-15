@@ -3,14 +3,19 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { broadcastFnb } from '@oppsera/core/realtime';
 import { ValidationError } from '@oppsera/shared';
-import { listKitchenTickets, createKitchenTicket, createKitchenTicketSchema } from '@oppsera/module-fnb';
+import { listKitchenTickets, createKitchenTicket, createKitchenTicketSchema, resolveKdsLocationId } from '@oppsera/module-fnb';
 import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/fnb/kitchen/tickets — list kitchen tickets
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
-    const effectiveLocationId = ctx.locationId ?? url.searchParams.get('locationId') ?? '';
+    const rawLocationId = ctx.locationId ?? url.searchParams.get('locationId') ?? '';
+    let effectiveLocationId = rawLocationId;
+    if (rawLocationId) {
+      const kdsLoc = await resolveKdsLocationId(ctx.tenantId, rawLocationId);
+      effectiveLocationId = kdsLoc.locationId;
+    }
     const result = await listKitchenTickets({
       tenantId: ctx.tenantId,
       locationId: effectiveLocationId,

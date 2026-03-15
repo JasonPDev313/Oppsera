@@ -52,6 +52,21 @@ export const POST = withAdminPermission(async (req: NextRequest) => {
     // Use defaults if no body
   }
 
+  // Prevent concurrent test runs — only one at a time
+  const activeRuns = await withAdminDb(async (tx) =>
+    tx.execute(sql`
+      SELECT id FROM ai_support_test_runs
+      WHERE status IN ('pending', 'running')
+      LIMIT 1
+    `),
+  );
+  if (Array.from(activeRuns as Iterable<unknown>).length > 0) {
+    return NextResponse.json(
+      { error: { code: 'CONFLICT', message: 'A test run is already in progress' } },
+      { status: 409 },
+    );
+  }
+
   const name = typeof body.name === 'string' && body.name.trim()
     ? body.name.trim()
     : `Test Run ${new Date().toISOString()}`;

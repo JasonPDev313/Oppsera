@@ -62,9 +62,16 @@ function makeSelectChain(results: unknown[] = []) {
     then: p.then.bind(p),
     catch: p.catch.bind(p),
   });
+  const innerJoinFn = vi.fn().mockReturnValue({
+    where: whereFn,
+    orderBy: orderByFn,
+    then: p.then.bind(p),
+    catch: p.catch.bind(p),
+  });
   const fromFn = vi.fn().mockReturnValue({
     where: whereFn,
     orderBy: orderByFn,
+    innerJoin: innerJoinFn,
     then: p.then.bind(p),
     catch: p.catch.bind(p),
   });
@@ -1020,12 +1027,11 @@ describe('Orders Module', () => {
         },
       ]); // find line
       // delete tax rows, delete line
-      // recalculate
+      // recalculate: discount check → no-discount path (lines + charges)
+      mockSelectReturns([]); // existing discounts (none → no-discount path)
       mockSelectReturns([]); // remaining lines
       mockSelectReturns([]); // charges
-      mockSelectReturns([]); // discounts
-      mockUpdateVoid(); // update totals
-      mockUpdateVoid(); // increment version
+      mockUpdateVoid(); // combined totals + version update
       mockInsertVoid(); // idempotency
 
       const result = (await removeLineItem(ctx, ORDER_ID, {
@@ -1067,11 +1073,11 @@ describe('Orders Module', () => {
         amount: 500,
       };
       mockInsertReturns(chargeCreated);
+      // discount check → no-discount path (lines + charges) → combined update
+      mockSelectReturns([]); // existing discounts (none)
       mockSelectReturns([]); // lines
       mockSelectReturns([{ amount: 500, taxAmount: 0 }]); // charges
-      mockSelectReturns([]); // discounts
-      mockUpdateVoid();
-      mockUpdateVoid();
+      mockUpdateVoid(); // combined totals + version
       mockInsertVoid();
 
       const result = (await addServiceCharge(ctx, ORDER_ID, {
@@ -1085,18 +1091,18 @@ describe('Orders Module', () => {
       expect(result.id).toBe('chg_01');
     });
 
-    it('calculates percentage charge on subtotal', async () => {
+    it('calculates percentage charge on live subtotal', async () => {
       const ctx = makeCtx();
-      const orderWithSubtotal = { ...mockOrderDbRow, subtotal: 10000 };
-      mockExecute.mockResolvedValueOnce([orderWithSubtotal]);
-      // percentage = subtotal * value / 10000 = 10000 * 1000 / 10000 = 1000
+      mockExecute.mockResolvedValueOnce([mockOrderDbRow]); // fetch order
+      // percentage path: live SUM(finalLineSubtotal) query
+      mockSelectReturns([{ finalLineSubtotal: 10000 }]); // live subtotal query
       const chargeCreated = { id: 'chg_02', amount: 1000 };
       mockInsertReturns(chargeCreated);
-      mockSelectReturns([]);
-      mockSelectReturns([{ amount: 1000, taxAmount: 0 }]);
-      mockSelectReturns([]);
-      mockUpdateVoid();
-      mockUpdateVoid();
+      // discount check → no-discount path
+      mockSelectReturns([]); // existing discounts (none)
+      mockSelectReturns([]); // lines
+      mockSelectReturns([{ amount: 1000, taxAmount: 0 }]); // charges
+      mockUpdateVoid(); // combined totals + version
       mockInsertVoid();
 
       const result = (await addServiceCharge(ctx, ORDER_ID, {
@@ -1133,12 +1139,12 @@ describe('Orders Module', () => {
       mockExecute.mockResolvedValueOnce([mockOrderDbRow]);
       mockSelectReturns([
         { id: 'chg_01', orderId: ORDER_ID, name: 'Fee', amount: 500 },
-      ]);
-      mockSelectReturns([]);
-      mockSelectReturns([]);
-      mockSelectReturns([]);
-      mockUpdateVoid();
-      mockUpdateVoid();
+      ]); // find charge
+      // delete charge
+      mockSelectReturns([]); // existing discounts (none → no-discount path)
+      mockSelectReturns([]); // remaining lines
+      mockSelectReturns([]); // remaining charges
+      mockUpdateVoid(); // combined totals + version update
       mockInsertVoid();
 
       const result = (await removeServiceCharge(ctx, ORDER_ID, {
@@ -1164,19 +1170,21 @@ describe('Orders Module', () => {
   describe('applyDiscount', () => {
     it('applies percentage discount', async () => {
       const ctx = makeCtx();
-      const orderWithSubtotal = { ...mockOrderDbRow, subtotal: 10000 };
-      mockExecute.mockResolvedValueOnce([orderWithSubtotal]);
+      mockExecute.mockResolvedValueOnce([mockOrderDbRow]); // fetch order
+      // percentage path: live SUM(lineSubtotal) query
+      mockSelectReturns([{ lineSubtotal: 10000 }]);
       const discCreated = {
         id: 'disc_01',
         type: 'percentage',
         amount: 1000,
       };
       mockInsertReturns(discCreated);
-      mockSelectReturns([]); // lines
-      mockSelectReturns([]); // charges
-      mockSelectReturns([{ amount: 1000 }]); // discounts
-      mockUpdateVoid();
-      mockUpdateVoid();
+      // recalculateOrderTaxesAfterDiscount does 4 parallel selects:
+      mockSelectReturns([]); // allLines
+      mockSelectReturns([]); // allTaxBreakdown (innerJoin)
+      mockSelectReturns([]); // allCharges
+      mockSelectReturns([{ amount: 1000 }]); // allDiscounts
+      mockUpdateVoid(); // order update (totals + version)
       mockInsertVoid();
 
       const result = (await applyDiscount(ctx, ORDER_ID, {

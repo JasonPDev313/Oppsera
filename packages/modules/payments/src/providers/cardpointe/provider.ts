@@ -52,8 +52,10 @@ function mapResponseStatus(respstat: string): 'approved' | 'declined' | 'retry' 
 export class CardPointeProvider implements PaymentProvider {
   readonly code = 'cardpointe';
   private client: CardPointeClient;
+  private readonly merchantId: string;
 
   constructor(credentials: ProviderCredentials, merchantId: string) {
+    this.merchantId = merchantId;
     this.client = new CardPointeClient({
       site: credentials.site,
       merchantId,
@@ -206,11 +208,10 @@ export class CardPointeProvider implements PaymentProvider {
   }
 
   async tokenize(request: TokenizeRequest): Promise<TokenizeResponse> {
-    // CardSecure tokenization: POST to /cardsecure/api/v1/ccn/tokenize
-    // For server-side tokenization, we use the auth endpoint with $0 amount
-    // In practice, the Hosted iFrame handles client-side tokenization
+    // Server-side tokenization via $0 auth — returns a CardSecure token.
+    // In practice, the Hosted iFrame handles client-side tokenization.
     const resp = await this.client.authorize({
-      merchid: 'tokenize', // placeholder — actual tokenization uses CardSecure API
+      merchid: this.merchantId,
       account: request.account,
       amount: '0',
       expiry: request.expiry,

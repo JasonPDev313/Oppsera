@@ -12,6 +12,7 @@ import type { AddLineItemInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { fetchOrderForMutation } from '../helpers/optimistic-lock';
 import { recalculateOrderTotals } from '../helpers/order-totals';
+import { recalculateOrderTaxesAfterDiscount } from '../helpers/recalculate-tax-after-discount';
 
 type EnrichedComponent = {
   catalogItemId: string;
@@ -53,7 +54,7 @@ export async function addLineItemsBatch(
   items: AddLineItemInput[],
 ) {
   const logTag = '[addLineItemsBatch]';
-  const MAX_BATCH_SIZE = 50;
+  const MAX_BATCH_SIZE = 200;
 
   if (!ctx.locationId) {
     throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
@@ -226,6 +227,9 @@ export async function addLineItemsBatch(
           lineSubtotal: taxResult.subtotal,
           lineTax: taxResult.taxTotal,
           lineTotal: taxResult.total,
+          finalLineSubtotal: taxResult.subtotal,
+          finalLineTax: taxResult.taxTotal,
+          finalLineTotal: taxResult.total,
           taxCalculationMode: posItem.taxInfo.calculationMode,
           modifiers: item.modifiers ?? null,
           specialInstructions: item.specialInstructions ?? null,
@@ -300,23 +304,31 @@ export async function addLineItemsBatch(
         });
       });
 
-      // ONE total recalculation for the entire batch
-      const [allLines, allCharges, allDiscounts] = await Promise.all([
-        tx.select({
-          lineSubtotal: orderLines.lineSubtotal,
-          lineTax: orderLines.lineTax,
-          lineTotal: orderLines.lineTotal,
-        }).from(orderLines).where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId))),
-        tx.select({
-          amount: orderCharges.amount,
-          taxAmount: orderCharges.taxAmount,
-        }).from(orderCharges).where(and(eq(orderCharges.orderId, orderId), eq(orderCharges.tenantId, ctx.tenantId))),
-        tx.select({
-          amount: orderDiscounts.amount,
-        }).from(orderDiscounts).where(and(eq(orderDiscounts.orderId, orderId), eq(orderDiscounts.tenantId, ctx.tenantId))),
-      ]);
+      // ONE total recalculation for the entire batch.
+      // Use discount-aware helper when order has discounts to re-prorate across
+      // all lines (including the newly added ones) and avoid double-subtraction.
+      const existingDiscounts = await tx.select({ amount: orderDiscounts.amount })
+        .from(orderDiscounts)
+        .where(and(eq(orderDiscounts.orderId, orderId), eq(orderDiscounts.tenantId, ctx.tenantId)));
+      const hasDiscounts = existingDiscounts.some((d: { amount: number }) => d.amount > 0);
 
-      const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
+      let totals;
+      if (hasDiscounts) {
+        totals = await recalculateOrderTaxesAfterDiscount(tx, ctx.tenantId, orderId);
+      } else {
+        const [allLines, allCharges] = await Promise.all([
+          tx.select({
+            lineSubtotal: orderLines.lineSubtotal,
+            lineTax: orderLines.lineTax,
+            lineTotal: orderLines.lineTotal,
+          }).from(orderLines).where(and(eq(orderLines.orderId, orderId), eq(orderLines.tenantId, ctx.tenantId))),
+          tx.select({
+            amount: orderCharges.amount,
+            taxAmount: orderCharges.taxAmount,
+          }).from(orderCharges).where(and(eq(orderCharges.orderId, orderId), eq(orderCharges.tenantId, ctx.tenantId))),
+        ]);
+        totals = recalculateOrderTotals(allLines, allCharges, []);
+      }
 
       // ONE version increment + totals update
       await tx.update(orders).set({

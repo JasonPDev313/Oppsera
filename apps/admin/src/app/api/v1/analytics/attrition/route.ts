@@ -51,22 +51,31 @@ export const GET = withAdminPermission(
     // This matches ORDER BY overall_score DESC, scored_at DESC, id DESC
     const rows = await db.execute(sql`
       SELECT
-        id, tenant_id, overall_score, risk_level,
-        login_decline_score, usage_decline_score, module_abandonment_score,
-        user_shrinkage_score, error_frustration_score, breadth_narrowing_score,
-        staleness_score, onboarding_stall_score,
-        narrative, tenant_name, tenant_status, industry, health_grade,
-        total_locations, total_users, active_modules,
-        last_activity_at::text, scored_at::text,
-        reviewed_at::text, reviewed_by, review_notes, status,
-        created_at::text
-      FROM attrition_risk_scores
-      WHERE status != 'superseded'
-        AND (${status}::text IS NULL OR status = ${status})
-        AND (${riskLevel}::text IS NULL OR risk_level = ${riskLevel})
+        a.id, a.tenant_id, a.overall_score, a.risk_level,
+        a.login_decline_score, a.usage_decline_score, a.module_abandonment_score,
+        a.user_shrinkage_score, a.error_frustration_score, a.breadth_narrowing_score,
+        a.staleness_score, a.onboarding_stall_score,
+        a.narrative, a.tenant_name, a.tenant_status, a.industry, a.health_grade,
+        a.total_locations, a.total_users, a.active_modules,
+        a.last_activity_at::text, a.scored_at::text,
+        a.reviewed_at::text, a.reviewed_by, a.review_notes, a.status,
+        a.created_at::text,
+        prev.overall_score AS previous_score
+      FROM attrition_risk_scores a
+      LEFT JOIN LATERAL (
+        SELECT overall_score
+        FROM attrition_risk_scores p
+        WHERE p.tenant_id = a.tenant_id
+          AND p.scored_at < a.scored_at
+        ORDER BY p.scored_at DESC
+        LIMIT 1
+      ) prev ON true
+      WHERE a.status != 'superseded'
+        AND (${status}::text IS NULL OR a.status = ${status})
+        AND (${riskLevel}::text IS NULL OR a.risk_level = ${riskLevel})
         AND (${cursor?.score ?? null}::int IS NULL OR
-             (overall_score, scored_at, id) < (${cursor?.score ?? 0}, ${cursor?.ts ?? '2000-01-01'}::timestamptz, ${cursor?.id ?? ''}))
-      ORDER BY overall_score DESC, scored_at DESC, id DESC
+             (a.overall_score, a.scored_at, a.id) < (${cursor?.score ?? 0}, ${cursor?.ts ?? '2000-01-01'}::timestamptz, ${cursor?.id ?? ''}))
+      ORDER BY a.overall_score DESC, a.scored_at DESC, a.id DESC
       LIMIT ${limit + 1}
     `);
 
@@ -120,6 +129,7 @@ export const GET = withAdminPermission(
           reviewedBy: r.reviewed_by,
           reviewNotes: r.review_notes,
           status: r.status,
+          previousScore: r.previous_score != null ? Number(r.previous_score) : null,
         })),
         stats: {
           open: Number(stats.open ?? 0),

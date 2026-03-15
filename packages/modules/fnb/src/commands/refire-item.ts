@@ -157,7 +157,7 @@ export async function refireItem(
       newItemId,
       ticketId: item.ticketId,
       stationId: item.stationId,
-      locationId: ticket?.locationId ?? ctx.locationId,
+      locationId: ticket!.locationId,
       reason: input.reason ?? null,
     });
 
