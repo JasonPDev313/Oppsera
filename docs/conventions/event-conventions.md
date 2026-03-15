@@ -157,6 +157,41 @@ Void ticket → ticket status updated, but fnb_kds_send_tracking rows preserved 
 - All bumps include `WHERE item_status = $currentStatus` as optimistic lock (prevents double-bump race)
 - Cleared tickets remain in the DB with `cleared_at` timestamp — never hard-deleted
 
+## AI Support Event Semantics (Added March 2026)
+
+AI support uses `auditLog()` (not `publishWithOutbox`) for its mutations. This is intentional — no cross-module consumers need to react to AI support events. If cross-module reactions are needed in the future, these should be promoted to full domain events via the outbox.
+
+### Audit Events (via auditLog)
+
+| Audit Key | Trigger | Notes |
+|-----------|---------|-------|
+| `ai_support.thread.created` | New conversation thread opened | Thread-level, tenant-scoped |
+| `ai_support.thread.closed` | Thread conversation ended | Sets thread status to `closed` |
+| `ai_support.escalation.created` | Human agent handoff initiated | Includes reason, priority, summary |
+| `ai_support.escalation.updated` | Escalation status changed | Auto-sets `resolvedAt` when `status='resolved'` |
+| `ai_support.answer_card.created` | New canned answer added to KB | Via admin review queue |
+| `ai_support.answer_card.updated` | Answer card modified | Includes status transitions |
+
+### Analytics Events (Non-Critical, No Outbox)
+
+These run as background analytics and do NOT emit domain events:
+
+| Service | Data Written | Storage |
+|---------|-------------|---------|
+| Intent classifier | topic, intent, urgency | `ai_support_conversation_tags` (3 rows per thread) |
+| Sentiment analyzer | sentiment per message | `ai_assistant_messages.sentiment` column |
+| CSAT predictor | score (1–5) + reasoning | `ai_support_csat_predictions` |
+| Summarizer | thread summary | `ai_assistant_threads.summary` column |
+| Test runner | pass/fail + regression | `ai_support_test_results` |
+
+### Agentic Action Logging
+
+Tool executions by the agentic orchestrator are logged to `ai_support_agentic_actions` with: action name, parameters, result, duration. This is an observability table, not an event stream — no consumers subscribe to it.
+
+### Why Not Full Domain Events?
+
+AI support analytics are **non-critical, tenant-internal, and non-transactional**. They don't trigger cross-module side effects (no GL posting, no inventory changes, no customer state mutations). Using `auditLog()` keeps the outbox clean and avoids unnecessary event processing overhead. If a future feature needs cross-module reaction (e.g., "auto-create support ticket in external system on escalation"), promote the relevant audit key to a full `publishWithOutbox` domain event at that time.
+
 ## Audit
 
 Run `pnpm audit:arch:inventory` to see all 150+ consumer registrations extracted from `instrumentation.ts`. This is the live inventory — no separate doc to maintain.

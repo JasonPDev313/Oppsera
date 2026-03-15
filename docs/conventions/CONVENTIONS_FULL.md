@@ -12898,3 +12898,132 @@ CREATE POLICY "..." ON table_name
 ```
 
 Migration 0324 fixed this for all AI knowledge tables.
+
+## §268 Agentic Orchestrator — Split-Phase Tool Execution
+
+The AI assistant's agentic mode uses a two-call Claude strategy because streaming and tool_use detection cannot be done reliably in a single pass:
+
+1. **Call 1 (non-streaming):** Send messages + tools array. Check `stop_reason`.
+2. If `stop_reason === 'tool_use'`: execute the action locally via action-registry, then make **Call 2 (streaming)** with the `tool_result` appended.
+3. If no tool use: stream the text blocks from Call 1 directly via SSE.
+
+**SSE event types:** `chunk` (text delta), `action` (executing/complete/error), `done` (final metadata), `error`.
+
+**Key constants:**
+- `AGENTIC_TOTAL_TIMEOUT_MS = 55_000` — AbortController kills both calls if budget exceeded
+- `AGENTIC_IDLE_TIMEOUT_MS = 20_000` — per-call idle guard (resets on each chunk)
+- History: last 10 messages or 20,000 chars (whichever is less)
+- Model: always `MODEL_TIERS.standard` (Sonnet minimum) — never Haiku for agentic mode
+
+**Security:** Claude can hallucinate tool names. The orchestrator validates `toolUseBlock.name` against `input.availableActions` before calling `getAction()`. Unknown tools return `{ success: false, error: "Action not available" }` rather than throwing.
+
+**Limitation:** Only ONE tool call per turn is supported. If Claude returns multiple `tool_use` blocks, only the first is executed. This is intentional — keeps the execution model simple.
+
+**Follow-up extraction:** Parses `---` separator in AI response, extracts 1–3 bullet points via regex `^[-*]\s+(.+)` with `length > 10` filter.
+
+## §269 Action Registry & Permission-Gated Tools
+
+Actions are registered via a module-level `Map<string, ActionDefinition>` singleton:
+
+```typescript
+interface ActionDefinition {
+  name: string;
+  description: string;
+  requiredPermission: string;  // e.g., 'orders.view'
+  parameters: JSONSchema;
+  executor: (params, { tenantId, locationId? }) => Promise<{ success, data?, error? }>;
+}
+```
+
+**`getAvailableActions(userPermissions)`** filters by `permissions.includes(requiredPermission) || permissions.includes('*')`.
+
+**`actionsToClaudeTools()`** converts `parameters` → `input_schema` for the Anthropic tools format.
+
+**Architecture rule:** `action-definitions.ts` contains templates only (name, description, parameters, permission). Executors are registered at the web app layer to avoid cross-module dependencies. The `ai-support` module never imports `orders`, `inventory`, etc.
+
+**Built-in templates:** `order_lookup`, `inventory_check`, `customer_search`, `payment_status`.
+
+## §270 Non-Critical Analytics Services Pattern
+
+All AI analytics services (intent-classifier, sentiment-analyzer, CSAT-predictor, summarizer) follow a consistent pattern:
+
+1. **Never throw** — all errors caught, logged with `[module/service-name]` prefix, return null/void
+2. **Must still be awaited** on Vercel — not fire-and-forget, but non-blocking to the primary response
+3. **Input truncation** — questions capped at 2,000 chars, transcripts at 40,000 chars
+4. **`AbortSignal.timeout()`** — 10–15s per service (sentiment=10s, others=15s)
+5. **Idempotency guard** — SELECT for existing row before expensive LLM call, early-return if found (CSAT, intent-classifier). Summarizer uses message-count threshold instead (re-runs at multiples of 4).
+
+**Intent classifier:** Classifies `intent` (how_to/troubleshoot/feature_request/complaint/general), `urgency` (low/medium/high/critical), and free-form `topic` (64-char cap). Three separate tag rows inserted per classification.
+
+**Sentiment analyzer:** Per-message. Returns `{ sentiment, confidence }` or null. Valid: positive/neutral/frustrated/angry. `checkConsecutiveNegative()` queries last 2 user messages — returns true if both are frustrated/angry (escalation trigger).
+
+**CSAT predictor:** Post-thread close. Score 1–5 integer + reasoning (1,000-char cap). Min 2 messages required. `Number()` not `parseInt()` — deliberately rejects non-integer scores like 3.7.
+
+**Summarizer:** Threshold-based at message counts 4, 8, 12, ... Persists to `ai_assistant_threads.summary`. Returns existing summary on Haiku failure (graceful degradation).
+
+**Hardcoded model string:** `'claude-haiku-4-5-20251001'` appears in 6 files. Future improvement: centralize in constants.ts.
+
+## §271 AI Test Runner Framework
+
+`runTestSuite(runId, testCaseIds?)` executes test cases **serialized** (no parallelism) to respect `max: 2` DB pool.
+
+**Scoring:** If `expectedPattern` starts with `/` and ≤ 500 chars → regex match with ReDoS guard. Otherwise → case-insensitive substring. Score is binary: 1 (pass) or 0 (fail).
+
+**ReDoS guard:** Regex `/(\+|\*|\{)\??\)(\+|\*|\{)/` rejects nested quantifiers. Falls back to substring if regex is invalid.
+
+**Regression detection:** Queries previous result for same `testCaseId`. Regression = previously passed, now failed.
+
+**Test execution uses Haiku directly** — no RAG, no tools, no streaming. Tests measure parametric knowledge, not knowledge base accuracy.
+
+**Storage:** `passed` and `regression` stored as string `'true'`/`'false'` (Drizzle text column pattern).
+
+**Caps:** Test case IDs filtered to `id.length <= 30`, max 200 cases per run.
+
+## §272 Escalation Lifecycle
+
+`createEscalation(ctx, input)`:
+1. Load thread (tenant-scoped) → load messages (oldest-first)
+2. Inline Haiku summary — caught/swallowed on failure, `summary = null`
+3. Auto-priority: `input.priority` if provided, else `'high'` if last assistant confidence was `'low'`, else `'medium'`. Critical never auto-set.
+4. Insert escalation → update thread outcome to `'escalated'`
+5. `auditLog().catch()` — never breaks the command
+
+`updateEscalation(ctx, escalationId, input)`:
+- Tenant-scoped load + verify
+- Auto-sets `resolvedAt = new Date()` when `status === 'resolved'`
+- Same `auditLog().catch()` pattern
+
+**Query patterns:**
+- `listEscalations` uses raw SQL with dynamic WHERE + correlated subquery for `first_user_message`. Results mapped via `Array.from(rows as Iterable<...>)`.
+- `getEscalation` loads by ID first (no tenant filter for admin portal), then derives tenantId for subsequent queries.
+
+## §273 Proactive Messaging Rules
+
+`checkProactiveMessages(tenantId, userId, context)`:
+1. Load rules where `tenantId IS NULL` (global) OR `tenantId = tenantId` (tenant-specific)
+2. Filter in-memory by `moduleKey` match and `routePattern.startsWith()`
+3. Batch-load dismissals via `inArray` (no N+1)
+4. Skip if within cooldown: `now - shownAt < cooldownHours * 3_600_000`
+5. Sort by `priority DESC`, return top 3
+
+**`dismissProactiveMessage()`** uses `onConflictDoUpdate` on composite `[ruleId, userId, tenantId]`.
+
+**Route matching uses `startsWith()`** — not regex. A rule with `/pos` matches `/pos-setup`. Always include trailing slashes in patterns.
+
+**Global rules** (null tenantId) are visible to ALL tenants — be careful when creating platform-wide rules.
+
+## §274 F&B Venue Location Guard
+
+Two utility functions in `packages/modules/fnb/src/helpers/venue-location.ts`:
+
+**`assertSingleVenueLocation(locationIds, entityLabel)`:**
+- Filters nulls, deduplicates with `Set`
+- Throws `AppError('LOCATION_REQUIRED', 400)` if no locations
+- Throws `AppError('CROSS_VENUE_SELECTION', 409)` if multiple distinct locations
+- Returns the single valid `locationId`
+
+**`withEffectiveLocationId(ctx, locationId)`:**
+- Returns `ctx` unchanged if already matching (identity optimization)
+- Otherwise returns shallow spread `{ ...ctx, locationId }` — never mutates
+
+Used in `accept-table-offer`, `dispatch-course-to-kds`, and similar cross-entity F&B commands. HTTP 409 for cross-venue is intentional — signals state conflict, not bad request.

@@ -8,7 +8,7 @@
 
 | Section | Lines | Contents |
 |---------|-------|----------|
-| What's Built | 18–1142 | All modules: Platform Core, Catalog, Orders, Payments, POS, Inventory, Customers, Reporting, Receiving, Vendors, Semantic/AI, Admin, Room Layouts, Accounting/GL/AP/AR, F&B, KDS, PMS, Spa, Business Types, Membership, Golf Ops, Marketing, Operations, Settings, Tags, Import, Guest Pay, Member Portal, Expenses, Project Costing |
+| What's Built | 18–1162 | All modules: Platform Core, Catalog, Orders, Payments, POS, Inventory, Customers, Reporting, Receiving, Vendors, Semantic/AI, Admin, Room Layouts, Accounting/GL/AP/AR, F&B, KDS, PMS, Spa, Business Types, Membership, AI Support, Golf Ops, Marketing, Operations, Settings, Tags, Import, Guest Pay, Member Portal, Expenses, Project Costing |
 | Test Coverage | 1143–1276 | Test suites per module, coverage notes |
 | What's Built (Infrastructure) | 1277–1463 | DB, auth, deployment, caching, observability, CI/CD, background jobs, security |
 | What's Next | 1464–1692 | Roadmap items, planned features |
@@ -1132,6 +1132,30 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - Autopay: batch processing, retry with ACH support, late fees, 8 notification templates
   - Reporting: aging, churn, compliance, portfolio, spend, deferred revenue schedule, risk dashboard, predictive insights
   - GL integration via membership-posting-adapter for deferred revenue and earned revenue recognition
+- **AI Support Module** (`packages/modules/ai-support/`) — Sessions 2026-03-13–15:
+  - **20+ schema tables** in `packages/db/src/schema/ai-support.ts`: ai_assistant_threads, ai_assistant_messages, ai_assistant_context_snapshots, ai_support_answer_cards, ai_support_answer_card_embeddings, ai_support_review_queue, ai_support_feedback, ai_support_feature_gaps, ai_support_escalations, ai_support_conversation_tags, ai_support_csat_predictions, ai_support_proactive_rules, ai_support_proactive_dismissals, ai_support_test_cases, ai_support_test_runs, ai_support_test_results, ai_support_content_invalidation, ai_support_agentic_actions
+  - **Migrations**: 0316 (core threading), 0317 (embeddings/pgvector), 0323 (hardening), 0328 (feature gaps), 0329 (answer card embeddings), 0330 (v2 features — escalations, proactive, analytics), 0331 (RLS policies)
+  - **Commands**: thread-commands (create/close thread), escalation-commands (create/update escalation), review-commands (answer card CRUD), feedback-commands (submit feedback)
+  - **Queries**: escalation-queries (list with raw SQL JOIN + correlated subquery, detail with context snapshots), proactive-queries (rule matching with cooldown/dismissal logic)
+  - **9 services**:
+    - `orchestrator.ts` — streaming RAG orchestrator with model waterfall (Haiku→Sonnet→Opus), SSE response
+    - `agentic-orchestrator.ts` — split-phase tool execution (non-streaming Call 1 → tool_use check → streaming Call 2 with tool_result). 55s total timeout, 20s idle timeout, single tool per turn
+    - `action-registry.ts` — Map-based action singleton with permission gating (`getAvailableActions`, `actionsToClaudeTools`)
+    - `action-definitions.ts` — 4 built-in templates (order_lookup, inventory_check, customer_search, payment_status). Executors registered at web layer
+    - `retrieval.ts` — hybrid RRF retrieval (keyword + vector search, Reciprocal Rank Fusion k=60), tiered evidence (T2–T7)
+    - `embedding-pipeline.ts` — pgvector 1536-dim embeddings for documents and answer cards
+    - `intent-classifier.ts` — Haiku-based intent/urgency/topic classification, 3 tag rows per thread, 15s timeout
+    - `sentiment-analyzer.ts` — per-message sentiment (positive/neutral/frustrated/angry), consecutive-negative escalation trigger, 10s timeout
+    - `csat-predictor.ts` — post-thread CSAT prediction (1–5 integer), 40K char transcript cap, idempotent
+    - `summarizer.ts` — threshold-based re-summarization at message count multiples of 4, graceful degradation
+    - `test-runner.ts` — serialized test execution, ReDoS-guarded regex scoring, regression detection
+  - **Constants**: MODEL_TIERS (fast/standard/deep), THREAD_STATUSES, ESCALATION_STATUSES/PRIORITIES/REASONS, SENTIMENT_VALUES, TAG_TYPES, TEST_RUN_STATUSES, PROACTIVE_TRIGGER_TYPES, plus 25+ other enums
+  - **Admin portal pages** (`apps/admin/`): `/ai-assistant/answers` (answer card management), `/ai-assistant/escalations` (escalation queue), `/ai-assistant/proactive` (proactive rule management), `/ai-assistant/testing` (test case/run management)
+  - **Admin API routes**: escalations CRUD, proactive-rules CRUD, test-cases CRUD, test-runs CRUD, answers CRUD + bulk-status, analytics
+  - **Web API routes**: thread messages (streaming), escalation creation, proactive message checking, CSAT cron
+  - **Frontend**: `AiAssistantPanel` (chat UI with streaming), `useAiAssistantChat` hook, `useProactiveMessages` hook
+  - **Non-critical analytics pattern**: all analytics services (intent, sentiment, CSAT, summarizer) never throw, use AbortSignal.timeout, truncate inputs, must still be awaited on Vercel
+  - **F&B venue-location guard** (`packages/modules/fnb/src/helpers/venue-location.ts`): `assertSingleVenueLocation()` (409 cross-venue) + `withEffectiveLocationId()` (shallow ctx spread). Used in accept-table-offer, dispatch-course-to-kds
 - **KDS Module** (`packages/modules/kds/`):
   - Stub module (v0.0.0): placeholder for standalone KDS V2 — planned schema/commands/queries/events
   - Current KDS implementation lives in `packages/modules/fnb/` (see F&B module above)

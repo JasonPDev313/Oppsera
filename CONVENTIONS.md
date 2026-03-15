@@ -1,6 +1,6 @@
 # OppsEra — Conventions Index
 
-> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (~12,811 lines, 261 numbered sections).
+> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (~13,029 lines, 274 numbered sections).
 > Read only the sections you need by line range. Do NOT load the entire file into context.
 
 ---
@@ -344,7 +344,7 @@
 | §246 | Emergency Cleanup Payment Verification | 12339–12356 | Verify SUM(tenders) >= total, location-scoped locks |
 | §247 | Help Tip Pattern | 12357–12395 | Portal-mounted `?` popover, placement props, first-visit auto-open, 3-cycle pulse |
 
-### Domain Patterns (§248–§267) — Updated 2026-03-14
+### Domain Patterns (§248–§274) — Updated 2026-03-15
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
@@ -368,6 +368,13 @@
 | §265 | Feature Gap Detection | 12867–12879 | maybeRecordFeatureGap(), normalize→hash dedup, occurrence_count upsert, admin triage dashboard |
 | §266 | Global Regex `.test()` Bug (Gotcha) | 12880–12889 | Global regex lastIndex state, non-global copies for .test(), global for .replace() |
 | §267 | RLS With No Policy = Deny All (Gotcha) | 12890–12900 | ENABLE RLS without policy blocks all, NULL tenant_id handling, migration 0324 fix |
+| §268 | Agentic Orchestrator — Split-Phase Tool Execution | 12902–12932 | Two-call Claude strategy, SSE events, 55s total timeout, single tool per turn, action security |
+| §269 | Action Registry & Permission-Gated Tools | 12934–12958 | Map singleton, permission gating, executor separation, actionsToClaudeTools, 4 built-in templates |
+| §270 | Non-Critical Analytics Services Pattern | 12960–12990 | Never-throw pattern, AbortSignal.timeout, idempotency guards, intent/sentiment/CSAT/summarizer |
+| §271 | AI Test Runner Framework | 12992–13005 | Serialized execution, ReDoS guard, regression detection, binary scoring, Haiku-only |
+| §272 | Escalation Lifecycle | 13007–13027 | Inline Haiku summary, auto-priority, auditLog().catch(), raw SQL list query, admin-portal detail |
+| §273 | Proactive Messaging Rules | 13029–13045 | Global + tenant rules, startsWith route matching, cooldown logic, batch dismissal loading |
+| §274 | F&B Venue Location Guard | 13047–13062 | assertSingleVenueLocation, withEffectiveLocationId, 409 cross-venue, identity optimization |
 
 ---
 
@@ -379,14 +386,14 @@
 | **Dark mode** | §15, §145, §172 |
 | **GL / Accounting** | §76–§80, §84, §114, §117–§118, §149, §177, §183, §185, §187–§188, §195–§197, §201–§203, §220, §238–§239, §249–§250, §254 |
 | **POS** | §31–§35, §57, §61–§64, §132a, §140–§141, §164, §169, §196, §228 |
-| **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227, §240, §243, §246, §248 |
+| **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227, §240, §243, §246, §248, §274 |
 | **Vercel / Serverless** | §47, §81, §157, §161, §205–§206, §232, §255 |
 | **Database / Schema** | §2, §18, §29–§30, §36, §47, §139, §179, §225, §241–§244, §266–§267 |
 | **Auth / Security** | §3, §13–§14, §38, §51, §67, §81, §119, §137, §207–§208, §223, §233, §242 |
 | **Events / Consumers** | §9, §26, §104, §159, §186, §202, §231, §232 |
 | **Testing** | §11, §204 |
 | **Reporting / Read Models** | §52, §56, §111, §153, §175, §231 |
-| **Semantic / AI** | §65–§72, §74, §121, §123, §127, §160, §178, §189–§194, §200, §217, §259, §262–§265 |
+| **Semantic / AI** | §65–§72, §74, §121, §123, §127, §160, §178, §189–§194, §200, §217, §259, §262–§265, §268–§272 |
 | **PMS** | §122, §126, §166, §214, §219 |
 | **Settings / Config** | §90, §95, §110, §112, §115–§116, §130, §134b, §135b, §136, §142, §149, §155–§156, §165 |
 | **Inventory / Receiving** | §41, §53–§55, §58–§60 |
@@ -405,13 +412,13 @@
 
 - **Duplicate section numbers**: §98, §131–§135 each appear twice in the file (legacy numbering). Disambiguated as `a`/`b` suffixes above.
 - **Unnumbered sections**: "Local Server Fix (Windows)" at line 7246 (between §127 and §128), and "Answer"/"Metrics in This Query" subsections within §74 at lines 4571–4652.
-- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~12,900 lines, 267 numbered sections)
-- **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (574 numbered gotchas)
+- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~13,029 lines, 274 numbered sections)
+- **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (581 numbered gotchas)
 - **What's Built / What's Next**: `docs/conventions/whats-built.md`
 
 ## Line Range Accuracy
 
-Line ranges in this index are pinned to the last convention update (**2026-03-14**). They are only valid when CONVENTIONS_FULL.md has **not been edited** since that date.
+Line ranges in this index are pinned to the last convention update (**2026-03-15**). They are only valid when CONVENTIONS_FULL.md has **not been edited** since that date.
 
 **If line ranges are stale** (e.g., you read a section and the heading doesn't match):
 1. Search by heading instead: `grep -n "^## §248" docs/conventions/CONVENTIONS_FULL.md`

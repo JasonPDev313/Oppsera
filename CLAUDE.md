@@ -118,9 +118,9 @@ pnpm db:seed              # Seed dev data
 | [docs/conventions/infrastructure-reference.md](docs/conventions/infrastructure-reference.md) | Deployment, DB config, connection pooling, background jobs, observability |
 | [docs/conventions/css-troubleshooting.md](docs/conventions/css-troubleshooting.md) | CSS not loading, page unstyled |
 | [docs/conventions/gotchas-top30.md](docs/conventions/gotchas-top30.md) | Need full details on top 30 gotchas |
-| [docs/conventions/gotchas-reference.md](docs/conventions/gotchas-reference.md) | All 570 gotchas |
+| [docs/conventions/gotchas-reference.md](docs/conventions/gotchas-reference.md) | All 581 gotchas |
 | [docs/conventions/whats-built.md](docs/conventions/whats-built.md) | Complete module/feature inventory |
-| [docs/conventions/CONVENTIONS_FULL.md](docs/conventions/CONVENTIONS_FULL.md) | Full dev conventions (254 sections) |
+| [docs/conventions/CONVENTIONS_FULL.md](docs/conventions/CONVENTIONS_FULL.md) | Full dev conventions (274 sections) |
 | [CONVENTIONS.md](CONVENTIONS.md) | Index into CONVENTIONS_FULL.md by section number |
 | [docs/conventions/event-conventions.md](docs/conventions/event-conventions.md) | Event naming, versioning, payload rules, consumer registration |
 | [docs/conventions/module-architecture.md](docs/conventions/module-architecture.md) | Cross-module dependency rules, sync exceptions (E1–E5), write APIs |

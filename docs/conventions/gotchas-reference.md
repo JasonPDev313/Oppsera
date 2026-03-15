@@ -601,3 +601,17 @@
 573. **RLS enabled with no policy = deny all** — `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` without a `CREATE POLICY` silently blocks ALL access, even for admin roles (unless they have `BYPASSRLS`). Global/shared rows with `tenant_id IS NULL` require explicit NULL handling: `USING (tenant_id IS NULL OR tenant_id = current_setting('app.tenant_id')::text)`. See §267.
 
 574. **Async rate limiter called synchronously = zombie Promise** — The AI support rate limiter was refactored from synchronous to `async` (DB-backed). Old call sites that called `checkRateLimit()` without `await` silently produce unresolved Promises on Vercel — a pool-exhaustion risk per gotcha #1. Always `await` rate-limit checks.
+
+575. **Agentic orchestrator: single tool call per turn** — The agentic orchestrator only executes the first `tool_use` block if Claude returns multiple. Parallel tool execution is not supported. If you need multi-step actions, rely on Claude's natural multi-turn flow (each turn gets one tool). See §268.
+
+576. **`role: 'tool'` cast for Anthropic API** — When appending `tool_result` to the message array, the code uses `role: 'tool' as unknown as 'user'` because the Anthropic SDK types expect `'user'` for the message containing tool results, despite the API accepting `'tool'`. Do not "fix" this cast — it's intentional. See §268.
+
+577. **Proactive `routePattern` prefix match, not regex** — `routePattern.startsWith()` means `/pos` matches both `/pos/tables` AND `/pos-setup`. Always include trailing slashes in route patterns to prevent false prefix matches (e.g., `/pos/` not `/pos`). See §273.
+
+578. **Haiku model string hardcoded in 6+ files** — `'claude-haiku-4-5-20251001'` is duplicated across intent-classifier, sentiment-analyzer, csat-predictor, summarizer, escalation-commands, and test-runner. When Anthropic releases a new Haiku, all files must be updated. Future: centralize in `constants.ts` alongside `MODEL_TIERS`.
+
+579. **Test runner Vercel timeout risk** — With 200 test cases × 15s timeout each = 3,000s potential runtime. Vercel's max function timeout is 60s (hobby) / 300s (pro). Large test suites must be paginated externally or run via cron with chunking. See §271.
+
+580. **Sentiment analyzer no markdown fence stripping** — Unlike intent-classifier which uses regex to extract JSON from markdown fences, sentiment-analyzer does `JSON.parse(text.trim())` directly. If Haiku wraps output in ```json fences, the parse fails silently (returns null). The sentiment for that message is simply unrecorded. See §270.
+
+581. **`summarizeThread` re-runs at 4-message multiples** — Unlike CSAT and intent-classifier which have SELECT-based idempotency guards, `summarizeThread` will re-call Haiku at every message count divisible by 4. Callers should not invoke it on every message — only at appropriate checkpoints. See §270.
