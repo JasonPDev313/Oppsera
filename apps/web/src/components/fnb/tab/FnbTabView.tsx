@@ -317,6 +317,13 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     return locations?.find((l) => l.id === locId)?.name;
   }, [locations]);
 
+  // Site→venue resolution is expected — don't warn when the effective KDS location
+  // is a child venue of the tab's location (e.g., tab at "Resort" site, KDS at its venue).
+  const isChildVenueOf = useCallback((childId: string, parentId: string) => {
+    const child = locations?.find((l) => l.id === childId);
+    return child?.parentLocationId === parentId;
+  }, [locations]);
+
   // Clear toast timer on unmount to prevent setState on unmounted component
   useEffect(() => {
     return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
@@ -370,8 +377,9 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       await persistDraftsForCourse(courseNumber);
       const result = await sendCourse(courseNumber);
       // Surface cross-location routing — should not happen now that KDS is venue-only,
-      // but kept as a safety net.
-      if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId) {
+      // but kept as a safety net. Skip warning for expected site→venue resolution.
+      if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId
+          && !isChildVenueOf(result.effectiveKdsLocationId, kdsLocationId!)) {
         const destName = resolveLocationName(result.effectiveKdsLocationId) ?? result.effectiveKdsLocationId;
         const msg = `Course sent to KDS at ${destName} (different from current location)`;
         setKdsSendError(msg);
@@ -386,7 +394,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       const msg = err instanceof Error ? err.message : 'Failed to send course';
       setKdsSendError(msg);
     }
-  }, [sendCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName]);
+  }, [sendCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName, isChildVenueOf]);
 
   // Wrap fireCourse to persist drafts first + surface KDS warnings (same pattern as sendCourseWithWarning)
   const fireCourseWithWarning = useCallback(async (courseNumber: number) => {
@@ -394,7 +402,9 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       await persistDraftsForCourse(courseNumber);
       const result = await fireCourse(courseNumber);
       // Surface cross-location routing — safety net (should not fire with venue-only KDS).
-      if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId) {
+      // Skip warning for expected site→venue resolution.
+      if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId
+          && !isChildVenueOf(result.effectiveKdsLocationId, kdsLocationId!)) {
         const destName = resolveLocationName(result.effectiveKdsLocationId) ?? result.effectiveKdsLocationId;
         const msg = `Course fired to KDS at ${destName} (different from current location)`;
         setKdsSendError(msg);
@@ -409,7 +419,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       const msg = err instanceof Error ? err.message : 'Failed to fire course';
       setKdsSendError(msg);
     }
-  }, [fireCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName]);
+  }, [fireCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName, isChildVenueOf]);
 
   // ── Modifier drawer state ──────────────────────────────────────
   const [modifierDrawerOpen, setModifierDrawerOpen] = useState(false);
@@ -535,7 +545,8 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     for (const courseNumber of courseNumbersToSend) {
       try {
         const result = await sendCourse(courseNumber);
-        if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId) {
+        if (result?.effectiveKdsLocationId && result.effectiveKdsLocationId !== kdsLocationId
+            && !isChildVenueOf(result.effectiveKdsLocationId, kdsLocationId!)) {
           const destName = resolveLocationName(result.effectiveKdsLocationId) ?? result.effectiveKdsLocationId;
           kdsWarnings.push(`Course ${courseNumber} routed to ${destName} (different location)`);
         }

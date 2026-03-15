@@ -505,6 +505,28 @@ export async function updateAnswerCard(
   return res.data;
 }
 
+// ── seedTrainingCards ────────────────────────────────────────────────
+
+export interface SeedTrainingResult {
+  total: number;
+  batches: {
+    batch1: number;
+    batch2: number;
+    batch3: number;
+    batch4: number;
+    batch5: number;
+    batch6: number;
+  };
+}
+
+export async function seedTrainingCards(): Promise<SeedTrainingResult> {
+  const res = await adminFetch<{ data: SeedTrainingResult }>(
+    '/api/v1/ai-support/seed-training',
+    { method: 'POST' },
+  );
+  return res.data;
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Feature Gaps — AI-detected product gaps from unanswered questions
 // ═══════════════════════════════════════════════════════════════════

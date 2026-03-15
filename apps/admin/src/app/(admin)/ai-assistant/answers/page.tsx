@@ -15,12 +15,14 @@ import {
   Square,
   Minus,
   Filter,
+  Database,
 } from 'lucide-react';
 import {
   useAnswerCards,
   createAnswerCard,
   updateAnswerCard,
   bulkUpdateAnswerCardStatus,
+  seedTrainingCards,
   type AnswerCard,
   type CreateAnswerCardInput,
   type UpdateAnswerCardInput,
@@ -464,6 +466,8 @@ export default function AnswerCardsPage() {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkSuccess, setBulkSuccess] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [seedResult, setSeedResult] = useState<string | null>(null);
   const successTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Clean up success auto-dismiss timer on unmount
@@ -540,6 +544,23 @@ export default function AnswerCardsPage() {
     }
   }
 
+  async function handleSeedTraining() {
+    setSeeding(true);
+    setSeedResult(null);
+    setBulkError(null);
+    try {
+      const result = await seedTrainingCards();
+      setSeedResult(
+        `Seeded ${result.total} training cards (B1: ${result.batches.batch1}, B2: ${result.batches.batch2}, B3: ${result.batches.batch3}, B4: ${result.batches.batch4}, B5: ${result.batches.batch5}, B6: ${result.batches.batch6}). Duplicates skipped.`,
+      );
+      reload();
+    } catch (e) {
+      setBulkError(e instanceof Error ? e.message : 'Failed to seed training cards');
+    } finally {
+      setSeeding(false);
+    }
+  }
+
   // Clear selection when filters change
   function handleStatusFilter(value: typeof statusFilter) {
     setStatusFilter(value);
@@ -568,6 +589,14 @@ export default function AnswerCardsPage() {
           >
             <RefreshCw size={14} />
             Refresh
+          </button>
+          <button
+            onClick={handleSeedTraining}
+            disabled={seeding}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-slate-300 bg-slate-800 border border-slate-700 hover:text-white hover:border-slate-600 disabled:opacity-50 transition-colors"
+          >
+            <Database size={14} />
+            {seeding ? 'Seeding...' : 'Seed Training Cards'}
           </button>
           <button
             onClick={() => setShowCreate(true)}
@@ -687,6 +716,19 @@ export default function AnswerCardsPage() {
         <div className="bg-emerald-950 border border-emerald-700 rounded-lg p-4 text-emerald-300 text-sm flex items-center gap-2">
           <Check size={16} />
           {bulkSuccess}
+        </div>
+      )}
+
+      {/* Seed result */}
+      {seedResult && (
+        <div className="bg-indigo-950 border border-indigo-700 rounded-lg p-4 text-indigo-300 text-sm flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Database size={16} />
+            {seedResult}
+          </div>
+          <button onClick={() => setSeedResult(null)} className="text-indigo-500 hover:text-indigo-300 transition-colors">
+            <X size={14} />
+          </button>
         </div>
       )}
 
