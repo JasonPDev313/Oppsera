@@ -21,7 +21,7 @@
     "@oppsera/shared": "workspace:*",
     "dotenv": "^16.4.0",
     "bcryptjs": "^2.4.3",
-    "jose": "^5.9.6",
+    "jose": "^6.2.1",
     "lucide-react": "^0.468.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
