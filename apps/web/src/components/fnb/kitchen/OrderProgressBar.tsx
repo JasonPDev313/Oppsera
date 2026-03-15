@@ -33,7 +33,7 @@ export function OrderProgressBar({
     >
       <span
         style={{
-          fontSize: '12px',
+          fontSize: 'calc(12px * var(--pos-font-scale, 1))',
           color: 'var(--fnb-text-muted)',
           whiteSpace: 'nowrap',
           flexShrink: 0,
@@ -71,7 +71,7 @@ export function OrderProgressBar({
 
       <span
         style={{
-          fontSize: '12px',
+          fontSize: 'calc(12px * var(--pos-font-scale, 1))',
           color: 'var(--fnb-text-secondary)',
           whiteSpace: 'nowrap',
           flexShrink: 0,

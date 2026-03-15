@@ -32,7 +32,7 @@ export function SeatRail({ seatCount, activeSeat, onSelectSeat, onAddSeat, unsen
           style={{
             width: 56,
             height: 56,
-            fontSize: '13px',
+            fontSize: 'calc(13px * var(--pos-font-scale, 1))',
             backgroundColor: activeSeat === 0 ? 'var(--fnb-info)' : 'var(--fnb-bg-elevated)',
             color: activeSeat === 0 ? '#fff' : 'var(--fnb-text-secondary)',
           }}
@@ -58,7 +58,7 @@ export function SeatRail({ seatCount, activeSeat, onSelectSeat, onAddSeat, unsen
               style={{
                 width: 56,
                 height: 56,
-                fontSize: '13px',
+                fontSize: 'calc(13px * var(--pos-font-scale, 1))',
                 backgroundColor: isActive ? 'var(--fnb-info)' : 'var(--fnb-bg-elevated)',
                 color: isActive ? '#fff' : 'var(--fnb-text-secondary)',
               }}

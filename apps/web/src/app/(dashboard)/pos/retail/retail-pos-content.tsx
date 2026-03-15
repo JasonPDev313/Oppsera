@@ -959,18 +959,26 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     sku: item.sku,
   }), []);
 
+  /** Pre-computed Set of item IDs with junction-table modifier assignments (O(1) lookup) */
+  const itemIdsWithModifiers = useMemo(() => {
+    const ids = new Set<string>();
+    for (const a of catalog.posItemAssignments) ids.add(a.catalogItemId);
+    return ids;
+  }, [catalog.posItemAssignments]);
+
   const handleItemTap = useCallback(
     (item: CatalogItemForPOS) => {
       try {
         const typeGroup = item.typeGroup;
+        const hasJunctionModifiers = itemIdsWithModifiers.has(item.id);
         switch (typeGroup) {
           case 'fnb': {
             const meta = item.metadata as FnbMetadata | undefined;
-            const hasModifiers =
+            const hasMetaModifiers =
               (meta?.defaultModifierGroupIds && meta.defaultModifierGroupIds.length > 0) ||
               (meta?.optionalModifierGroupIds && meta.optionalModifierGroupIds.length > 0);
             const hasFractions = meta?.allowedFractions && meta.allowedFractions.length > 1;
-            if (hasModifiers || hasFractions) {
+            if (hasJunctionModifiers || hasMetaModifiers || hasFractions) {
               setModifierItem(item);
             } else {
               pos.addItem({ catalogItemId: item.id, qty: 1, _display: displayFor(item) });
@@ -980,7 +988,16 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
           }
           case 'retail': {
             const meta = item.metadata as RetailMetadata | undefined;
-            if (meta?.optionSets && meta.optionSets.length > 0) {
+            const hasOptionSets = meta?.optionSets && meta.optionSets.length > 0;
+            if (hasJunctionModifiers) {
+              // TODO: ModifierDialog does not handle optionSets — items with both
+              // junction modifiers AND optionSets will lose the optionSets UI.
+              // Fix: show OptionDialog after ModifierDialog, or merge into one.
+              if (hasOptionSets) {
+                console.warn(`[retail-pos] Item "${item.name}" has both junction modifiers and optionSets — optionSets will not be shown`);
+              }
+              setModifierItem(item);
+            } else if (hasOptionSets) {
               setOptionItem(item);
             } else {
               pos.addItem({ catalogItemId: item.id, qty: 1, _display: displayFor(item) });
@@ -1005,7 +1022,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         toast.error(`Failed to add "${item.name}" — check console for details`);
       }
     },
-    [pos, catalog, displayFor, toast],
+    [pos, catalog, displayFor, toast, itemIdsWithModifiers],
   );
 
   // ── Dialog add handlers ─────────────────────────────────────────
@@ -2218,7 +2235,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
 
       {/* ── Dialogs ────────────────────────────────────────────────── */}
 
-      {/* Modifier Dialog (F&B items + edit modifiers from cart) */}
+      {/* Modifier Dialog (F&B + retail items with modifier groups, or edit modifiers from cart) */}
       <ModifierDialog
         open={modifierItem !== null}
         onClose={() => {
@@ -2227,6 +2244,8 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         }}
         item={modifierItem}
         onAdd={handleModifierAddWithEdit}
+        posModifierGroups={catalog.posModifierGroups}
+        itemAssignments={catalog.posItemAssignments}
       />
 
       {/* Option Picker Dialog (Retail items with options) */}

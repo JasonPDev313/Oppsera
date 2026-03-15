@@ -218,11 +218,16 @@ export async function apiFetch<T = unknown>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // Send active role ID so backend scopes permissions to selected role
+  // Send active role ID so backend scopes permissions to selected role.
+  // Only send for POS paths — dashboard routes should use the user's full
+  // role assignments, not the terminal session's restricted role.
   if (!headers['x-role-id']) {
-    const activeRoleId = getActiveRoleId();
-    if (activeRoleId) {
-      headers['x-role-id'] = activeRoleId;
+    const isPosPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/pos');
+    if (isPosPath) {
+      const activeRoleId = getActiveRoleId();
+      if (activeRoleId) {
+        headers['x-role-id'] = activeRoleId;
+      }
     }
   }
 

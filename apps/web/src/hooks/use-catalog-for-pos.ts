@@ -39,9 +39,51 @@ interface POSRawCategory {
   color?: string | null;
 }
 
+/** Modifier option as returned by getCatalogForPOS (already in cents) */
+export interface POSModifierOptionRaw {
+  id: string;
+  name: string;
+  priceCents: number;
+  extraPriceDeltaCents: number | null;
+  kitchenLabel: string | null;
+  allowNone: boolean;
+  allowExtra: boolean;
+  allowOnSide: boolean;
+  isDefaultOption: boolean;
+  sortOrder: number;
+  isDefault: boolean;
+}
+
+/** Modifier group as returned by getCatalogForPOS */
+export interface POSModifierGroupRaw {
+  id: string;
+  name: string;
+  selectionType: string;
+  isRequired: boolean;
+  minSelections: number;
+  maxSelections: number;
+  instructionMode: string;
+  defaultBehavior: string;
+  options: POSModifierOptionRaw[];
+}
+
+/** Item-modifier-group junction row as returned by getCatalogForPOS */
+export interface POSItemAssignmentRaw {
+  catalogItemId: string;
+  modifierGroupId: string;
+  isDefault: boolean;
+  overrideRequired: boolean | null;
+  overrideMinSelections: number | null;
+  overrideMaxSelections: number | null;
+  overrideInstructionMode: string | null;
+  promptOrder: number;
+}
+
 interface CachedCatalog {
   items: POSRawItem[];
   categories: POSRawCategory[];
+  modifierGroups?: POSModifierGroupRaw[];
+  itemModifierAssignments?: POSItemAssignmentRaw[];
   onHandByCatalogItemId?: Record<string, number>;
   cachedAt: number;
 }
@@ -84,10 +126,12 @@ function saveCachedCatalog(
   items: POSRawItem[],
   categories: POSRawCategory[],
   onHandByCatalogItemId?: Record<string, number>,
+  modifierGroups?: POSModifierGroupRaw[],
+  itemModifierAssignments?: POSItemAssignmentRaw[],
 ): void {
   if (typeof window === 'undefined') return;
   try {
-    const cached: CachedCatalog = { items, categories, onHandByCatalogItemId, cachedAt: Date.now() };
+    const cached: CachedCatalog = { items, categories, modifierGroups, itemModifierAssignments, onHandByCatalogItemId, cachedAt: Date.now() };
     sessionStorage.setItem(`${CACHE_KEY_PREFIX}${locationId}`, JSON.stringify(cached));
   } catch {
     // Storage full — silently ignore
@@ -175,6 +219,8 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
   // Raw data
   const [allCategories, setAllCategories] = useState<CategoryRow[]>([]);
   const [allItems, setAllItems] = useState<CatalogItemForPOS[]>([]);
+  const [posModifierGroups, setPosModifierGroups] = useState<POSModifierGroupRaw[]>([]);
+  const [posItemAssignments, setPosItemAssignments] = useState<POSItemAssignmentRaw[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Navigation
@@ -211,10 +257,19 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
     if (showLoading) setIsLoading(true);
     try {
       const res = await apiFetch<{
-        data: { items: POSRawItem[]; categories: POSRawCategory[]; onHandByCatalogItemId?: Record<string, number> };
+        data: {
+          items: POSRawItem[];
+          categories: POSRawCategory[];
+          modifierGroups?: POSModifierGroupRaw[];
+          itemModifierAssignments?: POSItemAssignmentRaw[];
+          onHandByCatalogItemId?: Record<string, number>;
+        };
       }>('/api/v1/catalog/pos', signal ? { signal } : undefined);
       if (signal?.aborted) return;
-      saveCachedCatalog(locationId, res.data.items, res.data.categories, res.data.onHandByCatalogItemId);
+      saveCachedCatalog(
+        locationId, res.data.items, res.data.categories,
+        res.data.onHandByCatalogItemId, res.data.modifierGroups, res.data.itemModifierAssignments,
+      );
       const { posItems, categories, catMap } = processCatalogData(
         res.data.items,
         res.data.categories,
@@ -223,6 +278,8 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
       categoryMapRef.current = catMap;
       setAllCategories(categories);
       setAllItems(posItems);
+      setPosModifierGroups(res.data.modifierGroups ?? []);
+      setPosItemAssignments(res.data.itemModifierAssignments ?? []);
     } catch (err) {
       if (showLoading) {
         const e = err instanceof Error ? err : new Error('Failed to load catalog');
@@ -254,6 +311,8 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
       categoryMapRef.current = catMap;
       setAllCategories(categories);
       setAllItems(posItems);
+      setPosModifierGroups(cached.modifierGroups ?? []);
+      setPosItemAssignments(cached.itemModifierAssignments ?? []);
       setIsLoading(false);
     }
 
@@ -557,6 +616,10 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
     // Full item list (for pre-seed lookups when opening edit drawer)
     allItems,
 
+    // Modifier groups + item assignments (for ModifierDialog junction-table path)
+    posModifierGroups,
+    posItemAssignments,
+
     // Manual refresh (e.g., after item-not-found error to purge stale items)
     refresh: useCallback(() => fetchCatalog(false), [fetchCatalog]),
   };
@@ -572,9 +635,9 @@ export function preloadPOSCatalog(locationId: string): void {
   // Already cached — nothing to do
   if (loadCachedCatalog(locationId)) return;
 
-  apiFetch<{ data: { items: POSRawItem[]; categories: POSRawCategory[]; onHandByCatalogItemId?: Record<string, number> } }>('/api/v1/catalog/pos')
+  apiFetch<{ data: { items: POSRawItem[]; categories: POSRawCategory[]; onHandByCatalogItemId?: Record<string, number>; modifierGroups?: POSModifierGroupRaw[]; itemModifierAssignments?: POSItemAssignmentRaw[] } }>('/api/v1/catalog/pos')
     .then((res) => {
-      saveCachedCatalog(locationId, res.data.items, res.data.categories, res.data.onHandByCatalogItemId);
+      saveCachedCatalog(locationId, res.data.items, res.data.categories, res.data.onHandByCatalogItemId, res.data.modifierGroups, res.data.itemModifierAssignments);
     })
     .catch(() => {
       // Non-critical — POS will fetch on mount if preload fails

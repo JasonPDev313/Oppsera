@@ -2339,6 +2339,20 @@
       "when": 1773897600001,
       "tag": "0333_location_default_tax_group",
       "breakpoints": true
+    },
+    {
+      "idx": 334,
+      "version": "7",
+      "when": 1773594534663,
+      "tag": "0334_rm_revenue_activity_rls_oppsera_app",
+      "breakpoints": true
+    },
+    {
+      "idx": 335,
+      "version": "7",
+      "when": 1773595012148,
+      "tag": "0335_club_membership_permissions",
+      "breakpoints": true
     }
   ]
 }

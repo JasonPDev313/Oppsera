@@ -53,6 +53,18 @@ interface FnbModifierDrawerProps {
   itemPriceCents: number;
   modifierGroups: ModifierGroup[];
   onConfirm: (selectedModifiers: SelectedModifierOutput[], qty: number, notes: string) => void;
+  /** Fraction options from item metadata (e.g. [0.25, 0.5, 0.75, 1]) */
+  allowedFractions?: number[];
+  /** Edit mode — shows all groups on one screen, pre-populates state */
+  editMode?: boolean;
+  /** Pre-populated qty/fraction for edit mode */
+  initialQty?: number;
+  /** Pre-populated modifier selections for edit mode: groupId → Set<optionId> */
+  initialSelected?: Map<string, Set<string>>;
+  /** Pre-populated special instructions for edit mode */
+  initialNotes?: string;
+  /** Pre-populated modifier instructions for edit mode */
+  initialInstructions?: Record<string, ModifierInstruction>;
 }
 
 
@@ -327,6 +339,53 @@ function GroupView({
   );
 }
 
+// ── Fraction Labels & Picker ────────────────────────────────────
+
+const FRACTION_LABELS: Record<number, string> = {
+  1: 'Full',
+  0.75: 'Three Quarter',
+  0.5: 'Half',
+  0.25: 'Quarter',
+};
+
+function FractionPicker({
+  fractions,
+  selected,
+  onSelect,
+}: {
+  fractions: number[];
+  selected: number;
+  onSelect: (fraction: number) => void;
+}) {
+  return (
+    <div className="mb-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+          Portion Size
+        </span>
+      </div>
+      <div className="flex gap-2">
+        {fractions.map((frac) => (
+          <button
+            key={frac}
+            type="button"
+            onClick={() => onSelect(frac)}
+            className="flex-1 rounded-xl py-2.5 text-sm font-medium transition-all active:scale-[0.97]"
+            style={{
+              backgroundColor: selected === frac
+                ? 'var(--fnb-status-seated)'
+                : 'var(--fnb-bg-elevated)',
+              color: selected === frac ? '#fff' : 'var(--fnb-text-secondary)',
+            }}
+          >
+            {FRACTION_LABELS[frac] ?? `${frac}x`}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Modifier Drawer ────────────────────────────────────────
 
 export function FnbModifierDrawer({
@@ -336,7 +395,23 @@ export function FnbModifierDrawer({
   itemPriceCents,
   modifierGroups,
   onConfirm,
+  allowedFractions,
+  editMode,
+  initialQty,
+  initialSelected,
+  initialNotes,
+  initialInstructions,
 }: FnbModifierDrawerProps) {
+  // Fraction state
+  const hasFractions = allowedFractions && allowedFractions.length > 1;
+  const sortedFractions = useMemo(
+    () => (hasFractions ? [...allowedFractions].sort((a, b) => b - a) : null),
+    [allowedFractions, hasFractions],
+  );
+  const [selectedFraction, setSelectedFraction] = useState(() => {
+    if (!hasFractions || !sortedFractions) return initialQty ?? 1;
+    return sortedFractions.includes(initialQty ?? 1) ? (initialQty ?? 1) : 1;
+  });
   // Separate required and optional groups
   const requiredGroups = useMemo(
     () => modifierGroups.filter((g) => g.isRequired),
@@ -352,8 +427,9 @@ export function FnbModifierDrawer({
   const totalSteps = requiredGroups.length + (optionalGroups.length > 0 ? 1 : 0) + 1;
   const [activeStep, setActiveStep] = useState(0);
 
-  // Selected modifiers state — auto-select defaults
+  // Selected modifiers state — auto-select defaults (or use initial values in edit mode)
   const [selected, setSelected] = useState<Map<string, Set<string>>>(() => {
+    if (initialSelected) return new Map(initialSelected);
     const m = new Map<string, Set<string>>();
     for (const group of modifierGroups) {
       // For auto_select_defaults, use isDefaultOption; otherwise use isDefault
@@ -365,9 +441,21 @@ export function FnbModifierDrawer({
     }
     return m;
   });
-  const [qty, setQty] = useState(1);
-  const [notes, setNotes] = useState('');
-  const [modInstructions, setModInstructions] = useState<Record<string, ModifierInstruction>>({});
+  const [qty, setQty] = useState(initialQty && !hasFractions ? initialQty : 1);
+  const [notes, setNotes] = useState(initialNotes ?? '');
+  const [modInstructions, setModInstructions] = useState<Record<string, ModifierInstruction>>(
+    initialInstructions ?? {},
+  );
+
+  // For single-group items, items with only optional groups, or edit mode — skip stepper
+  // Declared before the early return so toggleOption's auto-advance doesn't hit a TDZ.
+  const useSimpleMode =
+    editMode ||
+    requiredGroups.length === 0 || (requiredGroups.length === 1 && optionalGroups.length === 0);
+
+  // Current required group (if we're stepping through them)
+  const isOnRequiredStep = activeStep < requiredGroups.length;
+  const currentRequiredGroup = isOnRequiredStep ? requiredGroups[activeStep] : null;
 
   if (!open) return null;
 
@@ -424,13 +512,9 @@ export function FnbModifierDrawer({
     setModInstructions((prev) => ({ ...prev, [optionId]: instruction }));
   };
 
-  // Current required group (if we're stepping through them)
-  const isOnRequiredStep = activeStep < requiredGroups.length;
   const isOnOptionalStep =
     !isOnRequiredStep && activeStep < requiredGroups.length + (optionalGroups.length > 0 ? 1 : 0);
   const isOnFinalStep = activeStep === totalSteps - 1;
-
-  const currentRequiredGroup = isOnRequiredStep ? requiredGroups[activeStep] : null;
 
   // Check if current required group is satisfied
   const currentStepSatisfied = currentRequiredGroup
@@ -466,7 +550,8 @@ export function FnbModifierDrawer({
       }
     }
   }
-  const lineTotal = (itemPriceCents + modTotal) * qty;
+  const effectiveQty = hasFractions ? selectedFraction : qty;
+  const lineTotal = Math.round((itemPriceCents + modTotal) * effectiveQty);
 
   const handleConfirm = () => {
     const mods: SelectedModifierOutput[] = [];
@@ -488,7 +573,7 @@ export function FnbModifierDrawer({
         }
       }
     }
-    onConfirm(mods, qty, notes);
+    onConfirm(mods, hasFractions ? selectedFraction : qty, notes);
     onClose();
   };
 
@@ -499,10 +584,6 @@ export function FnbModifierDrawer({
   const handleBack = () => {
     if (activeStep > 0) setActiveStep(activeStep - 1);
   };
-
-  // For single-group items or items with only optional groups, skip stepper
-  const useSimpleMode =
-    requiredGroups.length === 0 || (requiredGroups.length === 1 && optionalGroups.length === 0);
 
   // Swipe navigation for stepper mode
   const handleSwipeNext = useCallback(() => {
@@ -601,6 +682,15 @@ export function FnbModifierDrawer({
           {/* ── Simple mode: show all groups, notes, qty at once ── */}
           {useSimpleMode && (
             <>
+              {/* Fraction picker — above modifier groups */}
+              {sortedFractions && (
+                <FractionPicker
+                  fractions={sortedFractions}
+                  selected={selectedFraction}
+                  onSelect={setSelectedFraction}
+                />
+              )}
+
               {modifierGroups.map((group) => (
                 <div key={group.id} className="mb-5">
                   <GroupView
@@ -635,50 +725,59 @@ export function FnbModifierDrawer({
                 />
               </div>
 
-              {/* Quantity */}
-              <div className="flex items-center justify-center gap-5 mb-2">
-                <button
-                  type="button"
-                  onClick={() => setQty(Math.max(1, qty - 1))}
-                  className="flex items-center justify-center rounded-xl transition-opacity hover:opacity-80"
-                  style={{
-                    width: 48,
-                    height: 48,
-                    backgroundColor: 'var(--fnb-bg-elevated)',
-                    color: 'var(--fnb-text-primary)',
-                  }}
-                >
-                  <Minus className="h-5 w-5" />
-                </button>
-                <span
-                  className="text-2xl font-bold"
-                  style={{
-                    color: 'var(--fnb-text-primary)',
-                    fontFamily: 'var(--fnb-font-mono)',
-                    minWidth: 40,
-                    textAlign: 'center',
-                  }}
-                >
-                  {qty}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setQty(qty + 1)}
-                  className="flex items-center justify-center rounded-xl transition-opacity hover:opacity-80"
-                  style={{
-                    width: 48,
-                    height: 48,
-                    backgroundColor: 'var(--fnb-bg-elevated)',
-                    color: 'var(--fnb-text-primary)',
-                  }}
-                >
-                  <Plus className="h-5 w-5" />
-                </button>
-              </div>
+              {/* Quantity — hidden when fraction picker is shown (fraction IS the qty) */}
+              {!hasFractions && (
+                <div className="flex items-center justify-center gap-5 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setQty(Math.max(1, qty - 1))}
+                    className="flex items-center justify-center rounded-xl transition-opacity hover:opacity-80"
+                    style={{
+                      width: 48,
+                      height: 48,
+                      backgroundColor: 'var(--fnb-bg-elevated)',
+                      color: 'var(--fnb-text-primary)',
+                    }}
+                  >
+                    <Minus className="h-5 w-5" />
+                  </button>
+                  <span
+                    className="text-2xl font-bold"
+                    style={{
+                      color: 'var(--fnb-text-primary)',
+                      fontFamily: 'var(--fnb-font-mono)',
+                      minWidth: 40,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {qty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQty(qty + 1)}
+                    className="flex items-center justify-center rounded-xl transition-opacity hover:opacity-80"
+                    style={{
+                      width: 48,
+                      height: 48,
+                      backgroundColor: 'var(--fnb-bg-elevated)',
+                      color: 'var(--fnb-text-primary)',
+                    }}
+                  >
+                    <Plus className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
             </>
           )}
 
           {/* ── Stepper mode: one required group at a time ── */}
+          {!useSimpleMode && isOnRequiredStep && activeStep === 0 && sortedFractions && (
+            <FractionPicker
+              fractions={sortedFractions}
+              selected={selectedFraction}
+              onSelect={setSelectedFraction}
+            />
+          )}
           {!useSimpleMode && isOnRequiredStep && currentRequiredGroup && (
             <GroupView
               group={currentRequiredGroup}
@@ -772,46 +871,57 @@ export function FnbModifierDrawer({
                 />
               </div>
 
-              {/* Quantity */}
-              <div className="flex items-center justify-center gap-5 mb-2">
-                <button
-                  type="button"
-                  onClick={() => setQty(Math.max(1, qty - 1))}
-                  className="flex items-center justify-center rounded-xl transition-opacity hover:opacity-80"
-                  style={{
-                    width: 48,
-                    height: 48,
-                    backgroundColor: 'var(--fnb-bg-elevated)',
-                    color: 'var(--fnb-text-primary)',
-                  }}
-                >
-                  <Minus className="h-5 w-5" />
-                </button>
-                <span
-                  className="text-2xl font-bold"
-                  style={{
-                    color: 'var(--fnb-text-primary)',
-                    fontFamily: 'var(--fnb-font-mono)',
-                    minWidth: 40,
-                    textAlign: 'center',
-                  }}
-                >
-                  {qty}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setQty(qty + 1)}
-                  className="flex items-center justify-center rounded-xl transition-opacity hover:opacity-80"
-                  style={{
-                    width: 48,
-                    height: 48,
-                    backgroundColor: 'var(--fnb-bg-elevated)',
-                    color: 'var(--fnb-text-primary)',
-                  }}
-                >
-                  <Plus className="h-5 w-5" />
-                </button>
-              </div>
+              {/* Fraction picker on final step (summary) */}
+              {sortedFractions && (
+                <FractionPicker
+                  fractions={sortedFractions}
+                  selected={selectedFraction}
+                  onSelect={setSelectedFraction}
+                />
+              )}
+
+              {/* Quantity — hidden when fractions are used */}
+              {!hasFractions && (
+                <div className="flex items-center justify-center gap-5 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setQty(Math.max(1, qty - 1))}
+                    className="flex items-center justify-center rounded-xl transition-opacity hover:opacity-80"
+                    style={{
+                      width: 48,
+                      height: 48,
+                      backgroundColor: 'var(--fnb-bg-elevated)',
+                      color: 'var(--fnb-text-primary)',
+                    }}
+                  >
+                    <Minus className="h-5 w-5" />
+                  </button>
+                  <span
+                    className="text-2xl font-bold"
+                    style={{
+                      color: 'var(--fnb-text-primary)',
+                      fontFamily: 'var(--fnb-font-mono)',
+                      minWidth: 40,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {qty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQty(qty + 1)}
+                    className="flex items-center justify-center rounded-xl transition-opacity hover:opacity-80"
+                    style={{
+                      width: 48,
+                      height: 48,
+                      backgroundColor: 'var(--fnb-bg-elevated)',
+                      color: 'var(--fnb-text-primary)',
+                    }}
+                  >
+                    <Plus className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -858,7 +968,7 @@ export function FnbModifierDrawer({
                 className="flex-1 rounded-xl py-3.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                 style={{ backgroundColor: 'var(--fnb-status-seated)' }}
               >
-                Add {formatCents(lineTotal)}
+                {editMode ? 'Update' : 'Add'} {formatCents(lineTotal)}
               </button>
             </>
           )}

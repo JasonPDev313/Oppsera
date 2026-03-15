@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { MapPin, Building2, Store, Monitor, Shield, ChevronLeft, Settings, Plus } from 'lucide-react';
+import { MapPin, Building2, Store, Monitor, Shield, Settings, Plus } from 'lucide-react';
 import { useTerminalSelection } from '@/hooks/use-terminal-selection';
 import { useRoleSelection } from '@/hooks/use-role-selection';
 import { useTerminalSession } from '@/components/terminal-session-provider';
@@ -31,25 +31,9 @@ function loadLastTerminal(): { terminalId: string; terminalName?: string | null;
 
 export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () => void; isSwitching?: boolean }) {
   const roleSelection = useRoleSelection();
-  const [phase, setPhase] = useState<'role' | 'terminal'>(
-    // Skip role phase if only 1 role (auto-selected)
-    'role',
-  );
 
-  // Phase 1 was completed or auto-skipped
+  // Role is ready once loaded (auto-selected if 1, or user picks from dropdown)
   const roleReady = roleSelection.selectedRoleId !== null;
-  const showRolePhase = roleSelection.hasMultipleRoles && phase === 'role';
-
-  // Once roles load and there's only 1 (auto-selected), go straight to terminal phase.
-  // Do NOT auto-skip if roles are empty due to an API error — show the error instead.
-  // Must be in useEffect — calling setState during render causes a re-render loop.
-  useEffect(() => {
-    if (!roleSelection.isLoading && !roleSelection.error && !roleSelection.hasMultipleRoles && phase === 'role') {
-      if (roleSelection.selectedRoleId || roleSelection.roles.length === 0) {
-        setPhase('terminal');
-      }
-    }
-  }, [roleSelection.isLoading, roleSelection.error, roleSelection.hasMultipleRoles, roleSelection.selectedRoleId, roleSelection.roles.length, phase]);
 
   const terminalSelection = useTerminalSelection({
     roleId: roleReady ? roleSelection.selectedRoleId : undefined,
@@ -58,16 +42,6 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
 
   const { setSession } = useTerminalSession();
   const { toast } = useToast();
-
-  const handleRoleNext = () => {
-    if (roleSelection.selectedRoleId) {
-      setPhase('terminal');
-    }
-  };
-
-  const handleBackToRoles = () => {
-    setPhase('role');
-  };
 
   const [lastTerminal] = useState(() => loadLastTerminal());
 
@@ -114,7 +88,7 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
   }, [terminalSelection.selectedTerminalId, terminalSelection.canContinue, handleContinue]);
 
   // Auto-continue when there's only one possible selection at every level
-  // (e.g. fresh account with a single default profit center + terminal).
+  // (e.g. fresh account with a single role + single profit center + terminal).
   // Skips the selection screen entirely — zero friction.
   // Disabled during mid-session switching so user can always choose manually.
   // Uses a ref to fire only once per mount — manual clicks are never blocked.
@@ -135,8 +109,8 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
     );
   }
 
-  // ── Error: Role fetch failed ─────────────────────────────────────
-  if (roleSelection.error && phase === 'role') {
+  // Block terminal selection when role loading failed — prevents unscoped data
+  if (roleSelection.error && !roleReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8 shadow-lg">
@@ -151,94 +125,26 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
             <button
               type="button"
               onClick={roleSelection.retry}
-              disabled={roleSelection.isLoading}
-              className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
+              className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
             >
-              {roleSelection.isLoading ? 'Retrying...' : 'Retry'}
+              Retry
             </button>
-            <button
-              type="button"
-              onClick={() => setPhase('terminal')}
-              className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent"
-            >
-              Skip
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Phase 1: Role Selection ──────────────────────────────────────
-  if (showRolePhase) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8 shadow-lg">
-          {/* Header */}
-          <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600">
-              <Shield className="h-6 w-6 text-white" />
-            </div>
-            <h1 className="text-xl font-bold text-foreground">Select Your Role</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Choose the role you want to work under for this session
-            </p>
-          </div>
-
-          {/* Role cards */}
-          <div className="mb-8 space-y-3">
-            {roleSelection.roles.map((role) => (
+            {onSkip && (
               <button
-                key={role.assignmentId}
                 type="button"
-                onClick={() => roleSelection.setSelectedRoleId(role.roleId)}
-                className={`w-full rounded-lg border-2 px-4 py-3 text-left transition-all ${
-                  roleSelection.selectedRoleId === role.roleId
-                    ? 'border-indigo-600 bg-indigo-500/10 ring-1 ring-indigo-600'
-                    : 'border-border hover:border-indigo-500/50 hover:bg-accent'
-                }`}
+                onClick={onSkip}
+                className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-foreground">
-                      {role.roleName}
-                    </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      {role.scope === 'tenant'
-                        ? 'All Locations'
-                        : role.locationName ?? 'Specific Location'}
-                    </div>
-                  </div>
-                  <div
-                    className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
-                      roleSelection.selectedRoleId === role.roleId
-                        ? 'border-indigo-600 bg-indigo-600'
-                        : 'border-border'
-                    }`}
-                  >
-                    {roleSelection.selectedRoleId === role.roleId && (
-                      <div className="h-2 w-2 rounded-full bg-white" />
-                    )}
-                  </div>
-                </div>
+                Skip
               </button>
-            ))}
+            )}
           </div>
-
-          <button
-            type="button"
-            onClick={handleRoleNext}
-            disabled={!roleSelection.selectedRoleId}
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Next
-          </button>
         </div>
       </div>
     );
   }
 
-  // ── Phase 2: Terminal Selection ──────────────────────────────────
+  // ── Single-screen: Role + Terminal Selection ────────────────────
   const {
     sites,
     venues,
@@ -313,27 +219,52 @@ export function TerminalSelectionScreen({ onSkip, isSwitching }: { onSkip?: () =
           </div>
           <h1 className="text-xl font-bold text-foreground">Select Your Register</h1>
           <p className="mt-1 text-sm text-foreground/70">
-            Choose your working location and register to get started
+            Choose your role, location, and register to get started
           </p>
-          {/* Show selected role badge */}
-          {roleSelection.selectedRole && (
-            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-400">
-              <Shield className="h-3 w-3" />
-              {roleSelection.selectedRole.roleName}
-            </div>
-          )}
         </div>
 
-        {/* Back to role selection */}
+        {/* Role error for single-role users (dropdown is hidden but error should be visible) */}
+        {!roleSelection.hasMultipleRoles && roleSelection.error && (
+          <div className="mb-5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
+            <p className="text-sm text-red-500">
+              {roleSelection.error}{' '}
+              <button type="button" onClick={roleSelection.retry} className="font-semibold underline">
+                Retry
+              </button>
+            </p>
+          </div>
+        )}
+
+        {/* Role — only shown when user has multiple roles */}
         {roleSelection.hasMultipleRoles && (
-          <button
-            type="button"
-            onClick={handleBackToRoles}
-            className="mb-5 flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-500"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Change Role
-          </button>
+          <div className="mb-5">
+            <label htmlFor="tss-role" className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
+              <Shield className="h-4 w-4 text-indigo-600" />
+              Role
+            </label>
+            <select
+              id="tss-role"
+              value={roleSelection.selectedRoleId ?? ''}
+              onChange={(e) => { if (e.target.value) roleSelection.setSelectedRoleId(e.target.value); }}
+              className={selectClass}
+            >
+              <option value="">Select a role...</option>
+              {roleSelection.roles.map((r) => (
+                <option key={r.assignmentId} value={r.roleId}>
+                  {r.roleName}
+                  {r.scope === 'location' && r.locationName ? ` (${r.locationName})` : ''}
+                </option>
+              ))}
+            </select>
+            {roleSelection.error && (
+              <p className="mt-1.5 text-xs text-red-500">
+                {roleSelection.error}{' '}
+                <button type="button" onClick={roleSelection.retry} className="font-semibold underline">
+                  Retry
+                </button>
+              </p>
+            )}
+          </div>
         )}
 
         {/* Quick resume — offer to continue with last register */}

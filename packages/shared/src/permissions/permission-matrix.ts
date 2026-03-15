@@ -170,6 +170,13 @@ export const PERMISSION_MATRIX: PermissionDefinition[] = [
   { key: 'pos_fnb.host.notifications', module: 'pos_fnb', description: 'Send SMS notifications to guests', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
   { key: 'pos_fnb.host.analytics', module: 'pos_fnb', description: 'View host analytics and reports', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
 
+  // ── Club Membership ────────────────────────────────────────
+  { key: 'club_membership.view', module: 'club_membership', description: 'View membership plans, accounts, and member profiles', defaultRoles: ['owner', 'manager', 'supervisor', 'staff'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'club_membership.manage', module: 'club_membership', description: 'Create and manage membership plans, accounts, and members', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'club_membership.billing', module: 'club_membership', description: 'Run billing cycles, process dues, and manage statements', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'club_membership.reports', module: 'club_membership', description: 'View membership reports (portfolio, aging, churn, spend, compliance)', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'club_membership.adjustments', module: 'club_membership', description: 'Make financial adjustments on initiation contracts (extra principal)', defaultRoles: ['owner', 'manager'], requiresManagerPin: true, requiresAudit: true },
+
   // ── PMS (Property Management) ───────────────────────────────
   { key: 'pms.property.view', module: 'pms', description: 'View property information', defaultRoles: ['owner', 'manager', 'supervisor', 'staff'], requiresManagerPin: false, requiresAudit: false },
   { key: 'pms.property.manage', module: 'pms', description: 'Manage property settings', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },

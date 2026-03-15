@@ -227,61 +227,67 @@ export async function sendCourse(
           })
           .returning();
 
-        // Insert ticket items
-        if (ticketItems.length > 0) {
-          await tx
-            .insert(fnbKitchenTicketItems)
-            .values(
-              ticketItems.map((item) => ({
-                tenantId: ctx.tenantId,
-                ticketId: ticket!.id,
-                orderLineId: item.orderLineId,
-                itemStatus: 'pending' as const,
-                stationId: item.stationId,
-                itemName: item.itemName,
-                modifierSummary: item.modifierSummary ?? null,
-                specialInstructions: item.specialInstructions ?? null,
-                seatNumber: item.seatNumber ?? null,
-                courseName: item.courseName ?? null,
-                quantity: String(item.quantity ?? 1),
-                isRush: false,
-                isAllergy: false,
-                isVip: false,
-                routingRuleId: item.routingRuleId ?? null,
-                kitchenLabel: null,
-                itemColor: null,
-                priorityLevel: 0,
-                estimatedPrepSeconds: prep.prepTimeMap.get(item.orderLineId) ?? null,
-              })),
-            );
-        }
-
-        // Save per-ticket idempotency key
-        await saveIdempotencyKey(tx, ctx.tenantId, clientRequestId, 'createKitchenTicket', ticket);
-
-        // Send tracking — inline SQL (can't call withTenant inside tx)
+        // Parallelize independent writes — items, idempotency key, and tracking
+        // all depend only on ticket.id (from step above), not on each other.
         const sendToken = `kds-send-${ticket!.id}-${stationId}-initial`;
         const stationName = prep.stationNameMap.get(stationId) ?? stationId;
-        await tx.execute(sql`
-          INSERT INTO fnb_kds_send_tracking (
-            id, tenant_id, location_id, order_id, ticket_id, ticket_number,
-            course_number, station_id, station_name,
-            employee_id, employee_name,
-            send_token, send_type, routing_reason,
-            status, item_count, order_type,
-            business_date, queued_at, sent_at, created_at, updated_at
-          ) VALUES (
-            gen_ulid(), ${ctx.tenantId}, ${prep.effectiveLocationId},
-            ${prep.tab.primaryOrderId ?? null}, ${ticket!.id}, ${ticketNumber},
-            ${input.courseNumber}, ${stationId}, ${stationName},
-            ${ctx.user.id}, ${ctx.user.email ?? 'System'},
-            ${sendToken}, ${'initial'}, ${'routing_rule'},
-            ${'sent'}, ${ticketItems.length}, ${prep.tab.tabType ?? null},
-            ${prep.tab.businessDate}, NOW(), NOW(), NOW(), NOW()
-          )
-        `);
 
-        // Send tracking event
+        const [, , trackingRows] = await Promise.all([
+          // Insert ticket items
+          ticketItems.length > 0
+            ? tx
+                .insert(fnbKitchenTicketItems)
+                .values(
+                  ticketItems.map((item) => ({
+                    tenantId: ctx.tenantId,
+                    ticketId: ticket!.id,
+                    orderLineId: item.orderLineId,
+                    itemStatus: 'pending' as const,
+                    stationId: item.stationId,
+                    itemName: item.itemName,
+                    modifierSummary: item.modifierSummary ?? null,
+                    specialInstructions: item.specialInstructions ?? null,
+                    seatNumber: item.seatNumber ?? null,
+                    courseName: item.courseName ?? null,
+                    quantity: String(item.quantity ?? 1),
+                    isRush: false,
+                    isAllergy: false,
+                    isVip: false,
+                    routingRuleId: item.routingRuleId ?? null,
+                    kitchenLabel: null,
+                    itemColor: null,
+                    priorityLevel: 0,
+                    estimatedPrepSeconds: prep.prepTimeMap.get(item.orderLineId) ?? null,
+                  })),
+                )
+            : Promise.resolve(null),
+          // Save per-ticket idempotency key
+          saveIdempotencyKey(tx, ctx.tenantId, clientRequestId, 'createKitchenTicket', ticket),
+          // Send tracking — RETURNING id for the event INSERT below
+          tx.execute(sql`
+            INSERT INTO fnb_kds_send_tracking (
+              id, tenant_id, location_id, order_id, ticket_id, ticket_number,
+              course_number, station_id, station_name,
+              employee_id, employee_name,
+              send_token, send_type, routing_reason,
+              status, item_count, order_type,
+              business_date, queued_at, sent_at, created_at, updated_at
+            ) VALUES (
+              gen_ulid(), ${ctx.tenantId}, ${prep.effectiveLocationId},
+              ${prep.tab.primaryOrderId ?? null}, ${ticket!.id}, ${ticketNumber},
+              ${input.courseNumber}, ${stationId}, ${stationName},
+              ${ctx.user.id}, ${ctx.user.email ?? 'System'},
+              ${sendToken}, ${'initial'}, ${'routing_rule'},
+              ${'sent'}, ${ticketItems.length}, ${prep.tab.tabType ?? null},
+              ${prep.tab.businessDate}, NOW(), NOW(), NOW(), NOW()
+            )
+            RETURNING id
+          `),
+        ]);
+        const trackingId = (Array.from(trackingRows as Iterable<Record<string, unknown>>)[0])?.id as string | undefined;
+        if (!trackingId) throw new Error('KDS send tracking INSERT returned no id');
+
+        // Send tracking event — depends on trackingId from above, must be sequential
         await tx.execute(sql`
           INSERT INTO fnb_kds_send_events (
             id, tenant_id, location_id, send_tracking_id, send_token,
@@ -289,7 +295,7 @@ export async function sendCourse(
             new_status, created_at
           ) VALUES (
             gen_ulid(), ${ctx.tenantId}, ${prep.effectiveLocationId},
-            (SELECT id FROM fnb_kds_send_tracking WHERE tenant_id = ${ctx.tenantId} AND send_token = ${sendToken} LIMIT 1),
+            ${trackingId},
             ${sendToken},
             ${ticket!.id}, ${stationId},
             ${'sent'}, NOW(), ${'system'}, ${'sent'}, NOW()

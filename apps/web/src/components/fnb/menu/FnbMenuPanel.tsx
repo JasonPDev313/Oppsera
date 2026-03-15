@@ -158,7 +158,7 @@ export const DepartmentBar = memo(function DepartmentBar({
             className="shrink-0 whitespace-nowrap rounded-lg font-semibold transition-opacity hover:opacity-80"
             style={{
               padding: '10px 20px',
-              fontSize: '14px',
+              fontSize: 'calc(14px * var(--pos-font-scale, 1))',
               backgroundColor: isActive ? 'var(--fnb-info)' : 'var(--fnb-bg-elevated)',
               color: isActive ? '#fff' : 'var(--fnb-text-secondary)',
             }}
@@ -195,7 +195,7 @@ export const SubDepartmentBar = memo(function SubDepartmentBar({
         className="shrink-0 rounded-lg font-medium transition-opacity hover:opacity-80"
         style={{
           padding: '7px 16px',
-          fontSize: '13px',
+          fontSize: 'calc(13px * var(--pos-font-scale, 1))',
           backgroundColor: selectedId === null ? 'var(--fnb-warning)' : 'transparent',
           color: selectedId === null ? '#fff' : 'var(--fnb-text-muted)',
         }}
@@ -212,7 +212,7 @@ export const SubDepartmentBar = memo(function SubDepartmentBar({
             className="shrink-0 whitespace-nowrap rounded-lg font-medium transition-opacity hover:opacity-80"
             style={{
               padding: '7px 16px',
-              fontSize: '13px',
+              fontSize: 'calc(13px * var(--pos-font-scale, 1))',
               backgroundColor: isActive ? 'var(--fnb-warning)' : 'transparent',
               color: isActive ? '#fff' : 'var(--fnb-text-muted)',
             }}

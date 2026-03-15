@@ -207,7 +207,6 @@ export const navigation: NavItem[] = [
       { name: 'Authoring', href: '/insights/authoring', icon: FileBarChart, requiredPermission: 'semantic.manage' },
       { name: 'Lenses', href: '/insights/lenses', icon: Sparkles, requiredPermission: 'semantic.view' },
       { name: 'Reports', href: '/insights/reports', icon: BarChart3, requiredPermission: 'semantic.view' },
-      { name: 'Watchlist', href: '/insights/watchlist', icon: Star, requiredPermission: 'semantic.view' },
       { name: 'History', href: '/insights/history', icon: Clock, requiredPermission: 'semantic.view' },
     ],
   },

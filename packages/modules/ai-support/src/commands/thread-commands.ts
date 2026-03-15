@@ -90,42 +90,86 @@ export async function closeThread(
   threadId: string,
   updates?: UpdateThreadInput,
 ): Promise<typeof aiAssistantThreads.$inferSelect> {
-  const [existing] = await db
-    .select()
-    .from(aiAssistantThreads)
-    .where(
-      and(
-        eq(aiAssistantThreads.id, threadId),
-        eq(aiAssistantThreads.tenantId, ctx.tenantId),
-        eq(aiAssistantThreads.userId, ctx.user.id),
-      ),
-    )
-    .limit(1);
+  const newStatus = updates?.status ?? 'closed';
 
-  if (!existing) {
-    throw new NotFoundError('Thread', threadId);
-  }
+  // Use a transaction with row lock for reopens to prevent concurrent reopens
+  // from exceeding the MAX_CONCURRENT_THREADS_PER_USER limit.
+  const updated = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(aiAssistantThreads)
+      .where(
+        and(
+          eq(aiAssistantThreads.id, threadId),
+          eq(aiAssistantThreads.tenantId, ctx.tenantId),
+          eq(aiAssistantThreads.userId, ctx.user.id),
+        ),
+      )
+      .for('update');
 
-  const [updated] = await db
-    .update(aiAssistantThreads)
-    .set({
-      status: updates?.status ?? 'closed',
-      questionType: updates?.questionType ?? existing.questionType,
-      outcome: updates?.outcome ?? existing.outcome,
-      issueTag: updates?.issueTag ?? existing.issueTag,
-      endedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(aiAssistantThreads.id, threadId))
-    .returning();
+    if (!existing) {
+      throw new NotFoundError('Thread', threadId);
+    }
 
-  await auditLog(ctx, 'ai_support.thread.closed', 'ai_assistant_thread', threadId).catch(
+    const isReopening = newStatus === 'open' && existing.status !== 'open';
+
+    // Only allow reopening closed threads — flagged/reviewed threads
+    // are in admin review and should not be user-reopenable.
+    if (isReopening && existing.status !== 'closed') {
+      throw new AppError(
+        'THREAD_NOT_REOPENABLE',
+        'This conversation cannot be resumed because it is under review.',
+        409,
+      );
+    }
+
+    // When reopening, check the concurrent open-thread limit inside the lock
+    if (isReopening) {
+      const [countResult] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(aiAssistantThreads)
+        .where(
+          and(
+            eq(aiAssistantThreads.tenantId, ctx.tenantId),
+            eq(aiAssistantThreads.userId, ctx.user.id),
+            eq(aiAssistantThreads.status, 'open'),
+          ),
+        );
+
+      if ((countResult?.count ?? 0) >= MAX_CONCURRENT_THREADS_PER_USER) {
+        throw new AppError(
+          'MAX_OPEN_THREADS',
+          `You can have at most ${MAX_CONCURRENT_THREADS_PER_USER} open threads. Please close an existing thread first.`,
+          409,
+        );
+      }
+    }
+
+    const [row] = await tx
+      .update(aiAssistantThreads)
+      .set({
+        status: newStatus,
+        questionType: updates?.questionType ?? existing.questionType,
+        outcome: updates?.outcome ?? existing.outcome,
+        issueTag: updates?.issueTag ?? existing.issueTag,
+        endedAt: isReopening ? null : new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(aiAssistantThreads.id, threadId))
+      .returning();
+
+    return row!;
+  });
+
+  const isReopened = newStatus === 'open';
+  const auditAction = isReopened ? 'ai_support.thread.reopened' : 'ai_support.thread.closed';
+  await auditLog(ctx, auditAction, 'ai_assistant_thread', threadId).catch(
     (e: unknown) => {
-      console.error('Audit log failed for ai_support.thread.closed:', e instanceof Error ? e.message : e);
+      console.error(`Audit log failed for ${auditAction}:`, e instanceof Error ? e.message : e);
     },
   );
 
-  return updated!;
+  return updated;
 }
 
 // ── Send Message ────────────────────────────────────────────────────

@@ -111,10 +111,9 @@ export async function prepareCourseDispatch(
   const diagnosis: string[] = [];
   const errors: string[] = [];
 
-  // 1. Fetch tab + course name + items in a single connection.
-  // Previously used Promise.all with 2 withTenant calls (= 2 pool
-  // slots). Merged to 1 to reduce connection pressure (pool max:2).
-  const { tabRaw, courseName, items } = await withTenant(ctx.tenantId, async (tx) => {
+  // 1. Fetch tab + course name + items + table metadata in a single connection.
+  // Merged to 1 withTenant to reduce connection pressure (pool max:2).
+  const { tabRaw, courseName, items, tableNumber: rawTableNumber, tableLocationId } = await withTenant(ctx.tenantId, async (tx) => {
     const tabResult = await tx
       .select({
         id: fnbTabs.id,
@@ -192,10 +191,35 @@ export async function prepareCourseDispatch(
       });
     }
 
+    // Table metadata — merged here to avoid a separate withTenant checkout.
+    // For legacy tabs created at the parent site, the table's venue location
+    // is the source of truth for KDS dispatch.
+    let tblNumber: number | null = null;
+    let tblLocationId: string | null = null;
+    const tabTableId = tabResult[0]?.tableId;
+    if (tabTableId) {
+      try {
+        const [tableRow] = await tx
+          .select({
+            tableNumber: fnbTables.tableNumber,
+            locationId: fnbTables.locationId,
+          })
+          .from(fnbTables)
+          .where(and(eq(fnbTables.id, tabTableId), eq(fnbTables.tenantId, ctx.tenantId)))
+          .limit(1);
+        tblNumber = tableRow?.tableNumber ?? null;
+        tblLocationId = tableRow?.locationId ?? null;
+      } catch {
+        // Non-critical
+      }
+    }
+
     return {
       tabRaw: tabResult[0] ?? null,
       courseName: courseResult[0]?.courseName ?? `Course ${input.courseNumber}`,
       items: itemResult,
+      tableNumber: tblNumber,
+      tableLocationId: tblLocationId,
     };
   });
 
@@ -226,28 +250,7 @@ export async function prepareCourseDispatch(
     businessDate: normalizeBusinessDate(tabRaw.businessDate),
   };
 
-  // 2. Resolve table metadata first. For legacy tabs created at the parent
-  // site, the table's venue location is the source of truth for KDS dispatch.
-  let tableNumber: number | null = null;
-  let tableLocationId: string | null = null;
-  if (tab.tableId) {
-    try {
-      const [tableRow] = await withTenant(ctx.tenantId, (tx) =>
-        tx
-          .select({
-            tableNumber: fnbTables.tableNumber,
-            locationId: fnbTables.locationId,
-          })
-          .from(fnbTables)
-          .where(and(eq(fnbTables.id, tab.tableId!), eq(fnbTables.tenantId, ctx.tenantId)))
-          .limit(1),
-      );
-      tableNumber = tableRow?.tableNumber ?? null;
-      tableLocationId = tableRow?.locationId ?? null;
-    } catch {
-      // Non-critical
-    }
-  }
+  const tableNumber = rawTableNumber;
 
   const rawLocationId = tableLocationId ?? tab.locationId;
   if (!rawLocationId) {
@@ -264,22 +267,16 @@ export async function prepareCourseDispatch(
     diagnosis.push(`LOCATION MISMATCH: client sent ${clientLocationId} but tab resolves to ${rawLocationId} — using resolved venue source`);
   }
 
-  // KDS stations are ONLY on venues. If the resolved location is a site,
-  // resolve to its child venue so we query the right stations.
-  const kdsLocation = await resolveKdsLocationId(ctx.tenantId, rawLocationId);
-  if (kdsLocation.warning) {
-    return failPrep(kdsLocation.warning);
-  }
-  const effectiveLocationId = kdsLocation.locationId;
-  if (kdsLocation.resolved) {
-    diagnosis.push(`VENUE RESOLVED: tab location ${rawLocationId} (site) → ${effectiveLocationId} (venue)`);
-  }
-  diagnosis.push(`Tab: locationId=${effectiveLocationId}, tabType=${tab.tabType ?? 'null'}`);
-
   if (items.length === 0) {
     // No dispatchable items — return a valid prep with 0 items instead of failing.
     // This can happen when a course exists but all its items are voided/served.
     // Callers should treat 0-item prep as a no-op (mark course as sent, no tickets needed).
+    // Still need to resolve location for the response even if no items.
+    const kdsLocation = await resolveKdsLocationId(ctx.tenantId, rawLocationId);
+    if (kdsLocation.warning) {
+      return failPrep(kdsLocation.warning);
+    }
+    const effectiveLocationId = kdsLocation.locationId;
     diagnosis.push(`No dispatchable items for Course ${input.courseNumber} (all voided/served or none exist)`);
     return {
       tab,
@@ -299,7 +296,7 @@ export async function prepareCourseDispatch(
   }
   diagnosis.push(`Found ${items.length} item(s) in Course ${input.courseNumber}`);
 
-  // 4. Build routable items + enrich
+  // 3. Build routable items for enrichment
   let routableItems: RoutableItem[] = items.map((item) => ({
     orderLineId: item.id,
     catalogItemId: item.catalogItemId,
@@ -307,7 +304,24 @@ export async function prepareCourseDispatch(
     modifierIds: extractModifierIds(item.modifiers),
   }));
 
-  const enrichResult = await enrichRoutableItems(ctx.tenantId, routableItems, { returnChainMap: true });
+  // 4. Run location resolution + catalog enrichment in parallel — independent reads.
+  // This avoids serializing 2 withTenant checkouts on a max:2 pool.
+  // Pool pressure note: resolveKdsLocationId has a 60s in-memory cache, so repeat
+  // dispatches within the same minute won't open an additional DB connection.
+  const [kdsLocation, enrichResult] = await Promise.all([
+    resolveKdsLocationId(ctx.tenantId, rawLocationId),
+    enrichRoutableItems(ctx.tenantId, routableItems, { returnChainMap: true }),
+  ]);
+
+  if (kdsLocation.warning) {
+    return failPrep(kdsLocation.warning);
+  }
+  const effectiveLocationId = kdsLocation.locationId;
+  if (kdsLocation.resolved) {
+    diagnosis.push(`VENUE RESOLVED: tab location ${rawLocationId} (site) → ${effectiveLocationId} (venue)`);
+  }
+  diagnosis.push(`Tab: locationId=${effectiveLocationId}, tabType=${tab.tabType ?? 'null'}`);
+
   routableItems = enrichResult.items;
   const catalogChainMap = enrichResult.chainMap;
 

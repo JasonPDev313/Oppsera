@@ -15,6 +15,7 @@ export { handleOrderReturned } from './order-returned';
 export { handleChargebackReceived } from './chargeback-received';
 export { handleChargebackResolved } from './chargeback-resolved';
 export { handleFnbTenderApplied } from './fnb-tender-applied';
+export { handleFnbPaymentCompleted } from './fnb-payment-completed';
 export { handleStoredValueRedeemed } from './stored-value-redeemed';
 export { handleGuestPaySucceeded } from './guest-pay-succeeded';
 export { handleTenderReversed } from './tender-reversed';

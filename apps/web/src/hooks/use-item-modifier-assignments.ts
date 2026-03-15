@@ -115,5 +115,22 @@ export function useItemModifierAssignmentMutations(itemId: string) {
     [itemId],
   );
 
-  return { updateAssignment, removeAssignment, addAssignment, isLoading };
+  const reorderAssignments = useCallback(
+    async (orderedGroupIds: string[]) => {
+      setIsLoading(true);
+      try {
+        await apiFetch(`/api/v1/catalog/items/${itemId}/modifier-assignments/reorder`, {
+          method: 'PATCH',
+          body: JSON.stringify({ orderedGroupIds }),
+        });
+      } catch (e) {
+        setIsLoading(false);
+        throw e; // Re-throw so caller's catch block can revert optimistic state
+      }
+      setIsLoading(false);
+    },
+    [itemId],
+  );
+
+  return { updateAssignment, removeAssignment, addAssignment, reorderAssignments, isLoading };
 }

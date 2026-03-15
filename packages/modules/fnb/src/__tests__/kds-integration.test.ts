@@ -287,7 +287,7 @@ describe('KDS happy path integration', () => {
       .mockResolvedValueOnce([course]); // course lookup
     mockTx.execute
       .mockResolvedValueOnce([{ last_number: 1 }])  // counter increment
-      .mockResolvedValueOnce([])  // send tracking INSERT
+      .mockResolvedValueOnce([{ id: 'tracking-1' }])  // send tracking INSERT (RETURNING id)
       .mockResolvedValueOnce([]);  // send event INSERT
     mockTx.returning
       .mockResolvedValueOnce([insertedTicket])      // ticket insert

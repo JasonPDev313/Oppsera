@@ -130,7 +130,7 @@ interface UseFnbTabReturn {
   fireCourse: (courseNumber: number) => Promise<KdsSendResult | undefined>;
   /** Returns KDS send result with location/ticket info, or undefined if not available. */
   sendCourse: (courseNumber: number) => Promise<KdsSendResult | undefined>;
-  addItems: (items: AddTabItemInput[]) => Promise<void>;
+  addItems: (items: AddTabItemInput[], skipRefetch?: boolean) => Promise<void>;
   updatePartySize: (newSize: number) => Promise<void>;
   // Item-level actions
   voidLine: (itemId: string, reason: string) => Promise<void>;
@@ -288,14 +288,15 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true, 
     try {
       const headers: Record<string, string> = {};
       if (locationId) headers['X-Location-Id'] = locationId;
-      // Deterministic idempotency key — retries reuse the same key so the server
-      // deduplicates. Matches the retail pattern (server-built from stable IDs).
-      const clientRequestId = `fnb-fire-${tabId}-c${courseNumber}-${Date.now()}`;
+      // Stable idempotency key — must NOT include Date.now() or random values,
+      // otherwise a timeout + re-tap generates a fresh key and the server creates
+      // duplicate tickets. tabId+courseNumber is unique (a course can only be fired once).
+      const clientRequestId = `fnb-fire-${tabId}-c${courseNumber}`;
       const res = await act(() => apiFetch<{ data: unknown; kdsStatus?: KdsSendResult }>(`/api/v1/fnb/tabs/${tabId}/course/fire`, {
         method: 'POST',
         body: JSON.stringify({ courseNumber, clientRequestId }),
         headers,
-      }));
+      }), true); // skipRefetch — caller manages single refresh at end of flow
       return res?.kdsStatus;
     } catch (e) {
       // 409 = course already in target status — silently refresh to sync UI
@@ -323,14 +324,15 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true, 
     try {
       const headers: Record<string, string> = {};
       if (locationId) headers['X-Location-Id'] = locationId;
-      // Deterministic idempotency key — retries reuse the same key so the server
-      // deduplicates. Matches the retail pattern (server-built from stable IDs).
-      const clientRequestId = `fnb-send-${tabId}-c${courseNumber}-${Date.now()}`;
+      // Stable idempotency key — must NOT include Date.now() or random values,
+      // otherwise a timeout + re-tap generates a fresh key and the server creates
+      // duplicate tickets. tabId+courseNumber is unique (a course can only be sent once).
+      const clientRequestId = `fnb-send-${tabId}-c${courseNumber}`;
       const res = await act(() => apiFetch<{ data: unknown; kdsStatus?: KdsSendResult }>(`/api/v1/fnb/tabs/${tabId}/course/send`, {
         method: 'POST',
         body: JSON.stringify({ courseNumber, clientRequestId }),
         headers,
-      }));
+      }), true); // skipRefetch — caller manages single refresh at end of flow
       return res?.kdsStatus;
     } catch (e) {
       // 409 = course already sent or tab status conflict — refresh to sync UI
@@ -355,7 +357,7 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true, 
     }
   }, [tabId, act, isActing, fetchTab, locationId]);
 
-  const addItemsFn = useCallback(async (items: AddTabItemInput[]) => {
+  const addItemsFn = useCallback(async (items: AddTabItemInput[], skipRefetch = false) => {
     if (!tabId || items.length === 0 || isActing) return;
     // Check stale tab status — refuse to add if tab is no longer writable
     const current = tabRef.current;
@@ -366,7 +368,7 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true, 
       method: 'POST',
       body: JSON.stringify({ tabId, items, clientRequestId: crypto.randomUUID() }),
       headers,
-    }));
+    }), skipRefetch);
   }, [tabId, act, isActing, locationId]);
 
   const updatePartySizeFn = useCallback(async (newSize: number) => {

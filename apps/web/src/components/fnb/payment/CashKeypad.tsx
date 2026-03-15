@@ -145,7 +145,7 @@ export function CashKeypad({ totalCents, onSubmit, onBack, disabled }: CashKeypa
               border: primary
                 ? '1.5px solid var(--fnb-tender-cash)'
                 : '1.5px solid transparent',
-              fontSize: '0.8125rem',
+              fontSize: 'calc(0.8125rem * var(--pos-font-scale, 1))',
             }}
           >
             {label}

@@ -211,6 +211,12 @@ export const updateItemModifierAssignmentSchema = z.object({
 });
 export type UpdateItemModifierAssignmentInput = z.input<typeof updateItemModifierAssignmentSchema>;
 
+export const reorderItemModifierAssignmentsSchema = z.object({
+  /** Ordered array of modifier group IDs — index becomes the new promptOrder */
+  orderedGroupIds: z.array(z.string().min(1)).min(1).max(50),
+});
+export type ReorderItemModifierAssignmentsInput = z.input<typeof reorderItemModifierAssignmentsSchema>;
+
 // === Location Price ===
 
 export const setLocationPriceSchema = z.object({

@@ -128,7 +128,7 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
   // Payment + Split are mounted on-demand (less frequent transitions).
 
   return (
-    <div className="h-full bg-surface flex flex-col">
+    <div className="fnb-scaled h-full bg-surface flex flex-col">
       {/* Offline indicator */}
       {!isOnline && <OfflineBanner queueCount={0} />}
 

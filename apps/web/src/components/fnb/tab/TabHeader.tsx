@@ -30,6 +30,8 @@ function getFireStatus(tab: FnbTabDetail): { label: string; color: string; bg: s
 interface TabHeaderProps {
   tab: FnbTabDetail;
   onBack: () => void;
+  /** Override displayed total (e.g., server + draft lines). Falls back to tab.runningTotalCents. */
+  displayTotalCents?: number;
 }
 
 function formatElapsed(openedAt: string): string {
@@ -39,7 +41,7 @@ function formatElapsed(openedAt: string): string {
 }
 
 
-export function TabHeader({ tab, onBack }: TabHeaderProps) {
+export function TabHeader({ tab, onBack, displayTotalCents }: TabHeaderProps) {
   const typeLabels: Record<string, string> = {
     dine_in: 'Dine-In',
     bar_seating: 'Bar',
@@ -124,7 +126,7 @@ export function TabHeader({ tab, onBack }: TabHeaderProps) {
       {/* Running total */}
       <div className="text-right">
         <span className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
-          {formatCents(tab.runningTotalCents ?? 0)}
+          {formatCents(displayTotalCents ?? tab.runningTotalCents ?? 0)}
         </span>
       </div>
     </div>

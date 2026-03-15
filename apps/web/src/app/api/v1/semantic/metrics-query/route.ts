@@ -5,51 +5,34 @@ import { sql } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant } from '@oppsera/db';
 import { ValidationError } from '@oppsera/shared';
+import { getMetric } from '@oppsera/module-semantic/registry';
+import type { MetricDef } from '@oppsera/module-semantic/registry';
 
-// ── Allowed metric slugs → rm_daily_sales column names ───────────
-// Static allowlist prevents SQL injection — only known columns accepted.
-
-const METRIC_COLUMN_MAP: Record<string, string> = {
-  net_sales: 'net_sales',
-  gross_sales: 'gross_sales',
-  order_count: 'order_count',
-  avg_order_value: 'avg_order_value',
-  discount_total: 'discount_total',
-  tax_total: 'tax_total',
-  void_count: 'void_count',
-  void_total: 'void_total',
-  tender_cash: 'tender_cash',
-  tender_card: 'tender_card',
-  tender_gift_card: 'tender_gift_card',
-  tender_house_account: 'tender_house_account',
-  tender_ach: 'tender_ach',
-  tender_other: 'tender_other',
-  tip_total: 'tip_total',
-  service_charge_total: 'service_charge_total',
-  surcharge_total: 'surcharge_total',
-  return_total: 'return_total',
-  pms_revenue: 'pms_revenue',
-  ar_revenue: 'ar_revenue',
-  membership_revenue: 'membership_revenue',
-  voucher_revenue: 'voucher_revenue',
-  spa_revenue: 'spa_revenue',
-  total_business_revenue: 'total_business_revenue',
-};
-
-// Integer columns use SUM and return as int; numeric columns use SUM and return as float
-const INTEGER_COLUMNS = new Set(['order_count', 'void_count']);
+// ── Tables that support date-range sparklines ─────────────────────
+const DATE_RANGE_TABLES = new Set(['rm_daily_sales', 'rm_item_sales']);
 
 // ── Validation ────────────────────────────────────────────────────
 
 const metricsQuerySchema = z.object({
-  slugs: z.array(z.string().min(1).max(128)).min(1).max(20),
+  slugs: z.array(z.string().min(1).max(128)).min(1).max(30),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
+// ── Metric result shape ───────────────────────────────────────────
+
+interface MetricResult {
+  values: number[];
+  dates: string[];
+  current: number | null;
+  previous: number | null;
+  changePercent: number | null;
+}
+
 // ── POST /api/v1/semantic/metrics-query ───────────────────────────
-// Structured metrics query against rm_daily_sales.
-// Returns daily values for each requested metric slug.
+// Structured metrics query using the semantic registry.
+// Groups metrics by source table and queries each table separately.
+// Date-range tables return daily sparklines; snapshot tables return current values.
 
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -66,8 +49,18 @@ export const POST = withMiddleware(
 
     const { slugs, startDate, endDate } = parsed.data;
 
-    // Validate all slugs are known
-    const unknownSlugs = slugs.filter((s) => !METRIC_COLUMN_MAP[s]);
+    // Look up each slug in the registry
+    const metricDefs: MetricDef[] = [];
+    const unknownSlugs: string[] = [];
+    for (const slug of slugs) {
+      try {
+        const def = await getMetric(slug);
+        metricDefs.push(def);
+      } catch {
+        unknownSlugs.push(slug);
+      }
+    }
+
     if (unknownSlugs.length > 0) {
       throw new ValidationError('Unknown metric slugs', unknownSlugs.map((s) => ({
         field: 'slugs',
@@ -75,59 +68,95 @@ export const POST = withMiddleware(
       })));
     }
 
-    // Build SELECT columns — safe because we only use values from METRIC_COLUMN_MAP
-    const selectCols = slugs.map((slug) => {
-      const col = METRIC_COLUMN_MAP[slug]!;
-      if (INTEGER_COLUMNS.has(col)) {
-        return sql.raw(`COALESCE(SUM(${col}), 0)::int AS "${slug}"`);
-      }
-      return sql.raw(`COALESCE(SUM(${col}), 0)::numeric AS "${slug}"`);
-    });
+    // Group metrics by source table
+    const byTable = new Map<string, MetricDef[]>();
+    for (const def of metricDefs) {
+      const group = byTable.get(def.sqlTable) ?? [];
+      group.push(def);
+      byTable.set(def.sqlTable, group);
+    }
 
-    const result = await withTenant(ctx.tenantId, async (tx) => {
+    const results: Record<string, MetricResult> = {};
+
+    await withTenant(ctx.tenantId, async (tx) => {
       const locFilter = ctx.locationId
         ? sql` AND location_id = ${ctx.locationId}`
         : sql``;
 
-      const rows = await tx.execute(sql`
-        SELECT
-          business_date AS date,
-          ${sql.join(selectCols, sql`, `)}
-        FROM rm_daily_sales
-        WHERE tenant_id = ${ctx.tenantId}
-          AND business_date >= ${startDate}
-          AND business_date <= ${endDate}
-          ${locFilter}
-        GROUP BY business_date
-        ORDER BY business_date ASC
-      `);
+      for (const [table, tableDefs] of byTable) {
+        if (DATE_RANGE_TABLES.has(table)) {
+          // ── Date-range query: daily sparklines ──
+          const selectCols = tableDefs.map((def) => {
+            // Use the registry's sqlExpression directly (e.g. "SUM(quantity_sold)")
+            // For rm_daily_sales metrics with simple column names, wrap in COALESCE+SUM
+            const expr = def.sqlExpression;
+            const isSimpleColumn = /^[a-z_]+$/.test(expr);
+            if (isSimpleColumn) {
+              return sql.raw(`COALESCE(SUM(${expr}), 0)::numeric AS "${def.slug}"`);
+            }
+            // Complex expressions (e.g. "SUM(quantity_sold)") — wrap in COALESCE
+            return sql.raw(`COALESCE(${expr}, 0)::numeric AS "${def.slug}"`);
+          });
 
-      return Array.from(rows as Iterable<Record<string, unknown>>);
+          const rows = await tx.execute(sql`
+            SELECT
+              business_date AS date,
+              ${sql.join(selectCols, sql`, `)}
+            FROM ${sql.raw(table)}
+            WHERE tenant_id = ${ctx.tenantId}
+              AND business_date >= ${startDate}
+              AND business_date <= ${endDate}
+              ${locFilter}
+            GROUP BY business_date
+            ORDER BY business_date ASC
+          `);
+
+          const rowArr = Array.from(rows as Iterable<Record<string, unknown>>);
+
+          for (const def of tableDefs) {
+            const values = rowArr.map((row) => Number(row[def.slug]) || 0);
+            const dates = rowArr.map((row) => String(row.date));
+            const current = values.length > 0 ? values[values.length - 1]! : null;
+            const previous = values.length > 1 ? values[0]! : null;
+            const changePercent =
+              current != null && previous != null && previous !== 0
+                ? ((current - previous) / Math.abs(previous)) * 100
+                : null;
+
+            results[def.slug] = { values, dates, current, previous, changePercent };
+          }
+        } else {
+          // ── Snapshot query: current aggregate value, no sparkline ──
+          const selectCols = tableDefs.map((def) => {
+            const expr = def.sqlExpression;
+            return sql.raw(`COALESCE((${expr})::numeric, 0) AS "${def.slug}"`);
+          });
+
+          const rows = await tx.execute(sql`
+            SELECT ${sql.join(selectCols, sql`, `)}
+            FROM ${sql.raw(table)}
+            WHERE tenant_id = ${ctx.tenantId}
+              ${locFilter}
+          `);
+
+          const rowArr = Array.from(rows as Iterable<Record<string, unknown>>);
+          const row = rowArr[0] ?? {};
+
+          for (const def of tableDefs) {
+            const val = Number(row[def.slug]) || 0;
+            results[def.slug] = {
+              values: [val],
+              dates: [],
+              current: val,
+              previous: null,
+              changePercent: null,
+            };
+          }
+        }
+      }
     });
 
-    // Build per-metric response with sparkline + change %
-    const metrics: Record<string, {
-      values: number[];
-      dates: string[];
-      current: number | null;
-      previous: number | null;
-      changePercent: number | null;
-    }> = {};
-
-    for (const slug of slugs) {
-      const values = result.map((row) => Number(row[slug]) || 0);
-      const dates = result.map((row) => String(row.date));
-      const current = values.length > 0 ? values[values.length - 1]! : null;
-      const previous = values.length > 1 ? values[0]! : null;
-      const changePercent =
-        current != null && previous != null && previous !== 0
-          ? ((current - previous) / Math.abs(previous)) * 100
-          : null;
-
-      metrics[slug] = { values, dates, current, previous, changePercent };
-    }
-
-    return NextResponse.json({ data: metrics });
+    return NextResponse.json({ data: results });
   },
   { entitlement: 'semantic', permission: 'semantic.view' },
 );

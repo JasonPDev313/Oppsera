@@ -331,6 +331,90 @@ export async function GET(request: Request) {
 
     results.totalDailyRepaired = totalDailyRepaired;
     results.totalItemRepaired = totalItemRepaired;
+
+    // ── Step 5: GL variance detection ──────────────────────────────
+    // Compare rm_revenue_activity totals vs gl_journal_entries per source
+    // module for the last 7 days. Flags cases where sales exist but GL
+    // entries don't — the exact gap that caused the 95% variance bug.
+    // Only logs warnings; does not attempt repairs (GL entries require
+    // the full adapter logic with account resolution).
+    try {
+      const glVariance = await db.execute(sql`
+        WITH sales_by_module AS (
+          SELECT
+            tenant_id,
+            source_sub_type,
+            SUM(CASE WHEN status != 'voided' THEN amount_dollars ELSE 0 END) AS sales_dollars
+          FROM rm_revenue_activity
+          WHERE business_date >= CURRENT_DATE - 7
+            AND source = 'pos_order'
+          GROUP BY tenant_id, source_sub_type
+        ),
+        gl_by_module AS (
+          SELECT
+            tenant_id,
+            source_module,
+            SUM(
+              CASE WHEN source_module = 'pos' THEN 1
+                   WHEN source_module = 'fnb' THEN 1
+                   ELSE 0 END
+            )::int AS entry_count,
+            SUM(
+              CASE WHEN status != 'voided' THEN
+                (SELECT COALESCE(SUM(credit_amount::numeric - debit_amount::numeric), 0)
+                 FROM gl_journal_lines jl
+                 WHERE jl.journal_entry_id = gl_journal_entries.id
+                   AND jl.tenant_id = gl_journal_entries.tenant_id)
+              ELSE 0 END
+            ) AS gl_revenue_dollars
+          FROM gl_journal_entries
+          WHERE business_date >= CURRENT_DATE - 7
+            AND source_module IN ('pos', 'fnb')
+            AND status != 'voided'
+          GROUP BY tenant_id, source_module
+        )
+        SELECT
+          s.tenant_id,
+          s.source_sub_type,
+          ROUND(s.sales_dollars::numeric, 2) AS sales_dollars,
+          COALESCE(g.entry_count, 0) AS gl_entry_count,
+          ROUND(COALESCE(g.gl_revenue_dollars, 0)::numeric, 2) AS gl_revenue_dollars,
+          ROUND((s.sales_dollars - COALESCE(g.gl_revenue_dollars, 0))::numeric, 2) AS variance_dollars
+        FROM sales_by_module s
+        LEFT JOIN gl_by_module g
+          ON g.tenant_id = s.tenant_id
+          AND (
+            (s.source_sub_type = 'pos_retail' AND g.source_module = 'pos')
+            OR (s.source_sub_type = 'pos_fnb' AND g.source_module = 'fnb')
+          )
+        WHERE s.sales_dollars > 0
+          AND (COALESCE(g.entry_count, 0) = 0
+               OR ABS(s.sales_dollars - COALESCE(g.gl_revenue_dollars, 0)) > 1)
+        ORDER BY ABS(s.sales_dollars - COALESCE(g.gl_revenue_dollars, 0)) DESC
+        LIMIT 20
+      `);
+
+      const varianceArr = Array.from(glVariance as Iterable<Record<string, unknown>>);
+      results.glVariancesDetected = varianceArr.length;
+
+      if (varianceArr.length > 0) {
+        for (const v of varianceArr) {
+          const pct = Number(v.sales_dollars) > 0
+            ? ((Number(v.variance_dollars) / Number(v.sales_dollars)) * 100).toFixed(1)
+            : '0';
+          console.error(
+            `[reconcile-read-models] GL VARIANCE: tenant=${v.tenant_id} module=${v.source_sub_type} ` +
+            `sales=$${v.sales_dollars} gl=$${v.gl_revenue_dollars} variance=$${v.variance_dollars} (${pct}%) ` +
+            `gl_entries=${v.gl_entry_count}`,
+          );
+        }
+      }
+    } catch (glErr) {
+      // GL variance detection is best-effort — never block the core reconciliation
+      console.warn('[reconcile-read-models] GL variance check failed:', glErr instanceof Error ? glErr.message : glErr);
+      results.glVarianceError = glErr instanceof Error ? glErr.message : 'unknown';
+    }
+
     results.status = 'ok';
     results.elapsedMs = Date.now() - startMs;
 

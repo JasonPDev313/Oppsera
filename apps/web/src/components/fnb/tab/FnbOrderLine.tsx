@@ -42,6 +42,18 @@ function getModChipStyle(mod: string): { label: string; bg: string; text: string
 }
 
 
+const FRACTION_DISPLAY: Record<number, string> = {
+  0.25: '\u00BC',
+  0.5: '\u00BD',
+  0.75: '\u00BE',
+};
+
+function formatFnbQty(qty: number): string {
+  const display = FRACTION_DISPLAY[qty];
+  if (display) return display;
+  return qty % 1 === 0 ? `${qty}x` : `${parseFloat(qty.toFixed(4))}x`;
+}
+
 const STATUS_ICONS: Record<string, string> = {
   draft: '\u25CF',
   sent: '\u2192',
@@ -104,9 +116,9 @@ export const FnbOrderLine = memo(function FnbOrderLine({ seatNumber, itemName, m
       {/* Item info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1">
-          {qty > 1 && (
+          {qty !== 1 && (
             <span className="text-xs font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
-              {qty}x
+              {formatFnbQty(qty)}
             </span>
           )}
           <span

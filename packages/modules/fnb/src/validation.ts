@@ -2699,7 +2699,10 @@ export type ChargeMemberAccountInput = z.input<typeof chargeMemberAccountSchema>
 export const getFnbDashboardSchema = z.object({
   tenantId: z.string().min(1),
   locationId: z.string().min(1),
+  /** Start date (or single business date when endDate is omitted) */
   businessDate: z.string().min(1),
+  /** Optional end date — when provided, aggregates from businessDate..endDate */
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'endDate must be YYYY-MM-DD').optional(),
 });
 
 export type GetFnbDashboardInput = z.input<typeof getFnbDashboardSchema>;

@@ -62,6 +62,8 @@ export interface FnbTabDetail {
   customerId: string | null;
   splitFromTabId: string | null;
   splitStrategy: string | null;
+  runningTotalCents: number;
+  taxTotalCents: number;
   openedAt: string;
   closedAt: string | null;
   openedBy: string;
@@ -87,11 +89,13 @@ export async function getTabDetail(
             t.version, t.metadata,
             ft.table_number, ft.display_label,
             fpr.name AS room_name,
-            u.name AS server_name
+            u.name AS server_name,
+            COALESCE(o.tax_total, 0) AS order_tax_total
           FROM fnb_tabs t
           LEFT JOIN fnb_tables ft ON ft.id = t.table_id
           LEFT JOIN floor_plan_rooms fpr ON fpr.id = ft.room_id
           LEFT JOIN users u ON u.id = t.server_user_id
+          LEFT JOIN orders o ON o.id = t.primary_order_id
           WHERE t.id = ${input.tabId} AND t.tenant_id = ${input.tenantId}
           LIMIT 1`,
     );
@@ -128,9 +132,9 @@ export async function getTabDetail(
 
     const courses = Array.from(courseRows as Iterable<Record<string, unknown>>).map((c) => ({
       id: c.id as string,
-      courseNumber: Number(c.course_number),
-      courseName: c.course_name as string,
-      courseStatus: c.course_status as string,
+      courseNumber: Number(c.course_number) || 0,
+      courseName: (c.course_name as string) ?? '',
+      courseStatus: (c.course_status as string) ?? 'pending',
       firedAt: (c.fired_at as string) ?? null,
       sentAt: (c.sent_at as string) ?? null,
       servedAt: (c.served_at as string) ?? null,
@@ -148,30 +152,48 @@ export async function getTabDetail(
       transferredAt: tr.transferred_at as string,
     }));
 
-    const lines = Array.from(itemRows as Iterable<Record<string, unknown>>).map((li) => ({
-      id: li.id as string,
-      catalogItemId: li.catalog_item_id as string,
-      catalogItemName: li.catalog_item_name as string,
-      seatNumber: Number(li.seat_number),
-      courseNumber: Number(li.course_number),
-      qty: Number(li.quantity),
-      unitPriceCents: Number(li.unit_price_cents),
-      extendedPriceCents: Number(li.extended_price_cents),
-      modifiers: (li.modifiers as unknown[]) ?? [],
-      specialInstructions: (li.special_instructions as string) ?? null,
-      status: li.status as string,
-      sentAt: (li.sent_at as string) ?? null,
-      firedAt: (li.fired_at as string) ?? null,
-    }));
+    const lines = Array.from(itemRows as Iterable<Record<string, unknown>>).map((li) => {
+      const qty = Number(li.quantity) || 0;
+      const unitPriceCents = Number(li.unit_price_cents) || 0;
+      const storedExtended = Number(li.extended_price_cents);
+      // Guard NaN: fall back to qty * unit if stored value is corrupt (log for observability)
+      const extendedPriceCents = Number.isFinite(storedExtended)
+        ? storedExtended
+        : (() => {
+            console.warn(`[get-tab-detail] NaN extendedPriceCents for line ${li.id} — falling back to qty*unit`);
+            return qty * unitPriceCents;
+          })();
+
+      return {
+        id: li.id as string,
+        catalogItemId: li.catalog_item_id as string,
+        catalogItemName: (li.catalog_item_name as string) ?? '',
+        seatNumber: Number(li.seat_number) || 0,
+        courseNumber: Number(li.course_number) || 0,
+        qty,
+        unitPriceCents,
+        extendedPriceCents,
+        modifiers: (li.modifiers as unknown[]) ?? [],
+        specialInstructions: (li.special_instructions as string) ?? null,
+        status: (li.status as string) ?? 'pending',
+        sentAt: (li.sent_at as string) ?? null,
+        firedAt: (li.fired_at as string) ?? null,
+      };
+    });
+
+    // Compute running total from active (non-voided) line items — NaN-safe
+    const runningTotalCents = lines
+      .filter((l) => l.status !== 'voided')
+      .reduce((sum, l) => sum + (Number.isFinite(l.extendedPriceCents) ? l.extendedPriceCents : 0), 0);
 
     return {
       id: r.id as string,
       locationId: r.location_id as string,
-      tabNumber: Number(r.tab_number),
+      tabNumber: Number(r.tab_number) || 0,
       tabType: r.tab_type as string,
       status: r.status as string,
       tableId: (r.table_id as string) ?? null,
-      tableNumber: r.table_number != null ? Number(r.table_number) : null,
+      tableNumber: r.table_number != null ? (Number(r.table_number) || 0) : null,
       displayLabel: (r.display_label as string) ?? null,
       roomName: (r.room_name as string) ?? null,
       serverUserId: r.server_user_id as string,
@@ -180,7 +202,7 @@ export async function getTabDetail(
       guestName: (r.guest_name as string) ?? null,
       serviceType: r.service_type as string,
       businessDate: r.business_date as string,
-      currentCourseNumber: Number(r.current_course_number),
+      currentCourseNumber: Number(r.current_course_number) || 1,
       primaryOrderId: (r.primary_order_id as string) ?? null,
       customerId: (r.customer_id as string) ?? null,
       splitFromTabId: (r.split_from_tab_id as string) ?? null,
@@ -188,8 +210,10 @@ export async function getTabDetail(
       openedAt: r.opened_at as string,
       closedAt: (r.closed_at as string) ?? null,
       openedBy: r.opened_by as string,
-      version: Number(r.version),
+      version: Number(r.version) || 1,
       metadata: (r.metadata as Record<string, unknown>) ?? null,
+      runningTotalCents,
+      taxTotalCents: Number(r.order_tax_total) || 0,
       courses,
       transfers,
       lines,

@@ -52,7 +52,7 @@ export function computeSeatTotals(
     if (!bySeat.has(s)) bySeat.set(s, []);
   }
 
-  const totalSubtotal = check.subtotalCents || 1; // avoid division by zero
+  const totalSubtotal = check.subtotalCents;
   const seats: SeatTotal[] = [];
   let allocatedTax = 0;
   let allocatedDiscount = 0;
@@ -83,11 +83,12 @@ export function computeSeatTotals(
 
     // Proportional allocation — last seat WITH items gets the remainder to avoid rounding drift.
     // Empty seats get zero tax/discount/service charge regardless of position.
+    // Skip allocation entirely when subtotal is zero (nothing to split).
     let tax = 0;
     let discount = 0;
     let serviceCharge = 0;
 
-    if (hasItems) {
+    if (hasItems && totalSubtotal > 0) {
       if (isLastWithItems) {
         tax = check.taxTotalCents - allocatedTax;
         discount = check.discountTotalCents - allocatedDiscount;
@@ -232,7 +233,7 @@ export function SeatPaymentSelector({
                   style={{
                     width: 40,
                     height: 40,
-                    fontSize: '13px',
+                    fontSize: 'calc(13px * var(--pos-font-scale, 1))',
                     backgroundColor: isPaid
                       ? 'var(--fnb-status-available)'
                       : isSelected
@@ -328,7 +329,7 @@ export function SeatPaymentSelector({
             <div
               className="font-mono font-black"
               style={{
-                fontSize: '2rem',
+                fontSize: 'calc(2rem * var(--pos-font-scale, 1))',
                 lineHeight: 1,
                 color: 'var(--fnb-accent-primary, var(--fnb-info))',
                 fontFamily: 'var(--fnb-font-mono)',

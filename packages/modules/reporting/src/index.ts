@@ -40,6 +40,7 @@ export {
   handleChargebackReceived,
   handleChargebackResolved,
   handleFnbTenderApplied,
+  handleFnbPaymentCompleted,
   handleStoredValueRedeemed,
   handleGuestPaySucceeded,
   handleTenderReversed,

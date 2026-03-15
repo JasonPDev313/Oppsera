@@ -316,7 +316,7 @@ export function AddGuestDialog({
                   </span>
                   <span
                     style={{
-                      fontSize: '10px',
+                      fontSize: 'var(--fnb-text-xs)',
                       fontWeight: 'var(--fnb-font-medium)',
                       color: CONFIDENCE_COLORS[waitEstimate.confidence] ?? 'var(--fnb-text-muted)',
                       textTransform: 'uppercase',

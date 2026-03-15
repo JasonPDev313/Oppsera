@@ -93,7 +93,7 @@ export function RecallRefireDialog({
               style={{
                 color: 'var(--fnb-text-primary)',
                 fontWeight: 600,
-                fontSize: '1rem',
+                fontSize: 'calc(1rem * var(--pos-font-scale, 1))',
                 lineHeight: 1.25,
               }}
             >
@@ -125,7 +125,7 @@ export function RecallRefireDialog({
           <p
             style={{
               color: 'var(--fnb-text-muted)',
-              fontSize: '0.8125rem',
+              fontSize: 'calc(0.8125rem * var(--pos-font-scale, 1))',
               margin: 0,
             }}
           >
@@ -152,7 +152,7 @@ export function RecallRefireDialog({
                   border: `1px solid ${accentColor}55`,
                   borderRadius: '0.5rem',
                   color: 'var(--fnb-text-primary)',
-                  fontSize: '0.8125rem',
+                  fontSize: 'calc(0.8125rem * var(--pos-font-scale, 1))',
                   fontWeight: 500,
                   cursor: 'pointer',
                   textAlign: 'center',
@@ -194,7 +194,7 @@ export function RecallRefireDialog({
               htmlFor="custom-reason"
               style={{
                 color: 'var(--fnb-text-muted)',
-                fontSize: '0.75rem',
+                fontSize: 'calc(0.75rem * var(--pos-font-scale, 1))',
               }}
             >
               Other reason (optional)
@@ -218,7 +218,7 @@ export function RecallRefireDialog({
                   border: '1px solid rgba(148,163,184,0.4)',
                   borderRadius: '0.5rem',
                   color: 'var(--fnb-text-primary)',
-                  fontSize: '0.875rem',
+                  fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))',
                   outline: 'none',
                 }}
               />
@@ -233,7 +233,7 @@ export function RecallRefireDialog({
                   border: 'none',
                   borderRadius: '0.5rem',
                   color: customReason.trim() ? '#fff' : 'var(--fnb-text-muted)',
-                  fontSize: '0.875rem',
+                  fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))',
                   fontWeight: 600,
                   cursor: customReason.trim() ? 'pointer' : 'not-allowed',
                   transition: 'background-color 0.1s',
@@ -257,7 +257,7 @@ export function RecallRefireDialog({
               border: '1px solid var(--fnb-text-muted)',
               borderRadius: '0.5rem',
               color: 'var(--fnb-text-muted)',
-              fontSize: '0.875rem',
+              fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))',
               cursor: 'pointer',
             }}
           >

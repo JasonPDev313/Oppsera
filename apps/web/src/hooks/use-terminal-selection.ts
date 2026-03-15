@@ -79,8 +79,10 @@ export function useTerminalSelection(options?: UseTerminalSelectionOptions) {
     setIsLoading(false);
   }, []);
 
-  // Single fetch on mount (or when roleId changes)
+  // Fetch when roleId changes — skip when null (roles not yet loaded)
+  // to prevent returning unscoped data before role-based filtering applies.
   useEffect(() => {
+    if (roleId === null) return;
     fetchAll(roleId);
   }, [roleId, fetchAll]);
 
@@ -180,7 +182,7 @@ export function useTerminalSelection(options?: UseTerminalSelectionOptions) {
     setSelectedTerminalId(null);
   }, []);
 
-  const canContinue = !!(effectiveLocationId && selectedProfitCenterId && selectedTerminalId);
+  const canContinue = !!(effectiveLocationId && selectedProfitCenterId && selectedTerminalId && roleId);
 
   const buildSession = useCallback((): TerminalSession | null => {
     if (!canContinue || !effectiveLocationId || !allData) return null;

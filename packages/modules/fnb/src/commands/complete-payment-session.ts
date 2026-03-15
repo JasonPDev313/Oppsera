@@ -5,6 +5,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLogDeferred } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { AppError } from '@oppsera/shared';
+import type { EventEnvelope } from '@oppsera/shared';
 import { fnbTableLiveStatus } from '@oppsera/db';
 import { FNB_EVENTS } from '../events/types';
 import type { PaymentCompletedPayload } from '../events/types';
@@ -75,12 +76,17 @@ export async function completePaymentSession(
             AND status = 'paying'`,
     );
 
-    // Clear table live status to 'dirty' (matches close-tab.ts behavior)
+    // Fetch tab detail once — used for table cleanup + TAB_CLOSED event
     const tabDetailRows = await tx.execute(
-      sql`SELECT table_id FROM fnb_tabs WHERE id = ${tabId} AND tenant_id = ${ctx.tenantId}`,
+      sql`SELECT table_id, server_user_id, business_date FROM fnb_tabs
+          WHERE id = ${tabId} AND tenant_id = ${ctx.tenantId}`,
     );
     const tabDetailArr = Array.from(tabDetailRows as Iterable<Record<string, unknown>>);
     const tableId = tabDetailArr[0]?.table_id as string | null;
+    const serverUserId = tabDetailArr[0]?.server_user_id as string | null;
+    const businessDate = tabDetailArr[0]?.business_date as string | null;
+
+    // Clear table live status to 'dirty' (matches close-tab.ts behavior)
     if (tableId) {
       await tx
         .update(fnbTableLiveStatus)
@@ -98,6 +104,19 @@ export async function completePaymentSession(
         ));
     }
 
+    const events: EventEnvelope[] = [];
+
+    // Emit TAB_CLOSED so reporting consumers populate dashboard read-models
+    if (serverUserId && businessDate) {
+      events.push(buildEventFromContext(ctx, FNB_EVENTS.TAB_CLOSED, {
+        tabId,
+        locationId,
+        tableId,
+        serverUserId,
+        businessDate,
+      } as unknown as Record<string, unknown>));
+    }
+
     const payload: PaymentCompletedPayload = {
       paymentSessionId: input.sessionId,
       tabId,
@@ -107,13 +126,13 @@ export async function completePaymentSession(
       changeCents: input.changeCents ?? 0,
     };
 
-    const event = buildEventFromContext(ctx, FNB_EVENTS.PAYMENT_COMPLETED, payload as unknown as Record<string, unknown>);
+    events.push(buildEventFromContext(ctx, FNB_EVENTS.PAYMENT_COMPLETED, payload as unknown as Record<string, unknown>));
 
     if (input.clientRequestId) {
       await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'completePaymentSession', updatedRow);
     }
 
-    return { result: updatedRow, events: [event] };
+    return { result: updatedRow, events };
   });
 
   auditLogDeferred(ctx, 'fnb.payment_session.completed', 'fnb_payment_sessions', input.sessionId);

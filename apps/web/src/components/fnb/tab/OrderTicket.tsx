@@ -29,6 +29,7 @@ interface OrderTicketProps {
   onCompLine?: (lineId: string, reason: string, compCategory: string) => void;
   onChangeSeat?: (lineId: string, newSeat: number) => void;
   onChangeCourse?: (lineId: string, newCourse: number) => void;
+  onEditDraftModifiers?: (localId: string) => void;
   seatCount?: number;
   linePermissions?: FnbLineEditPermissions;
 }
@@ -51,13 +52,14 @@ export const OrderTicket = memo(function OrderTicket({
   onCompLine,
   onChangeSeat,
   onChangeCourse,
+  onEditDraftModifiers,
   seatCount,
   linePermissions,
 }: OrderTicketProps) {
   const [viewMode, setViewMode] = useState<'active' | 'all'>('all');
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
 
-  const hasItemEditActions = !!(onUpdateNote || onDeleteLine || onChangePrice || onVoidLine || onCompLine || onChangeSeat || onChangeCourse);
+  const hasItemEditActions = !!(onUpdateNote || onDeleteLine || onChangePrice || onVoidLine || onCompLine || onChangeSeat || onChangeCourse || onEditDraftModifiers);
 
   const handleLineTap = useCallback((lineId: string) => {
     if (hasItemEditActions) {
@@ -308,8 +310,8 @@ export const OrderTicket = memo(function OrderTicket({
                     isUnsent
                     onTap={() => handleLineTap(draft.localId)}
                   />
-                  {/* Inline edit panel for drafts — only seat/course change */}
-                  {editingLineId === draft.localId && (onChangeSeat || onChangeCourse) && (
+                  {/* Inline edit panel for drafts — seat/course change + modifier editing */}
+                  {editingLineId === draft.localId && (onChangeSeat || onChangeCourse || onEditDraftModifiers) && (
                     <FnbLineItemEditPanel
                       line={draftAsLine}
                       onUpdateNote={() => {}}
@@ -319,6 +321,7 @@ export const OrderTicket = memo(function OrderTicket({
                       onCompLine={() => {}}
                       onChangeSeat={onChangeSeat}
                       onChangeCourse={onChangeCourse}
+                      onEditModifiers={onEditDraftModifiers ? () => { onEditDraftModifiers(draft.localId); handleEditDone(); } : undefined}
                       seatCount={seatCount}
                       courseNames={courseNames}
                       onDone={handleEditDone}

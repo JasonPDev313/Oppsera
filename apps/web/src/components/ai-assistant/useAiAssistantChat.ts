@@ -66,10 +66,16 @@ export function useAiAssistantChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const context = useAiAssistantContext();
   const abortRef = useRef<AbortController | null>(null);
+  // Track thread ID via ref so unmount cleanup always closes the correct thread
+  const threadIdRef = useRef<string | null>(null);
 
-  /** Close a thread on the server (fire-and-forget, best effort). */
+  // Keep threadIdRef in sync with thread state
+  threadIdRef.current = thread?.id ?? null;
+
+  /** Close a thread on the server (best effort). Returns a promise so callers can await if needed. */
   const closeThreadOnServer = useCallback(async (threadId: string) => {
     try {
       await apiFetch(`/api/v1/ai-support/threads/${threadId}`, {
@@ -99,7 +105,7 @@ export function useAiAssistantChat() {
   }, [context.route, context.moduleKey]);
 
   const sendMessage = useCallback(async (text: string) => {
-    if (isStreaming) return; // Prevent concurrent sends while a response is in-flight
+    if (isStreaming || isLoadingHistory) return; // Prevent sends during streaming or thread resume
     setError(null);
 
     // Add user message + assistant placeholder IMMEDIATELY (before thread creation)
@@ -164,7 +170,7 @@ export function useAiAssistantChat() {
         if (errorCode === 'THREAD_CLOSED' || errorCode === 'MAX_MESSAGES_REACHED') {
           // Close the stale thread server-side
           if (currentThread) {
-            void closeThreadOnServer(currentThread.id);
+            await closeThreadOnServer(currentThread.id);
           }
 
           // Create a fresh thread — messages are preserved (createThread no longer clears them)
@@ -315,7 +321,7 @@ export function useAiAssistantChat() {
       setIsStreaming(false);
       abortRef.current = null;
     }
-  }, [thread, createThread, context, closeThreadOnServer, isStreaming]);
+  }, [thread, createThread, context, closeThreadOnServer, isStreaming, isLoadingHistory]);
 
   const stopStreaming = useCallback(() => {
     if (abortRef.current) {
@@ -362,5 +368,83 @@ export function useAiAssistantChat() {
     setError(null);
   }, [thread, closeThreadOnServer]);
 
-  return { thread, messages, isStreaming, error, sendMessage, stopStreaming, resetThread, requestHandoff, context };
+  /**
+   * Close the active thread on unmount — uses threadIdRef so it always
+   * captures the latest thread ID, even if the component re-rendered
+   * between the last ref update and the cleanup firing.
+   */
+  const closeCurrentThread = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    const tid = threadIdRef.current;
+    if (tid) {
+      void closeThreadOnServer(tid);
+    }
+  }, [closeThreadOnServer]);
+
+  /** Resume a previously closed thread — reopen it and load its messages. */
+  const resumeThread = useCallback(async (threadId: string) => {
+    if (isStreaming || isLoadingHistory) return; // Guard against concurrent resumes
+    setIsLoadingHistory(true);
+    setError(null);
+
+    // Await close of the current thread so the slot is freed before reopening
+    if (thread) {
+      await closeThreadOnServer(thread.id);
+      setThread(null);
+    }
+
+    try {
+      // Reopen the thread
+      await apiFetch(`/api/v1/ai-support/threads/${threadId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'open' }),
+      });
+
+      // Immediately track the reopened thread so cleanup can close it
+      // if the panel unmounts before setThread() runs.
+      threadIdRef.current = threadId;
+
+      // Fetch thread detail with messages
+      const detail = await apiFetch<{
+        data: {
+          thread: Thread;
+          messages: Array<{
+            id: string;
+            role: 'user' | 'assistant' | 'system';
+            messageText: string;
+            answerConfidence?: string;
+            sourceTierUsed?: string;
+            createdAt: string;
+          }>;
+        };
+      }>(`/api/v1/ai-support/threads/${threadId}`);
+
+      setThread({ id: detail.data.thread.id, status: 'open' });
+      setMessages(
+        detail.data.messages
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .filter((m) => m.messageText !== '[streaming]' && m.messageText !== '[No response generated]')
+          .map((m) => ({
+            id: m.id,
+            role: m.role,
+            messageText: m.messageText,
+            answerConfidence: m.answerConfidence,
+            sourceTierUsed: m.sourceTierUsed,
+            createdAt: m.createdAt,
+          })),
+      );
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to resume conversation');
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [thread, closeThreadOnServer, isStreaming, isLoadingHistory]);
+
+  return {
+    thread, messages, isStreaming, isLoadingHistory, error,
+    sendMessage, stopStreaming, resetThread, closeCurrentThread, resumeThread,
+    requestHandoff, context,
+  };
 }

@@ -1,6 +1,6 @@
 # Critical Gotchas — Full Reference
 
-> This file contains all 588 gotchas from OppsEra's CLAUDE.md.
+> This file contains all 596 gotchas from OppsEra's CLAUDE.md.
 > The slim CLAUDE.md keeps only the top 30 most critical ones.
 > Search this file when working on specific modules or encountering issues.
 
@@ -629,3 +629,19 @@
 587. **Seat double-pay in split FnB payments** — When `seatNumbers` are provided in `payTab`, check `split_details.paidSeats` from `fnb_payment_sessions` before processing. Read and update within the same transaction to prevent TOCTOU races.
 
 588. **`incrementVersion()` separate call** — Deprecated pattern. Merge `version: sql\`version + 1\`` into the same `.set({})` call as totals UPDATE to save a DB round-trip. The separate `incrementVersion()` helper is no longer used.
+
+589. **Pre-warm cache dead promise** — When using cross-screen pre-warm caches (§281), always call `clearPrepareCheckCache(key)` on error/retry. A failed pre-warm leaves a rejected promise in the map; the destination silently awaits it and gets the cached rejection instead of making a fresh request.
+
+590. **Zustand inline selector without useShallow** — `useStore(s => ({ a: s.a, b: s.b }))` creates a new object every call, causing re-renders on every store mutation regardless of whether the subscribed fields changed. Always use `useShallow` for multi-field selectors. See §282.
+
+591. **Missing TAB_CLOSED event on bulk close path** — `bulkCloseTabs` must emit one `fnb.tab.closed.v1` per tab, not just `TABS_BULK_CLOSED`. Reporting consumers only listen for per-tab events. Bulk-closed tabs become invisible in dashboards without per-tab events. See §283.
+
+592. **Idempotency key with Date.now()** — Using `Date.now()` or random values in KDS idempotency keys defeats idempotency. Double-taps generate fresh keys and create duplicate tickets. Keys must be deterministic from input (e.g., `${orderId}-${sortedLineIds}`). See §286.
+
+593. **Terminal fetch before role resolution** — Fetching the terminal list when `roleId === null` returns unscoped data. Gate terminal fetches on `roleId !== null`. The `canContinue` flag must include all auth fields: tenant, role, location, terminal. See §285.
+
+594. **Count-limited transition without FOR UPDATE** — Checking an aggregate count (e.g., max open threads) outside a `FOR UPDATE` lock allows two concurrent requests to both read count=N, both proceed, and exceed the limit. The count query must be inside the same transaction holding the row lock. See §288.
+
+595. **safeNum vs Number() for reporting reads** — In reporting read models, use `const n = Number(v ?? 0); return Number.isFinite(n) ? n : 0` instead of plain `Number()`. Log a warning with the record ID when falling back to 0, so corrupted data is visible in logs but doesn't crash dashboards.
+
+596. **Naive AVG of averages across date ranges** — `AVG(avg_turn_time)` ignores volume differences across days. Use weighted average: `SUM(value * weight) / NULLIF(SUM(weight), 0)`. See §287.

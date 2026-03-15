@@ -127,7 +127,7 @@ export function StationMessages({ stationName: _stationName, messages, onDismiss
             >
               <span
                 style={{
-                  fontSize: '11px',
+                  fontSize: 'calc(11px * var(--pos-font-scale, 1))',
                   fontWeight: 600,
                   color: 'rgb(245, 158, 11)',
                   textTransform: 'uppercase',
@@ -138,7 +138,7 @@ export function StationMessages({ stationName: _stationName, messages, onDismiss
               </span>
               <span
                 style={{
-                  fontSize: '10px',
+                  fontSize: 'calc(10px * var(--pos-font-scale, 1))',
                   color: 'var(--fnb-text-muted)',
                 }}
               >
@@ -148,7 +148,7 @@ export function StationMessages({ stationName: _stationName, messages, onDismiss
             <p
               style={{
                 margin: 0,
-                fontSize: '13px',
+                fontSize: 'calc(13px * var(--pos-font-scale, 1))',
                 color: 'var(--fnb-text-primary)',
                 lineHeight: '1.4',
               }}
@@ -202,7 +202,7 @@ export function StationMessageToggle({ isOpen, onClick, onToggle, unreadCount = 
           background: isOpen ? 'rgba(245, 158, 11, 0.15)' : 'var(--fnb-bg-elevated)',
           color: isOpen ? 'rgb(245, 158, 11)' : 'var(--fnb-text-secondary)',
           cursor: 'pointer',
-          fontSize: '12px',
+          fontSize: 'calc(12px * var(--pos-font-scale, 1))',
           fontWeight: 500,
           transition: 'all 0.15s ease',
         }}
@@ -222,7 +222,7 @@ export function StationMessageToggle({ isOpen, onClick, onToggle, unreadCount = 
             borderRadius: '9px',
             background: 'rgb(245, 158, 11)',
             color: '#000',
-            fontSize: '10px',
+            fontSize: 'calc(10px * var(--pos-font-scale, 1))',
             fontWeight: 700,
             display: 'flex',
             alignItems: 'center',
@@ -282,7 +282,7 @@ export function StationMessagePanel({ stationName, isOpen, onSendMessage, onClos
       >
         <span
           style={{
-            fontSize: '11px',
+            fontSize: 'calc(11px * var(--pos-font-scale, 1))',
             fontWeight: 600,
             color: 'var(--fnb-text-muted)',
             textTransform: 'uppercase',
@@ -331,7 +331,7 @@ export function StationMessagePanel({ stationName, isOpen, onSendMessage, onClos
               border: '1px solid rgba(255,255,255,0.12)',
               background: 'var(--fnb-bg-elevated)',
               color: 'var(--fnb-text-secondary)',
-              fontSize: '12px',
+              fontSize: 'calc(12px * var(--pos-font-scale, 1))',
               fontWeight: 500,
               cursor: 'pointer',
               transition: 'all 0.12s ease, transform 0.1s',
@@ -388,7 +388,7 @@ export function StationMessagePanel({ stationName, isOpen, onSendMessage, onClos
             border: '1px solid rgba(255,255,255,0.12)',
             background: 'var(--fnb-bg-elevated)',
             color: 'var(--fnb-text-primary)',
-            fontSize: '13px',
+            fontSize: 'calc(13px * var(--pos-font-scale, 1))',
             outline: 'none',
           }}
         />

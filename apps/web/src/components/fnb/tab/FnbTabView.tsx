@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { ChevronLeft, Users, ShoppingCart, QrCode, Copy, XCircle, Sparkles, Hand, UtensilsCrossed, LayoutGrid, Repeat } from 'lucide-react';
 
 import { formatCents } from '@oppsera/shared';
@@ -85,6 +86,7 @@ import { useFnbMenu } from '@/hooks/use-fnb-menu';
 import { useFnbGuestPay } from '@/hooks/use-fnb-guest-pay';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { apiFetch } from '@/lib/api-client';
+import { startPrepareCheck } from '@/lib/prepare-check-cache';
 import { TabHeader } from './TabHeader';
 import { TableContextCard } from './TableContextCard';
 import { SeatRail } from './SeatRail';
@@ -234,27 +236,50 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   // 1. Zustand activeLocationId (set by FnbFloorView when user picks a room)
   // 2. Terminal session location (usePosLocation — set at POS login)
   // 3. locations[0] is NEVER used directly — it's unordered for multi-location tenants
-  const activeLocationId = useFnbPosStore((s) => s.activeLocationId);
+  // ── Store state (shallow-compared — only re-renders when these fields change) ──
+  const {
+    activeLocationId, activeTabId: tabId, activeSeatNumber: activeSeat,
+    activeCourseNumber: activeCourse, courseNames, currentScreen, menuMode, leftHandMode,
+    draftLinesMap,
+  } = useFnbPosStore(useShallow((s) => ({
+    activeLocationId: s.activeLocationId,
+    activeTabId: s.activeTabId,
+    activeSeatNumber: s.activeSeatNumber,
+    activeCourseNumber: s.activeCourseNumber,
+    courseNames: s.courseNames,
+    currentScreen: s.currentScreen,
+    menuMode: s.menuMode,
+    leftHandMode: s.leftHandMode,
+    draftLinesMap: s.draftLines,
+  })));
+  const isTabScreen = currentScreen === 'tab';
   const preTabLocationId = activeLocationId ?? posLocationId;
   const [showKdsNotConfigured, setShowKdsNotConfigured] = useState(false);
-  const store = useFnbPosStore();
-  const tabId = store.activeTabId;
-  const activeSeat = store.activeSeatNumber;
-  const activeCourse = store.activeCourseNumber;
-  const courseNames = store.courseNames;
-  const isTabScreen = store.currentScreen === 'tab';
-  const menuMode = store.menuMode;
-  const leftHandMode = store.leftHandMode;
 
-  // ── Stable action selectors ──────────────────────────────────
-  // Avoid depending on the full `store` object in effects/callbacks.
-  const setActiveTab = useFnbPosStore((s) => s.setActiveTab);
-  const navigateTo = useFnbPosStore((s) => s.navigateTo);
-  const goBack = useFnbPosStore((s) => s.goBack);
-  const setMenuMode = useFnbPosStore((s) => s.setMenuMode);
-  const addDraftLine = useFnbPosStore((s) => s.addDraftLine);
-  const repeatLastItem = useFnbPosStore((s) => s.repeatLastItem);
-  const getEffectiveCourseForItem = useFnbPosStore((s) => s.getEffectiveCourseForItem);
+  // ── Store actions (stable refs — never trigger re-renders) ──
+  const {
+    setActiveTab, navigateTo, goBack, setMenuMode,
+    addDraftLine, updateDraftLine, repeatLastItem, getEffectiveCourseForItem,
+    setSeat, setCourse, getDraftLines, toggleLeftHandMode,
+    removeDraftLine, clearDraft, initSplit, updateDraftLineSeatCourse,
+  } = useFnbPosStore(useShallow((s) => ({
+    setActiveTab: s.setActiveTab,
+    navigateTo: s.navigateTo,
+    goBack: s.goBack,
+    setMenuMode: s.setMenuMode,
+    addDraftLine: s.addDraftLine,
+    updateDraftLine: s.updateDraftLine,
+    repeatLastItem: s.repeatLastItem,
+    getEffectiveCourseForItem: s.getEffectiveCourseForItem,
+    setSeat: s.setSeat,
+    setCourse: s.setCourse,
+    getDraftLines: s.getDraftLines,
+    toggleLeftHandMode: s.toggleLeftHandMode,
+    removeDraftLine: s.removeDraftLine,
+    clearDraft: s.clearDraft,
+    initSplit: s.initSplit,
+    updateDraftLineSeatCourse: s.updateDraftLineSeatCourse,
+  })));
   const isHandheld = useIsHandheld();
   const [handheldPanel, setHandheldPanel] = useState<HandheldPanel>('menu');
 
@@ -307,6 +332,13 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
 
   const menu = useFnbMenu({ isActive });
 
+  // Memoized item lookup — O(1) instead of O(n) linear scans
+  const menuItemById = useMemo(() => {
+    const map = new Map<string, (typeof menu.items)[number]>();
+    for (const item of menu.items) map.set(item.id, item);
+    return map;
+  }, [menu.items]);
+
   const [toastMsg, setToastMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   // Persistent KDS failure banner — doesn't auto-dismiss so the user can't miss it
   const [kdsSendError, setKdsSendError] = useState<string | null>(null);
@@ -340,7 +372,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     },
   });
 
-  const draftLines = tabId ? (store.draftLines[tabId] ?? []) : [];
+  const draftLines = tabId ? (draftLinesMap[tabId] ?? []) : [];
 
   // ── Persist client-side draft items for a specific course ──────
   // Drafts live in zustand until this is called. Without it, server-side
@@ -352,6 +384,9 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     if (!tabId) return;
     const courseDrafts = draftLines.filter((d) => d.courseNumber === courseNumber);
     if (courseDrafts.length === 0) return;
+    // skipRefetch=true: the server-side sendCourse reads items from DB directly,
+    // so we don't need to refresh the client tab state between persist and dispatch.
+    // The caller's single refreshTab() at the end of the flow handles UI sync.
     await addItems(courseDrafts.map((d) => ({
       catalogItemId: d.catalogItemId,
       catalogItemName: d.catalogItemName,
@@ -361,15 +396,12 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       courseNumber: d.courseNumber,
       modifiers: d.modifiers,
       specialInstructions: d.specialInstructions,
-    })));
+    })), true);
     // Remove only the persisted drafts — other courses' drafts stay
     for (const d of courseDrafts) {
-      store.removeDraftLine(tabId, d.localId);
+      removeDraftLine(tabId, d.localId);
     }
-    // Refresh tab to confirm items are now in the DB before dispatch.
-    // Without this, sendCourse/fireCourse could still read stale state.
-    await refreshTab();
-  }, [tabId, draftLines, addItems, store, refreshTab]);
+  }, [tabId, draftLines, addItems, removeDraftLine]);
 
   // Wrap sendCourse to surface KDS warnings + cross-location alerts as persistent banner
   const sendCourseWithWarning = useCallback(async (courseNumber: number) => {
@@ -393,8 +425,11 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to send course';
       setKdsSendError(msg);
+    } finally {
+      // Single refresh at end of flow — replaces per-step refreshes
+      await refreshTab();
     }
-  }, [sendCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName, isChildVenueOf]);
+  }, [sendCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName, isChildVenueOf, refreshTab]);
 
   // Wrap fireCourse to persist drafts first + surface KDS warnings (same pattern as sendCourseWithWarning)
   const fireCourseWithWarning = useCallback(async (courseNumber: number) => {
@@ -418,8 +453,11 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to fire course';
       setKdsSendError(msg);
+    } finally {
+      // Single refresh at end of flow — replaces per-step refreshes
+      await refreshTab();
     }
-  }, [fireCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName, isChildVenueOf]);
+  }, [fireCourse, persistDraftsForCourse, kdsLocationId, resolveLocationName, isChildVenueOf, refreshTab]);
 
   // ── Modifier drawer state ──────────────────────────────────────
   const [modifierDrawerOpen, setModifierDrawerOpen] = useState(false);
@@ -449,6 +487,13 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
         isDefaultOption?: boolean;
       }>;
     }>;
+    allowedFractions?: number[];
+    /** Edit mode: the localId of the draft line being edited */
+    editDraftLocalId?: string;
+    editInitialSelected?: Map<string, Set<string>>;
+    editInitialNotes?: string;
+    editInitialQty?: number;
+    editInitialInstructions?: Record<string, 'none' | 'extra' | 'on_side' | null>;
   } | null>(null);
 
   const handleBack = useCallback(() => {
@@ -529,8 +574,8 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
           courseNumber: d.courseNumber,
           modifiers: d.modifiers,
           specialInstructions: d.specialInstructions,
-        })));
-        store.clearDraft(tabId);
+        })), true); // skipRefetch — single refresh at end of bulk flow
+        clearDraft(tabId);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to save items';
         setKdsSendError(msg);
@@ -564,6 +609,9 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       setKdsSendError(null);
     }
 
+    // Single refresh at end of bulk flow — replaces per-step refreshes
+    await refreshTab();
+
     // 3. Auto-advance active course so new items go to a fresh unsent course.
     // After sending, the next item added should go to a new course — not back
     // into an already-sent course. Use nextNewCourse if drafts were redirected,
@@ -572,7 +620,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       const highestSent = Math.max(...courseNumbersToSend);
       // If redirected drafts used nextNewCourse, advance past it
       const advanceTo = Math.max(highestSent, nextNewCourse) + 1;
-      store.setCourse(advanceTo);
+      setCourse(advanceTo);
     }
   };
 
@@ -591,6 +639,8 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     // otherwise the payment screen won't find items on the tab.
     if (draftLines.length > 0) {
       try {
+        // skipRefetch=true — we're navigating to payment immediately;
+        // FnbPaymentView's own useFnbTab will fetch fresh data on mount.
         await addItems(draftLines.map((d) => ({
           catalogItemId: d.catalogItemId,
           catalogItemName: d.catalogItemName,
@@ -600,21 +650,24 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
           courseNumber: d.courseNumber,
           modifiers: d.modifiers,
           specialInstructions: d.specialInstructions,
-        })));
-        store.clearDraft(tabId);
-        // Refresh tab so payment screen sees persisted items
-        await refreshTab();
+        })), true);
+        clearDraft(tabId);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to save items';
         setKdsSendError(msg);
         return;
       }
     }
-    store.navigateTo('payment');
+    // Pre-warm prepare-check before navigating — FnbPaymentView picks up
+    // the in-flight promise on mount, eliminating the tab-fetch→effect waterfall.
+    if (kdsLocationId) {
+      startPrepareCheck(tabId, kdsLocationId);
+    }
+    navigateTo('payment');
   };
 
   const handleSplit = () => {
-    store.initSplit('by_seat', tab?.partySize ?? 2);
+    initSplit('by_seat', tab?.partySize ?? 2);
   };
 
   const handleVoid = () => {
@@ -658,7 +711,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   const handleChangeSeat = useCallback(async (lineId: string, newSeat: number) => {
     // Draft line — update store locally, no API call
     if (tabId && lineId.startsWith('draft-')) {
-      store.updateDraftLineSeatCourse(tabId, lineId, newSeat, undefined);
+      updateDraftLineSeatCourse(tabId, lineId, newSeat, undefined);
       showToast('success', `Moved to Seat ${newSeat}`);
       return;
     }
@@ -688,13 +741,13 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       }
       showToast('error', 'Failed to move item — it may have already been sent');
     }
-  }, [tabId, tab, store, moveLineSeatCourse, requestOverride, showToast]);
+  }, [tabId, tab, updateDraftLineSeatCourse, moveLineSeatCourse, requestOverride, showToast]);
 
   const handleChangeCourse = useCallback(async (lineId: string, newCourse: number) => {
     const courseName = courseNames[newCourse - 1] ?? `Course ${newCourse}`;
     // Draft line — update store locally, no API call
     if (tabId && lineId.startsWith('draft-')) {
-      store.updateDraftLineSeatCourse(tabId, lineId, undefined, newCourse);
+      updateDraftLineSeatCourse(tabId, lineId, undefined, newCourse);
       showToast('success', `Moved to ${courseName}`);
       return;
     }
@@ -724,7 +777,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       }
       showToast('error', 'Failed to move item — it may have already been sent');
     }
-  }, [tabId, tab, store, courseNames, moveLineSeatCourse, requestOverride, showToast]);
+  }, [tabId, tab, updateDraftLineSeatCourse, courseNames, moveLineSeatCourse, requestOverride, showToast]);
 
   const handlePrintCheck = useCallback(async () => {
     if (!tabId || !tab) return;
@@ -753,18 +806,18 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   }, [tabId, tab, guestPay]);
 
   const handleSelectSeat = (seatNumber: number) => {
-    store.setSeat(seatNumber);
+    setSeat(seatNumber);
   };
 
   const handleAddSeat = async () => {
     const currentCount = tab?.partySize ?? 1;
     const newCount = currentCount + 1;
     await updatePartySize(newCount);
-    store.setSeat(newCount);
+    setSeat(newCount);
   };
 
   const handleSelectCourse = (courseNumber: number) => {
-    store.setCourse(courseNumber);
+    setCourse(courseNumber);
   };
 
   const handleSelectMenuMode = useCallback((mode: 'all_items' | 'hot_sellers' | 'tools') => {
@@ -779,16 +832,21 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     // Record to recents for Favorites tab
     recordRecentItem({ id: itemId, name: itemName, priceCents, itemType });
 
-    // Check if item has modifier groups
+    // Check if item has modifier groups or fractions
     const groups = menu.getModifierGroupsForItem(itemId);
-    if (groups.length > 0) {
+    const menuItem = menuItemById.get(itemId);
+    const meta = menuItem?.metadata as Record<string, unknown> | null;
+    const allowedFractions = (meta?.allowedFractions as number[] | undefined) ?? undefined;
+    const hasFractions = allowedFractions && allowedFractions.length > 1;
+
+    if (groups.length > 0 || hasFractions) {
       // Open modifier drawer (slides up from bottom)
-      setModifierDrawerItem({ id: itemId, name: itemName, priceCents, itemType, groups });
+      setModifierDrawerItem({ id: itemId, name: itemName, priceCents, itemType, groups, allowedFractions });
       setModifierDrawerOpen(true);
       return;
     }
 
-    // No modifiers — add directly to cart
+    // No modifiers or fractions — add directly to cart
     addDraftLine(tabId, {
       localId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       catalogItemId: itemId,
@@ -802,42 +860,99 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
       courseNumber: getEffectiveCourseForItem(itemId),
       addedAt: Date.now(),
     });
-  }, [tabId, tab, addDraftLine, getEffectiveCourseForItem, activeSeat, activeCourse, menu]);
+  }, [tabId, tab, addDraftLine, getEffectiveCourseForItem, activeSeat, activeCourse, menu, menuItemById]);
 
-  // Modifier drawer confirm handler — adds item with selected modifiers to cart
+  // Modifier drawer confirm handler — adds or updates item with selected modifiers
   const handleModifierConfirm = useCallback((
     selectedModifiers: { groupId: string; optionId: string; name: string; priceCents: number; instruction?: 'none' | 'extra' | 'on_side' | null; kitchenLabel?: string | null }[],
     qty: number,
     notes: string,
   ) => {
     if (!tabId || !modifierDrawerItem) return;
-    addDraftLine(tabId, {
-      localId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      catalogItemId: modifierDrawerItem.id,
-      catalogItemName: modifierDrawerItem.name,
-      unitPriceCents: modifierDrawerItem.priceCents,
-      qty,
-      itemType: modifierDrawerItem.itemType,
-      seatNumber: activeSeat || 1,
-      modifiers: selectedModifiers.map((m) => ({
-        modifierId: m.optionId,
-        modifierGroupId: m.groupId,
-        name: m.name,
-        priceAdjustment: m.priceCents,
-        instruction: m.instruction ?? null,
-      })),
-      specialInstructions: notes || null,
-      courseNumber: getEffectiveCourseForItem(modifierDrawerItem.id),
-      addedAt: Date.now(),
-    });
+
+    const modifiers = selectedModifiers.map((m) => ({
+      modifierId: m.optionId,
+      modifierGroupId: m.groupId,
+      name: m.name,
+      priceAdjustment: m.priceCents,
+      instruction: m.instruction ?? null,
+    }));
+
+    if (modifierDrawerItem.editDraftLocalId) {
+      // Edit mode — update existing draft line
+      updateDraftLine(tabId, modifierDrawerItem.editDraftLocalId, {
+        qty,
+        modifiers,
+        specialInstructions: notes || null,
+      });
+    } else {
+      // Add mode — create new draft line
+      addDraftLine(tabId, {
+        localId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        catalogItemId: modifierDrawerItem.id,
+        catalogItemName: modifierDrawerItem.name,
+        unitPriceCents: modifierDrawerItem.priceCents,
+        qty,
+        itemType: modifierDrawerItem.itemType,
+        seatNumber: activeSeat || 1,
+        modifiers,
+        specialInstructions: notes || null,
+        courseNumber: getEffectiveCourseForItem(modifierDrawerItem.id),
+        addedAt: Date.now(),
+      });
+    }
     setModifierDrawerItem(null);
-  }, [tabId, modifierDrawerItem, addDraftLine, getEffectiveCourseForItem, activeSeat, activeCourse]);
+  }, [tabId, modifierDrawerItem, addDraftLine, updateDraftLine, getEffectiveCourseForItem, activeSeat, activeCourse]);
 
   // Repeat last item handler
   const handleRepeatLast = useCallback(() => {
     if (!tabId) return;
     repeatLastItem(tabId);
   }, [tabId, repeatLastItem]);
+
+  // Edit draft line — opens modifier drawer in edit mode with pre-populated selections
+  const handleEditDraftModifiers = useCallback((localId: string) => {
+    if (!tabId) return;
+    const draftLines = getDraftLines(tabId);
+    const draft = draftLines.find((d) => d.localId === localId);
+    if (!draft) return;
+
+    // Look up the item from menu to get modifier groups and metadata
+    const menuItem = menuItemById.get(draft.catalogItemId);
+    const groups = menu.getModifierGroupsForItem(draft.catalogItemId);
+    const meta = menuItem?.metadata as Record<string, unknown> | null;
+    const allowedFractions = (meta?.allowedFractions as number[] | undefined) ?? undefined;
+
+    // Reconstruct modifier selections from draft
+    const initialSelected = new Map<string, Set<string>>();
+    const initialInstructions: Record<string, 'none' | 'extra' | 'on_side' | null> = {};
+    for (const m of draft.modifiers) {
+      const groupId = m.modifierGroupId ?? '';
+      if (groupId) {
+        const existing = initialSelected.get(groupId) ?? new Set();
+        existing.add(m.modifierId);
+        initialSelected.set(groupId, existing);
+      }
+      if (m.instruction) {
+        initialInstructions[m.modifierId] = m.instruction;
+      }
+    }
+
+    setModifierDrawerItem({
+      id: draft.catalogItemId,
+      name: draft.catalogItemName,
+      priceCents: draft.unitPriceCents,
+      itemType: draft.itemType,
+      groups,
+      allowedFractions,
+      editDraftLocalId: localId,
+      editInitialSelected: initialSelected,
+      editInitialNotes: draft.specialInstructions ?? '',
+      editInitialQty: draft.qty,
+      editInitialInstructions: initialInstructions,
+    });
+    setModifierDrawerOpen(true);
+  }, [tabId, getDraftLines, menuItemById, menu]);
 
   // ── Determine content state ────────────────────────────────────
 
@@ -866,8 +981,17 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   const serverLineCount = (tab?.lines ?? []).length;
   const totalItemCount = serverLineCount + draftLines.length;
 
-  // Compute totals
-  const subtotalCents = tab?.runningTotalCents ?? 0;
+  // Compute totals — server lines + unsent draft lines
+  const serverSubtotalCents = tab?.runningTotalCents ?? 0;
+  const draftSubtotalCents = draftLines.reduce(
+    (sum, d) => {
+      const modAdj = d.modifiers?.reduce((s: number, m: { priceAdjustment?: number }) => s + (m.priceAdjustment ?? 0), 0) ?? 0;
+      const lineCents = ((d.unitPriceCents || 0) + modAdj) * (d.qty || 0);
+      return sum + (Number.isFinite(lineCents) ? lineCents : 0);
+    },
+    0,
+  );
+  const subtotalCents = serverSubtotalCents + draftSubtotalCents;
   const taxCents = tab?.taxTotalCents ?? 0;
   const totalCents = subtotalCents + taxCents;
 
@@ -907,7 +1031,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   if (menu.error) {
     return (
       <div className="flex h-full flex-col" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
-        <TabHeader tab={tab} onBack={handleBack} />
+        <TabHeader tab={tab} onBack={handleBack} displayTotalCents={subtotalCents} />
         <FnbMenuError error={menu.error} onRetry={() => menu.refresh()} />
       </div>
     );
@@ -918,7 +1042,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
   if (isHandheld) {
     return (
       <div className="flex h-full flex-col" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
-        <TabHeader tab={tab} onBack={handleBack} />
+        <TabHeader tab={tab} onBack={handleBack} displayTotalCents={subtotalCents} />
         <TableContextCard tab={tab} />
 
         {/* Active panel */}
@@ -972,6 +1096,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
                 onCompLine={handleCompLine}
                 onChangeSeat={handleChangeSeat}
                 onChangeCourse={handleChangeCourse}
+                onEditDraftModifiers={handleEditDraftModifiers}
                 seatCount={tab.partySize ?? 1}
               />
 
@@ -1031,6 +1156,12 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
             itemPriceCents={modifierDrawerItem.priceCents}
             modifierGroups={modifierDrawerItem.groups}
             onConfirm={handleModifierConfirm}
+            allowedFractions={modifierDrawerItem.allowedFractions}
+            editMode={!!modifierDrawerItem.editDraftLocalId}
+            initialQty={modifierDrawerItem.editInitialQty}
+            initialSelected={modifierDrawerItem.editInitialSelected}
+            initialNotes={modifierDrawerItem.editInitialNotes}
+            initialInstructions={modifierDrawerItem.editInitialInstructions as Record<string, 'none' | 'extra' | 'on_side' | null> | undefined}
           />
         )}
       </div>
@@ -1059,7 +1190,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
     <div className="flex h-full flex-col" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
       {/* ── Full-width tab header ──────────────────────────────────── */}
       <div className="flex items-center">
-        <div className="flex-1"><TabHeader tab={tab} onBack={handleBack} /></div>
+        <div className="flex-1"><TabHeader tab={tab} onBack={handleBack} displayTotalCents={subtotalCents} /></div>
         <div className="pr-3"><ManageTabsButton locationId={kdsLocationId ?? ''} /></div>
       </div>
       <TableContextCard tab={tab} />
@@ -1207,7 +1338,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
               {/* Left-hand mode toggle */}
               <button
                 type="button"
-                onClick={() => store.toggleLeftHandMode()}
+                onClick={() => toggleLeftHandMode()}
                 className="flex items-center justify-center rounded transition-opacity hover:opacity-70"
                 title={leftHandMode ? 'Switch to right-hand mode' : 'Switch to left-hand mode'}
                 style={{ color: leftHandMode ? 'var(--fnb-info)' : 'var(--fnb-text-muted)' }}
@@ -1230,7 +1361,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
               id: l.catalogItemId ?? '',
               name: l.catalogItemName ?? '',
               priceCents: l.unitPriceCents ?? 0,
-              itemType: menu.items.find((m) => m.id === l.catalogItemId)?.itemType ?? 'food',
+              itemType: menuItemById.get(l.catalogItemId ?? '')?.itemType ?? 'food',
             }))}
             onTap={() => {}}
           />
@@ -1257,6 +1388,7 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
             onChangePrice={handleChangePrice}
             onVoidLine={handleVoidLine}
             onCompLine={handleCompLine}
+            onEditDraftModifiers={handleEditDraftModifiers}
           />
 
           {/* Totals bar */}
@@ -1318,6 +1450,12 @@ export function FnbTabView({ userId: _userId, isActive = true, kdsSendEnabled = 
           itemPriceCents={modifierDrawerItem.priceCents}
           modifierGroups={modifierDrawerItem.groups}
           onConfirm={handleModifierConfirm}
+          allowedFractions={modifierDrawerItem.allowedFractions}
+          editMode={!!modifierDrawerItem.editDraftLocalId}
+          initialQty={modifierDrawerItem.editInitialQty}
+          initialSelected={modifierDrawerItem.editInitialSelected}
+          initialNotes={modifierDrawerItem.editInitialNotes}
+          initialInstructions={modifierDrawerItem.editInitialInstructions as Record<string, 'none' | 'extra' | 'on_side' | null> | undefined}
         />
       )}
 

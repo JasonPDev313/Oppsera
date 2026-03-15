@@ -1,6 +1,6 @@
 # OppsEra — Conventions Index
 
-> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (~13,053 lines, 280 numbered sections).
+> **This is an index.** The full conventions document is at `docs/conventions/CONVENTIONS_FULL.md` (~13,089 lines, 288 numbered sections).
 > Read only the sections you need by line range. Do NOT load the entire file into context.
 
 ---
@@ -344,7 +344,7 @@
 | §246 | Emergency Cleanup Payment Verification | 12339–12356 | Verify SUM(tenders) >= total, location-scoped locks |
 | §247 | Help Tip Pattern | 12357–12395 | Portal-mounted `?` popover, placement props, first-visit auto-open, 3-cycle pulse |
 
-### Domain Patterns (§248–§280) — Updated 2026-03-15
+### Domain Patterns (§248–§288) — Updated 2026-03-15
 
 | § | Section | Lines | Key Topics |
 |---|---------|-------|------------|
@@ -381,6 +381,14 @@
 | §278 | Pre-Transaction Provider Resolution | 13043–13046 | Resolve payment provider before opening DB transaction, fail fast outside transaction |
 | §279 | withEffectiveLocationId for KDS Commands | 13047–13050 | KDS commands use withEffectiveLocationId helper, never raw locationId from request |
 | §280 | NaN Guard Before Order DB Writes | 13051–13053 | Validate all numeric fields for NaN before writing order rows, structured error response |
+| §281 | Cross-Screen Pre-Warm Cache | 13055–13057 | Promise sharing across navigation, consume-on-read, TTL, clearCache on error |
+| §282 | Zustand Store Subscription — useShallow | 13059–13065 | useShallow for multi-field selectors, state vs action split, referential equality |
+| §283 | FnB Reporting Event Coverage — TAB_CLOSED | 13067–13069 | TAB_CLOSED on all payment paths, bulk close per-tab events, reporting consumer dependency |
+| §284 | Cross-Module Read in Event Consumer | 13071–13073 | Reporting consumer raw SQL reads, COALESCE upsert, idempotent ON CONFLICT, cents boundary |
+| §285 | POS Role Guard and In-Session Role Switch | 13075–13077 | roleId gate before terminal fetch, canContinue requires all auth fields, server-confirm role switch |
+| §286 | Stable Idempotency Keys | 13079–13081 | No Date.now() or random in keys, deterministic from input, sorted line IDs |
+| §287 | Weighted Aggregation for Date-Range Queries | 13083–13085 | Weighted average, NULLIF division-by-zero, volume-aware aggregation |
+| §288 | FOR UPDATE Lock for Count-Limited Transitions | 13087–13089 | Row lock before count query, same-transaction check, prevents concurrent limit overshoot |
 
 ---
 
@@ -391,14 +399,14 @@
 | **Money (dollars vs cents)** | §21, §76, §183, §231, §260 |
 | **Dark mode** | §15, §145, §172 |
 | **GL / Accounting** | §76–§80, §84, §114, §117–§118, §149, §177, §183, §185, §187–§188, §195–§197, §201–§203, §220, §238–§239, §249–§250, §254 |
-| **POS** | §31–§35, §57, §61–§64, §132a, §140–§141, §164, §169, §196, §228 |
-| **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227, §240, §243, §246, §248, §274, §275 |
+| **POS** | §31–§35, §57, §61–§64, §132a, §140–§141, §164, §169, §196, §228, §285 |
+| **F&B** | §28, §85–§86, §93, §98a, §99–§103, §108, §113, §120, §148, §150, §176, §181–§182, §215–§216, §222, §227, §240, §243, §246, §248, §274, §275, §281, §283, §287 |
 | **Vercel / Serverless** | §47, §81, §157, §161, §205–§206, §232, §255 |
-| **Database / Schema** | §2, §18, §29–§30, §36, §47, §139, §179, §225, §241–§244, §266–§267 |
+| **Database / Schema** | §2, §18, §29–§30, §36, §47, §139, §179, §225, §241–§244, §266–§267, §288 |
 | **Auth / Security** | §3, §13–§14, §38, §51, §67, §81, §119, §137, §207–§208, §223, §233, §242 |
-| **Events / Consumers** | §9, §26, §104, §159, §186, §202, §231, §232 |
+| **Events / Consumers** | §9, §26, §104, §159, §186, §202, §231, §232, §283, §284 |
 | **Testing** | §11, §204 |
-| **Reporting / Read Models** | §52, §56, §111, §153, §175, §231 |
+| **Reporting / Read Models** | §52, §56, §111, §153, §175, §231, §284, §287 |
 | **Semantic / AI** | §65–§72, §74, §121, §123, §127, §160, §178, §189–§194, §200, §217, §259, §262–§265, §268–§272 |
 | **PMS** | §122, §126, §166, §214, §219 |
 | **Settings / Config** | §90, §95, §110, §112, §115–§116, §130, §134b, §135b, §136, §142, §149, §155–§156, §165 |
@@ -406,11 +414,11 @@
 | **Customer / Tags** | §39, §44, §125, §199, §237 |
 | **Admin Portal** | §73, §88, §91–§92, §119, §131a, §147, §180, §218, §229–§230, §251 |
 | **Onboarding** | §42, §112, §144 |
-| **Payments / Tenders** | §35, §64, §96, §101–§102, §128, §140, §198, §239, §252, §276–§278 |
+| **Payments / Tenders** | §35, §64, §96, §101–§102, §128, §140, §198, §239, §252, §276–§278, §286 |
 | **Infrastructure / Cron** | §47–§49, §83, §157, §161–§162, §167, §206, §226, §254 |
-| **Frontend Patterns** | §15, §57, §228, §234–§237, §245, §247, §258 |
+| **Frontend Patterns** | §15, §57, §228, §234–§237, §245, §247, §258, §281, §282 |
 | **A11y / Accessibility** | §154, §174, §236 |
-| **KDS** | §176, §181, §222, §235, §240, §243, §253, §255–§258, §261, §279 |
+| **KDS** | §176, §181, §222, §235, §240, §243, §253, §255–§258, §261, §279, §286 |
 
 ---
 
@@ -418,8 +426,8 @@
 
 - **Duplicate section numbers**: §98, §131–§135 each appear twice in the file (legacy numbering). Disambiguated as `a`/`b` suffixes above.
 - **Unnumbered sections**: "Local Server Fix (Windows)" at line 7246 (between §127 and §128), and "Answer"/"Metrics in This Query" subsections within §74 at lines 4571–4652.
-- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~13,053 lines, 280 numbered sections)
-- **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (581 numbered gotchas)
+- **Full document**: `docs/conventions/CONVENTIONS_FULL.md` (~13,089 lines, 288 numbered sections)
+- **Full gotchas reference**: `docs/conventions/gotchas-reference.md` (596 numbered gotchas)
 - **What's Built / What's Next**: `docs/conventions/whats-built.md`
 
 ## Line Range Accuracy

@@ -8,6 +8,7 @@ import {
   Send,
   CheckCircle2,
   ChevronRight,
+  ChevronDown,
   Bug,
   Sparkles,
   Zap,
@@ -611,7 +612,16 @@ export function FeatureRequestWidget() {
               : 'Share Your Idea'}
           </h2>
         </div>
-        {step !== 'type' && (
+        {step === 'type' ? (
+          <button
+            type="button"
+            onClick={() => setWidgetState('collapsed')}
+            className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Collapse"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
+        ) : (
           <button
             type="button"
             onClick={handleClose}

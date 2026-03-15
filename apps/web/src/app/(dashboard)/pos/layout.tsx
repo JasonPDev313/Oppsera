@@ -17,6 +17,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { usePosLocation } from '@/hooks/use-pos-location';
 import { POSErrorBoundary } from '@/components/pos/pos-error-boundary';
 import { ConnectionIndicator } from '@/components/pos/shared/ConnectionIndicator';
+import { RoleSwitcher } from '@/components/pos/shared/RoleSwitcher';
 import { usePOSDisplaySize } from '@/hooks/use-pos-display-size';
 import type { POSDisplaySize } from '@/hooks/use-pos-display-size';
 import '@/styles/fnb-design-tokens.css';
@@ -332,6 +333,12 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
               {displayName}
             </span>
           </div>
+
+          {/* Divider */}
+          <div className="h-5 w-px" style={{ backgroundColor: 'var(--pos-border)' }} />
+
+          {/* Role Switcher */}
+          <RoleSwitcher />
         </div>
 
         {/* Right: Connection + Exit */}

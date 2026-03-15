@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Edit, Power, RotateCcw, History } from 'lucide-react';
+import { ArrowLeft, Edit, Power, RotateCcw, History, GripVertical } from 'lucide-react';
 import { ItemChangeLogModal } from '@/components/catalog/ItemChangeLogModal';
 import { StockSection } from '@/components/catalog/stock-section';
 import { Badge } from '@/components/ui/badge';
@@ -287,11 +287,98 @@ export default function ItemDetailPage() {
     isLoading: modAssignmentsLoading,
     mutate: refetchModAssignments,
   } = useItemModifierAssignments(itemId);
-  const { updateAssignment, removeAssignment, addAssignment, isLoading: modMutating } =
+  const { updateAssignment, removeAssignment, addAssignment, reorderAssignments, isLoading: modMutating } =
     useItemModifierAssignmentMutations(itemId);
 
   const [showAddModGroup, setShowAddModGroup] = useState(false);
   const [addModGroupId, setAddModGroupId] = useState('');
+
+  // Drag-to-reorder state
+  const dragItemRef = useRef<string | null>(null);
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+  // Optimistic order — null means use server order
+  const [optimisticOrder, setOptimisticOrder] = useState<string[] | null>(null);
+
+  const serverSortedAssignments = useMemo(
+    () => [...modAssignments].sort((a, b) => a.promptOrder - b.promptOrder
+      || a.modifierGroupId.localeCompare(b.modifierGroupId)),
+    [modAssignments],
+  );
+
+  // Apply optimistic ordering if active, otherwise use server order
+  const sortedAssignments = useMemo(() => {
+    if (!optimisticOrder) return serverSortedAssignments;
+    const map = new Map(serverSortedAssignments.map((a) => [a.modifierGroupId, a]));
+    return optimisticOrder
+      .map((id) => map.get(id))
+      .filter(Boolean) as typeof serverSortedAssignments;
+  }, [optimisticOrder, serverSortedAssignments]);
+
+  const persistReorder = useCallback(async (newOrder: string[]) => {
+    setOptimisticOrder(newOrder);
+    setReordering(true);
+    try {
+      await reorderAssignments(newOrder);
+      await refetchModAssignments();
+    } catch {
+      toast.error('Failed to reorder modifier groups');
+      setOptimisticOrder(null); // Revert to server order
+    } finally {
+      setReordering(false);
+      // Clear optimistic state after refetch settles
+      setTimeout(() => setOptimisticOrder(null), 300);
+    }
+  }, [reorderAssignments, refetchModAssignments, toast]);
+
+  const handleDragStart = useCallback((groupId: string) => {
+    dragItemRef.current = groupId;
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, groupId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverGroupId(groupId);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverGroupId(null);
+  }, []);
+
+  const handleDrop = useCallback(async (targetGroupId: string) => {
+    const draggedGroupId = dragItemRef.current;
+    setDragOverGroupId(null);
+    dragItemRef.current = null;
+    if (!draggedGroupId || draggedGroupId === targetGroupId || reordering) return;
+
+    const currentOrder = sortedAssignments.map((a) => a.modifierGroupId);
+    const fromIndex = currentOrder.indexOf(draggedGroupId);
+    const toIndex = currentOrder.indexOf(targetGroupId);
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    currentOrder.splice(fromIndex, 1);
+    currentOrder.splice(toIndex, 0, draggedGroupId);
+
+    await persistReorder(currentOrder);
+  }, [sortedAssignments, reordering, persistReorder]);
+
+  const handleMoveUp = useCallback(async (groupId: string) => {
+    if (reordering) return;
+    const currentOrder = sortedAssignments.map((a) => a.modifierGroupId);
+    const idx = currentOrder.indexOf(groupId);
+    if (idx <= 0) return;
+    [currentOrder[idx - 1], currentOrder[idx]] = [currentOrder[idx]!, currentOrder[idx - 1]!];
+    await persistReorder(currentOrder);
+  }, [sortedAssignments, reordering, persistReorder]);
+
+  const handleMoveDown = useCallback(async (groupId: string) => {
+    if (reordering) return;
+    const currentOrder = sortedAssignments.map((a) => a.modifierGroupId);
+    const idx = currentOrder.indexOf(groupId);
+    if (idx === -1 || idx >= currentOrder.length - 1) return;
+    [currentOrder[idx], currentOrder[idx + 1]] = [currentOrder[idx + 1]!, currentOrder[idx]!];
+    await persistReorder(currentOrder);
+  }, [sortedAssignments, reordering, persistReorder]);
   const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
   const [editOverrides, setEditOverrides] = useState<{
     overrideRequired: boolean | null;
@@ -309,8 +396,10 @@ export default function ItemDetailPage() {
 
   const handleAddModGroup = async () => {
     if (!addModGroupId) return;
+    // Auto-append at end: new group gets promptOrder = max existing + 1
+    const maxPromptOrder = modAssignments.reduce((max, a) => Math.max(max, a.promptOrder), -1);
     try {
-      await addAssignment(addModGroupId);
+      await addAssignment(addModGroupId, { promptOrder: maxPromptOrder + 1 });
       toast.success('Modifier group assigned');
       refetchModAssignments();
       setShowAddModGroup(false);
@@ -681,81 +770,120 @@ export default function ItemDetailPage() {
             No modifier groups assigned. Add groups to enable modifier selection in POS.
           </p>
         ) : (
-          <div className="space-y-3">
-            {modAssignments
-              .sort((a, b) => a.promptOrder - b.promptOrder)
-              .map((assignment) => (
-                <div key={assignment.modifierGroupId} className="rounded-lg border border-border p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">{assignment.groupName}</span>
-                      <Badge variant={
-                        (assignment.overrideRequired ?? assignment.isRequired) ? 'warning' : 'neutral'
-                      }>
-                        {(assignment.overrideRequired ?? assignment.isRequired) ? 'Required' : 'Optional'}
-                      </Badge>
-                      <Badge variant="info">{assignment.selectionType}</Badge>
-                      {(assignment.overrideInstructionMode ?? assignment.instructionMode) !== 'none' && (
-                        <Badge variant="purple">
-                          {assignment.overrideInstructionMode ?? assignment.instructionMode}
-                        </Badge>
-                      )}
-                      {assignment.promptOrder > 0 && (
-                        <span className="text-xs text-muted-foreground">#{assignment.promptOrder}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => startEditAssignment(assignment)}
-                        className="text-xs font-medium text-indigo-600 hover:text-indigo-400"
-                      >
-                        Override
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveModGroup(assignment.modifierGroupId)}
-                        disabled={modMutating}
-                        className="text-xs font-medium text-red-500 hover:text-red-400"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Selection constraints */}
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Selections: {assignment.overrideMinSelections ?? assignment.minSelections}
-                    {(assignment.overrideMaxSelections ?? assignment.maxSelections) > 0
-                      ? ` - ${assignment.overrideMaxSelections ?? assignment.maxSelections}`
-                      : '+'}
-                    {assignment.overrideRequired !== null && (
-                      <span className="ml-2 text-amber-500">(override)</span>
+          <div className="space-y-1">
+            {sortedAssignments.length > 1 && (
+              <p className="mb-2 text-xs text-muted-foreground">
+                Drag or use arrows to reorder how modifier groups are prompted in POS.
+              </p>
+            )}
+            {sortedAssignments.map((assignment, idx) => (
+              <div
+                key={assignment.modifierGroupId}
+                draggable={!reordering}
+                onDragStart={() => handleDragStart(assignment.modifierGroupId)}
+                onDragOver={(e) => handleDragOver(e, assignment.modifierGroupId)}
+                onDragLeave={handleDragLeave}
+                onDrop={() => handleDrop(assignment.modifierGroupId)}
+                onDragEnd={() => { dragItemRef.current = null; setDragOverGroupId(null); }}
+                className={`rounded-lg border p-4 transition-colors ${
+                  dragOverGroupId === assignment.modifierGroupId
+                    ? 'border-indigo-500 bg-indigo-500/10'
+                    : 'border-border'
+                } ${reordering ? 'opacity-70 pointer-events-none' : ''}`}
+                style={{ cursor: reordering ? 'wait' : 'grab' }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="text-xs font-bold text-muted-foreground w-5">{idx + 1}.</span>
+                    {/* Move up/down buttons (keyboard-accessible alternative to drag) */}
+                    {sortedAssignments.length > 1 && (
+                      <div className="flex flex-col -my-1">
+                        <button
+                          type="button"
+                          disabled={idx === 0 || reordering}
+                          onClick={(e) => { e.stopPropagation(); handleMoveUp(assignment.modifierGroupId); }}
+                          className="text-muted-foreground hover:text-foreground disabled:opacity-30 leading-none text-[10px]"
+                          title="Move up"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === sortedAssignments.length - 1 || reordering}
+                          onClick={(e) => { e.stopPropagation(); handleMoveDown(assignment.modifierGroupId); }}
+                          className="text-muted-foreground hover:text-foreground disabled:opacity-30 leading-none text-[10px]"
+                          title="Move down"
+                        >
+                          ▼
+                        </button>
+                      </div>
                     )}
-                  </p>
-
-                  {/* Modifier options */}
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {assignment.modifiers
-                      .sort((a, b) => a.sortOrder - b.sortOrder)
-                      .map((m) => (
-                        <Badge key={m.id} variant={m.isActive ? (m.isDefaultOption ? 'success' : 'neutral') : 'error'}>
-                          {m.kitchenLabel ? `${m.name} [${m.kitchenLabel}]` : m.name}
-                          {Number(m.priceAdjustment) !== 0 && (
-                            <span className="ml-1 text-xs">
-                              (+${Number(m.priceAdjustment).toFixed(2)})
-                            </span>
-                          )}
-                          {m.extraPriceDelta && Number(m.extraPriceDelta) !== 0 && (
-                            <span className="ml-1 text-xs text-amber-500">
-                              extra:+${Number(m.extraPriceDelta).toFixed(2)}
-                            </span>
-                          )}
-                        </Badge>
-                      ))}
+                    <span className="text-sm font-medium text-foreground">{assignment.groupName}</span>
+                    <Badge variant={
+                      (assignment.overrideRequired ?? assignment.isRequired) ? 'warning' : 'neutral'
+                    }>
+                      {(assignment.overrideRequired ?? assignment.isRequired) ? 'Required' : 'Optional'}
+                    </Badge>
+                    <Badge variant="info">{assignment.selectionType}</Badge>
+                    {(assignment.overrideInstructionMode ?? assignment.instructionMode) !== 'none' && (
+                      <Badge variant="purple">
+                        {assignment.overrideInstructionMode ?? assignment.instructionMode}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startEditAssignment(assignment)}
+                      className="text-xs font-medium text-indigo-600 hover:text-indigo-400"
+                    >
+                      Override
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveModGroup(assignment.modifierGroupId)}
+                      disabled={modMutating || reordering}
+                      className="text-xs font-medium text-red-500 hover:text-red-400"
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
-              ))}
+
+                {/* Selection constraints */}
+                <p className="mt-1 ml-11 text-xs text-muted-foreground">
+                  Selections: {assignment.overrideMinSelections ?? assignment.minSelections}
+                  {(assignment.overrideMaxSelections ?? assignment.maxSelections) > 0
+                    ? ` - ${assignment.overrideMaxSelections ?? assignment.maxSelections}`
+                    : '+'}
+                  {assignment.overrideRequired !== null && (
+                    <span className="ml-2 text-amber-500">(override)</span>
+                  )}
+                </p>
+
+                {/* Modifier options preview */}
+                <div className="mt-2 ml-11 flex flex-wrap gap-1.5">
+                  {assignment.modifiers
+                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                    .map((m) => (
+                      <Badge key={m.id} variant={m.isActive ? (m.isDefaultOption ? 'success' : 'neutral') : 'error'}>
+                        {m.kitchenLabel ? `${m.name} [${m.kitchenLabel}]` : m.name}
+                        {Number(m.priceAdjustment) !== 0 && (
+                          <span className="ml-1 text-xs">
+                            (+${Number(m.priceAdjustment).toFixed(2)})
+                          </span>
+                        )}
+                        {m.extraPriceDelta && Number(m.extraPriceDelta) !== 0 && (
+                          <span className="ml-1 text-xs text-amber-500">
+                            extra:+${Number(m.extraPriceDelta).toFixed(2)}
+                          </span>
+                        )}
+                      </Badge>
+                    ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

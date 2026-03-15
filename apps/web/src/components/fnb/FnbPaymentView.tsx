@@ -19,6 +19,7 @@ import type { TenderResult } from './payment/PaymentScreen';
 import { useTokenizerConfig } from '@/hooks/use-tokenizer-config';
 import { ArrowLeft, WifiOff } from 'lucide-react';
 import { ManageTabsButton } from './manage-tabs/ManageTabsButton';
+import { getPreWarmPromise, clearPrepareCheckCache } from '@/lib/prepare-check-cache';
 
 interface FnbPaymentViewProps {
   userId: string;
@@ -55,8 +56,7 @@ function mapTabForReceipt(tab: FnbTabDetail, check: CheckSummary): FnbTabForRece
 
 /** Build an optimistic CheckSummary from tab line data (instant, no server round-trip) */
 function computeOptimisticCheck(tab: FnbTabDetail): CheckSummary {
-  const activeLines = tab.lines.filter((l) => l.status !== 'voided');
-  const subtotalCents = activeLines.reduce((sum, l) => sum + l.extendedPriceCents, 0);
+  const subtotalCents = tab.runningTotalCents ?? 0;
   const taxCents = tab.taxTotalCents ?? 0;
   const totalCents = subtotalCents + taxCents;
   return {
@@ -162,6 +162,10 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     prepareCalledRef.current = stableTabId;
     setCheckError(null);
 
+    // Check for a pre-warm promise started by handlePay before navigation.
+    // If one exists, reuse it instead of making a duplicate POST.
+    const preWarm = getPreWarmPromise(stableTabId);
+
     // Cancel any prior in-flight request
     prepareAbortRef.current?.abort();
     const ac = new AbortController();
@@ -172,15 +176,28 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
     const MAX_RETRIES = 2;
     const attempt = async (retry = 0): Promise<{ orderId: string; check: CheckSummary } | null> => {
       try {
-        const res = await apiFetch<{ data: { orderId: string; check: CheckSummary } }>(
-          `/api/v1/fnb/tabs/${stableTabId}/prepare-check`,
-          { method: 'POST', signal: ac.signal, headers: locationId ? { 'X-Location-Id': locationId } : undefined },
-        );
-        preparedOrderIdRef.current = res.data.orderId;
-        setCheck(res.data.check);
+        // If we have a pre-warmed promise (from handlePay), use it on first attempt
+        let data: { orderId: string; check: CheckSummary };
+        if (retry === 0 && preWarm) {
+          const preWarmResult = await preWarm;
+          if (ac.signal.aborted) return null;
+          if (!preWarmResult) {
+            // Pre-warm failed — fall through to fresh attempt
+            return attempt(1);
+          }
+          data = preWarmResult;
+        } else {
+          const res = await apiFetch<{ data: { orderId: string; check: CheckSummary } }>(
+            `/api/v1/fnb/tabs/${stableTabId}/prepare-check`,
+            { method: 'POST', signal: ac.signal, headers: locationId ? { 'X-Location-Id': locationId } : undefined },
+          );
+          data = res.data;
+        }
+        preparedOrderIdRef.current = data.orderId;
+        setCheck(data.check);
         setCheckError(null);
         refreshTab();
-        return res.data;
+        return data;
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') return null;
         // Don't retry 4xx (client errors) — only transient/server failures
@@ -539,6 +556,7 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
                 prepareCalledRef.current = null;
                 preparePromiseRef.current = null;
                 preparedOrderIdRef.current = null;
+                if (stableTabId) clearPrepareCheckCache(stableTabId);
                 refreshTab();
               }}
               className="rounded-lg px-4 py-2 text-sm font-bold transition-colors hover:opacity-80"

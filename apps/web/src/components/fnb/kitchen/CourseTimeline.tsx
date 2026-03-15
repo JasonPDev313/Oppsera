@@ -72,7 +72,7 @@ export function CourseTimeline({ courses, onFireCourse }: CourseTimelineProps) {
       >
         <span
           style={{
-            fontSize: '10px',
+            fontSize: 'calc(10px * var(--pos-font-scale, 1))',
             fontWeight: 700,
             letterSpacing: '0.08em',
             color: 'var(--fnb-text-muted)',
@@ -83,7 +83,7 @@ export function CourseTimeline({ courses, onFireCourse }: CourseTimelineProps) {
         </span>
         <span
           style={{
-            fontSize: '10px',
+            fontSize: 'calc(10px * var(--pos-font-scale, 1))',
             fontWeight: 600,
             padding: '1px 6px',
             borderRadius: '999px',
@@ -139,7 +139,7 @@ export function CourseTimeline({ courses, onFireCourse }: CourseTimelineProps) {
                 {/* Course name */}
                 <span
                   style={{
-                    fontSize: '11px',
+                    fontSize: 'calc(11px * var(--pos-font-scale, 1))',
                     fontWeight: 600,
                     color: 'var(--fnb-text-primary)',
                     minWidth: 0,
@@ -156,7 +156,7 @@ export function CourseTimeline({ courses, onFireCourse }: CourseTimelineProps) {
                 {course.tableNumber !== null && (
                   <span
                     style={{
-                      fontSize: '10px',
+                      fontSize: 'calc(10px * var(--pos-font-scale, 1))',
                       color: 'var(--fnb-text-muted)',
                       flexShrink: 0,
                     }}
@@ -168,7 +168,7 @@ export function CourseTimeline({ courses, onFireCourse }: CourseTimelineProps) {
                 {/* Item count */}
                 <span
                   style={{
-                    fontSize: '10px',
+                    fontSize: 'calc(10px * var(--pos-font-scale, 1))',
                     color: 'var(--fnb-text-secondary)',
                     flexShrink: 0,
                   }}
@@ -179,7 +179,7 @@ export function CourseTimeline({ courses, onFireCourse }: CourseTimelineProps) {
                 {/* Status badge */}
                 <span
                   style={{
-                    fontSize: '10px',
+                    fontSize: 'calc(10px * var(--pos-font-scale, 1))',
                     fontWeight: 600,
                     letterSpacing: '0.05em',
                     padding: '1px 6px',

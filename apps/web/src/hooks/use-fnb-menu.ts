@@ -269,9 +269,13 @@ async function fetchAndProcessMenu(): Promise<MenuCacheEntry> {
   const eightySixedSet = new Set(catResult.data.eightySixedItemIds ?? []);
   const allergenIdsByItemId = catResult.data.allergenIdsByItemId ?? {};
 
-  // Build item → modifier group IDs lookup
+  // Build item → modifier group IDs lookup (sorted by promptOrder, groupId tiebreaker for stability)
+  const sortedAssignments = [...rawAssignments].sort(
+    (a, b) => (a.promptOrder ?? 0) - (b.promptOrder ?? 0)
+      || a.modifierGroupId.localeCompare(b.modifierGroupId),
+  );
   const itemModGroupMap = new Map<string, string[]>();
-  for (const a of rawAssignments) {
+  for (const a of sortedAssignments) {
     const existing = itemModGroupMap.get(a.catalogItemId) ?? [];
     existing.push(a.modifierGroupId);
     itemModGroupMap.set(a.catalogItemId, existing);

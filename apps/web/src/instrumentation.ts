@@ -256,6 +256,8 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('pms.payment.refunded.v1', accounting.handlePaymentRefundedForAccounting, 'accounting/pms.payment.refunded');
       bus.subscribe('fnb.gl.posting_created.v1', accounting.handleFnbGlPostingForAccounting, 'accounting/fnb.gl.posting_created');
       bus.subscribe('fnb.gl.posting_reversed.v1', accounting.handleFnbGlPostingReversedForAccounting, 'accounting/fnb.gl.posting_reversed');
+      // F&B per-tender GL posting — real-time GL entries on each F&B tender (mirrors retail POS pattern)
+      bus.subscribe('fnb.payment.tender_applied.v1', accounting.handleFnbTenderForAccounting, 'accounting/fnb.payment.tender_applied');
       bus.subscribe('voucher.purchased.v1', accounting.handleVoucherPurchaseForAccounting, 'accounting/voucher.purchased');
       bus.subscribe('voucher.redeemed.v1', accounting.handleVoucherRedemptionForAccounting, 'accounting/voucher.redeemed');
       bus.subscribe('voucher.expired.v1', accounting.handleVoucherExpirationForAccounting, 'accounting/voucher.expired');
@@ -318,6 +320,8 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('voucher.expired.v1', reporting.handleVoucherExpired, 'revenue/voucher.expired');
       bus.subscribe('chargeback.received.v1', reporting.handleChargebackReceived, 'revenue/chargeback.received');
       bus.subscribe('chargeback.resolved.v1', reporting.handleChargebackResolved, 'revenue/chargeback.resolved');
+      // F&B payment completed → rm_revenue_activity + rm_daily_sales + rm_item_sales + rm_customer_activity
+      bus.subscribe('fnb.payment.completed.v1', reporting.handleFnbPaymentCompleted, 'revenue/fnb.payment.completed');
       // F&B tender, guest pay, stored value → reporting read models
       bus.subscribe('fnb.payment.tender_applied.v1', reporting.handleFnbTenderApplied, 'revenue/fnb.payment.tender_applied');
       bus.subscribe('fnb.guestpay.payment_succeeded.v1', reporting.handleGuestPaySucceeded, 'revenue/fnb.guestpay.payment_succeeded');
@@ -709,6 +713,36 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('order.voided.v1', registerTabs.handleTabAutoClearOnVoid, 'register_tabs/order.voided');
     }),
   ]);
+
+  // ── Startup assertion: verify critical revenue events have GL consumers ──
+  // Every revenue-producing event MUST have both a reporting consumer (read model)
+  // AND an accounting consumer (GL entry). Missing either causes the sales-vs-GL
+  // variance bug that went undetected until the 95% divergence incident.
+  if (bus.getSubscriptionCounts) {
+    const CRITICAL_GL_COVERAGE = [
+      // [eventType, requiredConsumerPrefix]
+      ['tender.recorded.v1', 'accounting/'],
+      ['fnb.payment.tender_applied.v1', 'accounting/'],
+      ['fnb.payment.completed.v1', 'revenue/'],
+      ['order.placed.v1', 'revenue/'],
+    ] as const;
+
+    const consumers = bus.getSubscriptionCounts();
+    for (const [eventType, requiredPrefix] of CRITICAL_GL_COVERAGE) {
+      const eventConsumers = bus.getConsumersForEvent?.(eventType) ?? [];
+      const hasRequired = eventConsumers.some((name) => name.startsWith(requiredPrefix));
+      if (!hasRequired) {
+        console.error(
+          `[instrumentation] CRITICAL: Event "${eventType}" is missing a consumer with prefix "${requiredPrefix}". ` +
+          `Registered consumers: [${eventConsumers.join(', ') || 'NONE'}]. ` +
+          `This will cause sales pipeline vs GL variance. Fix immediately.`,
+        );
+      }
+    }
+
+    const totalConsumers = Array.from(consumers.values()).reduce((sum, count) => sum + count, 0);
+    console.log(`[instrumentation] Consumer wiring verified: ${consumers.size} event types, ${totalConsumers} consumers total`);
+  }
 }
 
 // Automatically captures unhandled server-side request errors

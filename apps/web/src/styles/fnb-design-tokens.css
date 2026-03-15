@@ -57,14 +57,14 @@
   --fnb-font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --fnb-font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Fira Code', monospace;
 
-  /* Type scale (optimized for touch readability) */
-  --fnb-text-xs: 0.625rem;              /* 10px — badges, micro labels */
-  --fnb-text-sm: 0.75rem;               /* 12px — modifiers, secondary text */
-  --fnb-text-base: 0.875rem;            /* 14px — body, item names */
-  --fnb-text-lg: 1rem;                  /* 16px — section headers */
-  --fnb-text-xl: 1.25rem;               /* 20px — table numbers */
-  --fnb-text-2xl: 1.5rem;               /* 24px — KDS timers */
-  --fnb-text-3xl: 2rem;                 /* 32px — KDS large display timers */
+  /* Type scale (optimized for touch readability, scaled by POS font selector) */
+  --fnb-text-xs: calc(0.625rem * var(--pos-font-scale, 1));   /* 10px — badges, micro labels */
+  --fnb-text-sm: calc(0.75rem * var(--pos-font-scale, 1));    /* 12px — modifiers, secondary text */
+  --fnb-text-base: calc(0.875rem * var(--pos-font-scale, 1)); /* 14px — body, item names */
+  --fnb-text-lg: calc(1rem * var(--pos-font-scale, 1));       /* 16px — section headers */
+  --fnb-text-xl: calc(1.25rem * var(--pos-font-scale, 1));    /* 20px — table numbers */
+  --fnb-text-2xl: calc(1.5rem * var(--pos-font-scale, 1));    /* 24px — KDS timers */
+  --fnb-text-3xl: calc(2rem * var(--pos-font-scale, 1));      /* 32px — KDS large display timers */
 
   /* Font weights */
   --fnb-font-normal: 400;
@@ -337,6 +337,39 @@
   .kds-bump-lg { height: 80px; font-size: 1.125rem; }
   .kds-seat-badge { width: 28px; height: 28px; font-size: 0.75rem; }
 }
+
+/* ── Font Scale — Tailwind Override ────────────────────────────────── */
+/* Overrides Tailwind v4 text-size theme variables within F&B POS so
+   all text-* utility classes scale with the POS font-size selector.
+   Also covers common arbitrary pixel sizes used across F&B components. */
+
+.fnb-scaled {
+  /* Standard Tailwind v4 text-size theme variables */
+  --text-xs: calc(0.75rem * var(--pos-font-scale, 1));
+  --text-sm: calc(0.875rem * var(--pos-font-scale, 1));
+  --text-base: calc(1rem * var(--pos-font-scale, 1));
+  --text-lg: calc(1.125rem * var(--pos-font-scale, 1));
+  --text-xl: calc(1.25rem * var(--pos-font-scale, 1));
+  --text-2xl: calc(1.5rem * var(--pos-font-scale, 1));
+  --text-3xl: calc(1.875rem * var(--pos-font-scale, 1));
+  --text-4xl: calc(2.25rem * var(--pos-font-scale, 1));
+  --text-5xl: calc(3rem * var(--pos-font-scale, 1));
+}
+
+/* Arbitrary pixel sizes (text-[Npx]) don't use theme variables —
+   must be overridden via class selectors with !important. */
+.fnb-scaled .text-\[8px\]  { font-size: calc(8px * var(--pos-font-scale, 1)) !important; }
+.fnb-scaled .text-\[9px\]  { font-size: calc(9px * var(--pos-font-scale, 1)) !important; }
+.fnb-scaled .text-\[10px\] { font-size: calc(10px * var(--pos-font-scale, 1)) !important; }
+.fnb-scaled .text-\[11px\] { font-size: calc(11px * var(--pos-font-scale, 1)) !important; }
+.fnb-scaled .text-\[12px\] { font-size: calc(12px * var(--pos-font-scale, 1)) !important; }
+.fnb-scaled .text-\[15px\] { font-size: calc(15px * var(--pos-font-scale, 1)) !important; }
+
+/* KDS large display text classes also need scaling */
+.fnb-scaled .kds-text-ticket   { font-size: calc(1rem * var(--pos-font-scale, 1)); }
+.fnb-scaled .kds-text-item     { font-size: calc(1rem * var(--pos-font-scale, 1)); }
+.fnb-scaled .kds-text-modifier { font-size: calc(0.875rem * var(--pos-font-scale, 1)); }
+.fnb-scaled .kds-text-timer    { font-size: calc(2rem * var(--pos-font-scale, 1)); }
 
 /* ── Handheld Adaptations (<640px) ──────────────────────────────────── */
 @media (max-width: 639px) {

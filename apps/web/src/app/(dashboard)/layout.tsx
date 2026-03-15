@@ -21,6 +21,7 @@ import {
   Monitor,
   ChevronRight,
   RefreshCw,
+  Shield,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/components/auth-provider';
@@ -682,6 +683,14 @@ function SidebarContent({
                 <span className="truncate text-xs font-medium text-emerald-400">
                   {terminalSession.terminalName}
                   {terminalSession.terminalNumber != null && ` #${terminalSession.terminalNumber}`}
+                </span>
+              </div>
+            )}
+            {terminalSession.roleName && (
+              <div className="mt-0.5 flex items-center gap-1.5 pl-5">
+                <Shield className="h-3 w-3 shrink-0 text-indigo-400" />
+                <span className="truncate text-xs font-medium text-indigo-400">
+                  {terminalSession.roleName}
                 </span>
               </div>
             )}

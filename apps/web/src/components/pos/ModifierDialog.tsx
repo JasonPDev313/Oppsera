@@ -155,13 +155,14 @@ export function ModifierDialog({
     if (posModifierGroups && itemAssignments) {
       const myAssignments = itemAssignments
         .filter((a) => a.catalogItemId === item.id)
-        .sort((a, b) => a.promptOrder - b.promptOrder);
+        .sort((a, b) => a.promptOrder - b.promptOrder
+          || a.modifierGroupId.localeCompare(b.modifierGroupId));
 
       if (myAssignments.length > 0) {
         return myAssignments
           .map((assignment) => {
             const group = posModifierGroups.find((g) => g.id === assignment.modifierGroupId);
-            if (!group) return null;
+            if (!group || group.options.length === 0) return null;
 
             return {
               id: group.id,
@@ -198,7 +199,7 @@ export function ModifierDialog({
     if (allIds.size === 0) return [];
 
     return adminGroups
-      .filter((g) => allIds.has(g.id))
+      .filter((g) => allIds.has(g.id) && (g.modifiers ?? []).some((m) => m.isActive))
       .sort((a, b) => {
         const aDefault = defaultIds.has(a.id) ? 0 : 1;
         const bDefault = defaultIds.has(b.id) ? 0 : 1;
@@ -345,6 +346,11 @@ export function ModifierDialog({
           return next;
         });
       } else {
+        // Enforce maxSelections — ignore tap if already at limit
+        const group = relevantGroups.find((g) => g.id === groupId);
+        if (group && group.maxSelections > 0 && current.size >= group.maxSelections) {
+          return prev;
+        }
         current.add(modId);
       }
       return { ...prev, [groupId]: current };
@@ -461,12 +467,18 @@ export function ModifierDialog({
           )}
 
           {/* Modifier groups */}
+          {relevantGroups.length === 0 && !allowedFractions && (
+            <p className="text-sm text-muted-foreground">No modifier options available for this item.</p>
+          )}
           {relevantGroups.map((group) => {
             const isSingle = group.selectionType === 'single';
             const activeModifiers = group.modifiers.filter((m) => m.isActive);
+            if (activeModifiers.length === 0) return null; // skip empty groups
             const isMissing = missingRequired.has(group.id);
             const hasInstructions =
               group.instructionMode === 'all' || group.instructionMode === 'per_option';
+            const multiCount = (multiSelections[group.id] ?? new Set()).size;
+            const atMax = !isSingle && group.maxSelections > 0 && multiCount >= group.maxSelections;
 
             return (
               <div key={group.id}>
@@ -480,6 +492,11 @@ export function ModifierDialog({
                     </span>
                   ) : (
                     <span className="ml-1 text-xs font-normal text-muted-foreground">(optional)</span>
+                  )}
+                  {atMax && (
+                    <span className="ml-1 text-xs font-normal text-amber-500">
+                      (max {group.maxSelections} selected)
+                    </span>
                   )}
                 </h4>
 
@@ -502,14 +519,19 @@ export function ModifierDialog({
                         mod.allowNone ||
                         mod.allowExtra ||
                         mod.allowOnSide);
+                    const disabledByMax = atMax && !isSelected;
 
                     return (
                       <div key={mod.id}>
                         <label
-                          className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 transition-colors ${
+                          className={`flex items-center justify-between rounded-lg border px-3 py-2 transition-colors ${
+                            disabledByMax
+                              ? 'cursor-not-allowed border-border opacity-40'
+                              : 'cursor-pointer'
+                          } ${
                             isSelected
                               ? 'border-indigo-500/30 bg-indigo-500/10'
-                              : 'border-border hover:bg-accent'
+                              : disabledByMax ? '' : 'border-border hover:bg-accent'
                           }`}
                         >
                           <div className="flex items-center gap-3">
@@ -517,6 +539,7 @@ export function ModifierDialog({
                               type={isSingle ? 'radio' : 'checkbox'}
                               name={`group-${group.id}`}
                               checked={isSelected}
+                              disabled={disabledByMax}
                               onChange={() =>
                                 isSingle
                                   ? handleSingleSelect(group.id, mod.id)

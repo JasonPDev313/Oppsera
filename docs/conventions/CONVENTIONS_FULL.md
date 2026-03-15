@@ -13051,3 +13051,39 @@ Any KDS command that creates records (tickets, counters, station events) must us
 ## §280 NaN Guard Before Order DB Writes
 
 Any order math that derives integers from catalog data (NUMERIC strings) must guard against NaN before DB writes. A missing or malformed price returns `NaN` from `Number()`, which Drizzle may silently insert as 0 or cause cryptic DB errors. Pattern: `if (Number.isNaN(unitPrice) || Number.isNaN(lineSubtotal)) throw new AppError('CALCULATION_ERROR', ...)`. Also applies to tax calculations.
+
+## §281 Cross-Screen Pre-Warm Cache (Promise Sharing Across Navigation)
+
+When navigating between screens that share an API call (e.g., FnbTabView → FnbPaymentView), fire the request on the source screen before navigation and let the destination consume the in-flight promise. Implementation: a module-scoped `Map<string, { promise, timestamp }>` with consume-on-read semantics (delete the entry when read) and a TTL (30s). The destination calls `getPreWarmPromise(key)` on mount — if present, await it instead of making a new request; if absent (expired or direct navigation), fall back to a fresh fetch. Always call `clearPrepareCheckCache(key)` on error/retry to prevent stale dead promises from being reused. See `apps/web/src/lib/prepare-check-cache.ts`.
+
+## §282 Zustand Store Subscription — useShallow for Multi-Field Selectors
+
+When subscribing to multiple Zustand store fields as a structured object, always use `useShallow` from `zustand/react/shallow`. Without it, the inline object `useFnbPosStore(s => ({ a: s.a, b: s.b }))` creates a new reference on every call, breaking referential equality and causing re-renders on every store mutation. Split subscriptions into two calls: one `useShallow` for state fields (trigger re-renders), one `useShallow` for action refs (stable, should not re-render). Pattern:
+```ts
+const { activeTabId, currentView } = useFnbPosStore(useShallow(s => ({ activeTabId: s.activeTabId, currentView: s.currentView })));
+const { setView, navigateTo } = useFnbPosStore(useShallow(s => ({ setView: s.setView, navigateTo: s.navigateTo })));
+```
+
+## §283 FnB Reporting Event Coverage — TAB_CLOSED on All Payment Paths
+
+Every FnB payment command that closes a tab must emit `fnb.tab.closed.v1` with `serverUserId` and `businessDate`. This includes `payTab`, `completePaymentSession`, `quickCashPayment`, and `bulkCloseTabs`. The reporting module's consumers depend on this event to populate `rm_fnb_server_performance`, `rm_fnb_daypart_sales`, etc. FnB tabs bypass the orders module's `placeOrder` command, so `order.placed.v1` never fires — `fnb.tab.closed.v1` is the only signal. For `bulkCloseTabs`, emit one `TAB_CLOSED` per tab (not just `TABS_BULK_CLOSED`) or bulk-closed tabs become invisible in dashboards.
+
+## §284 Cross-Module Read in Event Consumer (Reporting Pattern)
+
+Reporting event consumers may read other modules' tables via raw SQL inside a `withTenant` transaction — this is the approved cross-module read pattern (exception E4). Use atomic idempotency: `INSERT ... ON CONFLICT DO NOTHING` on the idempotency key. Use `COALESCE(${new}, table.field)` in upsert SET clauses so incremental updates don't null out previously populated fields. Convert cents↔dollars at the consumer boundary: `Number(order.subtotal) || 0` is acceptable for reporting read models where NaN should silently become 0 (unlike order writes where NaN should throw per §280).
+
+## §285 POS Role Guard and In-Session Role Switch
+
+Terminal selection must not fetch terminal lists until `roleId` is resolved (non-null). The `canContinue` guard must require all auth fields: tenant, role, location, and terminal. Without the `roleId` guard, terminal list fetches fire before roles load and return unscoped data. For in-POS role switching (`RoleSwitcher` component), always re-fetch the role list from the server (`/api/v1/terminal-session/my-roles`) immediately before switching to verify the assignment still exists — a user whose role was revoked mid-session could otherwise switch to a revoked role. Filter available roles to only those compatible with the current terminal's location (`scope === 'tenant' || locationId === session.locationId`).
+
+## §286 Stable Idempotency Keys — No Date.now() or Random Values
+
+KDS and order idempotency keys must be deterministic and derivable from the input alone. Never use `Date.now()`, `crypto.randomUUID()`, or any non-deterministic value as a component. Pattern: `retail-kds-send-${orderId}-${sortedLineIds.join(',')}` — stable for the same set of lines, so retries are no-ops; distinct for new lines added later. The old pattern `retail-kds-send-${orderId}-${Date.now()}` allowed double-taps to create duplicate KDS tickets.
+
+## §287 Weighted Aggregation for Date-Range Queries
+
+When aggregating averages across a date range, use weighted averages: `SUM(value * weight) / NULLIF(SUM(weight), 0)` where weight is typically the row count or covers served. Naively averaging averages (`AVG(avg_turn_time)`) ignores volume differences across days. Always use `NULLIF(SUM(...), 0)` to prevent division-by-zero when all rows in the range have NULL values. See `get-fnb-dashboard.ts` for the production implementation.
+
+## §288 FOR UPDATE Lock for Count-Limited State Transitions
+
+When a state transition requires checking an aggregate count (e.g., "max concurrent open threads"), the count query must happen inside the same transaction that holds a `FOR UPDATE` lock on the row being changed. Pattern: `db.transaction(async tx => { const row = await tx.select().from(table).where(...).for('update'); const count = await tx.select({ c: count() }).from(table).where(...); if (count >= limit) throw ...; await tx.update(table)... })`. Reading the count outside the lock and then updating inside is insufficient — two concurrent requests can both read count=N (below limit), both proceed, and push to N+2.

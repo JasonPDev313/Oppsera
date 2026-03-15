@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Armchair,
   UtensilsCrossed,
+  Pencil,
 } from 'lucide-react';
 import type { FnbTabLine } from '@/types/fnb';
 import { formatCents } from '@oppsera/shared';
@@ -58,6 +59,7 @@ export interface FnbLineItemEditPanelProps {
   onCompLine: (lineId: string, reason: string, compCategory: string) => void;
   onChangeSeat?: (lineId: string, newSeat: number) => void;
   onChangeCourse?: (lineId: string, newCourse: number) => void;
+  onEditModifiers?: () => void;
   seatCount?: number;
   courseNames?: string[];
   onDone: () => void;
@@ -497,6 +499,7 @@ export const FnbLineItemEditPanel = memo(function FnbLineItemEditPanel({
   onCompLine,
   onChangeSeat,
   onChangeCourse,
+  onEditModifiers,
   seatCount,
   courseNames,
   onDone,
@@ -703,6 +706,16 @@ export const FnbLineItemEditPanel = memo(function FnbLineItemEditPanel({
               disabled={disabled}
             />
           </ActionRow>
+        )}
+
+        {/* Edit Modifiers (draft items only) */}
+        {onEditModifiers && (
+          <ActionRow
+            icon={Pencil}
+            iconColor="text-indigo-400"
+            label="Edit Modifiers"
+            onClick={onEditModifiers}
+          />
         )}
 
         {/* Change Price */}

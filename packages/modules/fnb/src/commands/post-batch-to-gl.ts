@@ -9,6 +9,7 @@ import {
   CloseBatchStatusConflictError,
   BatchAlreadyPostedError,
 } from '../errors';
+import type { EventEnvelope } from '@oppsera/shared';
 import { FNB_EVENTS } from '../events/types';
 import type { GlPostingCreatedPayload } from '../events/types';
 import { buildBatchJournalLines } from '../helpers/build-batch-journal-lines';
@@ -101,6 +102,23 @@ export async function postBatchToGl(ctx: RequestContext, input: PostBatchToGlInp
       }
     }
 
+    // Check if per-tender GL entries already exist for this batch's date/location.
+    // When the fnb-tender-posting-adapter is active, each tender gets its own GL entry
+    // with sourceIdempotencyKey = 'fnb:tender:{tenderId}'. In that case, skip the batch
+    // GL posting to avoid double-counting revenue.
+    const perTenderGlCheck = await tx.execute(
+      sql`SELECT COUNT(*)::int AS cnt
+          FROM gl_journal_entries
+          WHERE tenant_id = ${ctx.tenantId}
+            AND source_module = 'fnb'
+            AND source_idempotency_key LIKE 'fnb:tender:%'
+            AND business_date = ${batch.business_date as string}
+            AND location_id = ${batch.location_id as string}
+            AND status != 'voided'`,
+    );
+    const perTenderCount = Number(Array.from(perTenderGlCheck as Iterable<Record<string, unknown>>)[0]?.cnt) || 0;
+    const hasPerTenderEntries = perTenderCount > 0;
+
     // Build journal lines from summary data
     const journalLines = buildBatchJournalLines(summary);
 
@@ -127,23 +145,31 @@ export async function postBatchToGl(ctx: RequestContext, input: PostBatchToGlInp
           WHERE id = ${input.closeBatchId}`,
     );
 
-    const payload: GlPostingCreatedPayload = {
-      closeBatchId: input.closeBatchId,
-      locationId: batch.location_id as string,
-      businessDate: batch.business_date as string,
-      glJournalEntryId: postingRefId,
-      totalDebitCents,
-      totalCreditCents,
-      lineCount: journalLines.length,
-      journalLines: journalLines.map(jl => ({
-        category: jl.category,
-        description: jl.description,
-        debitCents: jl.debitCents,
-        creditCents: jl.creditCents,
-        subDepartmentId: jl.subDepartmentId ?? null,
-      })),
-    };
-    const event = buildEventFromContext(ctx, FNB_EVENTS.GL_POSTING_CREATED, payload as unknown as Record<string, unknown>);
+    const events: EventEnvelope[] = [];
+
+    // Only emit GL_POSTING_CREATED if per-tender GL entries don't already cover this batch.
+    // When per-tender posting is active, the batch-close is purely a status/reconciliation step.
+    if (hasPerTenderEntries) {
+      console.info(`[postBatchToGl] Skipping batch GL posting for ${input.closeBatchId} — ${perTenderCount} per-tender GL entries already exist for ${batch.business_date}/${batch.location_id}`);
+    } else {
+      const payload: GlPostingCreatedPayload = {
+        closeBatchId: input.closeBatchId,
+        locationId: batch.location_id as string,
+        businessDate: batch.business_date as string,
+        glJournalEntryId: postingRefId,
+        totalDebitCents,
+        totalCreditCents,
+        lineCount: journalLines.length,
+        journalLines: journalLines.map(jl => ({
+          category: jl.category,
+          description: jl.description,
+          debitCents: jl.debitCents,
+          creditCents: jl.creditCents,
+          subDepartmentId: jl.subDepartmentId ?? null,
+        })),
+      };
+      events.push(buildEventFromContext(ctx, FNB_EVENTS.GL_POSTING_CREATED, payload as unknown as Record<string, unknown>));
+    }
 
     const resultPayload = {
       closeBatchId: input.closeBatchId,
@@ -152,21 +178,16 @@ export async function postBatchToGl(ctx: RequestContext, input: PostBatchToGlInp
       totalCreditCents,
       lineCount: journalLines.length,
       journalLines,
+      skippedGlPosting: hasPerTenderEntries,
+      perTenderGlEntryCount: perTenderCount,
     };
     if (input.clientRequestId) {
       await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'postBatchToGl', resultPayload);
     }
 
     return {
-      result: {
-        closeBatchId: input.closeBatchId,
-        postingRefId,
-        totalDebitCents,
-        totalCreditCents,
-        lineCount: journalLines.length,
-        journalLines,
-      },
-      events: [event],
+      result: resultPayload,
+      events,
     };
   });
 

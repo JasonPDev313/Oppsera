@@ -148,8 +148,23 @@ export async function sendOrderLinesToKds(
     newLineCount: newLines.length, alreadySent: alreadySentIds.size,
   });
 
-  // 2. KDS stations are ONLY on venues. Resolve site → venue if needed.
-  const kdsLocation = await resolveKdsLocationId(ctx.tenantId, ctx.locationId!);
+  // 2. Build routable items for enrichment (needed before Promise.all)
+  const rawRoutableItems: RoutableItem[] = newLines.map((line) => ({
+    orderLineId: line.id,
+    catalogItemId: line.catalogItemId,
+    subDepartmentId: line.subDepartmentId ?? null,
+    modifierIds: extractModifierIds(line.modifiers),
+  }));
+
+  // 3. Run location resolution + catalog enrichment in parallel — independent reads.
+  // This avoids serializing 2 withTenant checkouts on a max:2 pool.
+  // Pool pressure note: resolveKdsLocationId has a 60s in-memory cache, so repeat
+  // dispatches within the same minute won't open an additional DB connection.
+  const [kdsLocation, enrichResult] = await Promise.all([
+    resolveKdsLocationId(ctx.tenantId, ctx.locationId!),
+    enrichRoutableItems(ctx.tenantId, rawRoutableItems, { returnChainMap: true }),
+  ]);
+
   if (kdsLocation.warning) {
     dispatch.status = 'routing_failed';
     dispatch.failureStage = 'location_resolution';
@@ -165,15 +180,6 @@ export async function sendOrderLinesToKds(
   dispatch.diagnosis.push(`Location: ${effectiveLocationId}`);
   timings.resolveLocationMs = Date.now() - startMs;
 
-  // 3. Build routable items and enrich with catalog hierarchy (+ capture chain map for prep-time reuse)
-  const rawRoutableItems: RoutableItem[] = newLines.map((line) => ({
-    orderLineId: line.id,
-    catalogItemId: line.catalogItemId,
-    subDepartmentId: line.subDepartmentId ?? null,
-    modifierIds: extractModifierIds(line.modifiers),
-  }));
-
-  const enrichResult = await enrichRoutableItems(ctx.tenantId, rawRoutableItems, { returnChainMap: true });
   const routableItems = enrichResult.items;
   const catalogChainMap: Map<string, CatalogChainEntry> = enrichResult.chainMap;
   timings.enrichMs = Date.now() - startMs;
@@ -275,7 +281,12 @@ export async function sendOrderLinesToKds(
     : ctx;
 
   try {
-    const clientRequestId = `retail-kds-send-${orderId}-${Date.now()}`;
+    // Stable idempotency key — must NOT include Date.now() or random values,
+    // otherwise a timeout + re-tap generates a fresh key and creates duplicate tickets.
+    // Include the sorted new-line IDs so re-sends after adding items get a fresh key,
+    // while retries of the same set are idempotent.
+    const lineIdHash = newLines.map((l) => l.id).sort().join(',');
+    const clientRequestId = `retail-kds-send-${orderId}-${lineIdHash}`;
 
     const txResult = await publishWithOutbox(effectiveCtx, async (tx): Promise<{ result: { ticketIds: string[]; totalItems: number; isDuplicate: boolean }; events: ReturnType<typeof buildEventFromContext>[] }> => {
       // 1. Top-level idempotency check

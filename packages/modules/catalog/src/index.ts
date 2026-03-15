@@ -81,6 +81,7 @@ export {
   bulkAssignModifierGroups,
   updateItemModifierAssignment,
   removeItemModifierAssignment,
+  reorderItemModifierAssignments,
 } from './commands';
 export type { ImportResult, BulkAssignResult } from './commands';
 
@@ -141,6 +142,7 @@ export {
   updateModifierGroupCategorySchema,
   bulkAssignModifierGroupsSchema,
   updateItemModifierAssignmentSchema,
+  reorderItemModifierAssignmentsSchema,
   instructionModeEnum,
   defaultBehaviorEnum,
   channelEnum,
@@ -161,6 +163,7 @@ export type {
   UpdateModifierGroupCategoryInput,
   BulkAssignModifierGroupsInput,
   UpdateItemModifierAssignmentInput,
+  ReorderItemModifierAssignmentsInput,
 } from './validation';
 
 // Re-export tax validation schemas

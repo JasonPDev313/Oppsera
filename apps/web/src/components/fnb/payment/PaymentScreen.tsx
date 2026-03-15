@@ -623,7 +623,7 @@ export function PaymentScreen({
               <div
                 className="font-mono font-black"
                 style={{
-                  fontSize: '2.5rem',
+                  fontSize: 'calc(2.5rem * var(--pos-font-scale, 1))',
                   lineHeight: 1,
                   color: 'var(--fnb-accent-primary, var(--fnb-info))',
                   fontFamily: 'var(--fnb-font-mono)',

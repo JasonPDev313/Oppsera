@@ -56,9 +56,16 @@ export async function getDashboardMetrics(
       : sql` AND business_date = ${today}`;
 
     // 1. Revenue & order metrics from rm_revenue_activity (sales history)
+    //
+    // IMPORTANT: todaySales is POS-ONLY (source = 'pos_order'). Non-POS sources
+    // (PMS, AR, membership, voucher, spa) are broken out separately. This prevents
+    // the double-counting bug where todaySales included everything AND non-POS was
+    // added again in totalBusinessRevenue.
+    //
+    // totalBusinessRevenue = todaySales + nonPosRevenue.* (each counted exactly once)
     const salesResult = await tx.execute(sql`
       SELECT
-        coalesce(sum(CASE WHEN status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS net_sales,
+        coalesce(sum(CASE WHEN source = 'pos_order' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS pos_sales,
         count(CASE WHEN status != 'voided' THEN 1 END)::int AS order_count,
         count(CASE WHEN status = 'voided' THEN 1 END)::int AS void_count,
         coalesce(sum(CASE WHEN source = 'pms_folio' AND status != 'voided' THEN amount_dollars ELSE 0 END), 0) AS pms_revenue,
@@ -75,7 +82,8 @@ export async function getDashboardMetrics(
     const salesRows = Array.from(salesResult as Iterable<Record<string, unknown>>);
     const salesRow = salesRows[0];
 
-    const todaySales = Number(salesRow?.net_sales) || 0;
+    // todaySales = POS revenue only (retail + F&B)
+    const todaySales = Number(salesRow?.pos_sales) || 0;
     const todayOrders = Number(salesRow?.order_count) || 0;
     const todayVoids = Number(salesRow?.void_count) || 0;
     const period: 'today' | 'range' = isRange ? 'range' : 'today';
@@ -86,7 +94,10 @@ export async function getDashboardMetrics(
       voucher: Number(salesRow?.voucher_revenue) || 0,
       spa: Number(salesRow?.spa_revenue) || 0,
     };
-    const totalBusinessRevenue = todaySales + nonPosRevenue.pms + nonPosRevenue.ar + nonPosRevenue.membership + nonPosRevenue.voucher + nonPosRevenue.spa;
+    // Each source counted exactly once: POS sales + each non-POS stream
+    const totalBusinessRevenue = todaySales
+      + nonPosRevenue.pms + nonPosRevenue.ar
+      + nonPosRevenue.membership + nonPosRevenue.voucher + nonPosRevenue.spa;
 
     // 2. Low stock count — read model
     const stockConditions = [

@@ -131,6 +131,8 @@ export type { RunMembershipRevenueRecognitionInput, MembershipRecognitionResult 
 // Queries (COA)
 export { getCoaHealth } from './queries/get-coa-health';
 export type { CoaHealthReport } from './queries/get-coa-health';
+export { getGlCoverage } from './queries/get-gl-coverage';
+export type { GlCoverageReport, GlCoverageModule } from './queries/get-gl-coverage';
 export { listGlClassifications } from './queries/list-gl-classifications';
 export type { GlClassificationListItem } from './queries/list-gl-classifications';
 export { listCoaImportLogs } from './queries/list-coa-import-logs';
@@ -144,6 +146,7 @@ export { handleLoyaltyRedemptionForAccounting } from './adapters/loyalty-posting
 export { handleDepositAuthorizedForAccounting, handleDepositCapturedForAccounting } from './adapters/deposit-posting-adapter';
 export { handleOrderReturnForAccounting } from './adapters/return-posting-adapter';
 export { handleFnbGlPostingForAccounting, handleFnbGlPostingReversedForAccounting } from './adapters/fnb-posting-adapter';
+export { handleFnbTenderForAccounting } from './adapters/fnb-tender-posting-adapter';
 export { handleVoucherPurchaseForAccounting, handleVoucherRedemptionForAccounting, handleVoucherExpirationForAccounting } from './adapters/voucher-posting-adapter';
 export { handleMembershipBillingForAccounting } from './adapters/membership-posting-adapter';
 export {

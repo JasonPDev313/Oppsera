@@ -59,7 +59,7 @@ export async function quickCashPayment(
 
     // ── 1. Lock tab + validate status ──
     const tabRows = await tx.execute(
-      sql`SELECT id, status, table_id FROM fnb_tabs
+      sql`SELECT id, status, table_id, server_user_id, business_date FROM fnb_tabs
           WHERE id = ${input.tabId} AND tenant_id = ${ctx.tenantId}
           FOR UPDATE`,
     );
@@ -69,6 +69,8 @@ export async function quickCashPayment(
     const tab = tabs[0]!;
     const tabStatus = tab.status as string;
     const tableId = tab.table_id as string | null;
+    const serverUserId = tab.server_user_id as string | null;
+    const businessDate = tab.business_date as string | null;
     const payableStatuses = ['open', 'ordering', 'sent_to_kitchen', 'in_progress', 'check_requested', 'paying'];
     if (!payableStatuses.includes(tabStatus)) {
       throw new TabStatusConflictError(input.tabId, tabStatus, 'start payment on');
@@ -107,11 +109,11 @@ export async function quickCashPayment(
     const session = created as Record<string, unknown>;
     const sessionId = session.id as string;
 
-    // ── 3. Close tab ──
+    // ── 3. Close tab (guard: only if not already closed — prevents retry from overwriting closed_at) ──
     await tx.execute(
       sql`UPDATE fnb_tabs
           SET status = 'closed', closed_at = NOW(), updated_at = NOW(), version = version + 1
-          WHERE id = ${input.tabId} AND tenant_id = ${ctx.tenantId}`,
+          WHERE id = ${input.tabId} AND tenant_id = ${ctx.tenantId} AND status != 'closed'`,
     );
 
     // ── 4. Clear table live status to 'dirty' ──
@@ -132,7 +134,7 @@ export async function quickCashPayment(
         ));
     }
 
-    // ── 5. Build all 3 events in a single batch ──
+    // ── 5. Build all events in a single batch ──
     const events = [
       buildEventFromContext(ctx, FNB_EVENTS.PAYMENT_STARTED, {
         paymentSessionId: sessionId,
@@ -150,6 +152,14 @@ export async function quickCashPayment(
         amountCents: input.amountCents,
         tenderType: 'cash',
       } satisfies TenderAppliedPayload as unknown as Record<string, unknown>),
+      // TAB_CLOSED fires reporting consumers (server perf, daypart, hourly sales, menu mix)
+      ...(serverUserId && businessDate ? [buildEventFromContext(ctx, FNB_EVENTS.TAB_CLOSED, {
+        tabId: input.tabId,
+        locationId,
+        tableId,
+        serverUserId,
+        businessDate,
+      } as unknown as Record<string, unknown>)] : []),
       buildEventFromContext(ctx, FNB_EVENTS.PAYMENT_COMPLETED, {
         paymentSessionId: sessionId,
         tabId: input.tabId,

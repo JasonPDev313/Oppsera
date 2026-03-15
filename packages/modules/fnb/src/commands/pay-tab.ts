@@ -74,12 +74,14 @@ export async function payTab(
     let tableId: string | null = null;
     let tabStatus: string = '';
     let totalCents = input.totalAmountCents;
+    let serverUserId: string | null = null;
+    let businessDate: string | null = null;
 
     // ── 1. Start or reuse session ──────────────────────────────────
     if (!sessionId) {
-      // Lock tab + validate status + get table_id in one query
+      // Lock tab + validate status + get fields needed for TAB_CLOSED event
       const tabRows = await tx.execute(
-        sql`SELECT id, status, table_id FROM fnb_tabs
+        sql`SELECT id, status, table_id, server_user_id, business_date FROM fnb_tabs
             WHERE id = ${input.tabId} AND tenant_id = ${ctx.tenantId}
             FOR UPDATE`,
       );
@@ -89,6 +91,8 @@ export async function payTab(
       const tab = tabs[0]!;
       tabStatus = tab.status as string;
       tableId = tab.table_id as string | null;
+      serverUserId = tab.server_user_id as string | null;
+      businessDate = tab.business_date as string | null;
       const payableStatuses = ['open', 'ordering', 'sent_to_kitchen', 'in_progress', 'check_requested', 'paying'];
       if (!payableStatuses.includes(tabStatus)) {
         throw new TabStatusConflictError(input.tabId, tabStatus, 'start payment on');
@@ -165,13 +169,15 @@ export async function payTab(
       tabId = session.tab_id as string;
       totalCents = Number(session.total_amount_cents);
 
-      // Get table_id for potential table cleanup
+      // Get table_id + reporting fields for potential table cleanup / TAB_CLOSED event
       const tabRows = await tx.execute(
-        sql`SELECT table_id FROM fnb_tabs
+        sql`SELECT table_id, server_user_id, business_date FROM fnb_tabs
             WHERE id = ${tabId} AND tenant_id = ${ctx.tenantId}`,
       );
       const tabArr = Array.from(tabRows as Iterable<Record<string, unknown>>);
       tableId = tabArr[0]?.table_id as string | null;
+      serverUserId = tabArr[0]?.server_user_id as string | null;
+      businessDate = tabArr[0]?.business_date as string | null;
     }
 
     // ── 2. Record tender ──────────────────────────────────────────
@@ -331,6 +337,18 @@ export async function payTab(
             eq(fnbTableLiveStatus.tenantId, ctx.tenantId),
             eq(fnbTableLiveStatus.tableId, tableId),
           ));
+      }
+
+      // Emit TAB_CLOSED so reporting consumers populate dashboard read-models
+      // (rm_fnb_server_performance, rm_fnb_daypart_sales, rm_fnb_hourly_sales, etc.)
+      if (serverUserId && businessDate) {
+        events.push(buildEventFromContext(ctx, FNB_EVENTS.TAB_CLOSED, {
+          tabId,
+          locationId,
+          tableId,
+          serverUserId,
+          businessDate,
+        } as unknown as Record<string, unknown>));
       }
 
       // Emit PAYMENT_COMPLETED event

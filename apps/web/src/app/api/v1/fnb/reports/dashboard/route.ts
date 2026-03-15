@@ -8,10 +8,12 @@ import { getFnbDashboard, getFnbDashboardSchema } from '@oppsera/module-fnb';
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = request.nextUrl;
+    const endDate = url.searchParams.get('endDate') ?? undefined;
     const parsed = getFnbDashboardSchema.safeParse({
       tenantId: ctx.tenantId,
       locationId: url.searchParams.get('locationId') ?? ctx.locationId ?? '',
       businessDate: url.searchParams.get('businessDate') ?? new Date().toISOString().slice(0, 10),
+      ...(endDate ? { endDate } : {}),
     });
     if (!parsed.success) {
       throw new ValidationError(

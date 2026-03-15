@@ -24,3 +24,4 @@ export { bulkAssignModifierGroups } from './bulk-assign-modifier-groups';
 export type { BulkAssignResult } from './bulk-assign-modifier-groups';
 export { updateItemModifierAssignment } from './update-item-modifier-assignment';
 export { removeItemModifierAssignment } from './remove-item-modifier-assignment';
+export { reorderItemModifierAssignments } from './reorder-item-modifier-assignments';

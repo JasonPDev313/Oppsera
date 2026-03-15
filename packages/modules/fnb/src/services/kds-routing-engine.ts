@@ -389,20 +389,34 @@ export async function resolveStationRouting(
       }
     }
 
-    // Fetch all active routing rules for this tenant+location, ordered by
-    // priority descending so the highest-priority rule comes first in each
-    // rule type group.
-    const ruleRows = await tx.execute(
-      sql`SELECT id, rule_type, catalog_item_id, category_id, modifier_id,
-                 department_id, sub_department_id, station_id, priority,
-                 order_type_condition, channel_condition,
-                 time_condition_start, time_condition_end
-          FROM fnb_kitchen_routing_rules
-          WHERE tenant_id = ${context.tenantId}
-            AND location_id = ${context.locationId}
-            AND is_active = true
-          ORDER BY priority DESC, created_at ASC`,
-    );
+    // Fetch routing rules and stations in parallel — they're independent reads
+    // and this saves one sequential round-trip inside the transaction.
+    const [ruleRows, stationRows] = await Promise.all([
+      tx.execute(
+        sql`SELECT id, rule_type, catalog_item_id, category_id, modifier_id,
+                   department_id, sub_department_id, station_id, priority,
+                   order_type_condition, channel_condition,
+                   time_condition_start, time_condition_end
+            FROM fnb_kitchen_routing_rules
+            WHERE tenant_id = ${context.tenantId}
+              AND location_id = ${context.locationId}
+              AND is_active = true
+            ORDER BY priority DESC, created_at ASC`,
+      ),
+      tx.execute(
+        sql`SELECT id, station_type, sort_order, display_name,
+                   COALESCE(pause_receiving, false) AS pause_receiving,
+                   COALESCE(allowed_order_types, '{}') AS allowed_order_types,
+                   COALESCE(allowed_channels, '{}') AS allowed_channels
+            FROM fnb_kitchen_stations
+            WHERE tenant_id = ${context.tenantId}
+              AND location_id = ${context.locationId}
+              AND is_active = true
+            ORDER BY
+              CASE WHEN station_type = 'expo' THEN 1 ELSE 0 END,
+              sort_order ASC`,
+      ),
+    ]);
     const rules: RoutingRule[] = Array.from(
       ruleRows as Iterable<Record<string, unknown>>,
     ).map((r) => ({
@@ -420,21 +434,6 @@ export async function resolveStationRouting(
       timeConditionStart: normalizeTimeHHMM((r.time_condition_start as string) ?? null),
       timeConditionEnd: normalizeTimeHHMM((r.time_condition_end as string) ?? null),
     }));
-
-    // Fetch all active stations with filtering metadata + display_name (avoids separate query)
-    const stationRows = await tx.execute(
-      sql`SELECT id, station_type, sort_order, display_name,
-                 COALESCE(pause_receiving, false) AS pause_receiving,
-                 COALESCE(allowed_order_types, '{}') AS allowed_order_types,
-                 COALESCE(allowed_channels, '{}') AS allowed_channels
-          FROM fnb_kitchen_stations
-          WHERE tenant_id = ${context.tenantId}
-            AND location_id = ${context.locationId}
-            AND is_active = true
-          ORDER BY
-            CASE WHEN station_type = 'expo' THEN 1 ELSE 0 END,
-            sort_order ASC`,
-    );
     const stationNameMap = new Map<string, string>();
     const stations: StationMeta[] = Array.from(
       stationRows as Iterable<Record<string, unknown>>,

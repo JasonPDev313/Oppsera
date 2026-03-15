@@ -162,7 +162,7 @@ export function FnbSplitView({ userId: _userId }: FnbSplitViewProps) {
       {/* Custom amount panel */}
       {workspace.strategy === 'custom_amount' && (
         <CustomAmountPanel
-          totalCents={tab.runningTotalCents}
+          totalCents={tab.runningTotalCents || 0}
           onApply={(amounts) => {
             // Update workspace checks with custom amounts
             amounts.forEach((amt, i) => {

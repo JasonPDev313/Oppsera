@@ -139,7 +139,23 @@ export async function bulkCloseTabs(
       overrideId: override!.id,
     };
 
-    const event = buildEventFromContext(ctx, FNB_EVENTS.TABS_BULK_CLOSED, {
+    // Emit individual TAB_CLOSED events so reporting consumers populate dashboard read-models
+    // Guard: only emit when serverUserId and businessDate are present (walk-in/anonymous tabs may have nulls)
+    const tabClosedEvents = succeeded
+      .map((tabId) => {
+        const tab = tabs.find((t) => t.id === tabId)!;
+        if (!tab.serverUserId || !tab.businessDate) return null;
+        return buildEventFromContext(ctx, FNB_EVENTS.TAB_CLOSED, {
+          tabId,
+          locationId: input.locationId,
+          tableId: tab.tableId,
+          serverUserId: tab.serverUserId,
+          businessDate: tab.businessDate,
+        } as unknown as Record<string, unknown>);
+      })
+      .filter(Boolean) as ReturnType<typeof buildEventFromContext>[];
+
+    const bulkEvent = buildEventFromContext(ctx, FNB_EVENTS.TABS_BULK_CLOSED, {
       overrideId: override!.id,
       locationId: input.locationId,
       tabIds: input.tabIds,
@@ -152,7 +168,7 @@ export async function bulkCloseTabs(
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'bulkCloseTabs', bulkResult);
 
-    return { result: bulkResult, events: [event] };
+    return { result: bulkResult, events: [...tabClosedEvents, bulkEvent] };
   });
 
   auditLogDeferred(ctx, 'fnb.tabs.bulk_closed', 'fnb_manager_overrides', result.overrideId, undefined, {

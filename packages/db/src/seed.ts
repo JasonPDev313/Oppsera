@@ -284,6 +284,7 @@ async function seed() {
         'ai_support.view',
         'ai_support.chat',
         'ai_support.admin',
+        'club_membership.*',
       ],
     },
     {
@@ -372,6 +373,8 @@ async function seed() {
         'pos.register_tabs.transfer',
         'ai_support.view',
         'ai_support.chat',
+        'club_membership.view',
+        'club_membership.reports',
       ],
     },
     {
@@ -415,6 +418,7 @@ async function seed() {
         'spa.waitlist.view',
         'ai_support.view',
         'ai_support.chat',
+        'club_membership.view',
       ],
     },
     {
@@ -463,6 +467,7 @@ async function seed() {
         'spa.reports.view',
         'spa.waitlist.view',
         'ai_support.view',
+        'club_membership.view',
       ],
     },
   ];
