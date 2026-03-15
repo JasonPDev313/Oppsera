@@ -19,7 +19,7 @@
     "@oppsera/shared": "workspace:*",
     "drizzle-orm": "^0.37.0",
     "qrcode": "^1.5.4",
-    "zod": "^3.24.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

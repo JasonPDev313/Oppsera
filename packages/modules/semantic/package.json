@@ -29,7 +29,7 @@
     "@oppsera/db": "workspace:*",
     "@oppsera/shared": "workspace:*",
     "drizzle-orm": "^0.37.0",
-    "zod": "^3.22.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
