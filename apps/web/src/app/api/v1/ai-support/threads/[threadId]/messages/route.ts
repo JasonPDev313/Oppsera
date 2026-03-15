@@ -113,10 +113,23 @@ function wrapStreamWithPersistence(
 
         // Stream is done — persist the collected answer to DB
         // Strip the safety notice suffix if present (appended by content guard)
-        const persistText = collectedText.replace(
+        let persistText = collectedText.replace(
           /\n\n---\n\*\[Response modified for safety\]\*$/,
           '',
         );
+        // Strip the inline follow-up section (rendered as clickable chips instead).
+        // Only strip when ALL non-empty lines after the separator are bullets —
+        // avoids false positives on legitimate markdown horizontal rules.
+        const separatorIdx = persistText.lastIndexOf('\n---');
+        if (separatorIdx !== -1) {
+          const afterSep = persistText.slice(separatorIdx + 4);
+          const nonEmpty = afterSep.split('\n').filter(l => l.trim().length > 0);
+          const allBullets = nonEmpty.length > 0 &&
+            nonEmpty.every(l => /^[-*]\s+/.test(l.trim()) || /^\d+[.)]\s+/.test(l.trim()));
+          if (allBullets) {
+            persistText = persistText.slice(0, separatorIdx).trimEnd();
+          }
+        }
         if (persistText) {
           try {
             await db
@@ -161,6 +174,35 @@ function wrapStreamWithPersistence(
               );
             } catch (err) {
               console.error('[ai-support] Feature gap detection failed:', err);
+            }
+
+            // Intent classification: auto-tag the first message in a thread
+            if (meta.messageIndex === 0 && meta.threadId) {
+              try {
+                const { classifyConversation } = await import(
+                  '@oppsera/module-ai-support'
+                ).then((m) => ({ classifyConversation: m.classifyConversation }));
+                await classifyConversation(
+                  meta.threadId,
+                  meta.tenantId,
+                  meta.question,
+                  persistText,
+                );
+              } catch (err) {
+                console.error('[ai-support] Intent classification failed:', err);
+              }
+            }
+
+            // Conversation summarization: summarize threads with 4+ messages
+            if (meta.threadId) {
+              try {
+                const { summarizeThread } = await import(
+                  '@oppsera/module-ai-support'
+                ).then((m) => ({ summarizeThread: m.summarizeThread }));
+                await summarizeThread(meta.threadId, meta.tenantId);
+              } catch (err) {
+                console.error('[ai-support] Summarization failed:', err);
+              }
             }
           }
         } else {

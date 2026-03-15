@@ -14,11 +14,13 @@ import { eq, and, desc } from 'drizzle-orm';
 
 // ── Types ───────────────────────────────────────────────────────────
 
-interface OrchestratorInput {
+export interface OrchestratorInput {
   messageText: string;
   context: AiAssistantContext;
   threadHistory: Array<{ role: string; content: string }>;
   mode: 'customer' | 'staff';
+  /** User sentiment from the latest message — used to adapt tone. */
+  userSentiment?: 'positive' | 'neutral' | 'frustrated' | 'angry' | null;
 }
 
 // ── Prompt Builder ──────────────────────────────────────────────────
@@ -35,6 +37,7 @@ function buildSystemPrompt(
   context: AiAssistantContext,
   evidence: RetrievalResult[],
   mode: 'customer' | 'staff',
+  userSentiment?: 'positive' | 'neutral' | 'frustrated' | 'angry' | null,
 ): string {
   const roleLabel = mode === 'staff' ? 'staff member' : 'customer';
   const toneGuide =
@@ -71,7 +74,15 @@ If the user asks a technical question, explain in terms of the UI and features, 
   // Suggested followups instruction
   const followupInstruction = `
 ## Suggested Follow-Up Questions
-At the end of your response, if appropriate, suggest 1-3 short follow-up questions the user might ask next. Format them as a bulleted list under a "---" separator. These should be natural continuations of the topic. If the question is fully self-contained with no logical followups, omit this section.
+At the very end of your response, if appropriate, suggest 1-3 short follow-up questions the user might ask next.
+Rules:
+- Place them AFTER a "---" separator on its own line
+- Use bullet points (- ) for each question
+- Keep each question under 100 characters
+- These should be natural continuations of the topic — things the user would logically ask next
+- Do NOT put any other text after the "---" separator — only the bullet-point questions
+- If the question is fully self-contained with no logical followups, omit this section entirely
+- Do NOT use "---" anywhere else in your response as a horizontal rule — use blank lines to separate sections instead
 
 Example:
 ---
@@ -105,7 +116,15 @@ ${evidenceBlock}
 8. If you cannot answer confidently, end your response with: "I'd recommend reaching out to your system administrator for further help."
 9. When referencing navigation paths, use bold arrows: **Menu** → **Submenu** → **Action**.
 10. When the user's question matches evidence from an answer card (t2), follow that answer closely — it has been human-reviewed and approved.
+11. If the user seems frustrated or unable to resolve their issue, proactively suggest: "Would you like me to connect you with a team member who can help directly?" This gives them an escalation path.
 ${contentGuard}
+${userSentiment === 'frustrated' || userSentiment === 'angry' ? `
+## Tone Adaptation (User Sentiment: ${userSentiment})
+The user appears ${userSentiment}. Please:
+- Acknowledge their frustration empathetically before providing your answer
+- Use a warmer, more patient tone
+- Be extra clear and specific in your instructions
+- If you cannot resolve their issue, proactively offer to connect them with a human team member` : ''}
 ${followupInstruction}`;
 }
 
@@ -312,10 +331,19 @@ async function checkFeedbackBump(
 
 // ── Followup Extractor ──────────────────────────────────────────────
 
+/** Maximum length for a single followup question — prevents runaway model output. */
+const MAX_FOLLOWUP_LENGTH = 200;
+
 /**
  * Extracts suggested followup questions from the model's response.
  * The model is instructed to put them after a "---" separator as a bullet list.
  * Returns the extracted followups (empty array if none found).
+ *
+ * Hardened against:
+ *  - `---` inside fenced code blocks (stripped before scanning)
+ *  - Legitimate markdown HRs mid-content (validates ALL lines are bullets)
+ *  - Very long model output in bullets (capped at MAX_FOLLOWUP_LENGTH)
+ *  - Numbered list format (1. / 2.) as fallback if model deviates from bullets
  */
 function extractFollowups(text: string): string[] {
   // Strip fenced code blocks so we don't match "---" inside them
@@ -328,12 +356,21 @@ function extractFollowups(text: string): string[] {
   const afterSeparator = stripped.slice(lastSeparator + 4);
   const lines = afterSeparator.split('\n').map((l) => l.trim());
 
+  // Validate: every non-empty line after the separator must look like a
+  // followup bullet (- / * / numbered). If any line doesn't match, this
+  // is a legitimate markdown HR, not a followup section.
+  const nonEmpty = lines.filter((l) => l.length > 0);
+  if (nonEmpty.length === 0) return [];
+  const allFollowupLines = nonEmpty.every((l) => /^[-*]\s+/.test(l) || /^\d+[.)]\s+/.test(l));
+  if (!allFollowupLines) return [];
+
   const followups: string[] = [];
-  for (const line of lines) {
+  for (const line of nonEmpty) {
     // Match bullet points: "- How do I..." or "* How do I..."
-    const match = line.match(/^[-*]\s+(.+)/);
+    // Also accept numbered: "1. How do I..." or "1) How do I..."
+    const match = line.match(/^(?:[-*]|\d+[.)])\s+(.+)/);
     if (match?.[1] && match[1].length > 10) {
-      followups.push(match[1]);
+      followups.push(match[1].slice(0, MAX_FOLLOWUP_LENGTH));
     }
   }
 
@@ -555,13 +592,27 @@ export function runOrchestrator(input: OrchestratorInput): ReadableStream<Uint8A
 
       try {
         // ── Step 1: Two-stage retrieval (structured + semantic) ──
-        const allEvidence = await retrieveEvidence({
-          route: input.context.route,
-          moduleKey: input.context.moduleKey,
-          question: input.messageText,
-          mode: input.mode,
-          context: input.context,
-        });
+        // Catch retrieval failures and degrade to no evidence rather than
+        // aborting the entire stream — the AI can still answer without evidence.
+        let allEvidence: RetrievalResult[];
+        try {
+          allEvidence = await retrieveEvidence({
+            route: input.context.route,
+            moduleKey: input.context.moduleKey,
+            question: input.messageText,
+            mode: input.mode,
+            context: input.context,
+          });
+        } catch (retErr) {
+          console.warn(JSON.stringify({
+            level: 'warn',
+            event: 'ai_retrieval_failed',
+            error: retErr instanceof Error ? retErr.message : String(retErr),
+            route: input.context.route?.slice(0, 100),
+            moduleKey: input.context.moduleKey ?? null,
+          }));
+          allEvidence = [];
+        }
 
         // ── Step 2: Compute confidence from evidence tiers + match quality ──
         const evidenceConfidence = scoreConfidence(allEvidence);
@@ -573,6 +624,7 @@ export function runOrchestrator(input: OrchestratorInput): ReadableStream<Uint8A
           input.context,
           allEvidence,
           input.mode,
+          input.userSentiment,
         );
 
         // ── Step 4: Prepare conversation messages ──
@@ -620,9 +672,11 @@ export function runOrchestrator(input: OrchestratorInput): ReadableStream<Uint8A
             modelConfig.maxTokens,
           );
         } catch (err) {
-          // Auto-escalate on retryable API errors (429, 500+, timeouts)
+          // Auto-escalate on ANY API error — not just retryable ones.
+          // A non-retryable error (e.g. 404 from a deprecated model ID) on the
+          // cheap tier should still attempt the next tier before giving up.
           const escalationTier = nextTier(selection.tier);
-          if (escalationTier && isRetryableError(err)) {
+          if (escalationTier) {
             const escalatedConfig = MODEL_TIERS[escalationTier];
             console.warn(JSON.stringify({
               level: 'warn',
@@ -630,6 +684,7 @@ export function runOrchestrator(input: OrchestratorInput): ReadableStream<Uint8A
               from: modelConfig.id,
               to: escalatedConfig.id,
               reason: err instanceof Error ? err.message : 'unknown',
+              retryable: isRetryableError(err),
             }));
             finalModelId = escalatedConfig.id;
             fullText = await callClaudeStreaming(
@@ -664,7 +719,15 @@ export function runOrchestrator(input: OrchestratorInput): ReadableStream<Uint8A
         });
       } catch (err) {
         if (cancelled) return;
-        console.error('[ai-support/orchestrator] Error:', err);
+        console.error(JSON.stringify({
+          level: 'error',
+          event: 'ai_orchestrator_stream_error',
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack?.slice(0, 500) : undefined,
+          route: input.context.route?.slice(0, 100),
+          moduleKey: input.context.moduleKey ?? null,
+          mode: input.mode,
+        }));
         sendEvent({
           type: 'error',
           message: 'Something went wrong. Please try again.',
@@ -705,20 +768,33 @@ export async function runOrchestratorCollected(
   modelUsed: string;
   stream: ReadableStream<Uint8Array>;
 }> {
-  // Retrieve evidence (two-stage)
-  const allEvidence = await retrieveEvidence({
-    route: input.context.route,
-    moduleKey: input.context.moduleKey,
-    question: input.messageText,
-    mode: input.mode,
-    context: input.context,
-  });
+  // Retrieve evidence (two-stage) — catch failures so the user still gets
+  // an AI response even if retrieval is degraded (e.g. DB timeout, pgvector down).
+  let allEvidence: RetrievalResult[];
+  try {
+    allEvidence = await retrieveEvidence({
+      route: input.context.route,
+      moduleKey: input.context.moduleKey,
+      question: input.messageText,
+      mode: input.mode,
+      context: input.context,
+    });
+  } catch (err) {
+    console.warn(JSON.stringify({
+      level: 'warn',
+      event: 'ai_retrieval_failed',
+      error: err instanceof Error ? err.message : String(err),
+      route: input.context.route?.slice(0, 100),
+      moduleKey: input.context.moduleKey ?? null,
+    }));
+    allEvidence = [];
+  }
 
   const evidenceConfidence = scoreConfidence(allEvidence);
   const bestTier = highestTier(allEvidence);
   const sources = allEvidence.map((e) => e.source);
 
-  const systemPrompt = buildSystemPrompt(input.context, allEvidence, input.mode);
+  const systemPrompt = buildSystemPrompt(input.context, allEvidence, input.mode, input.userSentiment);
 
   const { messages, inputCharCount } = prepareMessages(
     input.threadHistory,
@@ -786,9 +862,11 @@ export async function runOrchestratorCollected(
             modelConfig.maxTokens,
           );
         } catch (err) {
-          // Auto-escalate on retryable API errors
+          // Auto-escalate on ANY API error — not just retryable ones.
+          // A non-retryable error (e.g. 404 from a deprecated model ID) on the
+          // cheap tier should still attempt the next tier before giving up.
           const escalationTier = nextTier(selection.tier);
-          if (escalationTier && isRetryableError(err)) {
+          if (escalationTier) {
             const escalatedConfig = MODEL_TIERS[escalationTier];
             console.warn(JSON.stringify({
               level: 'warn',
@@ -796,6 +874,7 @@ export async function runOrchestratorCollected(
               from: modelConfig.id,
               to: escalatedConfig.id,
               reason: err instanceof Error ? err.message : 'unknown',
+              retryable: isRetryableError(err),
             }));
             finalModelId = escalatedConfig.id;
             fullText = await callClaudeStreaming(
@@ -829,7 +908,15 @@ export async function runOrchestratorCollected(
         });
       } catch (err) {
         if (cancelled) return;
-        console.error('[ai-support/orchestrator] Error:', err);
+        console.error(JSON.stringify({
+          level: 'error',
+          event: 'ai_orchestrator_stream_error',
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack?.slice(0, 500) : undefined,
+          route: input.context.route?.slice(0, 100),
+          moduleKey: input.context.moduleKey ?? null,
+          mode: input.mode,
+        }));
         sendEvent({
           type: 'error',
           message: 'Something went wrong. Please try again.',

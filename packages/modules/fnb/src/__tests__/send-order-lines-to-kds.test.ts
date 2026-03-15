@@ -246,7 +246,7 @@ describe('sendOrderLinesToKds', () => {
       items,
       chainMap: new Map(),
     }));
-    mockResolveKdsLocationId.mockImplementation(async (_tenantId: string, locationId: string) => locationId);
+    mockResolveKdsLocationId.mockImplementation(async (_tenantId: string, locationId: string) => ({ locationId, resolved: false, warning: null }));
     mockGetStationPrepTimesForItems.mockResolvedValue(new Map());
     mockRecordDispatchAttempt.mockResolvedValue(undefined);
     mockBuildEventFromContext.mockReturnValue({ type: 'fnb.ticket.created.v1' });

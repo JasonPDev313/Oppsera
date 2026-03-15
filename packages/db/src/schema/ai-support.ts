@@ -52,6 +52,7 @@ export const aiAssistantThreads = pgTable(
     questionType: text('question_type'),
     outcome: text('outcome'),
     issueTag: text('issue_tag'),
+    summary: text('summary'),
     startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp('ended_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -85,6 +86,7 @@ export const aiAssistantMessages = pgTable(
     citationsJson: jsonb('citations_json'),
     retrievalTraceJson: jsonb('retrieval_trace_json'),
     feedbackStatus: text('feedback_status'),
+    sentiment: text('sentiment'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -373,6 +375,207 @@ export const aiSupportFeatureGaps = pgTable(
     index('idx_ai_feature_gaps_frequency').on(table.occurrenceCount),
     index('idx_ai_feature_gaps_module').on(table.moduleKey),
     index('idx_ai_feature_gaps_tenant').on(table.tenantId),
+  ],
+);
+
+// ── Escalations (Human Agent Handoff) ────────────────────────────
+export const aiSupportEscalations = pgTable(
+  'ai_support_escalations',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    threadId: text('thread_id')
+      .notNull()
+      .references(() => aiAssistantThreads.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull(),
+    summary: text('summary'),
+    reason: text('reason').notNull().default('user_requested'),
+    status: text('status').notNull().default('open'),
+    priority: text('priority').notNull().default('medium'),
+    assignedTo: text('assigned_to'),
+    resolutionNotes: text('resolution_notes'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_ai_escalations_tenant_status').on(table.tenantId, table.status),
+    index('idx_ai_escalations_thread').on(table.threadId),
+    index('idx_ai_escalations_created').on(table.createdAt),
+  ],
+);
+
+// ── Agentic Action Audit Log ────────────────────────────────────
+export const aiSupportAgenticActions = pgTable(
+  'ai_support_agentic_actions',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    threadId: text('thread_id')
+      .notNull()
+      .references(() => aiAssistantThreads.id, { onDelete: 'cascade' }),
+    messageId: text('message_id')
+      .references(() => aiAssistantMessages.id, { onDelete: 'set null' }),
+    actionName: text('action_name').notNull(),
+    actionParams: jsonb('action_params'),
+    actionResult: jsonb('action_result'),
+    status: text('status').notNull().default('success'),
+    errorMessage: text('error_message'),
+    durationMs: integer('duration_ms'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_ai_agentic_actions_thread').on(table.threadId),
+    index('idx_ai_agentic_actions_tenant').on(table.tenantId, table.createdAt),
+  ],
+);
+
+// ── CSAT Predictions ────────────────────────────────────────────
+export const aiSupportCsatPredictions = pgTable(
+  'ai_support_csat_predictions',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    threadId: text('thread_id')
+      .notNull()
+      .references(() => aiAssistantThreads.id, { onDelete: 'cascade' }),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    score: integer('score').notNull(),
+    reasoning: text('reasoning'),
+    modelUsed: text('model_used').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_ai_csat_thread').on(table.threadId),
+    index('idx_ai_csat_tenant_created').on(table.tenantId, table.createdAt),
+  ],
+);
+
+// ── Test Suite ──────────────────────────────────────────────────
+export const aiSupportTestCases = pgTable(
+  'ai_support_test_cases',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    question: text('question').notNull(),
+    expectedAnswerPattern: text('expected_answer_pattern').notNull(),
+    moduleKey: text('module_key'),
+    route: text('route'),
+    tags: jsonb('tags').default([]),
+    enabled: text('enabled').notNull().default('true'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
+export const aiSupportTestRuns = pgTable(
+  'ai_support_test_runs',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    name: text('name').notNull(),
+    status: text('status').notNull().default('pending'),
+    totalCases: integer('total_cases').notNull().default(0),
+    passed: integer('passed').notNull().default(0),
+    failed: integer('failed').notNull().default(0),
+    regressed: integer('regressed').notNull().default(0),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
+export const aiSupportTestResults = pgTable(
+  'ai_support_test_results',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    runId: text('run_id')
+      .notNull()
+      .references(() => aiSupportTestRuns.id, { onDelete: 'cascade' }),
+    testCaseId: text('test_case_id')
+      .notNull()
+      .references(() => aiSupportTestCases.id, { onDelete: 'cascade' }),
+    actualAnswer: text('actual_answer'),
+    confidence: text('confidence'),
+    sourceTier: text('source_tier'),
+    passed: text('passed').notNull().default('false'),
+    regression: text('regression').notNull().default('false'),
+    score: text('score').default('0'),
+    durationMs: integer('duration_ms'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_ai_test_results_run').on(table.runId),
+    index('idx_ai_test_results_case').on(table.testCaseId),
+  ],
+);
+
+// ── Conversation Tags ───────────────────────────────────────────
+export const aiSupportConversationTags = pgTable(
+  'ai_support_conversation_tags',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    threadId: text('thread_id')
+      .notNull()
+      .references(() => aiAssistantThreads.id, { onDelete: 'cascade' }),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    tagType: text('tag_type').notNull(),
+    tagValue: text('tag_value').notNull(),
+    confidence: text('confidence').default('0.8'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_ai_conv_tags_thread').on(table.threadId),
+    index('idx_ai_conv_tags_tenant_type').on(table.tenantId, table.tagType),
+    index('idx_ai_conv_tags_value').on(table.tagValue),
+  ],
+);
+
+// ── Proactive Rules ─────────────────────────────────────────────
+export const aiSupportProactiveRules = pgTable(
+  'ai_support_proactive_rules',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .references(() => tenants.id),
+    triggerType: text('trigger_type').notNull(),
+    triggerConfig: jsonb('trigger_config').notNull().default({}),
+    messageTemplate: text('message_template').notNull(),
+    moduleKey: text('module_key'),
+    routePattern: text('route_pattern'),
+    priority: integer('priority').notNull().default(0),
+    enabled: text('enabled').notNull().default('true'),
+    maxShowsPerUser: integer('max_shows_per_user').notNull().default(1),
+    cooldownHours: integer('cooldown_hours').notNull().default(24),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_ai_proactive_rules_enabled').on(table.enabled, table.triggerType),
+    index('idx_ai_proactive_rules_tenant').on(table.tenantId),
+  ],
+);
+
+export const aiSupportProactiveDismissals = pgTable(
+  'ai_support_proactive_dismissals',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    ruleId: text('rule_id')
+      .notNull()
+      .references(() => aiSupportProactiveRules.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    shownAt: timestamp('shown_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_ai_proactive_dismissal_user_rule').on(table.ruleId, table.userId, table.tenantId),
   ],
 );
 

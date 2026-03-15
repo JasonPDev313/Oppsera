@@ -26,6 +26,10 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
     failureRows,
     reviewRows,
     autoDraftRows,
+    csatRows,
+    sentimentRows,
+    tagRows,
+    escalationRows,
   ] = await Promise.all([
     // ── KPI aggregate ────────────────────────────────────────────
     withAdminDb(async (tx) => {
@@ -199,6 +203,76 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
         FROM ai_support_answer_cards ac
       `);
     }),
+
+    // ── CSAT prediction metrics ───────────────────────────────────
+    withAdminDb(async (tx) => {
+      return tx.execute(sql`
+        SELECT
+          COUNT(*)::int AS total_predictions,
+          AVG(score)    AS avg_score,
+          COUNT(*) FILTER (WHERE score >= 4)::int AS satisfied_count,
+          COUNT(*) FILTER (WHERE score <= 2)::int AS dissatisfied_count,
+          COUNT(*) FILTER (WHERE score = 1)::int  AS score_1,
+          COUNT(*) FILTER (WHERE score = 2)::int  AS score_2,
+          COUNT(*) FILTER (WHERE score = 3)::int  AS score_3,
+          COUNT(*) FILTER (WHERE score = 4)::int  AS score_4,
+          COUNT(*) FILTER (WHERE score = 5)::int  AS score_5
+        FROM ai_support_csat_predictions cp
+        JOIN ai_assistant_threads th ON th.id = cp.thread_id
+        WHERE cp.created_at >= NOW() - INTERVAL '1 day' * ${days}
+          AND (${tenantId}::text IS NULL OR cp.tenant_id = ${tenantId}::text)
+          AND (${moduleKey}::text IS NULL OR th.module_key = ${moduleKey}::text)
+      `);
+    }),
+
+    // ── Sentiment distribution ────────────────────────────────────
+    withAdminDb(async (tx) => {
+      return tx.execute(sql`
+        SELECT
+          COALESCE(m.sentiment, 'unknown') AS sentiment,
+          COUNT(*)::int AS cnt
+        FROM ai_assistant_messages m
+        WHERE m.role = 'user'
+          AND m.sentiment IS NOT NULL
+          AND m.created_at >= NOW() - INTERVAL '1 day' * ${days}
+          AND (${tenantId}::text IS NULL OR m.tenant_id = ${tenantId}::text)
+        GROUP BY m.sentiment
+        ORDER BY cnt DESC
+      `);
+    }),
+
+    // ── Conversation tag distribution ─────────────────────────────
+    withAdminDb(async (tx) => {
+      return tx.execute(sql`
+        SELECT
+          ct.tag_type,
+          ct.tag_value,
+          COUNT(*)::int AS cnt
+        FROM ai_support_conversation_tags ct
+        JOIN ai_assistant_threads th ON th.id = ct.thread_id
+        WHERE ct.created_at >= NOW() - INTERVAL '1 day' * ${days}
+          AND (${tenantId}::text IS NULL OR ct.tenant_id = ${tenantId}::text)
+          AND (${moduleKey}::text IS NULL OR th.module_key = ${moduleKey}::text)
+        GROUP BY ct.tag_type, ct.tag_value
+        ORDER BY cnt DESC
+        LIMIT 30
+      `);
+    }),
+
+    // ── Escalation metrics ────────────────────────────────────────
+    withAdminDb(async (tx) => {
+      return tx.execute(sql`
+        SELECT
+          COUNT(*)::int AS total_escalations,
+          COUNT(*) FILTER (WHERE status = 'open')::int     AS open_count,
+          COUNT(*) FILTER (WHERE status = 'assigned')::int AS assigned_count,
+          COUNT(*) FILTER (WHERE status = 'resolved')::int AS resolved_count,
+          COUNT(*) FILTER (WHERE status = 'closed')::int   AS closed_count
+        FROM ai_support_escalations
+        WHERE created_at >= NOW() - INTERVAL '1 day' * ${days}
+          AND (${tenantId}::text IS NULL OR tenant_id = ${tenantId}::text)
+      `);
+    }),
   ]);
 
   // ── Parse KPIs ───────────────────────────────────────────────────
@@ -283,6 +357,47 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
     ? Math.round((autoDraftActivated / autoDraftTotal) * 1000) / 10
     : 0;
 
+  // ── CSAT metrics ─────────────────────────────────────────────
+  const csatList = Array.from(csatRows as Iterable<Record<string, unknown>>);
+  const cs = csatList[0] ?? {};
+  const csatPredictions = {
+    totalPredictions: Number(cs.total_predictions ?? 0),
+    avgScore: cs.avg_score != null ? Math.round(Number(cs.avg_score) * 10) / 10 : 0,
+    satisfiedCount: Number(cs.satisfied_count ?? 0),
+    dissatisfiedCount: Number(cs.dissatisfied_count ?? 0),
+    distribution: [
+      Number(cs.score_1 ?? 0),
+      Number(cs.score_2 ?? 0),
+      Number(cs.score_3 ?? 0),
+      Number(cs.score_4 ?? 0),
+      Number(cs.score_5 ?? 0),
+    ],
+  };
+
+  // ── Sentiment distribution ─────────────────────────────────
+  const sentimentDistribution = Array.from(sentimentRows as Iterable<Record<string, unknown>>).map((r) => ({
+    sentiment: r.sentiment as string,
+    count: Number(r.cnt),
+  }));
+
+  // ── Conversation tag distribution ──────────────────────────
+  const conversationTags = Array.from(tagRows as Iterable<Record<string, unknown>>).map((r) => ({
+    tagType: r.tag_type as string,
+    tagValue: r.tag_value as string,
+    count: Number(r.cnt),
+  }));
+
+  // ── Escalation metrics ─────────────────────────────────────
+  const escList = Array.from(escalationRows as Iterable<Record<string, unknown>>);
+  const esc = escList[0] ?? {};
+  const escalationMetrics = {
+    totalEscalations: Number(esc.total_escalations ?? 0),
+    openCount: Number(esc.open_count ?? 0),
+    assignedCount: Number(esc.assigned_count ?? 0),
+    resolvedCount: Number(esc.resolved_count ?? 0),
+    closedCount: Number(esc.closed_count ?? 0),
+  };
+
   return NextResponse.json({
     data: {
       totalQuestions,
@@ -311,6 +426,10 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
         archived: autoDraftArchived,
         acceptanceRate: autoDraftAcceptanceRate,
       },
+      csatPredictions,
+      sentimentDistribution,
+      conversationTags,
+      escalationMetrics,
     },
   });
 }, { permission: 'ai_support.admin' });

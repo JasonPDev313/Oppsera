@@ -615,30 +615,75 @@ function parseTextArray(value: unknown): string[] {
 
 // ── Location Hierarchy Helpers ───────────────────────────────────
 
+export interface KdsLocationResult {
+  locationId: string;
+  /** True when the input was a site and we resolved to its child venue. */
+  resolved: boolean;
+  /** Non-null when the location is a site with no child venue — callers should surface this. */
+  warning: string | null;
+}
+
 /**
- * Resolves the effective KDS location for routing and ticket creation.
+ * Resolves the effective KDS venue for routing and ticket creation.
  *
- * Hierarchy rule (venue-first model):
- *   1. If the location is a venue AND has active KDS stations → use venue
- *   2. If the location is a venue with NO stations AND parent site HAS stations → fall back to parent site
- *   3. If the location is a venue with NO stations AND parent site has NO stations → stay at venue
- *   4. If the location is a site → use site as-is
+ * KDS stations are ONLY tied to venues, never to sites. If the input
+ * location is already a venue, it is returned as-is. If the input is a
+ * site, we find its child venue so stations can be queried there.
  *
- * This supports two configurations:
- *   - Per-venue KDS: each venue has its own stations (preferred)
- *   - Site-level KDS: stations at site, venues inherit (legacy/transition)
- *
- * KDS stations are always tied to venues. No site↔venue fallback —
- * the POS location IS the venue, and stations are queried at that venue.
- * This eliminates location mismatches between dispatch and station queries.
+ * If the site has no child venue at all, we return the original ID with
+ * a warning — the caller should surface this to the user and direct
+ * them to the KDS setup wizard to configure venue stations.
  */
 export async function resolveKdsLocationId(
-  _tenantId: string,
+  tenantId: string,
   locationId: string,
-): Promise<string> {
-  // KDS stations live at venues — no hierarchy resolution needed.
-  // The input locationId (from tab or POS session) is always the venue.
-  return locationId;
+): Promise<KdsLocationResult> {
+  return withTenant(tenantId, async (tx) => {
+    // 1. Look up this location's type
+    const locRows = await tx.execute(
+      sql`SELECT location_type FROM locations
+          WHERE id = ${locationId} AND tenant_id = ${tenantId}
+          LIMIT 1`,
+    );
+    const locRow = Array.from(locRows as Iterable<Record<string, unknown>>)[0];
+    const locationType = (locRow?.location_type as string) ?? 'site';
+
+    // Already a venue — use directly, stations live here
+    if (locationType === 'venue') {
+      return { locationId, resolved: false, warning: null };
+    }
+
+    // 2. It's a site — find child venue
+    const venueRows = await tx.execute(
+      sql`SELECT id FROM locations
+          WHERE tenant_id = ${tenantId}
+            AND parent_location_id = ${locationId}
+            AND location_type = 'venue'
+          LIMIT 1`,
+    );
+    const venueRow = Array.from(venueRows as Iterable<Record<string, unknown>>)[0];
+    if (venueRow?.id) {
+      logger.info('[kds-routing] resolved site → venue for KDS dispatch', {
+        domain: 'kds',
+        tenantId,
+        siteLocationId: locationId,
+        resolvedVenueId: venueRow.id as string,
+      });
+      return { locationId: venueRow.id as string, resolved: true, warning: null };
+    }
+
+    // 3. Site with no child venue — KDS cannot work here
+    logger.warn('[kds-routing] site has no child venue — KDS stations require a venue', {
+      domain: 'kds',
+      tenantId,
+      siteLocationId: locationId,
+    });
+    return {
+      locationId,
+      resolved: false,
+      warning: 'KDS stations must be configured on a venue. This location is a site with no venue. Please set up venue KDS stations at /kds/setup',
+    };
+  });
 }
 
 // ── Prep Time Helpers ───────────────────────────────────────────

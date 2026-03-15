@@ -28,7 +28,7 @@ vi.mock('@oppsera/core/auth/with-middleware', () => ({
 vi.mock('@oppsera/module-fnb', () => ({
   bumpTicket: mockBumpTicket,
   getExpoView: mockGetExpoView,
-  resolveKdsLocationId: vi.fn().mockResolvedValue('test-location-id'),
+  resolveKdsLocationId: vi.fn().mockResolvedValue({ locationId: 'test-location-id', resolved: false, warning: null }),
   getExpoViewSchema: {
     safeParse: (data: unknown) => {
       const d = data as Record<string, unknown>;

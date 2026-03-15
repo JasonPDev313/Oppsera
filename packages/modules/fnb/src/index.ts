@@ -1350,7 +1350,7 @@ export {
   getStationPrepTimesForItems,
 } from './services/kds-routing-engine';
 export type {
-  RoutingContext, RoutableItem, RoutingResult, RoutingResultSet, CatalogChainEntry,
+  RoutingContext, RoutableItem, RoutingResult, RoutingResultSet, CatalogChainEntry, KdsLocationResult,
 } from './services/kds-routing-engine';
 
 // KDS Validation Schemas

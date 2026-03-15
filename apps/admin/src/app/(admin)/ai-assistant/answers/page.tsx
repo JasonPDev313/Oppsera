@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Plus,
   Edit2,
@@ -463,6 +463,11 @@ export default function AnswerCardsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkSuccess, setBulkSuccess] = useState<string | null>(null);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Clean up success auto-dismiss timer on unmount
+  useEffect(() => () => { clearTimeout(successTimerRef.current); }, []);
 
   const { cards, isLoading, error, reload } = useAnswerCards({
     status: statusFilter || undefined,
@@ -505,12 +510,27 @@ export default function AnswerCardsPage() {
   }
 
   async function handleBulkStatus(status: 'draft' | 'active' | 'stale' | 'archived') {
-    const ids = cards.filter((c) => selectedIds.has(c.id)).map((c) => c.id);
-    if (ids.length === 0) return;
+    // Skip no-op: all selected cards already have the target status
+    const eligible = cards.filter((c) => selectedIds.has(c.id) && c.status !== status);
+    if (eligible.length === 0) {
+      setBulkSuccess(`All selected cards are already "${status}"`);
+      clearTimeout(successTimerRef.current);
+      successTimerRef.current = setTimeout(() => setBulkSuccess(null), 3000);
+      return;
+    }
+    const ids = eligible.map((c) => c.id);
     setBulkUpdating(true);
     setBulkError(null);
+    setBulkSuccess(null);
+    clearTimeout(successTimerRef.current);
     try {
-      await bulkUpdateAnswerCardStatus(ids, status);
+      const result = await bulkUpdateAnswerCardStatus(ids, status);
+      if (result.updatedCount < result.requestedCount) {
+        setBulkError(`Partial update: ${result.updatedCount} of ${result.requestedCount} cards updated to "${status}"`);
+      } else {
+        setBulkSuccess(`${result.updatedCount} card${result.updatedCount === 1 ? '' : 's'} updated to "${status}"`);
+        successTimerRef.current = setTimeout(() => setBulkSuccess(null), 4000);
+      }
       setSelectedIds(new Set());
       reload();
     } catch (e) {
@@ -659,6 +679,14 @@ export default function AnswerCardsPage() {
           >
             Clear selection
           </button>
+        </div>
+      )}
+
+      {/* Bulk success */}
+      {bulkSuccess && (
+        <div className="bg-emerald-950 border border-emerald-700 rounded-lg p-4 text-emerald-300 text-sm flex items-center gap-2">
+          <Check size={16} />
+          {bulkSuccess}
         </div>
       )}
 

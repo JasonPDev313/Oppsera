@@ -9,6 +9,12 @@ interface Thread {
   status: string;
 }
 
+interface ActionStatus {
+  name: string;
+  status: 'executing' | 'complete' | 'error';
+  result?: string;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -16,10 +22,11 @@ interface Message {
   answerConfidence?: string;
   sourceTierUsed?: string;
   suggestedFollowups?: string[];
+  activeAction?: ActionStatus;
   createdAt: string;
 }
 
-export type { Thread, Message };
+export type { Thread, Message, ActionStatus };
 
 /**
  * Auth-aware streaming fetch: attaches Bearer token, and on 401 refreshes
@@ -230,6 +237,9 @@ export function useAiAssistantChat() {
               sourceTier?: string;
               suggestedFollowups?: string[];
               message?: string;
+              name?: string;
+              status?: string;
+              result?: string;
             };
 
             if (chunk.type === 'chunk') {
@@ -244,16 +254,51 @@ export function useAiAssistantChat() {
                 }
                 return updated;
               });
-            } else if (chunk.type === 'done') {
+            } else if (chunk.type === 'action') {
+              // Agentic action status update
               setMessages(prev => {
                 const updated = [...prev];
                 const last = updated[updated.length - 1];
                 if (last && last.role === 'assistant') {
                   updated[updated.length - 1] = {
                     ...last,
+                    activeAction: {
+                      name: chunk.name ?? '',
+                      status: (chunk.status as 'executing' | 'complete' | 'error') ?? 'executing',
+                      result: chunk.result,
+                    },
+                  };
+                }
+                return updated;
+              });
+            } else if (chunk.type === 'done') {
+              setMessages(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last && last.role === 'assistant') {
+                  // Strip the inline follow-up section from the persisted message text.
+                  // The rendering layer also strips in real-time (prevents flicker),
+                  // but we clean the state too so stored text is tidy.
+                  let cleanedText = last.messageText;
+                  if (chunk.suggestedFollowups && chunk.suggestedFollowups.length > 0) {
+                    const separatorIdx = cleanedText.lastIndexOf('\n---');
+                    if (separatorIdx !== -1) {
+                      const afterSep = cleanedText.slice(separatorIdx + 4);
+                      const nonEmpty = afterSep.split('\n').filter(l => l.trim().length > 0);
+                      const allBullets = nonEmpty.length > 0 &&
+                        nonEmpty.every(l => /^[-*]\s+/.test(l.trim()) || /^\d+[.)]\s+/.test(l.trim()));
+                      if (allBullets) {
+                        cleanedText = cleanedText.slice(0, separatorIdx).trimEnd();
+                      }
+                    }
+                  }
+                  updated[updated.length - 1] = {
+                    ...last,
+                    messageText: cleanedText,
                     answerConfidence: chunk.confidence,
                     sourceTierUsed: chunk.sourceTier,
                     suggestedFollowups: chunk.suggestedFollowups,
+                    activeAction: undefined,
                   };
                 }
                 return updated;
@@ -283,6 +328,31 @@ export function useAiAssistantChat() {
     }
   }, []);
 
+  /** Request escalation to a human agent. */
+  const requestHandoff = useCallback(async (): Promise<boolean> => {
+    if (!thread) return false;
+    try {
+      await apiFetch('/api/v1/ai-support/escalations', {
+        method: 'POST',
+        body: JSON.stringify({
+          threadId: thread.id,
+          reason: 'user_requested',
+        }),
+      });
+      // Add a system message to the chat
+      setMessages(prev => [...prev, {
+        id: `system-${Date.now()}`,
+        role: 'system' as const,
+        messageText: 'Your request has been escalated to a team member. They will follow up with you shortly.',
+        createdAt: new Date().toISOString(),
+      }]);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to request handoff');
+      return false;
+    }
+  }, [thread]);
+
   /** Close the current thread on the server and reset local state. */
   const resetThread = useCallback(() => {
     if (abortRef.current) {
@@ -297,5 +367,5 @@ export function useAiAssistantChat() {
     setError(null);
   }, [thread, closeThreadOnServer]);
 
-  return { thread, messages, isStreaming, error, sendMessage, stopStreaming, resetThread, context };
+  return { thread, messages, isStreaming, error, sendMessage, stopStreaming, resetThread, requestHandoff, context };
 }

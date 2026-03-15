@@ -3,7 +3,10 @@ import {
   ANSWER_MODES, CONFIDENCE_LEVELS, THREAD_CHANNELS, THREAD_STATUSES,
   QUESTION_TYPES, OUTCOMES, ISSUE_TAGS, FEEDBACK_RATINGS,
   REVIEW_STATUSES, SOURCE_TIERS, ANSWER_CARD_STATUSES,
-  FEEDBACK_REASON_CODES, MAX_MESSAGE_LENGTH, MAX_FREEFORM_COMMENT_LENGTH,
+  FEEDBACK_REASON_CODES, ESCALATION_STATUSES, ESCALATION_PRIORITIES,
+  ESCALATION_REASONS,
+  PROACTIVE_TRIGGER_TYPES,
+  MAX_MESSAGE_LENGTH, MAX_FREEFORM_COMMENT_LENGTH,
 } from './constants';
 
 // Re-export so consumers can import from types
@@ -11,6 +14,9 @@ export type {
   AnswerMode, ConfidenceLevel, ThreadChannel, ThreadStatus, QuestionType,
   Outcome, IssueTag, MessageRole, FeedbackRating, ReviewStatus, SourceTier,
   AnswerCardStatus, DocumentSourceType, FeedbackReasonCode, ModelTier,
+  EscalationStatus, EscalationPriority, EscalationReason,
+  SentimentValue, TagType, IntentValue, UrgencyValue,
+  ProactiveTriggerType, TestRunStatus,
 } from './constants';
 
 // ── Context Snapshot ──
@@ -168,6 +174,87 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
     modelUsed: z.string().optional(),
   }),
   z.object({ type: z.literal('error'), message: z.string() }),
+  z.object({
+    type: z.literal('action'),
+    name: z.string(),
+    status: z.enum(['executing', 'complete', 'error']),
+    result: z.string().optional(),
+  }),
 ]);
 export type StreamChunk = z.infer<typeof StreamChunkSchema>;
+
+// ── Escalation (Human Agent Handoff) ──
+export const CreateEscalationSchema = z.object({
+  threadId: z.string(),
+  reason: z.enum(ESCALATION_REASONS).default('user_requested'),
+  priority: z.enum(ESCALATION_PRIORITIES).optional(),
+});
+export type CreateEscalationInput = z.infer<typeof CreateEscalationSchema>;
+
+export const UpdateEscalationSchema = z.object({
+  status: z.enum(ESCALATION_STATUSES).optional(),
+  assignedTo: z.string().optional(),
+  resolutionNotes: z.string().optional(),
+});
+export type UpdateEscalationInput = z.infer<typeof UpdateEscalationSchema>;
+
+// ── Agentic Actions ──
+export interface ActionDefinition {
+  name: string;
+  description: string;
+  requiredPermission: string;
+  paramSchema: z.ZodSchema;
+  executor: (params: unknown, context: { tenantId: string; locationId?: string }) => Promise<unknown>;
+}
+
+// ── CSAT Prediction ──
+export interface CsatPrediction {
+  score: number;
+  reasoning: string;
+}
+
+// ── Test Suite ──
+export const CreateTestCaseSchema = z.object({
+  question: z.string().min(5),
+  expectedAnswerPattern: z.string().min(3),
+  moduleKey: z.string().optional(),
+  route: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+});
+export type CreateTestCaseInput = z.infer<typeof CreateTestCaseSchema>;
+
+export const UpdateTestCaseSchema = z.object({
+  question: z.string().min(5).optional(),
+  expectedAnswerPattern: z.string().min(3).optional(),
+  moduleKey: z.string().optional(),
+  route: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  enabled: z.boolean().optional(),
+});
+export type UpdateTestCaseInput = z.infer<typeof UpdateTestCaseSchema>;
+
+// ── Proactive Rules ──
+export const CreateProactiveRuleSchema = z.object({
+  triggerType: z.enum(PROACTIVE_TRIGGER_TYPES),
+  triggerConfig: z.record(z.unknown()).default({}),
+  messageTemplate: z.string().min(5),
+  moduleKey: z.string().optional(),
+  routePattern: z.string().optional(),
+  priority: z.number().int().default(0),
+  maxShowsPerUser: z.number().int().default(1),
+  cooldownHours: z.number().int().default(24),
+});
+export type CreateProactiveRuleInput = z.infer<typeof CreateProactiveRuleSchema>;
+
+export const UpdateProactiveRuleSchema = z.object({
+  triggerConfig: z.record(z.unknown()).optional(),
+  messageTemplate: z.string().min(5).optional(),
+  moduleKey: z.string().optional(),
+  routePattern: z.string().optional(),
+  priority: z.number().int().optional(),
+  enabled: z.boolean().optional(),
+  maxShowsPerUser: z.number().int().optional(),
+  cooldownHours: z.number().int().optional(),
+});
+export type UpdateProactiveRuleInput = z.infer<typeof UpdateProactiveRuleSchema>;
 

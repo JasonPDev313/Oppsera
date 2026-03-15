@@ -284,12 +284,30 @@ export async function sendMessage(
     .slice(0, -1) // Remove the last user message we just inserted
     .map((r) => ({ role: r.role, content: r.messageText }));
 
+  // ── Sentiment analysis — run before orchestrator so we can adapt tone ──
+  let userSentiment: 'positive' | 'neutral' | 'frustrated' | 'angry' | null = null;
+  try {
+    const { analyzeSentiment } = await import('../services/sentiment-analyzer');
+    const sentimentResult = await analyzeSentiment(messageText);
+    if (sentimentResult) {
+      userSentiment = sentimentResult.sentiment;
+      // Persist sentiment on the user message (non-blocking — OK if it fails)
+      await db
+        .update(aiAssistantMessages)
+        .set({ sentiment: sentimentResult.sentiment })
+        .where(eq(aiAssistantMessages.id, userMessage.id));
+    }
+  } catch (err) {
+    console.warn('[ai-support/thread-commands] Sentiment analysis failed:', err);
+  }
+
   // ── LLM call — no DB connections held during this potentially long call ──
   const orchestratorResult = await runOrchestratorCollected({
     messageText,
     context: contextSnapshot,
     threadHistory,
     mode: resolveAssistantMode(ctx),
+    userSentiment,
   });
 
   // ── Post-LLM DB writes — acquire connection only after LLM completes ──

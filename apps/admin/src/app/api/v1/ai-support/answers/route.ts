@@ -5,6 +5,8 @@ import { withAdminDb } from '@/lib/admin-db';
 import { sql } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 
+const VALID_STATUSES = ['draft', 'active', 'stale', 'archived'];
+
 // ── GET /api/v1/ai-support/answers ──────────────────────────────────
 // List all answer cards with optional filters
 
@@ -12,7 +14,16 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
   const sp = new URL(req.url).searchParams;
   const status = sp.get('status') ?? null;
   const moduleKey = sp.get('moduleKey') ?? null;
-  const limit = Math.min(Number(sp.get('limit') ?? 50), 200);
+  const rawLimit = Number(sp.get('limit') ?? 50);
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50;
+
+  // Validate status filter if provided
+  if (status && !VALID_STATUSES.includes(status)) {
+    return NextResponse.json(
+      { error: { code: 'VALIDATION_ERROR', message: `status must be one of: ${VALID_STATUSES.join(', ')}` } },
+      { status: 400 },
+    );
+  }
 
   const conditions = [sql`1=1`];
   if (status) conditions.push(sql`status = ${status}`);
@@ -53,6 +64,10 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
 // ── POST /api/v1/ai-support/answers ─────────────────────────────────
 // Create a new answer card
 
+const MAX_SLUG_LENGTH = 200;
+const MAX_PATTERN_LENGTH = 2000;
+const MAX_ANSWER_LENGTH = 50_000;
+
 export const POST = withAdminPermission(async (req: NextRequest, session) => {
   let body: Record<string, unknown>;
   try {
@@ -72,23 +87,30 @@ export const POST = withAdminPermission(async (req: NextRequest, session) => {
     );
   }
 
-  const validStatuses = ['draft', 'active', 'stale', 'archived'];
-  const status = (body.status as string | undefined) ?? 'draft';
-  if (!validStatuses.includes(status)) {
+  if (slug.length > MAX_SLUG_LENGTH) {
     return NextResponse.json(
-      { error: { code: 'VALIDATION_ERROR', message: `status must be one of: ${validStatuses.join(', ')}` } },
+      { error: { code: 'VALIDATION_ERROR', message: `slug must be ${MAX_SLUG_LENGTH} characters or fewer` } },
+      { status: 400 },
+    );
+  }
+  if (questionPattern.length > MAX_PATTERN_LENGTH) {
+    return NextResponse.json(
+      { error: { code: 'VALIDATION_ERROR', message: `questionPattern must be ${MAX_PATTERN_LENGTH} characters or fewer` } },
+      { status: 400 },
+    );
+  }
+  if (approvedAnswerMarkdown.length > MAX_ANSWER_LENGTH) {
+    return NextResponse.json(
+      { error: { code: 'VALIDATION_ERROR', message: `approvedAnswerMarkdown must be ${MAX_ANSWER_LENGTH} characters or fewer` } },
       { status: 400 },
     );
   }
 
-  // Check slug uniqueness
-  const existing = await withAdminDb(async (tx) =>
-    tx.execute(sql`SELECT id FROM ai_support_answer_cards WHERE slug = ${slug} LIMIT 1`),
-  );
-  if (Array.from(existing as Iterable<unknown>).length > 0) {
+  const status = (body.status as string | undefined) ?? 'draft';
+  if (!VALID_STATUSES.includes(status)) {
     return NextResponse.json(
-      { error: { code: 'CONFLICT', message: `Slug "${slug}" already exists` } },
-      { status: 409 },
+      { error: { code: 'VALIDATION_ERROR', message: `status must be one of: ${VALID_STATUSES.join(', ')}` } },
+      { status: 400 },
     );
   }
 
@@ -98,16 +120,33 @@ export const POST = withAdminPermission(async (req: NextRequest, session) => {
   const route = (body.route as string | null) ?? null;
   const ownerUserId = (body.ownerUserId as string | null) ?? session.adminId;
 
-  await withAdminDb(async (tx) =>
-    tx.execute(sql`
+  // Single transaction: slug uniqueness check + insert (no TOCTOU race)
+  const result = await withAdminDb(async (tx) => {
+    const existing = await tx.execute(
+      sql`SELECT id FROM ai_support_answer_cards WHERE slug = ${slug} LIMIT 1`,
+    );
+    if (Array.from(existing as Iterable<unknown>).length > 0) {
+      return { error: 'SLUG_CONFLICT' as const };
+    }
+
+    await tx.execute(sql`
       INSERT INTO ai_support_answer_cards
         (id, tenant_id, slug, module_key, route, question_pattern, approved_answer_markdown,
          version, status, owner_user_id, created_at, updated_at)
       VALUES
         (${id}, ${tenantId}, ${slug}, ${moduleKey}, ${route}, ${questionPattern},
          ${approvedAnswerMarkdown}, 1, ${status}, ${ownerUserId}, NOW(), NOW())
-    `),
-  );
+    `);
+
+    return { ok: true as const };
+  });
+
+  if ('error' in result) {
+    return NextResponse.json(
+      { error: { code: 'CONFLICT', message: `Slug "${slug}" already exists` } },
+      { status: 409 },
+    );
+  }
 
   return NextResponse.json(
     {

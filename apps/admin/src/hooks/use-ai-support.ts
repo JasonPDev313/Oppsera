@@ -484,8 +484,8 @@ export function useAiSupportAnalytics(
 export async function bulkUpdateAnswerCardStatus(
   ids: string[],
   status: 'draft' | 'active' | 'stale' | 'archived',
-): Promise<{ updatedCount: number; status: string }> {
-  const res = await adminFetch<{ data: { updatedCount: number; status: string } }>(
+): Promise<{ updatedCount: number; requestedCount: number; status: string }> {
+  const res = await adminFetch<{ data: { updatedCount: number; requestedCount: number; status: string } }>(
     '/api/v1/ai-support/answers/bulk-status',
     { method: 'POST', body: JSON.stringify({ ids, status }) },
   );
@@ -616,4 +616,390 @@ export async function updateFeatureGap(
     { method: 'PATCH', body: JSON.stringify(data) },
   );
   return res.data;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Escalations — Human Agent Handoff
+// ═══════════════════════════════════════════════════════════════════
+
+export type EscalationStatus = 'open' | 'assigned' | 'resolved' | 'closed';
+export type EscalationPriority = 'critical' | 'high' | 'medium' | 'low';
+
+export interface Escalation {
+  id: string;
+  tenantId: string;
+  threadId: string;
+  userId: string;
+  summary: string | null;
+  reason: string;
+  status: EscalationStatus;
+  priority: EscalationPriority;
+  assignedTo: string | null;
+  resolutionNotes: string | null;
+  firstUserMessage: string | null;
+  currentRoute: string | null;
+  moduleKey: string | null;
+  resolvedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface EscalationSummary {
+  total: number;
+  openCount: number;
+  assignedCount: number;
+  resolvedCount: number;
+  closedCount: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+  avgResolutionMinutes: number | null;
+  latestEscalationAt: string | null;
+}
+
+export interface EscalationFilters {
+  status?: EscalationStatus;
+  priority?: EscalationPriority;
+  tenantId?: string;
+  limit?: number;
+}
+
+// ── useEscalations ─────────────────────────────────────────────────
+
+export function useEscalations(filters: EscalationFilters = {}) {
+  const [escalations, setEscalations] = useState<Escalation[]>([]);
+  const [summary, setSummary] = useState<EscalationSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setIsLoading(true);
+    setError(null);
+
+    const params = new URLSearchParams();
+    if (filters.status) params.set('status', filters.status);
+    if (filters.priority) params.set('priority', filters.priority);
+    if (filters.tenantId) params.set('tenantId', filters.tenantId);
+    if (filters.limit) params.set('limit', String(filters.limit));
+    const qs = params.toString();
+
+    adminFetch<{ data: { items: Escalation[]; summary: EscalationSummary } }>(
+      `/api/v1/ai-support/escalations${qs ? `?${qs}` : ''}`,
+    )
+      .then((res) => {
+        setEscalations(res.data.items);
+        setSummary(res.data.summary);
+      })
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'Failed to load escalations'),
+      )
+      .finally(() => setIsLoading(false));
+  }, [filters.status, filters.priority, filters.tenantId, filters.limit]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return { escalations, summary, isLoading, error, reload: load };
+}
+
+// ── updateEscalation ─────────────────────────────────────────────────
+
+export interface UpdateEscalationInput {
+  status?: EscalationStatus;
+  priority?: EscalationPriority;
+  assignedTo?: string;
+  resolutionNotes?: string;
+}
+
+export async function updateEscalation(
+  id: string,
+  data: UpdateEscalationInput,
+): Promise<{ id: string; status: string; priority: string; assignedTo: string | null; resolvedAt: string | null }> {
+  const res = await adminFetch<{
+    data: { id: string; status: string; priority: string; assignedTo: string | null; resolvedAt: string | null };
+  }>(
+    `/api/v1/ai-support/escalations/${id}`,
+    { method: 'PATCH', body: JSON.stringify(data) },
+  );
+  return res.data;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Test Cases & Test Runs — AI Simulation / Testing Suite
+// ═══════════════════════════════════════════════════════════════════
+
+export interface TestCase {
+  id: string;
+  name: string;
+  question: string;
+  expectedAnswer: string | null;
+  moduleKey: string | null;
+  route: string | null;
+  tags: string[] | null;
+  status: 'active' | 'archived';
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface TestRun {
+  id: string;
+  name: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  totalCases: number;
+  passedCount: number;
+  failedCount: number;
+  skippedCount: number;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string | null;
+}
+
+export interface TestResult {
+  id: string;
+  testRunId: string;
+  testCaseId: string;
+  question: string;
+  expectedAnswer: string | null;
+  actualAnswer: string | null;
+  passed: boolean;
+  confidence: string | null;
+  sourceTier: string | null;
+  durationMs: number | null;
+  notes: string | null;
+}
+
+export interface TestCaseFilters {
+  status?: 'active' | 'archived';
+  moduleKey?: string;
+  limit?: number;
+}
+
+// ── useTestCases ─────────────────────────────────────────────────
+
+export function useTestCases(filters: TestCaseFilters = {}) {
+  const [testCases, setTestCases] = useState<TestCase[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setIsLoading(true);
+    setError(null);
+
+    const params = new URLSearchParams();
+    if (filters.status) params.set('status', filters.status);
+    if (filters.moduleKey) params.set('moduleKey', filters.moduleKey);
+    if (filters.limit) params.set('limit', String(filters.limit));
+    const qs = params.toString();
+
+    adminFetch<{ data: { items: TestCase[] } }>(
+      `/api/v1/ai-support/test-cases${qs ? `?${qs}` : ''}`,
+    )
+      .then((res) => setTestCases(res.data.items))
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'Failed to load test cases'),
+      )
+      .finally(() => setIsLoading(false));
+  }, [filters.status, filters.moduleKey, filters.limit]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return { testCases, isLoading, error, reload: load };
+}
+
+// ── createTestCase ─────────────────────────────────────────────────
+
+export async function createTestCase(
+  data: { name: string; question: string; expectedAnswer?: string; moduleKey?: string; route?: string; tags?: string[] },
+): Promise<TestCase> {
+  const res = await adminFetch<{ data: TestCase }>(
+    '/api/v1/ai-support/test-cases',
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+  return res.data;
+}
+
+// ── updateTestCase ─────────────────────────────────────────────────
+
+export async function updateTestCase(
+  id: string,
+  data: { name?: string; question?: string; expectedAnswer?: string; status?: 'active' | 'archived'; tags?: string[] },
+): Promise<TestCase> {
+  const res = await adminFetch<{ data: TestCase }>(
+    `/api/v1/ai-support/test-cases/${id}`,
+    { method: 'PATCH', body: JSON.stringify(data) },
+  );
+  return res.data;
+}
+
+// ── deleteTestCase ─────────────────────────────────────────────────
+
+export async function deleteTestCase(id: string): Promise<void> {
+  await adminFetch(`/api/v1/ai-support/test-cases/${id}`, { method: 'DELETE' });
+}
+
+// ── useTestRuns ─────────────────────────────────────────────────
+
+export function useTestRuns() {
+  const [testRuns, setTestRuns] = useState<TestRun[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setIsLoading(true);
+    setError(null);
+
+    adminFetch<{ data: { items: TestRun[] } }>(
+      '/api/v1/ai-support/test-runs',
+    )
+      .then((res) => setTestRuns(res.data.items))
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'Failed to load test runs'),
+      )
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return { testRuns, isLoading, error, reload: load };
+}
+
+// ── useTestRunDetail ─────────────────────────────────────────────────
+
+export function useTestRunDetail(runId: string) {
+  const [run, setRun] = useState<TestRun | null>(null);
+  const [results, setResults] = useState<TestResult[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    if (!runId) return;
+    setIsLoading(true);
+    setError(null);
+
+    adminFetch<{ data: { run: TestRun; results: TestResult[] } }>(
+      `/api/v1/ai-support/test-runs/${runId}`,
+    )
+      .then((res) => {
+        setRun(res.data.run);
+        setResults(res.data.results);
+      })
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'Failed to load test run'),
+      )
+      .finally(() => setIsLoading(false));
+  }, [runId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return { run, results, isLoading, error, reload: load };
+}
+
+// ── startTestRun ─────────────────────────────────────────────────
+
+export async function startTestRun(
+  data: { name: string; testCaseIds?: string[] },
+): Promise<TestRun> {
+  const res = await adminFetch<{ data: TestRun }>(
+    '/api/v1/ai-support/test-runs',
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+  return res.data;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Proactive Rules — Outbound nudges
+// ═══════════════════════════════════════════════════════════════════
+
+export interface ProactiveRule {
+  id: string;
+  name: string;
+  triggerType: string;
+  triggerConfig: Record<string, unknown>;
+  messageTemplate: string;
+  moduleKey: string | null;
+  route: string | null;
+  priority: number;
+  isActive: boolean;
+  cooldownMinutes: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface ProactiveRuleFilters {
+  isActive?: boolean;
+  moduleKey?: string;
+  limit?: number;
+}
+
+// ── useProactiveRules ─────────────────────────────────────────────────
+
+export function useProactiveRules(filters: ProactiveRuleFilters = {}) {
+  const [rules, setRules] = useState<ProactiveRule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setIsLoading(true);
+    setError(null);
+
+    const params = new URLSearchParams();
+    if (filters.isActive !== undefined) params.set('isActive', String(filters.isActive));
+    if (filters.moduleKey) params.set('moduleKey', filters.moduleKey);
+    if (filters.limit) params.set('limit', String(filters.limit));
+    const qs = params.toString();
+
+    adminFetch<{ data: { items: ProactiveRule[] } }>(
+      `/api/v1/ai-support/proactive-rules${qs ? `?${qs}` : ''}`,
+    )
+      .then((res) => setRules(res.data.items))
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'Failed to load proactive rules'),
+      )
+      .finally(() => setIsLoading(false));
+  }, [filters.isActive, filters.moduleKey, filters.limit]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return { rules, isLoading, error, reload: load };
+}
+
+// ── createProactiveRule ─────────────────────────────────────────────────
+
+export async function createProactiveRule(
+  data: { name: string; triggerType: string; triggerConfig: Record<string, unknown>; messageTemplate: string; moduleKey?: string; route?: string; priority?: number; cooldownMinutes?: number },
+): Promise<ProactiveRule> {
+  const res = await adminFetch<{ data: ProactiveRule }>(
+    '/api/v1/ai-support/proactive-rules',
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+  return res.data;
+}
+
+// ── updateProactiveRule ─────────────────────────────────────────────────
+
+export async function updateProactiveRule(
+  id: string,
+  data: { name?: string; triggerType?: string; triggerConfig?: Record<string, unknown>; messageTemplate?: string; moduleKey?: string; route?: string; priority?: number; isActive?: boolean; cooldownMinutes?: number },
+): Promise<ProactiveRule> {
+  const res = await adminFetch<{ data: ProactiveRule }>(
+    `/api/v1/ai-support/proactive-rules/${id}`,
+    { method: 'PATCH', body: JSON.stringify(data) },
+  );
+  return res.data;
+}
+
+// ── deleteProactiveRule ─────────────────────────────────────────────────
+
+export async function deleteProactiveRule(id: string): Promise<void> {
+  await adminFetch(`/api/v1/ai-support/proactive-rules/${id}`, { method: 'DELETE' });
 }

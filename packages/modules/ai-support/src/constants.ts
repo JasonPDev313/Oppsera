@@ -98,3 +98,35 @@ export const FEEDBACK_REASON_CODES = [
   'not_accurate', 'didnt_answer', 'show_steps', 'contact_support',
 ] as const;
 export type FeedbackReasonCode = typeof FEEDBACK_REASON_CODES[number];
+
+// ── Escalation (Human Agent Handoff) ──
+export const ESCALATION_STATUSES = ['open', 'assigned', 'resolved', 'closed'] as const;
+export type EscalationStatus = typeof ESCALATION_STATUSES[number];
+
+export const ESCALATION_PRIORITIES = ['low', 'medium', 'high', 'critical'] as const;
+export type EscalationPriority = typeof ESCALATION_PRIORITIES[number];
+
+export const ESCALATION_REASONS = ['user_requested', 'low_confidence', 'negative_sentiment', 'auto_escalation'] as const;
+export type EscalationReason = typeof ESCALATION_REASONS[number];
+
+// ── Sentiment Detection ──
+export const SENTIMENT_VALUES = ['positive', 'neutral', 'frustrated', 'angry'] as const;
+export type SentimentValue = typeof SENTIMENT_VALUES[number];
+
+// ── Conversation Tags ──
+export const TAG_TYPES = ['topic', 'intent', 'urgency'] as const;
+export type TagType = typeof TAG_TYPES[number];
+
+export const INTENT_VALUES = ['how_to', 'troubleshoot', 'feature_request', 'complaint', 'general'] as const;
+export type IntentValue = typeof INTENT_VALUES[number];
+
+export const URGENCY_VALUES = ['low', 'medium', 'high', 'critical'] as const;
+export type UrgencyValue = typeof URGENCY_VALUES[number];
+
+// ── Proactive Messages ──
+export const PROACTIVE_TRIGGER_TYPES = ['page_idle', 'feature_unused', 'onboarding_incomplete', 'first_visit'] as const;
+export type ProactiveTriggerType = typeof PROACTIVE_TRIGGER_TYPES[number];
+
+// ── Test Suite ──
+export const TEST_RUN_STATUSES = ['pending', 'running', 'completed', 'failed'] as const;
+export type TestRunStatus = typeof TEST_RUN_STATUSES[number];

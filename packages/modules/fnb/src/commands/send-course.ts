@@ -35,6 +35,7 @@ import {
   emptyDispatchResult,
 } from './dispatch-course-to-kds';
 import type { DispatchCourseResult } from './dispatch-course-to-kds';
+import { withEffectiveLocationId } from '../helpers/venue-location';
 
 // ── Return type ────────────────────────────────────────────────────
 
@@ -126,9 +127,7 @@ export async function sendCourse(
   // ── Phase 2: Atomic transaction ────────────────────────────────
   try {
     // Use effectiveCtx so the outbox envelope location matches where tickets are stored.
-    const effectiveCtx = prep.effectiveLocationId !== ctx.locationId
-      ? { ...ctx, locationId: prep.effectiveLocationId } as RequestContext
-      : ctx;
+    const effectiveCtx = withEffectiveLocationId(ctx, prep.effectiveLocationId);
     const txResult = await publishWithOutbox(effectiveCtx, async (tx): Promise<{ result: { course: unknown; ticketIds: string[]; isDuplicate: boolean }; events: ReturnType<typeof buildEventFromContext>[] }> => {
       // 1. sendCourse-level idempotency
       const idemCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'sendCourse');
@@ -302,7 +301,7 @@ export async function sendCourse(
 
         // Build ticket.created event
         events.push(
-          buildEventFromContext(ctx, FNB_EVENTS.TICKET_CREATED, {
+          buildEventFromContext(effectiveCtx, FNB_EVENTS.TICKET_CREATED, {
             ticketId: ticket!.id,
             locationId: prep.effectiveLocationId,
             tabId: input.tabId,
@@ -335,9 +334,9 @@ export async function sendCourse(
 
       // 8. Course.sent event
       events.push(
-        buildEventFromContext(ctx, FNB_EVENTS.COURSE_SENT, {
+        buildEventFromContext(effectiveCtx, FNB_EVENTS.COURSE_SENT, {
           tabId: input.tabId,
-          locationId: tab.locationId,
+          locationId: prep.effectiveLocationId,
           courseNumber: input.courseNumber,
         }),
       );

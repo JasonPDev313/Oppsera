@@ -8,6 +8,8 @@ import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { OpenTabInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';
+import { assertSingleVenueLocation, withEffectiveLocationId } from '../helpers/venue-location';
+import { resolveKdsLocationId } from '../services/kds-routing-engine';
 
 /** Resolve course 1 name from fnb_course_definitions, fallback to 'Course 1'. */
 async function resolveCourse1Name(tx: Parameters<Parameters<typeof publishWithOutbox>[1]>[0], tenantId: string, locationId: string): Promise<string> {
@@ -35,6 +37,16 @@ export async function openTab(
   if (!ctx.locationId) {
     throw new Error('Location ID is required to open a tab');
   }
+
+  // Pre-transaction: resolve site → venue for non-table tabs (bar, takeout).
+  // KDS stations are ONLY on venues — tabs must be stamped with the venue ID.
+  // When a table is provided, the table's location_id overrides this inside the tx.
+  const kdsLocation = await resolveKdsLocationId(ctx.tenantId, ctx.locationId);
+  if (kdsLocation.warning) {
+    throw new AppError('VENUE_REQUIRED', kdsLocation.warning, 400);
+  }
+  const preResolvedVenueId = kdsLocation.locationId;
+
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'openTab',
@@ -43,10 +55,29 @@ export async function openTab(
       return { result: idempotencyCheck.originalResult as any, events: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any -- untyped JSON from DB
     }
 
-    // Get next tab number via upsert on counter
+    let effectiveLocationId = preResolvedVenueId;
+
+    // If dine-in with a table, the table's venue overrides the pre-resolved venue
+    if (input.tableId) {
+      const tableRows = await tx.execute(
+        sql`SELECT id, location_id FROM fnb_tables
+            WHERE id = ${input.tableId} AND tenant_id = ${ctx.tenantId}
+            LIMIT 1`,
+      );
+      const tableArr = Array.from(tableRows as Iterable<Record<string, unknown>>);
+      if (tableArr.length === 0) {
+        throw new AppError('TABLE_NOT_FOUND', `Table ${input.tableId} not found`, 404);
+      }
+      effectiveLocationId = assertSingleVenueLocation(
+        [tableArr[0]!.location_id as string | null],
+        'table',
+      );
+    }
+
+    // Get next tab number via upsert on the effective venue counter
     const counterResult = await tx.execute(
       sql`INSERT INTO fnb_tab_counters (tenant_id, location_id, business_date, last_number)
-          VALUES (${ctx.tenantId}, ${ctx.locationId}, ${input.businessDate}, 1)
+          VALUES (${ctx.tenantId}, ${effectiveLocationId}, ${input.businessDate}, 1)
           ON CONFLICT (tenant_id, location_id, business_date)
           DO UPDATE SET last_number = fnb_tab_counters.last_number + 1
           RETURNING last_number`,
@@ -55,25 +86,12 @@ export async function openTab(
       Array.from(counterResult as Iterable<Record<string, unknown>>)[0]!.last_number,
     );
 
-    // If dine-in with a table, validate the table exists in fnb_tables
-    if (input.tableId) {
-      const tableRows = await tx.execute(
-        sql`SELECT id FROM fnb_tables
-            WHERE id = ${input.tableId} AND tenant_id = ${ctx.tenantId}
-            LIMIT 1`,
-      );
-      const tableArr = Array.from(tableRows as Iterable<Record<string, unknown>>);
-      if (tableArr.length === 0) {
-        throw new AppError('TABLE_NOT_FOUND', `Table ${input.tableId} not found`, 404);
-      }
-    }
-
     // Create the tab
     const [created] = await tx
       .insert(fnbTabs)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId!,
+        locationId: effectiveLocationId,
         tabNumber,
         tabType: input.tabType,
         status: 'open',
@@ -91,7 +109,7 @@ export async function openTab(
       .returning();
 
     // Create default course 1 — use location's course definition name if available
-    const course1Name = await resolveCourse1Name(tx, ctx.tenantId, ctx.locationId!);
+    const course1Name = await resolveCourse1Name(tx, ctx.tenantId, effectiveLocationId);
     await tx
       .insert(fnbTabCourses)
       .values({
@@ -139,9 +157,10 @@ export async function openTab(
       }
     }
 
-    const event = buildEventFromContext(ctx, FNB_EVENTS.TAB_OPENED, {
+    const effectiveCtx = withEffectiveLocationId(ctx, effectiveLocationId);
+    const event = buildEventFromContext(effectiveCtx, FNB_EVENTS.TAB_OPENED, {
       tabId: created!.id,
-      locationId: ctx.locationId,
+      locationId: effectiveLocationId,
       tabNumber,
       tabType: input.tabType,
       tableId: input.tableId ?? null,

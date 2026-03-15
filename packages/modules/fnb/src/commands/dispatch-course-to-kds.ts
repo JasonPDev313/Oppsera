@@ -16,7 +16,7 @@ import { eq, and, inArray, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { fnbTabs, fnbTabItems, fnbTabCourses, fnbTables } from '@oppsera/db';
 import { logger } from '@oppsera/core/observability';
-import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems } from '../services/kds-routing-engine';
+import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems, resolveKdsLocationId } from '../services/kds-routing-engine';
 import type { RoutableItem, RoutingResult } from '../services/kds-routing-engine';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { normalizeBusinessDate } from '../helpers/normalize-business-date';
@@ -226,23 +226,54 @@ export async function prepareCourseDispatch(
     businessDate: normalizeBusinessDate(tabRaw.businessDate),
   };
 
-  // Tab's own locationId is authoritative (NOT NULL in schema, set at tab creation).
-  // NEVER let a client header or middleware location override tab.locationId —
-  // a stale/wrong client location previously caused zero-station dispatch.
-  if (!tab.locationId) {
-    return failPrep(`Tab ${input.tabId} has no locationId — data corruption (column is NOT NULL)`);
+  // 2. Resolve table metadata first. For legacy tabs created at the parent
+  // site, the table's venue location is the source of truth for KDS dispatch.
+  let tableNumber: number | null = null;
+  let tableLocationId: string | null = null;
+  if (tab.tableId) {
+    try {
+      const [tableRow] = await withTenant(ctx.tenantId, (tx) =>
+        tx
+          .select({
+            tableNumber: fnbTables.tableNumber,
+            locationId: fnbTables.locationId,
+          })
+          .from(fnbTables)
+          .where(and(eq(fnbTables.id, tab.tableId!), eq(fnbTables.tenantId, ctx.tenantId)))
+          .limit(1),
+      );
+      tableNumber = tableRow?.tableNumber ?? null;
+      tableLocationId = tableRow?.locationId ?? null;
+    } catch {
+      // Non-critical
+    }
   }
-  const rawLocationId = tab.locationId;
 
-  // Diagnostic: warn if client sent a different location than the tab's own
+  const rawLocationId = tableLocationId ?? tab.locationId;
+  if (!rawLocationId) {
+    return failPrep(`Tab ${input.tabId} has no locationId and no table venue location`);
+  }
+
+  if (tableLocationId && tab.locationId && tableLocationId !== tab.locationId) {
+    diagnosis.push(`TAB LOCATION CORRECTED: tab stored ${tab.locationId} but table belongs to ${tableLocationId} — using table venue`);
+  }
+
+  // Diagnostic: warn if client sent a different location than the resolved venue source
   const clientLocationId = input.locationId || ctx.locationId;
-  if (clientLocationId && clientLocationId !== tab.locationId) {
-    diagnosis.push(`LOCATION MISMATCH: client sent ${clientLocationId} but tab owns ${tab.locationId} — using tab location`);
+  if (clientLocationId && clientLocationId !== rawLocationId) {
+    diagnosis.push(`LOCATION MISMATCH: client sent ${clientLocationId} but tab resolves to ${rawLocationId} — using resolved venue source`);
   }
 
-  // 2. KDS stations live at the venue level — no hierarchy resolution needed.
-  //    The tab's locationId is always the venue where stations are configured.
-  const effectiveLocationId = rawLocationId;
+  // KDS stations are ONLY on venues. If the resolved location is a site,
+  // resolve to its child venue so we query the right stations.
+  const kdsLocation = await resolveKdsLocationId(ctx.tenantId, rawLocationId);
+  if (kdsLocation.warning) {
+    return failPrep(kdsLocation.warning);
+  }
+  const effectiveLocationId = kdsLocation.locationId;
+  if (kdsLocation.resolved) {
+    diagnosis.push(`VENUE RESOLVED: tab location ${rawLocationId} (site) → ${effectiveLocationId} (venue)`);
+  }
   diagnosis.push(`Tab: locationId=${effectiveLocationId}, tabType=${tab.tabType ?? 'null'}`);
 
   if (items.length === 0) {
@@ -254,7 +285,7 @@ export async function prepareCourseDispatch(
       tab,
       courseName,
       effectiveLocationId,
-      tableNumber: null,
+      tableNumber,
       stationGroups: new Map(),
       stationNameMap: new Map(),
       prepTimeMap: new Map(),
@@ -267,19 +298,6 @@ export async function prepareCourseDispatch(
     };
   }
   diagnosis.push(`Found ${items.length} item(s) in Course ${input.courseNumber}`);
-
-  // 3. Resolve table number (for KDS ticket display)
-  let tableNumber: number | null = null;
-  if (tab.tableId) {
-    try {
-      const [tableRow] = await withTenant(ctx.tenantId, (tx) =>
-        tx.select({ tableNumber: fnbTables.tableNumber }).from(fnbTables).where(eq(fnbTables.id, tab.tableId!)).limit(1),
-      );
-      tableNumber = tableRow?.tableNumber ?? null;
-    } catch {
-      // Non-critical
-    }
-  }
 
   // 4. Build routable items + enrich
   let routableItems: RoutableItem[] = items.map((item) => ({

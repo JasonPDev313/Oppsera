@@ -18,7 +18,7 @@ import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idem
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { logger } from '@oppsera/core/observability';
-import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems } from '../services/kds-routing-engine';
+import { resolveStationRouting, enrichRoutableItems, getStationPrepTimesForItems, resolveKdsLocationId } from '../services/kds-routing-engine';
 import type { RoutableItem, CatalogChainEntry } from '../services/kds-routing-engine';
 import { extractModifierIds, formatModifierSummary } from '../helpers/kds-modifier-helpers';
 import { recordDispatchAttempt, emptyDispatchResult } from './dispatch-course-to-kds';
@@ -148,10 +148,20 @@ export async function sendOrderLinesToKds(
     newLineCount: newLines.length, alreadySent: alreadySentIds.size,
   });
 
-  // 2. KDS stations live at the venue level — no hierarchy resolution needed.
-  //    The POS session location is always the venue where stations are configured.
-  const effectiveLocationId = ctx.locationId!;
+  // 2. KDS stations are ONLY on venues. Resolve site → venue if needed.
+  const kdsLocation = await resolveKdsLocationId(ctx.tenantId, ctx.locationId!);
+  if (kdsLocation.warning) {
+    dispatch.status = 'routing_failed';
+    dispatch.failureStage = 'location_resolution';
+    dispatch.errors.push(kdsLocation.warning);
+    const pendingWork = recordDispatchAttempt(ctx.tenantId, { orderId, source: 'retail_kds_send', locationId: ctx.locationId }, dispatch, startMs).catch(() => {});
+    return { sentCount: 0, failedCount: 0, totalStations: 0, dispatch, pendingWork };
+  }
+  const effectiveLocationId = kdsLocation.locationId;
   dispatch.effectiveKdsLocationId = effectiveLocationId;
+  if (kdsLocation.resolved) {
+    dispatch.diagnosis.push(`VENUE RESOLVED: ${ctx.locationId} (site) → ${effectiveLocationId} (venue)`);
+  }
   dispatch.diagnosis.push(`Location: ${effectiveLocationId}`);
   timings.resolveLocationMs = Date.now() - startMs;
 

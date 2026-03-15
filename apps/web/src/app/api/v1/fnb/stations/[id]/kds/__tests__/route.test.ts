@@ -30,7 +30,7 @@ vi.mock('@oppsera/core/auth/with-middleware', () => ({
 vi.mock('@oppsera/module-fnb', () => ({
   getKdsView: mockGetKdsView,
   getKdsHistory: mockGetKdsHistory,
-  resolveKdsLocationId: vi.fn().mockResolvedValue('loc_001'),
+  resolveKdsLocationId: vi.fn().mockResolvedValue({ locationId: 'loc_001', resolved: false, warning: null }),
 }));
 
 // ── NextResponse mock ───────────────────────────────────────────

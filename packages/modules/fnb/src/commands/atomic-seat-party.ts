@@ -8,6 +8,7 @@ import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { FNB_EVENTS } from '../events/types';
 import { HOST_EVENTS } from '../events/host-events';
+import { assertSingleVenueLocation, withEffectiveLocationId } from '../helpers/venue-location';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -144,6 +145,11 @@ export async function atomicSeatParty(
     }
 
     // ── 4. Resolve server ────────────────────────────────────────
+    const effectiveLocationId = assertSingleVenueLocation(
+      lockedArr.map((row) => row.location_id as string | null),
+      'tables',
+    );
+    const effectiveCtx = withEffectiveLocationId(ctx, effectiveLocationId);
     let resolvedServerUserId: string;
 
     if (input.serverUserId) {
@@ -154,7 +160,7 @@ export async function atomicSeatParty(
         SELECT next_server_user_id
         FROM fnb_rotation_tracker
         WHERE tenant_id = ${ctx.tenantId}
-          AND location_id = ${ctx.locationId}
+          AND location_id = ${effectiveLocationId}
           AND business_date = ${input.businessDate}
         LIMIT 1
       `);
@@ -168,7 +174,7 @@ export async function atomicSeatParty(
           SELECT server_user_id
           FROM fnb_server_assignments
           WHERE tenant_id = ${ctx.tenantId}
-            AND location_id = ${ctx.locationId}
+            AND location_id = ${effectiveLocationId}
             AND business_date = ${input.businessDate}
             AND status = 'active'
           ORDER BY created_at ASC
@@ -188,7 +194,7 @@ export async function atomicSeatParty(
     // ── 5. Get next tab number ───────────────────────────────────
     const counterResult = await tx.execute(sql`
       INSERT INTO fnb_tab_counters (tenant_id, location_id, business_date, last_number)
-      VALUES (${ctx.tenantId}, ${ctx.locationId}, ${input.businessDate}, 1)
+      VALUES (${ctx.tenantId}, ${effectiveLocationId}, ${input.businessDate}, 1)
       ON CONFLICT (tenant_id, location_id, business_date)
       DO UPDATE SET last_number = fnb_tab_counters.last_number + 1
       RETURNING last_number
@@ -204,7 +210,7 @@ export async function atomicSeatParty(
       .insert(fnbTabs)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId!,
+        locationId: effectiveLocationId,
         tabNumber,
         tabType: 'dine_in',
         status: 'open',
@@ -297,7 +303,7 @@ export async function atomicSeatParty(
         .insert(fnbTableTurnLog)
         .values({
           tenantId: ctx.tenantId,
-          locationId: ctx.locationId!,
+          locationId: effectiveLocationId,
           tableId,
           partySize: input.partySize,
           mealPeriod,
@@ -365,7 +371,7 @@ export async function atomicSeatParty(
           SELECT id, ROW_NUMBER() OVER (ORDER BY priority DESC, added_at ASC) AS new_pos
           FROM fnb_waitlist_entries
           WHERE tenant_id   = ${ctx.tenantId}
-            AND location_id = ${ctx.locationId}
+            AND location_id = ${effectiveLocationId}
             AND business_date = ${businessDate}
             AND status IN ('waiting', 'notified')
         )
@@ -380,7 +386,7 @@ export async function atomicSeatParty(
     const events = [];
 
     // Primary composite event: party seated
-    const partySeatedEvent = buildEventFromContext(ctx, HOST_EVENTS.PARTY_SEATED, {
+    const partySeatedEvent = buildEventFromContext(effectiveCtx, HOST_EVENTS.PARTY_SEATED, {
       tabId,
       tabNumber,
       tableIds: tableIdList,
@@ -395,9 +401,9 @@ export async function atomicSeatParty(
     events.push(partySeatedEvent);
 
     // Tab opened event
-    const tabOpenedEvent = buildEventFromContext(ctx, FNB_EVENTS.TAB_OPENED, {
+    const tabOpenedEvent = buildEventFromContext(effectiveCtx, FNB_EVENTS.TAB_OPENED, {
       tabId,
-      locationId: ctx.locationId,
+      locationId: effectiveLocationId,
       tabNumber,
       tabType: 'dine_in',
       tableId: primaryTableId,
@@ -410,10 +416,10 @@ export async function atomicSeatParty(
     // Table status changed event per table
     for (const tableId of tableIdList) {
       const lockedRow = tableMap.get(tableId)!;
-      const tableStatusChangedEvent = buildEventFromContext(ctx, FNB_EVENTS.TABLE_STATUS_CHANGED, {
+      const tableStatusChangedEvent = buildEventFromContext(effectiveCtx, FNB_EVENTS.TABLE_STATUS_CHANGED, {
         tableId,
         roomId: lockedRow.room_id ? String(lockedRow.room_id) : null,
-        locationId: ctx.locationId,
+        locationId: effectiveLocationId,
         oldStatus: String(lockedRow.current_status),
         newStatus: 'seated',
         partySize: input.partySize,

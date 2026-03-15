@@ -4,13 +4,16 @@ import { withAdminPermission } from '@/lib/with-admin-permission';
 import { withAdminDb } from '@/lib/admin-db';
 import { sql } from '@oppsera/db';
 
+// ULID: 26 chars, Crockford base32
+const ULID_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/i;
+
 // ── GET /api/v1/ai-support/answers/[id] ─────────────────────────────
 // Fetch a single answer card by ID
 
 export const GET = withAdminPermission(async (_req: NextRequest, _session, params) => {
   const id = params?.id;
-  if (!id) {
-    return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Missing id' } }, { status: 400 });
+  if (!id || !ULID_RE.test(id)) {
+    return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Missing or invalid id' } }, { status: 400 });
   }
 
   const rows = await withAdminDb(async (tx) =>
@@ -54,8 +57,8 @@ export const GET = withAdminPermission(async (_req: NextRequest, _session, param
 
 export const PATCH = withAdminPermission(async (req: NextRequest, _session, params) => {
   const id = params?.id;
-  if (!id) {
-    return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Missing id' } }, { status: 400 });
+  if (!id || !ULID_RE.test(id)) {
+    return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Missing or invalid id' } }, { status: 400 });
   }
 
   let body: Record<string, unknown>;
@@ -65,22 +68,7 @@ export const PATCH = withAdminPermission(async (req: NextRequest, _session, para
     return NextResponse.json({ error: { code: 'INVALID_JSON', message: 'Invalid JSON body' } }, { status: 400 });
   }
 
-  // Verify the card exists
-  const existing = await withAdminDb(async (tx) =>
-    tx.execute(sql`
-      SELECT id, approved_answer_markdown, version FROM ai_support_answer_cards WHERE id = ${id} LIMIT 1
-    `),
-  );
-  const existingArr = Array.from(existing as Iterable<Record<string, unknown>>);
-  if (existingArr.length === 0) {
-    return NextResponse.json({ error: { code: 'NOT_FOUND', message: `Answer card ${id} not found` } }, { status: 404 });
-  }
-
-  const current = existingArr[0]!;
-  const currentVersion = Number(current['version']);
-  const currentAnswer = current['approved_answer_markdown'] as string;
-
-  // Build update fields
+  // Extract and validate fields before touching the DB
   const newSlug = (body.slug as string | undefined)?.trim() ?? null;
   const newModuleKey = Object.prototype.hasOwnProperty.call(body, 'moduleKey')
     ? ((body.moduleKey as string | null) ?? null)
@@ -103,26 +91,36 @@ export const PATCH = withAdminPermission(async (req: NextRequest, _session, para
     );
   }
 
-  // Check slug uniqueness if slug is being updated
-  if (newSlug) {
-    const slugConflict = await withAdminDb(async (tx) =>
-      tx.execute(sql`
-        SELECT id FROM ai_support_answer_cards WHERE slug = ${newSlug} AND id != ${id} LIMIT 1
-      `),
-    );
-    if (Array.from(slugConflict as Iterable<unknown>).length > 0) {
-      return NextResponse.json(
-        { error: { code: 'CONFLICT', message: `Slug '${newSlug}' is already in use` } },
-        { status: 409 },
-      );
+  // Single transaction: existence check + slug uniqueness + update (no TOCTOU race)
+  const result = await withAdminDb(async (tx) => {
+    // Verify card exists
+    const existing = await tx.execute(sql`
+      SELECT id, approved_answer_markdown, version
+      FROM ai_support_answer_cards WHERE id = ${id} LIMIT 1
+    `);
+    const existingArr = Array.from(existing as Iterable<Record<string, unknown>>);
+    if (existingArr.length === 0) {
+      return { error: 'NOT_FOUND' as const };
     }
-  }
 
-  // Bump version if answer content changed
-  const answerChanged = newAnswer !== null && newAnswer !== currentAnswer;
-  const newVersion = answerChanged ? currentVersion + 1 : currentVersion;
+    const current = existingArr[0]!;
+    const currentVersion = Number(current['version']);
+    const currentAnswer = current['approved_answer_markdown'] as string;
 
-  await withAdminDb(async (tx) => {
+    // Check slug uniqueness within the same transaction
+    if (newSlug) {
+      const slugConflict = await tx.execute(sql`
+        SELECT id FROM ai_support_answer_cards WHERE slug = ${newSlug} AND id != ${id} LIMIT 1
+      `);
+      if (Array.from(slugConflict as Iterable<unknown>).length > 0) {
+        return { error: 'SLUG_CONFLICT' as const, slug: newSlug };
+      }
+    }
+
+    // Bump version if answer content changed
+    const answerChanged = newAnswer !== null && newAnswer !== currentAnswer;
+    const nextVersion = answerChanged ? currentVersion + 1 : currentVersion;
+
     const setParts: ReturnType<typeof sql>[] = [sql`updated_at = NOW()`];
     if (newSlug) setParts.push(sql`slug = ${newSlug}`);
     if (newModuleKey !== undefined) setParts.push(sql`module_key = ${newModuleKey}`);
@@ -131,16 +129,33 @@ export const PATCH = withAdminPermission(async (req: NextRequest, _session, para
     if (newAnswer) setParts.push(sql`approved_answer_markdown = ${newAnswer}`);
     if (newStatus) setParts.push(sql`status = ${newStatus}`);
     if (newOwner !== undefined) setParts.push(sql`owner_user_id = ${newOwner}`);
-    if (answerChanged) setParts.push(sql`version = ${newVersion}`);
+    if (answerChanged) setParts.push(sql`version = ${nextVersion}`);
 
     await tx.execute(sql`
       UPDATE ai_support_answer_cards
       SET ${sql.join(setParts, sql`, `)}
       WHERE id = ${id}
     `);
+
+    return { ok: true as const, id, version: nextVersion };
   });
 
+  if ('error' in result) {
+    if (result.error === 'NOT_FOUND') {
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: `Answer card ${id} not found` } },
+        { status: 404 },
+      );
+    }
+    if (result.error === 'SLUG_CONFLICT') {
+      return NextResponse.json(
+        { error: { code: 'CONFLICT', message: `Slug '${result.slug}' is already in use` } },
+        { status: 409 },
+      );
+    }
+  }
+
   return NextResponse.json({
-    data: { id, version: newVersion, updated: true },
+    data: { id: result.id, version: result.version, updated: true },
   });
 }, { permission: 'ai_support.answers.write' });

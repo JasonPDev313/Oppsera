@@ -19,6 +19,7 @@ import { fnbTabs, fnbTabCourses, fnbTableStatusHistory, fnbTableTurnLog } from '
 import { HOST_EVENTS } from '../events/host-events';
 import { FNB_EVENTS } from '../events/types';
 import { mapHostWaitlistRow } from './host-helpers';
+import { assertSingleVenueLocation, withEffectiveLocationId } from '../helpers/venue-location';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ export async function acceptTableOffer(
         ls.status,
         ls.version,
         t.room_id,
+        t.location_id,
         t.capacity_min,
         t.capacity_max,
         t.table_type
@@ -153,6 +155,11 @@ export async function acceptTableOffer(
         409,
       );
     }
+    const effectiveLocationId = assertSingleVenueLocation(
+      [tableRow.location_id as string | null],
+      'table',
+    );
+    const effectiveCtx = withEffectiveLocationId(ctx, effectiveLocationId);
 
     // ── 4. Resolve business date ──────────────────────────────────────────
     const businessDate = String(entry.business_date ?? new Date().toISOString().slice(0, 10));
@@ -163,7 +170,7 @@ export async function acceptTableOffer(
       SELECT next_server_user_id
       FROM fnb_rotation_tracker
       WHERE tenant_id    = ${ctx.tenantId}
-        AND location_id  = ${ctx.locationId}
+        AND location_id  = ${effectiveLocationId}
         AND business_date = ${businessDate}
       LIMIT 1
     `);
@@ -175,7 +182,7 @@ export async function acceptTableOffer(
         SELECT server_user_id
         FROM fnb_server_assignments
         WHERE tenant_id   = ${ctx.tenantId}
-          AND location_id = ${ctx.locationId}
+          AND location_id = ${effectiveLocationId}
           AND business_date = ${businessDate}
           AND status = 'active'
         ORDER BY created_at ASC
@@ -190,7 +197,7 @@ export async function acceptTableOffer(
     // ── 6. Get next tab number ─────────────────────────────────────────────
     const counterRows = await tx.execute(sql`
       INSERT INTO fnb_tab_counters (tenant_id, location_id, business_date, last_number)
-      VALUES (${ctx.tenantId}, ${ctx.locationId}, ${businessDate}, 1)
+      VALUES (${ctx.tenantId}, ${effectiveLocationId}, ${businessDate}, 1)
       ON CONFLICT (tenant_id, location_id, business_date)
       DO UPDATE SET last_number = fnb_tab_counters.last_number + 1
       RETURNING last_number
@@ -212,7 +219,7 @@ export async function acceptTableOffer(
       .insert(fnbTabs)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId!,
+        locationId: effectiveLocationId,
         tabNumber,
         tabType: 'dine_in',
         status: 'open',
@@ -287,7 +294,7 @@ export async function acceptTableOffer(
       .insert(fnbTableTurnLog)
       .values({
         tenantId: ctx.tenantId,
-        locationId: ctx.locationId!,
+        locationId: effectiveLocationId,
         tableId: offeredTableId,
         partySize,
         mealPeriod,
@@ -326,7 +333,7 @@ export async function acceptTableOffer(
         SELECT id, ROW_NUMBER() OVER (ORDER BY priority DESC, added_at ASC) AS new_pos
         FROM fnb_waitlist_entries
         WHERE tenant_id   = ${ctx.tenantId}
-          AND location_id = ${ctx.locationId}
+          AND location_id = ${effectiveLocationId}
           AND business_date = ${businessDate}
           AND status IN ('waiting', 'notified')
       )
@@ -340,7 +347,7 @@ export async function acceptTableOffer(
     const events = [];
 
     events.push(
-      buildEventFromContext(ctx, HOST_EVENTS.WAITLIST_OFFER_ACCEPTED, {
+      buildEventFromContext(effectiveCtx, HOST_EVENTS.WAITLIST_OFFER_ACCEPTED, {
         waitlistEntryId: input.waitlistEntryId,
         tableId: offeredTableId,
         tabId,
@@ -351,7 +358,7 @@ export async function acceptTableOffer(
     );
 
     events.push(
-      buildEventFromContext(ctx, HOST_EVENTS.PARTY_SEATED, {
+      buildEventFromContext(effectiveCtx, HOST_EVENTS.PARTY_SEATED, {
         tabId,
         tabNumber,
         tableIds: [offeredTableId],
@@ -366,9 +373,9 @@ export async function acceptTableOffer(
     );
 
     events.push(
-      buildEventFromContext(ctx, FNB_EVENTS.TAB_OPENED, {
+      buildEventFromContext(effectiveCtx, FNB_EVENTS.TAB_OPENED, {
         tabId,
-        locationId: ctx.locationId,
+        locationId: effectiveLocationId,
         tabNumber,
         tabType: 'dine_in',
         tableId: offeredTableId,
@@ -379,10 +386,10 @@ export async function acceptTableOffer(
     );
 
     events.push(
-      buildEventFromContext(ctx, FNB_EVENTS.TABLE_STATUS_CHANGED, {
+      buildEventFromContext(effectiveCtx, FNB_EVENTS.TABLE_STATUS_CHANGED, {
         tableId: offeredTableId,
         roomId: tableRow.room_id ? String(tableRow.room_id) : null,
-        locationId: ctx.locationId,
+        locationId: effectiveLocationId,
         oldStatus: 'available',
         newStatus: 'seated',
         partySize,

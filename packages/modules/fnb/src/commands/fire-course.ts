@@ -29,6 +29,7 @@ import {
 } from './dispatch-course-to-kds';
 import type { DispatchCourseResult, PreparedDispatch } from './dispatch-course-to-kds';
 import { KdsDispatchError } from './send-course';
+import { withEffectiveLocationId } from '../helpers/venue-location';
 
 const FIREABLE_STATUSES = ['unsent', 'sent'];
 
@@ -136,7 +137,8 @@ export async function fireCourse(
 
   // ── Atomic transaction ──────────────────────────────────────────────
   try {
-    const txResult = await publishWithOutbox(ctx, async (tx): Promise<{
+    const publishCtx = prep ? withEffectiveLocationId(ctx, prep.effectiveLocationId) : ctx;
+    const txResult = await publishWithOutbox(publishCtx, async (tx): Promise<{
       result: { course: unknown; ticketIds: string[]; isDuplicate: boolean; wasPreviouslyUnsent: boolean };
       events: ReturnType<typeof buildEventFromContext>[];
     }> => {
@@ -160,6 +162,22 @@ export async function fireCourse(
         ))
         .limit(1);
       if (!tab) throw new TabNotFoundError(input.tabId);
+
+      let eventLocationId = prep?.effectiveLocationId ?? tab.locationId ?? ctx.locationId ?? '';
+      if (!prep?.effectiveLocationId && tab.tableId) {
+        const tableRows = await tx.execute(sql`
+          SELECT location_id
+          FROM fnb_tables
+          WHERE id = ${tab.tableId}
+            AND tenant_id = ${ctx.tenantId}
+          LIMIT 1
+        `);
+        const tableRow = Array.from(tableRows as Iterable<Record<string, unknown>>)[0];
+        if (tableRow?.location_id) {
+          eventLocationId = tableRow.location_id as string;
+        }
+      }
+      const eventCtx = eventLocationId ? withEffectiveLocationId(ctx, eventLocationId) : ctx;
 
       // Find and validate course
       const [course] = await tx
@@ -321,7 +339,7 @@ export async function fireCourse(
           dispatch!.diagnosis.push(`Ticket #${ticketNumber} created (fire) for station ${stationName} (${ticketItems.length} items)`);
 
           events.push(
-            buildEventFromContext(ctx, FNB_EVENTS.TICKET_CREATED, {
+            buildEventFromContext(eventCtx, FNB_EVENTS.TICKET_CREATED, {
               ticketId: ticket!.id,
               locationId: prep.effectiveLocationId,
               tabId: input.tabId,
@@ -338,9 +356,9 @@ export async function fireCourse(
         }
 
         // Emit course.sent (tickets are now committed in this tx)
-        events.push(buildEventFromContext(ctx, FNB_EVENTS.COURSE_SENT, {
+        events.push(buildEventFromContext(eventCtx, FNB_EVENTS.COURSE_SENT, {
           tabId: input.tabId,
-          locationId: tab.locationId,
+          locationId: eventLocationId,
           courseNumber: input.courseNumber,
         }));
       }
@@ -371,9 +389,9 @@ export async function fireCourse(
       }
 
       // Emit course.fired
-      events.push(buildEventFromContext(ctx, FNB_EVENTS.COURSE_FIRED, {
+      events.push(buildEventFromContext(eventCtx, FNB_EVENTS.COURSE_FIRED, {
         tabId: input.tabId,
-        locationId: tab.locationId,
+        locationId: eventLocationId,
         courseNumber: input.courseNumber,
       }));
 

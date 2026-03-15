@@ -205,7 +205,7 @@ export async function semanticSearch(
   // Build conditions — filter to keyword-indexed docs
   const conditions = [sql`metadata_json->>'keywordIndex' IS NOT NULL`];
   if (moduleKey) {
-    conditions.push(sql`module_key = ${moduleKey}`);
+    conditions.push(sql`(module_key = ${moduleKey} OR module_key IS NULL)`);
   }
 
   // Fetch indexed documents — use ILIKE to pre-filter for at least one keyword match

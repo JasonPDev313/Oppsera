@@ -10,6 +10,8 @@ import {
   RotateCcw,
   AlertTriangle,
   StopCircle,
+  UserRound,
+  Loader2,
 } from 'lucide-react';
 import { useAiAssistantChat, type Message } from './useAiAssistantChat';
 import { AiAssistantFeedback } from './AiAssistantFeedback';
@@ -65,6 +67,32 @@ function StreamingDots() {
   );
 }
 
+// ─── Followup section stripper ────────────────────────────────────────────────
+
+/**
+ * Strips trailing "---" + bullet list from displayed text so followups only
+ * appear as clickable chips. Runs on every render (not just on `done`) to
+ * prevent the bullets from flickering during streaming.
+ *
+ * Only strips when the section after the last `---` is exclusively bullet
+ * lines (and blanks) — avoids false positives on legitimate markdown HRs.
+ */
+function stripFollowupSection(text: string): string {
+  const separatorIdx = text.lastIndexOf('\n---');
+  if (separatorIdx === -1) return text;
+
+  const afterSep = text.slice(separatorIdx + 4);
+  const lines = afterSep.split('\n');
+
+  // Every non-empty line after the separator must be a bullet (- or *)
+  const nonEmpty = lines.filter(l => l.trim().length > 0);
+  if (nonEmpty.length === 0) return text; // Just "---" with nothing after — keep it
+  const allBullets = nonEmpty.every(l => /^[-*]\s+/.test(l.trim()));
+  if (!allBullets) return text;
+
+  return text.slice(0, separatorIdx).trimEnd();
+}
+
 // ─── Message bubble ───────────────────────────────────────────────────────────
 
 function MessageBubble({
@@ -83,10 +111,12 @@ function MessageBubble({
 
   // Simple newline → paragraph rendering (no external markdown lib needed)
   function renderText(text: string) {
-    return text.split('\n').map((line, i) => (
+    // Strip inline followup bullets so they never flash during streaming
+    const cleaned = isAssistant ? stripFollowupSection(text) : text;
+    return cleaned.split('\n').map((line, i) => (
       <span key={i}>
         {line}
-        {i < text.split('\n').length - 1 && <br />}
+        {i < cleaned.split('\n').length - 1 && <br />}
       </span>
     ));
   }
@@ -114,11 +144,27 @@ function MessageBubble({
         )}
       </div>
 
+      {/* Agentic action indicator */}
+      {isAssistant && message.activeAction && message.activeAction.status === 'executing' && (
+        <div className="flex max-w-[85%] items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs text-indigo-400">
+          <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+          <span>Looking up {message.activeAction.name.replace(/_/g, ' ')}...</span>
+        </div>
+      )}
+
       {/* Low-confidence warning */}
       {isAssistant && message.answerConfidence === 'low' && !isStreaming && (
         <div className="flex max-w-[85%] items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-400">
           <AlertTriangle className="h-3 w-3 shrink-0" />
           <span>Low confidence — please verify this answer</span>
+        </div>
+      )}
+
+      {/* System messages (escalation confirmations, etc.) */}
+      {message.role === 'system' && (
+        <div className="flex max-w-[85%] items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-400">
+          <UserRound className="h-3 w-3 shrink-0" />
+          <span>{message.messageText}</span>
         </div>
       )}
 
@@ -171,8 +217,9 @@ function EmptyState({ screenName }: { screenName: string }) {
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 function AiAssistantPanelInner({ onClose }: { onClose: () => void }) {
-  const { messages, isStreaming, error, sendMessage, stopStreaming, resetThread, context } =
+  const { messages, isStreaming, error, sendMessage, stopStreaming, resetThread, requestHandoff, context } =
     useAiAssistantChat();
+  const [handoffPending, setHandoffPending] = useState(false);
   const { can, isLoading: permsLoading } = usePermissions();
   // Don't show chat input until permissions resolve — avoids flash-then-hide
   const canChat = !permsLoading && can('ai_support.chat');
@@ -294,6 +341,31 @@ function AiAssistantPanelInner({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         )}
+
+        {/* Talk to a person — shown when last message has low confidence or after negative feedback */}
+        {messages.length > 0 && !isStreaming && (() => {
+          const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
+          const showHandoff = lastAssistant && (
+            lastAssistant.answerConfidence === 'low' ||
+            lastAssistant.messageText.includes('reaching out to your system administrator')
+          );
+          if (!showHandoff) return null;
+          return (
+            <button
+              type="button"
+              disabled={handoffPending}
+              onClick={async () => {
+                setHandoffPending(true);
+                await requestHandoff();
+                setHandoffPending(false);
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+            >
+              <UserRound className="h-3.5 w-3.5" />
+              {handoffPending ? 'Connecting...' : 'Talk to a person'}
+            </button>
+          );
+        })()}
 
         <div ref={messagesEndRef} />
       </div>

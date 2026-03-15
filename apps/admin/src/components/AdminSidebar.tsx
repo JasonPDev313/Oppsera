@@ -164,6 +164,7 @@ const MODULES: NavModule[] = [
       { href: '/ai-assistant/reviews', label: 'Reviews', icon: ClipboardEdit },
       { href: '/ai-assistant/answers', label: 'Answer Cards', icon: FileCheck },
       { href: '/ai-assistant/analytics', label: 'Analytics', icon: BarChart3 },
+      { href: '/ai-assistant/testing', label: 'Testing Suite', icon: FlaskConical },
     ],
   },
   {

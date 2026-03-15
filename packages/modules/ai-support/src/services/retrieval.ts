@@ -210,11 +210,11 @@ async function retrieveAnswerCards(
   const keywordPromise = (async () => {
     const conditions = [eq(aiSupportAnswerCards.status, 'active')];
 
-    if (context.moduleKey) {
-      conditions.push(
-        sql`(${aiSupportAnswerCards.moduleKey} = ${context.moduleKey} OR ${aiSupportAnswerCards.moduleKey} IS NULL)`,
-      );
-    }
+    // NOTE: We intentionally do NOT filter by moduleKey here.
+    // Answer cards should be accessible from any page context — a user asking
+    // "how do I receive inventory" from an F&B page still needs the inventory
+    // card. The question-pattern matching and vector similarity scoring are
+    // sufficient to rank relevant cards above irrelevant ones.
 
     if (context.route) {
       const escapedRoute = escapeIlike(context.route);
@@ -249,9 +249,10 @@ async function retrieveAnswerCards(
   })();
 
   // ── Vector Search (new pgvector path) ──
+  // Pass undefined for moduleKey — answer cards are cross-module accessible
   const vectorPromise = vectorSearchAnswerCards(
     question,
-    context.moduleKey,
+    undefined,
     10,
   ).then((results) =>
     // Apply route prefix filter (vector search doesn't filter by route)
@@ -307,7 +308,9 @@ async function retrieveAnswerMemory(
     ilike(aiAssistantAnswerMemory.questionNormalized, `%${escaped}%`),
   ];
   if (context.moduleKey) {
-    conditions.push(eq(aiAssistantAnswerMemory.moduleKey, context.moduleKey));
+    conditions.push(
+      sql`(${aiAssistantAnswerMemory.moduleKey} = ${context.moduleKey} OR ${aiAssistantAnswerMemory.moduleKey} IS NULL)`,
+    );
   }
 
   const memories = await db
@@ -487,12 +490,27 @@ export async function retrieveEvidence(
 ): Promise<RetrievalResult[]> {
   const { question, mode, context } = params;
 
-  // Run stage-1 structured queries and stage-2 semantic in parallel
+  // Run stage-1 structured queries and stage-2 semantic in parallel.
+  // Each tier is individually try-caught so one failing tier (e.g. pgvector
+  // extension missing, RLS misconfiguration) doesn't kill the entire pipeline.
+  const safeTier = <T>(label: string, fn: () => Promise<T>, fallback: T): Promise<T> =>
+    fn().catch((err) => {
+      console.warn(JSON.stringify({
+        level: 'warn',
+        event: 'ai_retrieval_tier_error',
+        tier: label,
+        error: err instanceof Error ? err.message : String(err),
+        route: params.route?.slice(0, 100),
+        moduleKey: params.context.moduleKey ?? null,
+      }));
+      return fallback;
+    });
+
   const [t2Results, t3Results, t4Results, semanticResults] = await Promise.all([
-    retrieveAnswerCards(context, question),
-    retrieveAnswerMemory(context, question),
-    retrieveRouteManifest(context),
-    retrieveSemantic(question, context.moduleKey, mode),
+    safeTier('t2_answer_cards', () => retrieveAnswerCards(context, question), []),
+    safeTier('t3_answer_memory', () => retrieveAnswerMemory(context, question), []),
+    safeTier('t4_route_manifest', () => retrieveRouteManifest(context), []),
+    safeTier('t5_semantic', () => retrieveSemantic(question, context.moduleKey, mode), []),
   ]);
 
   // Tier order: t2 > t3 > t4 > t5 > t6 > t7

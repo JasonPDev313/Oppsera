@@ -2311,6 +2311,20 @@
       "when": 1773711800003,
       "tag": "0329_ai_answer_card_embeddings",
       "breakpoints": true
+    },
+    {
+      "idx": 330,
+      "version": "7",
+      "when": 1773888000000,
+      "tag": "0330_ai_support_features_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 331,
+      "version": "7",
+      "when": 1773545227451,
+      "tag": "0331_ai_support_rls_policies",
+      "breakpoints": true
     }
   ]
 }

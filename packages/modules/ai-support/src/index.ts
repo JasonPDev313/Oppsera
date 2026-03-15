@@ -16,6 +16,7 @@ export const MODULE_TABLES = [
   'ai_assistant_content_invalidation',
   'ai_support_embeddings_meta',
   'ai_support_feature_gaps',
+  'ai_support_escalations',
 ] as const;
 
 export * from './types';
@@ -31,6 +32,8 @@ export type {
   CreateAnswerCardInput,
   UpdateAnswerCardInput,
 } from './commands/review-commands';
+export { createEscalation, updateEscalation } from './commands/escalation-commands';
+export type { EscalationRow } from './commands/escalation-commands';
 
 // Re-export queries
 export { listThreads, getThread, getThreadMessages } from './queries/thread-queries';
@@ -50,6 +53,14 @@ export type {
   AnswerCardFilters,
   AnswerMemoryFilters,
 } from './queries/review-queries';
+export { listEscalations, getEscalation } from './queries/escalation-queries';
+export type {
+  EscalationListFilters,
+  EscalationListItem,
+  EscalationDetail,
+} from './queries/escalation-queries';
+export { checkProactiveMessages, dismissProactiveMessage } from './queries/proactive-queries';
+export type { ProactiveMessage } from './queries/proactive-queries';
 
 // Re-export services
 export { loadRouteManifest, loadActionManifests, loadActiveAnswerCards } from './services/manifest-loader';
@@ -84,6 +95,24 @@ export { seedTrainingDataBatch6 } from './services/seed-training-data-batch6';
 export { seedRouteManifests } from './services/seed-route-manifests';
 export { checkRateLimit, recordUsage, resetRateLimit, getUsageStats } from './services/rate-limiter';
 export type { RateLimitType, RateLimitResult } from './services/rate-limiter';
+export { summarizeThread } from './services/summarizer';
+export { predictCSAT } from './services/csat-predictor';
+export { classifyConversation } from './services/intent-classifier';
+export { analyzeSentiment } from './services/sentiment-analyzer';
+export { createTestRun, runTestSuite } from './services/test-runner';
+
+// Re-export agentic action services
+export {
+  registerAction,
+  getAction,
+  listActions,
+  getAvailableActions,
+  actionsToClaudeTools,
+} from './services/action-registry';
+export type { ActionDefinition as AgenticActionDefinition } from './services/action-registry';
+export { ACTION_TEMPLATES } from './services/action-definitions';
+export { runAgenticOrchestrator } from './services/agentic-orchestrator';
+export type { AgenticOrchestratorInput } from './services/agentic-orchestrator';
 
 // Re-export extractors
 export { extractRoutes, extractPermissions, extractActions, extractWorkflows } from './extractors';
