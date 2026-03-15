@@ -71,7 +71,7 @@ export function useAiAssistantContext(): AiAssistantContext {
 
   // Derive role keys from the permissions hook (e.g. ['manager', 'cashier'])
   const roleKeys = useMemo(
-    () => roles.map((r) => r.name.toLowerCase()),
+    () => roles.flatMap((r) => (r.name ? [r.name.toLowerCase()] : [])),
     [roles],
   );
 
